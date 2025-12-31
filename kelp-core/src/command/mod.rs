@@ -20,6 +20,7 @@ use minecraft_command_types::command::execute::{
 use minecraft_command_types::command::r#return::ReturnCommand;
 use minecraft_command_types::command::scoreboard::{PlayersScoreboardCommand, ScoreboardCommand};
 use minecraft_command_types::command::{Command, PlayerScore};
+use minecraft_command_types::coordinate::Coordinates;
 use minecraft_command_types::nbt_path::NbtPath;
 use minecraft_command_types::range::IntegerRange;
 use minecraft_command_types::snbt::{SNBT, SNBTString};
@@ -235,6 +236,7 @@ pub enum HighCommand {
     Tellraw(HighEntitySelector, Expression),
     Return(HighReturnCommand),
     Scoreboard(HighScoreboardCommand),
+    Summon(ResourceLocation, Option<Coordinates>, Option<Expression>),
 }
 
 impl HighCommand {
@@ -282,6 +284,11 @@ impl HighCommand {
             HighCommand::Scoreboard(command) => {
                 Some(Command::Scoreboard(command.compile(datapack, ctx)))
             }
+            HighCommand::Summon(entity, position, nbt) => Some(Command::Summon(
+                entity,
+                position,
+                nbt.map(|nbt| nbt.resolve(datapack, ctx).kind.as_snbt_macros(ctx)),
+            )),
         }
     }
 }

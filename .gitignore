@@ -1,0 +1,9 @@
+/target
+main.kelp
+
+kelp-extension/out
+kelp-extension/node_modules
+kelp-extension/client/server
+kelp-extension/.vscode-test
+
+*.code-workspace

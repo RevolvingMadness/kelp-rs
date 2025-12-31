@@ -1,0 +1,18 @@
+mcfunction namespace:main {
+    let n: score = 10
+
+    let a: score = 0
+    let b: score = 1
+    let count: score = 0
+
+    while count < n {
+        tellraw @a a
+        
+        let temp: score = a + b
+        a = b
+        b = temp
+        count += 1
+    }
+
+    tellraw @a a
+}

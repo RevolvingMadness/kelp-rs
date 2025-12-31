@@ -1,0 +1,17 @@
+mcfunction namespace:main {
+    let counts: data = {
+        "a": 3,
+        "b": 1,
+        "c": 4
+    }
+
+    for key in ["a", "c", "d"] {
+        let entry: value = counts."$(key)"
+
+        if !entry {
+            tellraw @a [key, " -> nothing"]
+        } else {
+            tellraw @a [key, " -> ", entry]
+        }
+    }
+}

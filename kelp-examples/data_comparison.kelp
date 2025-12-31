@@ -1,0 +1,12 @@
+mcfunction namespace:main {
+    let a: data = {a: 1, b: 2}
+    let length_one_data: data = {a: 1}
+    let one_score: score = 1
+
+    tellraw @a a == length_one_data // 0
+    tellraw @a length_one_data == a // 1
+    tellraw @a one_score == length_one_data // 0
+    tellraw @a length_one_data == one_score // 0
+    tellraw @a length_one_data.a == one_score // 1
+    tellraw @a one_score == length_one_data.a // 1
+}

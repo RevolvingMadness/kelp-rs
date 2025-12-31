@@ -1,0 +1,11 @@
+mcfunction namespace:main {
+    let value: data = "Text"
+
+    string_for char in value {
+        tellraw @a char
+    }
+
+    reverse_string_for char in value {
+        tellraw @a char
+    }
+}

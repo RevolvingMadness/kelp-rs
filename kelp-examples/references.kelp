@@ -1,0 +1,16 @@
+mcfunction namespace:main {
+    let x: score = 1
+    let y: value = x
+    let z: score = x
+
+    tellraw @a ["x: ", x]
+    tellraw @a ["y: ", y]
+    tellraw @a ["z: ", z]
+
+    y = 2
+    tellraw @a "--- y = 2 ---"
+
+    tellraw @a ["x: ", x]
+    tellraw @a ["y: ", y]
+    tellraw @a ["z: ", z]
+}

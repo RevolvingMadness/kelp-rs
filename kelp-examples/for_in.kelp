@@ -1,0 +1,9 @@
+mcfunction namespace:main {
+    let list: data = [1, 2, 3]
+
+    tellraw @a list
+
+    for item in list {
+        tellraw @a item
+    }
+}

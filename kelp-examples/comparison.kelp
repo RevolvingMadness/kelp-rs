@@ -1,0 +1,8 @@
+mcfunction match:main {
+    tellraw @a 1 == 1
+    tellraw @a 1 != 2
+    tellraw @a 1 > 1
+    tellraw @a 1 >= 1
+    tellraw @a 2 < 1
+    tellraw @a 2 <= 1
+}

@@ -1,0 +1,17 @@
+mcfunction namespace:main {
+    let a: score = 0
+    let b: score = 0
+    let x: score = 0
+
+    while a < 10 {
+        while b < 10 {
+            tellraw @a x
+
+            b += 1
+            x += 1
+        }
+
+        a += 1
+        b = 0
+    }
+}

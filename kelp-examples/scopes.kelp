@@ -1,0 +1,18 @@
+mcfunction namespace:path {
+    let x: score = 1
+
+    {
+        tellraw @a x // 1
+        // tellraw @a y // error
+
+        x = 2
+        let y: score = 3
+        // z = 4 // error
+     
+        tellraw @a x // 2
+        tellraw @a y // 3
+    }
+
+    tellraw @a x // 2
+    // tellraw @a y // error
+}

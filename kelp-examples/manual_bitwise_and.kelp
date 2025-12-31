@@ -1,0 +1,22 @@
+mcfunction namespace:main {
+    let a: score = 10
+    let b: score = 3
+
+    let result: score = 0
+    let place_value: score = 1
+
+    while a > 0 && b > 0 {
+        let bit_a: score = a % 2
+        let bit_b: score = b % 2
+
+        if bit_a == 1 && bit_b == 1{
+            result += place_value
+        }
+
+        a /= 2
+        b /= 2
+        place_value *= 2
+    }
+
+    tellraw @a result
+}

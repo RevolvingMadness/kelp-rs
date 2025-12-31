@@ -1,0 +1,25 @@
+use crate::command::HighCommand;
+use crate::enums::parse_difficulty;
+use crate::required_inline_whitespace;
+use parser_rs::Stream;
+use parser_rs::{FnParser, suggest_literal};
+
+pub fn parse_difficulty_command(input: &mut Stream) -> Option<HighCommand> {
+    (|input: &mut Stream| {
+        suggest_literal("difficulty")
+            .syntax_keyword()
+            .parse(input)?;
+        required_inline_whitespace.parse(input)?;
+        parse_difficulty
+            .next_signature_parameter()
+            .parse(input)
+            .map(HighCommand::Difficulty)
+    })
+    .signature(0)
+    .signatures(&[(
+        "difficulty <difficulty>",
+        &[("<difficulty>", Some("The difficulty to set to"))],
+        Some("Changes the difficulty to <difficulty>"),
+    )])
+    .parse(input)
+}

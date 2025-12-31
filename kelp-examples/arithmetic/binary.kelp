@@ -1,0 +1,7 @@
+mcfunction namespace:main {
+    let x: score = 100
+    let y: score = 2
+
+    tellraw @a 100 >> 2 // 6
+    tellraw @a x >> y // 6
+}

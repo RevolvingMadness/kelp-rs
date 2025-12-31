@@ -1,0 +1,19 @@
+mcfunction namespace:main {
+    let a: score = 5 // 101
+    let b: score = 3 // 011
+
+    tellraw @a 5 & 3 // 1
+    tellraw @a a & b // 1
+
+    tellraw @a 5 | 3 // 7
+    tellraw @a a | b // 7
+
+    // Negative tests
+    let c: score = -5
+    let d: score = -3
+    tellraw @a -5 & -3 // -7
+    tellraw @a c & d
+
+    tellraw @a -5 | -3 // -1
+    tellraw @a c | d
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "source.kelp",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#selectors"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.kelp",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.kelp",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.mycommand",
+      "match": "(?:~|\\^)(?:-?\\d*\\.?\\d+)?|-?\\d*\\.?\\d+[bBsSiIlLfFdD]?"
+    },
+    "selectors": {
+      "patterns": [
+        {
+          "name": "entity.name.selector.mycommand",
+          "match": "@[aeprs]"
+        },
+        {
+          "name": "variable.parameter.mycommand",
+          "match": "\\b(attacker|target|origin)\\b"
+        },
+        {
+          "name": "meta.selector.arguments.mycommand",
+          "begin": "\\[",
+          "end": "\\]",
+          "patterns": [
+            {
+              "include": "#keywords"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#numbers"
+            },
+            {
+              "include": "#strings"
+            }
+          ]
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.mycommand",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.mycommand",
+          "match": "\\\\."
+        }
+      ]
+    }
+  }
+}

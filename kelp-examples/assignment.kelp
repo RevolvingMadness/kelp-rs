@@ -1,0 +1,12 @@
+mcfunction namespace:path {
+    let x: score = 1
+    
+    tellraw @a ["x: ", x]
+
+    let y: score = x = 2
+
+    tellraw @a "--- Assigned ---"
+
+    tellraw @a ["x: ", x]
+    tellraw @a ["y: ", y]
+}

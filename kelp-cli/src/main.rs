@@ -50,7 +50,7 @@ fn process_success(statements: Vec<Statement>) {
         appdata.as_str(),
         ".minecraft",
         "saves",
-        "Perlin",
+        "BlockPit",
         "datapacks",
         "Kelp Datapack",
     ]

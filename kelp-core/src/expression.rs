@@ -209,6 +209,50 @@ impl ConstantExpressionKind {
         }
     }
 
+    pub fn as_assignable(self) -> Option<Assignable> {
+        match self {
+            ConstantExpressionKind::Data(target, path) => Some(Assignable::Data(target, path)),
+            ConstantExpressionKind::PlayerScore(score) => Some(Assignable::PlayerScore(score)),
+            _ => None,
+        }
+    }
+
+    pub fn as_assignable_or_unique_score(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> Assignable {
+        match self {
+            ConstantExpressionKind::Data(target, path) => Assignable::Data(target, path),
+            ConstantExpressionKind::PlayerScore(score) => Assignable::PlayerScore(score),
+            _ => {
+                let unique_score = datapack.get_unique_player_score();
+
+                self.assign_to_score(datapack, ctx, unique_score.clone());
+
+                Assignable::PlayerScore(unique_score)
+            }
+        }
+    }
+
+    pub fn as_assignable_or_unique_data(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> Assignable {
+        match self {
+            ConstantExpressionKind::Data(target, path) => Assignable::Data(target, path),
+            ConstantExpressionKind::PlayerScore(score) => Assignable::PlayerScore(score),
+            _ => {
+                let (unique_target, unique_path) = datapack.get_unique_data();
+
+                self.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
+
+                Assignable::Data(unique_target, unique_path)
+            }
+        }
+    }
+
     fn try_as_i32(&self, force: bool) -> Option<i32> {
         match self {
             ConstantExpressionKind::Byte(v) | ConstantExpressionKind::ComputedByte(v) => {
@@ -1121,6 +1165,7 @@ impl ExpressionKind {
 
             ExpressionKind::Unary(op, expr) => {
                 let inner = expr.kind.eval_constant(datapack)?;
+
                 match op {
                     UnaryOperator::Negate => {
                         if let Some(val) = inner.try_as_i32(false) {
@@ -1240,6 +1285,70 @@ pub fn split_constants_compound(
     }
 
     (constants, non_constants)
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+pub enum Assignable {
+    PlayerScore(PlayerScore),
+    Data(DataTarget, NbtPath),
+}
+
+impl Assignable {
+    pub fn operate(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
+        value: &ConstantExpression,
+    ) {
+        match self {
+            Assignable::PlayerScore(player_score) => {
+                let unique_score = value.kind.as_score(datapack, ctx, false);
+
+                player_score.operate_on_score(datapack, ctx, unique_score, operator);
+            }
+            Assignable::Data(data_target, nbt_path) => {
+                let (unique_target, unique_path) = datapack.get_unique_data();
+                let (other_target, other_path) = value.kind.as_data(datapack, ctx);
+
+                // C = A
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Modify(
+                        unique_target.clone(),
+                        unique_path.clone(),
+                        DataCommandModificationMode::Set,
+                        DataCommandModification::From(data_target.clone(), Some(nbt_path.clone())),
+                    )),
+                );
+
+                // A = B
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Modify(
+                        data_target,
+                        nbt_path,
+                        DataCommandModificationMode::Set,
+                        DataCommandModification::From(
+                            other_target.clone(),
+                            Some(other_path.clone()),
+                        ),
+                    )),
+                );
+
+                // B = C
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Modify(
+                        other_target,
+                        other_path,
+                        DataCommandModificationMode::Set,
+                        DataCommandModification::From(unique_target, Some(unique_path)),
+                    )),
+                );
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -1455,21 +1564,10 @@ impl Expression {
                 let target = target.resolve(datapack, ctx);
                 let value = value.resolve(datapack, ctx);
 
-                if let ConstantExpressionKind::PlayerScore(target) = &target.kind {
-                    value.kind.operate_on_score(datapack, ctx, target, operator);
-                } else if let ConstantExpressionKind::Data(data_target, path) = target.kind.clone()
-                {
-                    let unique_score = datapack.get_unique_player_score();
+                let assignable_target = target.kind.as_assignable();
 
-                    target
-                        .kind
-                        .assign_to_score(datapack, ctx, unique_score.clone());
-
-                    value
-                        .kind
-                        .operate_on_score(datapack, ctx, &unique_score, operator);
-
-                    unique_score.assign_to_data(datapack, ctx, data_target, path);
+                if let Some(assignable_target) = assignable_target {
+                    assignable_target.operate(datapack, ctx, operator, &value);
                 } else {
                     unreachable!("This expression cannot be assigned to")
                 }

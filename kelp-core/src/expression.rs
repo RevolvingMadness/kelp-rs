@@ -637,10 +637,19 @@ impl ConstantExpressionKind {
             ConstantExpressionKind::Condition(inner_inverted, condition) => {
                 (inverted ^ *inner_inverted, condition.clone())
             }
-            ConstantExpressionKind::Command(_) => {
+            ConstantExpressionKind::Command(command) => {
                 let unique_score = datapack.get_unique_player_score();
 
-                self.assign_to_score(datapack, ctx, unique_score.clone());
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Success,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(command.clone()))),
+                        ),
+                    )),
+                );
 
                 (
                     !inverted,
@@ -1167,15 +1176,12 @@ impl ExpressionKind {
                 let inner = expr.kind.eval_constant(datapack)?;
 
                 match op {
-                    UnaryOperator::Negate => {
-                        if let Some(val) = inner.try_as_i32(false) {
-                            return Some(ConstantExpressionKind::ComputedInteger(
-                                val.wrapping_neg(),
-                            ));
-                        }
-                        None
-                    }
-                    UnaryOperator::Invert => None,
+                    UnaryOperator::Negate => inner
+                        .try_as_i32(false)
+                        .map(|val| ConstantExpressionKind::ComputedInteger(val.wrapping_neg())),
+                    UnaryOperator::Invert => inner.try_as_i32(false).map(|val| {
+                        ConstantExpressionKind::ComputedInteger(if val == 0 { 1 } else { 0 })
+                    }),
                 }
             }
 
@@ -1229,20 +1235,6 @@ impl ExpressionKind {
             ExpressionKind::String(StringExpression::Simple(s)) => {
                 Some(ConstantExpressionKind::String(SNBTString(false, s.clone())))
             }
-
-            ExpressionKind::List(exprs) => {
-                let mut constants = Vec::new();
-                for e in exprs {
-                    constants.push(
-                        e.kind
-                            .eval_constant(datapack)?
-                            .into_dummy_constant_expression(),
-                    );
-                }
-                Some(ConstantExpressionKind::List(constants))
-            }
-
-            ExpressionKind::Compound(_) => None,
 
             ExpressionKind::Variable(name) => datapack.get_variable(name).map(|value| value.kind),
 
@@ -1399,9 +1391,7 @@ impl Expression {
         }
 
         match self.kind {
-            ExpressionKind::Constant(constant_expression_kind) => constant_expression_kind
-                .clone()
-                .into_dummy_constant_expression(),
+            ExpressionKind::Constant(_) => unreachable!(),
             ExpressionKind::Unary(unary_operator, expression) => match unary_operator {
                 UnaryOperator::Negate => {
                     let resolved_expression = expression.resolve(datapack, ctx);

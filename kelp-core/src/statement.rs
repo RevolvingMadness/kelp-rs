@@ -380,18 +380,19 @@ impl StatementKind {
                     .kind
                     .to_execute_condition(datapack, ctx, false);
 
-                compile_if(datapack, ctx, if_body_ctx, invert, compiled_condition);
+                compile_if(
+                    datapack,
+                    ctx,
+                    if_body_ctx,
+                    invert,
+                    compiled_condition.clone(),
+                );
 
                 if let Some(else_body) = else_body {
                     let mut else_body_ctx = ctx.create_child_ctx();
                     else_body.kind.compile(datapack, &mut else_body_ctx);
 
-                    let (invert, compiled_condition) = condition
-                        .resolve(datapack, ctx)
-                        .kind
-                        .to_execute_condition(datapack, ctx, true);
-
-                    compile_if(datapack, ctx, else_body_ctx, invert, compiled_condition);
+                    compile_if(datapack, ctx, else_body_ctx, !invert, compiled_condition);
                 }
             }
             StatementKind::AppendData(target, source) => {

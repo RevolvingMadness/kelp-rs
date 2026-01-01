@@ -229,7 +229,7 @@ impl PlayerScoreExt for PlayerScore {
 pub enum HighCommand {
     Regular(Command),
     Data(HighDataCommand),
-    Difficulty(Difficulty),
+    Difficulty(Option<Difficulty>),
     Enchant(HighEntitySelector, ResourceLocation, Option<i32>),
     Execute(HighExecuteSubcommand),
     Function(ResourceLocation, Option<HighFunctionCommandArguments>),
@@ -244,9 +244,7 @@ impl HighCommand {
         match self {
             HighCommand::Regular(command) => Some(command),
             HighCommand::Data(data_command) => data_command.compile(datapack, ctx),
-            HighCommand::Difficulty(difficulty_command) => {
-                Some(Command::Difficulty(difficulty_command))
-            }
+            HighCommand::Difficulty(difficulty) => Some(Command::Difficulty(difficulty)),
             HighCommand::Enchant(selector, location, level) => Some(Command::Enchant(
                 selector.compile(datapack, ctx),
                 location,

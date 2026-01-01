@@ -428,6 +428,9 @@ pub fn atom(input: &mut Stream) -> Option<Expression> {
             char(')').parse(input)?;
             Some(expr.kind)
         },
+        identifier("variable name")
+            .syntax(SemanticTokenKind::Variable)
+            .map(|identifier| ExpressionKind::Variable(identifier.to_string())),
         |input: &mut Stream<'_>| {
             char('/').optional().parse(input)?;
 
@@ -435,9 +438,6 @@ pub fn atom(input: &mut Stream) -> Option<Expression> {
                 .map(|command| ExpressionKind::Command(Box::new(command)))
                 .parse(input)
         },
-        identifier("variable name")
-            .syntax(SemanticTokenKind::Variable)
-            .map(|identifier| ExpressionKind::Variable(identifier.to_string())),
     ))
     .spanned()
     .parse(input)?;

@@ -1374,8 +1374,6 @@ impl Expression {
         target: DataTarget,
         path: NbtPath,
     ) {
-        println!("{:?}", self);
-
         let resolved = self.resolve(datapack, ctx);
 
         resolved.kind.assign_to_data(datapack, ctx, target, path);

@@ -9,11 +9,14 @@ pub fn parse_difficulty_command(input: &mut Stream) -> Option<HighCommand> {
         suggest_literal("difficulty")
             .syntax_keyword()
             .parse(input)?;
-        required_inline_whitespace.parse(input)?;
-        parse_difficulty
-            .next_signature_parameter()
-            .parse(input)
-            .map(HighCommand::Difficulty)
+        let difficulty = (|input: &mut Stream| {
+            required_inline_whitespace.parse(input)?;
+            parse_difficulty.next_signature_parameter().parse(input)
+        })
+        .optional()
+        .parse(input)?;
+
+        Some(HighCommand::Difficulty(difficulty))
     })
     .signature(0)
     .signatures(&[(

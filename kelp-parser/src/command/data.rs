@@ -18,7 +18,7 @@ use parser_rs::{
     stream::Stream,
 };
 
-pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDataTarget> {
+pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, Output = HighDataTarget> {
     move |input: &mut Stream<'a>| {
         // TODO maybe a better way to do this?
         if prefix_optional {

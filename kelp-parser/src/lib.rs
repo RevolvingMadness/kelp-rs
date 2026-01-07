@@ -15,6 +15,7 @@ use std::{mem::take, num::IntErrorKind};
 
 pub mod column_position;
 pub mod command;
+pub mod context;
 pub mod coordinate;
 pub mod data;
 pub mod dispatch;
@@ -109,7 +110,7 @@ pub fn string(input: &mut Stream) -> Option<StringExpression> {
     .parse(input)
 }
 
-pub fn identifier<'a>(name: &'static str) -> impl FnParser<'a, &'a str> {
+pub fn identifier<'a>(name: &'static str) -> impl FnParser<'a, Output = &'a str> {
     move |input: &mut Stream<'a>| {
         let start = input.position;
 
@@ -144,13 +145,13 @@ pub fn identifier<'a>(name: &'static str) -> impl FnParser<'a, &'a str> {
     }
 }
 
-pub fn key<'a>(name: &'static str) -> impl FnParser<'a, &'a str> {
+pub fn key<'a>(name: &'static str) -> impl FnParser<'a, Output = &'a str> {
     move |input: &mut Stream<'a>| {
         let result = take_while_one_bytes(
             |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'*',
             Expectation::Custom(name),
         )
-        .separated_by::<_, _, ()>(char('.'))
+        .separated_by::<_, ()>(char('.'))
         .sliced()
         .syntax(SemanticTokenKind::Class)
         .parse(input)?;
@@ -482,7 +483,7 @@ pub fn required_inline_whitespace(input: &mut Stream) -> Option<()> {
     }
 }
 
-pub fn newline_whitespace<'a>(name: &'static str) -> impl FnParser<'a, ()> {
+pub fn newline_whitespace<'a>(name: &'static str) -> impl FnParser<'a, Output = ()> {
     move |input: &mut Stream| {
         let mut contains_newline = false;
 

@@ -7,7 +7,7 @@ use parser_rs::{
     stream::Stream,
 };
 
-fn parse_local_component<'a>(can_mix: bool) -> impl FnParser<'a, Option<NotNan<f32>>> {
+fn parse_local_component<'a>(can_mix: bool) -> impl FnParser<'a, Output = Option<NotNan<f32>>> {
     (move |input: &mut Stream| {
         if !can_mix {
             char('^').parse(input)?;
@@ -61,7 +61,7 @@ pub fn parse_local_coordinates(input: &mut Stream) -> Option<Coordinates> {
     .parse(input)
 }
 
-pub fn parse_world_coordinate<'a>(can_mix: bool) -> impl FnParser<'a, WorldCoordinate> {
+pub fn parse_world_coordinate<'a>(can_mix: bool) -> impl FnParser<'a, Output = WorldCoordinate> {
     (move |input: &mut Stream| {
         if can_mix && char('^').parse(input).is_some() {
             let start = input.position - 1;

@@ -102,7 +102,7 @@ pub fn match_statement(input: &mut Stream) -> Option<StatementKind> {
         let statement = parse_statement.parse(input)?;
         Some((number, Box::new(statement)))
     })
-    .separated_by::<_, _, Vec<_>>(newline_whitespace("end of match case"))
+    .separated_by::<_, Vec<_>>(newline_whitespace("end of match case"))
     .parse(input)?;
     whitespace(input)?;
     char('}').parse(input)?;

@@ -57,7 +57,7 @@ pub fn parse_block_state<'a>(input: &mut Stream<'a>) -> Option<HighBlockState> {
             whitespace.parse(input)?;
             Some((key, value))
         })
-        .separated_by::<_, _, Vec<_>>(char(','))
+        .separated_by::<_, Vec<_>>(char(','))
         .parse(input)?;
         char(']').parse(input)?;
 
@@ -994,7 +994,7 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
                     whitespace.parse(input)?;
 
                     let result = parse_command
-                        .separated_by::<_, _, Vec<_>>(newline_whitespace("end of command"))
+                        .separated_by::<_, Vec<_>>(newline_whitespace("end of command"))
                         .parse(input)?;
 
                     whitespace(input)?;
@@ -1024,7 +1024,7 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
             char('{').parse(input)?;
             whitespace.parse(input)?;
             let result = parse_execute_subcommand
-                .separated_by::<_, _, Vec<_>>(newline_whitespace("end of execute subcommand"))
+                .separated_by::<_, Vec<_>>(newline_whitespace("end of execute subcommand"))
                 .parse(input)?;
 
             whitespace.parse(input)?;

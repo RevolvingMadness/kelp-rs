@@ -16,9 +16,9 @@ use std::collections::BTreeMap;
 use std::hash::Hash;
 
 fn parse_key_value<'a, K, V>(
-    mut key_parser: impl FnParser<'a, K> + 'a,
-    mut value_parser: impl FnParser<'a, V> + 'a,
-) -> impl FnParser<'a, BTreeMap<K, V>>
+    mut key_parser: impl FnParser<'a, Output = K> + 'a,
+    mut value_parser: impl FnParser<'a, Output = V> + 'a,
+) -> impl FnParser<'a, Output = BTreeMap<K, V>>
 where
     K: Hash + Ord,
 {
@@ -34,7 +34,7 @@ where
             whitespace.parse(input)?;
             Some((key, value))
         })
-        .separated_by::<_, _, Vec<_>>(char(','))
+        .separated_by::<_, Vec<_>>(char(','))
         .parse(input)?;
 
         char('}').parse(input)?;

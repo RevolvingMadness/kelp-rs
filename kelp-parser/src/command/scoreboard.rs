@@ -9,8 +9,11 @@ use kelp_core::command::scoreboard::{
     HighScoreboardNumberFormat,
 };
 use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;
-use parser_rs::{FnParser, char, choice, suggest_literal};
-use parser_rs::{Stream, literal};
+use parser_rs::{
+    combinators::{char, choice::choice, literal, suggest_literal},
+    fn_parser::FnParser,
+    stream::Stream,
+};
 
 fn parse_number_format(input: &mut Stream) -> Option<HighScoreboardNumberFormat> {
     choice((

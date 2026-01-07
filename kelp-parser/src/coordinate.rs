@@ -1,7 +1,11 @@
 use crate::{float, required_inline_whitespace, required_whitespace};
 use minecraft_command_types::coordinate::{Coordinates, WorldCoordinate};
 use ordered_float::NotNan;
-use parser_rs::{FnParser, Stream, char, choice};
+use parser_rs::{
+    combinators::{char, choice::choice},
+    fn_parser::FnParser,
+    stream::Stream,
+};
 
 fn parse_local_component<'a>(can_mix: bool) -> impl FnParser<'a, Option<NotNan<f32>>> {
     (move |input: &mut Stream| {

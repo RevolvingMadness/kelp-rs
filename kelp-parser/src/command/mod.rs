@@ -17,7 +17,7 @@ use crate::command::scoreboard::parse_scoreboard_command;
 use crate::command::tellraw::parse_tellraw_command;
 use crate::command::{data::parse_data_command, summon::parse_summon_command};
 use kelp_core::command::HighCommand;
-use parser_rs::{FnParser, Stream, choice};
+use parser_rs::{combinators::choice::choice, fn_parser::FnParser, stream::Stream};
 
 fn split_2<A, B>(input: Option<(A, Option<B>)>) -> (Option<A>, Option<B>) {
     match input {

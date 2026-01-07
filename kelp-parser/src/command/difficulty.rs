@@ -1,8 +1,7 @@
 use crate::command::HighCommand;
 use crate::enums::parse_difficulty;
 use crate::required_inline_whitespace;
-use parser_rs::Stream;
-use parser_rs::{FnParser, suggest_literal};
+use parser_rs::{combinators::suggest_literal, fn_parser::FnParser, stream::Stream};
 
 pub fn parse_difficulty_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {

@@ -2,7 +2,7 @@ use crate::command::HighCommand;
 use crate::entity_selector::parse_entity_selector;
 use crate::resource_location::parse_resource_location;
 use crate::{integer, required_inline_whitespace};
-use parser_rs::{FnParser, Stream, suggest_literal};
+use parser_rs::{combinators::suggest_literal, fn_parser::FnParser, stream::Stream};
 
 pub fn parse_enchant_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {
@@ -14,7 +14,9 @@ pub fn parse_enchant_command(input: &mut Stream) -> Option<HighCommand> {
         required_inline_whitespace.parse(input)?;
         let location = parse_resource_location
             .next_signature_parameter()
-            .parse(input)?;
+            .parse(input);
+
+        let location = location?;
         let level = (|input: &mut Stream| {
             required_inline_whitespace.parse(input)?;
             integer.next_signature_parameter().parse(input)

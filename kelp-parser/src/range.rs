@@ -1,6 +1,6 @@
 use crate::{float, integer};
 use minecraft_command_types::range::{FloatRange, IntegerRange};
-use parser_rs::{FnParser, Stream, literal};
+use parser_rs::{combinators::literal, fn_parser::FnParser, stream::Stream};
 
 pub fn parse_float_range(input: &mut Stream) -> Option<FloatRange> {
     (|input: &mut Stream| {

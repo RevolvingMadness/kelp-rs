@@ -5,7 +5,13 @@ use crate::resource_location::parse_resource_location;
 use crate::{boolean, float, identifier, integer, whitespace};
 use kelp_core::entity_selector::{HighEntitySelector, HighEntitySelectorOption};
 use minecraft_command_types::entity_selector::{AdvancementChoiceType, EntitySelectorVariable};
-use parser_rs::{Expectation, FnParser, SemanticTokenKind, Stream, char, choice};
+use parser_rs::{
+    Expectation,
+    combinators::{char, choice::choice},
+    fn_parser::FnParser,
+    semantic_token::SemanticTokenKind,
+    stream::Stream,
+};
 use std::collections::BTreeMap;
 use std::hash::Hash;
 

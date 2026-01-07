@@ -6,7 +6,12 @@ use kelp_core::expression::{
 };
 use ordered_float::NotNan;
 use parser_rs::{
-    Expectation, FnParser, ParserRange, SemanticTokenKind, Stream, char, choice, literal,
+    Expectation,
+    combinators::{char, choice::choice, literal},
+    fn_parser::FnParser,
+    parser_range::ParserRange,
+    semantic_token::SemanticTokenKind,
+    stream::Stream,
 };
 
 use crate::{
@@ -346,7 +351,7 @@ fn postfix(input: &mut Stream) -> Option<Expression> {
         } else if char('.').optional().parse(input)?.is_some() {
             inline_whitespace(input)?;
 
-            let property = string.parse(input)?;
+            let property = string.syntax(SemanticTokenKind::Variable).parse(input)?;
 
             left = Expression {
                 span: ParserRange {
@@ -370,7 +375,7 @@ pub fn parse_compound(input: &mut Stream) -> Option<ExpressionCompoundKind> {
     whitespace(input)?;
     let elements: Vec<(StringExpression, Expression)> = (|input: &mut Stream| {
         whitespace(input)?;
-        let key = string.parse(input)?;
+        let key = string.syntax(SemanticTokenKind::Variable).parse(input)?;
         whitespace(input)?;
         char(':').parse(input)?;
         whitespace(input)?;
@@ -408,7 +413,9 @@ pub fn atom(input: &mut Stream) -> Option<Expression> {
         },
         parse_compound.map(ExpressionKind::Compound),
         |input: &mut Stream| {
-            literal("score").parse(input)?;
+            literal("score")
+                .syntax(SemanticTokenKind::Class)
+                .parse(input)?;
             required_inline_whitespace(input)?;
             parse_player_score
                 .parse(input)
@@ -496,163 +503,171 @@ pub fn hex_digits(input: &mut Stream) -> Option<()> {
 }
 
 pub fn numeric_parser<'a>(input: &mut Stream<'a>) -> Option<ExpressionKind> {
-    let (all_span, (all_slice, (digits_slice, radix, is_float))) = (|input: &mut Stream<'a>| {
-        let bytes = input.remaining().as_bytes();
+    (|input: &mut Stream<'a>| {
+        let (all_span, (all_slice, (digits_slice, radix, is_float))) =
+            (|input: &mut Stream<'a>| {
+                let bytes = input.remaining().as_bytes();
 
-        if bytes.starts_with(b"0x") || bytes.starts_with(b"0X") {
-            input.position += 2;
-            let slice = hex_digits.sliced().parse(input)?;
-            Some((slice, 16, false))
-        } else if bytes.starts_with(b"0b") || bytes.starts_with(b"0B") {
-            input.position += 2;
-            let slice = binary_digits.sliced().parse(input)?;
-            Some((slice, 2, false))
-        } else if bytes.starts_with(b"0o") || bytes.starts_with(b"0O") {
-            input.position += 2;
-            let slice = octal_digits.sliced().parse(input)?;
-            Some((slice, 8, false))
-        } else {
-            let whole_slice = digits.sliced().parse(input)?;
-
-            Some((
-                whole_slice,
-                10,
-                if char('.').optional().parse(input)?.is_some() {
-                    digits.parse(input)?;
-                    true
+                if bytes.starts_with(b"0x") || bytes.starts_with(b"0X") {
+                    input.position += 2;
+                    let slice = hex_digits.sliced().parse(input)?;
+                    Some((slice, 16, false))
+                } else if bytes.starts_with(b"0b") || bytes.starts_with(b"0B") {
+                    input.position += 2;
+                    let slice = binary_digits.sliced().parse(input)?;
+                    Some((slice, 2, false))
+                } else if bytes.starts_with(b"0o") || bytes.starts_with(b"0O") {
+                    input.position += 2;
+                    let slice = octal_digits.sliced().parse(input)?;
+                    Some((slice, 8, false))
                 } else {
-                    false
-                },
-            ))
-        }
-    })
-    .sliced_include()
-    .spanned()
-    .parse(input)?;
+                    let whole_slice = digits.sliced().parse(input)?;
 
-    #[derive(Clone)]
-    enum NumericKind {
-        Byte,
-        Short,
-        Integer,
-        Long,
-        Float,
-        Double,
-    }
-
-    impl NumericKind {
-        fn is_float(&self) -> bool {
-            matches!(self, NumericKind::Float | NumericKind::Double)
-        }
-    }
-
-    let suffix = choice((
-        choice((char('B'), char('b'))).map_to(NumericKind::Byte),
-        choice((char('S'), char('s'))).map_to(NumericKind::Short),
-        choice((char('I'), char('i'))).map_to(NumericKind::Integer),
-        choice((char('L'), char('l'))).map_to(NumericKind::Long),
-        choice((char('F'), char('f'))).map_to(NumericKind::Float),
-        choice((char('D'), char('d'))).map_to(NumericKind::Double),
-    ))
-    .optional()
-    .parse(input)?;
-
-    if let Some(suffix) = &suffix
-        && !suffix.is_float()
-        && is_float
-    {
-        input.add_validation_error_span(all_span, "Type suffix is not a float type");
-    }
-
-    macro_rules! parse_int {
-        ($type:ty, $variant:expr, $name:literal, $max:expr, $min:expr) => {{
-            let result = if is_float {
-                input.add_validation_error_span(all_span, concat!($name, " is not a float type"));
-                <$type>::from_str_radix(digits_slice, radix)
-            } else {
-                <$type>::from_str_radix(digits_slice, radix)
-            };
-
-            $variant(match result {
-                Ok(value) => value,
-                Err(error) => match error.kind() {
-                    IntErrorKind::PosOverflow => {
-                        input.add_validation_error_span(
-                            all_span,
-                            concat!(
-                                $name,
-                                " is greater than the maximum value of ",
-                                stringify!($max)
-                            ),
-                        );
-                        $max
-                    }
-                    IntErrorKind::NegOverflow => {
-                        input.add_validation_error_span(
-                            all_span,
-                            concat!(
-                                $name,
-                                " is less than the minimum value of ",
-                                stringify!($min)
-                            ),
-                        );
-                        $min
-                    }
-                    _ => {
-                        input.add_validation_error_span(all_span, "Invalid numeric literal");
-                        0
-                    }
-                },
+                    Some((
+                        whole_slice,
+                        10,
+                        if char('.').optional().parse(input)?.is_some() {
+                            digits.parse(input)?;
+                            true
+                        } else {
+                            false
+                        },
+                    ))
+                }
             })
-        }};
-    }
+            .sliced_include()
+            .spanned()
+            .parse(input)?;
 
-    Some(ExpressionKind::Constant(match (suffix, is_float) {
-        (Some(NumericKind::Byte), _) => {
-            parse_int!(i8, ConstantExpressionKind::Byte, "Byte", i8::MAX, i8::MIN)
+        #[derive(Clone)]
+        enum NumericKind {
+            Byte,
+            Short,
+            Integer,
+            Long,
+            Float,
+            Double,
         }
-        (Some(NumericKind::Short), _) => {
-            parse_int!(
-                i16,
-                ConstantExpressionKind::Short,
-                "Short",
-                i16::MAX,
-                i16::MIN
-            )
-        }
-        (Some(NumericKind::Integer), _) | (None, false) => {
-            parse_int!(
-                i32,
-                ConstantExpressionKind::Integer,
-                "Integer",
-                i32::MAX,
-                i32::MIN
-            )
-        }
-        (Some(NumericKind::Long), _) => {
-            parse_int!(
-                i64,
-                ConstantExpressionKind::Long,
-                "Long",
-                i64::MAX,
-                i64::MIN
-            )
-        }
-        (Some(NumericKind::Float), _) => {
-            if radix == 10 {
-                ConstantExpressionKind::Float(all_slice.parse().unwrap())
-            } else {
-                let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
-                ConstantExpressionKind::Float(NotNan::new(val as f32).unwrap())
+
+        impl NumericKind {
+            fn is_float(&self) -> bool {
+                matches!(self, NumericKind::Float | NumericKind::Double)
             }
         }
-        (Some(NumericKind::Double), _) | (None, true) => {
-            if radix == 10 {
-                ConstantExpressionKind::Double(all_slice.parse().unwrap())
-            } else {
-                let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
-                ConstantExpressionKind::Double(NotNan::new(val as f64).unwrap())
-            }
+
+        let suffix = choice((
+            choice((char('B'), char('b'))).map_to(NumericKind::Byte),
+            choice((char('S'), char('s'))).map_to(NumericKind::Short),
+            choice((char('I'), char('i'))).map_to(NumericKind::Integer),
+            choice((char('L'), char('l'))).map_to(NumericKind::Long),
+            choice((char('F'), char('f'))).map_to(NumericKind::Float),
+            choice((char('D'), char('d'))).map_to(NumericKind::Double),
+        ))
+        .optional()
+        .parse(input)?;
+
+        if let Some(suffix) = &suffix
+            && !suffix.is_float()
+            && is_float
+        {
+            input.add_validation_error_span(all_span, "Type suffix is not a float type");
         }
-    }))
+
+        macro_rules! parse_int {
+            ($type:ty, $variant:expr, $name:literal, $max:expr, $min:expr) => {{
+                let result = if is_float {
+                    input.add_validation_error_span(
+                        all_span,
+                        concat!($name, " is not a float type"),
+                    );
+                    <$type>::from_str_radix(digits_slice, radix)
+                } else {
+                    <$type>::from_str_radix(digits_slice, radix)
+                };
+
+                $variant(match result {
+                    Ok(value) => value,
+                    Err(error) => match error.kind() {
+                        IntErrorKind::PosOverflow => {
+                            input.add_validation_error_span(
+                                all_span,
+                                concat!(
+                                    $name,
+                                    " is greater than the maximum value of ",
+                                    stringify!($max)
+                                ),
+                            );
+                            $max
+                        }
+                        IntErrorKind::NegOverflow => {
+                            input.add_validation_error_span(
+                                all_span,
+                                concat!(
+                                    $name,
+                                    " is less than the minimum value of ",
+                                    stringify!($min)
+                                ),
+                            );
+                            $min
+                        }
+                        _ => {
+                            input.add_validation_error_span(all_span, "Invalid numeric literal");
+                            0
+                        }
+                    },
+                })
+            }};
+        }
+
+        Some(ExpressionKind::Constant(match (suffix, is_float) {
+            (Some(NumericKind::Byte), _) => {
+                parse_int!(i8, ConstantExpressionKind::Byte, "Byte", i8::MAX, i8::MIN)
+            }
+            (Some(NumericKind::Short), _) => {
+                parse_int!(
+                    i16,
+                    ConstantExpressionKind::Short,
+                    "Short",
+                    i16::MAX,
+                    i16::MIN
+                )
+            }
+            (Some(NumericKind::Integer), _) | (None, false) => {
+                parse_int!(
+                    i32,
+                    ConstantExpressionKind::Integer,
+                    "Integer",
+                    i32::MAX,
+                    i32::MIN
+                )
+            }
+            (Some(NumericKind::Long), _) => {
+                parse_int!(
+                    i64,
+                    ConstantExpressionKind::Long,
+                    "Long",
+                    i64::MAX,
+                    i64::MIN
+                )
+            }
+            (Some(NumericKind::Float), _) => {
+                if radix == 10 {
+                    ConstantExpressionKind::Float(all_slice.parse().unwrap())
+                } else {
+                    let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
+                    ConstantExpressionKind::Float(NotNan::new(val as f32).unwrap())
+                }
+            }
+            (Some(NumericKind::Double), _) | (None, true) => {
+                if radix == 10 {
+                    ConstantExpressionKind::Double(all_slice.parse().unwrap())
+                } else {
+                    let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
+                    ConstantExpressionKind::Double(NotNan::new(val as f64).unwrap())
+                }
+            }
+        }))
+    })
+    .syntax(SemanticTokenKind::Number)
+    .parse(input)
 }

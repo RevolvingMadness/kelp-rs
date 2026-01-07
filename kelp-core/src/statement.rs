@@ -13,7 +13,7 @@ use minecraft_command_types::range::IntegerRange;
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::{SNBT, SNBTString};
 use nonempty::nonempty;
-use parser_rs::ParserRange;
+use parser_rs::parser_range::ParserRange;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StatementKind {

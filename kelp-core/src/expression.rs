@@ -20,7 +20,7 @@ use minecraft_command_types::{
 };
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
-use parser_rs::ParserRange;
+use parser_rs::parser_range::ParserRange;
 
 use crate::{
     command::{

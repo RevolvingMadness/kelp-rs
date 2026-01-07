@@ -1,6 +1,9 @@
 use kelp_core::generate_message_error;
 use kelp_parser::file;
-use parser_rs::{Expectation, ParserRange, SemanticTokenKind, Stream, Suggestion};
+use parser_rs::{
+    Expectation, Suggestion, fn_parser::FnParser, parser_range::ParserRange,
+    semantic_token::SemanticTokenKind, stream::Stream,
+};
 use std::collections::BTreeMap;
 use std::time::Instant;
 use tokio::sync::RwLock;
@@ -129,10 +132,10 @@ impl Backend {
 
     async fn process_text(&self, uri: &Url, text: String) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        let mut input = Stream::new(&text, None, Some(10));
+        let input = Stream::new(&text);
 
         let now = Instant::now();
-        let result = file(&mut input);
+        let result = file.parse_fully(input);
         let elapsed = now.elapsed();
         self.client
             .log_message(
@@ -143,8 +146,7 @@ impl Backend {
 
         let line_index = LineIndex::new(&text);
 
-        if result.is_none() {
-            let error = &input.max_error;
+        if let Err(error) = &result.result {
             diagnostics.push(Diagnostic {
                 code_description: None,
                 range: Range {
@@ -162,7 +164,7 @@ impl Backend {
         }
 
         diagnostics.extend(
-            input
+            result
                 .validation_errors
                 .iter()
                 .map(|validation_error| Diagnostic {
@@ -220,7 +222,7 @@ fn semantic_token_kind_to_type_index(kind: SemanticTokenKind) -> u32 {
 fn process_semantic_tokens(
     text: &str,
     line_index: &LineIndex,
-    parser_tokens: Vec<parser_rs::SemanticToken>,
+    parser_tokens: Vec<parser_rs::semantic_token::SemanticToken>,
 ) -> Vec<SemanticToken> {
     if parser_tokens.is_empty() {
         return Vec::new();
@@ -345,11 +347,17 @@ impl LanguageServer for Backend {
             .get(&uri)
             .ok_or_else(|| tower_lsp::jsonrpc::Error::invalid_params("Document not found"))?;
 
-        let mut input = Stream::new(&state.text, None, None);
-        input.semantic_tokens_enabled = true;
+        let mut input = Stream::new(&state.text);
+        input.config.semantic_tokens = true;
         let now = Instant::now();
-        let _ = file(&mut input);
+        let succeeded = file(&mut input).is_some();
         let elapsed = now.elapsed();
+
+        let semantic_tokens = if succeeded {
+            input.semantic_tokens
+        } else {
+            input.max_error.semantic_tokens
+        };
 
         self.client
             .log_message(
@@ -357,13 +365,12 @@ impl LanguageServer for Backend {
                 format!(
                     "[SEMANTIC TOKENS (FULL )] {:?} {}",
                     elapsed,
-                    input.semantic_tokens.len()
+                    semantic_tokens.len()
                 ),
             )
             .await;
 
-        let lsp_tokens =
-            process_semantic_tokens(&state.text, &state.line_index, input.semantic_tokens);
+        let lsp_tokens = process_semantic_tokens(&state.text, &state.line_index, semantic_tokens);
 
         if lsp_tokens.is_empty() {
             Ok(None)
@@ -397,8 +404,8 @@ impl LanguageServer for Backend {
         };
 
         let range = Some(ParserRange { start, end });
-        let mut input = Stream::new(&state.text, None, None);
-        input.semantic_tokens_enabled = true;
+        let mut input = Stream::new(&state.text);
+        input.config.semantic_tokens = true;
         input.semantic_tokens_range = range;
         let now = Instant::now();
         let _ = file(&mut input);
@@ -447,7 +454,8 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let mut input = Stream::new(&state.text, Some(cursor_offset), None);
+        let mut input = Stream::new(&state.text);
+        input.cursor = Some(cursor_offset);
         let now = Instant::now();
         let _ = file(&mut input);
         let elapsed = now.elapsed();
@@ -528,8 +536,9 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let mut input = Stream::new(&state.text, Some(cursor_offset), None);
-        input.signature_help_enabled = true;
+        let mut input = Stream::new(&state.text);
+        input.cursor = Some(cursor_offset);
+        input.config.signatures = true;
 
         let now = Instant::now();
         let _ = file(&mut input);
@@ -585,10 +594,6 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 async fn main() {
-    std::panic::set_hook(Box::new(|info| {
-        eprintln!("Panic occurred: {:?}", info);
-    }));
-
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 

@@ -1,7 +1,9 @@
 use crate::identifier;
 use minecraft_command_types::resource_location::ResourceLocation;
 use nonempty::NonEmpty;
-use parser_rs::{FnParser, SemanticTokenKind, Stream, char};
+use parser_rs::{
+    combinators::char, fn_parser::FnParser, semantic_token::SemanticTokenKind, stream::Stream,
+};
 
 pub fn parse_resource_location<'a>(input: &mut Stream<'a>) -> Option<ResourceLocation> {
     (|input: &mut Stream<'a>| {
@@ -12,7 +14,7 @@ pub fn parse_resource_location<'a>(input: &mut Stream<'a>) -> Option<ResourceLoc
             char(':').parse(input)?;
             Some(namespace)
         })
-        .attempt()
+        .optional()
         .parse(input)?
         .map(ToString::to_string);
 

@@ -11,7 +11,12 @@ use kelp_core::command::data::{
 use kelp_core::nbt_path::{HighNbtPath, HighNbtPathNode};
 use minecraft_command_types::command::data::DataCommandModificationMode;
 use nonempty::nonempty;
-use parser_rs::{FnParser, Stream, char, choice, literal, suggest_literal};
+use parser_rs::{
+    combinators::{char, choice::choice, literal, suggest_literal},
+    fn_parser::FnParser,
+    semantic_token::SemanticTokenKind,
+    stream::Stream,
+};
 
 pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDataTarget> {
     move |input: &mut Stream<'a>| {
@@ -19,7 +24,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDat
         if prefix_optional {
             choice((
                 |input: &mut Stream<'a>| {
-                    suggest_literal("block").parse(input)?;
+                    suggest_literal("block")
+                        .syntax(SemanticTokenKind::Class)
+                        .parse(input)?;
                     required_inline_whitespace.parse(input)?;
 
                     let coordinates = parse_coordinates.parse(input)?;
@@ -27,7 +34,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDat
                     Some(HighDataTargetKind::Block(coordinates))
                 },
                 |input: &mut Stream<'a>| {
-                    suggest_literal("storage").parse(input)?;
+                    suggest_literal("storage")
+                        .syntax(SemanticTokenKind::Class)
+                        .parse(input)?;
                     required_inline_whitespace.parse(input)?;
 
                     let location = parse_resource_location.parse(input)?;
@@ -35,7 +44,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDat
                     Some(HighDataTargetKind::Storage(location))
                 },
                 |input: &mut Stream<'a>| {
-                    suggest_literal("entity").parse(input)?;
+                    suggest_literal("entity")
+                        .syntax(SemanticTokenKind::Class)
+                        .parse(input)?;
                     required_inline_whitespace.parse(input)?;
 
                     let selector = parse_entity_selector.parse(input)?;
@@ -50,7 +61,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDat
         } else {
             choice((
                 |input: &mut Stream<'a>| {
-                    literal("block").parse(input)?;
+                    literal("block")
+                        .syntax(SemanticTokenKind::Class)
+                        .parse(input)?;
                     required_inline_whitespace.parse(input)?;
 
                     let coordinates = parse_coordinates.parse(input)?;
@@ -58,7 +71,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDat
                     Some(HighDataTargetKind::Block(coordinates))
                 },
                 |input: &mut Stream<'a>| {
-                    literal("storage").parse(input)?;
+                    literal("storage")
+                        .syntax(SemanticTokenKind::Class)
+                        .parse(input)?;
                     required_inline_whitespace.parse(input)?;
 
                     let location = parse_resource_location.parse(input)?;
@@ -66,7 +81,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, HighDat
                     Some(HighDataTargetKind::Storage(location))
                 },
                 |input: &mut Stream<'a>| {
-                    literal("entity").parse(input)?;
+                    literal("entity")
+                        .syntax(SemanticTokenKind::Class)
+                        .parse(input)?;
                     required_inline_whitespace.parse(input)?;
 
                     let selector = parse_entity_selector.parse(input)?;

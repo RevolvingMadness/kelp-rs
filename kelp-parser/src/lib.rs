@@ -5,8 +5,11 @@ use kelp_core::{
 };
 use ordered_float::NotNan;
 use parser_rs::{
-    Expectation, FnParser, SemanticTokenKind, Stream, char, choice, end_of_file, literal,
-    take_while_one_bytes,
+    Expectation,
+    combinators::{char, choice::choice, end_of_file, literal, take_while::take_while_one_bytes},
+    fn_parser::FnParser,
+    semantic_token::SemanticTokenKind,
+    stream::Stream,
 };
 use std::{mem::take, num::IntErrorKind};
 
@@ -117,7 +120,9 @@ pub fn identifier<'a>(name: &'static str) -> impl FnParser<'a, &'a str> {
             if c.is_ascii_alphabetic() || c == '_' {
                 end_byte_offset = c.len_utf8();
             } else {
-                return input.fail_expected_suggestion(&Expectation::Custom(name));
+                let r = input.fail_expected_suggestion(&Expectation::Custom(name));
+
+                return r;
             }
         } else {
             return input.fail_expected_suggestion(&Expectation::Custom(name));
@@ -169,7 +174,7 @@ pub fn float<'a>(input: &mut Stream<'a>) -> Option<NotNan<f32>> {
             char('.').parse(input)?;
             digits.parse(input)
         })
-        .attempt()
+        .optional()
         .parse(input)?;
 
         let value = input.slice_from(start).parse::<f32>().unwrap();
@@ -263,6 +268,7 @@ pub fn integer(input: &mut Stream) -> Option<i32> {
             },
         }
     })
+    .syntax(SemanticTokenKind::Number)
     .label("integer")
     .parse(input)
 }
@@ -564,7 +570,7 @@ pub fn file(input: &mut Stream) -> Option<Vec<Statement>> {
     whitespace.parse(input)?;
 
     let result = parse_statement
-        .separated_by_trailing(newline_whitespace("end of statement"))
+        .separated_by(newline_whitespace("end of statement"))
         .parse(input)?;
 
     whitespace.parse(input)?;

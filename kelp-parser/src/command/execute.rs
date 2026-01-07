@@ -25,7 +25,12 @@ use minecraft_command_types::command::enums::numeric_snbt_type::NumericSNBTType;
 use minecraft_command_types::command::execute::ScoreComparisonOperator;
 use minecraft_command_types::item::ItemType;
 use minecraft_command_types::rotation::Rotation;
-use parser_rs::{Expectation, FnParser, Stream, char, choice, literal, suggest_literal};
+use parser_rs::{
+    Expectation,
+    combinators::{char, choice::choice, literal, suggest_literal},
+    fn_parser::FnParser,
+    stream::Stream,
+};
 use std::collections::BTreeSet;
 
 const NEXT_PARAMETER: (&str, Option<&str>) = ("<next>", Some("The next subcommand"));

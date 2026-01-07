@@ -7,7 +7,9 @@ use kelp_core::generate_message_error;
 use kelp_core::statement::Statement;
 use kelp_parser::file;
 use nonempty::nonempty;
-use parser_rs::{FnParser, Stream};
+use parser_rs::ParseResult;
+use parser_rs::fn_parser::FnParser;
+use parser_rs::stream::Stream;
 use std::cmp::min;
 use std::env::{self};
 use std::fs;
@@ -66,21 +68,23 @@ fn process_success(statements: Vec<Statement>) {
         .expect("Failed to write {:?}");
 }
 
-fn process_failure(input: Stream, just_validation: bool, file_name: &str, source_text: &str) {
-    let max_error = &input.max_error;
+fn process_failure<T>(result: ParseResult<T>, file_name: &str, source_text: &str) {
+    let Err(ref error) = result.result else {
+        return;
+    };
 
-    let mut new_span = max_error.span;
+    let mut new_span = error.span;
     new_span.end = min(new_span.end, source_text.len());
     new_span.start = min(new_span.start, new_span.end);
     let span = (file_name, new_span.into_range());
 
-    for validation_error in input.validation_errors {
+    for validation_error in &result.validation_errors {
         let span = (file_name, validation_error.span.into_range());
 
         Report::build(ReportKind::Error, span.clone())
             .with_label(
                 Label::new(span)
-                    .with_message(validation_error.message)
+                    .with_message(validation_error.message.clone())
                     .with_color(Color::Red),
             )
             .finish()
@@ -88,11 +92,11 @@ fn process_failure(input: Stream, just_validation: bool, file_name: &str, source
             .unwrap();
     }
 
-    if !just_validation {
+    if result.failed() {
         Report::build(ReportKind::Error, span.clone())
             .with_label(
                 Label::new(span)
-                    .with_message(generate_message_error(max_error))
+                    .with_message(generate_message_error(error))
                     .with_color(Color::Red),
             )
             .finish()
@@ -114,47 +118,40 @@ struct Options {
 fn main() {
     let options = Options::parse();
 
-    let max_validation_errors = if options.ignore_validation_errors {
-        None
-    } else {
-        Some(10)
-    };
-
     let file_name = "main.kelp";
     let input_text = fs::read_to_string(file_name).unwrap();
-    let mut input = Stream::new(&input_text, Some(19), max_validation_errors);
-    input.signature_help_enabled = true;
+    let mut input = Stream::new(&input_text);
+
+    if !options.ignore_validation_errors {
+        input.config.max_validation_errors = 10;
+    }
 
     let now = Instant::now();
-    let result = file.parse(&mut input);
+    let result = file.parse_fully(input);
     let elapsed = now.elapsed();
 
-    println!("{:?}", input.max_error);
-    println!("{:?}", input.signatures);
+    match (result.validation_errors.is_empty(), result.succeeded()) {
+        (true, true) => {
+            let result = result.result.unwrap();
 
-    match (input.validation_errors.is_empty(), result) {
-        (true, Some(result)) => {
             println!("Parsed ({}) in ~{:?}", "success".green(), elapsed.green());
 
             process_success(result);
         }
-        (_, result) => {
+        (false, true) if options.ignore_validation_errors => {
+            let result = result.result.unwrap();
+
+            println!(
+                "{}",
+                "Ignoring validation errors and compiling anyway".yellow()
+            );
+
+            process_success(result);
+        }
+        (_, _) => {
             println!("Parsed ({}) in ~{:?}", "failure".red(), elapsed.green());
 
-            let just_validation = result.is_some();
-
-            if options.ignore_validation_errors
-                && let Some(result) = result
-            {
-                println!(
-                    "{}",
-                    "Ignoring validation errors and compiling anyway".yellow()
-                );
-
-                process_success(result);
-            } else {
-                process_failure(input, just_validation, file_name, &input_text);
-            }
+            process_failure(result, file_name, &input_text);
         }
     }
 }

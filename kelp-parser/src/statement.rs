@@ -1,5 +1,10 @@
 use kelp_core::statement::{Statement, StatementKind};
-use parser_rs::{FnParser, SemanticTokenKind, Stream, char, choice, literal, suggest_literal};
+use parser_rs::{
+    combinators::{char, choice::choice, literal},
+    fn_parser::FnParser,
+    semantic_token::SemanticTokenKind,
+    stream::Stream,
+};
 
 use crate::expression::expression;
 use crate::range::parse_integer_range;
@@ -9,62 +14,79 @@ use crate::{
 };
 
 pub fn mcfunction_statement(input: &mut Stream) -> Option<StatementKind> {
-    suggest_literal("mcfunction")
+    literal("mcfunction")
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
     let id = parse_resource_location(input)?;
-    required_inline_whitespace(input)?;
-    let statement = parse_statement.parse(input)?;
+    whitespace(input)?;
+    let (statement_span, statement_kind) = block_statement.spanned().parse(input)?;
 
-    Some(StatementKind::MCFunction(id, Box::new(statement)))
+    Some(StatementKind::MCFunction(
+        id,
+        Box::new(Statement {
+            span: statement_span,
+            kind: statement_kind,
+        }),
+    ))
 }
 
 pub fn while_statement(input: &mut Stream) -> Option<StatementKind> {
-    suggest_literal("while")
+    literal("while")
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
     let condition = expression.parse(input)?;
-    required_inline_whitespace(input)?;
-    let statement = parse_statement.parse(input)?;
+    // Expression already consumes trailing whitespace
+    let (statement_span, statement_kind) = block_statement.spanned().parse(input)?;
 
-    Some(StatementKind::While(condition, Box::new(statement)))
+    Some(StatementKind::While(
+        condition,
+        Box::new(Statement {
+            span: statement_span,
+            kind: statement_kind,
+        }),
+    ))
 }
 
 pub fn for_in_statement(input: &mut Stream) -> Option<StatementKind> {
     let (is_reversed, is_string) = choice((
-        suggest_literal("reverse_string_for").map_to((true, true)),
-        suggest_literal("reverse_for").map_to((true, false)),
-        suggest_literal("string_for").map_to((false, true)),
-        suggest_literal("for").map_to((false, false)),
+        literal("reverse_string_for").map_to((true, true)),
+        literal("reverse_for").map_to((true, false)),
+        literal("string_for").map_to((false, true)),
+        literal("for").map_to((false, false)),
     ))
     .syntax(SemanticTokenKind::Keyword)
     .parse(input)?;
 
     required_inline_whitespace(input)?;
-    let item = identifier("variable name").parse(input)?;
+    let item = identifier("variable name")
+        .syntax(SemanticTokenKind::Variable)
+        .parse(input)?;
     required_inline_whitespace(input)?;
-    suggest_literal("in")
+    literal("in")
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
     let target = expression.parse(input)?;
-    required_inline_whitespace(input)?;
-    let statement = parse_statement.parse(input)?;
+    // Expression already consumes trailing whitespace
+    let (statement_span, statement_kind) = block_statement.spanned().parse(input)?;
 
     Some(StatementKind::ForIn(
         is_reversed,
         is_string,
         item.to_string(),
         target,
-        Box::new(statement),
+        Box::new(Statement {
+            span: statement_span,
+            kind: statement_kind,
+        }),
     ))
 }
 
 pub fn match_statement(input: &mut Stream) -> Option<StatementKind> {
     // TODO use required_inline_whitespace
-    suggest_literal("match")
+    literal("match")
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
@@ -89,32 +111,42 @@ pub fn match_statement(input: &mut Stream) -> Option<StatementKind> {
 }
 
 pub fn if_statement(input: &mut Stream) -> Option<StatementKind> {
-    suggest_literal("if")
+    literal("if")
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
     let condition = expression.parse(input)?;
-    let body = parse_statement.parse(input)?;
+    let (body_span, body_kind) = block_statement.spanned().parse(input)?;
     let else_body = (|input: &mut Stream| {
         required_inline_whitespace(input)?;
-        suggest_literal("else")
+        literal("else")
             .syntax(SemanticTokenKind::Keyword)
             .parse(input)?;
         required_inline_whitespace(input)?;
-        parse_statement.parse(input)
+        choice((block_statement, if_statement))
+            .spanned()
+            .parse(input)
     })
     .optional()
     .parse(input)?;
 
     Some(StatementKind::If(
         condition,
-        Box::new(body),
-        else_body.map(Box::new),
+        Box::new(Statement {
+            span: body_span,
+            kind: body_kind,
+        }),
+        else_body.map(|(else_body_span, else_body_kind)| {
+            Box::new(Statement {
+                span: else_body_span,
+                kind: else_body_kind,
+            })
+        }),
     ))
 }
 
 pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKind> {
-    suggest_literal("let")
+    literal("let")
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
@@ -152,7 +184,9 @@ pub fn block_statement(input: &mut Stream) -> Option<StatementKind> {
 }
 
 pub fn append_statement(input: &mut Stream) -> Option<StatementKind> {
-    suggest_literal("append").parse(input)?;
+    literal("append")
+        .syntax(SemanticTokenKind::Keyword)
+        .parse(input)?;
     required_inline_whitespace(input)?;
     let target = expression.parse(input)?;
     required_inline_whitespace(input)?;
@@ -162,7 +196,9 @@ pub fn append_statement(input: &mut Stream) -> Option<StatementKind> {
 }
 
 pub fn remove_statement(input: &mut Stream) -> Option<StatementKind> {
-    suggest_literal("remove").parse(input)?;
+    literal("remove")
+        .syntax(SemanticTokenKind::Keyword)
+        .parse(input)?;
     required_inline_whitespace(input)?;
     let expression = expression.parse(input)?;
 
@@ -175,7 +211,7 @@ pub fn expression_statement(input: &mut Stream) -> Option<StatementKind> {
 }
 
 pub fn parse_statement(input: &mut Stream) -> Option<Statement> {
-    let (span, statement) = choice((
+    let r = choice((
         mcfunction_statement,
         while_statement,
         for_in_statement,
@@ -189,7 +225,9 @@ pub fn parse_statement(input: &mut Stream) -> Option<Statement> {
     ))
     .spanned()
     .label("statement")
-    .parse(input)?;
+    .parse(input);
+
+    let (span, statement) = r?;
 
     Some(Statement::new(span, statement))
 }

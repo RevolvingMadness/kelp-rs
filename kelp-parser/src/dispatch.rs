@@ -7,12 +7,12 @@ macro_rules! create_dispatch_parser {
         identifier,
         { $( ($primary_key:expr $(, $alias:expr)*) => $value:expr ),* $(,)? }
     ) => {
-        $vis fn $fn_name(input: &mut parser_rs::Stream) -> Option<$return_type> {
+        $vis fn $fn_name(input: &mut parser_rs::stream::Stream) -> Option<$return_type> {
             $(
                 input.suggest_literal(input.position, $primary_key);
             )*
 
-            let (span, parsed_key) = parser_rs::FnParser::parse(&mut parser_rs::FnParser::spanned($crate::identifier($type_name)), input)?;
+            let (span, parsed_key) = parser_rs::fn_parser::FnParser::parse(&mut parser_rs::fn_parser::FnParser::spanned($crate::identifier($type_name)), input)?;
 
             match parsed_key {
                 $(

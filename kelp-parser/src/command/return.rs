@@ -1,8 +1,11 @@
 use crate::command::{HighCommand, parse_command};
 use crate::{integer, required_inline_whitespace};
 use kelp_core::command::r#return::HighReturnCommand;
-use parser_rs::{FnParser, choice};
-use parser_rs::{Stream, suggest_literal};
+use parser_rs::{
+    combinators::{choice::choice, suggest_literal},
+    fn_parser::FnParser,
+    stream::Stream,
+};
 
 pub fn parse_return_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {

@@ -1,8 +1,5 @@
 use crate::statement::parse_statement;
-use kelp_core::{
-    expression::{StringExpression, StringExpressionPart},
-    statement::Statement,
-};
+use kelp_core::statement::Statement;
 use ordered_float::NotNan;
 use parser_rs::{
     Expectation,
@@ -11,13 +8,14 @@ use parser_rs::{
     semantic_token::SemanticTokenKind,
     stream::Stream,
 };
-use std::{mem::take, num::IntErrorKind};
+use std::num::IntErrorKind;
 
 pub mod column_position;
 pub mod command;
 pub mod context;
 pub mod coordinate;
 pub mod data;
+pub mod data_type;
 pub mod dispatch;
 pub mod entity_selector;
 pub mod enums;
@@ -26,12 +24,11 @@ pub mod range;
 pub mod resource_location;
 pub mod statement;
 
-pub fn quoted_string(input: &mut Stream) -> Option<StringExpression> {
+pub fn quoted_string(input: &mut Stream) -> Option<String> {
     (|input: &mut Stream| {
         let quote_char = choice((char('"'), char('\''))).parse(input)?;
 
-        let mut regular = String::new();
-        let mut complex_parts: Option<Vec<StringExpressionPart>> = None;
+        let mut output = String::new();
 
         loop {
             let Some(c) = input.consume_char() else {
@@ -48,64 +45,34 @@ pub fn quoted_string(input: &mut Stream) -> Option<StringExpression> {
                 };
 
                 match escaped_char {
-                    'b' => regular.push_str("\\b"),
-                    'f' => regular.push_str("\\f"),
-                    'n' => regular.push('\n'),
-                    'r' => regular.push_str("\\r"),
-                    's' => regular.push(' '),
-                    't' => regular.push_str("\\t"),
-                    '\\' => regular.push('\\'),
-                    '\'' => regular.push('\''),
-                    '\"' => regular.push('"'),
+                    'b' => output.push_str("\\b"),
+                    'f' => output.push_str("\\f"),
+                    'n' => output.push('\n'),
+                    'r' => output.push_str("\\r"),
+                    's' => output.push(' '),
+                    't' => output.push_str("\\t"),
+                    '\\' => output.push('\\'),
+                    '\'' => output.push('\''),
+                    '\"' => output.push('"'),
                     _ => {
                         return input.fail_message("Invalid escape sequence");
                     }
                 }
-            } else if c == '$' {
-                let expression_opt = (|input: &mut Stream| {
-                    char('(').parse(input)?;
-                    inline_whitespace(input);
-                    let expression = expression::expression.parse(input)?;
-                    inline_whitespace(input);
-                    char(')').parse(input)?;
-                    Some(expression)
-                })
-                .optional()
-                .parse(input)?;
-
-                if let Some(expression) = expression_opt {
-                    let parts = complex_parts.get_or_insert_with(Vec::new);
-
-                    if !regular.is_empty() {
-                        parts.push(StringExpressionPart::Regular(take(&mut regular)));
-                    }
-                    parts.push(StringExpressionPart::Expression(Box::new(expression)));
-                } else {
-                    regular.push('$');
-                }
             } else {
-                regular.push(c);
+                output.push(c);
             }
         }
 
-        if let Some(mut parts) = complex_parts {
-            if !regular.is_empty() {
-                parts.push(StringExpressionPart::Regular(regular));
-            }
-            Some(StringExpression::Complex(parts))
-        } else {
-            Some(StringExpression::Simple(regular))
-        }
+        Some(output)
     })
     .label("snbt quoted string")
     .parse(input)
 }
 
-pub fn string(input: &mut Stream) -> Option<StringExpression> {
+pub fn string(input: &mut Stream) -> Option<String> {
     choice((
         quoted_string,
-        identifier("unquoted string")
-            .map(|identifier| StringExpression::Simple(identifier.to_string())),
+        identifier("unquoted string").map(|identifier| identifier.to_string()),
     ))
     .parse(input)
 }

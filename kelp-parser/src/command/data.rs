@@ -5,11 +5,12 @@ use crate::entity_selector::parse_entity_selector;
 use crate::expression::{expression, parse_compound};
 use crate::resource_location::parse_resource_location;
 use crate::{float, integer, required_inline_whitespace, string, whitespace};
-use kelp_core::command::data::{
-    HighDataCommand, HighDataCommandModification, HighDataTarget, HighDataTargetKind,
-};
-use kelp_core::nbt_path::{HighNbtPath, HighNbtPathNode};
+use kelp_core::expression::HighSNBTString;
+use kelp_core::high::command::data::{HighDataCommand, HighDataCommandModification};
+use kelp_core::high::data::{HighDataTarget, HighDataTargetKind};
+use kelp_core::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use minecraft_command_types::command::data::DataCommandModificationMode;
+use minecraft_command_types::snbt::SNBTString;
 use nonempty::nonempty;
 use parser_rs::{
     combinators::{char, choice::choice, literal, suggest_literal},
@@ -107,11 +108,17 @@ pub fn parse_nbt_path_root(input: &mut Stream) -> Option<HighNbtPathNode> {
 }
 
 pub fn parse_nbt_path_named(input: &mut Stream) -> Option<HighNbtPathNode> {
-    let name = string.parse(input)?;
+    let (name_span, name) = string.spanned().parse(input)?;
 
     let compound = parse_compound.optional().parse(input)?;
 
-    Some(HighNbtPathNode::Named(name, compound))
+    Some(HighNbtPathNode::Named(
+        HighSNBTString {
+            span: name_span,
+            snbt_string: SNBTString(false, name),
+        },
+        compound,
+    ))
 }
 
 pub fn parse_nbt_path_index(input: &mut Stream) -> Option<HighNbtPathNode> {
@@ -332,7 +339,7 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
                 .next_signature_parameter()
                 .parse(input)?;
 
-                Some(HighDataCommand::Modify(target, path, mode, modification))
+                Some(HighDataCommand::Modify(target, path, mode, Box::new(modification)))
             })
             .signature(2),
             (|input: &mut Stream| {

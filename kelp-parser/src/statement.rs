@@ -6,15 +6,15 @@ use parser_rs::{
     stream::Stream,
 };
 
-use crate::expression::expression;
 use crate::range::parse_integer_range;
 use crate::resource_location::parse_resource_location;
+use crate::{data_type::parse_data_type, expression::expression};
 use crate::{
     identifier, inline_whitespace, newline_whitespace, required_inline_whitespace, whitespace,
 };
 
 pub fn mcfunction_statement(input: &mut Stream) -> Option<StatementKind> {
-    literal("mcfunction")
+    literal("mcfn")
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
@@ -153,19 +153,23 @@ pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKin
     let name = identifier("variable name")
         .syntax(SemanticTokenKind::Variable)
         .parse(input)?;
-    inline_whitespace(input)?;
-    char(':').parse(input)?;
-    inline_whitespace(input)?;
-    let type_ = identifier("variable type")
-        .syntax(SemanticTokenKind::Class)
-        .parse(input)?;
+    let data_type = (|input: &mut Stream| {
+        inline_whitespace(input)?;
+        char(':').parse(input)?;
+        inline_whitespace(input)?;
+        let type_ = parse_data_type(input)?;
+
+        Some(type_)
+    })
+    .optional()
+    .parse(input)?;
     inline_whitespace(input)?;
     char('=').parse(input)?;
     inline_whitespace(input)?;
     let value = expression.parse(input)?;
 
     Some(StatementKind::VariableDeclaration(
-        type_.to_string(),
+        data_type,
         name.to_string(),
         value,
     ))
@@ -174,7 +178,7 @@ pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKin
 pub fn block_statement(input: &mut Stream) -> Option<StatementKind> {
     char('{').parse(input)?;
     whitespace(input)?;
-    let statements = parse_statement
+    let (statements, _) = parse_statement
         .separated_by_trailing(newline_whitespace("end of statement"))
         .parse(input)?;
     whitespace(input)?;

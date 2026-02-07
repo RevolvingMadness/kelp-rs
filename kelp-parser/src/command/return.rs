@@ -1,6 +1,6 @@
 use crate::command::{HighCommand, parse_command};
 use crate::{integer, required_inline_whitespace};
-use kelp_core::command::r#return::HighReturnCommand;
+use kelp_core::high::command::r#return::HighReturnCommand;
 use parser_rs::{
     combinators::{choice::choice, suggest_literal},
     fn_parser::FnParser,

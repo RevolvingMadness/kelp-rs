@@ -1,7 +1,9 @@
-use crate::command::context::CompileContext;
-use crate::command::data::{HighDataTarget, HighDataTargetKind};
-use crate::expression::ConstantExpression;
-use crate::nbt_path::{HighNbtPath, HighNbtPathNode};
+use crate::compile_context::CompileContext;
+use crate::data_type::DataType;
+use crate::expression::{ConstantExpression, SupportsVariableTypeScope};
+use crate::high::data::{HighDataTarget, HighDataTargetKind};
+use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
+use crate::semantic_analysis_context::SemanticAnalysisInfo;
 use minecraft_command_types::command::data::DataTarget;
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
 use minecraft_command_types::command::scoreboard::{
@@ -194,7 +196,7 @@ pub struct HighDatapackSettings {
     pub num_match_cases_to_split: usize,
 }
 
-pub type Scope = BTreeMap<String, ConstantExpression>;
+pub type Scope = BTreeMap<String, (DataType, ConstantExpression)>;
 pub type Scopes = VecDeque<Scope>;
 
 pub struct HighDatapack {
@@ -206,6 +208,15 @@ pub struct HighDatapack {
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
     used_constants: RefCell<HashSet<i32>>,
+}
+
+impl SupportsVariableTypeScope for HighDatapack {
+    fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
+        self.get_variable(name)
+            .map(|(data_type, _)| Some(data_type))
+    }
+
+    fn add_info(&mut self, _: SemanticAnalysisInfo) {}
 }
 
 impl HighDatapack {
@@ -390,7 +401,7 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<ConstantExpression> {
+    pub fn get_variable(&self, name: &str) -> Option<(DataType, ConstantExpression)> {
         for scope in &self.scopes {
             if let Some(value) = scope.get(name) {
                 return Some(value.clone());
@@ -416,14 +427,25 @@ impl HighDatapack {
         self.scopes.front().expect("No scopes").contains_key(name)
     }
 
-    pub fn declare_variable(&mut self, name: &str, value: ConstantExpression) {
+    pub fn declare_variable(&mut self, name: &str, data_type: DataType, value: ConstantExpression) {
         self.scopes
             .front_mut()
             .expect("No scopes")
-            .insert(name.to_string(), value);
+            .insert(name.to_string(), (data_type, value));
     }
 
-    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut ConstantExpression> {
+    pub fn assign_variable(&mut self, name: &str, value: ConstantExpression) {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some((_, existing_value)) = scope.get_mut(name) {
+                *existing_value = value;
+                return;
+            }
+        }
+
+        panic!("Variable '{}' has not been declared", name);
+    }
+
+    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut (DataType, ConstantExpression)> {
         for scope in &mut self.scopes {
             if let Some(value) = scope.get_mut(name) {
                 return Some(value);
@@ -565,11 +587,6 @@ impl HighDatapack {
     }
 
     pub fn add_context_to_current_function(&mut self, ctx: &mut CompileContext) {
-        println!(
-            "Adding context to current function ({} commands)",
-            ctx.commands.len()
-        );
-
         let commands = ctx.compile();
 
         self.current_namespace_mut()

@@ -2,12 +2,14 @@ use crate::command::HighCommand;
 use crate::entity_selector::parse_entity_selector;
 use crate::expression::expression;
 use crate::{boolean, identifier, integer, key, required_inline_whitespace};
-use kelp_core::command::HighPlayerScore;
-use kelp_core::command::scoreboard::{
-    HighObjectivesScoreboardCommand, HighPlayersDisplayScoreboardCommand,
-    HighPlayersScoreboardCommand, HighScoreboardCommand, HighScoreboardModification,
-    HighScoreboardNumberFormat,
+use kelp_core::high::command::scoreboard::HighScoreboardCommand;
+use kelp_core::high::command::scoreboard::objectives::{
+    HighObjectivesScoreboardCommand, HighScoreboardModification,
 };
+use kelp_core::high::command::scoreboard::players::{
+    HighPlayersDisplayScoreboardCommand, HighPlayersScoreboardCommand, HighScoreboardNumberFormat,
+};
+use kelp_core::high::player_score::HighPlayerScore;
 use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;
 use parser_rs::{
     combinators::{char, choice::choice, literal, suggest_literal},

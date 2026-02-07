@@ -1,4 +1,4 @@
-mcfunction namespace:main {
+mcfn namespace:main {
     let counts: data = {
         "a": 3,
         "b": 1,

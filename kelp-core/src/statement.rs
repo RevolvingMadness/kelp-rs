@@ -1,8 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::command::context::CompileContext;
+use crate::compile_context::CompileContext;
+use crate::data_type::{DataType, HighDataType};
 use crate::datapack::HighDatapack;
 use crate::expression::{ConstantExpressionKind, Expression};
+use crate::semantic_analysis_context::{
+    SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
+};
+use crate::trait_ext::OptionIterExt;
 use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{
     DataCommand, DataCommandModification, DataCommandModificationMode,
@@ -15,19 +20,17 @@ use minecraft_command_types::snbt::{SNBT, SNBTString};
 use nonempty::nonempty;
 use parser_rs::parser_range::ParserRange;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
     MCFunction(ResourceLocation, Box<Statement>),
     Expression(Expression),
-    VariableDeclaration(String, String, Expression),
+    VariableDeclaration(Option<HighDataType>, String, Expression),
     While(Expression, Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
     ForIn(bool, bool, String, Expression, Box<Statement>),
     Block(Vec<Statement>),
-    // append <expression> <expression>
     AppendData(Expression, Box<Expression>),
-    // remove <expression>
     RemoveData(Expression),
 }
 
@@ -94,43 +97,15 @@ impl StatementKind {
             StatementKind::Expression(expression) => {
                 expression.compile_as_statement(datapack, ctx);
             }
-            StatementKind::VariableDeclaration(type_, name, value) => match type_.as_str() {
-                "score" => {
-                    let Some(score) = datapack.new_get_variable_score(&name) else {
-                        panic!("Variable {} has already been declared", name)
-                    };
+            StatementKind::VariableDeclaration(data_type, name, value) => {
+                let data_type = data_type
+                    .map(|data_type| data_type.kind.resolve())
+                    .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
 
-                    value.resolve_into_score(datapack, ctx, &score);
+                let value = value.resolve(datapack, ctx);
 
-                    datapack.declare_variable(
-                        &name,
-                        ConstantExpressionKind::PlayerScore(score).into_dummy_constant_expression(),
-                    );
-                }
-                "data" => {
-                    let (target, path) = datapack.get_variable_data(&name);
-
-                    value.resolve(datapack, ctx).kind.assign_to_data(
-                        datapack,
-                        ctx,
-                        target.clone(),
-                        path.clone(),
-                    );
-
-                    datapack.declare_variable(
-                        &name,
-                        ConstantExpressionKind::Data(target, path).into_dummy_constant_expression(),
-                    );
-                }
-                "value" => {
-                    let value = value.resolve(datapack, ctx);
-
-                    datapack.declare_variable(&name, value);
-                }
-                _ => {
-                    panic!("Unknown type '{}'", type_);
-                }
-            },
+                datapack.declare_variable(&name, data_type, value);
+            }
             StatementKind::While(condition, body) => {
                 let mut while_body_ctx = CompileContext::default();
 
@@ -183,6 +158,7 @@ impl StatementKind {
                     datapack.start_scope();
                     datapack.declare_variable(
                         &variable_name,
+                        DataType::Data(Box::new(DataType::Any)),
                         ConstantExpressionKind::Data(
                             unique_data_target_2.clone(),
                             unique_path_2.clone(),
@@ -276,6 +252,7 @@ impl StatementKind {
                     datapack.start_scope();
                     datapack.declare_variable(
                         &variable_name,
+                        DataType::Data(Box::new(DataType::Any)),
                         ConstantExpressionKind::Data(
                             unique_data_target.clone(),
                             unique_path.clone(),
@@ -361,12 +338,8 @@ impl StatementKind {
                         }
                     }
 
-                    println!("{:?}", left);
-                    println!("{:?}", right);
                     todo!()
                 } else {
-                    println!("{:?}", cases);
-
                     todo!()
                 }
             }
@@ -423,13 +396,124 @@ impl StatementKind {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Statement {
     pub span: ParserRange,
     pub kind: StatementKind,
 }
 
 impl Statement {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+        match &self.kind {
+            StatementKind::MCFunction(_, statement) => statement.perform_semantic_analysis(ctx),
+            StatementKind::Expression(expression) => expression.perform_semantic_analysis(ctx),
+            StatementKind::VariableDeclaration(data_type, name, value) => {
+                let value_result = value.perform_semantic_analysis(ctx);
+
+                if value_result.is_none() {
+                    return ctx.declare_variable_unknown(name);
+                }
+
+                let value_type = value.kind.infer_data_type(ctx)?;
+
+                let final_type = if let Some(data_type) = data_type {
+                    data_type.perform_semantic_analysis(ctx)?;
+                    let data_type = data_type.kind.resolve();
+
+                    if !data_type.equals(&value_type) {
+                        return ctx.add_info(SemanticAnalysisInfo {
+                            span: value.span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::MismatchedTypes {
+                                    expected: data_type.clone(),
+                                    actual: value_type,
+                                },
+                            ),
+                        });
+                    }
+                    data_type
+                } else {
+                    value_type
+                };
+
+                ctx.declare_variable_known(name, final_type);
+
+                Some(())
+            }
+            StatementKind::While(expression, statement) => {
+                let expression_result = expression.perform_semantic_analysis(ctx);
+                let statement_result = statement.perform_semantic_analysis(ctx);
+
+                expression_result?;
+
+                if let Some(expression_type) = expression.kind.infer_data_type(ctx)
+                    && !expression_type.is_condition()
+                {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: expression.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeIsNotCondition(expression_type),
+                        ),
+                    });
+                }
+
+                statement_result?;
+
+                Some(())
+            }
+            StatementKind::Match(_, _) => todo!(),
+            StatementKind::If(expression, statement, else_statement) => {
+                let expression_result = expression.perform_semantic_analysis(ctx);
+                let statement_result = statement.perform_semantic_analysis(ctx);
+                let else_statement_result = else_statement
+                    .as_ref()
+                    .map(|else_statement| else_statement.perform_semantic_analysis(ctx))
+                    .unwrap_or(Some(()));
+
+                expression_result?;
+
+                if let Some(expression_type) = expression.kind.infer_data_type(ctx)
+                    && !expression_type.is_condition()
+                {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: expression.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeIsNotCondition(expression_type),
+                        ),
+                    });
+                }
+
+                statement_result?;
+                else_statement_result?;
+
+                Some(())
+            }
+            StatementKind::ForIn(_, _, _, expression, statement) => {
+                let expression_result = expression.perform_semantic_analysis(ctx);
+                let statement_result = statement.perform_semantic_analysis(ctx);
+
+                expression_result?;
+                statement_result?;
+
+                Some(())
+            }
+            StatementKind::Block(statements) => statements
+                .iter()
+                .map(|statement| statement.perform_semantic_analysis(ctx))
+                .all_some(),
+            StatementKind::AppendData(target, value) => {
+                let target_result = target.perform_semantic_analysis(ctx);
+                let value_result = value.perform_semantic_analysis(ctx);
+
+                target_result?;
+                value_result?;
+
+                Some(())
+            }
+            StatementKind::RemoveData(target) => target.perform_semantic_analysis(ctx),
+        }
+    }
+
     pub fn new(span: ParserRange, kind: StatementKind) -> Statement {
         Statement { span, kind }
     }

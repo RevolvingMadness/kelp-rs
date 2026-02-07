@@ -1,0 +1,129 @@
+use minecraft_command_types::{
+    command::{
+        enums::{bossbar_store_type::BossbarStoreType, numeric_snbt_type::NumericSNBTType},
+        execute::ExecuteStoreSubcommand,
+    },
+    resource_location::ResourceLocation,
+};
+use minecraft_command_types_derive::HasMacro;
+use ordered_float::NotNan;
+
+use crate::{
+    compile_context::CompileContext,
+    datapack::HighDatapack,
+    high::{
+        command::execute::subcommand::HighExecuteSubcommand, data::HighDataTarget,
+        nbt_path::HighNbtPath, player_score::HighPlayerScore,
+    },
+    semantic_analysis_context::SemanticAnalysisContext,
+};
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+pub enum HighExecuteStoreSubcommand {
+    Data(
+        HighDataTarget,
+        HighNbtPath,
+        NumericSNBTType,
+        NotNan<f32>,
+        Box<HighExecuteSubcommand>,
+    ),
+    Bossbar(
+        ResourceLocation,
+        BossbarStoreType,
+        Box<HighExecuteSubcommand>,
+    ),
+    Score(HighPlayerScore, Box<HighExecuteSubcommand>),
+}
+
+impl HighExecuteStoreSubcommand {
+    pub fn then(self, next: HighExecuteSubcommand) -> HighExecuteStoreSubcommand {
+        match self {
+            HighExecuteStoreSubcommand::Data(
+                target,
+                path,
+                numeric_snbt_type,
+                scale,
+                high_execute_subcommand,
+            ) => HighExecuteStoreSubcommand::Data(
+                target,
+                path,
+                numeric_snbt_type,
+                scale,
+                Box::new(high_execute_subcommand.then(next)),
+            ),
+            HighExecuteStoreSubcommand::Bossbar(
+                resource_location,
+                bossbar_store_type,
+                high_execute_subcommand,
+            ) => HighExecuteStoreSubcommand::Bossbar(
+                resource_location,
+                bossbar_store_type,
+                Box::new(high_execute_subcommand.then(next)),
+            ),
+            HighExecuteStoreSubcommand::Score(player_score, high_execute_subcommand) => {
+                HighExecuteStoreSubcommand::Score(
+                    player_score,
+                    Box::new(high_execute_subcommand.then(next)),
+                )
+            }
+        }
+    }
+
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+        match self {
+            HighExecuteStoreSubcommand::Data(target, path, _, _, next) => {
+                let target = target.kind.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
+                let next = next.perform_semantic_analysis(ctx);
+
+                target?;
+                path?;
+                next?;
+
+                Some(())
+            }
+            HighExecuteStoreSubcommand::Bossbar(_, _, next) => next.perform_semantic_analysis(ctx),
+            HighExecuteStoreSubcommand::Score(score, next) => {
+                let score = score.perform_semantic_analysis(ctx);
+                let next = next.perform_semantic_analysis(ctx);
+
+                score?;
+                next?;
+
+                Some(())
+            }
+        }
+    }
+
+    pub fn compile(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> Option<ExecuteStoreSubcommand> {
+        match self {
+            HighExecuteStoreSubcommand::Data(target, path, numeric_snbt_type, scale, next) => {
+                next.compile(datapack, ctx).map(|next| {
+                    let target = target.kind.compile(datapack, ctx);
+                    let path = path.compile(datapack, ctx);
+
+                    ExecuteStoreSubcommand::Data(
+                        target,
+                        path,
+                        numeric_snbt_type,
+                        scale,
+                        Box::new(next),
+                    )
+                })
+            }
+            HighExecuteStoreSubcommand::Bossbar(location, store_type, next) => next
+                .compile(datapack, ctx)
+                .map(|next| ExecuteStoreSubcommand::Bossbar(location, store_type, Box::new(next))),
+            HighExecuteStoreSubcommand::Score(score, next) => {
+                let score = score.compile(datapack, ctx);
+
+                next.compile(datapack, ctx)
+                    .map(|next| ExecuteStoreSubcommand::Score(score, Box::new(next)))
+            }
+        }
+    }
+}

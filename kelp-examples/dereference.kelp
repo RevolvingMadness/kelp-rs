@@ -1,0 +1,15 @@
+mcfn namespace:main {
+    score @s foo = -1
+    
+    let x = &score @s foo
+
+    tellraw @a x
+    tellraw @a *x
+    tellraw @a score @s foo
+
+    *x = 1
+
+    tellraw @a x
+    tellraw @a *x
+    tellraw @a score @s foo
+}

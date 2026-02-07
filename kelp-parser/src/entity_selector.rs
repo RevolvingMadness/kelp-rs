@@ -3,7 +3,7 @@ use crate::expression::expression;
 use crate::range::{parse_float_range, parse_integer_range};
 use crate::resource_location::parse_resource_location;
 use crate::{boolean, float, identifier, integer, whitespace};
-use kelp_core::entity_selector::{HighEntitySelector, HighEntitySelectorOption};
+use kelp_core::high::entity_selector::{HighEntitySelector, option::HighEntitySelectorOption};
 use minecraft_command_types::entity_selector::{AdvancementChoiceType, EntitySelectorVariable};
 use parser_rs::{
     Expectation,

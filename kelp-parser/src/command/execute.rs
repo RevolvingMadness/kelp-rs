@@ -12,14 +12,17 @@ use crate::expression::{expression, parse_compound};
 use crate::range::parse_integer_range;
 use crate::resource_location::parse_resource_location;
 use crate::{float, identifier, key, newline_whitespace, required_inline_whitespace, whitespace};
-use kelp_core::block::HighBlockState;
-use kelp_core::command::HighPlayerScore;
-use kelp_core::command::execute::{
-    HighExecuteIfSubcommand, HighExecuteStoreSubcommand, HighExecuteSubcommand, HighFacing,
-    HighPositioned, HighRotated, HighScoreComparison,
-};
-use kelp_core::command::item_source::HighItemSource;
-use kelp_core::item::{HighItemPredicate, HighItemTest, HighOrGroup};
+use kelp_core::high::block::HighBlockState;
+use kelp_core::high::command::execute::facing::HighFacing;
+use kelp_core::high::command::execute::positioned::HighPositioned;
+use kelp_core::high::command::execute::rotated::HighRotated;
+use kelp_core::high::command::execute::subcommand::HighExecuteSubcommand;
+use kelp_core::high::command::execute::subcommand::r#if::HighExecuteIfSubcommand;
+use kelp_core::high::command::execute::subcommand::store::HighExecuteStoreSubcommand;
+use kelp_core::high::item::{HighItemPredicate, HighItemTest, HighOrGroup};
+use kelp_core::high::item_source::HighItemSource;
+use kelp_core::high::player_score::HighPlayerScore;
+use kelp_core::score_comparison::HighScoreComparison;
 use minecraft_command_types::command::enums::axis::Axis;
 use minecraft_command_types::command::enums::numeric_snbt_type::NumericSNBTType;
 use minecraft_command_types::command::execute::ScoreComparisonOperator;
@@ -179,7 +182,7 @@ pub fn parse_item_predicate(input: &mut Stream) -> Option<HighItemPredicate> {
 
     Some(HighItemPredicate {
         id: item_type,
-        tests,
+        or_groups: tests,
     })
 }
 
@@ -496,7 +499,7 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
                 ("<function>", Some("The id of the function to run")),
                 NEXT_PARAMETER,
             ],
-            Some("Checks if a function succeeded"), // TODO bug note
+            Some("Checks if a function succeeded.\nNote: Bug MC-267799 requires this to have a following subcommand"), // TODO add feature to toggle this
         ),
         (
             "items <source> <slot> <item_predicate> [<next>]",

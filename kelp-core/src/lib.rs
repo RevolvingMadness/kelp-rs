@@ -1,13 +1,16 @@
 use parser_rs::{Expectation, ParseError};
 
-pub mod block;
 pub mod command;
+pub mod compile_context;
+pub mod data_type;
 pub mod datapack;
-pub mod entity_selector;
 pub mod expression;
-pub mod item;
-pub mod nbt_path;
+pub mod high;
+pub mod runtime_storage_type;
+pub mod score_comparison;
+pub mod semantic_analysis_context;
 pub mod statement;
+pub mod trait_ext;
 
 fn format_expected<T: ToString>(items: Vec<T>) -> String {
     match items.len() {

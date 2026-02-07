@@ -1,23 +1,68 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
-use kelp_core::command::context::CompileContext;
+use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::HighDatapack;
 use kelp_core::generate_message_error;
+use kelp_core::semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisInfoKind};
 use kelp_core::statement::Statement;
+use kelp_core::trait_ext::OptionIterExt;
 use kelp_parser::file;
 use nonempty::nonempty;
 use parser_rs::ParseResult;
 use parser_rs::fn_parser::FnParser;
 use parser_rs::stream::Stream;
 use std::cmp::min;
-use std::env::{self};
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
 use std::time::Instant;
 use yansi::Paint;
 
-fn process_success(statements: Vec<Statement>) {
+fn process_success(statements: Vec<Statement>, file_name: &str, source_text: &str) {
+    let mut semantic_analysis_context = SemanticAnalysisContext {
+        max_infos: 10,
+        ..Default::default()
+    };
+    semantic_analysis_context.scopes.push_front(BTreeMap::new());
+
+    let start_semantic = Instant::now();
+    let succeeded = statements
+        .iter()
+        .map(|statement| statement.perform_semantic_analysis(&mut semantic_analysis_context))
+        .all_some();
+    let semantic_elapsed = start_semantic.elapsed();
+
+    println!(
+        "{} Semantic analysis finished in {:?}",
+        "Done:".cyan(),
+        if succeeded.is_some() {
+            semantic_elapsed.green()
+        } else {
+            semantic_elapsed.red()
+        }
+    );
+
+    if succeeded.is_none() {
+        for info in semantic_analysis_context.infos {
+            match info.kind {
+                SemanticAnalysisInfoKind::Error(error) => {
+                    let span = (file_name, info.span.into_range());
+
+                    Report::build(ReportKind::Error, span.clone())
+                        .with_label(
+                            Label::new(span)
+                                .with_message(format!("{}", error))
+                                .with_color(Color::Red),
+                        )
+                        .finish()
+                        .print((file_name, Source::from(source_text)))
+                        .unwrap();
+                }
+            }
+        }
+
+        return;
+    }
+
     let mut datapack = HighDatapack::new("Name");
 
     datapack.settings.num_match_cases_to_split = 5;
@@ -27,37 +72,33 @@ fn process_success(statements: Vec<Statement>) {
 
     let mut ctx = CompileContext::default();
 
-    let bar = ProgressBar::new(statements.len() as u64);
-    bar.set_style(
-        ProgressStyle::default_bar()
-            .template("{msg} [{bar:40.cyan/blue}] {pos}/{len}")
-            .unwrap(),
-    );
-    bar.set_message("Compiling statements");
+    let start_compile = Instant::now();
     for statement in statements {
         statement.kind.compile(&mut datapack, &mut ctx);
-
-        bar.inc(1);
     }
-    bar.finish_and_clear();
+    let compile_elapsed = start_compile.elapsed();
+    println!(
+        "{} Statement compilation finished in {:?}",
+        "Done:".cyan(),
+        compile_elapsed.green()
+    );
 
     datapack.add_context_to_current_function(&mut ctx);
     datapack.pop_function_from_current_namespace();
     datapack.pop_namespace();
 
+    let start_gen = Instant::now();
     let regular_datapack = datapack.compile();
-    let appdata = env::var("APPDATA").expect("APPDATA environment variable not set");
+    let gen_elapsed = start_gen.elapsed();
+    println!(
+        "{} Code generation finished in {:?}",
+        "Done:".cyan(),
+        gen_elapsed.green()
+    );
 
-    let datapack_dir = [
-        appdata.as_str(),
-        ".minecraft",
-        "saves",
-        "BlockPit",
-        "datapacks",
-        "Kelp Datapack",
-    ]
-    .iter()
-    .collect::<PathBuf>();
+    let datapack_dir = dirs::home_dir().unwrap().join(".var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher/instances/1.21.11/minecraft/saves/kelp-rs/datapacks/kelp-rs Datapack");
+
+    let start_io = Instant::now();
 
     if datapack_dir.exists() {
         fs::remove_dir_all(&datapack_dir).unwrap();
@@ -66,18 +107,17 @@ fn process_success(statements: Vec<Statement>) {
     regular_datapack
         .write(datapack_dir.as_path())
         .expect("Failed to write {:?}");
+
+    let io_elapsed = start_io.elapsed();
+
+    println!(
+        "\n{} Total processing time: {:?}",
+        "Finished:".bold().bright_green(),
+        (semantic_elapsed + compile_elapsed + gen_elapsed + io_elapsed).green()
+    );
 }
 
 fn process_failure<T>(result: ParseResult<T>, file_name: &str, source_text: &str) {
-    let Err(ref error) = result.result else {
-        return;
-    };
-
-    let mut new_span = error.span;
-    new_span.end = min(new_span.end, source_text.len());
-    new_span.start = min(new_span.start, new_span.end);
-    let span = (file_name, new_span.into_range());
-
     for validation_error in &result.validation_errors {
         let span = (file_name, validation_error.span.into_range());
 
@@ -91,6 +131,15 @@ fn process_failure<T>(result: ParseResult<T>, file_name: &str, source_text: &str
             .print((file_name, Source::from(source_text)))
             .unwrap();
     }
+
+    let Err(ref error) = result.result else {
+        return;
+    };
+
+    let mut new_span = error.span;
+    new_span.end = min(new_span.end, source_text.len());
+    new_span.start = min(new_span.start, new_span.end);
+    let span = (file_name, new_span.into_range());
 
     if result.failed() {
         Report::build(ReportKind::Error, span.clone())
@@ -133,24 +182,19 @@ fn main() {
     match (result.validation_errors.is_empty(), result.succeeded()) {
         (true, true) => {
             let result = result.result.unwrap();
-
-            println!("Parsed ({}) in ~{:?}", "success".green(), elapsed.green());
-
-            process_success(result);
+            println!("{} Parsed in {:?}", "Done:".cyan(), elapsed.green());
+            process_success(result, file_name, &input_text);
         }
         (false, true) if options.ignore_validation_errors => {
             let result = result.result.unwrap();
-
             println!(
                 "{}",
                 "Ignoring validation errors and compiling anyway".yellow()
             );
-
-            process_success(result);
+            process_success(result, file_name, &input_text);
         }
         (_, _) => {
-            println!("Parsed ({}) in ~{:?}", "failure".red(), elapsed.green());
-
+            println!("{} Parsing failed in {:?}", "Error:".red(), elapsed.red());
             process_failure(result, file_name, &input_text);
         }
     }

@@ -1,6 +1,6 @@
-mcfunction namespace:main {
-    let x: score = 100
-    let y: score = 2
+mcfn namespace:main {
+    let x = 100 to score
+    let y = 2 to score
 
     tellraw @a 100 >> 2 // 6
     tellraw @a x >> y // 6

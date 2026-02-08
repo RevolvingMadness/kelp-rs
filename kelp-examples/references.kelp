@@ -1,16 +1,11 @@
-mcfunction namespace:main {
-    let x: score = 1
-    let y: value = x
-    let z: score = x
+mcfn namespace:main {
+    score a foo = 0
 
-    tellraw @a ["x: ", x]
-    tellraw @a ["y: ", y]
-    tellraw @a ["z: ", z]
+    let value = &score a foo
 
-    y = 2
-    tellraw @a "--- y = 2 ---"
+    tellraw @a value // 0
 
-    tellraw @a ["x: ", x]
-    tellraw @a ["y: ", y]
-    tellraw @a ["z: ", z]
+    *value = 5
+
+    tellraw @a value // 5
 }

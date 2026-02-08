@@ -518,7 +518,7 @@ impl PlayerScoreExt for PlayerScore {
                         )),
                     );
                 } else {
-                    let right_score = value.as_score(datapack, ctx, true);
+                    let right_score = value.as_score(datapack, ctx, false);
 
                     ctx.add_command(
                         datapack,
@@ -541,7 +541,7 @@ impl PlayerScoreExt for PlayerScore {
                         )),
                     );
                 } else {
-                    let right_score = value.as_score(datapack, ctx, true);
+                    let right_score = value.as_score(datapack, ctx, false);
 
                     ctx.add_command(
                         datapack,
@@ -556,7 +556,7 @@ impl PlayerScoreExt for PlayerScore {
                 }
             }
             ArithmeticOperator::Multiply => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 ctx.add_command(
                     datapack,
@@ -570,7 +570,7 @@ impl PlayerScoreExt for PlayerScore {
                 );
             }
             ArithmeticOperator::FloorDivide => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 ctx.add_command(
                     datapack,
@@ -584,7 +584,7 @@ impl PlayerScoreExt for PlayerScore {
                 );
             }
             ArithmeticOperator::Modulo => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 ctx.add_command(
                     datapack,
@@ -598,17 +598,17 @@ impl PlayerScoreExt for PlayerScore {
                 );
             }
             ArithmeticOperator::And => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 compile_bitwise_and_score(datapack, ctx, &self, &right_score);
             }
             ArithmeticOperator::Or => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 compile_bitwise_or_score(datapack, ctx, &self, &right_score);
             }
             ArithmeticOperator::LeftShift => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 compile_shift_operation_score(
                     datapack,
@@ -619,7 +619,7 @@ impl PlayerScoreExt for PlayerScore {
                 );
             }
             ArithmeticOperator::RightShift => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 compile_shift_operation_score(
                     datapack,
@@ -630,7 +630,7 @@ impl PlayerScoreExt for PlayerScore {
                 );
             }
             ArithmeticOperator::Swap => {
-                let right_score = value.as_score(datapack, ctx, true);
+                let right_score = value.as_score(datapack, ctx, false);
 
                 ctx.add_command(
                     datapack,

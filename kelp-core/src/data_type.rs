@@ -284,7 +284,7 @@ impl DataType {
 
     pub fn get_arithmetic_result(
         &self,
-        _operator: &ArithmeticOperator,
+        operator: &ArithmeticOperator,
         other: &DataType,
     ) -> Option<DataType> {
         Some(match (self, other) {
@@ -306,6 +306,7 @@ impl DataType {
         other: &DataType,
     ) -> bool {
         match (self, other) {
+            (_, other) if *operator == ArithmeticOperator::Swap && !other.is_lvalue() => false,
             (DataType::Any, _) | (_, DataType::Any) => true,
             (DataType::Byte, DataType::Byte) => true,
             (DataType::Short, DataType::Short) => true,
@@ -321,8 +322,10 @@ impl DataType {
     }
 
     pub fn can_perform_comparison(&self, operator: &ComparisonOperator, other: &DataType) -> bool {
-        if *operator == ComparisonOperator::EqualTo || *operator == ComparisonOperator::NotEqualTo {
-            return self.equals(other);
+        if (*operator == ComparisonOperator::EqualTo || *operator == ComparisonOperator::NotEqualTo)
+            && self.equals(other)
+        {
+            return true;
         }
 
         match (self, other) {
@@ -346,6 +349,7 @@ impl DataType {
     ) -> bool {
         match (self, other) {
             (DataType::Any, _) | (_, DataType::Any) => true,
+            (DataType::Boolean, DataType::Boolean) => true,
             (DataType::Byte, DataType::Byte) => true,
             (DataType::Short, DataType::Short) => true,
             (DataType::Integer, DataType::Integer) => true,

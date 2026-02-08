@@ -1,12 +1,12 @@
 mcfn namespace:main {
-    let counts: data = {
-        "a": 3,
-        "b": 1,
-        "c": 4
-    }
+    let counts = {
+        a: 3,
+        b: 1,
+        c: 4
+    } to data
 
     for key in ["a", "c", "d"] {
-        let entry: value = counts."$(key)"
+        let entry = &counts.get(key)
 
         if !entry {
             tellraw @a [key, " -> nothing"]

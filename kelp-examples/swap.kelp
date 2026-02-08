@@ -1,6 +1,6 @@
-mcfunction namespace:path {
-    let a: score = 1
-    let b: score = 2
+mcfn namespace:main {
+    let a = 1 to score
+    let b = 2 to score
 
     tellraw @a ["a: ", a]
     tellraw @a ["b: ", b]

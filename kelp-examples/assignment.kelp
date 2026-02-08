@@ -1,12 +1,8 @@
-mcfunction namespace:path {
-    let x: score = 1
+mcfn namespace:path {
+    let x = 1 to score
     
     tellraw @a ["x: ", x]
-
-    let y: score = x = 2
-
-    tellraw @a "--- Assigned ---"
-
+    tellraw @a "x = 2"
+    x = 2
     tellraw @a ["x: ", x]
-    tellraw @a ["y: ", y]
 }

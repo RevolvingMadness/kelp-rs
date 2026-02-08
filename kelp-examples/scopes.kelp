@@ -1,18 +1,18 @@
-mcfunction namespace:path {
-    let x: score = 1
+mcfn namespace:main {
+    let x = 1 to score
 
     {
         tellraw @a x // 1
-        // tellraw @a y // error
+        // tellraw @a y // Error
 
-        x = 2
-        let y: score = 3
-        // z = 4 // error
+        *x = 2
+        let y = 3 to score
+        // z = 4 // Error
      
         tellraw @a x // 2
         tellraw @a y // 3
     }
 
     tellraw @a x // 2
-    // tellraw @a y // error
+    // tellraw @a y // Error
 }

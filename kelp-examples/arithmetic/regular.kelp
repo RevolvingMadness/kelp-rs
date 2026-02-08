@@ -1,17 +1,17 @@
-mcfunction namespace:main {
-    let a_score: score = 5
-    let a_value: value = 5
-    let b_score: score = 3
-    let b_value: value = 3
+mcfn namespace:main {
+    let a_score = 5 to score
+    let a_value = 5
+    let b_score = 3 to score
+    let b_value = 3
 
-    tellraw @a a_score + b_score // 8
-    tellraw @a a_value + b_value // 8
-    tellraw @a a_score - b_score // 2
-    tellraw @a a_value - b_value // 2
-    tellraw @a a_score / b_score // 1
-    tellraw @a a_value / b_value // 1
-    tellraw @a a_score * b_score // 1
-    tellraw @a a_value * b_value // 15
-    tellraw @a a_score % b_score // 2
-    tellraw @a a_value % b_value // 2
+    tellraw @a  a_score + b_score           // 8
+    tellraw @a (a_value + b_value) to score // 8
+    tellraw @a  a_score - b_score           // 2
+    tellraw @a (a_value - b_value) to score // 2
+    tellraw @a  a_score / b_score           // 1
+    tellraw @a (a_value / b_value) to score // 1
+    tellraw @a  a_score * b_score           // 15
+    tellraw @a (a_value * b_value) to score // 15
+    tellraw @a  a_score % b_score           // 2
+    tellraw @a (a_value % b_value) to score // 2
 }

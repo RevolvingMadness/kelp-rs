@@ -1,14 +1,14 @@
-mcfunction namespace:main {
-    let n: score = 10
+mcfn namespace:main {
+    let n = 10
 
-    let a: score = 0
-    let b: score = 1
-    let count: score = 0
+    let a = 0 to score
+    let b = 1 to score
+    let count = 0 to score
 
     while count < n {
         tellraw @a a
         
-        let temp: score = a + b
+        let temp = a + b
         a = b
         b = temp
         count += 1

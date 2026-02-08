@@ -2096,6 +2096,21 @@ impl Expression {
                             ),
                         });
                     }
+
+                    if *operator == ArithmeticOperator::Swap
+                        && (!left_type.is_lvalue() || !right_type.is_lvalue())
+                    {
+                        return ctx.add_info(SemanticAnalysisInfo {
+                            span: self.span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::CannotPerformArithmeticOperation {
+                                    left: left_type,
+                                    operator: *operator,
+                                    right: right_type,
+                                },
+                            ),
+                        });
+                    }
                 }
 
                 Some(())
@@ -2155,23 +2170,43 @@ impl Expression {
                 let value_result = value.perform_semantic_analysis(ctx);
 
                 target_result?;
+                value_result?;
+
+                let mut error = false;
 
                 let target_type = target.kind.infer_data_type(ctx)?;
 
                 if !target.kind.is_lvalue() {
-                    return ctx.add_info(SemanticAnalysisInfo {
+                    ctx.add_info::<()>(SemanticAnalysisInfo {
                         span: target.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedTo(target_type),
+                            SemanticAnalysisError::CannotBeAssignedTo(target_type.clone()),
                         ),
                     });
+
+                    error = true;
                 }
 
                 let value_type = value.kind.infer_data_type(ctx)?;
 
+                if *operator == ArithmeticOperator::Swap && !value.kind.is_lvalue() {
+                    ctx.add_info::<()>(SemanticAnalysisInfo {
+                        span: value.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeAssignedTo(value_type.clone()),
+                        ),
+                    });
+
+                    error = true;
+                }
+
+                if error {
+                    return None;
+                }
+
                 if !target_type.can_perform_augmented_assignment(operator, &value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
-                        span: target.span,
+                        span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::InvalidAugmentedAssignmentType(
                                 *operator,

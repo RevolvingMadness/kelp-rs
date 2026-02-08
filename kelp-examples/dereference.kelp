@@ -1,15 +1,33 @@
 mcfn namespace:main {
-    score @s foo = -1
+    score a foo = 5
+
+    let score_ab_foo = score a foo
+
+    tellraw @a score_ab_foo // 5
+
+    *score_ab_foo = 0
+
+    tellraw @a score_ab_foo // 0
+
+    score b foo = 10
+
+    score_ab_foo = score b foo
+
+    tellraw @a score_ab_foo // 10
+
+    *score_ab_foo = 5
+
+    tellraw @a score_ab_foo // 5
+
+    // ----------
+
+    let x = 0 to score
+    let y = &x
+    let z = &y
+
+    tellraw @a x // 0
+
+    **z = 10
     
-    let x = &score @s foo
-
-    tellraw @a x
-    tellraw @a *x
-    tellraw @a score @s foo
-
-    *x = 1
-
-    tellraw @a x
-    tellraw @a *x
-    tellraw @a score @s foo
+    tellraw @a x // 10
 }

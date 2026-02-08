@@ -489,6 +489,8 @@ impl Statement {
                 let expression_result = expression.perform_semantic_analysis(ctx);
                 let statement_result = statement.perform_semantic_analysis(ctx);
 
+                // TODO
+
                 expression_result?;
                 statement_result?;
 

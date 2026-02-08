@@ -1,5 +1,5 @@
-mcfunction namespace:main {
-    let value: data = "Text"
+mcfn namespace:main {
+    let value = "Text" to data
 
     string_for char in value {
         tellraw @a char

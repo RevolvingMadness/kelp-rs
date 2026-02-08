@@ -1,8 +1,11 @@
-mcfunction match:main {
-    tellraw @a 1 == 1
-    tellraw @a 1 != 2
-    tellraw @a 1 > 1
-    tellraw @a 1 >= 1
-    tellraw @a 2 < 1
-    tellraw @a 2 <= 1
+mcfn namespace:main {
+    let one = 1 to score
+    let two = 2 to score
+
+    tellraw @a one == one // 1
+    tellraw @a one != two // 1
+    tellraw @a one > one  // 0
+    tellraw @a one >= one // 1
+    tellraw @a two < one  // 0
+    tellraw @a two <= one // 0
 }

@@ -1,7 +1,7 @@
-mcfunction namespace:main {
-    let a: score = 0
-    let b: score = 0
-    let x: score = 0
+mcfn namespace:main {
+    let a = 0 to score
+    let b = 0 to score
+    let x = 0 to score
 
     while a < 10 {
         while b < 10 {

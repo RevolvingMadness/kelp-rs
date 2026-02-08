@@ -1,6 +1,6 @@
-mcfunction namespace:main {
-    let a: score = 5 // 101
-    let b: score = 3 // 011
+mcfn namespace:main {
+    let a = 5 to score // 101
+    let b = 3 to score // 011
 
     tellraw @a 5 & 3 // 1
     tellraw @a a & b // 1
@@ -9,8 +9,8 @@ mcfunction namespace:main {
     tellraw @a a | b // 7
 
     // Negative tests
-    let c: score = -5
-    let d: score = -3
+    let c = -5 to score
+    let d = -3 to score
     tellraw @a -5 & -3 // -7
     tellraw @a c & d
 

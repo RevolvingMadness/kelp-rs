@@ -5,6 +5,7 @@ use parser_rs::parser_range::ParserRange;
 
 use crate::{
     expression::{ArithmeticOperator, ComparisonOperator, HighSNBTString, LogicalOperator},
+    place::PlaceType,
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::OptionIterExt,
 };
@@ -133,6 +134,14 @@ impl Display for DataType {
 }
 
 impl DataType {
+    pub fn as_place_type(self) -> Option<PlaceType> {
+        Some(match self {
+            DataType::Score => PlaceType::Score,
+            DataType::Data(_) => PlaceType::Data,
+            _ => return None,
+        })
+    }
+
     pub fn try_dereference(self) -> DataType {
         if let DataType::Reference(data_type) = self {
             *data_type
@@ -290,6 +299,7 @@ impl DataType {
         })
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     pub fn can_perform_augmented_assignment(
         &self,
         operator: &ArithmeticOperator,

@@ -100,7 +100,7 @@ impl Display for SemanticAnalysisError {
                 write!(
                     f,
                     "Cannot {}-assign type '{}' to type '{}'",
-                    word, target_type, value_type
+                    word, value_type, target_type
                 )
             }
             Self::CannotCastType { from, to } => {

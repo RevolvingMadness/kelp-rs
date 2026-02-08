@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::compile_context::CompileContext;
 use crate::datapack::HighDatapack;
-use crate::expression::{ArithmeticOperator, ConstantExpression, ConstantExpressionKind};
+use crate::expression::{ArithmeticOperator, ConstantExpressionKind};
 use minecraft_command_types::command::data::DataTarget;
 use minecraft_command_types::command::enums::numeric_snbt_type::NumericSNBTType;
 use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;

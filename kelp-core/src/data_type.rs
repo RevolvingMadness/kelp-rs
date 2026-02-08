@@ -481,67 +481,60 @@ impl HighDataTypeKind {
         match self {
             HighDataTypeKind::Named(_, name, generics) => match name.as_str() {
                 "byte" => {
-                    if generics.is_empty() {
-                        DataType::Byte
-                    } else {
+                    if !generics.is_empty() {
                         unreachable!()
                     }
+
+                    DataType::Byte
                 }
                 "short" => {
-                    if generics.is_empty() {
-                        DataType::Short
-                    } else {
+                    if !generics.is_empty() {
                         unreachable!()
                     }
+
+                    DataType::Short
                 }
-                "integer" => {
+                "integer" | "int" => {
                     if generics.is_empty() {
-                        DataType::Integer
-                    } else {
                         unreachable!()
                     }
+
+                    DataType::Integer
                 }
                 "long" => {
-                    if generics.is_empty() {
-                        DataType::Long
-                    } else {
+                    if !generics.is_empty() {
                         unreachable!()
                     }
+
+                    DataType::Long
                 }
                 "float" => {
-                    if generics.is_empty() {
-                        DataType::Float
-                    } else {
+                    if !generics.is_empty() {
                         unreachable!()
                     }
+
+                    DataType::Float
                 }
                 "double" => {
-                    if generics.is_empty() {
-                        DataType::Double
-                    } else {
+                    if !generics.is_empty() {
                         unreachable!()
                     }
+
+                    DataType::Double
                 }
-                "string" => {
-                    if generics.is_empty() {
-                        DataType::String
-                    } else {
+                "string" | "str" => {
+                    if !generics.is_empty() {
                         unreachable!()
                     }
-                }
-                "unit" => {
-                    if generics.is_empty() {
-                        DataType::Unit
-                    } else {
-                        unreachable!()
-                    }
+
+                    DataType::String
                 }
                 "score" => {
-                    if generics.is_empty() {
-                        DataType::Score
-                    } else {
+                    if !generics.is_empty() {
                         unreachable!()
                     }
+
+                    DataType::Score
                 }
                 "list" => {
                     if generics.is_empty() {
@@ -631,7 +624,7 @@ impl HighDataType {
                         );
                     }
                 }
-                "integer" => {
+                "integer" | "int" => {
                     if !generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
@@ -671,7 +664,7 @@ impl HighDataType {
                         );
                     }
                 }
-                "string" => {
+                "string" | "str" => {
                     if !generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
@@ -682,13 +675,14 @@ impl HighDataType {
                     }
                 }
                 "unit" => {
-                    if !generics.is_empty() {
-                        return ctx.add_invalid_generics(
-                            self.span,
-                            DataTypeKind::Unit,
-                            0,
-                            generics.len(),
-                        );
+                    // TODO "did you mean ()?""
+                    if ctx.get_variable(name).is_none() {
+                        return ctx.add_info(SemanticAnalysisInfo {
+                            span: *span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::UnknownType(name.clone()),
+                            ),
+                        });
                     }
                 }
                 "score" => {

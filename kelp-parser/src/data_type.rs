@@ -6,7 +6,7 @@ use kelp_core::{
 };
 use minecraft_command_types::snbt::SNBTString;
 use parser_rs::{
-    combinators::{char, choice::choice},
+    combinators::{char, choice::choice, literal},
     fn_parser::FnParser,
     parser_range::ParserRange,
     semantic_token::SemanticTokenKind,
@@ -65,6 +65,21 @@ pub fn parse_data_type(input: &mut Stream) -> Option<HighDataType> {
                     end: input.position,
                 },
                 kind: HighDataTypeKind::Reference(Box::new(inner)),
+            })
+        },
+        |input: &mut Stream| {
+            let start = input.position;
+
+            char('(').parse(input)?;
+            whitespace(input)?;
+            char(')').parse(input)?;
+
+            Some(HighDataType {
+                span: ParserRange {
+                    start,
+                    end: input.position,
+                },
+                kind: HighDataTypeKind::Unit,
             })
         },
         parse_typed_compound,

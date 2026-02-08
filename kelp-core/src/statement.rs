@@ -410,23 +410,29 @@ impl Statement {
             StatementKind::MCFunction(_, statement) => statement.perform_semantic_analysis(ctx),
             StatementKind::Expression(expression) => expression.perform_semantic_analysis(ctx),
             StatementKind::VariableDeclaration(data_type, name, value) => {
-                let mut error = value.perform_semantic_analysis(ctx).is_none();
+                let value_error = value.perform_semantic_analysis(ctx).is_none();
 
-                if let Some(data_type) = data_type {
-                    error |= data_type.perform_semantic_analysis(ctx).is_none();
-                }
+                let resolved_data_type = if let Some(data_type) = data_type {
+                    if data_type.perform_semantic_analysis(ctx).is_some() {
+                        Some(data_type.kind.resolve())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
 
-                if error {
+                if value_error || resolved_data_type.is_none() {
                     ctx.declare_variable_unknown::<()>(name);
 
                     return None;
+                } else if let Some(data_type) = &resolved_data_type {
+                    ctx.declare_variable_known(name, data_type.clone());
                 }
 
                 let value_type = value.kind.infer_data_type(ctx)?;
 
-                let final_type = if let Some(data_type) = data_type {
-                    let data_type = data_type.kind.resolve();
-
+                let final_type = if let Some(data_type) = resolved_data_type {
                     if !data_type.equals(&value_type) {
                         return ctx.add_info(SemanticAnalysisInfo {
                             span: value.span,

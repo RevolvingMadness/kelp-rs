@@ -39,6 +39,7 @@ pub enum SemanticAnalysisError {
         from: DataType,
         to: DataType,
     },
+    UnknownType(String),
     TypeIsNotCondition(DataType),
     CannotBeAssignedToScore(DataType),
     CannotBeAssignedToData(DataType),
@@ -83,6 +84,9 @@ impl Display for SemanticAnalysisError {
             } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
             Self::MismatchedTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)
+            }
+            Self::UnknownType(name) => {
+                write!(f, "Unknown type '{}'", name)
             }
             Self::CannotIterateType(data_type) => {
                 write!(f, "Cannot iterate over type '{}'", data_type)

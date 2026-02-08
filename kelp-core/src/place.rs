@@ -209,16 +209,22 @@ impl PlaceType {
         match self {
             PlaceType::Score => {
                 if !value_type.can_be_assigned_to_score() {
-                    // TODO
-
-                    return None;
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value_span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeAssignedToScore(value_type),
+                        ),
+                    });
                 }
             }
             PlaceType::Data => {
                 if !value_type.can_be_assigned_to_data() {
-                    // TODO
-
-                    return None;
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value_span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeAssignedToData(value_type),
+                        ),
+                    });
                 }
             }
             PlaceType::Variable(data_type) => {

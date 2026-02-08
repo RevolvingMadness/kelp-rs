@@ -1136,7 +1136,9 @@ impl ConstantExpressionKind {
             }
             ConstantExpressionKind::Tuple(_) => unreachable!(),
             ConstantExpressionKind::Unit => unreachable!(),
-            ConstantExpressionKind::Reference(_) => unreachable!(),
+            ConstantExpressionKind::Reference(expression) => {
+                expression.kind.assign_to_score(datapack, ctx, target)
+            }
             ConstantExpressionKind::Dereference(_) => unreachable!(),
             ConstantExpressionKind::Variable(name) => datapack
                 .get_variable(name)
@@ -1247,6 +1249,9 @@ impl ConstantExpressionKind {
                         DataCommandModification::Value(SNBT::Compound(unit_btreemap)),
                     )),
                 );
+            }
+            ConstantExpressionKind::Reference(expression) => {
+                expression.kind.assign_to_data(datapack, ctx, target, path)
             }
             _ => unreachable!(),
         }

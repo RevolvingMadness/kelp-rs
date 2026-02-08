@@ -6,7 +6,10 @@ use parser_rs::parser_range::ParserRange;
 use crate::{
     expression::{ArithmeticOperator, ComparisonOperator, HighSNBTString, LogicalOperator},
     place::PlaceType,
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis_context::{
+        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
+        SemanticAnalysisInfoKind,
+    },
     trait_ext::OptionIterExt,
 };
 
@@ -140,6 +143,7 @@ impl DataType {
             DataType::Data(data_type) => return data_type.get_iterable_type(),
             DataType::String => DataType::String,
             DataType::Any => DataType::Any,
+            DataType::Reference(expression) => return expression.get_iterable_type(),
             _ => return None,
         })
     }
@@ -225,7 +229,7 @@ impl DataType {
             | DataType::Integer
             | DataType::Score
             | DataType::Any => true,
-            DataType::Data(data_type) => data_type.is_score_like(),
+            DataType::Data(data_type) | DataType::Reference(data_type) => data_type.is_score_like(),
             _ => false,
         }
     }
@@ -238,8 +242,7 @@ impl DataType {
     }
 
     pub fn can_be_assigned_to_data(&self) -> bool {
-        matches!(
-            self,
+        match self {
             DataType::Boolean
                 | DataType::Byte
                 | DataType::Short
@@ -255,9 +258,10 @@ impl DataType {
                 | DataType::TypedCompound(_)
                 | DataType::Compound(_)
                 // TODO DataType::Custom?
-                | DataType::Data(_)
-                | DataType::Tuple(_)
-        )
+                | DataType::Tuple(_) => true,
+                DataType::Data(data_type) | DataType::Reference(data_type) => data_type.can_be_assigned_to_data(),
+                _ => false,
+        }
     }
 
     pub fn can_be_indexed(&self) -> bool {
@@ -466,7 +470,7 @@ impl DataType {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum HighDataTypeKind {
-    Named(String, Vec<HighDataType>),
+    Named(ParserRange, String, Vec<HighDataType>),
     TypedCompound(BTreeMap<HighSNBTString, HighDataType>),
     Reference(Box<HighDataType>),
     Unit,
@@ -475,7 +479,7 @@ pub enum HighDataTypeKind {
 impl HighDataTypeKind {
     pub fn resolve(&self) -> DataType {
         match self {
-            HighDataTypeKind::Named(name, generics) => match name.as_str() {
+            HighDataTypeKind::Named(_, name, generics) => match name.as_str() {
                 "byte" => {
                     if generics.is_empty() {
                         DataType::Byte
@@ -606,7 +610,7 @@ impl_has_macro_false!(HighDataType);
 impl HighDataType {
     pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
         match &self.kind {
-            HighDataTypeKind::Named(name, generics) => match name.as_str() {
+            HighDataTypeKind::Named(span, name, generics) => match name.as_str() {
                 "byte" => {
                     if !generics.is_empty() {
                         return ctx.add_invalid_generics(
@@ -705,6 +709,8 @@ impl HighDataType {
                             1,
                             generics.len(),
                         );
+                    } else if let Some(first) = generics.first() {
+                        return first.perform_semantic_analysis(ctx);
                     }
                 }
                 "compound" => {
@@ -715,6 +721,8 @@ impl HighDataType {
                             1,
                             generics.len(),
                         );
+                    } else if let Some(first) = generics.first() {
+                        return first.perform_semantic_analysis(ctx);
                     }
                 }
                 "data" => {
@@ -725,6 +733,8 @@ impl HighDataType {
                             1,
                             generics.len(),
                         );
+                    } else if let Some(first) = generics.first() {
+                        return first.perform_semantic_analysis(ctx);
                     }
                 }
                 "any" => {
@@ -737,7 +747,16 @@ impl HighDataType {
                         );
                     }
                 }
-                _ => (),
+                _ => {
+                    if ctx.get_variable(name).is_none() {
+                        return ctx.add_info(SemanticAnalysisInfo {
+                            span: *span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::UnknownType(name.clone()),
+                            ),
+                        });
+                    }
+                }
             },
             HighDataTypeKind::Unit => (),
             HighDataTypeKind::Reference(data_type) => {

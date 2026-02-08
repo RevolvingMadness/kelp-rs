@@ -29,6 +29,7 @@ pub enum SemanticAnalysisError {
         operator: LogicalOperator,
         right: DataType,
     },
+    CannotIterateType(DataType),
     MismatchedTypes {
         expected: DataType,
         actual: DataType,
@@ -82,6 +83,9 @@ impl Display for SemanticAnalysisError {
             } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
             Self::MismatchedTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)
+            }
+            Self::CannotIterateType(data_type) => {
+                write!(f, "Cannot iterate over type '{}'", data_type)
             }
             Self::InvalidAugmentedAssignmentType(operator, target_type, value_type) => {
                 let word = match operator {

@@ -134,6 +134,16 @@ impl Display for DataType {
 }
 
 impl DataType {
+    pub fn get_iterable_type(&self) -> Option<DataType> {
+        Some(match self {
+            DataType::List(data_type) => *data_type.clone(),
+            DataType::Data(data_type) => return data_type.get_iterable_type(),
+            DataType::String => DataType::String,
+            DataType::Any => DataType::Any,
+            _ => return None,
+        })
+    }
+
     pub fn as_place_type(self) -> Option<PlaceType> {
         Some(match self {
             DataType::Score => PlaceType::Score,

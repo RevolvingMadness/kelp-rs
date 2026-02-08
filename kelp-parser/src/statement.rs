@@ -50,11 +50,9 @@ pub fn while_statement(input: &mut Stream) -> Option<StatementKind> {
 }
 
 pub fn for_in_statement(input: &mut Stream) -> Option<StatementKind> {
-    let (is_reversed, is_string) = choice((
-        literal("reverse_string_for").map_to((true, true)),
-        literal("reverse_for").map_to((true, false)),
-        literal("string_for").map_to((false, true)),
-        literal("for").map_to((false, false)),
+    let is_reversed = choice((
+        literal("reverse_for").map_to(true),
+        literal("for").map_to(false),
     ))
     .syntax(SemanticTokenKind::Keyword)
     .parse(input)?;
@@ -74,7 +72,6 @@ pub fn for_in_statement(input: &mut Stream) -> Option<StatementKind> {
 
     Some(StatementKind::ForIn(
         is_reversed,
-        is_string,
         item.to_string(),
         target,
         Box::new(Statement {

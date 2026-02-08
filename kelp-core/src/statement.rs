@@ -28,7 +28,7 @@ pub enum StatementKind {
     While(Expression, Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
-    ForIn(bool, bool, String, Expression, Box<Statement>),
+    ForIn(bool, String, Expression, Box<Statement>),
     Block(Vec<Statement>),
     AppendData(Expression, Box<Expression>),
     RemoveData(Expression),
@@ -139,10 +139,17 @@ impl StatementKind {
 
                 datapack.compile_and_add_to_function(&while_function_paths, &mut while_body_ctx);
             }
-            StatementKind::ForIn(is_reversed, is_string, variable_name, collection, body) => {
-                if is_string {
-                    let collection = collection.resolve(datapack, ctx);
+            StatementKind::ForIn(is_reversed, variable_name, collection, body) => {
+                let collection_data_type = collection
+                    .kind
+                    .infer_data_type(datapack)
+                    .unwrap_or(DataType::Any)
+                    .get_iterable_type()
+                    .unwrap_or(DataType::Any);
 
+                let collection = collection.resolve(datapack, ctx);
+
+                if collection_data_type.equals(&DataType::String) {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
                     let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
 
@@ -210,7 +217,7 @@ impl StatementKind {
                     condition_ctx.add_command(
                         datapack,
                         Command::Execute(ExecuteSubcommand::If(
-                            is_string,
+                            true,
                             ExecuteIfSubcommand::Data(
                                 unique_data_target,
                                 unique_path,
@@ -232,8 +239,6 @@ impl StatementKind {
 
                     datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
                 } else {
-                    let collection = collection.resolve(datapack, ctx);
-
                     let (unique_data_target, unique_path) = datapack.get_unique_data();
 
                     collection.kind.assign_to_data(
@@ -443,9 +448,9 @@ impl Statement {
 
                 expression_result?;
 
-                if let Some(expression_type) = expression.kind.infer_data_type(ctx)
-                    && !expression_type.is_condition()
-                {
+                let expression_type = expression.kind.infer_data_type(ctx)?;
+
+                if !expression_type.is_condition() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: expression.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -469,9 +474,9 @@ impl Statement {
 
                 expression_result?;
 
-                if let Some(expression_type) = expression.kind.infer_data_type(ctx)
-                    && !expression_type.is_condition()
-                {
+                let expression_type = expression.kind.infer_data_type(ctx)?;
+
+                if !expression_type.is_condition() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: expression.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -485,11 +490,23 @@ impl Statement {
 
                 Some(())
             }
-            StatementKind::ForIn(_, _, _, expression, statement) => {
+            StatementKind::ForIn(_, name, expression, statement) => {
                 let expression_result = expression.perform_semantic_analysis(ctx);
-                let statement_result = statement.perform_semantic_analysis(ctx);
 
-                // TODO
+                let expression_type = expression.kind.infer_data_type(ctx)?;
+
+                let Some(iterable_type) = expression_type.get_iterable_type() else {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: expression.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotIterateType(expression_type),
+                        ),
+                    });
+                };
+
+                ctx.declare_variable_known(name, iterable_type);
+
+                let statement_result = statement.perform_semantic_analysis(ctx);
 
                 expression_result?;
                 statement_result?;

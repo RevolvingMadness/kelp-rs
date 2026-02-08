@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::compile_context::CompileContext;
 use crate::datapack::HighDatapack;
-use crate::expression::ArithmeticOperator;
+use crate::expression::{ArithmeticOperator, ConstantExpression, ConstantExpressionKind};
 use minecraft_command_types::command::data::DataTarget;
 use minecraft_command_types::command::enums::numeric_snbt_type::NumericSNBTType;
 use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;
@@ -360,6 +360,14 @@ pub trait PlayerScoreExt {
         target: DataTarget,
         path: NbtPath,
     );
+
+    fn assign_augmented(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
+        value: ConstantExpressionKind,
+    );
 }
 
 impl PlayerScoreExt for PlayerScore {
@@ -491,5 +499,150 @@ impl PlayerScoreExt for PlayerScore {
                 ),
             )),
         );
+    }
+
+    fn assign_augmented(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
+        value: ConstantExpressionKind,
+    ) {
+        match operator {
+            ArithmeticOperator::Add => {
+                if let Some(constant) = value.try_as_i32(true) {
+                    ctx.add_command(
+                        datapack,
+                        Command::Scoreboard(ScoreboardCommand::Players(
+                            PlayersScoreboardCommand::Add(self, constant),
+                        )),
+                    );
+                } else {
+                    let right_score = value.as_score(datapack, ctx, true);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Scoreboard(ScoreboardCommand::Players(
+                            PlayersScoreboardCommand::Operation(
+                                self,
+                                ScoreOperationOperator::Add,
+                                right_score,
+                            ),
+                        )),
+                    );
+                }
+            }
+            ArithmeticOperator::Subtract => {
+                if let Some(constant) = value.try_as_i32(true) {
+                    ctx.add_command(
+                        datapack,
+                        Command::Scoreboard(ScoreboardCommand::Players(
+                            PlayersScoreboardCommand::Remove(self, constant),
+                        )),
+                    );
+                } else {
+                    let right_score = value.as_score(datapack, ctx, true);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Scoreboard(ScoreboardCommand::Players(
+                            PlayersScoreboardCommand::Operation(
+                                self,
+                                ScoreOperationOperator::Subtract,
+                                right_score,
+                            ),
+                        )),
+                    );
+                }
+            }
+            ArithmeticOperator::Multiply => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            self,
+                            ScoreOperationOperator::Multiply,
+                            right_score,
+                        ),
+                    )),
+                );
+            }
+            ArithmeticOperator::FloorDivide => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            self,
+                            ScoreOperationOperator::Divide,
+                            right_score,
+                        ),
+                    )),
+                );
+            }
+            ArithmeticOperator::Modulo => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            self,
+                            ScoreOperationOperator::Modulo,
+                            right_score,
+                        ),
+                    )),
+                );
+            }
+            ArithmeticOperator::And => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                compile_bitwise_and_score(datapack, ctx, &self, &right_score);
+            }
+            ArithmeticOperator::Or => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                compile_bitwise_or_score(datapack, ctx, &self, &right_score);
+            }
+            ArithmeticOperator::LeftShift => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                compile_shift_operation_score(
+                    datapack,
+                    ctx,
+                    &self,
+                    &right_score,
+                    ScoreOperationOperator::Multiply,
+                );
+            }
+            ArithmeticOperator::RightShift => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                compile_shift_operation_score(
+                    datapack,
+                    ctx,
+                    &self,
+                    &right_score,
+                    ScoreOperationOperator::Divide,
+                );
+            }
+            ArithmeticOperator::Swap => {
+                let right_score = value.as_score(datapack, ctx, true);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            self,
+                            ScoreOperationOperator::Swap,
+                            right_score,
+                        ),
+                    )),
+                );
+            }
+        }
     }
 }

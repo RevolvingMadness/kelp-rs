@@ -33,6 +33,7 @@ pub enum SemanticAnalysisError {
         expected: DataType,
         actual: DataType,
     },
+    InvalidAugmentedAssignmentType(ArithmeticOperator, DataType, DataType),
     CannotCastType {
         from: DataType,
         to: DataType,
@@ -81,6 +82,26 @@ impl Display for SemanticAnalysisError {
             } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
             Self::MismatchedTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)
+            }
+            Self::InvalidAugmentedAssignmentType(operator, target_type, value_type) => {
+                let word = match operator {
+                    ArithmeticOperator::Add => "add",
+                    ArithmeticOperator::Subtract => "subtract",
+                    ArithmeticOperator::Multiply => "multiply",
+                    ArithmeticOperator::FloorDivide => "divide",
+                    ArithmeticOperator::Modulo => "modulo",
+                    ArithmeticOperator::And => "and",
+                    ArithmeticOperator::Or => "or",
+                    ArithmeticOperator::LeftShift => "left-shift",
+                    ArithmeticOperator::RightShift => "right-shift",
+                    ArithmeticOperator::Swap => "swap",
+                };
+
+                write!(
+                    f,
+                    "Cannot {}-assign type '{}' to type '{}'",
+                    word, target_type, value_type
+                )
             }
             Self::CannotCastType { from, to } => {
                 write!(f, "Cannot cast type '{}' to '{}'", from, to)

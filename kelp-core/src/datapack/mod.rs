@@ -402,9 +402,19 @@ impl HighDatapack {
     }
 
     pub fn get_variable(&self, name: &str) -> Option<(DataType, ConstantExpression)> {
-        for scope in &self.scopes {
+        for scope in self.scopes.iter() {
             if let Some(value) = scope.get(name) {
                 return Some(value.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut ConstantExpression> {
+        for scope in self.scopes.iter_mut() {
+            if let Some((_, value)) = scope.get_mut(name) {
+                return Some(value);
             }
         }
 
@@ -443,16 +453,6 @@ impl HighDatapack {
         }
 
         panic!("Variable '{}' has not been declared", name);
-    }
-
-    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut (DataType, ConstantExpression)> {
-        for scope in &mut self.scopes {
-            if let Some(value) = scope.get_mut(name) {
-                return Some(value);
-            }
-        }
-
-        None
     }
 
     pub fn new_get_variable_score(&self, name: &str) -> Option<PlayerScore> {

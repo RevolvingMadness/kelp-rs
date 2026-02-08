@@ -16,3 +16,15 @@ where
         (!failed).then_some(())
     }
 }
+
+pub trait OptionExt {
+    fn panic_if_some(&self);
+}
+
+impl<T> OptionExt for Option<T> {
+    fn panic_if_some(&self) {
+        if self.is_some() {
+            panic!("Option<T> must be None");
+        }
+    }
+}

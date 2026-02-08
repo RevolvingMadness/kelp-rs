@@ -201,11 +201,9 @@ impl DataType {
 
     pub fn is_score_like(&self) -> bool {
         match self {
-            DataType::Boolean
-            | DataType::Byte
+            DataType::Byte
             | DataType::Short
             | DataType::Integer
-            | DataType::Long
             | DataType::Score
             | DataType::Any => true,
             DataType::Data(data_type) => data_type.is_score_like(),
@@ -214,7 +212,10 @@ impl DataType {
     }
 
     pub fn can_be_assigned_to_score(&self) -> bool {
-        self.is_score_like()
+        match self {
+            DataType::Boolean => true,
+            _ => self.is_score_like(),
+        }
     }
 
     pub fn can_be_assigned_to_data(&self) -> bool {
@@ -289,7 +290,31 @@ impl DataType {
         })
     }
 
-    pub fn can_perform_comparison(&self, _operator: &ComparisonOperator, other: &DataType) -> bool {
+    pub fn can_perform_augmented_assignment(
+        &self,
+        operator: &ArithmeticOperator,
+        other: &DataType,
+    ) -> bool {
+        match (self, other) {
+            (DataType::Any, _) | (_, DataType::Any) => true,
+            (DataType::Byte, DataType::Byte) => true,
+            (DataType::Short, DataType::Short) => true,
+            (DataType::Integer, DataType::Integer) => true,
+            (DataType::Long, DataType::Long) => true,
+            (DataType::Data(inner), other) => {
+                inner.can_perform_augmented_assignment(operator, other)
+            }
+            (DataType::Score, other) if other.is_score_like() => true,
+            (self_, DataType::Score) if self_.is_score_like() => true,
+            _ => false,
+        }
+    }
+
+    pub fn can_perform_comparison(&self, operator: &ComparisonOperator, other: &DataType) -> bool {
+        if *operator == ComparisonOperator::EqualTo || *operator == ComparisonOperator::NotEqualTo {
+            return self.equals(other);
+        }
+
         match (self, other) {
             (DataType::Any, _) | (_, DataType::Any) => true,
             (DataType::Byte, DataType::Byte) => true,
@@ -394,11 +419,11 @@ impl DataType {
                         .all(|(s, o)| s.equals(o))
             }
             (Self::TypedCompound(self_compound), Self::TypedCompound(other_compound)) => {
-                self_compound.len() == other_compound.len()
-                    && self_compound
-                        .values()
-                        .zip(other_compound.values())
-                        .all(|(self_type, other_type)| self_type.equals(other_type))
+                other_compound.iter().all(|(key, other_type)| {
+                    self_compound
+                        .get(key)
+                        .is_some_and(|self_type| self_type.equals(other_type))
+                })
             }
             (Self::Compound(self_type), Self::Compound(other_type)) => self_type.equals(other_type),
             (Self::Data(self_data), Self::Data(other_data)) => self_data.equals(other_data),

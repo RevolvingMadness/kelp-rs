@@ -102,7 +102,7 @@ impl StatementKind {
                     .map(|data_type| data_type.kind.resolve())
                     .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
 
-                let value = value.resolve(datapack, ctx);
+                let value = value.resolve_force(datapack, ctx);
 
                 datapack.declare_variable(&name, data_type, value);
             }
@@ -317,10 +317,7 @@ impl StatementKind {
 
                 println!("{:?} {:?}", min, max);
 
-                let _score = value
-                    .resolve(datapack, ctx)
-                    .kind
-                    .as_score(datapack, ctx, false);
+                let _score = todo!();
 
                 let num_cases = cases.len();
 

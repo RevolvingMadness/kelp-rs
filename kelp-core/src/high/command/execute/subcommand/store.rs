@@ -69,12 +69,12 @@ impl HighExecuteStoreSubcommand {
         }
     }
 
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighExecuteStoreSubcommand::Data(target, path, _, _, next) => {
-                let target = target.kind.perform_semantic_analysis(ctx);
-                let path = path.perform_semantic_analysis(ctx);
-                let next = next.perform_semantic_analysis(ctx);
+                let target = target.kind.perform_semantic_analysis(ctx, is_lhs);
+                let path = path.perform_semantic_analysis(ctx, is_lhs);
+                let next = next.perform_semantic_analysis(ctx, is_lhs);
 
                 target?;
                 path?;
@@ -82,10 +82,10 @@ impl HighExecuteStoreSubcommand {
 
                 Some(())
             }
-            HighExecuteStoreSubcommand::Bossbar(_, _, next) => next.perform_semantic_analysis(ctx),
+            HighExecuteStoreSubcommand::Bossbar(_, _, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteStoreSubcommand::Score(score, next) => {
-                let score = score.perform_semantic_analysis(ctx);
-                let next = next.perform_semantic_analysis(ctx);
+                let score = score.perform_semantic_analysis(ctx, is_lhs);
+                let next = next.perform_semantic_analysis(ctx, is_lhs);
 
                 score?;
                 next?;

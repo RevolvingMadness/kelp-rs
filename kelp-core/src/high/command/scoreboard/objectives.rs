@@ -19,15 +19,15 @@ pub enum HighScoreboardModification {
 }
 
 impl HighScoreboardModification {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighScoreboardModification::DisplayAutoUpdate(_) => Some(()),
             HighScoreboardModification::DisplayName(expression) => {
-                expression.perform_semantic_analysis(ctx)
+                expression.perform_semantic_analysis(ctx, is_lhs)
             }
             HighScoreboardModification::NumberFormat(number_format) => number_format
                 .as_ref()
-                .map(|number_format| number_format.perform_semantic_analysis(ctx))
+                .map(|number_format| number_format.perform_semantic_analysis(ctx, is_lhs))
                 .unwrap_or(Some(())),
             HighScoreboardModification::RenderType(_) => Some(()),
         }
@@ -69,17 +69,17 @@ pub enum HighObjectivesScoreboardCommand {
 }
 
 impl HighObjectivesScoreboardCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
-            HighObjectivesScoreboardCommand::List => todo!(),
+            HighObjectivesScoreboardCommand::List => Some(()),
             HighObjectivesScoreboardCommand::Add(_, _, expression) => expression
                 .as_ref()
-                .map(|expression| expression.perform_semantic_analysis(ctx))
+                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
                 .unwrap_or(Some(())),
             HighObjectivesScoreboardCommand::Remove(_) => Some(()),
             HighObjectivesScoreboardCommand::SetDisplay(_, _) => Some(()),
             HighObjectivesScoreboardCommand::Modify(_, modification) => {
-                modification.perform_semantic_analysis(ctx)
+                modification.perform_semantic_analysis(ctx, is_lhs)
             }
         }
     }

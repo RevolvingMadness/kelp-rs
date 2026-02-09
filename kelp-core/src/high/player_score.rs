@@ -22,8 +22,8 @@ impl HighPlayerScore {
         }
     }
 
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
-        self.selector.perform_semantic_analysis(ctx)
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+        self.selector.perform_semantic_analysis(ctx, is_lhs)
     }
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> PlayerScore {

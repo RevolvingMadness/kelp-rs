@@ -127,13 +127,13 @@ impl HighExecuteSubcommand {
         }
     }
 
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
-            HighExecuteSubcommand::Align(_, next) => next.perform_semantic_analysis(ctx),
-            HighExecuteSubcommand::Anchored(_, next) => next.perform_semantic_analysis(ctx),
+            HighExecuteSubcommand::Align(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::Anchored(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::As(selector, next) => {
-                let selector_result = selector.perform_semantic_analysis(ctx);
-                let next_result = next.perform_semantic_analysis(ctx);
+                let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
+                let next_result = next.perform_semantic_analysis(ctx, is_lhs);
 
                 selector_result?;
                 next_result?;
@@ -141,33 +141,33 @@ impl HighExecuteSubcommand {
                 Some(())
             }
             HighExecuteSubcommand::At(selector, next) => {
-                let selector_result = selector.perform_semantic_analysis(ctx);
-                let next_result = next.perform_semantic_analysis(ctx);
+                let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
+                let next_result = next.perform_semantic_analysis(ctx, is_lhs);
 
                 selector_result?;
                 next_result?;
 
                 Some(())
             }
-            HighExecuteSubcommand::Facing(_, next) => next.perform_semantic_analysis(ctx),
-            HighExecuteSubcommand::In(_, next) => next.perform_semantic_analysis(ctx),
-            HighExecuteSubcommand::On(_, next) => next.perform_semantic_analysis(ctx),
-            HighExecuteSubcommand::Positioned(_, next) => next.perform_semantic_analysis(ctx),
-            HighExecuteSubcommand::Rotated(_, next) => next.perform_semantic_analysis(ctx),
-            HighExecuteSubcommand::Summon(_, next) => next.perform_semantic_analysis(ctx),
+            HighExecuteSubcommand::Facing(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::In(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::On(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::Positioned(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::Rotated(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::Summon(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::If(_, if_subcommand) => {
-                if_subcommand.perform_semantic_analysis(ctx)
+                if_subcommand.perform_semantic_analysis(ctx, is_lhs)
             }
             HighExecuteSubcommand::Store(_, store_subcommand) => {
-                store_subcommand.perform_semantic_analysis(ctx)
+                store_subcommand.perform_semantic_analysis(ctx, is_lhs)
             }
             HighExecuteSubcommand::Run(commands) => commands
                 .iter()
-                .map(|command| command.perform_semantic_analysis(ctx))
+                .map(|command| command.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
             HighExecuteSubcommand::Multiple(subcommands) => subcommands
                 .iter()
-                .map(|subcommand| subcommand.perform_semantic_analysis(ctx))
+                .map(|subcommand| subcommand.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
         }
     }

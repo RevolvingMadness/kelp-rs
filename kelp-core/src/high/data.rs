@@ -16,9 +16,13 @@ pub enum HighDataTargetKind {
 }
 
 impl HighDataTargetKind {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
-            HighDataTargetKind::Entity(selector) => selector.perform_semantic_analysis(ctx),
+            HighDataTargetKind::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
             _ => Some(()),
         }
     }

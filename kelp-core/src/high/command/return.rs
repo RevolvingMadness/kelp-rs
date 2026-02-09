@@ -10,10 +10,10 @@ pub enum HighReturnCommand {
 }
 
 impl HighReturnCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighReturnCommand::Value(_) | HighReturnCommand::Fail => Some(()),
-            HighReturnCommand::Run(command) => command.perform_semantic_analysis(ctx),
+            HighReturnCommand::Run(command) => command.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 }

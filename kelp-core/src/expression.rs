@@ -26,7 +26,7 @@ use parser_rs::parser_range::ParserRange;
 use crate::{
     command::PlayerScoreExt,
     compile_context::CompileContext,
-    data_type::{DataType, HighDataType},
+    data_type::{DataTypeKind, high::HighDataType},
     datapack::HighDatapack,
     high::{
         command::{HighCommand, execute::subcommand::r#if::HighExecuteIfSubcommand},
@@ -34,6 +34,7 @@ use crate::{
         nbt_path::HighNbtPath,
         player_score::HighPlayerScore,
     },
+    pattern_type::PatternType,
     place::{Place, PlaceType},
     runtime_storage_type::RuntimeStorageType,
     semantic_analysis_context::{
@@ -161,8 +162,19 @@ pub enum UnaryOperator {
 pub type ExpressionCompoundKind = BTreeMap<HighSNBTString, Expression>;
 pub type ConstantExpressionCompoundKind = BTreeMap<HighSNBTString, ConstantExpression>;
 
+fn push_scoreboard_players(
+    datapack: &mut HighDatapack,
+    ctx: &mut CompileContext,
+    command: PlayersScoreboardCommand,
+) {
+    ctx.add_command(
+        datapack,
+        Command::Scoreboard(ScoreboardCommand::Players(command)),
+    );
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum ConstantExpressionKind {
+pub enum LiteralExpressionKind {
     Boolean(bool),
     Byte(i8),
     Short(i16),
@@ -171,6 +183,502 @@ pub enum ConstantExpressionKind {
     Float(NotNan<f32>),
     Double(NotNan<f64>),
     String(HighSNBTString),
+}
+
+impl LiteralExpressionKind {
+    pub fn get_pattern_type(&self) -> PatternType {
+        match self {
+            LiteralExpressionKind::Boolean(_) => PatternType::Boolean,
+            LiteralExpressionKind::Byte(_) => PatternType::Byte,
+            LiteralExpressionKind::Short(_) => PatternType::Short,
+            LiteralExpressionKind::Integer(_) => PatternType::Integer,
+            LiteralExpressionKind::Long(_) => PatternType::Long,
+            LiteralExpressionKind::Float(_) => PatternType::Float,
+            LiteralExpressionKind::Double(_) => PatternType::Double,
+            LiteralExpressionKind::String(_) => PatternType::String,
+        }
+    }
+
+    fn get_data_type(&self) -> DataTypeKind {
+        match self {
+            LiteralExpressionKind::Boolean(_) => DataTypeKind::Boolean,
+            LiteralExpressionKind::Byte(_) => DataTypeKind::Byte,
+            LiteralExpressionKind::Short(_) => DataTypeKind::Short,
+            LiteralExpressionKind::Integer(_) => DataTypeKind::Integer,
+            LiteralExpressionKind::Long(_) => DataTypeKind::Long,
+            LiteralExpressionKind::Float(_) => DataTypeKind::Float,
+            LiteralExpressionKind::Double(_) => DataTypeKind::Double,
+            LiteralExpressionKind::String(_) => DataTypeKind::String,
+        }
+    }
+
+    pub fn try_as_i32(&self, force: bool) -> Option<i32> {
+        Some(match self {
+            LiteralExpressionKind::Byte(v) => *v as i32,
+            LiteralExpressionKind::Short(v) => *v as i32,
+            LiteralExpressionKind::Integer(v) => *v,
+            LiteralExpressionKind::Long(v) => *v as i32,
+            LiteralExpressionKind::Float(v) if force => v.into_inner() as i32,
+            LiteralExpressionKind::Double(v) if force => v.into_inner() as i32,
+            LiteralExpressionKind::String(HighSNBTString {
+                snbt_string: SNBTString(_, v),
+                ..
+            }) if force => v.len() as i32,
+            _ => return None,
+        })
+    }
+
+    pub fn invert(self) -> Option<LiteralExpressionKind> {
+        Some(match self {
+            LiteralExpressionKind::Boolean(value) => LiteralExpressionKind::Boolean(!value),
+            _ => return None,
+        })
+    }
+
+    fn compare(
+        self,
+        operator: ComparisonOperator,
+        other: LiteralExpressionKind,
+    ) -> Option<LiteralExpressionKind> {
+        Some(match (self, other) {
+            (LiteralExpressionKind::Byte(left), LiteralExpressionKind::Byte(right)) => {
+                LiteralExpressionKind::Boolean(match operator {
+                    ComparisonOperator::LessThan => left < right,
+                    ComparisonOperator::LessThanOrEqualTo => left <= right,
+                    ComparisonOperator::GreaterThan => left > right,
+                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                    ComparisonOperator::EqualTo => left == right,
+                    ComparisonOperator::NotEqualTo => left != right,
+                })
+            }
+            (LiteralExpressionKind::Short(left), LiteralExpressionKind::Short(right)) => {
+                LiteralExpressionKind::Boolean(match operator {
+                    ComparisonOperator::LessThan => left < right,
+                    ComparisonOperator::LessThanOrEqualTo => left <= right,
+                    ComparisonOperator::GreaterThan => left > right,
+                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                    ComparisonOperator::EqualTo => left == right,
+                    ComparisonOperator::NotEqualTo => left != right,
+                })
+            }
+            (LiteralExpressionKind::Integer(left), LiteralExpressionKind::Integer(right)) => {
+                LiteralExpressionKind::Boolean(match operator {
+                    ComparisonOperator::LessThan => left < right,
+                    ComparisonOperator::LessThanOrEqualTo => left <= right,
+                    ComparisonOperator::GreaterThan => left > right,
+                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                    ComparisonOperator::EqualTo => left == right,
+                    ComparisonOperator::NotEqualTo => left != right,
+                })
+            }
+            (LiteralExpressionKind::Long(left), LiteralExpressionKind::Long(right)) => {
+                LiteralExpressionKind::Boolean(match operator {
+                    ComparisonOperator::LessThan => left < right,
+                    ComparisonOperator::LessThanOrEqualTo => left <= right,
+                    ComparisonOperator::GreaterThan => left > right,
+                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                    ComparisonOperator::EqualTo => left == right,
+                    ComparisonOperator::NotEqualTo => left != right,
+                })
+            }
+            (LiteralExpressionKind::Float(left), LiteralExpressionKind::Float(right)) => {
+                LiteralExpressionKind::Boolean(match operator {
+                    ComparisonOperator::LessThan => left < right,
+                    ComparisonOperator::LessThanOrEqualTo => left <= right,
+                    ComparisonOperator::GreaterThan => left > right,
+                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                    ComparisonOperator::EqualTo => left == right,
+                    ComparisonOperator::NotEqualTo => left != right,
+                })
+            }
+            (LiteralExpressionKind::Double(left), LiteralExpressionKind::Double(right)) => {
+                LiteralExpressionKind::Boolean(match operator {
+                    ComparisonOperator::LessThan => left < right,
+                    ComparisonOperator::LessThanOrEqualTo => left <= right,
+                    ComparisonOperator::GreaterThan => left > right,
+                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                    ComparisonOperator::EqualTo => left == right,
+                    ComparisonOperator::NotEqualTo => left != right,
+                })
+            }
+            _ => return None,
+        })
+    }
+
+    fn to_execute_condition(
+        &self,
+        datapack: &mut HighDatapack,
+    ) -> Option<(bool, ExecuteIfSubcommand)> {
+        Some(match self {
+            LiteralExpressionKind::Boolean(value) => (
+                false,
+                ExecuteIfSubcommand::Score(
+                    datapack.get_constant_score(1),
+                    ScoreComparison::Range(IntegerRange::new_single(if *value { 1 } else { 0 })),
+                    None,
+                ),
+            ),
+            _ => return None,
+        })
+    }
+
+    fn as_text_component(&self, force_display: bool) -> SNBT {
+        match self {
+            LiteralExpressionKind::Boolean(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Byte(if *value { 1 } else { 0 })
+                }
+            }
+            LiteralExpressionKind::Byte(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Byte(*value)
+                }
+            }
+            LiteralExpressionKind::Short(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Short(*value)
+                }
+            }
+            LiteralExpressionKind::Integer(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Integer(*value)
+                }
+            }
+            LiteralExpressionKind::Long(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Long(*value)
+                }
+            }
+            LiteralExpressionKind::Float(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Float(*value)
+                }
+            }
+            LiteralExpressionKind::Double(value) => SNBT::Double(*value),
+            LiteralExpressionKind::String(string) => SNBT::String(string.snbt_string.clone()),
+        }
+    }
+
+    fn assign_to_score(
+        &self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        target: PlayerScore,
+    ) {
+        match self {
+            Self::Boolean(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, *value as i32),
+                );
+            }
+            Self::Byte(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, *value as i32),
+                );
+            }
+            Self::Short(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, *value as i32),
+                );
+            }
+            Self::Integer(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, *value),
+                );
+            }
+            Self::Long(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, *value as i32),
+                );
+            }
+            Self::Float(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, value.into_inner() as i32),
+                );
+            }
+            Self::Double(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, value.into_inner() as i32),
+                );
+            }
+            Self::String(HighSNBTString {
+                snbt_string: SNBTString(_, value),
+                ..
+            }) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target, value.len() as i32),
+                );
+            }
+        }
+    }
+
+    fn into_snbt(self) -> SNBT {
+        match self {
+            LiteralExpressionKind::Boolean(value) => SNBT::Byte(if value { 1 } else { 0 }),
+            LiteralExpressionKind::Byte(value) => SNBT::Byte(value),
+            LiteralExpressionKind::Short(value) => SNBT::Short(value),
+            LiteralExpressionKind::Integer(value) => SNBT::Integer(value),
+            LiteralExpressionKind::Long(value) => SNBT::Long(value),
+            LiteralExpressionKind::Float(value) => SNBT::Float(value),
+            LiteralExpressionKind::Double(value) => SNBT::Double(value),
+            LiteralExpressionKind::String(snbt_string) => SNBT::String(snbt_string.snbt_string),
+        }
+    }
+
+    fn cast_to(self, data_type: DataTypeKind) -> Option<LiteralExpressionKind> {
+        Some(match (self, data_type) {
+            (LiteralExpressionKind::Byte(value), DataTypeKind::Short) => {
+                LiteralExpressionKind::Short(value as i16)
+            }
+            (LiteralExpressionKind::Byte(value), DataTypeKind::Integer) => {
+                LiteralExpressionKind::Integer(value as i32)
+            }
+            (LiteralExpressionKind::Byte(value), DataTypeKind::Long) => {
+                LiteralExpressionKind::Long(value as i64)
+            }
+            (LiteralExpressionKind::Byte(value), DataTypeKind::Float) => {
+                LiteralExpressionKind::Float(NotNan::new(value as f32).unwrap())
+            }
+            (LiteralExpressionKind::Byte(value), DataTypeKind::Double) => {
+                LiteralExpressionKind::Double(NotNan::new(value as f64).unwrap())
+            }
+
+            (LiteralExpressionKind::Short(value), DataTypeKind::Byte) => {
+                LiteralExpressionKind::Byte(value as i8)
+            }
+            (LiteralExpressionKind::Short(value), DataTypeKind::Integer) => {
+                LiteralExpressionKind::Integer(value as i32)
+            }
+            (LiteralExpressionKind::Short(value), DataTypeKind::Long) => {
+                LiteralExpressionKind::Long(value as i64)
+            }
+            (LiteralExpressionKind::Short(value), DataTypeKind::Float) => {
+                LiteralExpressionKind::Float(NotNan::new(value as f32).unwrap())
+            }
+            (LiteralExpressionKind::Short(value), DataTypeKind::Double) => {
+                LiteralExpressionKind::Double(NotNan::new(value as f64).unwrap())
+            }
+
+            (LiteralExpressionKind::Integer(value), DataTypeKind::Byte) => {
+                LiteralExpressionKind::Byte(value as i8)
+            }
+            (LiteralExpressionKind::Integer(value), DataTypeKind::Short) => {
+                LiteralExpressionKind::Short(value as i16)
+            }
+            (LiteralExpressionKind::Integer(value), DataTypeKind::Long) => {
+                LiteralExpressionKind::Long(value as i64)
+            }
+            (LiteralExpressionKind::Integer(value), DataTypeKind::Float) => {
+                LiteralExpressionKind::Float(NotNan::new(value as f32).unwrap())
+            }
+            (LiteralExpressionKind::Integer(value), DataTypeKind::Double) => {
+                LiteralExpressionKind::Double(NotNan::new(value as f64).unwrap())
+            }
+
+            (LiteralExpressionKind::Long(value), DataTypeKind::Byte) => {
+                LiteralExpressionKind::Byte(value as i8)
+            }
+            (LiteralExpressionKind::Long(value), DataTypeKind::Short) => {
+                LiteralExpressionKind::Short(value as i16)
+            }
+            (LiteralExpressionKind::Long(value), DataTypeKind::Integer) => {
+                LiteralExpressionKind::Integer(value as i32)
+            }
+            (LiteralExpressionKind::Long(value), DataTypeKind::Float) => {
+                LiteralExpressionKind::Float(NotNan::new(value as f32).unwrap())
+            }
+            (LiteralExpressionKind::Long(value), DataTypeKind::Double) => {
+                LiteralExpressionKind::Double(NotNan::new(value as f64).unwrap())
+            }
+
+            (LiteralExpressionKind::Float(value), DataTypeKind::Byte) => {
+                LiteralExpressionKind::Byte(value.into_inner() as i8)
+            }
+            (LiteralExpressionKind::Float(value), DataTypeKind::Short) => {
+                LiteralExpressionKind::Short(value.into_inner() as i16)
+            }
+            (LiteralExpressionKind::Float(value), DataTypeKind::Integer) => {
+                LiteralExpressionKind::Integer(value.into_inner() as i32)
+            }
+            (LiteralExpressionKind::Float(value), DataTypeKind::Long) => {
+                LiteralExpressionKind::Long(value.into_inner() as i64)
+            }
+            (LiteralExpressionKind::Float(value), DataTypeKind::Double) => {
+                LiteralExpressionKind::Double(value.into())
+            }
+
+            (LiteralExpressionKind::Double(value), DataTypeKind::Byte) => {
+                LiteralExpressionKind::Byte(value.into_inner() as i8)
+            }
+            (LiteralExpressionKind::Double(value), DataTypeKind::Short) => {
+                LiteralExpressionKind::Short(value.into_inner() as i16)
+            }
+            (LiteralExpressionKind::Double(value), DataTypeKind::Integer) => {
+                LiteralExpressionKind::Integer(value.into_inner() as i32)
+            }
+            (LiteralExpressionKind::Double(value), DataTypeKind::Long) => {
+                LiteralExpressionKind::Long(value.into_inner() as i64)
+            }
+            (LiteralExpressionKind::Double(value), DataTypeKind::Float) => {
+                LiteralExpressionKind::Float(unsafe {
+                    NotNan::new_unchecked(value.into_inner() as f32)
+                })
+            }
+            _ => return None,
+        })
+    }
+
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
+        match self {
+            LiteralExpressionKind::String(high_snbtstring) => {
+                high_snbtstring.perform_semantic_analysis(ctx, is_lhs)
+            }
+            LiteralExpressionKind::Boolean(_)
+            | LiteralExpressionKind::Byte(_)
+            | LiteralExpressionKind::Short(_)
+            | LiteralExpressionKind::Integer(_)
+            | LiteralExpressionKind::Long(_)
+            | LiteralExpressionKind::Float(_)
+            | LiteralExpressionKind::Double(_) => Some(()),
+        }
+    }
+
+    fn perform_arithmetic(
+        &self,
+        operator: ArithmeticOperator,
+        right: LiteralExpressionKind,
+    ) -> Option<LiteralExpressionKind> {
+        Some(match (self, right) {
+            (LiteralExpressionKind::Byte(left), LiteralExpressionKind::Byte(right)) => {
+                LiteralExpressionKind::Byte(match operator {
+                    ArithmeticOperator::Add => left.wrapping_add(right),
+                    ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                    ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                    ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                    ArithmeticOperator::Modulo => left % right,
+                    ArithmeticOperator::And => left & right,
+                    ArithmeticOperator::Or => left | right,
+                    ArithmeticOperator::LeftShift => left << right,
+                    ArithmeticOperator::RightShift => left >> right,
+                    ArithmeticOperator::Swap => return None,
+                })
+            }
+
+            (LiteralExpressionKind::Short(left), LiteralExpressionKind::Short(right)) => {
+                LiteralExpressionKind::Short(match operator {
+                    ArithmeticOperator::Add => left.wrapping_add(right),
+                    ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                    ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                    ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                    ArithmeticOperator::Modulo => left % right,
+                    ArithmeticOperator::And => left & right,
+                    ArithmeticOperator::Or => left | right,
+                    ArithmeticOperator::LeftShift => left << right,
+                    ArithmeticOperator::RightShift => left >> right,
+                    ArithmeticOperator::Swap => return None,
+                })
+            }
+
+            (LiteralExpressionKind::Integer(left), LiteralExpressionKind::Integer(right)) => {
+                LiteralExpressionKind::Integer(match operator {
+                    ArithmeticOperator::Add => left.wrapping_add(right),
+                    ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                    ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                    ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                    ArithmeticOperator::Modulo => left % right,
+                    ArithmeticOperator::And => left & right,
+                    ArithmeticOperator::Or => left | right,
+                    ArithmeticOperator::LeftShift => left << right,
+                    ArithmeticOperator::RightShift => left >> right,
+                    ArithmeticOperator::Swap => return None,
+                })
+            }
+
+            (LiteralExpressionKind::Long(left), LiteralExpressionKind::Long(right)) => {
+                LiteralExpressionKind::Long(match operator {
+                    ArithmeticOperator::Add => left.wrapping_add(right),
+                    ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                    ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                    ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                    ArithmeticOperator::Modulo => left % right,
+                    ArithmeticOperator::And => left & right,
+                    ArithmeticOperator::Or => left | right,
+                    ArithmeticOperator::LeftShift => left << right,
+                    ArithmeticOperator::RightShift => left >> right,
+                    ArithmeticOperator::Swap => return None,
+                })
+            }
+
+            (LiteralExpressionKind::Float(left), LiteralExpressionKind::Float(right)) => {
+                LiteralExpressionKind::Float(match operator {
+                    ArithmeticOperator::Add => left + right,
+                    ArithmeticOperator::Subtract => left - right,
+                    ArithmeticOperator::Multiply => left * right,
+                    ArithmeticOperator::FloorDivide => left / right,
+                    ArithmeticOperator::Modulo => left % right,
+                    _ => return None,
+                })
+            }
+
+            (LiteralExpressionKind::Double(left), LiteralExpressionKind::Double(right)) => {
+                LiteralExpressionKind::Double(match operator {
+                    ArithmeticOperator::Add => left + right,
+                    ArithmeticOperator::Subtract => left - right,
+                    ArithmeticOperator::Multiply => left * right,
+                    ArithmeticOperator::FloorDivide => left / right,
+                    ArithmeticOperator::Modulo => left % right,
+                    _ => return None,
+                })
+            }
+
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+pub struct LiteralExpression {
+    #[has_macro(ignore)]
+    pub span: ParserRange,
+    pub kind: LiteralExpressionKind,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+pub enum ConstantExpressionKind {
+    Literal(LiteralExpression),
+    Underscore,
     List(Vec<ConstantExpression>),
     Compound(ConstantExpressionCompoundKind),
     PlayerScore(PlayerScore),
@@ -185,10 +693,22 @@ pub enum ConstantExpressionKind {
 }
 
 impl ConstantExpressionKind {
+    pub fn get_pattern_type(&self) -> Option<PatternType> {
+        Some(match self {
+            ConstantExpressionKind::Literal(literal_expression) => {
+                literal_expression.kind.get_pattern_type()
+            }
+            ConstantExpressionKind::Underscore | ConstantExpressionKind::Variable(_) => {
+                PatternType::Any
+            }
+            _ => return None,
+        })
+    }
+
     pub fn dereference(
         &self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
-    ) -> Option<DataType> {
+    ) -> Option<DataTypeKind> {
         Some(match self {
             ConstantExpressionKind::Reference(expression) => expression
                 .kind
@@ -220,26 +740,19 @@ impl ConstantExpressionKind {
     pub fn infer_data_type(
         &self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
-    ) -> Option<DataType> {
+    ) -> Option<DataTypeKind> {
         Some(match self {
-            ConstantExpressionKind::Boolean(_) => DataType::Boolean,
-            ConstantExpressionKind::Byte(_) => DataType::Byte,
-            ConstantExpressionKind::Short(_) => DataType::Short,
-            ConstantExpressionKind::Integer(_) => DataType::Integer,
-            ConstantExpressionKind::Long(_) => DataType::Long,
-            ConstantExpressionKind::Float(_) => DataType::Float,
-            ConstantExpressionKind::Double(_) => DataType::Double,
-            ConstantExpressionKind::String(_) => DataType::String,
+            ConstantExpressionKind::Literal(expression) => expression.kind.get_data_type(),
             ConstantExpressionKind::List(list) => {
                 if let Some(first) = list.first() {
-                    DataType::List(Box::new(
+                    DataTypeKind::List(Box::new(
                         first.kind.infer_data_type(supports_variable_type_scope)?,
                     ))
                 } else {
-                    DataType::List(Box::new(DataType::Any))
+                    DataTypeKind::List(Box::new(DataTypeKind::Any))
                 }
             }
-            ConstantExpressionKind::Compound(compound) => DataType::TypedCompound(
+            ConstantExpressionKind::Compound(compound) => DataTypeKind::TypedCompound(
                 compound
                     .clone()
                     .into_iter()
@@ -251,11 +764,11 @@ impl ConstantExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            ConstantExpressionKind::PlayerScore(_) => DataType::Score,
-            ConstantExpressionKind::Data(_, _) => DataType::Data(Box::new(DataType::Any)),
-            ConstantExpressionKind::Condition(_, _) => DataType::Boolean,
-            ConstantExpressionKind::Command(_) => DataType::Integer,
-            ConstantExpressionKind::Tuple(expressions) => DataType::Tuple(
+            ConstantExpressionKind::PlayerScore(_) => DataTypeKind::Score,
+            ConstantExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::Any)),
+            ConstantExpressionKind::Condition(_, _) => DataTypeKind::Boolean,
+            ConstantExpressionKind::Command(_) => DataTypeKind::Integer,
+            ConstantExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
                     .iter()
                     .map(|expression| {
@@ -266,28 +779,22 @@ impl ConstantExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             ConstantExpressionKind::Variable(name) => {
-                return supports_variable_type_scope.get_variable(name).unwrap();
+                return supports_variable_type_scope.get_variable(name)?;
             }
-            ConstantExpressionKind::Unit => DataType::Unit,
+            ConstantExpressionKind::Unit => DataTypeKind::Unit,
             ConstantExpressionKind::Dereference(expression) => {
                 // TODO
                 return expression.kind.dereference(supports_variable_type_scope);
             }
-            ConstantExpressionKind::Reference(expression) => DataType::Reference(Box::new(
+            ConstantExpressionKind::Reference(expression) => DataTypeKind::Reference(Box::new(
                 expression
                     .kind
                     .infer_data_type(supports_variable_type_scope)?,
             )),
+            ConstantExpressionKind::Underscore => unreachable!(),
         })
     }
-}
 
-pub enum AsSNBTResult {
-    SNBT(SNBT),
-    Macro(usize, Box<ConstantExpressionKind>),
-}
-
-impl ConstantExpressionKind {
     pub fn into_dummy_constant_expression(self) -> ConstantExpression {
         ConstantExpression {
             span: ParserRange::default(),
@@ -295,30 +802,15 @@ impl ConstantExpressionKind {
         }
     }
 
-    pub fn as_assignable(self) -> Option<Assignable> {
-        match self {
-            ConstantExpressionKind::Data(target, path) => Some(Assignable::Data(target, path)),
-            ConstantExpressionKind::PlayerScore(score) => Some(Assignable::PlayerScore(score)),
-            _ => None,
-        }
-    }
-
     pub fn try_as_i32(&self, force: bool) -> Option<i32> {
-        match self {
-            ConstantExpressionKind::Byte(v) => Some(*v as i32),
-            ConstantExpressionKind::Short(v) => Some(*v as i32),
-            ConstantExpressionKind::Integer(v) => Some(*v),
-            ConstantExpressionKind::Long(v) => Some(*v as i32),
-            ConstantExpressionKind::Float(v) if force => Some(v.into_inner() as i32),
-            ConstantExpressionKind::Double(v) if force => Some(v.into_inner() as i32),
-            ConstantExpressionKind::String(HighSNBTString {
-                snbt_string: SNBTString(_, v),
-                ..
-            }) if force => Some(v.len() as i32),
-            ConstantExpressionKind::List(v) if force => Some(v.len() as i32),
-            ConstantExpressionKind::Compound(compound) if force => Some(compound.len() as i32),
-            _ => None,
-        }
+        Some(match self {
+            ConstantExpressionKind::Literal(expression) => {
+                return expression.kind.try_as_i32(force);
+            }
+            ConstantExpressionKind::List(v) if force => v.len() as i32,
+            ConstantExpressionKind::Compound(compound) if force => compound.len() as i32,
+            _ => return None,
+        })
     }
 
     pub fn compile_as_statement(&self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
@@ -347,14 +839,7 @@ impl ConstantExpressionKind {
             ConstantExpressionKind::Command(command) => {
                 ctx.add_command(datapack, command.clone());
             }
-            ConstantExpressionKind::Boolean(_)
-            | ConstantExpressionKind::Byte(_)
-            | ConstantExpressionKind::Short(_)
-            | ConstantExpressionKind::Integer(_)
-            | ConstantExpressionKind::Long(_)
-            | ConstantExpressionKind::Float(_)
-            | ConstantExpressionKind::Double(_)
-            | ConstantExpressionKind::String(_)
+            ConstantExpressionKind::Literal(_)
             | ConstantExpressionKind::PlayerScore(_)
             | ConstantExpressionKind::Data(_, _)
             | ConstantExpressionKind::Unit => {}
@@ -370,6 +855,7 @@ impl ConstantExpressionKind {
                 .1
                 .kind
                 .compile_as_statement(datapack, ctx),
+            ConstantExpressionKind::Underscore => unreachable!(),
         }
     }
 
@@ -433,7 +919,12 @@ impl ConstantExpressionKind {
 
     pub fn invert(self) -> Option<ConstantExpressionKind> {
         Some(match self {
-            ConstantExpressionKind::Boolean(value) => ConstantExpressionKind::Boolean(!value),
+            ConstantExpressionKind::Literal(expression) => {
+                ConstantExpressionKind::Literal(LiteralExpression {
+                    span: expression.span,
+                    kind: expression.kind.invert()?,
+                })
+            }
             ConstantExpressionKind::Condition(inverted, subcommand) => {
                 ConstantExpressionKind::Condition(!inverted, subcommand)
             }
@@ -444,7 +935,11 @@ impl ConstantExpressionKind {
     pub fn index(self, index: ConstantExpressionKind) -> Option<ConstantExpressionKind> {
         Some(match self {
             ConstantExpressionKind::List(mut items) => {
-                return if let ConstantExpressionKind::Integer(index) = index {
+                return if let ConstantExpressionKind::Literal(LiteralExpression {
+                    kind: LiteralExpressionKind::Integer(index),
+                    ..
+                }) = index
+                {
                     if index >= 0 && (index as usize) < items.len() {
                         Some(items.swap_remove(index as usize).kind)
                     } else {
@@ -470,14 +965,7 @@ impl ConstantExpressionKind {
 
     pub fn access_member(self, member: SNBTString) -> Option<ConstantExpressionKind> {
         Some(match self {
-            ConstantExpressionKind::Boolean(_)
-            | ConstantExpressionKind::Byte(_)
-            | ConstantExpressionKind::Short(_)
-            | ConstantExpressionKind::Integer(_)
-            | ConstantExpressionKind::Long(_)
-            | ConstantExpressionKind::Float(_)
-            | ConstantExpressionKind::Double(_)
-            | ConstantExpressionKind::String(_)
+            ConstantExpressionKind::Literal(_)
             | ConstantExpressionKind::List(_)
             | ConstantExpressionKind::PlayerScore(_)
             | ConstantExpressionKind::Condition(_, _)
@@ -486,6 +974,7 @@ impl ConstantExpressionKind {
             | ConstantExpressionKind::Variable(_)
             | ConstantExpressionKind::Reference(_)
             | ConstantExpressionKind::Dereference(_) => return None,
+            ConstantExpressionKind::Underscore => unreachable!(),
             ConstantExpressionKind::Compound(compound) => {
                 compound
                     .into_iter()
@@ -535,64 +1024,10 @@ impl ConstantExpressionKind {
         operator: ComparisonOperator,
     ) -> ConstantExpressionKind {
         match (self, other) {
-            (ConstantExpressionKind::Byte(left), ConstantExpressionKind::Byte(right)) => {
-                ConstantExpressionKind::Boolean(match operator {
-                    ComparisonOperator::LessThan => left < right,
-                    ComparisonOperator::LessThanOrEqualTo => left <= right,
-                    ComparisonOperator::GreaterThan => left > right,
-                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
-                    ComparisonOperator::EqualTo => left == right,
-                    ComparisonOperator::NotEqualTo => left != right,
-                })
-            }
-            (ConstantExpressionKind::Short(left), ConstantExpressionKind::Short(right)) => {
-                ConstantExpressionKind::Boolean(match operator {
-                    ComparisonOperator::LessThan => left < right,
-                    ComparisonOperator::LessThanOrEqualTo => left <= right,
-                    ComparisonOperator::GreaterThan => left > right,
-                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
-                    ComparisonOperator::EqualTo => left == right,
-                    ComparisonOperator::NotEqualTo => left != right,
-                })
-            }
-            (ConstantExpressionKind::Integer(left), ConstantExpressionKind::Integer(right)) => {
-                ConstantExpressionKind::Boolean(match operator {
-                    ComparisonOperator::LessThan => left < right,
-                    ComparisonOperator::LessThanOrEqualTo => left <= right,
-                    ComparisonOperator::GreaterThan => left > right,
-                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
-                    ComparisonOperator::EqualTo => left == right,
-                    ComparisonOperator::NotEqualTo => left != right,
-                })
-            }
-            (ConstantExpressionKind::Long(left), ConstantExpressionKind::Long(right)) => {
-                ConstantExpressionKind::Boolean(match operator {
-                    ComparisonOperator::LessThan => left < right,
-                    ComparisonOperator::LessThanOrEqualTo => left <= right,
-                    ComparisonOperator::GreaterThan => left > right,
-                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
-                    ComparisonOperator::EqualTo => left == right,
-                    ComparisonOperator::NotEqualTo => left != right,
-                })
-            }
-            (ConstantExpressionKind::Float(left), ConstantExpressionKind::Float(right)) => {
-                ConstantExpressionKind::Boolean(match operator {
-                    ComparisonOperator::LessThan => left < right,
-                    ComparisonOperator::LessThanOrEqualTo => left <= right,
-                    ComparisonOperator::GreaterThan => left > right,
-                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
-                    ComparisonOperator::EqualTo => left == right,
-                    ComparisonOperator::NotEqualTo => left != right,
-                })
-            }
-            (ConstantExpressionKind::Double(left), ConstantExpressionKind::Double(right)) => {
-                ConstantExpressionKind::Boolean(match operator {
-                    ComparisonOperator::LessThan => left < right,
-                    ComparisonOperator::LessThanOrEqualTo => left <= right,
-                    ComparisonOperator::GreaterThan => left > right,
-                    ComparisonOperator::GreaterThanOrEqualTo => left >= right,
-                    ComparisonOperator::EqualTo => left == right,
-                    ComparisonOperator::NotEqualTo => left != right,
+            (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
+                ConstantExpressionKind::Literal(LiteralExpression {
+                    span: ParserRange { start: 0, end: 0 },
+                    kind: left.kind.compare(operator, right.kind).unwrap(),
                 })
             }
             (left_kind @ ConstantExpressionKind::Data(_, _), right_kind)
@@ -679,14 +1114,14 @@ impl ConstantExpressionKind {
         if let Some(value) = self.try_as_i32(true) {
             return match operator {
                 ArithmeticOperator::Add => {
-                    Self::push_scoreboard_players(
+                    push_scoreboard_players(
                         datapack,
                         ctx,
                         PlayersScoreboardCommand::Add(target.clone(), value),
                     );
                 }
                 ArithmeticOperator::Subtract => {
-                    Self::push_scoreboard_players(
+                    push_scoreboard_players(
                         datapack,
                         ctx,
                         PlayersScoreboardCommand::Remove(target.clone(), value),
@@ -723,7 +1158,7 @@ impl ConstantExpressionKind {
                 _ => {
                     let constant_score = datapack.get_constant_score(value);
 
-                    Self::push_scoreboard_players(
+                    push_scoreboard_players(
                         datapack,
                         ctx,
                         PlayersScoreboardCommand::Operation(
@@ -765,7 +1200,7 @@ impl ConstantExpressionKind {
         if let Some(value) = self.try_as_i32(true) {
             let unique_score = datapack.get_unique_player_score();
 
-            Self::push_scoreboard_players(
+            push_scoreboard_players(
                 datapack,
                 ctx,
                 PlayersScoreboardCommand::Set(unique_score.clone(), value),
@@ -782,14 +1217,9 @@ impl ConstantExpressionKind {
         }
 
         match self {
-            ConstantExpressionKind::Boolean(value) => (
-                false,
-                ExecuteIfSubcommand::Score(
-                    datapack.get_constant_score(1),
-                    ScoreComparison::Range(IntegerRange::new_single(if *value { 1 } else { 0 })),
-                    None,
-                ),
-            ),
+            ConstantExpressionKind::Literal(expression) => {
+                expression.kind.to_execute_condition(datapack).unwrap()
+            }
             ConstantExpressionKind::PlayerScore(score) => (
                 !inverted,
                 ExecuteIfSubcommand::Score(
@@ -834,19 +1264,13 @@ impl ConstantExpressionKind {
                 .1
                 .kind
                 .to_execute_condition(datapack, ctx, inverted),
-            ConstantExpressionKind::Byte(_)
-            | ConstantExpressionKind::Short(_)
-            | ConstantExpressionKind::Integer(_)
-            | ConstantExpressionKind::Long(_)
-            | ConstantExpressionKind::Float(_)
-            | ConstantExpressionKind::Double(_)
-            | ConstantExpressionKind::String(_)
-            | ConstantExpressionKind::List(_)
+            ConstantExpressionKind::List(_)
             | ConstantExpressionKind::Compound(_)
             | ConstantExpressionKind::Tuple(_)
             | ConstantExpressionKind::Unit
             | ConstantExpressionKind::Reference(_)
-            | ConstantExpressionKind::Dereference(_) => {
+            | ConstantExpressionKind::Dereference(_)
+            | ConstantExpressionKind::Underscore => {
                 unreachable!()
             }
         }
@@ -890,50 +1314,9 @@ impl ConstantExpressionKind {
 
                 SNBT::Compound(map)
             }
-            ConstantExpressionKind::Boolean(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Byte(if *value { 1 } else { 0 })
-                }
+            ConstantExpressionKind::Literal(expression) => {
+                expression.kind.as_text_component(force_display)
             }
-            ConstantExpressionKind::Byte(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Byte(*value)
-                }
-            }
-            ConstantExpressionKind::Short(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Short(*value)
-                }
-            }
-            ConstantExpressionKind::Integer(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Integer(*value)
-                }
-            }
-            ConstantExpressionKind::Long(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Long(*value)
-                }
-            }
-            ConstantExpressionKind::Float(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Float(*value)
-                }
-            }
-            ConstantExpressionKind::Double(value) => SNBT::Double(*value),
-            ConstantExpressionKind::String(string) => SNBT::String(string.snbt_string.clone()),
             ConstantExpressionKind::List(constant_expressions) => SNBT::List(
                 constant_expressions
                     .iter()
@@ -999,18 +1382,8 @@ impl ConstantExpressionKind {
                 .1
                 .kind
                 .as_text_component(datapack, ctx, force_display),
+            ConstantExpressionKind::Underscore => unreachable!(),
         }
-    }
-
-    fn push_scoreboard_players(
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        command: PlayersScoreboardCommand,
-    ) {
-        ctx.add_command(
-            datapack,
-            Command::Scoreboard(ScoreboardCommand::Players(command)),
-        );
     }
 
     pub fn assign_to_score(
@@ -1020,74 +1393,18 @@ impl ConstantExpressionKind {
         target: PlayerScore,
     ) {
         match self {
-            ConstantExpressionKind::Boolean(value) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
-                );
-            }
-            ConstantExpressionKind::Byte(value) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
-                );
-            }
-            ConstantExpressionKind::Short(value) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
-                );
-            }
-            ConstantExpressionKind::Integer(value) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, *value),
-                );
-            }
-            ConstantExpressionKind::Long(value) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
-                );
-            }
-            ConstantExpressionKind::Float(value) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, value.into_inner() as i32),
-                );
-            }
-            ConstantExpressionKind::Double(value) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, value.into_inner() as i32),
-                );
-            }
-            ConstantExpressionKind::String(HighSNBTString {
-                snbt_string: SNBTString(_, value),
-                ..
-            }) => {
-                Self::push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target, value.len() as i32),
-                );
+            ConstantExpressionKind::Literal(expression) => {
+                expression.kind.assign_to_score(datapack, ctx, target)
             }
             ConstantExpressionKind::List(value) => {
-                Self::push_scoreboard_players(
+                push_scoreboard_players(
                     datapack,
                     ctx,
                     PlayersScoreboardCommand::Set(target, value.len() as i32),
                 );
             }
             ConstantExpressionKind::Compound(value) => {
-                Self::push_scoreboard_players(
+                push_scoreboard_players(
                     datapack,
                     ctx,
                     PlayersScoreboardCommand::Set(target, value.len() as i32),
@@ -1146,6 +1463,7 @@ impl ConstantExpressionKind {
                 .1
                 .kind
                 .assign_to_score(datapack, ctx, target),
+            ConstantExpressionKind::Underscore => unreachable!(),
         }
     }
 
@@ -1259,13 +1577,7 @@ impl ConstantExpressionKind {
 
     pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> SNBT {
         match self {
-            ConstantExpressionKind::Byte(value) => SNBT::Byte(value),
-            ConstantExpressionKind::Short(value) => SNBT::Short(value),
-            ConstantExpressionKind::Integer(value) => SNBT::Integer(value),
-            ConstantExpressionKind::Long(value) => SNBT::Long(value),
-            ConstantExpressionKind::Float(value) => SNBT::Float(value),
-            ConstantExpressionKind::Double(value) => SNBT::Double(value),
-            ConstantExpressionKind::String(snbt_string) => SNBT::String(snbt_string.snbt_string),
+            ConstantExpressionKind::Literal(expression) => expression.kind.into_snbt(),
             ConstantExpressionKind::List(expressions) => SNBT::List(
                 expressions
                     .clone()
@@ -1286,14 +1598,8 @@ impl ConstantExpressionKind {
 
     pub fn as_snbt(&self) -> Option<SNBT> {
         match self {
-            ConstantExpressionKind::Byte(value) => Some(SNBT::Byte(*value)),
-            ConstantExpressionKind::Short(value) => Some(SNBT::Short(*value)),
-            ConstantExpressionKind::Integer(value) => Some(SNBT::Integer(*value)),
-            ConstantExpressionKind::Long(value) => Some(SNBT::Long(*value)),
-            ConstantExpressionKind::Float(value) => Some(SNBT::Float(*value)),
-            ConstantExpressionKind::Double(value) => Some(SNBT::Double(*value)),
-            ConstantExpressionKind::String(string) => {
-                Some(SNBT::String(string.snbt_string.clone()))
+            ConstantExpressionKind::Literal(expression) => {
+                Some(expression.clone().kind.into_snbt())
             }
 
             ConstantExpressionKind::List(expressions) => expressions
@@ -1315,7 +1621,7 @@ impl ConstantExpressionKind {
     fn cast_to(
         self,
         datapack: &mut HighDatapack,
-        data_type: DataType,
+        data_type: DataTypeKind,
     ) -> Option<ConstantExpressionKind> {
         let self_type = self.infer_data_type(datapack).unwrap();
 
@@ -1324,105 +1630,16 @@ impl ConstantExpressionKind {
         }
 
         Some(match (self, data_type) {
-            (ConstantExpressionKind::Byte(value), DataType::Short) => {
-                ConstantExpressionKind::Short(value as i16)
-            }
-            (ConstantExpressionKind::Byte(value), DataType::Integer) => {
-                ConstantExpressionKind::Integer(value as i32)
-            }
-            (ConstantExpressionKind::Byte(value), DataType::Long) => {
-                ConstantExpressionKind::Long(value as i64)
-            }
-            (ConstantExpressionKind::Byte(value), DataType::Float) => {
-                ConstantExpressionKind::Float(NotNan::new(value as f32).unwrap())
-            }
-            (ConstantExpressionKind::Byte(value), DataType::Double) => {
-                ConstantExpressionKind::Double(NotNan::new(value as f64).unwrap())
+            (ConstantExpressionKind::Literal(expression), data_type) => {
+                return expression.kind.cast_to(data_type).map(|kind| {
+                    ConstantExpressionKind::Literal(LiteralExpression {
+                        span: expression.span,
+                        kind,
+                    })
+                });
             }
 
-            (ConstantExpressionKind::Short(value), DataType::Byte) => {
-                ConstantExpressionKind::Byte(value as i8)
-            }
-            (ConstantExpressionKind::Short(value), DataType::Integer) => {
-                ConstantExpressionKind::Integer(value as i32)
-            }
-            (ConstantExpressionKind::Short(value), DataType::Long) => {
-                ConstantExpressionKind::Long(value as i64)
-            }
-            (ConstantExpressionKind::Short(value), DataType::Float) => {
-                ConstantExpressionKind::Float(NotNan::new(value as f32).unwrap())
-            }
-            (ConstantExpressionKind::Short(value), DataType::Double) => {
-                ConstantExpressionKind::Double(NotNan::new(value as f64).unwrap())
-            }
-
-            (ConstantExpressionKind::Integer(value), DataType::Byte) => {
-                ConstantExpressionKind::Byte(value as i8)
-            }
-            (ConstantExpressionKind::Integer(value), DataType::Short) => {
-                ConstantExpressionKind::Short(value as i16)
-            }
-            (ConstantExpressionKind::Integer(value), DataType::Long) => {
-                ConstantExpressionKind::Long(value as i64)
-            }
-            (ConstantExpressionKind::Integer(value), DataType::Float) => {
-                ConstantExpressionKind::Float(NotNan::new(value as f32).unwrap())
-            }
-            (ConstantExpressionKind::Integer(value), DataType::Double) => {
-                ConstantExpressionKind::Double(NotNan::new(value as f64).unwrap())
-            }
-
-            (ConstantExpressionKind::Long(value), DataType::Byte) => {
-                ConstantExpressionKind::Byte(value as i8)
-            }
-            (ConstantExpressionKind::Long(value), DataType::Short) => {
-                ConstantExpressionKind::Short(value as i16)
-            }
-            (ConstantExpressionKind::Long(value), DataType::Integer) => {
-                ConstantExpressionKind::Integer(value as i32)
-            }
-            (ConstantExpressionKind::Long(value), DataType::Float) => {
-                ConstantExpressionKind::Float(NotNan::new(value as f32).unwrap())
-            }
-            (ConstantExpressionKind::Long(value), DataType::Double) => {
-                ConstantExpressionKind::Double(NotNan::new(value as f64).unwrap())
-            }
-
-            (ConstantExpressionKind::Float(value), DataType::Byte) => {
-                ConstantExpressionKind::Byte(value.into_inner() as i8)
-            }
-            (ConstantExpressionKind::Float(value), DataType::Short) => {
-                ConstantExpressionKind::Short(value.into_inner() as i16)
-            }
-            (ConstantExpressionKind::Float(value), DataType::Integer) => {
-                ConstantExpressionKind::Integer(value.into_inner() as i32)
-            }
-            (ConstantExpressionKind::Float(value), DataType::Long) => {
-                ConstantExpressionKind::Long(value.into_inner() as i64)
-            }
-            (ConstantExpressionKind::Float(value), DataType::Double) => {
-                ConstantExpressionKind::Double(value.into())
-            }
-
-            (ConstantExpressionKind::Double(value), DataType::Byte) => {
-                ConstantExpressionKind::Byte(value.into_inner() as i8)
-            }
-            (ConstantExpressionKind::Double(value), DataType::Short) => {
-                ConstantExpressionKind::Short(value.into_inner() as i16)
-            }
-            (ConstantExpressionKind::Double(value), DataType::Integer) => {
-                ConstantExpressionKind::Integer(value.into_inner() as i32)
-            }
-            (ConstantExpressionKind::Double(value), DataType::Long) => {
-                ConstantExpressionKind::Long(value.into_inner() as i64)
-            }
-            (ConstantExpressionKind::Double(value), DataType::Float) => {
-                ConstantExpressionKind::Float(unsafe {
-                    NotNan::new_unchecked(value.into_inner() as f32)
-                })
-            }
-
-            (self_ @ ConstantExpressionKind::Data(_, _), DataType::Data(_)) => self_,
+            (self_ @ ConstantExpressionKind::Data(_, _), DataTypeKind::Data(_)) => self_,
 
             _ => return None,
         })
@@ -1447,6 +1664,22 @@ impl ConstantExpressionKind {
             _ => unreachable!("The expression '{:?}' cannot be assigned to", self),
         }
     }
+
+    pub fn as_place(self) -> Option<Place> {
+        Some(match self {
+            ConstantExpressionKind::PlayerScore(score) => Place::Score(score),
+            ConstantExpressionKind::Data(target, path) => Place::Data(target, path),
+            ConstantExpressionKind::Variable(name) => Place::Variable(name),
+            ConstantExpressionKind::Underscore => Place::Underscore,
+            ConstantExpressionKind::Tuple(expressions) => Place::Tuple(
+                expressions
+                    .into_iter()
+                    .map(|expression| expression.kind.as_place())
+                    .collect::<Option<_>>()?,
+            ),
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -1463,15 +1696,7 @@ impl ConstantExpression {
             ConstantExpressionKind::Data(_, _) => PlaceType::Data,
             ConstantExpressionKind::Dereference(expression) => return expression.place_type(ctx),
             ConstantExpressionKind::Variable(name) => PlaceType::Variable(ctx.get_variable(name)??),
-            _ => return None,
-        })
-    }
-
-    pub fn as_place(self) -> Option<Place> {
-        Some(match self.kind {
-            ConstantExpressionKind::PlayerScore(score) => Place::Score(score),
-            ConstantExpressionKind::Data(target, path) => Place::Data(target, path),
-            ConstantExpressionKind::Variable(name) => Place::Variable(name),
+            ConstantExpressionKind::Underscore => PlaceType::Underscore,
             _ => return None,
         })
     }
@@ -1493,16 +1718,16 @@ impl ConstantExpression {
     }
 
     #[must_use]
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match &self.kind {
-            ConstantExpressionKind::Boolean(_)
-            | ConstantExpressionKind::Byte(_)
-            | ConstantExpressionKind::Short(_)
-            | ConstantExpressionKind::Integer(_)
-            | ConstantExpressionKind::Long(_)
-            | ConstantExpressionKind::Float(_)
-            | ConstantExpressionKind::Double(_)
-            | ConstantExpressionKind::Unit
+            ConstantExpressionKind::Literal(expression) => {
+                expression.kind.perform_semantic_analysis(ctx, is_lhs)
+            }
+            ConstantExpressionKind::Unit
             | ConstantExpressionKind::PlayerScore(_)
             | ConstantExpressionKind::Data(_, _) => Some(()),
             ConstantExpressionKind::Reference(expression) => {
@@ -1545,14 +1770,13 @@ impl ConstantExpression {
                     Some(())
                 }
             }
-            ConstantExpressionKind::String(string) => string.perform_semantic_analysis(ctx),
             ConstantExpressionKind::List(list) => list
                 .iter()
-                .map(|item| item.perform_semantic_analysis(ctx))
+                .map(|item| item.perform_semantic_analysis(ctx, is_lhs))
                 .collect::<Option<()>>(),
             ConstantExpressionKind::Compound(compound) => compound
                 .values()
-                .map(|value| value.perform_semantic_analysis(ctx))
+                .map(|value| value.perform_semantic_analysis(ctx, is_lhs))
                 .collect::<Option<()>>(),
             ConstantExpressionKind::Condition(_, _) => {
                 // TODO future
@@ -1566,8 +1790,20 @@ impl ConstantExpression {
             }
             ConstantExpressionKind::Tuple(items) => items
                 .iter()
-                .map(|item| item.perform_semantic_analysis(ctx))
+                .map(|item| item.perform_semantic_analysis(ctx, is_lhs))
                 .collect::<Option<()>>(),
+            ConstantExpressionKind::Underscore => {
+                if !is_lhs {
+                    ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::UnderscoreExpression,
+                        ),
+                    })
+                } else {
+                    Some(())
+                }
+            }
         }
     }
 
@@ -1606,11 +1842,15 @@ impl HasMacro for StringExpressionPart {
 }
 
 impl StringExpressionPart {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             StringExpressionPart::Regular(_) => Some(()),
             StringExpressionPart::Expression(expression) => {
-                expression.perform_semantic_analysis(ctx)
+                expression.perform_semantic_analysis(ctx, is_lhs)
             }
         }
     }
@@ -1634,7 +1874,11 @@ impl From<String> for HighSNBTString {
 }
 
 impl HighSNBTString {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        _is_lhs: bool,
+    ) -> Option<()> {
         if self.snbt_string.has_macro_conflict() {
             ctx.add_info(SemanticAnalysisInfo {
                 span: self.span,
@@ -1672,12 +1916,16 @@ impl From<String> for StringExpression {
 }
 
 impl StringExpression {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             StringExpression::Simple(_) => Some(()),
             StringExpression::Complex(parts) => parts
                 .iter()
-                .map(|part| part.perform_semantic_analysis(ctx))
+                .map(|part| part.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
         }
     }
@@ -1709,7 +1957,7 @@ impl StringExpression {
 }
 
 pub trait SupportsVariableTypeScope {
-    fn get_variable(&self, name: &str) -> Option<Option<DataType>>;
+    fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>>;
 
     fn add_info(&mut self, semantic_analysis_info: SemanticAnalysisInfo);
 }
@@ -1723,7 +1971,6 @@ pub enum ExpressionKind {
     Logical(Box<Expression>, LogicalOperator, Box<Expression>),
     AugmentedAssignment(Box<Expression>, ArithmeticOperator, Box<Expression>),
     Assignment(Box<Expression>, Box<Expression>),
-    String(HighSNBTString),
     List(Vec<Expression>),
     Compound(ExpressionCompoundKind),
     PlayerScore(HighPlayerScore),
@@ -1767,7 +2014,7 @@ impl ExpressionKind {
     pub fn infer_data_type(
         &self,
         supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
-    ) -> Option<DataType> {
+    ) -> Option<DataTypeKind> {
         Some(match self {
             ExpressionKind::Constant(constant_expression) => {
                 return constant_expression
@@ -1781,7 +2028,7 @@ impl ExpressionKind {
 
                 match operator {
                     UnaryOperator::Negate => return expression_type.get_negated_result(),
-                    UnaryOperator::Reference => DataType::Reference(Box::new(expression_type)),
+                    UnaryOperator::Reference => DataTypeKind::Reference(Box::new(expression_type)),
                     UnaryOperator::Dereference => expression
                         .dereference_type(supports_variable_type_scope)
                         .unwrap(),
@@ -1795,22 +2042,21 @@ impl ExpressionKind {
                 return left_type.get_arithmetic_result(operator, &right_type);
             }
             ExpressionKind::Comparison(_, _, _) | ExpressionKind::Logical(_, _, _) => {
-                DataType::Boolean
+                DataTypeKind::Boolean
             }
             ExpressionKind::Assignment(_, _) | ExpressionKind::AugmentedAssignment(_, _, _) => {
-                DataType::Unit
+                DataTypeKind::Unit
             }
-            ExpressionKind::String(_) => DataType::String,
             ExpressionKind::List(list) => {
                 let data_type = if let Some(first) = list.first() {
                     first.kind.infer_data_type(supports_variable_type_scope)?
                 } else {
-                    DataType::Any
+                    DataTypeKind::Any
                 };
 
-                DataType::List(Box::new(data_type))
+                DataTypeKind::List(Box::new(data_type))
             }
-            ExpressionKind::Compound(compound) => DataType::TypedCompound(
+            ExpressionKind::Compound(compound) => DataTypeKind::TypedCompound(
                 compound
                     .clone()
                     .into_iter()
@@ -1822,10 +2068,10 @@ impl ExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            ExpressionKind::PlayerScore(_) => DataType::Score,
-            ExpressionKind::Data(_, _) => DataType::Data(Box::new(DataType::Any)),
-            ExpressionKind::Condition(_, _) => DataType::Byte,
-            ExpressionKind::Command(_) => DataType::Integer,
+            ExpressionKind::PlayerScore(_) => DataTypeKind::Score,
+            ExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::Any)),
+            ExpressionKind::Condition(_, _) => DataTypeKind::Byte,
+            ExpressionKind::Command(_) => DataTypeKind::Integer,
             ExpressionKind::Index(target, _) => {
                 return target
                     .kind
@@ -1839,16 +2085,16 @@ impl ExpressionKind {
             }
             ExpressionKind::AsCast(_, data_type) => data_type.kind.resolve(),
             ExpressionKind::ToCast(expression, storage_type) => match storage_type {
-                RuntimeStorageType::Score => DataType::Score,
+                RuntimeStorageType::Score => DataTypeKind::Score,
                 RuntimeStorageType::Data => {
                     let expression_type = expression
                         .kind
                         .infer_data_type(supports_variable_type_scope)?;
 
-                    DataType::Data(Box::new(expression_type))
+                    DataTypeKind::Data(Box::new(expression_type))
                 }
             },
-            ExpressionKind::Tuple(expressions) => DataType::Tuple(
+            ExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
                     .iter()
                     .map(|expression| {
@@ -1907,70 +2153,6 @@ pub fn split_constants_compound(
     (constants, non_constants)
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum Assignable {
-    PlayerScore(PlayerScore),
-    Data(DataTarget, NbtPath),
-}
-
-impl Assignable {
-    pub fn operate(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        operator: ArithmeticOperator,
-        value: &ConstantExpression,
-    ) {
-        match self {
-            Assignable::PlayerScore(player_score) => {
-                let unique_score = value.kind.as_score(datapack, ctx, false);
-
-                player_score.operate_on_score(datapack, ctx, &unique_score, operator);
-            }
-            Assignable::Data(data_target, nbt_path) => {
-                let (unique_target, unique_path) = datapack.get_unique_data();
-                let (other_target, other_path) = value.kind.as_data(datapack, ctx);
-
-                // C = A
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        unique_target.clone(),
-                        unique_path.clone(),
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::From(data_target.clone(), Some(nbt_path.clone())),
-                    )),
-                );
-
-                // A = B
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        data_target,
-                        nbt_path,
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::From(
-                            other_target.clone(),
-                            Some(other_path.clone()),
-                        ),
-                    )),
-                );
-
-                // B = C
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        other_target,
-                        other_path,
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::From(unique_target, Some(unique_path)),
-                    )),
-                );
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct Expression {
     #[has_macro(ignore)]
@@ -1979,20 +2161,67 @@ pub struct Expression {
 }
 
 impl Expression {
+    pub fn as_place(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Place> {
+        Some(match self.kind {
+            ExpressionKind::Constant(expression) => return expression.kind.as_place(),
+            ExpressionKind::PlayerScore(score) => {
+                let score = score.compile(datapack, ctx);
+
+                Place::Score(score)
+            }
+            ExpressionKind::Data(target, path) => {
+                let target = target.kind.compile(datapack, ctx);
+                let path = path.compile(datapack, ctx);
+
+                Place::Data(target, path)
+            }
+            ExpressionKind::Tuple(expressions) => Place::Tuple(
+                expressions
+                    .into_iter()
+                    .map(|expression| expression.as_place(datapack, ctx))
+                    .collect::<Option<_>>()?,
+            ),
+            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
+                expression.dereference(datapack)?.as_place(datapack, ctx)?
+            }
+            _ => return None,
+        })
+    }
+
     pub fn dereference(self, datapack: &mut HighDatapack) -> Option<Expression> {
         Some(match self.kind {
             ExpressionKind::Constant(expression) => match expression.kind {
                 ConstantExpressionKind::Variable(name) => datapack
-                    .get_variable(&name)?
+                    .get_variable(&name)
+                    .unwrap()
                     .1
                     .into_constant_expression()
                     .dereference(datapack)?,
                 ConstantExpressionKind::Reference(expression) => {
                     expression.into_constant_expression()
                 }
+                kind @ ConstantExpressionKind::PlayerScore(_) => Expression {
+                    span: self.span,
+                    kind: ExpressionKind::Constant(ConstantExpression {
+                        span: self.span,
+                        kind,
+                    }),
+                },
+                kind @ ConstantExpressionKind::Data(_, _) => Expression {
+                    span: self.span,
+                    kind: ExpressionKind::Constant(ConstantExpression {
+                        span: self.span,
+                        kind,
+                    }),
+                },
                 _ => return None,
             },
+            ExpressionKind::PlayerScore(_) => self,
+            ExpressionKind::Data(_, _) => self,
             ExpressionKind::Unary(UnaryOperator::Reference, expression) => *expression,
+            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
+                expression.dereference(datapack)?.dereference(datapack)?
+            }
             _ => return None,
         })
     }
@@ -2000,7 +2229,7 @@ impl Expression {
     pub fn dereference_type(
         &self,
         supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
-    ) -> Option<DataType> {
+    ) -> Option<DataTypeKind> {
         match &self.kind {
             ExpressionKind::Constant(expression) => Some(
                 expression
@@ -2020,13 +2249,17 @@ impl Expression {
         }
     }
 
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match &self.kind {
             ExpressionKind::Constant(constant_expression) => {
-                constant_expression.perform_semantic_analysis(ctx)
+                constant_expression.perform_semantic_analysis(ctx, is_lhs)
             }
             ExpressionKind::Unary(operator, expression) => {
-                let expression_result = expression.perform_semantic_analysis(ctx);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
 
@@ -2078,8 +2311,8 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::Arithmetic(left, operator, right) => {
-                let left_result = left.perform_semantic_analysis(ctx);
-                let right_result = right.perform_semantic_analysis(ctx);
+                let left_result = left.perform_semantic_analysis(ctx, is_lhs);
+                let right_result = right.perform_semantic_analysis(ctx, is_lhs);
 
                 left_result?;
                 right_result?;
@@ -2121,8 +2354,8 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::Comparison(left, operator, right) => {
-                let left_result = left.perform_semantic_analysis(ctx);
-                let right_result = right.perform_semantic_analysis(ctx);
+                let left_result = left.perform_semantic_analysis(ctx, is_lhs);
+                let right_result = right.perform_semantic_analysis(ctx, is_lhs);
 
                 left_result?;
                 right_result?;
@@ -2146,8 +2379,8 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::Logical(left, operator, right) => {
-                let left_result = left.perform_semantic_analysis(ctx);
-                let right_result = right.perform_semantic_analysis(ctx);
+                let left_result = left.perform_semantic_analysis(ctx, is_lhs);
+                let right_result = right.perform_semantic_analysis(ctx, is_lhs);
 
                 left_result?;
                 right_result?;
@@ -2171,8 +2404,8 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
-                let target_result = target.perform_semantic_analysis(ctx);
-                let value_result = value.perform_semantic_analysis(ctx);
+                let target_result = target.perform_semantic_analysis(ctx, is_lhs);
+                let value_result = value.perform_semantic_analysis(ctx, is_lhs);
 
                 target_result?;
                 value_result?;
@@ -2185,7 +2418,7 @@ impl Expression {
                     ctx.add_info::<()>(SemanticAnalysisInfo {
                         span: target.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedTo(target_type.clone()),
+                            SemanticAnalysisError::CannotBeAssignedTo,
                         ),
                     });
 
@@ -2198,7 +2431,7 @@ impl Expression {
                     ctx.add_info::<()>(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedTo(value_type.clone()),
+                            SemanticAnalysisError::CannotBeAssignedTo,
                         ),
                     });
 
@@ -2227,41 +2460,44 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::Assignment(target, value) => {
-                let target_result = target.perform_semantic_analysis(ctx);
-                let value_result = value.perform_semantic_analysis(ctx);
+                let target_result = target.perform_semantic_analysis(ctx, true);
+                let value_result = value.perform_semantic_analysis(ctx, false);
 
                 target_result?;
-                let target_data_type = target.kind.infer_data_type(ctx)?;
 
-                value_result?;
-                let value_data_type = value.kind.infer_data_type(ctx)?;
-
-                let Some(place) = target.place_type(ctx) else {
+                let Some(place) = target.get_place_type(ctx) else {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: target.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedTo(target_data_type),
+                            SemanticAnalysisError::CannotBeAssignedTo,
                         ),
                     });
                 };
 
-                place.perform_assignment_semantic_analysis(ctx, value.span, value_data_type)?;
+                value_result?;
+
+                let value_data_type = value.kind.infer_data_type(ctx)?;
+
+                place.perform_assignment_semantic_analysis(
+                    ctx,
+                    *value.clone(),
+                    &value_data_type,
+                )?;
 
                 Some(())
             }
-            ExpressionKind::String(_) => Some(()),
             ExpressionKind::List(expressions) => expressions
                 .iter()
-                .map(|expression| expression.perform_semantic_analysis(ctx))
+                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
             ExpressionKind::Compound(compound) => compound
                 .values()
-                .map(|value| value.perform_semantic_analysis(ctx))
+                .map(|value| value.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
-            ExpressionKind::PlayerScore(score) => score.perform_semantic_analysis(ctx),
+            ExpressionKind::PlayerScore(score) => score.perform_semantic_analysis(ctx, is_lhs),
             ExpressionKind::Data(target, path) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
-                let path_result = path.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
+                let path_result = path.perform_semantic_analysis(ctx, is_lhs);
 
                 target_result?;
                 path_result?;
@@ -2269,12 +2505,12 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::Condition(_, high_execute_if_subcommand) => {
-                high_execute_if_subcommand.perform_semantic_analysis(ctx)
+                high_execute_if_subcommand.perform_semantic_analysis(ctx, is_lhs)
             }
-            ExpressionKind::Command(command) => command.perform_semantic_analysis(ctx),
+            ExpressionKind::Command(command) => command.perform_semantic_analysis(ctx, is_lhs),
             ExpressionKind::Index(target, index) => {
-                let target_result = target.perform_semantic_analysis(ctx);
-                let index_result = index.perform_semantic_analysis(ctx);
+                let target_result = target.perform_semantic_analysis(ctx, is_lhs);
+                let index_result = index.perform_semantic_analysis(ctx, is_lhs);
 
                 target_result?;
 
@@ -2294,7 +2530,7 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::FieldAccess(expression, field) => {
-                let expression_result = expression.perform_semantic_analysis(ctx);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
 
@@ -2324,8 +2560,8 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::AsCast(expression, data_type) => {
-                let expression_result = expression.perform_semantic_analysis(ctx);
-                let data_type_result = data_type.perform_semantic_analysis(ctx);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let data_type_result = data_type.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
                 data_type_result?;
@@ -2348,7 +2584,7 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::ToCast(expression, runtime_storage) => {
-                let expression_result = expression.perform_semantic_analysis(ctx);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
 
@@ -2385,26 +2621,30 @@ impl Expression {
             }
             ExpressionKind::Tuple(expressions) => expressions
                 .iter()
-                .map(|expression| expression.perform_semantic_analysis(ctx))
+                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
         }
     }
 
-    pub fn place_type(
+    pub fn get_place_type(
         &self,
         supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
     ) -> Option<PlaceType> {
         Some(match &self.kind {
+            ExpressionKind::Tuple(expressions) => PlaceType::Tuple(
+                expressions
+                    .iter()
+                    .map(|expression| expression.get_place_type(supports_variable_type_scope))
+                    .collect::<Option<_>>()?,
+            ),
             ExpressionKind::Constant(expression) => {
                 return expression.place_type(supports_variable_type_scope);
             }
             ExpressionKind::PlayerScore(_) => PlaceType::Score,
             ExpressionKind::Data(_, _) => PlaceType::Data,
-            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
-                let r = expression.dereference_type(supports_variable_type_scope)?;
-
-                r.as_place_type()?
-            }
+            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => expression
+                .dereference_type(supports_variable_type_scope)?
+                .as_place_type()?,
             _ => return None,
         })
     }
@@ -2520,88 +2760,12 @@ impl Expression {
                 let right = right.resolve(datapack, ctx);
 
                 (match (left.kind, right.kind) {
-                    (ConstantExpressionKind::Byte(left), ConstantExpressionKind::Byte(right)) => {
-                        ConstantExpressionKind::Byte(match operator {
-                            ArithmeticOperator::Add => left.wrapping_add(right),
-                            ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                            ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                            ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                            ArithmeticOperator::Modulo => left % right,
-                            ArithmeticOperator::And => left & right,
-                            ArithmeticOperator::Or => left | right,
-                            ArithmeticOperator::LeftShift => left << right,
-                            ArithmeticOperator::RightShift => left >> right,
-                            ArithmeticOperator::Swap => unreachable!(),
-                        })
-                    }
-
-                    (ConstantExpressionKind::Short(left), ConstantExpressionKind::Short(right)) => {
-                        ConstantExpressionKind::Short(match operator {
-                            ArithmeticOperator::Add => left.wrapping_add(right),
-                            ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                            ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                            ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                            ArithmeticOperator::Modulo => left % right,
-                            ArithmeticOperator::And => left & right,
-                            ArithmeticOperator::Or => left | right,
-                            ArithmeticOperator::LeftShift => left << right,
-                            ArithmeticOperator::RightShift => left >> right,
-                            ArithmeticOperator::Swap => unreachable!(),
-                        })
-                    }
-
                     (
-                        ConstantExpressionKind::Integer(left),
-                        ConstantExpressionKind::Integer(right),
-                    ) => ConstantExpressionKind::Integer(match operator {
-                        ArithmeticOperator::Add => left.wrapping_add(right),
-                        ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                        ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                        ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                        ArithmeticOperator::Modulo => left % right,
-                        ArithmeticOperator::And => left & right,
-                        ArithmeticOperator::Or => left | right,
-                        ArithmeticOperator::LeftShift => left << right,
-                        ArithmeticOperator::RightShift => left >> right,
-                        ArithmeticOperator::Swap => unreachable!(),
-                    }),
-
-                    (ConstantExpressionKind::Long(left), ConstantExpressionKind::Long(right)) => {
-                        ConstantExpressionKind::Long(match operator {
-                            ArithmeticOperator::Add => left.wrapping_add(right),
-                            ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                            ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                            ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                            ArithmeticOperator::Modulo => left % right,
-                            ArithmeticOperator::And => left & right,
-                            ArithmeticOperator::Or => left | right,
-                            ArithmeticOperator::LeftShift => left << right,
-                            ArithmeticOperator::RightShift => left >> right,
-                            ArithmeticOperator::Swap => unreachable!(),
-                        })
-                    }
-
-                    (ConstantExpressionKind::Float(left), ConstantExpressionKind::Float(right)) => {
-                        ConstantExpressionKind::Float(match operator {
-                            ArithmeticOperator::Add => left + right,
-                            ArithmeticOperator::Subtract => left - right,
-                            ArithmeticOperator::Multiply => left * right,
-                            ArithmeticOperator::FloorDivide => left / right,
-                            ArithmeticOperator::Modulo => left % right,
-                            _ => unreachable!(),
-                        })
-                    }
-
-                    (
-                        ConstantExpressionKind::Double(left),
-                        ConstantExpressionKind::Double(right),
-                    ) => ConstantExpressionKind::Double(match operator {
-                        ArithmeticOperator::Add => left + right,
-                        ArithmeticOperator::Subtract => left - right,
-                        ArithmeticOperator::Multiply => left * right,
-                        ArithmeticOperator::FloorDivide => left / right,
-                        ArithmeticOperator::Modulo => left % right,
-                        _ => unreachable!(),
+                        ConstantExpressionKind::Literal(left),
+                        ConstantExpressionKind::Literal(right),
+                    ) => ConstantExpressionKind::Literal(LiteralExpression {
+                        span: ParserRange { start: 0, end: 0 },
+                        kind: left.kind.perform_arithmetic(operator, right.kind).unwrap(),
                     }),
 
                     (left_kind @ ConstantExpressionKind::PlayerScore(_), right_kind) => {
@@ -2750,8 +2914,7 @@ impl Expression {
                 let value = value.resolve(datapack, ctx);
 
                 target
-                    .resolve(datapack, ctx)
-                    .as_place()
+                    .as_place(datapack, ctx)
                     .unwrap()
                     .augmented_assign(datapack, ctx, operator, value.kind);
 
@@ -2760,14 +2923,12 @@ impl Expression {
             ExpressionKind::Assignment(target, value) => {
                 let value = value.resolve(datapack, ctx);
 
-                let partial = target.resolve(datapack, ctx);
-
-                partial.as_place().unwrap().assign(datapack, ctx, value);
+                target
+                    .as_place(datapack, ctx)
+                    .unwrap()
+                    .assign(datapack, ctx, value);
 
                 ConstantExpressionKind::Unit.into_dummy_constant_expression()
-            }
-            ExpressionKind::String(value) => {
-                ConstantExpressionKind::String(value).into_dummy_constant_expression()
             }
             ExpressionKind::List(expressions) => ConstantExpressionKind::List(
                 expressions

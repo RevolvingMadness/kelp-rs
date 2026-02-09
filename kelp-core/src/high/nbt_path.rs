@@ -18,13 +18,13 @@ pub enum HighNbtPathNode {
 }
 
 impl HighNbtPathNode {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighNbtPathNode::RootCompound(compound) => compound
                 .iter()
                 .map(|(key, value)| {
-                    let key = key.perform_semantic_analysis(ctx);
-                    let value = value.perform_semantic_analysis(ctx);
+                    let key = key.perform_semantic_analysis(ctx, is_lhs);
+                    let value = value.perform_semantic_analysis(ctx, is_lhs);
 
                     key?;
                     value?;
@@ -33,15 +33,15 @@ impl HighNbtPathNode {
                 })
                 .all_some(),
             HighNbtPathNode::Named(name, compound) => {
-                let name = name.perform_semantic_analysis(ctx);
+                let name = name.perform_semantic_analysis(ctx, is_lhs);
                 let compound = compound
                     .as_ref()
                     .map(|compound| {
                         compound
                             .iter()
                             .map(|(key, value)| {
-                                let key = key.perform_semantic_analysis(ctx);
-                                let value = value.perform_semantic_analysis(ctx);
+                                let key = key.perform_semantic_analysis(ctx, is_lhs);
+                                let value = value.perform_semantic_analysis(ctx, is_lhs);
 
                                 key?;
                                 value?;
@@ -59,7 +59,7 @@ impl HighNbtPathNode {
             }
             HighNbtPathNode::Index(expression) => expression
                 .as_ref()
-                .map(|expression| expression.perform_semantic_analysis(ctx))
+                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
                 .unwrap_or(Some(())),
         }
     }
@@ -101,10 +101,10 @@ impl HighNbtPathNode {
 pub struct HighNbtPath(pub NonEmpty<HighNbtPathNode>);
 
 impl HighNbtPath {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         self.0
             .iter()
-            .map(|node| node.perform_semantic_analysis(ctx))
+            .map(|node| node.perform_semantic_analysis(ctx, is_lhs))
             .all_some()
     }
 

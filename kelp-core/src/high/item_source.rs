@@ -13,9 +13,9 @@ pub enum HighItemSource {
 }
 
 impl HighItemSource {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
-            HighItemSource::Entity(selector) => selector.perform_semantic_analysis(ctx),
+            HighItemSource::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
             _ => Some(()),
         }
     }

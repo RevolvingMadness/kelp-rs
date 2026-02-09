@@ -26,13 +26,13 @@ pub enum HighDataCommandModification {
 }
 
 impl HighDataCommandModification {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighDataCommandModification::From(target, path) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
-                    .map(|path| path.perform_semantic_analysis(ctx))
+                    .map(|path| path.perform_semantic_analysis(ctx, is_lhs))
                     .unwrap_or(Some(()));
 
                 target_result?;
@@ -41,10 +41,10 @@ impl HighDataCommandModification {
                 Some(())
             }
             HighDataCommandModification::String(target, path, _, _) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
-                    .map(|path| path.perform_semantic_analysis(ctx))
+                    .map(|path| path.perform_semantic_analysis(ctx, is_lhs))
                     .unwrap_or(Some(()));
 
                 target_result?;
@@ -53,7 +53,7 @@ impl HighDataCommandModification {
                 Some(())
             }
             HighDataCommandModification::Value(expression) => {
-                expression.perform_semantic_analysis(ctx)
+                expression.perform_semantic_analysis(ctx, is_lhs)
             }
         }
     }
@@ -108,13 +108,13 @@ pub enum HighDataCommand {
 }
 
 impl HighDataCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighDataCommand::Get(target, path, _) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
-                    .map(|path| path.perform_semantic_analysis(ctx))
+                    .map(|path| path.perform_semantic_analysis(ctx, is_lhs))
                     .unwrap_or(Some(()));
 
                 target_result?;
@@ -123,8 +123,8 @@ impl HighDataCommand {
                 Some(())
             }
             HighDataCommand::Merge(target, expression) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
-                let expression_result = expression.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
 
                 target_result?;
                 expression_result?;
@@ -132,9 +132,9 @@ impl HighDataCommand {
                 Some(())
             }
             HighDataCommand::Modify(target, path, _, modification) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
-                let path_result = path.perform_semantic_analysis(ctx);
-                let modification_result = modification.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
+                let path_result = path.perform_semantic_analysis(ctx, is_lhs);
+                let modification_result = modification.perform_semantic_analysis(ctx, is_lhs);
 
                 target_result?;
                 path_result?;
@@ -143,8 +143,8 @@ impl HighDataCommand {
                 Some(())
             }
             HighDataCommand::Remove(target, path) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
-                let path_result = path.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
+                let path_result = path.perform_semantic_analysis(ctx, is_lhs);
 
                 target_result?;
                 path_result?;

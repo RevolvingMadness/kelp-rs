@@ -14,10 +14,14 @@ pub enum HighScoreComparison {
 }
 
 impl HighScoreComparison {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighScoreComparison::Range(_) => Some(()),
-            HighScoreComparison::Score(_, score) => score.perform_semantic_analysis(ctx),
+            HighScoreComparison::Score(_, score) => score.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 

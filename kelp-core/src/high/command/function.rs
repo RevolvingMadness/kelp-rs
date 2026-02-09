@@ -17,17 +17,17 @@ pub enum HighFunctionCommandArguments {
 }
 
 impl HighFunctionCommandArguments {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighFunctionCommandArguments::Compound(compound) => compound
                 .values()
-                .map(|value| value.perform_semantic_analysis(ctx))
+                .map(|value| value.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
             HighFunctionCommandArguments::DataTarget(target, path) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx);
+                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
-                    .map(|path| path.perform_semantic_analysis(ctx))
+                    .map(|path| path.perform_semantic_analysis(ctx, is_lhs))
                     .unwrap_or(Some(()));
 
                 target_result?;

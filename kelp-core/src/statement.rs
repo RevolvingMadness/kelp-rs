@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::compile_context::CompileContext;
-use crate::data_type::{DataType, HighDataType};
+use crate::data_type::{DataTypeKind, high::HighDataType};
 use crate::datapack::HighDatapack;
 use crate::expression::{ConstantExpressionKind, Expression};
+use crate::pattern::Pattern;
 use crate::semantic_analysis_context::{
     SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
 };
@@ -24,7 +25,7 @@ use parser_rs::parser_range::ParserRange;
 pub enum StatementKind {
     MCFunction(ResourceLocation, Box<Statement>),
     Expression(Expression),
-    VariableDeclaration(Option<HighDataType>, String, Expression),
+    VariableDeclaration(Option<HighDataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
@@ -97,14 +98,10 @@ impl StatementKind {
             StatementKind::Expression(expression) => {
                 expression.compile_as_statement(datapack, ctx);
             }
-            StatementKind::VariableDeclaration(data_type, name, value) => {
-                let data_type = data_type
-                    .map(|data_type| data_type.kind.resolve())
-                    .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
-
+            StatementKind::VariableDeclaration(data_type, pattern, value) => {
                 let value = value.resolve_force(datapack, ctx);
 
-                datapack.declare_variable(&name, data_type, value);
+                pattern.kind.destructure(datapack, data_type, value);
             }
             StatementKind::While(condition, body) => {
                 let mut while_body_ctx = CompileContext::default();
@@ -143,13 +140,13 @@ impl StatementKind {
                 let collection_data_type = collection
                     .kind
                     .infer_data_type(datapack)
-                    .unwrap_or(DataType::Any)
+                    .unwrap_or(DataTypeKind::Any)
                     .get_iterable_type()
-                    .unwrap_or(DataType::Any);
+                    .unwrap_or(DataTypeKind::Any);
 
                 let collection = collection.resolve(datapack, ctx);
 
-                if collection_data_type.equals(&DataType::String) {
+                if collection_data_type.equals(&DataTypeKind::String) {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
                     let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
 
@@ -165,7 +162,7 @@ impl StatementKind {
                     datapack.start_scope();
                     datapack.declare_variable(
                         &variable_name,
-                        DataType::Data(Box::new(DataType::Any)),
+                        DataTypeKind::Data(Box::new(DataTypeKind::Any)),
                         ConstantExpressionKind::Data(
                             unique_data_target_2.clone(),
                             unique_path_2.clone(),
@@ -257,7 +254,7 @@ impl StatementKind {
                     datapack.start_scope();
                     datapack.declare_variable(
                         &variable_name,
-                        DataType::Data(Box::new(DataType::Any)),
+                        DataTypeKind::Data(Box::new(DataTypeKind::Any)),
                         ConstantExpressionKind::Data(
                             unique_data_target.clone(),
                             unique_path.clone(),
@@ -316,34 +313,8 @@ impl StatementKind {
 
                 datapack.end_scope();
             }
-            StatementKind::Match(value, cases) => {
-                let min = cases.iter().filter_map(|case| case.0.min).min();
-                let max = cases.iter().filter_map(|case| case.0.max).max();
-
-                println!("{:?} {:?}", min, max);
-
-                let _score = todo!();
-
-                let num_cases = cases.len();
-
-                if num_cases > datapack.settings.num_match_cases_to_split {
-                    let middle = num_cases / 2;
-
-                    let mut left = BTreeMap::new();
-                    let mut right = BTreeMap::new();
-
-                    for (i, (&k, v)) in cases.iter().enumerate() {
-                        if i < middle {
-                            left.insert(k, v);
-                        } else {
-                            right.insert(k, v);
-                        }
-                    }
-
-                    todo!()
-                } else {
-                    todo!()
-                }
+            StatementKind::Match(_, _) => {
+                todo!()
             }
             StatementKind::If(condition, body, else_body) => {
                 let mut if_body_ctx = CompileContext::default();
@@ -405,34 +376,38 @@ pub struct Statement {
 }
 
 impl Statement {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match &self.kind {
-            StatementKind::MCFunction(_, statement) => statement.perform_semantic_analysis(ctx),
-            StatementKind::Expression(expression) => expression.perform_semantic_analysis(ctx),
-            StatementKind::VariableDeclaration(data_type, name, value) => {
-                let value_error = value.perform_semantic_analysis(ctx).is_none();
+            StatementKind::MCFunction(_, statement) => {
+                statement.perform_semantic_analysis(ctx, is_lhs)
+            }
+            StatementKind::Expression(expression) => {
+                expression.perform_semantic_analysis(ctx, is_lhs)
+            }
+            StatementKind::VariableDeclaration(data_type, pattern, value) => {
+                let value_error = value.perform_semantic_analysis(ctx, is_lhs).is_none();
 
-                let resolved_data_type = if let Some(data_type) = data_type {
-                    if data_type.perform_semantic_analysis(ctx).is_some() {
-                        Some(data_type.kind.resolve())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+                pattern.perform_irrefutablity_semantic_analysis(ctx)?;
 
-                if value_error || resolved_data_type.is_none() {
-                    ctx.declare_variable_unknown::<()>(name);
-
+                if value_error {
+                    pattern.kind.destructure_unknown(ctx);
                     return None;
-                } else if let Some(data_type) = &resolved_data_type {
-                    ctx.declare_variable_known(name, data_type.clone());
                 }
 
                 let value_type = value.kind.infer_data_type(ctx)?;
 
-                let final_type = if let Some(data_type) = resolved_data_type {
+                let final_type = if let Some(data_type) = data_type {
+                    if data_type.perform_semantic_analysis(ctx, is_lhs).is_none() {
+                        pattern.kind.destructure_unknown(ctx);
+                        return None;
+                    }
+
+                    let data_type = data_type.kind.resolve();
+
                     if !data_type.equals(&value_type) {
                         return ctx.add_info(SemanticAnalysisInfo {
                             span: value.span,
@@ -449,13 +424,13 @@ impl Statement {
                     value_type
                 };
 
-                ctx.declare_variable_known(name, final_type);
+                pattern.perform_destructure_semantic_analysis(ctx, value.span, final_type)?;
 
                 Some(())
             }
             StatementKind::While(expression, statement) => {
-                let expression_result = expression.perform_semantic_analysis(ctx);
-                let statement_result = statement.perform_semantic_analysis(ctx);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
 
@@ -476,11 +451,11 @@ impl Statement {
             }
             StatementKind::Match(_, _) => todo!(),
             StatementKind::If(expression, statement, else_statement) => {
-                let expression_result = expression.perform_semantic_analysis(ctx);
-                let statement_result = statement.perform_semantic_analysis(ctx);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
                 let else_statement_result = else_statement
                     .as_ref()
-                    .map(|else_statement| else_statement.perform_semantic_analysis(ctx))
+                    .map(|else_statement| else_statement.perform_semantic_analysis(ctx, is_lhs))
                     .unwrap_or(Some(()));
 
                 expression_result?;
@@ -502,7 +477,7 @@ impl Statement {
                 Some(())
             }
             StatementKind::ForIn(_, name, expression, statement) => {
-                let expression_result = expression.perform_semantic_analysis(ctx);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
 
                 let expression_type = expression.kind.infer_data_type(ctx)?;
 
@@ -517,7 +492,7 @@ impl Statement {
 
                 ctx.declare_variable_known(name, iterable_type);
 
-                let statement_result = statement.perform_semantic_analysis(ctx);
+                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
                 statement_result?;
@@ -526,18 +501,18 @@ impl Statement {
             }
             StatementKind::Block(statements) => statements
                 .iter()
-                .map(|statement| statement.perform_semantic_analysis(ctx))
+                .map(|statement| statement.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
             StatementKind::AppendData(target, value) => {
-                let target_result = target.perform_semantic_analysis(ctx);
-                let value_result = value.perform_semantic_analysis(ctx);
+                let target_result = target.perform_semantic_analysis(ctx, is_lhs);
+                let value_result = value.perform_semantic_analysis(ctx, is_lhs);
 
                 target_result?;
                 value_result?;
 
                 Some(())
             }
-            StatementKind::RemoveData(target) => target.perform_semantic_analysis(ctx),
+            StatementKind::RemoveData(target) => target.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 

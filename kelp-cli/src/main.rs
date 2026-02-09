@@ -27,7 +27,7 @@ fn process_success(statements: Vec<Statement>, file_name: &str, source_text: &st
     let start_semantic = Instant::now();
     let succeeded = statements
         .iter()
-        .map(|statement| statement.perform_semantic_analysis(&mut semantic_analysis_context))
+        .map(|statement| statement.perform_semantic_analysis(&mut semantic_analysis_context, false))
         .all_some();
     let semantic_elapsed = start_semantic.elapsed();
 

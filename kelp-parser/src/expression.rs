@@ -3,8 +3,8 @@ use std::{collections::BTreeMap, num::IntErrorKind};
 use kelp_core::{
     expression::{
         ArithmeticOperator, ComparisonOperator, ConstantExpression, ConstantExpressionKind,
-        Expression, ExpressionCompoundKind, ExpressionKind, HighSNBTString, LogicalOperator,
-        UnaryOperator,
+        Expression, ExpressionCompoundKind, ExpressionKind, HighSNBTString, LiteralExpression,
+        LiteralExpressionKind, LogicalOperator, UnaryOperator,
     },
     runtime_storage_type::RuntimeStorageType,
 };
@@ -468,24 +468,42 @@ pub fn parse_compound(input: &mut Stream) -> Option<ExpressionCompoundKind> {
     Some(elements.into_iter().collect::<BTreeMap<_, _>>())
 }
 
-pub fn atom(input: &mut Stream) -> Option<Expression> {
-    let (left_span, left_kind) = choice((
+pub fn literal_expression(input: &mut Stream) -> Option<LiteralExpressionKind> {
+    choice((
         numeric_parser,
         choice((literal("true").map_to(true), literal("false").map_to(false)))
-            .spanned()
             .syntax(SemanticTokenKind::Keyword)
-            .map(|(value_span, value)| {
-                ExpressionKind::Constant(ConstantExpression {
-                    span: value_span,
-                    kind: ConstantExpressionKind::Boolean(value),
-                })
-            }),
+            .map(LiteralExpressionKind::Boolean),
         quoted_string.spanned().map(|(string_span, string)| {
-            ExpressionKind::String(HighSNBTString {
+            LiteralExpressionKind::String(HighSNBTString {
                 span: string_span,
                 snbt_string: SNBTString(false, string),
             })
         }),
+    ))
+    .parse(input)
+}
+
+pub fn atom(input: &mut Stream) -> Option<Expression> {
+    let (left_span, left_kind) = choice((
+        literal_expression.spanned().map(|(kind_span, kind)| {
+            ExpressionKind::Constant(ConstantExpression {
+                span: kind_span,
+                kind: ConstantExpressionKind::Literal(LiteralExpression {
+                    span: kind_span,
+                    kind,
+                }),
+            })
+        }),
+        char('_')
+            .syntax(SemanticTokenKind::Variable)
+            .spanned()
+            .map(|(span, _)| {
+                ExpressionKind::Constant(ConstantExpression {
+                    span,
+                    kind: ConstantExpressionKind::Underscore,
+                })
+            }),
         |input: &mut Stream| {
             char('[').parse(input)?;
 
@@ -621,10 +639,8 @@ pub fn hex_digits(input: &mut Stream) -> Option<()> {
     }
 }
 
-pub fn numeric_parser<'a>(input: &mut Stream<'a>) -> Option<ExpressionKind> {
+pub fn numeric_parser<'a>(input: &mut Stream<'a>) -> Option<LiteralExpressionKind> {
     (|input: &mut Stream<'a>| {
-        let start = input.position;
-
         let (all_span, (all_slice, (digits_slice, radix, is_float))) =
             (|input: &mut Stream<'a>| {
                 let bytes = input.remaining().as_bytes();
@@ -740,60 +756,48 @@ pub fn numeric_parser<'a>(input: &mut Stream<'a>) -> Option<ExpressionKind> {
             }};
         }
 
-        Some(ExpressionKind::Constant(ConstantExpression {
-            span: ParserRange {
-                start,
-                end: input.position,
-            },
-            kind: match (suffix, is_float) {
-                (Some(NumericKind::Byte), _) => {
-                    parse_int!(i8, ConstantExpressionKind::Byte, "Byte", i8::MAX, i8::MIN)
+        Some(match (suffix, is_float) {
+            (Some(NumericKind::Byte), _) => {
+                parse_int!(i8, LiteralExpressionKind::Byte, "Byte", i8::MAX, i8::MIN)
+            }
+            (Some(NumericKind::Short), _) => {
+                parse_int!(
+                    i16,
+                    LiteralExpressionKind::Short,
+                    "Short",
+                    i16::MAX,
+                    i16::MIN
+                )
+            }
+            (Some(NumericKind::Integer), _) | (None, false) => {
+                parse_int!(
+                    i32,
+                    LiteralExpressionKind::Integer,
+                    "Integer",
+                    i32::MAX,
+                    i32::MIN
+                )
+            }
+            (Some(NumericKind::Long), _) => {
+                parse_int!(i64, LiteralExpressionKind::Long, "Long", i64::MAX, i64::MIN)
+            }
+            (Some(NumericKind::Float), _) | (None, true) => {
+                if radix == 10 {
+                    LiteralExpressionKind::Float(all_slice.parse().unwrap())
+                } else {
+                    let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
+                    LiteralExpressionKind::Float(NotNan::new(val as f32).unwrap())
                 }
-                (Some(NumericKind::Short), _) => {
-                    parse_int!(
-                        i16,
-                        ConstantExpressionKind::Short,
-                        "Short",
-                        i16::MAX,
-                        i16::MIN
-                    )
+            }
+            (Some(NumericKind::Double), _) => {
+                if radix == 10 {
+                    LiteralExpressionKind::Double(all_slice.parse().unwrap())
+                } else {
+                    let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
+                    LiteralExpressionKind::Double(NotNan::new(val as f64).unwrap())
                 }
-                (Some(NumericKind::Integer), _) | (None, false) => {
-                    parse_int!(
-                        i32,
-                        ConstantExpressionKind::Integer,
-                        "Integer",
-                        i32::MAX,
-                        i32::MIN
-                    )
-                }
-                (Some(NumericKind::Long), _) => {
-                    parse_int!(
-                        i64,
-                        ConstantExpressionKind::Long,
-                        "Long",
-                        i64::MAX,
-                        i64::MIN
-                    )
-                }
-                (Some(NumericKind::Float), _) | (None, true) => {
-                    if radix == 10 {
-                        ConstantExpressionKind::Float(all_slice.parse().unwrap())
-                    } else {
-                        let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
-                        ConstantExpressionKind::Float(NotNan::new(val as f32).unwrap())
-                    }
-                }
-                (Some(NumericKind::Double), _) => {
-                    if radix == 10 {
-                        ConstantExpressionKind::Double(all_slice.parse().unwrap())
-                    } else {
-                        let val = i64::from_str_radix(digits_slice, radix).unwrap_or(0);
-                        ConstantExpressionKind::Double(NotNan::new(val as f64).unwrap())
-                    }
-                }
-            },
-        }))
+            }
+        })
     })
     .syntax(SemanticTokenKind::Number)
     .parse(input)

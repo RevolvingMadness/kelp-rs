@@ -17,13 +17,17 @@ pub enum HighItemTest {
 }
 
 impl HighItemTest {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighItemTest::Component(_) => Some(()),
             HighItemTest::ComponentMatches(_, expression) => {
-                expression.perform_semantic_analysis(ctx)
+                expression.perform_semantic_analysis(ctx, is_lhs)
             }
-            HighItemTest::Predicate(_, expression) => expression.perform_semantic_analysis(ctx),
+            HighItemTest::Predicate(_, expression) => expression.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 
@@ -46,10 +50,14 @@ impl HighItemTest {
 pub struct HighOrGroup(pub Vec<(bool, HighItemTest)>);
 
 impl HighOrGroup {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         self.0
             .iter()
-            .map(|(_, test)| test.perform_semantic_analysis(ctx))
+            .map(|(_, test)| test.perform_semantic_analysis(ctx, is_lhs))
             .all_some()
     }
 
@@ -70,10 +78,14 @@ pub struct HighItemPredicate {
 }
 
 impl HighItemPredicate {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         self.or_groups
             .iter()
-            .map(|or_group| or_group.perform_semantic_analysis(ctx))
+            .map(|or_group| or_group.perform_semantic_analysis(ctx, is_lhs))
             .all_some()
     }
 

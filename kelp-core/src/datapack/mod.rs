@@ -1,5 +1,5 @@
 use crate::compile_context::CompileContext;
-use crate::data_type::DataType;
+use crate::data_type::DataTypeKind;
 use crate::expression::{ConstantExpression, SupportsVariableTypeScope};
 use crate::high::data::{HighDataTarget, HighDataTargetKind};
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
@@ -196,7 +196,7 @@ pub struct HighDatapackSettings {
     pub num_match_cases_to_split: usize,
 }
 
-pub type Scope = BTreeMap<String, (DataType, ConstantExpression)>;
+pub type Scope = BTreeMap<String, (DataTypeKind, ConstantExpression)>;
 pub type Scopes = VecDeque<Scope>;
 
 pub struct HighDatapack {
@@ -211,7 +211,7 @@ pub struct HighDatapack {
 }
 
 impl SupportsVariableTypeScope for HighDatapack {
-    fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
+    fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
         self.get_variable(name)
             .map(|(data_type, _)| Some(data_type))
     }
@@ -401,7 +401,7 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<(DataType, ConstantExpression)> {
+    pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, ConstantExpression)> {
         for scope in self.scopes.iter() {
             if let Some(value) = scope.get(name) {
                 return Some(value.clone());
@@ -437,7 +437,7 @@ impl HighDatapack {
         self.scopes.front().expect("No scopes").contains_key(name)
     }
 
-    pub fn declare_variable(&mut self, name: &str, data_type: DataType, value: ConstantExpression) {
+    pub fn declare_variable(&mut self, name: &str, data_type: DataTypeKind, value: ConstantExpression) {
         self.scopes
             .front_mut()
             .expect("No scopes")

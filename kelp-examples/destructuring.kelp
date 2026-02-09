@@ -1,0 +1,17 @@
+mcfn namespace:main {
+    let _ = 1
+    let _ = 2
+
+    let _ = score @s foo
+    let _ = entity @s Path
+
+    let (x, y) = (1 to score, 2 to score)
+
+    tellraw @a x // 1
+    tellraw @a y // 2
+
+    (x, y) = (y, x)
+
+    tellraw @a x // 2
+    tellraw @a y // 1
+}

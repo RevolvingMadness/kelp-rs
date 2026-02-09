@@ -6,12 +6,12 @@ use parser_rs::{
     stream::Stream,
 };
 
-use crate::range::parse_integer_range;
 use crate::resource_location::parse_resource_location;
 use crate::{data_type::parse_data_type, expression::expression};
 use crate::{
     identifier, inline_whitespace, newline_whitespace, required_inline_whitespace, whitespace,
 };
+use crate::{pattern::pattern, range::parse_integer_range};
 
 pub fn mcfunction_statement(input: &mut Stream) -> Option<StatementKind> {
     literal("mcfn")
@@ -147,9 +147,7 @@ pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKin
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let name = identifier("variable name")
-        .syntax(SemanticTokenKind::Variable)
-        .parse(input)?;
+    let pattern = pattern.parse(input)?;
     let data_type = (|input: &mut Stream| {
         inline_whitespace(input)?;
         char(':').parse(input)?;
@@ -166,9 +164,7 @@ pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKin
     let value = expression.parse(input)?;
 
     Some(StatementKind::VariableDeclaration(
-        data_type,
-        name.to_string(),
-        value,
+        data_type, pattern, value,
     ))
 }
 

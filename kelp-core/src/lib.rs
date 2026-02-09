@@ -6,6 +6,8 @@ pub mod data_type;
 pub mod datapack;
 pub mod expression;
 pub mod high;
+pub mod pattern;
+pub mod pattern_type;
 pub mod place;
 pub mod runtime_storage_type;
 pub mod score_comparison;

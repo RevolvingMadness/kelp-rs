@@ -41,35 +41,35 @@ pub enum HighCommand {
 }
 
 impl HighCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighCommand::Regular(_command) => {
                 // TODO future
 
                 Some(())
             }
-            HighCommand::Data(command) => command.perform_semantic_analysis(ctx),
+            HighCommand::Data(command) => command.perform_semantic_analysis(ctx, is_lhs),
             HighCommand::Difficulty(_) => Some(()),
-            HighCommand::Enchant(selector, _, _) => selector.perform_semantic_analysis(ctx),
-            HighCommand::Execute(subcommand) => subcommand.perform_semantic_analysis(ctx),
+            HighCommand::Enchant(selector, _, _) => selector.perform_semantic_analysis(ctx, is_lhs),
+            HighCommand::Execute(subcommand) => subcommand.perform_semantic_analysis(ctx, is_lhs),
             HighCommand::Function(_, arguments) => arguments
                 .as_ref()
-                .map(|arguments| arguments.perform_semantic_analysis(ctx))
+                .map(|arguments| arguments.perform_semantic_analysis(ctx, is_lhs))
                 .unwrap_or(Some(())),
             HighCommand::Tellraw(selector, expression) => {
-                let selector_result = selector.perform_semantic_analysis(ctx);
-                let expression_result = expression.perform_semantic_analysis(ctx);
+                let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
 
                 selector_result?;
                 expression_result?;
 
                 Some(())
             }
-            HighCommand::Return(command) => command.perform_semantic_analysis(ctx),
-            HighCommand::Scoreboard(command) => command.perform_semantic_analysis(ctx),
+            HighCommand::Return(command) => command.perform_semantic_analysis(ctx, is_lhs),
+            HighCommand::Scoreboard(command) => command.perform_semantic_analysis(ctx, is_lhs),
             HighCommand::Summon(_, _, expression) => expression
                 .as_ref()
-                .map(|expression| expression.perform_semantic_analysis(ctx))
+                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
                 .unwrap_or(Some(())),
         }
     }

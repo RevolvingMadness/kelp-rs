@@ -16,11 +16,15 @@ pub struct HighBlockState {
 }
 
 impl HighBlockState {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         if let Some(data_tags) = &self.data_tags {
             data_tags
                 .values()
-                .map(|data_tag| data_tag.perform_semantic_analysis(ctx))
+                .map(|data_tag| data_tag.perform_semantic_analysis(ctx, is_lhs))
                 .all_some()
         } else {
             Some(())

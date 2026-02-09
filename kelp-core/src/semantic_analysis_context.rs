@@ -6,57 +6,68 @@ use std::{
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    data_type::{DataType, DataTypeKind},
+    data_type::{DataTypeKind, GenericDataTypeKind},
     expression::{
         ArithmeticOperator, ComparisonOperator, LogicalOperator, SupportsVariableTypeScope,
     },
+    pattern_type::PatternType,
 };
 
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
     CannotPerformArithmeticOperation {
-        left: DataType,
+        left: DataTypeKind,
         operator: ArithmeticOperator,
-        right: DataType,
+        right: DataTypeKind,
     },
     CannotPerformComparisonOperation {
-        left: DataType,
+        left: DataTypeKind,
         operator: ComparisonOperator,
-        right: DataType,
+        right: DataTypeKind,
     },
     CannotPerformLogicalOperation {
-        left: DataType,
+        left: DataTypeKind,
         operator: LogicalOperator,
-        right: DataType,
+        right: DataTypeKind,
     },
-    CannotIterateType(DataType),
+    MismatchedTupleLength {
+        expected: usize,
+        actual: usize,
+    },
+    MismatchedPatternTypes {
+        expected: PatternType,
+        actual: DataTypeKind,
+    },
+    UnderscoreExpression,
+    CannotIterateType(DataTypeKind),
     MismatchedTypes {
-        expected: DataType,
-        actual: DataType,
+        expected: DataTypeKind,
+        actual: DataTypeKind,
     },
-    InvalidAugmentedAssignmentType(ArithmeticOperator, DataType, DataType),
+    InvalidAugmentedAssignmentType(ArithmeticOperator, DataTypeKind, DataTypeKind),
     CannotCastType {
-        from: DataType,
-        to: DataType,
+        from: DataTypeKind,
+        to: DataTypeKind,
     },
+    PatternIsNotIrrefutable,
     UnknownType(String),
-    TypeIsNotCondition(DataType),
-    CannotBeAssignedToScore(DataType),
-    CannotBeAssignedToData(DataType),
-    CannotBeIndexed(DataType),
-    CannotBeDereferenced(DataType),
-    CannotBeReferenced(DataType),
-    CannotBeAssignedTo(DataType),
-    TypeDoesntHaveFields(DataType),
-    CannotNegateType(DataType),
-    CannotInvertType(DataType),
-    TypeRequiresReference(DataType),
+    TypeIsNotCondition(DataTypeKind),
+    CannotBeAssignedToScore(DataTypeKind),
+    CannotBeAssignedToData(DataTypeKind),
+    CannotBeIndexed(DataTypeKind),
+    CannotBeDereferenced(DataTypeKind),
+    CannotBeReferenced(DataTypeKind),
+    CannotBeAssignedTo,
+    TypeDoesntHaveFields(DataTypeKind),
+    CannotNegateType(DataTypeKind),
+    CannotInvertType(DataTypeKind),
+    TypeRequiresReference(DataTypeKind),
     TypeDoesntHaveField {
-        data_type: DataType,
+        data_type: DataTypeKind,
         field: String,
     },
     InvalidGenerics {
-        data_type_kind: DataTypeKind,
+        data_type_kind: GenericDataTypeKind,
         expected: usize,
         actual: usize,
     },
@@ -85,6 +96,20 @@ impl Display for SemanticAnalysisError {
             Self::MismatchedTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)
             }
+            Self::MismatchedTupleLength { actual, expected } => {
+                write!(
+                    f,
+                    "Expected tuple of length {} but got {}",
+                    actual, expected
+                )
+            }
+            Self::MismatchedPatternTypes { expected, actual } => {
+                write!(f, "Expected type '{}' but got '{}'", expected, actual)
+            }
+            Self::UnderscoreExpression => f.write_str(
+                "The underscore expression can only be used on the left hand side of assignments",
+            ),
+            Self::PatternIsNotIrrefutable => f.write_str("This pattern is not irrefutable"),
             Self::UnknownType(name) => {
                 write!(f, "Unknown type '{}'", name)
             }
@@ -136,9 +161,7 @@ impl Display for SemanticAnalysisError {
             Self::CannotBeReferenced(data_type) => {
                 write!(f, "The type '{}' cannot be referenced", data_type)
             }
-            Self::CannotBeAssignedTo(data_type) => {
-                write!(f, "The type '{}' cannot be assigned a value", data_type)
-            }
+            Self::CannotBeAssignedTo => f.write_str("Cannot assign a value to this expression"),
             Self::TypeDoesntHaveFields(data_type) => {
                 write!(f, "The type '{}' does not have any fields", data_type)
             }
@@ -209,7 +232,7 @@ pub struct SemanticAnalysisInfo {
     pub kind: SemanticAnalysisInfoKind,
 }
 
-pub type Scope = BTreeMap<String, Option<DataType>>;
+pub type Scope = BTreeMap<String, Option<DataTypeKind>>;
 pub type Scopes = VecDeque<Scope>;
 
 #[derive(Debug, Default, Clone)]
@@ -224,7 +247,7 @@ impl SemanticAnalysisContext {
     pub fn add_invalid_generics<T>(
         &mut self,
         span: ParserRange,
-        data_type: DataTypeKind,
+        data_type: GenericDataTypeKind,
         expected: usize,
         actual: usize,
     ) -> Option<T> {
@@ -249,7 +272,7 @@ impl SemanticAnalysisContext {
         None
     }
 
-    pub fn declare_variable(&mut self, name: &str, data_type: Option<DataType>) {
+    pub fn declare_variable(&mut self, name: &str, data_type: Option<DataTypeKind>) {
         self.scopes
             .front_mut()
             .expect("No scopes")
@@ -257,7 +280,7 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_variable_known(&mut self, name: &str, data_type: DataType) {
+    pub fn declare_variable_known(&mut self, name: &str, data_type: DataTypeKind) {
         self.declare_variable(name, Some(data_type));
     }
 
@@ -275,7 +298,7 @@ impl SemanticAnalysisContext {
             .any(|scope| scope.contains_key(name))
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
+    pub fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
         for scope in &self.scopes {
             if let Some(value) = scope.get(name) {
                 return Some(value.clone());
@@ -287,7 +310,7 @@ impl SemanticAnalysisContext {
 }
 
 impl SupportsVariableTypeScope for SemanticAnalysisContext {
-    fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
+    fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
         self.get_variable(name)
     }
 

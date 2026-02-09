@@ -40,10 +40,10 @@ pub enum HighEntitySelectorOption {
 }
 
 impl HighEntitySelectorOption {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
         match self {
             HighEntitySelectorOption::Nbt(_, expression) => {
-                expression.perform_semantic_analysis(ctx)
+                expression.perform_semantic_analysis(ctx, is_lhs)
             }
             _ => Some(()),
         }

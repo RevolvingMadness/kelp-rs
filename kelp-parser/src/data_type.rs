@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use kelp_core::{
-    data_type::{HighDataType, HighDataTypeKind},
+    data_type::{high::HighDataType, high::HighDataTypeKind},
     expression::HighSNBTString,
 };
 use minecraft_command_types::snbt::SNBTString;
 use parser_rs::{
-    combinators::{char, choice::choice, literal},
+    combinators::{char, choice::choice},
     fn_parser::FnParser,
     parser_range::ParserRange,
     semantic_token::SemanticTokenKind,

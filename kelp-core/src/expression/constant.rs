@@ -192,7 +192,6 @@ impl ConstantExpressionKind {
             }
             ConstantExpressionKind::Unit => DataTypeKind::Unit,
             ConstantExpressionKind::Dereference(expression) => {
-                // TODO
                 return expression.kind.dereference(supports_variable_type_scope);
             }
             ConstantExpressionKind::Reference(expression) => DataTypeKind::Reference(Box::new(
@@ -1089,6 +1088,15 @@ impl ConstantExpressionKind {
             _ => return None,
         })
     }
+
+    pub fn try_dereference(self, datapack: &mut HighDatapack) -> Option<ConstantExpressionKind> {
+        Some(match self {
+            ConstantExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1.kind,
+            ConstantExpressionKind::Reference(expression) => expression.kind,
+            ConstantExpressionKind::PlayerScore(_) | ConstantExpressionKind::Data(_, _) => self,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -1110,19 +1118,10 @@ impl ConstantExpression {
         })
     }
 
-    pub fn try_dereference(self, datapack: &mut HighDatapack) -> Option<ConstantExpression> {
-        Some(match self.kind {
-            ConstantExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1,
-            ConstantExpressionKind::Reference(expression) => *expression,
-            ConstantExpressionKind::PlayerScore(_) | ConstantExpressionKind::Data(_, _) => self,
-            _ => return None,
-        })
-    }
-
-    pub fn resolve(self, datapack: &mut HighDatapack) -> ConstantExpression {
+    pub fn resolve(self, datapack: &mut HighDatapack) -> ConstantExpressionKind {
         match self.kind {
-            ConstantExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1,
-            _ => self,
+            ConstantExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1.kind,
+            kind => kind,
         }
     }
 

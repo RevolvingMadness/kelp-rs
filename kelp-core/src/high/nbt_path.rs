@@ -75,7 +75,7 @@ impl HighNbtPathNode {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.resolve(datapack, ctx).kind.as_snbt_macros(ctx);
+                        let value = value.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                         (key.snbt_string, value)
                     })
@@ -87,7 +87,7 @@ impl HighNbtPathNode {
                     expression
                         .into_iter()
                         .map(|(key, value)| {
-                            let value = value.resolve(datapack, ctx).kind.as_snbt_macros(ctx);
+                            let value = value.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                             (key.snbt_string, value)
                         })
@@ -95,8 +95,7 @@ impl HighNbtPathNode {
                 }),
             ),
             HighNbtPathNode::Index(expression) => NbtPathNode::Index(
-                expression
-                    .map(|expression| expression.resolve(datapack, ctx).kind.as_snbt_macros(ctx)),
+                expression.map(|expression| expression.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
         }
     }

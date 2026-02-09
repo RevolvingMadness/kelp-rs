@@ -19,7 +19,11 @@ pub enum HighScoreboardModification {
 }
 
 impl HighScoreboardModification {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighScoreboardModification::DisplayAutoUpdate(_) => Some(()),
             HighScoreboardModification::DisplayName(expression) => {
@@ -44,7 +48,7 @@ impl HighScoreboardModification {
             }
             HighScoreboardModification::DisplayName(expression) => {
                 ScoreboardModification::DisplayName(
-                    expression.resolve(datapack, ctx).kind.as_snbt_macros(ctx),
+                    expression.resolve(datapack, ctx).as_snbt_macros(ctx),
                 )
             }
             HighScoreboardModification::NumberFormat(number_format) => {
@@ -69,7 +73,11 @@ pub enum HighObjectivesScoreboardCommand {
 }
 
 impl HighObjectivesScoreboardCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighObjectivesScoreboardCommand::List => Some(()),
             HighObjectivesScoreboardCommand::Add(_, _, expression) => expression
@@ -95,7 +103,7 @@ impl HighObjectivesScoreboardCommand {
                 ObjectivesScoreboardCommand::Add(
                     objective,
                     display_name,
-                    expression.map(|e| e.resolve(datapack, ctx).kind.as_snbt_macros(ctx)),
+                    expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
                 )
             }
             HighObjectivesScoreboardCommand::Remove(objective) => {

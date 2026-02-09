@@ -22,7 +22,11 @@ pub enum HighScoreboardNumberFormat {
 }
 
 impl HighScoreboardNumberFormat {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighScoreboardNumberFormat::Blank => Some(()),
             HighScoreboardNumberFormat::Fixed(expression) => {
@@ -41,11 +45,11 @@ impl HighScoreboardNumberFormat {
     ) -> ScoreboardNumberFormat {
         match self {
             HighScoreboardNumberFormat::Blank => ScoreboardNumberFormat::Blank,
-            HighScoreboardNumberFormat::Fixed(expression) => ScoreboardNumberFormat::Fixed(
-                expression.resolve(datapack, ctx).kind.as_snbt_macros(ctx),
-            ),
+            HighScoreboardNumberFormat::Fixed(expression) => {
+                ScoreboardNumberFormat::Fixed(expression.resolve(datapack, ctx).as_snbt_macros(ctx))
+            }
             HighScoreboardNumberFormat::Styled(expression) => ScoreboardNumberFormat::Styled(
-                expression.resolve(datapack, ctx).kind.as_snbt_macros(ctx),
+                expression.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
         }
     }
@@ -58,7 +62,11 @@ pub enum HighPlayersDisplayScoreboardCommand {
 }
 
 impl HighPlayersDisplayScoreboardCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighPlayersDisplayScoreboardCommand::Name(score, expression) => {
                 let score_result = score.perform_semantic_analysis(ctx, is_lhs);
@@ -96,7 +104,7 @@ impl HighPlayersDisplayScoreboardCommand {
             HighPlayersDisplayScoreboardCommand::Name(player_score, expression) => {
                 PlayersDisplayScoreboardCommand::Name(
                     player_score.compile(datapack, ctx),
-                    expression.map(|e| e.resolve(datapack, ctx).kind.as_snbt_macros(ctx)),
+                    expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
                 )
             }
             HighPlayersDisplayScoreboardCommand::NumberFormat(high_player_score, number_format) => {
@@ -125,20 +133,34 @@ pub enum HighPlayersScoreboardCommand {
 }
 
 impl HighPlayersScoreboardCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighPlayersScoreboardCommand::List(selector) => selector
                 .as_ref()
                 .map(|selector| selector.perform_semantic_analysis(ctx, is_lhs))
                 .unwrap_or(Some(())),
-            HighPlayersScoreboardCommand::Get(score) => score.perform_semantic_analysis(ctx, is_lhs),
-            HighPlayersScoreboardCommand::Set(score, _) => score.perform_semantic_analysis(ctx, is_lhs),
-            HighPlayersScoreboardCommand::Add(score, _) => score.perform_semantic_analysis(ctx, is_lhs),
-            HighPlayersScoreboardCommand::Remove(score, _) => score.perform_semantic_analysis(ctx, is_lhs),
+            HighPlayersScoreboardCommand::Get(score) => {
+                score.perform_semantic_analysis(ctx, is_lhs)
+            }
+            HighPlayersScoreboardCommand::Set(score, _) => {
+                score.perform_semantic_analysis(ctx, is_lhs)
+            }
+            HighPlayersScoreboardCommand::Add(score, _) => {
+                score.perform_semantic_analysis(ctx, is_lhs)
+            }
+            HighPlayersScoreboardCommand::Remove(score, _) => {
+                score.perform_semantic_analysis(ctx, is_lhs)
+            }
             HighPlayersScoreboardCommand::Reset(selector, _) => {
                 selector.perform_semantic_analysis(ctx, is_lhs)
             }
-            HighPlayersScoreboardCommand::Enable(score) => score.perform_semantic_analysis(ctx, is_lhs),
+            HighPlayersScoreboardCommand::Enable(score) => {
+                score.perform_semantic_analysis(ctx, is_lhs)
+            }
             HighPlayersScoreboardCommand::Operation(left, _, right) => {
                 let left_result = left.perform_semantic_analysis(ctx, is_lhs);
                 let right_result = right.perform_semantic_analysis(ctx, is_lhs);

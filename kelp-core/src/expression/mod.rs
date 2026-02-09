@@ -3,13 +3,11 @@ use std::collections::BTreeMap;
 use minecraft_command_types::{
     command::{
         Command, PlayerScore,
-        data::DataTarget,
         enums::{score_operation_operator::ScoreOperationOperator, store_type::StoreType},
         execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
         r#return::ReturnCommand,
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
-    nbt_path::NbtPath,
     resource_location::ResourceLocation,
 };
 use minecraft_command_types_derive::HasMacro;
@@ -699,65 +697,29 @@ impl Expression {
         })
     }
 
-    pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
-        match self.kind {
-            ExpressionKind::Command(command) => {
-                let compiled_command = command.compile(datapack, ctx);
-
-                if let Some(command) = compiled_command {
-                    ctx.add_command(datapack, command);
-                }
-            }
-            _ => self
-                .resolve(datapack, ctx)
-                .kind
-                .compile_as_statement(datapack, ctx),
-        }
-    }
-
-    pub fn assign_to_data(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: DataTarget,
-        path: NbtPath,
-    ) {
-        let resolved = self.resolve(datapack, ctx);
-
-        resolved.kind.assign_to_data(datapack, ctx, target, path);
-    }
-
     pub fn resolve_force(
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-    ) -> ConstantExpression {
+    ) -> ConstantExpressionKind {
         let resolved = self.resolve(datapack, ctx);
 
-        match resolved.kind {
+        match resolved {
             ConstantExpressionKind::PlayerScore(_) => {
                 let unique_score = datapack.get_unique_player_score();
 
-                resolved
-                    .kind
-                    .assign_to_score(datapack, ctx, unique_score.clone());
+                resolved.assign_to_score(datapack, ctx, unique_score.clone());
 
-                ConstantExpressionKind::PlayerScore(unique_score).into_dummy_constant_expression()
+                ConstantExpressionKind::PlayerScore(unique_score)
             }
             ConstantExpressionKind::Data(_, _) => {
                 let (unique_target, unique_path) = datapack.get_unique_data();
 
-                resolved.kind.assign_to_data(
-                    datapack,
-                    ctx,
-                    unique_target.clone(),
-                    unique_path.clone(),
-                );
+                resolved.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
 
                 ConstantExpressionKind::Data(unique_target, unique_path)
-                    .into_dummy_constant_expression()
             }
-            _ => resolved.resolve(datapack),
+            _ => resolved,
         }
     }
 
@@ -765,13 +727,13 @@ impl Expression {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-    ) -> ConstantExpression {
+    ) -> ConstantExpressionKind {
         match self.kind {
             ExpressionKind::Constant(expression) => expression.resolve(datapack),
             ExpressionKind::Unary(unary_operator, expression) => match unary_operator {
                 UnaryOperator::Negate => {
                     let resolved_expression = expression.resolve(datapack, ctx);
-                    let new_score = resolved_expression.kind.as_score(datapack, ctx, true);
+                    let new_score = resolved_expression.as_score(datapack, ctx, true);
                     let constant_score = datapack.get_constant_score(-1);
 
                     ctx.add_command(
@@ -785,21 +747,18 @@ impl Expression {
                         )),
                     );
 
-                    ConstantExpressionKind::PlayerScore(new_score).into_dummy_constant_expression()
+                    ConstantExpressionKind::PlayerScore(new_score)
                 }
                 UnaryOperator::Invert => {
                     let expression = expression.resolve(datapack, ctx);
 
+                    expression.invert().unwrap()
+                }
+                UnaryOperator::Reference => ConstantExpressionKind::Reference(Box::new(
                     expression
-                        .kind
-                        .invert()
-                        .unwrap()
-                        .into_dummy_constant_expression()
-                }
-                UnaryOperator::Reference => {
-                    ConstantExpressionKind::Reference(Box::new(expression.resolve(datapack, ctx)))
-                        .into_dummy_constant_expression()
-                }
+                        .resolve(datapack, ctx)
+                        .into_dummy_constant_expression(),
+                )),
                 UnaryOperator::Dereference => expression
                     .resolve(datapack, ctx)
                     .try_dereference(datapack)
@@ -809,7 +768,7 @@ impl Expression {
                 let left = left.resolve(datapack, ctx);
                 let right = right.resolve(datapack, ctx);
 
-                (match (left.kind, right.kind) {
+                match (left, right) {
                     (
                         ConstantExpressionKind::Literal(left),
                         ConstantExpressionKind::Literal(right),
@@ -843,16 +802,13 @@ impl Expression {
                     }
 
                     _ => unreachable!(),
-                })
-                .into_dummy_constant_expression()
+                }
             }
             ExpressionKind::Comparison(left, operator, right) => {
                 let left = left.resolve(datapack, ctx);
                 let right = right.resolve(datapack, ctx);
 
-                left.kind
-                    .compare(datapack, ctx, right.kind, operator)
-                    .into_dummy_constant_expression()
+                left.compare(datapack, ctx, right, operator)
             }
             ExpressionKind::Logical(left, operator, right) => {
                 let left = left.resolve(datapack, ctx);
@@ -863,9 +819,9 @@ impl Expression {
                         let unique_score = datapack.get_unique_player_score();
 
                         let (left_inverted, left_condition) =
-                            left.kind.to_execute_condition(datapack, ctx, false);
+                            left.to_execute_condition(datapack, ctx, false);
                         let (right_inverted, right_condition) =
-                            right.kind.to_execute_condition(datapack, ctx, false);
+                            right.to_execute_condition(datapack, ctx, false);
 
                         ctx.add_command(
                             datapack,
@@ -887,11 +843,9 @@ impl Expression {
                         .into_dummy_constant_expression()
                         .into_constant_expression()
                         .resolve(datapack, ctx)
-                        .kind
                         .compile_as_statement(datapack, ctx);
 
                         ConstantExpressionKind::PlayerScore(unique_score)
-                            .into_dummy_constant_expression()
                     }
                     LogicalOperator::Or => {
                         let unique_function_paths = datapack.get_unique_function_paths();
@@ -927,8 +881,7 @@ impl Expression {
                         ));
 
                         let (left_inverted, left_condition) =
-                            left.kind
-                                .to_execute_condition(datapack, &mut function_ctx, false);
+                            left.to_execute_condition(datapack, &mut function_ctx, false);
                         function_ctx.add_command(
                             datapack,
                             Command::Execute(ExecuteSubcommand::If(
@@ -937,9 +890,7 @@ impl Expression {
                             )),
                         );
                         let (right_inverted, right_condition) =
-                            right
-                                .kind
-                                .to_execute_condition(datapack, &mut function_ctx, false);
+                            right.to_execute_condition(datapack, &mut function_ctx, false);
                         function_ctx.add_command(
                             datapack,
                             Command::Execute(ExecuteSubcommand::If(
@@ -956,7 +907,6 @@ impl Expression {
                             .add_commands(function_commands);
 
                         ConstantExpressionKind::PlayerScore(unique_score)
-                            .into_dummy_constant_expression()
                     }
                 }
             }
@@ -966,133 +916,113 @@ impl Expression {
                 target
                     .as_place(datapack, ctx)
                     .unwrap()
-                    .augmented_assign(datapack, ctx, operator, value.kind);
+                    .augmented_assign(datapack, ctx, operator, value);
 
-                ConstantExpressionKind::Unit.into_dummy_constant_expression()
+                ConstantExpressionKind::Unit
             }
             ExpressionKind::Assignment(target, value) => {
                 let value = value.resolve(datapack, ctx);
 
-                target
-                    .as_place(datapack, ctx)
-                    .unwrap()
-                    .assign(datapack, ctx, value);
+                target.as_place(datapack, ctx).unwrap().assign(
+                    datapack,
+                    ctx,
+                    value.into_dummy_constant_expression(),
+                );
 
-                ConstantExpressionKind::Unit.into_dummy_constant_expression()
+                ConstantExpressionKind::Unit
             }
             ExpressionKind::List(expressions) => ConstantExpressionKind::List(
                 expressions
                     .into_iter()
-                    .map(|expr| expr.resolve(datapack, ctx))
+                    .map(|expr| expr.resolve(datapack, ctx).into_dummy_constant_expression())
                     .collect::<Vec<_>>(),
-            )
-            .into_dummy_constant_expression(),
+            ),
             ExpressionKind::Compound(compound) => ConstantExpressionKind::Compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.resolve(datapack, ctx);
-
-                        (key, value)
+                        (
+                            key,
+                            value
+                                .resolve(datapack, ctx)
+                                .into_dummy_constant_expression(),
+                        )
                     })
                     .collect::<BTreeMap<_, _>>(),
-            )
-            .into_dummy_constant_expression(),
+            ),
             ExpressionKind::PlayerScore(score) => {
                 let score = score.clone().compile(datapack, ctx);
 
-                ConstantExpressionKind::PlayerScore(score).into_dummy_constant_expression()
+                ConstantExpressionKind::PlayerScore(score)
             }
             ExpressionKind::Data(target, path) => {
                 let target = target.kind.clone().compile(datapack, ctx);
                 let path = path.clone().compile(datapack, ctx);
 
-                ConstantExpressionKind::Data(target, path).into_dummy_constant_expression()
+                ConstantExpressionKind::Data(target, path)
             }
             ExpressionKind::Condition(inverted, condition) => {
                 // TODO why optional?
                 let condition = condition.compile(datapack, ctx).unwrap();
 
                 ConstantExpressionKind::Condition(inverted, condition)
-                    .into_dummy_constant_expression()
             }
             ExpressionKind::Command(command) => {
                 // TODO why optional?
                 let command = command.compile(datapack, ctx).unwrap();
 
-                ConstantExpressionKind::Command(command).into_dummy_constant_expression()
+                ConstantExpressionKind::Command(command)
             }
             ExpressionKind::Index(target, index) => {
                 let target = target.resolve(datapack, ctx);
                 let index = index.resolve(datapack, ctx);
 
-                target
-                    .kind
-                    .index(index.kind)
-                    .unwrap()
-                    .into_dummy_constant_expression()
+                target.index(index).unwrap()
             }
             ExpressionKind::FieldAccess(target, member) => {
                 let target = target.resolve(datapack, ctx);
 
-                target
-                    .kind
-                    .access_member(member.snbt_string)
-                    .unwrap()
-                    .into_dummy_constant_expression()
+                target.access_member(member.snbt_string).unwrap()
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.resolve(datapack, ctx);
                 let data_type = data_type.kind.resolve();
 
-                expression.map_kind(|kind| kind.cast_to(datapack, data_type).unwrap())
+                expression.cast_to(datapack, data_type).unwrap()
             }
             ExpressionKind::ToCast(expression, runtime_storage_type) => {
                 let expression = expression.resolve(datapack, ctx);
 
                 match runtime_storage_type {
                     RuntimeStorageType::Score => {
-                        let unique_score = datapack.get_unique_player_score();
+                        let score = expression.as_score(datapack, ctx, true);
 
-                        expression
-                            .kind
-                            .assign_to_score(datapack, ctx, unique_score.clone());
-
-                        ConstantExpressionKind::PlayerScore(unique_score)
-                            .into_dummy_constant_expression()
+                        ConstantExpressionKind::Reference(Box::new(
+                            ConstantExpressionKind::PlayerScore(score)
+                                .into_dummy_constant_expression(),
+                        ))
                     }
                     RuntimeStorageType::Data => {
-                        let (unique_target, unique_path) = datapack.get_unique_data();
+                        let (unique_target, unique_path) = expression.as_data_force(datapack, ctx);
 
-                        expression.kind.assign_to_data(
-                            datapack,
-                            ctx,
-                            unique_target.clone(),
-                            unique_path.clone(),
-                        );
-
-                        ConstantExpressionKind::Data(unique_target, unique_path)
-                            .into_dummy_constant_expression()
+                        ConstantExpressionKind::Reference(Box::new(
+                            ConstantExpressionKind::Data(unique_target, unique_path)
+                                .into_dummy_constant_expression(),
+                        ))
                     }
                 }
             }
             ExpressionKind::Tuple(expressions) => ConstantExpressionKind::Tuple(
                 expressions
                     .into_iter()
-                    .map(|expression| expression.resolve(datapack, ctx))
+                    .map(|expression| {
+                        expression
+                            .resolve(datapack, ctx)
+                            .into_dummy_constant_expression()
+                    })
                     .collect(),
-            )
-            .into_dummy_constant_expression(),
+            ),
         }
-    }
-
-    pub fn resolve_new_ctx(
-        self,
-        datapack: &mut HighDatapack,
-    ) -> (CompileContext, ConstantExpression) {
-        let mut ctx = CompileContext::default();
-        let result = self.resolve(datapack, &mut ctx);
-        (ctx, result)
     }
 
     pub fn resolve_into_score(
@@ -1106,12 +1036,10 @@ impl Expression {
                 left.resolve_into_score(datapack, ctx, target);
                 right
                     .resolve(datapack, ctx)
-                    .kind
                     .operate_on_score(datapack, ctx, target, operator);
             }
             _ => {
                 self.resolve(datapack, ctx)
-                    .kind
                     .assign_to_score(datapack, ctx, target.clone());
             }
         }

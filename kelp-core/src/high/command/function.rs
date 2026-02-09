@@ -17,7 +17,11 @@ pub enum HighFunctionCommandArguments {
 }
 
 impl HighFunctionCommandArguments {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighFunctionCommandArguments::Compound(compound) => compound
                 .values()
@@ -48,7 +52,7 @@ impl HighFunctionCommandArguments {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.resolve(datapack, ctx).kind.as_snbt_macros(ctx);
+                        let value = value.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                         (key.snbt_string, value)
                     })

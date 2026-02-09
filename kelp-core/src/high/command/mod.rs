@@ -41,7 +41,11 @@ pub enum HighCommand {
 }
 
 impl HighCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighCommand::Regular(_command) => {
                 // TODO future
@@ -97,7 +101,7 @@ impl HighCommand {
 
                 Some(Command::Tellraw(
                     selector.compile(datapack, ctx),
-                    expression.kind.as_text_component(datapack, ctx, false),
+                    expression.as_text_component(datapack, ctx, false),
                 ))
             }
             HighCommand::Return(command) => match command {
@@ -119,7 +123,7 @@ impl HighCommand {
             HighCommand::Summon(entity, position, nbt) => Some(Command::Summon(
                 entity,
                 position,
-                nbt.map(|nbt| nbt.resolve(datapack, ctx).kind.as_snbt_macros(ctx)),
+                nbt.map(|nbt| nbt.resolve(datapack, ctx).as_snbt_macros(ctx)),
             )),
         }
     }

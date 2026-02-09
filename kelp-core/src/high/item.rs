@@ -27,7 +27,9 @@ impl HighItemTest {
             HighItemTest::ComponentMatches(_, expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs)
             }
-            HighItemTest::Predicate(_, expression) => expression.perform_semantic_analysis(ctx, is_lhs),
+            HighItemTest::Predicate(_, expression) => {
+                expression.perform_semantic_analysis(ctx, is_lhs)
+            }
         }
     }
 
@@ -36,12 +38,11 @@ impl HighItemTest {
             HighItemTest::Component(location) => ItemTest::Component(location),
             HighItemTest::ComponentMatches(location, value) => ItemTest::ComponentMatches(
                 location,
-                value.resolve(datapack, ctx).kind.as_snbt_macros(ctx),
+                value.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
-            HighItemTest::Predicate(location, value) => ItemTest::Predicate(
-                location,
-                value.resolve(datapack, ctx).kind.as_snbt_macros(ctx),
-            ),
+            HighItemTest::Predicate(location, value) => {
+                ItemTest::Predicate(location, value.resolve(datapack, ctx).as_snbt_macros(ctx))
+            }
         }
     }
 }

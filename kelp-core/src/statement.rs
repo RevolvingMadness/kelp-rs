@@ -96,12 +96,18 @@ impl StatementKind {
                 });
             }
             StatementKind::Expression(expression) => {
-                expression.compile_as_statement(datapack, ctx);
+                expression
+                    .resolve(datapack, ctx)
+                    .compile_as_statement(datapack, ctx);
             }
             StatementKind::VariableDeclaration(data_type, pattern, value) => {
                 let value = value.resolve_force(datapack, ctx);
 
-                pattern.kind.destructure(datapack, data_type, value);
+                pattern.kind.destructure(
+                    datapack,
+                    data_type,
+                    value.into_dummy_constant_expression(),
+                );
             }
             StatementKind::While(condition, body) => {
                 let mut while_body_ctx = CompileContext::default();
@@ -111,7 +117,6 @@ impl StatementKind {
                 let mut condition_ctx = CompileContext::default();
                 let (should_be_inverted, condition) = condition
                     .resolve(datapack, &mut condition_ctx)
-                    .kind
                     .to_execute_condition(datapack, &mut condition_ctx, false);
 
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -150,7 +155,7 @@ impl StatementKind {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
                     let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
 
-                    collection.kind.assign_to_data(
+                    collection.assign_to_data(
                         datapack,
                         ctx,
                         unique_data_target.clone(),
@@ -238,7 +243,7 @@ impl StatementKind {
                 } else {
                     let (unique_data_target, unique_path) = datapack.get_unique_data();
 
-                    collection.kind.assign_to_data(
+                    collection.assign_to_data(
                         datapack,
                         ctx,
                         unique_data_target.clone(),
@@ -323,7 +328,6 @@ impl StatementKind {
                 let (invert, compiled_condition) = condition
                     .clone()
                     .resolve(datapack, ctx)
-                    .kind
                     .to_execute_condition(datapack, ctx, false);
 
                 compile_if(
@@ -345,8 +349,8 @@ impl StatementKind {
                 let target = target.resolve(datapack, ctx);
                 let source = source.resolve(datapack, ctx);
 
-                let (target, path) = target.kind.as_data(datapack, ctx);
-                let (source, source_path) = source.kind.as_data(datapack, ctx);
+                let (target, path) = target.as_data(datapack, ctx);
+                let (source, source_path) = source.as_data(datapack, ctx);
 
                 ctx.add_command(
                     datapack,
@@ -361,7 +365,7 @@ impl StatementKind {
             StatementKind::RemoveData(expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
-                let (target, path) = expression.kind.as_data(datapack, ctx);
+                let (target, path) = expression.as_data(datapack, ctx);
 
                 ctx.add_command(datapack, Command::Data(DataCommand::Remove(target, path)));
             }

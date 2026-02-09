@@ -26,7 +26,11 @@ pub enum HighDataCommandModification {
 }
 
 impl HighDataCommandModification {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighDataCommandModification::From(target, path) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
@@ -84,9 +88,7 @@ impl HighDataCommandModification {
 
                 let expression = expression.resolve(datapack, ctx);
 
-                expression
-                    .kind
-                    .assign_to_data(datapack, ctx, target.clone(), path.clone());
+                expression.assign_to_data(datapack, ctx, target.clone(), path.clone());
 
                 None
             }
@@ -108,7 +110,11 @@ pub enum HighDataCommand {
 }
 
 impl HighDataCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighDataCommand::Get(target, path, _) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
@@ -170,7 +176,7 @@ impl HighDataCommand {
                 let target = target.kind.compile(datapack, ctx);
                 let expression = expression.resolve(datapack, ctx);
 
-                let snbt = expression.kind.as_snbt_macros(ctx);
+                let snbt = expression.as_snbt_macros(ctx);
 
                 Some(Command::Data(DataCommand::Merge(target, snbt)))
             }

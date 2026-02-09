@@ -40,7 +40,11 @@ pub enum HighEntitySelectorOption {
 }
 
 impl HighEntitySelectorOption {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighEntitySelectorOption::Nbt(_, expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs)
@@ -95,7 +99,7 @@ impl HighEntitySelectorOption {
                 EntitySelectorOption::Predicate(inverted, predicate)
             }
             HighEntitySelectorOption::Nbt(inverted, expression) => {
-                let expression = expression.resolve(datapack, ctx).kind.as_snbt_macros(ctx);
+                let expression = expression.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                 EntitySelectorOption::Nbt(inverted, expression)
             }

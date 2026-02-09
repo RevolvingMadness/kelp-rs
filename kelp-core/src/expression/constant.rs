@@ -371,7 +371,7 @@ impl ConstantExpressionKind {
         })
     }
 
-    pub fn access_member(self, member: SNBTString) -> Option<ConstantExpressionKind> {
+    pub fn access_field(self, field: SNBTString) -> Option<ConstantExpressionKind> {
         Some(match self {
             ConstantExpressionKind::Literal(_)
             | ConstantExpressionKind::List(_)
@@ -386,17 +386,17 @@ impl ConstantExpressionKind {
             ConstantExpressionKind::Compound(compound) => {
                 compound
                     .into_iter()
-                    .find(|(key, _)| key.snbt_string == member)
+                    .find(|(key, _)| key.snbt_string == field)
                     .map(|(_, value)| value)
                     .unwrap()
                     .kind
             }
             ConstantExpressionKind::Data(target, path) => ConstantExpressionKind::Data(
                 target,
-                path.with_node(NbtPathNode::Named(member, None)),
+                path.with_node(NbtPathNode::Named(field, None)),
             ),
             ConstantExpressionKind::Tuple(mut expressions) => {
-                if let Ok(index) = member.1.parse::<i32>() {
+                if let Ok(index) = field.1.parse::<i32>() {
                     expressions.remove(index as usize).kind
                 } else {
                     return None;

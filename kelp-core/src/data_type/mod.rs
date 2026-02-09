@@ -273,7 +273,7 @@ impl DataTypeKind {
         )
     }
 
-    pub fn has_members(&self) -> bool {
+    pub fn has_fields(&self) -> bool {
         matches!(
             self,
             DataTypeKind::TypedCompound(_)
@@ -284,13 +284,13 @@ impl DataTypeKind {
         )
     }
 
-    pub fn has_member(&self, member: &HighSNBTString) -> bool {
+    pub fn has_field(&self, field: &HighSNBTString) -> bool {
         match self {
             DataTypeKind::TypedCompound(compound) => {
-                compound.keys().any(|key| *key == member.snbt_string)
+                compound.keys().any(|key| *key == field.snbt_string)
             }
             DataTypeKind::Tuple(data_types) => {
-                if let Ok(index) = member.snbt_string.1.parse::<i32>() {
+                if let Ok(index) = field.snbt_string.1.parse::<i32>() {
                     data_types.len() > (index as usize)
                 } else {
                     false

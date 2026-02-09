@@ -413,7 +413,7 @@ fn postfix(input: &mut Stream) -> Option<Expression> {
         } else if char('.').optional().parse(input)?.is_some() {
             inline_whitespace(input)?;
 
-            let (member_span, member) = choice((string, integer.map(|number| number.to_string())))
+            let (field_span, field) = choice((string, integer.map(|number| number.to_string())))
                 .spanned()
                 .syntax(SemanticTokenKind::Variable)
                 .parse(input)?;
@@ -426,8 +426,8 @@ fn postfix(input: &mut Stream) -> Option<Expression> {
                 kind: ExpressionKind::FieldAccess(
                     Box::new(left),
                     HighSNBTString {
-                        span: member_span,
-                        snbt_string: SNBTString(false, member),
+                        span: field_span,
+                        snbt_string: SNBTString(false, field),
                     },
                 ),
             };

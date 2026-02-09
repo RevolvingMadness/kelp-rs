@@ -583,7 +583,7 @@ impl Expression {
                 expression_result?;
 
                 if let Some(expression_type) = expression.kind.infer_data_type(ctx) {
-                    if !expression_type.has_members() {
+                    if !expression_type.has_fields() {
                         return ctx.add_info(SemanticAnalysisInfo {
                             span: field.span,
                             kind: SemanticAnalysisInfoKind::Error(
@@ -592,7 +592,7 @@ impl Expression {
                         });
                     }
 
-                    if !expression_type.has_member(field) {
+                    if !expression_type.has_field(field) {
                         return ctx.add_info(SemanticAnalysisInfo {
                             span: field.span,
                             kind: SemanticAnalysisInfoKind::Error(
@@ -979,10 +979,10 @@ impl Expression {
 
                 target.index(index).unwrap()
             }
-            ExpressionKind::FieldAccess(target, member) => {
+            ExpressionKind::FieldAccess(target, field) => {
                 let target = target.resolve(datapack, ctx);
 
-                target.access_member(member.snbt_string).unwrap()
+                target.access_field(field.snbt_string).unwrap()
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.resolve(datapack, ctx);

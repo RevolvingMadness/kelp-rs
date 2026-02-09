@@ -1,6 +1,5 @@
 use parser_rs::{Expectation, ParseError};
 
-pub mod command;
 pub mod compile_context;
 pub mod data_type;
 pub mod datapack;

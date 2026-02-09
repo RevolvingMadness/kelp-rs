@@ -1,5 +1,7 @@
 use crate::compile_context::CompileContext;
 use crate::data_type::DataTypeKind;
+use crate::datapack::mcfunction::MCFunction;
+use crate::datapack::namespace::HighNamespace;
 use crate::expression::{
     constant::ConstantExpression, supports_variable_type_scope::SupportsVariableTypeScope,
 };
@@ -12,10 +14,9 @@ use minecraft_command_types::command::scoreboard::{
     ObjectivesScoreboardCommand, PlayersScoreboardCommand, ScoreboardCommand,
 };
 use minecraft_command_types::command::{Command, PlayerScore};
+use minecraft_command_types::datapack::Datapack;
 use minecraft_command_types::datapack::tag::{Tag, TagType, TagValue};
-use minecraft_command_types::datapack::{Datapack, Namespace};
 use minecraft_command_types::entity_selector::EntitySelector;
-use minecraft_command_types::has_macro::HasMacro;
 use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::SNBTString;
@@ -23,168 +24,9 @@ use nonempty::{NonEmpty, nonempty};
 use serde_json::json;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashSet, VecDeque};
-use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
-pub struct HighNamespace {
-    pub name: String,
-    uses_scores_objective: Cell<bool>,
-    functions: BTreeMap<NonEmpty<String>, MCFunction>,
-    function_stack: Vec<NonEmpty<String>>,
-    counter: Cell<usize>,
-}
-
-#[inline]
-fn join_non_empty(non_empty: &NonEmpty<String>, separator: &str) -> String {
-    let mut out = non_empty.head.clone();
-
-    for s in &non_empty.tail {
-        out.push_str(separator);
-        out.push_str(s);
-    }
-
-    out
-}
-
-impl HighNamespace {
-    pub fn new(name: String) -> HighNamespace {
-        HighNamespace {
-            name,
-            functions: BTreeMap::new(),
-            function_stack: Vec::new(),
-            counter: Cell::new(0),
-            uses_scores_objective: Cell::new(false),
-        }
-    }
-
-    pub fn within_function<F>(&mut self, paths: NonEmpty<String>, function: F)
-    where
-        F: FnOnce(&mut HighNamespace),
-    {
-        self.function_stack.push(paths);
-
-        function(self);
-
-        self.function_stack.pop();
-    }
-
-    #[inline]
-    pub fn add_default_function_if_missing(&mut self, name: &NonEmpty<String>) {
-        if !self.functions.contains_key(name) {
-            self.functions.insert(name.clone(), MCFunction::default());
-        }
-    }
-
-    #[inline]
-    pub fn push_function(&mut self, name: NonEmpty<String>) {
-        self.add_default_function_if_missing(&name);
-
-        self.function_stack.push(name);
-    }
-
-    #[inline]
-    pub fn pop_function(&mut self) {
-        self.function_stack.pop().unwrap();
-    }
-
-    fn increment_counter(&self) -> usize {
-        let val = self.counter.get();
-
-        self.counter.set(val + 1);
-
-        val
-    }
-
-    pub fn get_score_selector(&self, id: usize) -> EntitySelector {
-        let name = format!("__temp_score_{}__", id);
-
-        EntitySelector::Name(name)
-    }
-
-    pub fn get_variable_selector(&self, name: &str, scope: usize) -> EntitySelector {
-        EntitySelector::Name(format!(
-            "{}_{}_{}",
-            name,
-            scope,
-            join_non_empty(self.current_function_paths(), "_")
-        ))
-    }
-
-    pub fn get_scores_objective(&self) -> String {
-        self.uses_scores_objective.set(true);
-
-        format!("__{}_scores__", self.name)
-    }
-
-    pub fn get_unique_function_paths(&self) -> NonEmpty<String> {
-        let id = self.increment_counter();
-        let paths = nonempty![format!("__{}_function_{}__", self.name, id)];
-
-        paths
-    }
-
-    #[inline]
-    pub fn current_function_paths(&self) -> &NonEmpty<String> {
-        self.function_stack.last().expect("No current function")
-    }
-
-    #[inline]
-    pub fn current_function_mut(&mut self) -> &mut MCFunction {
-        let paths = self.current_function_paths().clone();
-
-        self.functions.get_mut(&paths).expect("No current function")
-    }
-
-    pub fn get_function_mut(&mut self, paths: &NonEmpty<String>) -> &mut MCFunction {
-        self.add_default_function_if_missing(paths);
-
-        self.functions.get_mut(paths).unwrap()
-    }
-
-    pub fn next_function_name(&mut self) -> String {
-        let id = self.increment_counter();
-        format!("__generated_mcfunction_{}__", id)
-    }
-
-    pub fn get_new_function_mut(&mut self) -> &mut MCFunction {
-        let name = self.next_function_name();
-        self.get_function_mut(&nonempty![name])
-    }
-
-    pub fn ensure_load_function(&mut self, datapack: &mut Datapack) {
-        if self.uses_scores_objective.get() {
-            let load_paths = nonempty!["load".to_string()];
-
-            let scores_objective = self.get_scores_objective();
-
-            self.get_function_mut(&load_paths)
-                .add_command(Command::Scoreboard(ScoreboardCommand::Objectives(
-                    ObjectivesScoreboardCommand::Add(scores_objective, "dummy".to_string(), None),
-                )));
-
-            datapack.get_namespace_mut("minecraft").add_tag(
-                TagType::Function,
-                &nonempty!["load".to_string()],
-                Tag {
-                    replace: None,
-                    values: vec![TagValue::ResourceLocation(
-                        ResourceLocation::new_namespace_paths(self.name.clone(), load_paths),
-                    )],
-                },
-            );
-        }
-    }
-
-    pub fn compile(&self) -> Namespace {
-        let mut output_namespace = Namespace::default();
-
-        for (paths, function) in &self.functions {
-            output_namespace.add_function(paths, &function.to_string());
-        }
-
-        output_namespace
-    }
-}
+pub mod mcfunction;
+pub mod namespace;
 
 #[derive(Default, Clone, Copy)]
 pub struct HighDatapackRequirements {
@@ -697,38 +539,5 @@ impl HighDatapack {
         }
 
         output_datapack
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct MCFunction {
-    pub commands: Vec<Command>,
-}
-
-impl Display for MCFunction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for command in &self.commands {
-            if command.has_macro() {
-                f.write_str("$")?;
-            }
-
-            writeln!(f, "{}", command)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl MCFunction {
-    pub fn add_command(&mut self, command: Command) {
-        self.commands.push(command);
-    }
-
-    pub fn add_commands(&mut self, commands: Vec<Command>) {
-        self.commands.extend(commands);
-    }
-
-    pub fn commands(&self) -> &Vec<Command> {
-        &self.commands
     }
 }

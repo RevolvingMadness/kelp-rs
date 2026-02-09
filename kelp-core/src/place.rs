@@ -12,7 +12,6 @@ use ordered_float::NotNan;
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    command::PlayerScoreExt,
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
@@ -26,7 +25,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
-    trait_ext::OptionIterExt,
+    trait_ext::{OptionIterExt, PlayerScoreExt},
 };
 
 fn constant_augmented_assign(

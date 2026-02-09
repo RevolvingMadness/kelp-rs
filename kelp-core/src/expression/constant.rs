@@ -18,7 +18,6 @@ use minecraft_command_types_derive::HasMacro;
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    command::PlayerScoreExt,
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
@@ -35,6 +34,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
+    trait_ext::PlayerScoreExt,
 };
 
 pub type ConstantExpressionCompoundKind = BTreeMap<HighSNBTString, ConstantExpression>;

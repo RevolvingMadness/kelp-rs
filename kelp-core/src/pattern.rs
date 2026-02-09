@@ -3,7 +3,10 @@ use parser_rs::parser_range::ParserRange;
 use crate::{
     data_type::{DataTypeKind, high::HighDataType},
     datapack::HighDatapack,
-    expression::{ConstantExpression, ConstantExpressionKind, LiteralExpression},
+    expression::{
+        constant::{ConstantExpression, ConstantExpressionKind},
+        literal::LiteralExpression,
+    },
     pattern_type::PatternType,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -35,7 +38,7 @@ impl PatternKind {
 
     pub fn get_type(&self) -> PatternType {
         match self {
-            PatternKind::Literal(literal_expression) => literal_expression.kind.get_pattern_type(),
+            PatternKind::Literal(expression) => expression.kind.get_pattern_type(),
             PatternKind::Wildcard | PatternKind::Binding(_) => PatternType::Any,
             PatternKind::Tuple(patterns) => PatternType::Tuple(
                 patterns

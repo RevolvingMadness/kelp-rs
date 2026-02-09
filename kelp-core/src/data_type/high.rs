@@ -5,7 +5,7 @@ use parser_rs::parser_range::ParserRange;
 
 use crate::{
     data_type::{DataTypeKind, GenericDataTypeKind},
-    expression::HighSNBTString,
+    high::snbt_string::HighSNBTString,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
@@ -146,11 +146,7 @@ pub struct HighDataType {
 impl_has_macro_false!(HighDataType);
 
 impl HighDataType {
-    pub fn perform_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
-    ) -> Option<()> {
+    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
         match &self.kind {
             HighDataTypeKind::Named(span, name, generics) => match name.as_str() {
                 "byte" => {
@@ -253,7 +249,7 @@ impl HighDataType {
                             generics.len(),
                         );
                     } else if let Some(first) = generics.first() {
-                        return first.perform_semantic_analysis(ctx, is_lhs);
+                        return first.perform_semantic_analysis(ctx);
                     }
                 }
                 "compound" => {
@@ -265,7 +261,7 @@ impl HighDataType {
                             generics.len(),
                         );
                     } else if let Some(first) = generics.first() {
-                        return first.perform_semantic_analysis(ctx, is_lhs);
+                        return first.perform_semantic_analysis(ctx);
                     }
                 }
                 "data" => {
@@ -277,7 +273,7 @@ impl HighDataType {
                             generics.len(),
                         );
                     } else if let Some(first) = generics.first() {
-                        return first.perform_semantic_analysis(ctx, is_lhs);
+                        return first.perform_semantic_analysis(ctx);
                     }
                 }
                 "any" => {
@@ -303,12 +299,12 @@ impl HighDataType {
             },
             HighDataTypeKind::Unit => (),
             HighDataTypeKind::Reference(data_type) => {
-                return data_type.perform_semantic_analysis(ctx, is_lhs);
+                return data_type.perform_semantic_analysis(ctx);
             }
             HighDataTypeKind::TypedCompound(compound) => {
                 return compound
                     .values()
-                    .map(|value| value.perform_semantic_analysis(ctx, is_lhs))
+                    .map(|value| value.perform_semantic_analysis(ctx))
                     .all_some();
             }
         }

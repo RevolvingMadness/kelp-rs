@@ -7,9 +7,8 @@ use parser_rs::parser_range::ParserRange;
 
 use crate::{
     data_type::{DataTypeKind, GenericDataTypeKind},
-    expression::{
-        ArithmeticOperator, ComparisonOperator, LogicalOperator, SupportsVariableTypeScope,
-    },
+    expression::supports_variable_type_scope::SupportsVariableTypeScope,
+    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     pattern_type::PatternType,
 };
 

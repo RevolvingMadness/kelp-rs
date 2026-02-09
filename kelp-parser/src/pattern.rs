@@ -1,5 +1,5 @@
 use kelp_core::{
-    expression::LiteralExpression,
+    expression::literal::LiteralExpression,
     pattern::{Pattern, PatternKind},
 };
 use parser_rs::{

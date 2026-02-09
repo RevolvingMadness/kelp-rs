@@ -12,12 +12,12 @@ use minecraft_command_types_derive::HasMacro;
 use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
+    high::score_comparison::HighScoreComparison,
     high::{
         block::HighBlockState, command::execute::subcommand::HighExecuteSubcommand,
         data::HighDataTarget, entity_selector::HighEntitySelector, item::HighItemPredicate,
         item_source::HighItemSource, nbt_path::HighNbtPath, player_score::HighPlayerScore,
     },
-    score_comparison::HighScoreComparison,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -188,7 +188,11 @@ impl HighExecuteIfSubcommand {
         }
     }
 
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighExecuteIfSubcommand::Biome(_, _, next) => next
                 .as_ref()
@@ -268,7 +272,8 @@ impl HighExecuteIfSubcommand {
                 .unwrap_or(Some(())),
             HighExecuteIfSubcommand::Score(score, score_comparison, next) => {
                 let score_result = score.perform_semantic_analysis(ctx, is_lhs);
-                let score_comparison_result = score_comparison.perform_semantic_analysis(ctx, is_lhs);
+                let score_comparison_result =
+                    score_comparison.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next
                     .as_ref()
                     .map(|next| next.perform_semantic_analysis(ctx, is_lhs))

@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use kelp_core::{
-    data_type::{high::HighDataType, high::HighDataTypeKind},
-    expression::HighSNBTString,
+    data_type::high::{HighDataType, HighDataTypeKind},
+    high::snbt_string::HighSNBTString,
 };
 use minecraft_command_types::snbt::SNBTString;
 use parser_rs::{

@@ -2,10 +2,12 @@ use std::{collections::BTreeMap, num::IntErrorKind};
 
 use kelp_core::{
     expression::{
-        ArithmeticOperator, ComparisonOperator, ConstantExpression, ConstantExpressionKind,
-        Expression, ExpressionCompoundKind, ExpressionKind, HighSNBTString, LiteralExpression,
-        LiteralExpressionKind, LogicalOperator, UnaryOperator,
+        Expression, ExpressionCompoundKind, ExpressionKind,
+        constant::{ConstantExpression, ConstantExpressionKind},
+        literal::{LiteralExpression, LiteralExpressionKind},
     },
+    high::snbt_string::HighSNBTString,
+    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     runtime_storage_type::RuntimeStorageType,
 };
 use minecraft_command_types::snbt::SNBTString;

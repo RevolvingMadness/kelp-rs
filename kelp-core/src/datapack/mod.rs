@@ -1,6 +1,8 @@
 use crate::compile_context::CompileContext;
 use crate::data_type::DataTypeKind;
-use crate::expression::{ConstantExpression, SupportsVariableTypeScope};
+use crate::expression::{
+    constant::ConstantExpression, supports_variable_type_scope::SupportsVariableTypeScope,
+};
 use crate::high::data::{HighDataTarget, HighDataTargetKind};
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use crate::semantic_analysis_context::SemanticAnalysisInfo;
@@ -437,7 +439,12 @@ impl HighDatapack {
         self.scopes.front().expect("No scopes").contains_key(name)
     }
 
-    pub fn declare_variable(&mut self, name: &str, data_type: DataTypeKind, value: ConstantExpression) {
+    pub fn declare_variable(
+        &mut self,
+        name: &str,
+        data_type: DataTypeKind,
+        value: ConstantExpression,
+    ) {
         self.scopes
             .front_mut()
             .expect("No scopes")

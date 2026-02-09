@@ -8,7 +8,7 @@ use minecraft_command_types::{
     snbt::SNBT,
 };
 
-use crate::{datapack::HighDatapack, expression::ConstantExpressionKind};
+use crate::{datapack::HighDatapack, expression::constant::ConstantExpressionKind};
 
 #[derive(Debug, Default, Clone)]
 pub struct CompileContext {

@@ -3,7 +3,8 @@ use std::{collections::BTreeMap, fmt::Display};
 use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
-    expression::{ArithmeticOperator, ComparisonOperator, HighSNBTString, LogicalOperator},
+    high::snbt_string::HighSNBTString,
+    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::PlaceType,
 };
 

@@ -22,7 +22,7 @@ use kelp_core::high::command::execute::subcommand::store::HighExecuteStoreSubcom
 use kelp_core::high::item::{HighItemPredicate, HighItemTest, HighOrGroup};
 use kelp_core::high::item_source::HighItemSource;
 use kelp_core::high::player_score::HighPlayerScore;
-use kelp_core::score_comparison::HighScoreComparison;
+use kelp_core::high::score_comparison::HighScoreComparison;
 use minecraft_command_types::command::enums::axis::Axis;
 use minecraft_command_types::command::enums::numeric_snbt_type::NumericSNBTType;
 use minecraft_command_types::command::execute::ScoreComparisonOperator;

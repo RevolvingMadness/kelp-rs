@@ -5,7 +5,8 @@ use nonempty::NonEmpty;
 use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
-    expression::{Expression, ExpressionCompoundKind, HighSNBTString},
+    expression::{Expression, ExpressionCompoundKind},
+    high::snbt_string::HighSNBTString,
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::OptionIterExt,
 };
@@ -18,7 +19,11 @@ pub enum HighNbtPathNode {
 }
 
 impl HighNbtPathNode {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighNbtPathNode::RootCompound(compound) => compound
                 .iter()
@@ -101,7 +106,11 @@ impl HighNbtPathNode {
 pub struct HighNbtPath(pub NonEmpty<HighNbtPathNode>);
 
 impl HighNbtPath {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         self.0
             .iter()
             .map(|node| node.perform_semantic_analysis(ctx, is_lhs))

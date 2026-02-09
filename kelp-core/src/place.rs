@@ -17,9 +17,11 @@ use crate::{
     data_type::DataTypeKind,
     datapack::HighDatapack,
     expression::{
-        ArithmeticOperator, ConstantExpression, ConstantExpressionKind, Expression, ExpressionKind,
-        LiteralExpression, LiteralExpressionKind,
+        Expression, ExpressionKind,
+        constant::{ConstantExpression, ConstantExpressionKind},
+        literal::{LiteralExpression, LiteralExpressionKind},
     },
+    operator::ArithmeticOperator,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
@@ -115,7 +117,6 @@ fn constant_augmented_assign(
 
 #[derive(Debug)]
 pub enum Place {
-    Literal(LiteralExpressionKind),
     Score(PlayerScore),
     Data(DataTarget, NbtPath),
     Variable(String),
@@ -131,7 +132,6 @@ impl Place {
         value: ConstantExpression,
     ) {
         match self {
-            Place::Literal(_) => unreachable!(),
             Place::Score(score) => {
                 value.kind.assign_to_score(datapack, ctx, score);
             }
@@ -182,7 +182,6 @@ impl Place {
         value: ConstantExpressionKind,
     ) {
         match self {
-            Place::Literal(_) => unreachable!(),
             Place::Score(score) => {
                 score.assign_augmented(datapack, ctx, operator, value);
             }

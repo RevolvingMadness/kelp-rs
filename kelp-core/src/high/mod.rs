@@ -6,3 +6,5 @@ pub mod item;
 pub mod item_source;
 pub mod nbt_path;
 pub mod player_score;
+pub mod score_comparison;
+pub mod snbt_string;

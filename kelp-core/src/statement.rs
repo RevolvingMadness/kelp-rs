@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::compile_context::CompileContext;
 use crate::data_type::{DataTypeKind, high::HighDataType};
 use crate::datapack::HighDatapack;
-use crate::expression::{ConstantExpressionKind, Expression};
+use crate::expression::{Expression, constant::ConstantExpressionKind};
 use crate::pattern::Pattern;
 use crate::semantic_analysis_context::{
     SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
@@ -401,7 +401,7 @@ impl Statement {
                 let value_type = value.kind.infer_data_type(ctx)?;
 
                 let final_type = if let Some(data_type) = data_type {
-                    if data_type.perform_semantic_analysis(ctx, is_lhs).is_none() {
+                    if data_type.perform_semantic_analysis(ctx).is_none() {
                         pattern.kind.destructure_unknown(ctx);
                         return None;
                     }

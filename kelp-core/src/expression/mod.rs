@@ -768,147 +768,19 @@ impl Expression {
                 let left = left.resolve(datapack, ctx);
                 let right = right.resolve(datapack, ctx);
 
-                match (left, right) {
-                    (
-                        ConstantExpressionKind::Literal(left),
-                        ConstantExpressionKind::Literal(right),
-                    ) => ConstantExpressionKind::Literal(LiteralExpression {
-                        span: ParserRange { start: 0, end: 0 },
-                        kind: left.kind.perform_arithmetic(operator, right.kind).unwrap(),
-                    }),
-
-                    (left_kind @ ConstantExpressionKind::PlayerScore(_), right_kind) => {
-                        // TODO maybe better checking?
-                        // TODO assign into score
-
-                        let unique_score = datapack.get_unique_player_score();
-
-                        left_kind.assign_to_score(datapack, ctx, unique_score.clone());
-                        right_kind.operate_on_score(datapack, ctx, &unique_score, operator);
-
-                        ConstantExpressionKind::PlayerScore(unique_score)
-                    }
-
-                    (left_kind, right_kind @ ConstantExpressionKind::PlayerScore(_)) => {
-                        // TODO maybe better checking?
-                        // TODO assign into score
-
-                        let unique_score = datapack.get_unique_player_score();
-
-                        left_kind.assign_to_score(datapack, ctx, unique_score.clone());
-                        right_kind.operate_on_score(datapack, ctx, &unique_score, operator);
-
-                        ConstantExpressionKind::PlayerScore(unique_score)
-                    }
-
-                    _ => unreachable!(),
-                }
+                left.perform_arithmetic(datapack, ctx, operator, right)
             }
             ExpressionKind::Comparison(left, operator, right) => {
                 let left = left.resolve(datapack, ctx);
                 let right = right.resolve(datapack, ctx);
 
-                left.compare(datapack, ctx, right, operator)
+                left.perform_comparison(datapack, ctx, operator, right)
             }
             ExpressionKind::Logical(left, operator, right) => {
                 let left = left.resolve(datapack, ctx);
                 let right = right.resolve(datapack, ctx);
 
-                match operator {
-                    LogicalOperator::And => {
-                        let unique_score = datapack.get_unique_player_score();
-
-                        let (left_inverted, left_condition) =
-                            left.to_execute_condition(datapack, ctx, false);
-                        let (right_inverted, right_condition) =
-                            right.to_execute_condition(datapack, ctx, false);
-
-                        ctx.add_command(
-                            datapack,
-                            Command::Scoreboard(ScoreboardCommand::Players(
-                                PlayersScoreboardCommand::Set(unique_score.clone(), 0),
-                            )),
-                        );
-                        ConstantExpressionKind::Condition(
-                            left_inverted,
-                            left_condition.then(ExecuteSubcommand::If(
-                                right_inverted,
-                                right_condition.then(ExecuteSubcommand::Run(Box::new(
-                                    Command::Scoreboard(ScoreboardCommand::Players(
-                                        PlayersScoreboardCommand::Set(unique_score.clone(), 1),
-                                    )),
-                                ))),
-                            )),
-                        )
-                        .into_dummy_constant_expression()
-                        .into_constant_expression()
-                        .resolve(datapack, ctx)
-                        .compile_as_statement(datapack, ctx);
-
-                        ConstantExpressionKind::PlayerScore(unique_score)
-                    }
-                    LogicalOperator::Or => {
-                        let unique_function_paths = datapack.get_unique_function_paths();
-
-                        let unique_score = datapack.get_unique_player_score();
-                        ctx.add_command(
-                            datapack,
-                            Command::Scoreboard(ScoreboardCommand::Players(
-                                PlayersScoreboardCommand::Set(unique_score.clone(), 0),
-                            )),
-                        );
-                        ctx.add_command(
-                            datapack,
-                            Command::Execute(ExecuteSubcommand::Store(
-                                StoreType::Success,
-                                ExecuteStoreSubcommand::Score(
-                                    unique_score.clone(),
-                                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
-                                        ResourceLocation::new_namespace_paths(
-                                            datapack.current_namespace_name(),
-                                            unique_function_paths.clone(),
-                                        ),
-                                        None,
-                                    )))),
-                                ),
-                            )),
-                        );
-
-                        let mut function_ctx = CompileContext::default();
-
-                        let return_one_subcommand = ExecuteSubcommand::Run(Box::new(
-                            Command::Return(ReturnCommand::Value(1)),
-                        ));
-
-                        let (left_inverted, left_condition) =
-                            left.to_execute_condition(datapack, &mut function_ctx, false);
-                        function_ctx.add_command(
-                            datapack,
-                            Command::Execute(ExecuteSubcommand::If(
-                                left_inverted,
-                                left_condition.then(return_one_subcommand.clone()),
-                            )),
-                        );
-                        let (right_inverted, right_condition) =
-                            right.to_execute_condition(datapack, &mut function_ctx, false);
-                        function_ctx.add_command(
-                            datapack,
-                            Command::Execute(ExecuteSubcommand::If(
-                                right_inverted,
-                                right_condition.then(return_one_subcommand),
-                            )),
-                        );
-                        function_ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
-
-                        let function_commands = function_ctx.compile();
-
-                        datapack
-                            .get_function_mut(&unique_function_paths)
-                            .add_commands(function_commands);
-
-                        ConstantExpressionKind::PlayerScore(unique_score)
-                    }
-                }
+                left.perform_logical_operation(datapack, ctx, operator, right)
             }
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
                 let value = value.resolve(datapack, ctx);

@@ -8,10 +8,12 @@ use minecraft_command_types::{
         execute::{
             ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
         },
-        scoreboard::PlayersScoreboardCommand,
+        r#return::ReturnCommand,
+        scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
+    resource_location::ResourceLocation,
     snbt::{SNBT, SNBTString},
 };
 use minecraft_command_types_derive::HasMacro;
@@ -28,7 +30,7 @@ use crate::{
         utils::push_scoreboard_players,
     },
     high::snbt_string::HighSNBTString,
-    operator::{ArithmeticOperator, ComparisonOperator},
+    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::{Place, PlaceType},
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -424,14 +426,73 @@ impl ConstantExpressionKind {
         DataCommandModification::From(target, Some(path))
     }
 
-    pub fn compare(
+    pub fn perform_arithmetic(
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
         other: ConstantExpressionKind,
-        operator: ComparisonOperator,
     ) -> ConstantExpressionKind {
         match (self, other) {
+            (ConstantExpressionKind::Reference(expression), other) => expression
+                .kind
+                .perform_arithmetic(datapack, ctx, operator, other),
+
+            (self_, ConstantExpressionKind::Reference(other)) => {
+                self_.perform_arithmetic(datapack, ctx, operator, other.kind)
+            }
+
+            (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
+                ConstantExpressionKind::Literal(LiteralExpression {
+                    span: ParserRange { start: 0, end: 0 },
+                    kind: left.kind.perform_arithmetic(operator, right.kind).unwrap(),
+                })
+            }
+
+            (left_kind @ ConstantExpressionKind::PlayerScore(_), right_kind) => {
+                // TODO maybe better checking?
+                // TODO assign into score
+
+                let unique_score = datapack.get_unique_player_score();
+
+                left_kind.assign_to_score(datapack, ctx, unique_score.clone());
+                right_kind.operate_on_score(datapack, ctx, &unique_score, operator);
+
+                ConstantExpressionKind::PlayerScore(unique_score)
+            }
+
+            (left_kind, right_kind @ ConstantExpressionKind::PlayerScore(_)) => {
+                // TODO maybe better checking?
+                // TODO assign into score
+
+                let unique_score = datapack.get_unique_player_score();
+
+                left_kind.assign_to_score(datapack, ctx, unique_score.clone());
+                right_kind.operate_on_score(datapack, ctx, &unique_score, operator);
+
+                ConstantExpressionKind::PlayerScore(unique_score)
+            }
+
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn perform_comparison(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ComparisonOperator,
+        other: ConstantExpressionKind,
+    ) -> ConstantExpressionKind {
+        match (self, other) {
+            (ConstantExpressionKind::Reference(expression), other) => expression
+                .kind
+                .perform_comparison(datapack, ctx, operator, other),
+
+            (self_, ConstantExpressionKind::Reference(other)) => {
+                self_.perform_comparison(datapack, ctx, operator, other.kind)
+            }
+
             (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
                 ConstantExpressionKind::Literal(LiteralExpression {
                     span: ParserRange { start: 0, end: 0 },
@@ -509,6 +570,121 @@ impl ConstantExpressionKind {
                 )
             }
             _ => unreachable!(),
+        }
+    }
+
+    pub fn perform_logical_operation(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: LogicalOperator,
+        other: ConstantExpressionKind,
+    ) -> ConstantExpressionKind {
+        if let ConstantExpressionKind::Reference(self_) = self {
+            return self_
+                .kind
+                .perform_logical_operation(datapack, ctx, operator, other);
+        }
+
+        if let ConstantExpressionKind::Reference(other) = other {
+            return self.perform_logical_operation(datapack, ctx, operator, other.kind);
+        }
+
+        match operator {
+            LogicalOperator::And => {
+                let unique_score = datapack.get_unique_player_score();
+
+                let (self_inverted, self_condition) =
+                    self.to_execute_condition(datapack, ctx, false);
+                let (right_inverted, right_condition) =
+                    other.to_execute_condition(datapack, ctx, false);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
+                        unique_score.clone(),
+                        0,
+                    ))),
+                );
+                ConstantExpressionKind::Condition(
+                    self_inverted,
+                    self_condition.then(ExecuteSubcommand::If(
+                        right_inverted,
+                        right_condition.then(ExecuteSubcommand::Run(Box::new(
+                            Command::Scoreboard(ScoreboardCommand::Players(
+                                PlayersScoreboardCommand::Set(unique_score.clone(), 1),
+                            )),
+                        ))),
+                    )),
+                )
+                .into_dummy_constant_expression()
+                .into_constant_expression()
+                .resolve(datapack, ctx)
+                .compile_as_statement(datapack, ctx);
+
+                ConstantExpressionKind::PlayerScore(unique_score)
+            }
+            LogicalOperator::Or => {
+                let unique_function_paths = datapack.get_unique_function_paths();
+
+                let unique_score = datapack.get_unique_player_score();
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
+                        unique_score.clone(),
+                        0,
+                    ))),
+                );
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Success,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
+                                ResourceLocation::new_namespace_paths(
+                                    datapack.current_namespace_name(),
+                                    unique_function_paths.clone(),
+                                ),
+                                None,
+                            )))),
+                        ),
+                    )),
+                );
+
+                let mut function_ctx = CompileContext::default();
+
+                let return_one_subcommand =
+                    ExecuteSubcommand::Run(Box::new(Command::Return(ReturnCommand::Value(1))));
+
+                let (self_inverted, left_condition) =
+                    self.to_execute_condition(datapack, &mut function_ctx, false);
+                function_ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(
+                        self_inverted,
+                        left_condition.then(return_one_subcommand.clone()),
+                    )),
+                );
+                let (other_inverted, other_condition) =
+                    other.to_execute_condition(datapack, &mut function_ctx, false);
+                function_ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(
+                        other_inverted,
+                        other_condition.then(return_one_subcommand),
+                    )),
+                );
+                function_ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
+
+                let function_commands = function_ctx.compile();
+
+                datapack
+                    .get_function_mut(&unique_function_paths)
+                    .add_commands(function_commands);
+
+                ConstantExpressionKind::PlayerScore(unique_score)
+            }
         }
     }
 

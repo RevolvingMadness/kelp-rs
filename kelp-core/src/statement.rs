@@ -6,7 +6,8 @@ use crate::datapack::HighDatapack;
 use crate::expression::{Expression, constant::ConstantExpressionKind};
 use crate::pattern::Pattern;
 use crate::semantic_analysis_context::{
-    SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
+    Scope, SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
+    SemanticAnalysisInfoKind,
 };
 use crate::trait_ext::OptionIterExt;
 use minecraft_command_types::command::Command;
@@ -503,10 +504,18 @@ impl Statement {
 
                 Some(())
             }
-            StatementKind::Block(statements) => statements
-                .iter()
-                .map(|statement| statement.perform_semantic_analysis(ctx, is_lhs))
-                .all_some(),
+            StatementKind::Block(statements) => {
+                ctx.scopes.push_front(Scope::new());
+
+                let result = statements
+                    .iter()
+                    .map(|statement| statement.perform_semantic_analysis(ctx, is_lhs))
+                    .all_some();
+
+                ctx.scopes.pop_front();
+
+                result
+            }
             StatementKind::AppendData(target, value) => {
                 let target_result = target.perform_semantic_analysis(ctx, is_lhs);
                 let value_result = value.perform_semantic_analysis(ctx, is_lhs);

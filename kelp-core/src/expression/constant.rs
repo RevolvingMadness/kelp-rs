@@ -160,7 +160,7 @@ impl ConstantExpressionKind {
                         first.kind.infer_data_type(supports_variable_type_scope)?,
                     ))
                 } else {
-                    DataTypeKind::List(Box::new(DataTypeKind::Any))
+                    DataTypeKind::List(Box::new(DataTypeKind::SNBT))
                 }
             }
             ConstantExpressionKind::Compound(compound) => DataTypeKind::TypedCompound(
@@ -176,7 +176,7 @@ impl ConstantExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             ConstantExpressionKind::PlayerScore(_) => DataTypeKind::Score,
-            ConstantExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::Any)),
+            ConstantExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             ConstantExpressionKind::Condition(_, _) => DataTypeKind::Boolean,
             ConstantExpressionKind::Command(_) => DataTypeKind::Integer,
             ConstantExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(

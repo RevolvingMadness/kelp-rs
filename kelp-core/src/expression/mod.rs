@@ -135,7 +135,7 @@ impl ExpressionKind {
                 let data_type = if let Some(first) = list.first() {
                     first.kind.infer_data_type(supports_variable_type_scope)?
                 } else {
-                    DataTypeKind::Any
+                    DataTypeKind::SNBT
                 };
 
                 DataTypeKind::List(Box::new(data_type))
@@ -153,7 +153,7 @@ impl ExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             ExpressionKind::PlayerScore(_) => DataTypeKind::Score,
-            ExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::Any)),
+            ExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             ExpressionKind::Condition(_, _) => DataTypeKind::Byte,
             ExpressionKind::Command(_) => DataTypeKind::Integer,
             ExpressionKind::Index(target, _) => {

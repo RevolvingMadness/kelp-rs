@@ -83,7 +83,7 @@ impl HighDataTypeKind {
                 }
                 "list" => {
                     if generics.is_empty() {
-                        DataTypeKind::List(Box::new(DataTypeKind::Any))
+                        DataTypeKind::List(Box::new(DataTypeKind::SNBT))
                     } else if generics.len() == 1
                         && let Some(first) = generics.first()
                     {
@@ -94,7 +94,7 @@ impl HighDataTypeKind {
                 }
                 "compound" => {
                     if generics.is_empty() {
-                        DataTypeKind::Compound(Box::new(DataTypeKind::Any))
+                        DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))
                     } else if generics.len() == 1
                         && let Some(first) = generics.first()
                     {
@@ -105,7 +105,7 @@ impl HighDataTypeKind {
                 }
                 "data" => {
                     if generics.is_empty() {
-                        DataTypeKind::Data(Box::new(DataTypeKind::Any))
+                        DataTypeKind::Data(Box::new(DataTypeKind::SNBT))
                     } else if generics.len() == 1
                         && let Some(first) = generics.first()
                     {
@@ -114,7 +114,7 @@ impl HighDataTypeKind {
                         unreachable!()
                     }
                 }
-                "any" => DataTypeKind::Any,
+                "snbt" => DataTypeKind::SNBT,
                 _ => DataTypeKind::Custom(
                     name.clone(),
                     generics
@@ -276,11 +276,11 @@ impl HighDataType {
                         return first.perform_semantic_analysis(ctx);
                     }
                 }
-                "any" => {
+                "snbt" => {
                     if !generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Any,
+                            GenericDataTypeKind::SNBT,
                             0,
                             generics.len(),
                         );

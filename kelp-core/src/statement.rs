@@ -146,9 +146,9 @@ impl StatementKind {
                 let collection_data_type = collection
                     .kind
                     .infer_data_type(datapack)
-                    .unwrap_or(DataTypeKind::Any)
+                    .unwrap_or(DataTypeKind::SNBT)
                     .get_iterable_type()
-                    .unwrap_or(DataTypeKind::Any);
+                    .unwrap_or(DataTypeKind::SNBT);
 
                 let collection = collection.resolve(datapack, ctx);
 
@@ -168,7 +168,7 @@ impl StatementKind {
                     datapack.start_scope();
                     datapack.declare_variable(
                         &variable_name,
-                        DataTypeKind::Data(Box::new(DataTypeKind::Any)),
+                        DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
                         ConstantExpressionKind::Data(
                             unique_data_target_2.clone(),
                             unique_path_2.clone(),
@@ -260,7 +260,7 @@ impl StatementKind {
                     datapack.start_scope();
                     datapack.declare_variable(
                         &variable_name,
-                        DataTypeKind::Data(Box::new(DataTypeKind::Any)),
+                        DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
                         ConstantExpressionKind::Data(
                             unique_data_target.clone(),
                             unique_path.clone(),

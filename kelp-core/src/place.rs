@@ -285,7 +285,7 @@ impl PlaceType {
                         .into_iter()
                         .zip(expressions)
                         .map(|(place_type, value)| {
-                            let value_type = value.kind.infer_data_type(ctx).unwrap();
+                            let value_type = value.kind.infer_data_type(ctx)?;
 
                             place_type.perform_assignment_semantic_analysis(ctx, value, &value_type)
                         })

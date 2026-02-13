@@ -308,24 +308,12 @@ impl DataTypeKind {
         }
     }
 
-    #[allow(clippy::only_used_in_recursion)]
-    pub fn get_arithmetic_result(
+    fn raw_get_arithmetic_result(
         &self,
         _operator: &ArithmeticOperator,
         other: &DataTypeKind,
     ) -> Option<DataTypeKind> {
         Some(match (self, other) {
-            (DataTypeKind::Reference(self_), DataTypeKind::Reference(other)) => {
-                match (&**self_, &**other) {
-                    (DataTypeKind::Byte, DataTypeKind::Byte) => DataTypeKind::Byte,
-                    (DataTypeKind::Short, DataTypeKind::Short) => DataTypeKind::Short,
-                    (DataTypeKind::Integer, DataTypeKind::Integer) => DataTypeKind::Integer,
-                    (DataTypeKind::Long, DataTypeKind::Long) => DataTypeKind::Long,
-                    (DataTypeKind::Score, other) if other.is_score_like() => DataTypeKind::Score,
-                    (self_, DataTypeKind::Score) if self_.is_score_like() => DataTypeKind::Score,
-                    _ => return None,
-                }
-            }
             (DataTypeKind::Byte, DataTypeKind::Byte) => DataTypeKind::Byte,
             (DataTypeKind::Short, DataTypeKind::Short) => DataTypeKind::Short,
             (DataTypeKind::Integer, DataTypeKind::Integer) => DataTypeKind::Integer,
@@ -334,6 +322,24 @@ impl DataTypeKind {
             (self_, DataTypeKind::Score) if self_.is_score_like() => DataTypeKind::Score,
             _ => return None,
         })
+    }
+
+    pub fn get_arithmetic_result(
+        &self,
+        operator: &ArithmeticOperator,
+        other: &DataTypeKind,
+    ) -> Option<DataTypeKind> {
+        match (self, other) {
+            (DataTypeKind::Reference(self_), DataTypeKind::Reference(other)) => {
+                self_.raw_get_arithmetic_result(operator, other)
+            }
+            (DataTypeKind::Reference(self_), other) => {
+                self_.raw_get_arithmetic_result(operator, other)
+            }
+            (_, DataTypeKind::Reference(other)) => self.raw_get_arithmetic_result(operator, other),
+
+            _ => self.raw_get_arithmetic_result(operator, other),
+        }
     }
 
     #[allow(clippy::only_used_in_recursion)]
@@ -357,6 +363,24 @@ impl DataTypeKind {
         }
     }
 
+    pub fn raw_can_perform_comparison(
+        &self,
+        _operator: &ComparisonOperator,
+        other: &DataTypeKind,
+    ) -> bool {
+        match (self, other) {
+            (DataTypeKind::Byte, DataTypeKind::Byte) => true,
+            (DataTypeKind::Short, DataTypeKind::Short) => true,
+            (DataTypeKind::Integer, DataTypeKind::Integer) => true,
+            (DataTypeKind::Long, DataTypeKind::Long) => true,
+            (DataTypeKind::Float, DataTypeKind::Float) => true,
+            (DataTypeKind::Double, DataTypeKind::Double) => true,
+            (DataTypeKind::Score, other) if other.is_score_like() => true,
+            (_, DataTypeKind::Score) if self.is_score_like() => true,
+            _ => false,
+        }
+    }
+
     pub fn can_perform_comparison(
         &self,
         operator: &ComparisonOperator,
@@ -370,18 +394,14 @@ impl DataTypeKind {
 
         match (self, other) {
             (DataTypeKind::Reference(self_), DataTypeKind::Reference(other)) => {
-                self_.can_perform_comparison(operator, other)
+                self_.raw_can_perform_comparison(operator, other)
+            }
+            (_, DataTypeKind::Reference(other)) => self.raw_can_perform_comparison(operator, other),
+            (DataTypeKind::Reference(self_), other) => {
+                self_.raw_can_perform_comparison(operator, other)
             }
 
-            (DataTypeKind::Byte, DataTypeKind::Byte) => true,
-            (DataTypeKind::Short, DataTypeKind::Short) => true,
-            (DataTypeKind::Integer, DataTypeKind::Integer) => true,
-            (DataTypeKind::Long, DataTypeKind::Long) => true,
-            (DataTypeKind::Float, DataTypeKind::Float) => true,
-            (DataTypeKind::Double, DataTypeKind::Double) => true,
-            (DataTypeKind::Score, other) if other.is_score_like() => true,
-            (self_, DataTypeKind::Score) if self_.is_score_like() => true,
-            _ => false,
+            _ => self.raw_can_perform_comparison(operator, other),
         }
     }
 
@@ -402,6 +422,8 @@ impl DataTypeKind {
 
             DataTypeKind::List(data_type) => *data_type.clone(),
             DataTypeKind::Data(data_type) => data_type.get_index_result()?,
+            DataTypeKind::SNBT => DataTypeKind::SNBT,
+
             _ => return None,
         })
     }
@@ -427,10 +449,7 @@ impl DataTypeKind {
     }
 
     pub fn can_be_referenced(&self) -> bool {
-        matches!(
-            self,
-            DataTypeKind::Data(_) | DataTypeKind::Score | DataTypeKind::SNBT
-        )
+        matches!(self, DataTypeKind::Data(_) | DataTypeKind::Score)
     }
 
     pub fn can_be_dereferenced(&self) -> bool {

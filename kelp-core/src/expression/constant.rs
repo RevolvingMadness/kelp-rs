@@ -116,19 +116,19 @@ pub enum ConstantExpressionKind {
 }
 
 impl ConstantExpressionKind {
-    pub fn dereference(
+    pub fn get_dereferenced_type(
         &self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
     ) -> Option<DataTypeKind> {
-        Some(match self {
+        match self {
             ConstantExpressionKind::Reference(expression) => expression
                 .kind
-                .infer_data_type(supports_variable_type_scope)?,
+                .infer_data_type(supports_variable_type_scope),
             ConstantExpressionKind::Variable(name) => {
-                return supports_variable_type_scope.get_variable(name)?;
+                Some(supports_variable_type_scope.get_variable(name)??)
             }
-            _ => return None,
-        })
+            _ => unreachable!("Cannot deference type {:?}", self),
+        }
     }
 
     pub fn is_lvalue(&self) -> bool {
@@ -168,10 +168,10 @@ impl ConstantExpressionKind {
                     .clone()
                     .into_iter()
                     .map(|(key, value)| {
-                        Some((
-                            key.snbt_string,
-                            value.kind.infer_data_type(supports_variable_type_scope)?,
-                        ))
+                        value
+                            .kind
+                            .infer_data_type(supports_variable_type_scope)
+                            .map(|data_type| (key.snbt_string, data_type))
                     })
                     .collect::<Option<_>>()?,
             ),
@@ -190,12 +190,12 @@ impl ConstantExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             ConstantExpressionKind::Variable(name) => {
-                return supports_variable_type_scope.get_variable(name)?;
+                supports_variable_type_scope.get_variable(name)??
             }
             ConstantExpressionKind::Unit => DataTypeKind::Unit,
-            ConstantExpressionKind::Dereference(expression) => {
-                return expression.kind.dereference(supports_variable_type_scope);
-            }
+            ConstantExpressionKind::Dereference(expression) => expression
+                .kind
+                .get_dereferenced_type(supports_variable_type_scope)?,
             ConstantExpressionKind::Reference(expression) => DataTypeKind::Reference(Box::new(
                 expression
                     .kind
@@ -342,22 +342,24 @@ impl ConstantExpressionKind {
         })
     }
 
-    pub fn index(self, index: ConstantExpressionKind) -> Option<ConstantExpressionKind> {
-        Some(match self {
+    pub fn index(self, index: ConstantExpressionKind) -> ConstantExpressionKind {
+        match self {
+            ConstantExpressionKind::Reference(expression) => expression.kind.index(index),
+
             ConstantExpressionKind::List(mut items) => {
-                return if let ConstantExpressionKind::Literal(LiteralExpression {
+                if let ConstantExpressionKind::Literal(LiteralExpression {
                     kind: LiteralExpressionKind::Integer(index),
                     ..
                 }) = index
                 {
                     if index >= 0 && (index as usize) < items.len() {
-                        Some(items.swap_remove(index as usize).kind)
+                        items.swap_remove(index as usize).kind
                     } else {
-                        None
+                        unreachable!("Index is out of range");
                     }
                 } else {
-                    None
-                };
+                    unreachable!("The index expression is not an integer")
+                }
             }
             ConstantExpressionKind::Data(target, path) => {
                 if let Some(snbt) = index.as_snbt() {
@@ -366,15 +368,15 @@ impl ConstantExpressionKind {
                         path.with_node(NbtPathNode::Index(Some(snbt))),
                     )
                 } else {
-                    return None;
+                    unreachable!("The index expression is not snbt")
                 }
             }
-            _ => return None,
-        })
+            _ => unreachable!("The expression cannot be indexed {:?}", self),
+        }
     }
 
-    pub fn access_field(self, field: SNBTString) -> Option<ConstantExpressionKind> {
-        Some(match self {
+    pub fn access_field(self, field: SNBTString) -> ConstantExpressionKind {
+        match self {
             ConstantExpressionKind::Literal(_)
             | ConstantExpressionKind::List(_)
             | ConstantExpressionKind::PlayerScore(_)
@@ -382,9 +384,13 @@ impl ConstantExpressionKind {
             | ConstantExpressionKind::Command(_)
             | ConstantExpressionKind::Unit
             | ConstantExpressionKind::Variable(_)
-            | ConstantExpressionKind::Reference(_)
-            | ConstantExpressionKind::Dereference(_) => return None,
+            | ConstantExpressionKind::Dereference(_) => {
+                unreachable!("Expression does not have any fields {:?}", self)
+            }
             ConstantExpressionKind::Underscore => unreachable!(),
+
+            ConstantExpressionKind::Reference(expression) => expression.kind.access_field(field),
+
             ConstantExpressionKind::Compound(compound) => {
                 compound
                     .into_iter()
@@ -401,10 +407,10 @@ impl ConstantExpressionKind {
                 if let Ok(index) = field.1.parse::<i32>() {
                     expressions.remove(index as usize).kind
                 } else {
-                    return None;
+                    unreachable!("Tuple does not have field {:?}", field.1);
                 }
             }
-        })
+        }
     }
 
     #[inline]
@@ -449,7 +455,11 @@ impl ConstantExpressionKind {
                 })
             }
 
-            (left_kind @ ConstantExpressionKind::PlayerScore(_), right_kind) => {
+            (
+                left_kind @ (ConstantExpressionKind::PlayerScore(_)
+                | ConstantExpressionKind::Data(_, _)),
+                right_kind,
+            ) => {
                 // TODO maybe better checking?
                 // TODO assign into score
 
@@ -461,7 +471,11 @@ impl ConstantExpressionKind {
                 ConstantExpressionKind::PlayerScore(unique_score)
             }
 
-            (left_kind, right_kind @ ConstantExpressionKind::PlayerScore(_)) => {
+            (
+                left_kind,
+                right_kind @ (ConstantExpressionKind::PlayerScore(_)
+                | ConstantExpressionKind::Data(_, _)),
+            ) => {
                 // TODO maybe better checking?
                 // TODO assign into score
 
@@ -473,7 +487,7 @@ impl ConstantExpressionKind {
                 ConstantExpressionKind::PlayerScore(unique_score)
             }
 
-            _ => unreachable!(),
+            (left_kind, right_kind) => unreachable!("{:?} {:?}", left_kind, right_kind),
         }
     }
 
@@ -1206,27 +1220,25 @@ impl ConstantExpressionKind {
         self,
         datapack: &mut HighDatapack,
         data_type: DataTypeKind,
-    ) -> Option<ConstantExpressionKind> {
+    ) -> ConstantExpressionKind {
         let self_type = self.infer_data_type(datapack).unwrap();
 
         if self_type.equals(&data_type) {
-            return Some(self);
+            return self;
         }
 
-        Some(match (self, data_type) {
+        match (self, data_type) {
             (ConstantExpressionKind::Literal(expression), data_type) => {
-                return expression.kind.cast_to(data_type).map(|kind| {
-                    ConstantExpressionKind::Literal(LiteralExpression {
-                        span: expression.span,
-                        kind,
-                    })
-                });
+                ConstantExpressionKind::Literal(LiteralExpression {
+                    span: expression.span,
+                    kind: expression.kind.cast_to(data_type),
+                })
             }
 
             (self_ @ ConstantExpressionKind::Data(_, _), DataTypeKind::Data(_)) => self_,
 
-            _ => return None,
-        })
+            _ => unreachable!(""),
+        }
     }
 
     pub fn assign(

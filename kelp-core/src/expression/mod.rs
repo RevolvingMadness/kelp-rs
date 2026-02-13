@@ -1,14 +1,9 @@
 use std::collections::BTreeMap;
 
-use minecraft_command_types::{
-    command::{
-        Command, PlayerScore,
-        enums::{score_operation_operator::ScoreOperationOperator, store_type::StoreType},
-        execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
-        r#return::ReturnCommand,
-        scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
-    },
-    resource_location::ResourceLocation,
+use minecraft_command_types::command::{
+    Command, PlayerScore,
+    enums::score_operation_operator::ScoreOperationOperator,
+    scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
 };
 use minecraft_command_types_derive::HasMacro;
 use parser_rs::parser_range::ParserRange;
@@ -19,7 +14,6 @@ use crate::{
     datapack::HighDatapack,
     expression::{
         constant::{ConstantExpression, ConstantExpressionKind},
-        literal::LiteralExpression,
         supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::{
@@ -100,30 +94,34 @@ impl ExpressionKind {
         supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
     ) -> Option<DataTypeKind> {
         Some(match self {
-            ExpressionKind::Constant(constant_expression) => {
-                return constant_expression
-                    .kind
-                    .infer_data_type(supports_variable_type_scope);
-            }
+            ExpressionKind::Constant(constant_expression) => constant_expression
+                .kind
+                .infer_data_type(supports_variable_type_scope)?,
             ExpressionKind::Unary(operator, expression) => {
                 let expression_type = expression
                     .kind
                     .infer_data_type(supports_variable_type_scope)?;
 
                 match operator {
-                    UnaryOperator::Negate => return expression_type.get_negated_result(),
+                    UnaryOperator::Negate => expression_type
+                        .get_negated_result()
+                        .expect("Expression cannot be negated"),
                     UnaryOperator::Reference => DataTypeKind::Reference(Box::new(expression_type)),
-                    UnaryOperator::Dereference => expression
-                        .dereference_type(supports_variable_type_scope)
-                        .unwrap(),
-                    UnaryOperator::Invert => return expression_type.get_inverted_result(),
+                    UnaryOperator::Dereference => {
+                        expression.dereference_type(supports_variable_type_scope)?
+                    }
+                    UnaryOperator::Invert => expression_type
+                        .get_inverted_result()
+                        .expect("Expression cannot be inverted"),
                 }
             }
             ExpressionKind::Arithmetic(left, operator, right) => {
                 let left_type = left.kind.infer_data_type(supports_variable_type_scope)?;
                 let right_type = right.kind.infer_data_type(supports_variable_type_scope)?;
 
-                return left_type.get_arithmetic_result(operator, &right_type);
+                left_type
+                    .get_arithmetic_result(operator, &right_type)
+                    .expect("Cannot perform arithmetic")
             }
             ExpressionKind::Comparison(_, _, _) | ExpressionKind::Logical(_, _, _) => {
                 DataTypeKind::Boolean
@@ -156,27 +154,24 @@ impl ExpressionKind {
             ExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             ExpressionKind::Condition(_, _) => DataTypeKind::Byte,
             ExpressionKind::Command(_) => DataTypeKind::Integer,
-            ExpressionKind::Index(target, _) => {
-                return target
-                    .kind
-                    .infer_data_type(supports_variable_type_scope)?
-                    .get_index_result();
-            }
-            ExpressionKind::FieldAccess(target, field) => {
-                let target = target.kind.infer_data_type(supports_variable_type_scope)?;
-
-                return target.get_field_result(&field.snbt_string);
-            }
+            ExpressionKind::Index(target, _) => target
+                .kind
+                .infer_data_type(supports_variable_type_scope)?
+                .get_index_result()
+                .expect("Expression cannot be indexed"),
+            ExpressionKind::FieldAccess(target, field) => target
+                .kind
+                .infer_data_type(supports_variable_type_scope)?
+                .get_field_result(&field.snbt_string)
+                .expect("Expression does not have the specified field"),
             ExpressionKind::AsCast(_, data_type) => data_type.kind.resolve(),
             ExpressionKind::ToCast(expression, storage_type) => match storage_type {
                 RuntimeStorageType::Score => DataTypeKind::Score,
-                RuntimeStorageType::Data => {
-                    let expression_type = expression
+                RuntimeStorageType::Data => DataTypeKind::Data(Box::new(
+                    expression
                         .kind
-                        .infer_data_type(supports_variable_type_scope)?;
-
-                    DataTypeKind::Data(Box::new(expression_type))
-                }
+                        .infer_data_type(supports_variable_type_scope)?,
+                )),
             },
             ExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
@@ -278,23 +273,19 @@ impl Expression {
         &self,
         supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
     ) -> Option<DataTypeKind> {
-        match &self.kind {
-            ExpressionKind::Constant(expression) => Some(
-                expression
-                    .kind
-                    .infer_data_type(supports_variable_type_scope)?
-                    .try_dereference(),
-            ),
-            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => Some(
-                expression
-                    .dereference_type(supports_variable_type_scope)?
-                    .try_dereference(),
-            ),
+        Some(match &self.kind {
+            ExpressionKind::Constant(expression) => expression
+                .kind
+                .infer_data_type(supports_variable_type_scope)?
+                .try_dereference(),
+            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => expression
+                .dereference_type(supports_variable_type_scope)?
+                .try_dereference(),
             ExpressionKind::Unary(UnaryOperator::Reference, expression) => expression
                 .kind
-                .infer_data_type(supports_variable_type_scope),
-            _ => None,
-        }
+                .infer_data_type(supports_variable_type_scope)?,
+            _ => unreachable!("Expression cannot be dereferenced"),
+        })
     }
 
     pub fn perform_semantic_analysis(
@@ -307,51 +298,49 @@ impl Expression {
                 constant_expression.perform_semantic_analysis(ctx, is_lhs)
             }
             ExpressionKind::Unary(operator, expression) => {
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                expression.perform_semantic_analysis(ctx, is_lhs)?;
 
-                expression_result?;
+                let data_type = expression.kind.infer_data_type(ctx)?;
 
-                if let Some(data_type) = expression.kind.infer_data_type(ctx) {
-                    match operator {
-                        UnaryOperator::Negate => {
-                            if data_type.get_negated_result().is_none() {
-                                return ctx.add_info(SemanticAnalysisInfo {
-                                    span: self.span,
-                                    kind: SemanticAnalysisInfoKind::Error(
-                                        SemanticAnalysisError::CannotNegateType(data_type),
-                                    ),
-                                });
-                            }
+                match operator {
+                    UnaryOperator::Negate => {
+                        if data_type.get_negated_result().is_none() {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: self.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::CannotNegateType(data_type),
+                                ),
+                            });
                         }
-                        UnaryOperator::Reference => {
-                            if !expression.kind.is_lvalue() {
-                                return ctx.add_info(SemanticAnalysisInfo {
-                                    span: expression.span,
-                                    kind: SemanticAnalysisInfoKind::Error(
-                                        SemanticAnalysisError::CannotBeReferenced(data_type),
-                                    ),
-                                });
-                            }
+                    }
+                    UnaryOperator::Reference => {
+                        if !expression.kind.is_lvalue() {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: expression.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::CannotBeReferenced(data_type),
+                                ),
+                            });
                         }
-                        UnaryOperator::Dereference => {
-                            if !expression.kind.can_be_dereferenced() {
-                                return ctx.add_info(SemanticAnalysisInfo {
-                                    span: expression.span,
-                                    kind: SemanticAnalysisInfoKind::Error(
-                                        SemanticAnalysisError::CannotBeDereferenced(data_type),
-                                    ),
-                                });
-                            }
+                    }
+                    UnaryOperator::Dereference => {
+                        if !expression.kind.can_be_dereferenced() {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: expression.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::CannotBeDereferenced(data_type),
+                                ),
+                            });
                         }
-                        UnaryOperator::Invert => {
-                            if data_type.get_inverted_result().is_none() {
-                                return ctx.add_info(SemanticAnalysisInfo {
-                                    span: self.span,
-                                    kind: SemanticAnalysisInfoKind::Error(
-                                        SemanticAnalysisError::CannotInvertType(data_type),
-                                    ),
-                                });
-                            }
+                    }
+                    UnaryOperator::Invert => {
+                        if data_type.get_inverted_result().is_none() {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: self.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::CannotInvertType(data_type),
+                                ),
+                            });
                         }
                     }
                 }
@@ -365,38 +354,37 @@ impl Expression {
                 left_result?;
                 right_result?;
 
-                if let Some(left_type) = left.kind.infer_data_type(ctx)
-                    && let Some(right_type) = right.kind.infer_data_type(ctx)
+                let left_type = left.kind.infer_data_type(ctx)?;
+                let right_type = right.kind.infer_data_type(ctx)?;
+
+                let result_type = left_type.get_arithmetic_result(operator, &right_type);
+
+                if result_type.is_none() {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotPerformArithmeticOperation {
+                                left: left_type,
+                                operator: *operator,
+                                right: right_type,
+                            },
+                        ),
+                    });
+                }
+
+                if *operator == ArithmeticOperator::Swap
+                    && (!left_type.is_lvalue() || !right_type.is_lvalue())
                 {
-                    let result_type = left_type.get_arithmetic_result(operator, &right_type);
-
-                    if result_type.is_none() {
-                        return ctx.add_info(SemanticAnalysisInfo {
-                            span: self.span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::CannotPerformArithmeticOperation {
-                                    left: left_type,
-                                    operator: *operator,
-                                    right: right_type,
-                                },
-                            ),
-                        });
-                    }
-
-                    if *operator == ArithmeticOperator::Swap
-                        && (!left_type.is_lvalue() || !right_type.is_lvalue())
-                    {
-                        return ctx.add_info(SemanticAnalysisInfo {
-                            span: self.span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::CannotPerformArithmeticOperation {
-                                    left: left_type,
-                                    operator: *operator,
-                                    right: right_type,
-                                },
-                            ),
-                        });
-                    }
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotPerformArithmeticOperation {
+                                left: left_type,
+                                operator: *operator,
+                                right: right_type,
+                            },
+                        ),
+                    });
                 }
 
                 Some(())
@@ -408,10 +396,10 @@ impl Expression {
                 left_result?;
                 right_result?;
 
-                if let Some(left_type) = left.kind.infer_data_type(ctx)
-                    && let Some(right_type) = right.kind.infer_data_type(ctx)
-                    && !left_type.can_perform_comparison(operator, &right_type)
-                {
+                let left_type = left.kind.infer_data_type(ctx)?;
+                let right_type = right.kind.infer_data_type(ctx)?;
+
+                if !left_type.can_perform_comparison(operator, &right_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -433,10 +421,10 @@ impl Expression {
                 left_result?;
                 right_result?;
 
-                if let Some(left_type) = left.kind.infer_data_type(ctx)
-                    && let Some(right_type) = right.kind.infer_data_type(ctx)
-                    && !left_type.can_perform_logical_comparison(operator, &right_type)
-                {
+                let left_type = left.kind.infer_data_type(ctx)?;
+                let right_type = right.kind.infer_data_type(ctx)?;
+
+                if !left_type.can_perform_logical_comparison(operator, &right_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -460,8 +448,6 @@ impl Expression {
 
                 let mut error = false;
 
-                let target_type = target.kind.infer_data_type(ctx)?;
-
                 if !target.kind.is_lvalue() {
                     ctx.add_info::<()>(SemanticAnalysisInfo {
                         span: target.span,
@@ -472,8 +458,6 @@ impl Expression {
 
                     error = true;
                 }
-
-                let value_type = value.kind.infer_data_type(ctx)?;
 
                 if *operator == ArithmeticOperator::Swap && !value.kind.is_lvalue() {
                     ctx.add_info::<()>(SemanticAnalysisInfo {
@@ -489,6 +473,9 @@ impl Expression {
                 if error {
                     return None;
                 }
+
+                let target_type = target.kind.infer_data_type(ctx)?;
+                let value_type = value.kind.infer_data_type(ctx)?;
 
                 if !target_type.can_perform_augmented_assignment(operator, &value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
@@ -562,9 +549,9 @@ impl Expression {
 
                 target_result?;
 
-                if let Some(target_type) = target.kind.infer_data_type(ctx)
-                    && !target_type.can_be_indexed()
-                {
+                let target_type = target.kind.infer_data_type(ctx)?;
+
+                if !target_type.can_be_indexed() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: target.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -582,27 +569,27 @@ impl Expression {
 
                 expression_result?;
 
-                if let Some(expression_type) = expression.kind.infer_data_type(ctx) {
-                    if !expression_type.has_fields() {
-                        return ctx.add_info(SemanticAnalysisInfo {
-                            span: field.span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::TypeDoesntHaveFields(expression_type),
-                            ),
-                        });
-                    }
+                let expression_type = expression.kind.infer_data_type(ctx)?;
 
-                    if !expression_type.has_field(field) {
-                        return ctx.add_info(SemanticAnalysisInfo {
-                            span: field.span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: expression_type,
-                                    field: field.snbt_string.1.clone(),
-                                },
-                            ),
-                        });
-                    }
+                if !expression_type.has_fields() {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: field.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeDoesntHaveFields(expression_type),
+                        ),
+                    });
+                }
+
+                if !expression_type.has_field(field) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: field.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeDoesntHaveField {
+                                data_type: expression_type,
+                                field: field.snbt_string.1.clone(),
+                            },
+                        ),
+                    });
                 }
 
                 Some(())
@@ -636,31 +623,27 @@ impl Expression {
 
                 expression_result?;
 
-                if let Some(expression_type) = expression.kind.infer_data_type(ctx) {
-                    match runtime_storage {
-                        RuntimeStorageType::Score => {
-                            if !expression_type.can_be_assigned_to_score() {
-                                return ctx.add_info(SemanticAnalysisInfo {
-                                    span: expression.span,
-                                    kind: SemanticAnalysisInfoKind::Error(
-                                        SemanticAnalysisError::CannotBeAssignedToScore(
-                                            expression_type,
-                                        ),
-                                    ),
-                                });
-                            }
+                let expression_type = expression.kind.infer_data_type(ctx)?;
+
+                match runtime_storage {
+                    RuntimeStorageType::Score => {
+                        if !expression_type.can_be_assigned_to_score() {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: expression.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::CannotBeAssignedToScore(expression_type),
+                                ),
+                            });
                         }
-                        RuntimeStorageType::Data => {
-                            if !expression_type.can_be_assigned_to_data() {
-                                return ctx.add_info(SemanticAnalysisInfo {
-                                    span: expression.span,
-                                    kind: SemanticAnalysisInfoKind::Error(
-                                        SemanticAnalysisError::CannotBeAssignedToData(
-                                            expression_type,
-                                        ),
-                                    ),
-                                });
-                            }
+                    }
+                    RuntimeStorageType::Data => {
+                        if !expression_type.can_be_assigned_to_data() {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: expression.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::CannotBeAssignedToData(expression_type),
+                                ),
+                            });
                         }
                     }
                 }
@@ -849,18 +832,18 @@ impl Expression {
                 let target = target.resolve(datapack, ctx);
                 let index = index.resolve(datapack, ctx);
 
-                target.index(index).unwrap()
+                target.index(index)
             }
             ExpressionKind::FieldAccess(target, field) => {
                 let target = target.resolve(datapack, ctx);
 
-                target.access_field(field.snbt_string).unwrap()
+                target.access_field(field.snbt_string)
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.resolve(datapack, ctx);
                 let data_type = data_type.kind.resolve();
 
-                expression.cast_to(datapack, data_type).unwrap()
+                expression.cast_to(datapack, data_type)
             }
             ExpressionKind::ToCast(expression, runtime_storage_type) => {
                 let expression = expression.resolve(datapack, ctx);

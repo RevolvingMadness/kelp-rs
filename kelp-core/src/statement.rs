@@ -146,9 +146,9 @@ impl StatementKind {
                 let collection_data_type = collection
                     .kind
                     .infer_data_type(datapack)
-                    .unwrap_or(DataTypeKind::SNBT)
+                    .unwrap()
                     .get_iterable_type()
-                    .unwrap_or(DataTypeKind::SNBT);
+                    .unwrap_or_else(|| panic!("Expression {:?} is not iterable", collection));
 
                 let collection = collection.resolve(datapack, ctx);
 
@@ -483,10 +483,13 @@ impl Statement {
             }
             StatementKind::ForIn(_, name, expression, statement) => {
                 let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
 
                 let expression_type = expression.kind.infer_data_type(ctx)?;
 
                 let Some(iterable_type) = expression_type.get_iterable_type() else {
+                    ctx.declare_variable_unknown::<()>(name);
+
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: expression.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -496,8 +499,6 @@ impl Statement {
                 };
 
                 ctx.declare_variable_known(name, iterable_type);
-
-                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
                 statement_result?;

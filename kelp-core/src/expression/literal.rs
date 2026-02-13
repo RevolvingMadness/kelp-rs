@@ -302,8 +302,8 @@ impl LiteralExpressionKind {
         }
     }
 
-    pub fn cast_to(self, data_type: DataTypeKind) -> Option<LiteralExpressionKind> {
-        Some(match (self, data_type) {
+    pub fn cast_to(self, data_type: DataTypeKind) -> LiteralExpressionKind {
+        match (self, data_type) {
             (LiteralExpressionKind::Byte(value), DataTypeKind::Short) => {
                 LiteralExpressionKind::Short(value as i16)
             }
@@ -401,8 +401,10 @@ impl LiteralExpressionKind {
                     NotNan::new_unchecked(value.into_inner() as f32)
                 })
             }
-            _ => return None,
-        })
+            (self_, data_type) => {
+                unreachable!("Cannot cast expression {:?} to type {}", self_, data_type)
+            }
+        }
     }
 
     pub fn perform_semantic_analysis(

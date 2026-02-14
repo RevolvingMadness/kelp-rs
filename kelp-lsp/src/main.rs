@@ -1,4 +1,5 @@
 use kelp_core::generate_message_error;
+use kelp_core::semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisInfoKind};
 use kelp_parser::file;
 use parser_rs::{
     Expectation, Suggestion, fn_parser::FnParser, parser_range::ParserRange,
@@ -182,6 +183,38 @@ impl Backend {
                     data: None,
                 }),
         );
+
+        if let Ok(statements) = result.result {
+            let mut ctx = SemanticAnalysisContext {
+                max_infos: 25,
+                ..Default::default()
+            };
+
+            ctx.scopes.push_front(BTreeMap::new());
+
+            for statement in statements {
+                statement.perform_semantic_analysis(&mut ctx, false);
+            }
+
+            diagnostics.extend(ctx.infos.iter().map(|info| Diagnostic {
+                range: Range {
+                    start: line_index.offset_to_position(info.span.start, &text),
+                    end: line_index.offset_to_position(info.span.end, &text),
+                },
+                severity: Some(match info.kind {
+                    SemanticAnalysisInfoKind::Error(_) => DiagnosticSeverity::ERROR,
+                }),
+                source: Some("kelp-lsp".to_string()),
+                message: match &info.kind {
+                    SemanticAnalysisInfoKind::Error(error) => error.to_string(),
+                },
+                code_description: None,
+                code: None,
+                related_information: None,
+                tags: None,
+                data: None,
+            }));
+        }
 
         let mut map = self.document_map.write().await;
         map.insert(uri.clone(), DocumentState { text, line_index });

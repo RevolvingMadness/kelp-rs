@@ -1349,8 +1349,8 @@ impl ConstantExpressionKind {
         }
     }
 
-    pub fn as_place(self) -> Option<Place> {
-        Some(match self {
+    pub fn as_place(self) -> Place {
+        match self {
             ConstantExpressionKind::PlayerScore(score) => Place::Score(score),
             ConstantExpressionKind::Data(target, path) => Place::Data(target, path),
             ConstantExpressionKind::Variable(name) => Place::Variable(name),
@@ -1359,10 +1359,10 @@ impl ConstantExpressionKind {
                 expressions
                     .into_iter()
                     .map(|expression| expression.kind.as_place())
-                    .collect::<Option<_>>()?,
+                    .collect(),
             ),
-            _ => return None,
-        })
+            _ => unreachable!("This expression is not a place {:?}", self),
+        }
     }
 
     pub fn dereference(self, datapack: &mut HighDatapack) -> ConstantExpressionKind {

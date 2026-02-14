@@ -1,4 +1,6 @@
-use std::fmt::Display;
+use std::{collections::BTreeMap, fmt::Display};
+
+use crate::pattern::SpannedString;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PatternType {
@@ -12,6 +14,7 @@ pub enum PatternType {
     String,
     Tuple(Vec<PatternType>),
     Reference(Box<PatternType>),
+    Compound(BTreeMap<SpannedString, PatternType>),
     Any,
 }
 
@@ -40,6 +43,27 @@ impl Display for PatternType {
                 f.write_str(")")
             }
             PatternType::Reference(pattern) => write!(f, "&{}", pattern),
+            PatternType::Compound(compound) => {
+                f.write_str("{")?;
+
+                if !compound.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                for (i, (key, pattern_type)) in compound.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    write!(f, "{}: {}", key.value, pattern_type)?;
+                }
+
+                if !compound.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                f.write_str("}")
+            }
             PatternType::Any => f.write_str("_"),
         }
     }

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
@@ -14,6 +16,12 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SpannedString {
+    pub span: ParserRange,
+    pub value: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PatternKind {
     Literal(LiteralExpression),
@@ -22,6 +30,8 @@ pub enum PatternKind {
     Binding(String),
 
     Tuple(Vec<Pattern>),
+
+    Compound(BTreeMap<SpannedString, Option<Pattern>>),
 }
 
 impl PatternKind {
@@ -33,6 +43,7 @@ impl PatternKind {
             PatternKind::Tuple(patterns) => {
                 patterns.iter().all(|pattern| pattern.kind.is_irrefutable())
             }
+            PatternKind::Compound(_) => true,
         }
     }
 
@@ -46,29 +57,60 @@ impl PatternKind {
                     .map(|pattern| pattern.kind.get_type())
                     .collect(),
             ),
+            PatternKind::Compound(compound) => PatternType::Compound(
+                compound
+                    .iter()
+                    .map(|(key, pattern)| {
+                        (
+                            key.clone(),
+                            pattern
+                                .as_ref()
+                                .map(|pattern| pattern.kind.get_type())
+                                .unwrap_or(PatternType::Any),
+                        )
+                    })
+                    .collect(),
+            ),
         }
     }
 
     pub fn destructure(
         &self,
         datapack: &mut HighDatapack,
-        data_type: DataTypeKind,
+        value_data_type: DataTypeKind,
         value: ConstantExpression,
     ) {
         match self {
             PatternKind::Literal(_) => {}
             PatternKind::Wildcard => {}
             PatternKind::Binding(name) => {
-                datapack.declare_variable(name, data_type, value);
+                datapack.declare_variable(name, value_data_type, value);
             }
             PatternKind::Tuple(patterns) => {
                 if let ConstantExpressionKind::Tuple(expressions) = value.kind
-                    && let DataTypeKind::Tuple(data_types) = data_type
+                    && let DataTypeKind::Tuple(data_types) = value_data_type
                 {
                     for ((pattern, expression), data_type) in
                         patterns.iter().zip(expressions).zip(data_types)
                     {
                         pattern.kind.destructure(datapack, data_type, expression);
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+            PatternKind::Compound(patterns) => {
+                if let ConstantExpressionKind::Compound(expressions) = value.kind
+                    && let DataTypeKind::TypedCompound(data_types) = value_data_type
+                {
+                    for (((key, pattern), (_, expression)), (_, data_type)) in
+                        patterns.iter().zip(expressions).zip(data_types)
+                    {
+                        if let Some(pattern) = pattern {
+                            pattern.kind.destructure(datapack, data_type, expression);
+                        } else {
+                            datapack.declare_variable(&key.value, data_type, expression);
+                        }
                     }
                 } else {
                     unreachable!()
@@ -82,11 +124,20 @@ impl PatternKind {
             PatternKind::Literal(_) => {}
             PatternKind::Wildcard => {}
             PatternKind::Binding(name) => {
-                ctx.declare_variable_unknown::<()>(name);
+                ctx.declare_variable_unknown(name);
             }
             PatternKind::Tuple(patterns) => {
                 for pattern in patterns {
                     pattern.kind.destructure_unknown(ctx);
+                }
+            }
+            PatternKind::Compound(compound) => {
+                for (key, pattern) in compound {
+                    if let Some(pattern) = pattern {
+                        pattern.kind.destructure_unknown(ctx);
+                    } else {
+                        ctx.declare_variable_unknown(&key.value);
+                    }
                 }
             }
         }
@@ -143,11 +194,71 @@ impl Pattern {
                     }
 
                     ctx.add_info(SemanticAnalysisInfo {
-                        span: value_span,
+                        span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::MismatchedPatternTypes {
-                                expected: self.kind.get_type(),
-                                actual: value_type,
+                                expected: value_type,
+                                actual: self.kind.get_type(),
+                            },
+                        ),
+                    })
+                }
+            }
+            PatternKind::Compound(patterns) => {
+                if let DataTypeKind::TypedCompound(data_types) = &value_type {
+                    let mut error = false;
+
+                    for (key, pattern) in patterns.iter() {
+                        let data_type = data_types
+                            .iter()
+                            .find(|(value_key, _)| value_key.1 == key.value)
+                            .map(|(_, value)| value.clone());
+
+                        if let Some(data_type) = data_type {
+                            if let Some(pattern) = pattern {
+                                pattern.perform_destructure_semantic_analysis(
+                                    ctx, value_span, data_type,
+                                );
+                            } else {
+                                ctx.declare_variable_known(&key.value, data_type);
+                            }
+                        } else {
+                            ctx.add_info::<()>(SemanticAnalysisInfo {
+                                span: key.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::TypeDoesntHaveField {
+                                        data_type: value_type.clone(),
+                                        field: key.value.clone(),
+                                    },
+                                ),
+                            });
+
+                            if let Some(pattern) = pattern {
+                                pattern.kind.destructure_unknown(ctx);
+                            } else {
+                                ctx.declare_variable_unknown(&key.value);
+                            }
+
+                            error = true;
+                        }
+                    }
+
+                    if error { None } else { Some(()) }
+                } else {
+                    for (key, pattern) in patterns {
+                        if let Some(pattern) = pattern {
+                            pattern.kind.destructure_unknown(ctx);
+                        } else {
+                            ctx.declare_variable_unknown(&key.value);
+                        }
+                    }
+
+                    ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedPatternTypes {
+                                expected: value_type,
+                                actual: self.kind.get_type(),
                             },
                         ),
                     })

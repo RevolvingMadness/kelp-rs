@@ -1,0 +1,7 @@
+mcfn namespace:main {
+    let _ = 1
+    let _ = 2
+
+    let _ = score @s foo
+    let _ = entity @s Path
+}

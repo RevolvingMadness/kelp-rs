@@ -494,7 +494,7 @@ impl Statement {
                 let expression_type = expression.kind.infer_data_type(ctx)?;
 
                 let Some(iterable_type) = expression_type.get_iterable_type() else {
-                    ctx.declare_variable_unknown::<()>(name);
+                    ctx.declare_variable_unknown(name);
 
                     statement.perform_semantic_analysis(ctx, is_lhs);
 

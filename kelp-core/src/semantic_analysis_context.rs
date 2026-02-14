@@ -35,8 +35,8 @@ pub enum SemanticAnalysisError {
         actual: usize,
     },
     MismatchedPatternTypes {
-        expected: PatternType,
-        actual: DataTypeKind,
+        expected: DataTypeKind,
+        actual: PatternType,
     },
     UnderscoreExpression,
     CannotIterateType(DataTypeKind),
@@ -290,10 +290,8 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_variable_unknown<T>(&mut self, name: &str) -> Option<T> {
+    pub fn declare_variable_unknown(&mut self, name: &str) {
         self.declare_variable(name, None);
-
-        None
     }
 
     pub fn variable_is_declared(&self, name: &str) -> bool {

@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use kelp_core::{
     expression::literal::LiteralExpression,
-    pattern::{Pattern, PatternKind},
+    pattern::{Pattern, PatternKind, SpannedString},
 };
 use parser_rs::{
     combinators::{char, choice::choice},
@@ -9,7 +11,7 @@ use parser_rs::{
     stream::Stream,
 };
 
-use crate::{expression::literal_expression, identifier, whitespace};
+use crate::{expression::literal_expression, identifier, string, whitespace};
 
 pub fn pattern(input: &mut Stream) -> Option<Pattern> {
     choice((
@@ -28,6 +30,40 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
             char(')').parse(input)?;
 
             Some(PatternKind::Tuple(elements))
+        },
+        |input: &mut Stream| {
+            char('{').parse(input)?;
+            whitespace(input)?;
+            let elements: Vec<_> = (|input: &mut Stream| {
+                whitespace(input)?;
+                let (key_span, key) = string
+                    .spanned()
+                    .syntax(SemanticTokenKind::Variable)
+                    .parse(input)?;
+                let pattern = (|input: &mut Stream| {
+                    whitespace(input)?;
+                    char(':').parse(input)?;
+                    whitespace(input)?;
+                    pattern.parse(input)
+                })
+                .optional()
+                .parse(input)?;
+                whitespace(input)?;
+
+                Some((
+                    SpannedString {
+                        span: key_span,
+                        value: key,
+                    },
+                    pattern,
+                ))
+            })
+            .separated_by(char(','))
+            .parse(input)?;
+            char('}').parse(input)?;
+            Some(PatternKind::Compound(
+                elements.into_iter().collect::<BTreeMap<_, _>>(),
+            ))
         },
         literal_expression.spanned().map(|(value_span, value)| {
             PatternKind::Literal(LiteralExpression {

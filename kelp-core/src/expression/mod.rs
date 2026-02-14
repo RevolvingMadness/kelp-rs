@@ -200,9 +200,9 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub fn as_place(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Place> {
-        Some(match self.kind {
-            ExpressionKind::Constant(expression) => return expression.kind.as_place(),
+    pub fn as_place(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Place {
+        match self.kind {
+            ExpressionKind::Constant(expression) => expression.kind.as_place(),
             ExpressionKind::PlayerScore(score) => {
                 let score = score.compile(datapack, ctx);
 
@@ -218,24 +218,29 @@ impl Expression {
                 expressions
                     .into_iter()
                     .map(|expression| expression.as_place(datapack, ctx))
-                    .collect::<Option<_>>()?,
+                    .collect(),
             ),
             ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
                 Place::Dereference(expression)
             }
-            _ => return None,
-        })
+            ExpressionKind::FieldAccess(expression, field) => {
+                let expression = expression.resolve(datapack, ctx);
+
+                Place::Field(Box::new(expression), field.snbt_string)
+            }
+            _ => unreachable!("This expression is not a place {:?}", self),
+        }
     }
 
-    pub fn dereference(self, datapack: &mut HighDatapack) -> Option<Expression> {
-        Some(match self.kind {
+    pub fn dereference(self, datapack: &mut HighDatapack) -> Expression {
+        match self.kind {
             ExpressionKind::Constant(expression) => match expression.kind {
                 ConstantExpressionKind::Variable(name) => datapack
                     .get_variable(&name)
                     .unwrap()
                     .1
                     .into_constant_expression()
-                    .dereference(datapack)?,
+                    .dereference(datapack),
                 ConstantExpressionKind::Reference(expression) => {
                     expression.into_constant_expression()
                 }
@@ -253,16 +258,18 @@ impl Expression {
                         kind,
                     }),
                 },
-                _ => return None,
+                expression => {
+                    unreachable!("This expression cannot be dereferenced {:?}", expression)
+                }
             },
             ExpressionKind::PlayerScore(_) => self,
             ExpressionKind::Data(_, _) => self,
             ExpressionKind::Unary(UnaryOperator::Reference, expression) => *expression,
             ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
-                expression.dereference(datapack)?.dereference(datapack)?
+                expression.dereference(datapack).dereference(datapack)
             }
-            _ => return None,
-        })
+            _ => unreachable!("This expression cannot be dereferenced {:?}", self),
+        }
     }
 
     #[must_use]
@@ -630,13 +637,10 @@ impl Expression {
                 }
                 ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score,
                 ExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
-                ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
-                    PlaceTypeKind::Dereference(Box::new(
-                        expression
-                            .kind
-                            .infer_data_type(supports_variable_type_scope)?,
-                    ))
-                }
+                ExpressionKind::Unary(UnaryOperator::Dereference, _) => self
+                    .kind
+                    .infer_data_type(supports_variable_type_scope)?
+                    .as_place_type()?,
                 ExpressionKind::AsCast(expression, data_type) => {
                     let resolved_data_type = data_type.kind.resolve();
 
@@ -650,6 +654,10 @@ impl Expression {
 
                     resolved_data_type.as_place_type()?
                 }
+                ExpressionKind::FieldAccess(_, _) => self
+                    .kind
+                    .infer_data_type(supports_variable_type_scope)?
+                    .as_place_type()?,
                 _ => return None,
             })
             .with_span(self.span),
@@ -750,7 +758,6 @@ impl Expression {
 
                 target
                     .as_place(datapack, ctx)
-                    .unwrap()
                     .augmented_assign(datapack, ctx, operator, value);
 
                 ConstantExpressionKind::Unit
@@ -758,7 +765,7 @@ impl Expression {
             ExpressionKind::Assignment(target, value) => {
                 let value = value.resolve(datapack, ctx);
 
-                target.as_place(datapack, ctx).unwrap().assign(
+                target.as_place(datapack, ctx).assign(
                     datapack,
                     ctx,
                     value.into_dummy_constant_expression(),

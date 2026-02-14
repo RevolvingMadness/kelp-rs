@@ -6,6 +6,7 @@ use minecraft_command_types::{
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     nbt_path::NbtPath,
+    snbt::SNBTString,
 };
 use ordered_float::NotNan;
 use parser_rs::parser_range::ParserRange;
@@ -34,6 +35,7 @@ pub enum Place {
     Variable(String),
     Tuple(Vec<Place>),
     Dereference(Box<Expression>),
+    Field(Box<ConstantExpressionKind>, SNBTString),
     Underscore,
 }
 
@@ -87,9 +89,13 @@ impl Place {
             Place::Dereference(expression) => {
                 expression
                     .dereference(datapack)
-                    .unwrap()
                     .as_place(datapack, ctx)
-                    .unwrap()
+                    .assign(datapack, ctx, value);
+            }
+            Place::Field(expression, field) => {
+                expression
+                    .access_field(field)
+                    .as_place()
                     .assign(datapack, ctx, value);
             }
         }
@@ -158,9 +164,13 @@ impl Place {
             Place::Dereference(expression) => {
                 expression
                     .dereference(datapack)
-                    .unwrap()
                     .as_place(datapack, ctx)
-                    .unwrap()
+                    .augmented_assign(datapack, ctx, operator, value);
+            }
+            Place::Field(expression, field) => {
+                expression
+                    .access_field(field)
+                    .as_place()
                     .augmented_assign(datapack, ctx, operator, value);
             }
         }
@@ -173,7 +183,6 @@ pub enum PlaceTypeKind {
     Data(DataTypeKind),
     Tuple(Vec<PlaceType>, DataTypeKind),
     Variable(DataTypeKind),
-    Dereference(Box<DataTypeKind>),
     Underscore,
 }
 
@@ -247,27 +256,6 @@ impl PlaceType {
                     });
                 }
             }
-            PlaceTypeKind::Dereference(data_type) => {
-                if !data_type.can_be_dereferenced() {
-                    debug_assert!(false, "Unreachable");
-
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeDereferenced(*data_type),
-                        ),
-                    });
-                }
-
-                let data_type = data_type
-                    .dereference()
-                    .unwrap()
-                    .as_place_type()
-                    .unwrap()
-                    .with_span(self.span);
-
-                data_type.perform_assignment_semantic_analysis(ctx, value, value_type)?;
-            }
             PlaceTypeKind::Underscore => {}
         }
 
@@ -320,30 +308,6 @@ impl PlaceType {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::CannotPerformAugmentedAssignment(data_type),
-                        ),
-                    });
-                }
-            }
-            PlaceTypeKind::Dereference(data_type) => {
-                if !data_type.can_be_dereferenced() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeDereferenced(*data_type),
-                        ),
-                    });
-                }
-
-                let data_type = data_type.dereference().unwrap();
-
-                if !data_type.can_perform_augmented_assignment(operator, value_type) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: value.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: data_type,
-                                actual: value_type.clone(),
-                            },
                         ),
                     });
                 }

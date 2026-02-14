@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use minecraft_command_types::{
     command::{
-        Command, PlayerScore,
+        Command,
         data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
         enums::{score_operation_operator::ScoreOperationOperator, store_type::StoreType},
         execute::{
@@ -29,14 +29,13 @@ use crate::{
         supports_variable_type_scope::SupportsVariableTypeScope,
         utils::push_scoreboard_players,
     },
-    high::snbt_string::HighSNBTString,
+    high::{player_score::GeneratedPlayerScore, snbt_string::HighSNBTString},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
-    place::{Place, PlaceType},
+    place::{Place, PlaceType, PlaceTypeKind},
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
-    trait_ext::PlayerScoreExt,
 };
 
 pub type ConstantExpressionCompoundKind = BTreeMap<HighSNBTString, ConstantExpression>;
@@ -44,7 +43,7 @@ pub type ConstantExpressionCompoundKind = BTreeMap<HighSNBTString, ConstantExpre
 pub fn compile_shift_operation(
     datapack: &mut HighDatapack,
     ctx: &mut CompileContext,
-    target: &PlayerScore,
+    target: &GeneratedPlayerScore,
     amount: i32,
     operator: ScoreOperationOperator,
 ) {
@@ -104,7 +103,7 @@ pub enum ConstantExpressionKind {
     Underscore,
     List(Vec<ConstantExpression>),
     Compound(ConstantExpressionCompoundKind),
-    PlayerScore(PlayerScore),
+    PlayerScore(GeneratedPlayerScore),
     Data(DataTarget, NbtPath),
     Condition(bool, ExecuteIfSubcommand),
     Command(Command),
@@ -116,6 +115,48 @@ pub enum ConstantExpressionKind {
 }
 
 impl ConstantExpressionKind {
+    pub fn compile_augmented_assignment(
+        &self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
+        value: ConstantExpressionKind,
+    ) {
+        match self {
+            ConstantExpressionKind::PlayerScore(score) => {
+                value.operate_on_score(datapack, ctx, score, operator)
+            }
+            ConstantExpressionKind::Data(target, path) => {
+                let unique_score = datapack.get_unique_player_score();
+
+                self.assign_to_score(datapack, ctx, unique_score.clone());
+
+                unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
+            }
+            ConstantExpressionKind::Dereference(expression) => expression
+                .clone()
+                .kind
+                .dereference(datapack)
+                .compile_augmented_assignment(datapack, ctx, operator, value),
+            ConstantExpressionKind::Variable(name) => {
+                debug_assert!(false, "Unreachable");
+
+                let variable_value = &mut datapack.get_variable_mut(name).unwrap().clone().kind;
+
+                variable_value.compile_augmented_assignment(datapack, ctx, operator, value);
+            }
+            ConstantExpressionKind::Literal(_)
+            | ConstantExpressionKind::List(_)
+            | ConstantExpressionKind::Compound(_)
+            | ConstantExpressionKind::Condition(_, _)
+            | ConstantExpressionKind::Command(_)
+            | ConstantExpressionKind::Tuple(_)
+            | ConstantExpressionKind::Underscore
+            | ConstantExpressionKind::Unit
+            | ConstantExpressionKind::Reference(_) => unreachable!("{:?}", self),
+        }
+    }
+
     pub fn get_dereferenced_type(
         &self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
@@ -275,7 +316,7 @@ impl ConstantExpressionKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         force: bool,
-    ) -> PlayerScore {
+    ) -> GeneratedPlayerScore {
         if let Some(value) = self.try_as_i32(force) {
             return if force {
                 let unique_score = datapack.get_unique_player_score();
@@ -531,7 +572,7 @@ impl ConstantExpressionKind {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Success,
                         ExecuteStoreSubcommand::Score(
-                            unique_score.clone(),
+                            unique_score.score.clone(),
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
                                 DataCommand::Modify(
                                     unique_target,
@@ -547,7 +588,7 @@ impl ConstantExpressionKind {
                 ConstantExpressionKind::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
-                        unique_score,
+                        unique_score.score,
                         ScoreComparison::Range(IntegerRange::new_single(0)),
                         None,
                     ),
@@ -559,10 +600,10 @@ impl ConstantExpressionKind {
                 ConstantExpressionKind::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
-                        left_score,
+                        left_score.score,
                         ScoreComparison::Score(
                             operator.into_score_comparison_operator(),
-                            right_score,
+                            right_score.score,
                         ),
                         None,
                     ),
@@ -574,10 +615,10 @@ impl ConstantExpressionKind {
                 ConstantExpressionKind::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
-                        right_score,
+                        right_score.score,
                         ScoreComparison::Score(
                             operator.into_score_comparison_operator(),
-                            left_score,
+                            left_score.score,
                         ),
                         None,
                     ),
@@ -616,7 +657,7 @@ impl ConstantExpressionKind {
                 ctx.add_command(
                     datapack,
                     Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-                        unique_score.clone(),
+                        unique_score.score.clone(),
                         0,
                     ))),
                 );
@@ -626,7 +667,7 @@ impl ConstantExpressionKind {
                         right_inverted,
                         right_condition.then(ExecuteSubcommand::Run(Box::new(
                             Command::Scoreboard(ScoreboardCommand::Players(
-                                PlayersScoreboardCommand::Set(unique_score.clone(), 1),
+                                PlayersScoreboardCommand::Set(unique_score.score.clone(), 1),
                             )),
                         ))),
                     )),
@@ -645,7 +686,7 @@ impl ConstantExpressionKind {
                 ctx.add_command(
                     datapack,
                     Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-                        unique_score.clone(),
+                        unique_score.score.clone(),
                         0,
                     ))),
                 );
@@ -654,7 +695,7 @@ impl ConstantExpressionKind {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Success,
                         ExecuteStoreSubcommand::Score(
-                            unique_score.clone(),
+                            unique_score.score.clone(),
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
                                 ResourceLocation::new_namespace_paths(
                                     datapack.current_namespace_name(),
@@ -706,7 +747,7 @@ impl ConstantExpressionKind {
         &self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        target: &PlayerScore,
+        target: &GeneratedPlayerScore,
         operator: ArithmeticOperator,
     ) {
         if let Some(value) = self.try_as_i32(true) {
@@ -715,14 +756,14 @@ impl ConstantExpressionKind {
                     push_scoreboard_players(
                         datapack,
                         ctx,
-                        PlayersScoreboardCommand::Add(target.clone(), value),
+                        PlayersScoreboardCommand::Add(target.score.clone(), value),
                     );
                 }
                 ArithmeticOperator::Subtract => {
                     push_scoreboard_players(
                         datapack,
                         ctx,
-                        PlayersScoreboardCommand::Remove(target.clone(), value),
+                        PlayersScoreboardCommand::Remove(target.score.clone(), value),
                     );
                 }
                 ArithmeticOperator::And => {
@@ -760,11 +801,11 @@ impl ConstantExpressionKind {
                         datapack,
                         ctx,
                         PlayersScoreboardCommand::Operation(
-                            target.clone(),
+                            target.score.clone(),
                             operator
                                 .into_scoreboard_players_operation_operator()
                                 .unwrap(),
-                            constant_score,
+                            constant_score.score,
                         ),
                     );
                 }
@@ -801,13 +842,13 @@ impl ConstantExpressionKind {
             push_scoreboard_players(
                 datapack,
                 ctx,
-                PlayersScoreboardCommand::Set(unique_score.clone(), value),
+                PlayersScoreboardCommand::Set(unique_score.score.clone(), value),
             );
 
             return (
                 !inverted,
                 ExecuteIfSubcommand::Score(
-                    unique_score,
+                    unique_score.score,
                     ScoreComparison::Range(IntegerRange::new_single(0)),
                     None,
                 ),
@@ -821,7 +862,7 @@ impl ConstantExpressionKind {
             ConstantExpressionKind::PlayerScore(score) => (
                 !inverted,
                 ExecuteIfSubcommand::Score(
-                    score.clone(),
+                    score.score.clone(),
                     ScoreComparison::Range(IntegerRange::new_single(0)),
                     None,
                 ),
@@ -841,7 +882,7 @@ impl ConstantExpressionKind {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Success,
                         ExecuteStoreSubcommand::Score(
-                            unique_score.clone(),
+                            unique_score.score.clone(),
                             Box::new(ExecuteSubcommand::Run(Box::new(command.clone()))),
                         ),
                     )),
@@ -850,7 +891,7 @@ impl ConstantExpressionKind {
                 (
                     !inverted,
                     ExecuteIfSubcommand::Score(
-                        unique_score,
+                        unique_score.score,
                         ScoreComparison::Range(IntegerRange::new_single(0)),
                         None,
                     ),
@@ -988,24 +1029,24 @@ impl ConstantExpressionKind {
         &self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        target: PlayerScore,
+        target: GeneratedPlayerScore,
     ) {
         match self {
             ConstantExpressionKind::Literal(expression) => {
-                expression.kind.assign_to_score(datapack, ctx, target)
+                expression.kind.assign_to_score(datapack, ctx, target.score)
             }
             ConstantExpressionKind::List(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, value.len() as i32),
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
                 );
             }
             ConstantExpressionKind::Compound(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, value.len() as i32),
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
                 );
             }
             ConstantExpressionKind::PlayerScore(source) => {
@@ -1017,7 +1058,7 @@ impl ConstantExpressionKind {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Result,
                         ExecuteStoreSubcommand::Score(
-                            target,
+                            target.score,
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
                                 DataCommand::Get(data_target.clone(), Some(path.clone()), None),
                             )))),
@@ -1031,7 +1072,7 @@ impl ConstantExpressionKind {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Success,
                         ExecuteStoreSubcommand::Score(
-                            target,
+                            target.score,
                             Box::new(ExecuteSubcommand::If(*inverted, condition.clone())),
                         ),
                     )),
@@ -1043,7 +1084,7 @@ impl ConstantExpressionKind {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Result,
                         ExecuteStoreSubcommand::Score(
-                            target,
+                            target.score,
                             Box::new(ExecuteSubcommand::Run(Box::new(command.clone()))),
                         ),
                     )),
@@ -1241,26 +1282,6 @@ impl ConstantExpressionKind {
         }
     }
 
-    pub fn assign(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        value: ConstantExpression,
-    ) {
-        match self {
-            ConstantExpressionKind::PlayerScore(score) => {
-                value.kind.assign_to_score(datapack, ctx, score);
-            }
-            ConstantExpressionKind::Data(target, path) => {
-                value.kind.assign_to_data(datapack, ctx, target, path);
-            }
-            ConstantExpressionKind::Variable(name) => {
-                datapack.assign_variable(&name, value);
-            }
-            _ => unreachable!("The expression '{:?}' cannot be assigned to", self),
-        }
-    }
-
     pub fn as_place(self) -> Option<Place> {
         Some(match self {
             ConstantExpressionKind::PlayerScore(score) => Place::Score(score),
@@ -1277,13 +1298,13 @@ impl ConstantExpressionKind {
         })
     }
 
-    pub fn try_dereference(self, datapack: &mut HighDatapack) -> Option<ConstantExpressionKind> {
-        Some(match self {
+    pub fn dereference(self, datapack: &mut HighDatapack) -> ConstantExpressionKind {
+        match self {
             ConstantExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1.kind,
             ConstantExpressionKind::Reference(expression) => expression.kind,
             ConstantExpressionKind::PlayerScore(_) | ConstantExpressionKind::Data(_, _) => self,
-            _ => return None,
-        })
+            _ => unreachable!("This expression cannot be dereferenced {:?}", self),
+        }
     }
 }
 
@@ -1295,15 +1316,22 @@ pub struct ConstantExpression {
 }
 
 impl ConstantExpression {
-    pub fn place_type(&self, ctx: &impl SupportsVariableTypeScope) -> Option<PlaceType> {
-        Some(match &self.kind {
-            ConstantExpressionKind::PlayerScore(_) => PlaceType::Score,
-            ConstantExpressionKind::Data(_, _) => PlaceType::Data,
-            ConstantExpressionKind::Dereference(expression) => return expression.place_type(ctx),
-            ConstantExpressionKind::Variable(name) => PlaceType::Variable(ctx.get_variable(name)??),
-            ConstantExpressionKind::Underscore => PlaceType::Underscore,
-            _ => return None,
-        })
+    pub fn get_place_type(&self, ctx: &impl SupportsVariableTypeScope) -> Option<PlaceType> {
+        Some(
+            (match &self.kind {
+                ConstantExpressionKind::PlayerScore(_) => PlaceTypeKind::Score,
+                ConstantExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
+                ConstantExpressionKind::Dereference(expression) => {
+                    return expression.get_place_type(ctx);
+                }
+                ConstantExpressionKind::Variable(name) => {
+                    PlaceTypeKind::Variable(ctx.get_variable(name)??)
+                }
+                ConstantExpressionKind::Underscore => PlaceTypeKind::Underscore,
+                _ => return None,
+            })
+            .with_span(self.span),
+        )
     }
 
     pub fn resolve(self, datapack: &mut HighDatapack) -> ConstantExpressionKind {

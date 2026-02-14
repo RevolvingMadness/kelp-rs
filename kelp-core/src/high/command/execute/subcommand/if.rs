@@ -370,11 +370,12 @@ impl HighExecuteIfSubcommand {
                 let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
                 Some(ExecuteIfSubcommand::Predicate(location, next))
             }
-            HighExecuteIfSubcommand::Score(player, comparison, next) => {
+            HighExecuteIfSubcommand::Score(score, comparison, next) => {
+                let score = score.compile(datapack, ctx);
                 let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
 
                 Some(ExecuteIfSubcommand::Score(
-                    player.compile(datapack, ctx),
+                    score.score,
                     comparison.compile(datapack, ctx),
                     next,
                 ))

@@ -16,7 +16,12 @@ pub enum HighEntitySelector {
 }
 
 impl HighEntitySelector {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighEntitySelector::Variable(_, options) => options
                 .iter()

@@ -127,7 +127,11 @@ impl HighExecuteSubcommand {
         }
     }
 
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
             HighExecuteSubcommand::Align(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::Anchored(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
@@ -152,7 +156,9 @@ impl HighExecuteSubcommand {
             HighExecuteSubcommand::Facing(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::In(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::On(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            HighExecuteSubcommand::Positioned(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::Positioned(_, next) => {
+                next.perform_semantic_analysis(ctx, is_lhs)
+            }
             HighExecuteSubcommand::Rotated(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::Summon(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::If(_, if_subcommand) => {

@@ -1,29 +1,19 @@
-use std::collections::BTreeMap;
-
 use minecraft_command_types::{
     command::{
-        Command, PlayerScore,
-        data::DataTarget,
-        enums::{
-            numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
-            store_type::StoreType,
-        },
+        Command,
+        enums::score_operation_operator::ScoreOperationOperator,
         execute::{
-            ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
-            ScoreComparisonOperator,
+            ExecuteIfSubcommand, ExecuteSubcommand, ScoreComparison, ScoreComparisonOperator,
         },
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
-    nbt_path::NbtPath,
     range::IntegerRange,
     resource_location::ResourceLocation,
-    snbt::{SNBT, SNBTString},
 };
-use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext, datapack::HighDatapack,
-    expression::constant::ConstantExpressionKind, operator::ArithmeticOperator,
+    high::player_score::GeneratedPlayerScore,
 };
 
 pub trait OptionIterExt {
@@ -60,8 +50,8 @@ impl<T> OptionExt for Option<T> {
 pub fn compile_bitwise_and_score(
     datapack: &mut HighDatapack,
     ctx: &mut CompileContext,
-    target: &PlayerScore,
-    source: &PlayerScore,
+    target: &GeneratedPlayerScore,
+    source: &GeneratedPlayerScore,
 ) {
     let temp_source = datapack.get_unique_player_score();
     source
@@ -72,7 +62,7 @@ pub fn compile_bitwise_and_score(
     ctx.add_command(
         datapack,
         Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            result.clone(),
+            result.score.clone(),
             0,
         ))),
     );
@@ -81,7 +71,7 @@ pub fn compile_bitwise_and_score(
     ctx.add_command(
         datapack,
         Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            power_of_2.clone(),
+            power_of_2.score.clone(),
             1073741824,
         ))),
     );
@@ -92,7 +82,7 @@ pub fn compile_bitwise_and_score(
             (
                 false,
                 ExecuteIfSubcommand::Score(
-                    power_of_2.clone(),
+                    power_of_2.score.clone(),
                     ScoreComparison::Range(IntegerRange::new(Some(1), None)),
                     None,
                 ),
@@ -104,18 +94,18 @@ pub fn compile_bitwise_and_score(
                 Command::Execute(ExecuteSubcommand::If(
                     false,
                     ExecuteIfSubcommand::Score(
-                        target.clone(),
+                        target.score.clone(),
                         ScoreComparison::Score(
                             ScoreComparisonOperator::GreaterThanOrEqualTo,
-                            power_of_2.clone(),
+                            power_of_2.score.clone(),
                         ),
                         Some(Box::new(ExecuteSubcommand::If(
                             false,
                             ExecuteIfSubcommand::Score(
-                                temp_source.clone(),
+                                temp_source.score.clone(),
                                 ScoreComparison::Score(
                                     ScoreComparisonOperator::GreaterThanOrEqualTo,
-                                    power_of_2.clone(),
+                                    power_of_2.score.clone(),
                                 ),
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     result
@@ -133,10 +123,10 @@ pub fn compile_bitwise_and_score(
                 Command::Execute(ExecuteSubcommand::If(
                     false,
                     ExecuteIfSubcommand::Score(
-                        target.clone(),
+                        target.score.clone(),
                         ScoreComparison::Score(
                             ScoreComparisonOperator::GreaterThanOrEqualTo,
-                            power_of_2.clone(),
+                            power_of_2.score.clone(),
                         ),
                         Some(Box::new(ExecuteSubcommand::Run(Box::new(
                             target
@@ -152,10 +142,10 @@ pub fn compile_bitwise_and_score(
                 Command::Execute(ExecuteSubcommand::If(
                     false,
                     ExecuteIfSubcommand::Score(
-                        temp_source.clone(),
+                        temp_source.score.clone(),
                         ScoreComparison::Score(
                             ScoreComparisonOperator::GreaterThanOrEqualTo,
-                            power_of_2.clone(),
+                            power_of_2.score.clone(),
                         ),
                         Some(Box::new(ExecuteSubcommand::Run(Box::new(
                             temp_source
@@ -182,8 +172,8 @@ pub fn compile_bitwise_and_score(
 pub fn compile_bitwise_or_score(
     datapack: &mut HighDatapack,
     ctx: &mut CompileContext,
-    target: &PlayerScore,
-    source: &PlayerScore,
+    target: &GeneratedPlayerScore,
+    source: &GeneratedPlayerScore,
 ) {
     let temp_source = datapack.get_unique_player_score();
     source
@@ -194,13 +184,13 @@ pub fn compile_bitwise_or_score(
     ctx.add_command(
         datapack,
         Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            result.clone(),
+            result.score.clone(),
             0,
         ))),
     );
 
     let power_of_2 = datapack.get_unique_player_score();
-    ctx.add_command(datapack, power_of_2.clone().set(1073741824));
+    ctx.add_command(datapack, power_of_2.clone().create_set_command(1073741824));
 
     datapack.while_loop(
         ctx,
@@ -208,7 +198,7 @@ pub fn compile_bitwise_or_score(
             (
                 false,
                 ExecuteIfSubcommand::Score(
-                    power_of_2.clone(),
+                    power_of_2.score.clone(),
                     ScoreComparison::Range(IntegerRange::new(Some(1), None)),
                     None,
                 ),
@@ -220,10 +210,10 @@ pub fn compile_bitwise_or_score(
                 Command::Execute(ExecuteSubcommand::If(
                     false,
                     ExecuteIfSubcommand::Score(
-                        target.clone(),
+                        target.score.clone(),
                         ScoreComparison::Score(
                             ScoreComparisonOperator::GreaterThanOrEqualTo,
-                            power_of_2.clone(),
+                            power_of_2.score.clone(),
                         ),
                         Some(Box::new(ExecuteSubcommand::Run(Box::new(
                             result
@@ -239,10 +229,10 @@ pub fn compile_bitwise_or_score(
                     ExecuteSubcommand::If(
                         true,
                         ExecuteIfSubcommand::Score(
-                            target.clone(),
+                            target.score.clone(),
                             ScoreComparison::Score(
                                 ScoreComparisonOperator::GreaterThanOrEqualTo,
-                                power_of_2.clone(),
+                                power_of_2.score.clone(),
                             ),
                             None,
                         ),
@@ -250,10 +240,10 @@ pub fn compile_bitwise_or_score(
                     .then(ExecuteSubcommand::If(
                         false,
                         ExecuteIfSubcommand::Score(
-                            temp_source.clone(),
+                            temp_source.score.clone(),
                             ScoreComparison::Score(
                                 ScoreComparisonOperator::GreaterThanOrEqualTo,
-                                power_of_2.clone(),
+                                power_of_2.score.clone(),
                             ),
                             Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                 result
@@ -270,10 +260,10 @@ pub fn compile_bitwise_or_score(
                 Command::Execute(ExecuteSubcommand::If(
                     false,
                     ExecuteIfSubcommand::Score(
-                        target.clone(),
+                        target.score.clone(),
                         ScoreComparison::Score(
                             ScoreComparisonOperator::GreaterThanOrEqualTo,
-                            power_of_2.clone(),
+                            power_of_2.score.clone(),
                         ),
                         Some(Box::new(ExecuteSubcommand::Run(Box::new(
                             target
@@ -289,10 +279,10 @@ pub fn compile_bitwise_or_score(
                 Command::Execute(ExecuteSubcommand::If(
                     false,
                     ExecuteIfSubcommand::Score(
-                        temp_source.clone(),
+                        temp_source.score.clone(),
                         ScoreComparison::Score(
                             ScoreComparisonOperator::GreaterThanOrEqualTo,
-                            power_of_2.clone(),
+                            power_of_2.score.clone(),
                         ),
                         Some(Box::new(ExecuteSubcommand::Run(Box::new(
                             temp_source
@@ -319,8 +309,8 @@ pub fn compile_bitwise_or_score(
 pub fn compile_shift_operation_score(
     datapack: &mut HighDatapack,
     ctx: &mut CompileContext,
-    target: &PlayerScore,
-    amount: &PlayerScore,
+    target: &GeneratedPlayerScore,
+    amount: &GeneratedPlayerScore,
     operator: ScoreOperationOperator,
 ) {
     let loop_function_paths = datapack.get_unique_function_paths();
@@ -333,7 +323,7 @@ pub fn compile_shift_operation_score(
         Command::Execute(ExecuteSubcommand::If(
             false,
             ExecuteIfSubcommand::Score(
-                amount.clone(),
+                amount.score.clone(),
                 ScoreComparison::Range(IntegerRange::new(Some(1), None)),
                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                     Command::Function(loop_function_location.clone(), None),
@@ -346,14 +336,14 @@ pub fn compile_shift_operation_score(
     let constant_two = datapack.get_constant_score(2);
 
     loop_ctx.add_command(datapack, target.clone().operation(operator, constant_two));
-    loop_ctx.add_command(datapack, amount.clone().remove(1));
+    loop_ctx.add_command(datapack, amount.clone().create_remove_command(1));
 
     loop_ctx.add_command(
         datapack,
         Command::Execute(ExecuteSubcommand::If(
             false,
             ExecuteIfSubcommand::Score(
-                amount.clone(),
+                amount.score.clone(),
                 ScoreComparison::Range(IntegerRange::new(Some(1), None)),
                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                     Command::Function(loop_function_location, None),
@@ -363,324 +353,4 @@ pub fn compile_shift_operation_score(
     );
 
     datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_ctx);
-}
-
-pub trait PlayerScoreExt {
-    fn operation(self, operator: ScoreOperationOperator, other: PlayerScore) -> Command;
-
-    fn add(self, value: i32) -> Command;
-
-    fn remove(self, value: i32) -> Command;
-
-    fn set(self, value: i32) -> Command;
-
-    fn to_text_component(self) -> SNBT;
-
-    fn assign_to_score(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: PlayerScore,
-    );
-
-    fn operate_on_score(
-        &self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: &PlayerScore,
-        operator: ArithmeticOperator,
-    );
-
-    fn assign_to_data(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: DataTarget,
-        path: NbtPath,
-    );
-
-    fn assign_augmented(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        operator: ArithmeticOperator,
-        value: ConstantExpressionKind,
-    );
-}
-
-impl PlayerScoreExt for PlayerScore {
-    fn operation(self, operator: ScoreOperationOperator, other: PlayerScore) -> Command {
-        Command::Scoreboard(ScoreboardCommand::Players(
-            PlayersScoreboardCommand::Operation(self, operator, other),
-        ))
-    }
-
-    fn add(self, value: i32) -> Command {
-        Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Add(
-            self, value,
-        )))
-    }
-
-    fn remove(self, value: i32) -> Command {
-        Command::Scoreboard(ScoreboardCommand::Players(
-            PlayersScoreboardCommand::Remove(self, value),
-        ))
-    }
-
-    fn set(self, value: i32) -> Command {
-        Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            self, value,
-        )))
-    }
-
-    fn to_text_component(self) -> SNBT {
-        let mut text_component = BTreeMap::new();
-        let mut score = BTreeMap::new();
-        score.insert(
-            SNBTString(false, "name".to_string()),
-            SNBT::string(self.selector),
-        );
-        score.insert(
-            SNBTString(false, "objective".to_string()),
-            SNBT::string(self.objective),
-        );
-        text_component.insert(
-            SNBTString(false, "score".to_string()),
-            SNBT::Compound(score),
-        );
-        SNBT::Compound(text_component)
-    }
-
-    #[inline]
-    fn assign_to_score(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: PlayerScore,
-    ) {
-        ctx.add_command(
-            datapack,
-            Command::Scoreboard(ScoreboardCommand::Players(
-                PlayersScoreboardCommand::Operation(target, ScoreOperationOperator::Set, self),
-            )),
-        );
-    }
-
-    fn operate_on_score(
-        &self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: &PlayerScore,
-        operator: ArithmeticOperator,
-    ) {
-        match operator {
-            ArithmeticOperator::And => {
-                compile_bitwise_and_score(datapack, ctx, target, self);
-            }
-            ArithmeticOperator::Or => {
-                compile_bitwise_or_score(datapack, ctx, target, self);
-            }
-            ArithmeticOperator::LeftShift => {
-                compile_shift_operation_score(
-                    datapack,
-                    ctx,
-                    target,
-                    self,
-                    ScoreOperationOperator::Multiply,
-                );
-            }
-            ArithmeticOperator::RightShift => {
-                compile_shift_operation_score(
-                    datapack,
-                    ctx,
-                    target,
-                    self,
-                    ScoreOperationOperator::Divide,
-                );
-            }
-            _ => {
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            target.clone(),
-                            operator
-                                .into_scoreboard_players_operation_operator()
-                                .unwrap(),
-                            self.clone(),
-                        ),
-                    )),
-                );
-            }
-        }
-    }
-
-    fn assign_to_data(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: DataTarget,
-        path: NbtPath,
-    ) {
-        ctx.add_command(
-            datapack,
-            Command::Execute(ExecuteSubcommand::Store(
-                StoreType::Result,
-                ExecuteStoreSubcommand::Data(
-                    target,
-                    path,
-                    NumericSNBTType::Integer,
-                    NotNan::new(1.0).unwrap(),
-                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(
-                        ScoreboardCommand::Players(PlayersScoreboardCommand::Get(self)),
-                    )))),
-                ),
-            )),
-        );
-    }
-
-    fn assign_augmented(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        operator: ArithmeticOperator,
-        value: ConstantExpressionKind,
-    ) {
-        match operator {
-            ArithmeticOperator::Add => {
-                if let Some(constant) = value.try_as_i32(true) {
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Add(self, constant),
-                        )),
-                    );
-                } else {
-                    let right_score = value.as_score(datapack, ctx, false);
-
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Operation(
-                                self,
-                                ScoreOperationOperator::Add,
-                                right_score,
-                            ),
-                        )),
-                    );
-                }
-            }
-            ArithmeticOperator::Subtract => {
-                if let Some(constant) = value.try_as_i32(true) {
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Remove(self, constant),
-                        )),
-                    );
-                } else {
-                    let right_score = value.as_score(datapack, ctx, false);
-
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Operation(
-                                self,
-                                ScoreOperationOperator::Subtract,
-                                right_score,
-                            ),
-                        )),
-                    );
-                }
-            }
-            ArithmeticOperator::Multiply => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self,
-                            ScoreOperationOperator::Multiply,
-                            right_score,
-                        ),
-                    )),
-                );
-            }
-            ArithmeticOperator::FloorDivide => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self,
-                            ScoreOperationOperator::Divide,
-                            right_score,
-                        ),
-                    )),
-                );
-            }
-            ArithmeticOperator::Modulo => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self,
-                            ScoreOperationOperator::Modulo,
-                            right_score,
-                        ),
-                    )),
-                );
-            }
-            ArithmeticOperator::And => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                compile_bitwise_and_score(datapack, ctx, &self, &right_score);
-            }
-            ArithmeticOperator::Or => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                compile_bitwise_or_score(datapack, ctx, &self, &right_score);
-            }
-            ArithmeticOperator::LeftShift => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                compile_shift_operation_score(
-                    datapack,
-                    ctx,
-                    &self,
-                    &right_score,
-                    ScoreOperationOperator::Multiply,
-                );
-            }
-            ArithmeticOperator::RightShift => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                compile_shift_operation_score(
-                    datapack,
-                    ctx,
-                    &self,
-                    &right_score,
-                    ScoreOperationOperator::Divide,
-                );
-            }
-            ArithmeticOperator::Swap => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self,
-                            ScoreOperationOperator::Swap,
-                            right_score,
-                        ),
-                    )),
-                );
-            }
-        }
-    }
 }

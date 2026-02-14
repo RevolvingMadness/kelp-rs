@@ -7,6 +7,7 @@ use crate::expression::{
 };
 use crate::high::data::{HighDataTarget, HighDataTargetKind};
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
+use crate::high::player_score::GeneratedPlayerScore;
 use crate::semantic_analysis_context::SemanticAnalysisInfo;
 use minecraft_command_types::command::data::DataTarget;
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
@@ -137,14 +138,17 @@ impl HighDatapack {
         self.current_namespace().get_unique_function_paths()
     }
 
-    pub fn get_unique_player_score(&self) -> PlayerScore {
+    pub fn get_unique_player_score(&self) -> GeneratedPlayerScore {
         let incremented = self.increment_counter();
 
         let current_namespace = self.current_namespace();
 
         let selector = current_namespace.get_score_selector(incremented);
 
-        PlayerScore::new(selector, current_namespace.get_scores_objective())
+        GeneratedPlayerScore {
+            is_generated: true,
+            score: PlayerScore::new(selector, current_namespace.get_scores_objective()),
+        }
     }
 
     pub fn get_unique_data(&self) -> (DataTarget, NbtPath) {
@@ -333,13 +337,16 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_constant_score(&self, constant: i32) -> PlayerScore {
+    pub fn get_constant_score(&self, constant: i32) -> GeneratedPlayerScore {
         self.used_constants.borrow_mut().insert(constant);
 
-        PlayerScore::new(
-            HighDatapack::get_constant_selector(constant),
-            self.get_constants_objective(),
-        )
+        GeneratedPlayerScore {
+            is_generated: true,
+            score: PlayerScore::new(
+                HighDatapack::get_constant_selector(constant),
+                self.get_constants_objective(),
+            ),
+        }
     }
 
     #[inline]

@@ -29,7 +29,7 @@ impl HighScoreComparison {
         match self {
             HighScoreComparison::Range(range) => ScoreComparison::Range(range),
             HighScoreComparison::Score(operator, player_score) => {
-                ScoreComparison::Score(operator, player_score.compile(datapack, ctx))
+                ScoreComparison::Score(operator, player_score.compile(datapack, ctx).score)
             }
         }
     }

@@ -162,7 +162,7 @@ impl LiteralExpressionKind {
             LiteralExpressionKind::Boolean(value) => (
                 false,
                 ExecuteIfSubcommand::Score(
-                    datapack.get_constant_score(1),
+                    datapack.get_constant_score(1).score,
                     ScoreComparison::Range(IntegerRange::new_single(if *value { 1 } else { 0 })),
                     None,
                 ),
@@ -407,6 +407,7 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,

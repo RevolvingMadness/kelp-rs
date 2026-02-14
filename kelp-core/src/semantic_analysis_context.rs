@@ -29,6 +29,7 @@ pub enum SemanticAnalysisError {
         operator: LogicalOperator,
         right: DataTypeKind,
     },
+    CannotPerformAugmentedAssignment(DataTypeKind),
     MismatchedTupleLength {
         expected: usize,
         actual: usize,
@@ -92,6 +93,11 @@ impl Display for SemanticAnalysisError {
                 operator,
                 right,
             } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
+            Self::CannotPerformAugmentedAssignment(data_type) => write!(
+                f,
+                "Cannot perform augmented assignment on type '{}'",
+                data_type
+            ),
             Self::MismatchedTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)
             }

@@ -1,6 +1,6 @@
 use minecraft_command_types::{
     command::{
-        Command, PlayerScore,
+        Command,
         data::DataTarget,
         enums::{numeric_snbt_type::NumericSNBTType, store_type::StoreType},
         execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
@@ -18,108 +18,23 @@ use crate::{
     expression::{
         Expression, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
-        literal::{LiteralExpression, LiteralExpressionKind},
     },
+    high::player_score::GeneratedPlayerScore,
     operator::ArithmeticOperator,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
-    trait_ext::{OptionIterExt, PlayerScoreExt},
+    trait_ext::OptionIterExt,
 };
-
-fn constant_augmented_assign(
-    target: LiteralExpressionKind,
-    operator: ArithmeticOperator,
-    value: LiteralExpressionKind,
-) -> Option<LiteralExpressionKind> {
-    Some(match (target, value) {
-        (LiteralExpressionKind::Byte(left), LiteralExpressionKind::Byte(right)) => {
-            LiteralExpressionKind::Byte(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            })
-        }
-        (LiteralExpressionKind::Short(left), LiteralExpressionKind::Short(right)) => {
-            LiteralExpressionKind::Short(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            })
-        }
-        (LiteralExpressionKind::Integer(left), LiteralExpressionKind::Integer(right)) => {
-            LiteralExpressionKind::Integer(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            })
-        }
-        (LiteralExpressionKind::Long(left), LiteralExpressionKind::Long(right)) => {
-            LiteralExpressionKind::Long(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            })
-        }
-        (LiteralExpressionKind::Float(left), LiteralExpressionKind::Float(right)) => {
-            LiteralExpressionKind::Float(match operator {
-                ArithmeticOperator::Add => left + right,
-                ArithmeticOperator::Subtract => left - right,
-                ArithmeticOperator::Multiply => left * right,
-                ArithmeticOperator::FloorDivide => left / right,
-                ArithmeticOperator::Modulo => left % right,
-                _ => unreachable!(),
-            })
-        }
-        (LiteralExpressionKind::Double(left), LiteralExpressionKind::Double(right)) => {
-            LiteralExpressionKind::Double(match operator {
-                ArithmeticOperator::Add => left + right,
-                ArithmeticOperator::Subtract => left - right,
-                ArithmeticOperator::Multiply => left * right,
-                ArithmeticOperator::FloorDivide => left / right,
-                ArithmeticOperator::Modulo => left % right,
-                _ => unreachable!(),
-            })
-        }
-        _ => unreachable!(),
-    })
-}
 
 #[derive(Debug)]
 pub enum Place {
-    Score(PlayerScore),
+    Score(GeneratedPlayerScore),
     Data(DataTarget, NbtPath),
     Variable(String),
     Tuple(Vec<Place>),
+    Dereference(Box<Expression>),
     Underscore,
 }
 
@@ -170,6 +85,14 @@ impl Place {
                     unreachable!()
                 }
             }
+            Place::Dereference(expression) => {
+                expression
+                    .dereference(datapack)
+                    .unwrap()
+                    .as_place(datapack, ctx)
+                    .unwrap()
+                    .assign(datapack, ctx, value);
+            }
         }
     }
 
@@ -208,7 +131,7 @@ impl Place {
                             NotNan::new(1.0).unwrap(),
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(
                                 ScoreboardCommand::Players(PlayersScoreboardCommand::Get(
-                                    unique_score,
+                                    unique_score.score,
                                 )),
                             )))),
                         ),
@@ -216,35 +139,45 @@ impl Place {
                 );
             }
             Place::Variable(name) => {
-                let (_, variable_value) = datapack.get_variable(&name).unwrap().clone();
+                let variable_value = &mut datapack.get_variable_mut(&name).unwrap().clone().kind;
 
-                if let ConstantExpressionKind::Literal(target) = variable_value.kind
-                    && let ConstantExpressionKind::Literal(value) = value
-                    && let Some(result) =
-                        constant_augmented_assign(target.kind, operator, value.kind)
-                {
-                    let variable_value_mut = &mut datapack.get_variable_mut(&name).unwrap().kind;
-
-                    *variable_value_mut = ConstantExpressionKind::Literal(LiteralExpression {
-                        span: ParserRange { start: 0, end: 0 },
-                        kind: result,
-                    });
-                }
+                variable_value.compile_augmented_assignment(datapack, ctx, operator, value);
             }
             Place::Tuple(_) | Place::Underscore => {
                 unreachable!()
+            }
+            Place::Dereference(expression) => {
+                expression
+                    .dereference(datapack)
+                    .unwrap()
+                    .as_place(datapack, ctx)
+                    .unwrap()
+                    .augmented_assign(datapack, ctx, operator, value);
             }
         }
     }
 }
 
 #[derive(Debug)]
-pub enum PlaceType {
+pub enum PlaceTypeKind {
     Score,
-    Data,
-    Tuple(Vec<PlaceType>),
+    Data(DataTypeKind),
+    Tuple(Vec<PlaceType>, DataTypeKind),
     Variable(DataTypeKind),
+    Dereference(Box<DataTypeKind>),
     Underscore,
+}
+
+impl PlaceTypeKind {
+    pub fn with_span(self, span: ParserRange) -> PlaceType {
+        PlaceType { span, kind: self }
+    }
+}
+
+#[derive(Debug)]
+pub struct PlaceType {
+    pub span: ParserRange,
+    pub kind: PlaceTypeKind,
 }
 
 impl PlaceType {
@@ -254,9 +187,9 @@ impl PlaceType {
         value: Expression,
         value_type: &DataTypeKind,
     ) -> Option<()> {
-        match self {
-            PlaceType::Score => {
-                if !value_type.can_be_assigned_to_score() {
+        match self.kind {
+            PlaceTypeKind::Score => {
+                if !value_type.is_score_value() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -265,8 +198,8 @@ impl PlaceType {
                     });
                 }
             }
-            PlaceType::Data => {
-                if !value_type.can_be_assigned_to_data() {
+            PlaceTypeKind::Data(data_type) => {
+                if !value_type.equals(&data_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -275,11 +208,9 @@ impl PlaceType {
                     });
                 }
             }
-            PlaceType::Tuple(place_types) => {
+            PlaceTypeKind::Tuple(place_types, _) => {
                 if let ExpressionKind::Tuple(expressions) = value.kind {
-                    if expressions.len() != place_types.len() {
-                        unreachable!();
-                    }
+                    assert!(expressions.len() == place_types.len());
 
                     return place_types
                         .into_iter()
@@ -294,7 +225,7 @@ impl PlaceType {
                     unreachable!()
                 }
             }
-            PlaceType::Variable(data_type) => {
+            PlaceTypeKind::Variable(data_type) => {
                 if !data_type.equals(value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
@@ -307,7 +238,108 @@ impl PlaceType {
                     });
                 }
             }
-            PlaceType::Underscore => {}
+            PlaceTypeKind::Dereference(data_type) => {
+                if !data_type.can_be_dereferenced() {
+                    debug_assert!(false, "Unreachable");
+
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeDereferenced(*data_type),
+                        ),
+                    });
+                }
+
+                let data_type = data_type
+                    .dereference()
+                    .unwrap()
+                    .as_place_type()
+                    .unwrap()
+                    .with_span(self.span);
+
+                data_type.perform_assignment_semantic_analysis(ctx, value, value_type)?;
+            }
+            PlaceTypeKind::Underscore => {}
+        }
+
+        Some(())
+    }
+
+    pub fn perform_augmented_assignment_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        operator: &ArithmeticOperator,
+        value: Expression,
+        value_type: &DataTypeKind,
+    ) -> Option<()> {
+        match self.kind {
+            PlaceTypeKind::Score => {
+                if !value_type.is_score_value() {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeAssignedToScore(value_type.clone()),
+                        ),
+                    });
+                }
+            }
+            PlaceTypeKind::Data(data_type) => {
+                if !value_type.can_perform_augmented_assignment(operator, &data_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                                *operator,
+                                data_type.clone(),
+                                value_type.clone(),
+                            ),
+                        ),
+                    });
+                }
+            }
+            PlaceTypeKind::Tuple(_, data_type) => {
+                return ctx.add_info(SemanticAnalysisInfo {
+                    span: self.span,
+                    kind: SemanticAnalysisInfoKind::Error(
+                        SemanticAnalysisError::CannotPerformAugmentedAssignment(data_type),
+                    ),
+                });
+            }
+            PlaceTypeKind::Variable(data_type) => {
+                if !data_type.can_perform_augmented_assignment(operator, value_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotPerformAugmentedAssignment(data_type),
+                        ),
+                    });
+                }
+            }
+            PlaceTypeKind::Dereference(data_type) => {
+                if !data_type.can_be_dereferenced() {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeDereferenced(*data_type),
+                        ),
+                    });
+                }
+
+                let data_type = data_type.dereference().unwrap();
+
+                if !data_type.can_perform_augmented_assignment(operator, value_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: data_type,
+                                actual: value_type.clone(),
+                            },
+                        ),
+                    });
+                }
+            }
+            PlaceTypeKind::Underscore => {}
         }
 
         Some(())

@@ -23,6 +23,7 @@ impl From<String> for HighSNBTString {
 }
 
 impl HighSNBTString {
+    #[must_use]
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,

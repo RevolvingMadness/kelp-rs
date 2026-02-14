@@ -20,10 +20,18 @@ pub enum HighScoreboardCommand {
 }
 
 impl HighScoreboardCommand {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext, is_lhs: bool) -> Option<()> {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<()> {
         match self {
-            HighScoreboardCommand::Objectives(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            HighScoreboardCommand::Players(command) => command.perform_semantic_analysis(ctx, is_lhs),
+            HighScoreboardCommand::Objectives(command) => {
+                command.perform_semantic_analysis(ctx, is_lhs)
+            }
+            HighScoreboardCommand::Players(command) => {
+                command.perform_semantic_analysis(ctx, is_lhs)
+            }
         }
     }
 

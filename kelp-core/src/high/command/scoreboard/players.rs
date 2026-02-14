@@ -101,17 +101,19 @@ impl HighPlayersDisplayScoreboardCommand {
         ctx: &mut CompileContext,
     ) -> PlayersDisplayScoreboardCommand {
         match self {
-            HighPlayersDisplayScoreboardCommand::Name(player_score, expression) => {
+            HighPlayersDisplayScoreboardCommand::Name(score, expression) => {
+                let score = score.compile(datapack, ctx);
+
                 PlayersDisplayScoreboardCommand::Name(
-                    player_score.compile(datapack, ctx),
+                    score.score,
                     expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
                 )
             }
-            HighPlayersDisplayScoreboardCommand::NumberFormat(high_player_score, number_format) => {
-                let compiled_player_score = high_player_score.compile(datapack, ctx);
+            HighPlayersDisplayScoreboardCommand::NumberFormat(score, number_format) => {
+                let score = score.compile(datapack, ctx);
 
                 PlayersDisplayScoreboardCommand::NumberFormat(
-                    compiled_player_score,
+                    score.score,
                     number_format.map(|number_format| number_format.compile(datapack, ctx)),
                 )
             }
@@ -188,25 +190,25 @@ impl HighPlayersScoreboardCommand {
 
                 PlayersScoreboardCommand::List(compiled_selector)
             }
-            HighPlayersScoreboardCommand::Get(high_player_score) => {
-                let compiled_player_score = high_player_score.compile(datapack, ctx);
+            HighPlayersScoreboardCommand::Get(score) => {
+                let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Get(compiled_player_score)
+                PlayersScoreboardCommand::Get(score.score)
             }
-            HighPlayersScoreboardCommand::Set(high_player_score, value) => {
-                let compiled_player_score = high_player_score.compile(datapack, ctx);
+            HighPlayersScoreboardCommand::Set(score, value) => {
+                let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Set(compiled_player_score, value)
+                PlayersScoreboardCommand::Set(score.score, value)
             }
-            HighPlayersScoreboardCommand::Add(high_player_score, value) => {
-                let compiled_player_score = high_player_score.compile(datapack, ctx);
+            HighPlayersScoreboardCommand::Add(score, value) => {
+                let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Add(compiled_player_score, value)
+                PlayersScoreboardCommand::Add(score.score, value)
             }
-            HighPlayersScoreboardCommand::Remove(high_player_score, value) => {
-                let compiled_player_score = high_player_score.compile(datapack, ctx);
+            HighPlayersScoreboardCommand::Remove(score, value) => {
+                let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Remove(compiled_player_score, value)
+                PlayersScoreboardCommand::Remove(score.score, value)
             }
             HighPlayersScoreboardCommand::Reset(high_entity_selector, objective) => {
                 PlayersScoreboardCommand::Reset(
@@ -214,24 +216,16 @@ impl HighPlayersScoreboardCommand {
                     objective,
                 )
             }
-            HighPlayersScoreboardCommand::Enable(high_player_score) => {
-                let compiled_player_score = high_player_score.compile(datapack, ctx);
+            HighPlayersScoreboardCommand::Enable(score) => {
+                let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Enable(compiled_player_score)
+                PlayersScoreboardCommand::Enable(score.score)
             }
-            HighPlayersScoreboardCommand::Operation(
-                high_player_score,
-                score_operation_operator,
-                high_player_score1,
-            ) => {
-                let compiled_player_score = high_player_score.compile(datapack, ctx);
-                let compiled_player_score1 = high_player_score1.compile(datapack, ctx);
+            HighPlayersScoreboardCommand::Operation(left_score, operator, right_score) => {
+                let left_score = left_score.compile(datapack, ctx);
+                let right_score = right_score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Operation(
-                    compiled_player_score,
-                    score_operation_operator,
-                    compiled_player_score1,
-                )
+                PlayersScoreboardCommand::Operation(left_score.score, operator, right_score.score)
             }
             HighPlayersScoreboardCommand::Display(high_players_display_scoreboard_command) => {
                 let compiled_high_players_display_scoreboard_command =

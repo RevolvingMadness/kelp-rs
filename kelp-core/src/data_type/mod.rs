@@ -1,11 +1,16 @@
 use std::{collections::BTreeMap, fmt::Display};
 
 use minecraft_command_types::snbt::SNBTString;
+use parser_rs::parser_range::ParserRange;
 
 use crate::{
     high::snbt_string::HighSNBTString,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
-    place::PlaceType,
+    place::PlaceTypeKind,
+    semantic_analysis_context::{
+        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
+        SemanticAnalysisInfoKind,
+    },
 };
 
 pub mod high;
@@ -150,20 +155,22 @@ impl DataTypeKind {
         })
     }
 
-    pub fn as_place_type(self) -> Option<PlaceType> {
+    pub fn as_place_type(self) -> Option<PlaceTypeKind> {
         Some(match self {
-            DataTypeKind::Score => PlaceType::Score,
-            DataTypeKind::Data(_) => PlaceType::Data,
+            DataTypeKind::Score => PlaceTypeKind::Score,
+            DataTypeKind::Data(data_type) => PlaceTypeKind::Data(*data_type),
             _ => return None,
         })
     }
 
-    pub fn try_dereference(self) -> DataTypeKind {
-        if let DataTypeKind::Reference(data_type) = self {
-            *data_type
-        } else {
-            self
-        }
+    pub fn dereference(self) -> Option<DataTypeKind> {
+        Some(match self {
+            DataTypeKind::Reference(data_type) => *data_type,
+            DataTypeKind::Score => DataTypeKind::Score,
+            DataTypeKind::Data(data_type) => *data_type,
+
+            _ => return None,
+        })
     }
 
     pub fn is_lvalue(&self) -> bool {
@@ -221,47 +228,58 @@ impl DataTypeKind {
         matches!(self, DataTypeKind::Score | DataTypeKind::Data(_))
     }
 
-    pub fn is_score_like(&self) -> bool {
+    pub fn is_score_value(&self) -> bool {
         match self {
-            DataTypeKind::Byte
+            DataTypeKind::Boolean
+            | DataTypeKind::Byte
             | DataTypeKind::Short
             | DataTypeKind::Integer
             | DataTypeKind::Score => true,
             DataTypeKind::Data(data_type) | DataTypeKind::Reference(data_type) => {
-                data_type.is_score_like()
+                data_type.is_score_value()
             }
             _ => false,
         }
     }
 
-    pub fn can_be_assigned_to_score(&self) -> bool {
+    pub fn is_snbt_like(&self) -> bool {
         match self {
             DataTypeKind::Boolean => true,
-
-            _ => self.is_score_like(),
+            DataTypeKind::Byte => true,
+            DataTypeKind::Short => true,
+            DataTypeKind::Integer => true,
+            DataTypeKind::Long => true,
+            DataTypeKind::Float => true,
+            DataTypeKind::Double => true,
+            DataTypeKind::String => true,
+            DataTypeKind::Score => true,
+            DataTypeKind::List(data_type) => data_type.is_snbt_like(),
+            DataTypeKind::TypedCompound(compound) => {
+                compound.values().all(|value| value.is_snbt_like())
+            }
+            DataTypeKind::Compound(data_type) => data_type.is_snbt_like(),
+            DataTypeKind::SNBT => true,
+            _ => false,
         }
     }
 
     pub fn can_be_assigned_to_data(&self) -> bool {
         match self {
-            DataTypeKind::Boolean
-                | DataTypeKind::Byte
-                | DataTypeKind::Short
-                | DataTypeKind::Integer
-                | DataTypeKind::Long
-                | DataTypeKind::Score
-                | DataTypeKind::SNBT
-                | DataTypeKind::Float
-                | DataTypeKind::Double
-                | DataTypeKind::String
-                | DataTypeKind::Unit
-                | DataTypeKind::List(_)
-                | DataTypeKind::TypedCompound(_)
-                | DataTypeKind::Compound(_)
-                // TODO DataType::Custom?
-                | DataTypeKind::Tuple(_) => true,
-                DataTypeKind::Data(data_type) | DataTypeKind::Reference(data_type) => data_type.can_be_assigned_to_data(),
-                _ => false,
+            DataTypeKind::Unit => true,
+            DataTypeKind::Score => true,
+            DataTypeKind::List(data_type) => data_type.can_be_assigned_to_data(),
+            DataTypeKind::TypedCompound(compound) => compound
+                .values()
+                .all(|data_type| data_type.can_be_assigned_to_data()),
+            DataTypeKind::Compound(compound) => compound.can_be_assigned_to_data(),
+            DataTypeKind::Data(data_type) => data_type.can_be_assigned_to_data(),
+            DataTypeKind::Reference(data_type) => data_type.can_be_assigned_to_data(),
+            DataTypeKind::Custom(_, _) => true,
+            DataTypeKind::Tuple(data_types) => data_types
+                .iter()
+                .all(|data_type| data_type.can_be_assigned_to_data()),
+            DataTypeKind::SNBT => true,
+            _ => self.is_snbt_like(),
         }
     }
 
@@ -318,8 +336,11 @@ impl DataTypeKind {
             (DataTypeKind::Short, DataTypeKind::Short) => DataTypeKind::Short,
             (DataTypeKind::Integer, DataTypeKind::Integer) => DataTypeKind::Integer,
             (DataTypeKind::Long, DataTypeKind::Long) => DataTypeKind::Long,
-            (DataTypeKind::Score, other) if other.is_score_like() => DataTypeKind::Score,
-            (self_, DataTypeKind::Score) if self_.is_score_like() => DataTypeKind::Score,
+            (DataTypeKind::Score, other) | (other, DataTypeKind::Score)
+                if other.is_score_value() =>
+            {
+                DataTypeKind::Score
+            }
             _ => return None,
         })
     }
@@ -342,7 +363,6 @@ impl DataTypeKind {
         }
     }
 
-    #[allow(clippy::only_used_in_recursion)]
     pub fn can_perform_augmented_assignment(
         &self,
         operator: &ArithmeticOperator,
@@ -357,10 +377,61 @@ impl DataTypeKind {
             (DataTypeKind::Data(inner), other) => {
                 inner.can_perform_augmented_assignment(operator, other)
             }
-            (DataTypeKind::Score, other) if other.is_score_like() => true,
-            (self_, DataTypeKind::Score) if self_.is_score_like() => true,
+            (DataTypeKind::Score, other) | (other, DataTypeKind::Score)
+                if other.is_score_value() =>
+            {
+                true
+            }
             _ => false,
         }
+    }
+
+    pub fn perform_assignment_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: ParserRange,
+        other: &DataTypeKind,
+    ) -> Option<()> {
+        match (self, other) {
+            (DataTypeKind::Score, other) => {
+                if !other.is_score_value() {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeAssignedToScore(other.clone()),
+                        ),
+                    });
+                }
+            }
+            (DataTypeKind::Data(data_type), other) => {
+                if !other.equals(data_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: *data_type.clone(),
+                                actual: other.clone(),
+                            },
+                        ),
+                    });
+                }
+            }
+            (self_, other) => {
+                if !other.equals(self) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: self_.clone(),
+                                actual: other.clone(),
+                            },
+                        ),
+                    });
+                }
+            }
+        }
+
+        Some(())
     }
 
     pub fn raw_can_perform_comparison(
@@ -375,8 +446,11 @@ impl DataTypeKind {
             (DataTypeKind::Long, DataTypeKind::Long) => true,
             (DataTypeKind::Float, DataTypeKind::Float) => true,
             (DataTypeKind::Double, DataTypeKind::Double) => true,
-            (DataTypeKind::Score, other) if other.is_score_like() => true,
-            (_, DataTypeKind::Score) if self.is_score_like() => true,
+            (DataTypeKind::Score, other) | (other, DataTypeKind::Score)
+                if other.is_score_value() =>
+            {
+                true
+            }
             _ => false,
         }
     }
@@ -453,7 +527,10 @@ impl DataTypeKind {
     }
 
     pub fn can_be_dereferenced(&self) -> bool {
-        matches!(self, DataTypeKind::Reference(_))
+        matches!(
+            self,
+            DataTypeKind::Reference(_) | DataTypeKind::Score | DataTypeKind::Data(_)
+        )
     }
 
     pub fn get_negated_result(&self) -> Option<DataTypeKind> {
@@ -491,7 +568,7 @@ impl DataTypeKind {
 
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::SNBT, _) | (_, Self::SNBT) => true,
+            (Self::SNBT, other) | (other, Self::SNBT) => other.is_snbt_like(),
             (Self::List(self_type), Self::List(other_type)) => self_type.equals(other_type),
             (Self::Tuple(self_elements), Self::Tuple(other_elements)) => {
                 self_elements.len() == other_elements.len()

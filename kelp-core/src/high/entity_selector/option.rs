@@ -40,6 +40,7 @@ pub enum HighEntitySelectorOption {
 }
 
 impl HighEntitySelectorOption {
+    #[must_use]
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,

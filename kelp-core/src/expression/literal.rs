@@ -221,7 +221,7 @@ impl LiteralExpressionKind {
     }
 
     pub fn assign_to_score(
-        &self,
+        self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         target: PlayerScore,
@@ -231,35 +231,35 @@ impl LiteralExpressionKind {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
+                    PlayersScoreboardCommand::Set(target, value as i32),
                 );
             }
             Self::Byte(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
+                    PlayersScoreboardCommand::Set(target, value as i32),
                 );
             }
             Self::Short(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
+                    PlayersScoreboardCommand::Set(target, value as i32),
                 );
             }
             Self::Integer(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, *value),
+                    PlayersScoreboardCommand::Set(target, value),
                 );
             }
             Self::Long(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, *value as i32),
+                    PlayersScoreboardCommand::Set(target, value as i32),
                 );
             }
             Self::Float(value) => {

@@ -50,15 +50,13 @@ impl<T> OptionExt for Option<T> {
 pub fn compile_bitwise_and_score(
     datapack: &mut HighDatapack,
     ctx: &mut CompileContext,
-    target: &GeneratedPlayerScore,
-    source: &GeneratedPlayerScore,
+    target: GeneratedPlayerScore,
+    source: GeneratedPlayerScore,
 ) {
-    let temp_source = datapack.get_unique_player_score();
-    source
-        .clone()
-        .assign_to_score(datapack, ctx, temp_source.clone());
+    let temp_source = datapack.get_unique_score();
+    source.assign_to_score(datapack, ctx, temp_source.clone());
 
-    let result = datapack.get_unique_player_score();
+    let result = datapack.get_unique_score();
     ctx.add_command(
         datapack,
         Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
@@ -67,7 +65,7 @@ pub fn compile_bitwise_and_score(
         ))),
     );
 
-    let power_of_2 = datapack.get_unique_player_score();
+    let power_of_2 = datapack.get_unique_score();
     ctx.add_command(
         datapack,
         Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
@@ -166,21 +164,19 @@ pub fn compile_bitwise_and_score(
         },
     );
 
-    result.assign_to_score(datapack, ctx, target.clone());
+    result.assign_to_score(datapack, ctx, target);
 }
 
 pub fn compile_bitwise_or_score(
     datapack: &mut HighDatapack,
     ctx: &mut CompileContext,
-    target: &GeneratedPlayerScore,
-    source: &GeneratedPlayerScore,
+    target: GeneratedPlayerScore,
+    source: GeneratedPlayerScore,
 ) {
-    let temp_source = datapack.get_unique_player_score();
-    source
-        .clone()
-        .assign_to_score(datapack, ctx, temp_source.clone());
+    let temp_source = datapack.get_unique_score();
+    source.assign_to_score(datapack, ctx, temp_source.clone());
 
-    let result = datapack.get_unique_player_score();
+    let result = datapack.get_unique_score();
     ctx.add_command(
         datapack,
         Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
@@ -189,7 +185,7 @@ pub fn compile_bitwise_or_score(
         ))),
     );
 
-    let power_of_2 = datapack.get_unique_player_score();
+    let power_of_2 = datapack.get_unique_score();
     ctx.add_command(datapack, power_of_2.clone().create_set_command(1073741824));
 
     datapack.while_loop(
@@ -303,14 +299,14 @@ pub fn compile_bitwise_or_score(
         },
     );
 
-    result.assign_to_score(datapack, ctx, target.clone());
+    result.assign_to_score(datapack, ctx, target);
 }
 
 pub fn compile_shift_operation_score(
     datapack: &mut HighDatapack,
     ctx: &mut CompileContext,
-    target: &GeneratedPlayerScore,
-    amount: &GeneratedPlayerScore,
+    target: GeneratedPlayerScore,
+    amount: GeneratedPlayerScore,
     operator: ScoreOperationOperator,
 ) {
     let loop_function_paths = datapack.get_unique_function_paths();
@@ -335,7 +331,7 @@ pub fn compile_shift_operation_score(
     let mut loop_ctx = CompileContext::default();
     let constant_two = datapack.get_constant_score(2);
 
-    loop_ctx.add_command(datapack, target.clone().operation(operator, constant_two));
+    loop_ctx.add_command(datapack, target.operation(operator, constant_two));
     loop_ctx.add_command(datapack, amount.clone().create_remove_command(1));
 
     loop_ctx.add_command(
@@ -343,7 +339,7 @@ pub fn compile_shift_operation_score(
         Command::Execute(ExecuteSubcommand::If(
             false,
             ExecuteIfSubcommand::Score(
-                amount.score.clone(),
+                amount.score,
                 ScoreComparison::Range(IntegerRange::new(Some(1), None)),
                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                     Command::Function(loop_function_location, None),

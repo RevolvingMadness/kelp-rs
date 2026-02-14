@@ -59,10 +59,10 @@ impl HighFunctionCommandArguments {
                     .collect(),
             ),
             HighFunctionCommandArguments::DataTarget(target, path) => {
-                let target = target.kind.clone().compile(datapack, ctx);
+                let target = target.clone().compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                FunctionCommandArguments::DataTarget(target, path)
+                FunctionCommandArguments::DataTarget(target.target, path)
             }
         }
     }

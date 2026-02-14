@@ -1,7 +1,6 @@
 use minecraft_command_types::{
     command::{
         Command,
-        data::DataTarget,
         enums::{numeric_snbt_type::NumericSNBTType, store_type::StoreType},
         execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
@@ -19,7 +18,7 @@ use crate::{
         Expression, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
     },
-    high::player_score::GeneratedPlayerScore,
+    high::{data::GeneratedDataTarget, player_score::GeneratedPlayerScore},
     operator::ArithmeticOperator,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -31,7 +30,7 @@ use crate::{
 #[derive(Debug)]
 pub enum Place {
     Score(GeneratedPlayerScore),
-    Data(DataTarget, NbtPath),
+    Data(GeneratedDataTarget, NbtPath),
     Variable(String),
     Tuple(Vec<Place>),
     Dereference(Box<Expression>),
@@ -108,7 +107,7 @@ impl Place {
                 score.assign_augmented(datapack, ctx, operator, value);
             }
             Place::Data(target, path) => {
-                let unique_score = datapack.get_unique_player_score();
+                let unique_score = datapack.get_unique_score();
 
                 ConstantExpressionKind::Data(target.clone(), path.clone()).assign_to_score(
                     datapack,
@@ -125,7 +124,7 @@ impl Place {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Result,
                         ExecuteStoreSubcommand::Data(
-                            target,
+                            target.target,
                             path,
                             NumericSNBTType::Integer,
                             NotNan::new(1.0).unwrap(),
@@ -139,9 +138,19 @@ impl Place {
                 );
             }
             Place::Variable(name) => {
-                let variable_value = &mut datapack.get_variable_mut(&name).unwrap().clone().kind;
+                let (_, variable_value) = datapack.get_variable(&name).unwrap();
 
-                variable_value.compile_augmented_assignment(datapack, ctx, operator, value);
+                if variable_value.kind.is_lvalue() {
+                    variable_value
+                        .kind
+                        .compile_augmented_assignment(datapack, ctx, operator, value);
+                } else {
+                    let new_kind = variable_value
+                        .kind
+                        .perform_arithmetic(datapack, ctx, operator, value);
+
+                    datapack.get_variable_mut(&name).unwrap().kind = new_kind;
+                }
             }
             Place::Tuple(_) | Place::Underscore => {
                 unreachable!()

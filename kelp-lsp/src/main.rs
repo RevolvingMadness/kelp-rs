@@ -418,7 +418,7 @@ impl LanguageServer for Backend {
         let mut input = Stream::new(&state.text);
         input.config.semantic_tokens = true;
         input.semantic_tokens_range = range;
-        let _ = file(&mut input);
+        file(&mut input);
 
         let lsp_tokens =
             process_semantic_tokens(&state.text, &state.line_index, input.semantic_tokens);
@@ -453,7 +453,7 @@ impl LanguageServer for Backend {
 
         let mut input = Stream::new(&state.text);
         input.cursor = Some(cursor_offset);
-        let _ = file(&mut input);
+        file(&mut input);
 
         let completion_items = input
             .suggestions

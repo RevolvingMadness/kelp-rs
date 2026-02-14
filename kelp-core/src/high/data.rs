@@ -9,6 +9,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+pub struct GeneratedDataTarget {
+    pub is_generated: bool,
+    pub target: DataTarget,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum HighDataTargetKind {
     Block(Coordinates),
     Entity(HighEntitySelector),
@@ -24,18 +30,6 @@ impl HighDataTargetKind {
         match self {
             HighDataTargetKind::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
             _ => Some(()),
-        }
-    }
-
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> DataTarget {
-        match self {
-            HighDataTargetKind::Block(coordinates) => DataTarget::Block(coordinates),
-            HighDataTargetKind::Entity(entity_selector) => {
-                DataTarget::Entity(entity_selector.compile(datapack, ctx))
-            }
-            HighDataTargetKind::Storage(resource_location) => {
-                DataTarget::Storage(resource_location)
-            }
         }
     }
 
@@ -62,4 +56,25 @@ impl HighDataTargetKind {
 pub struct HighDataTarget {
     pub is_generated: bool,
     pub kind: HighDataTargetKind,
+}
+
+impl HighDataTarget {
+    pub fn compile(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> GeneratedDataTarget {
+        GeneratedDataTarget {
+            is_generated: self.is_generated,
+            target: match self.kind {
+                HighDataTargetKind::Block(coordinates) => DataTarget::Block(coordinates),
+                HighDataTargetKind::Entity(entity_selector) => {
+                    DataTarget::Entity(entity_selector.compile(datapack, ctx))
+                }
+                HighDataTargetKind::Storage(resource_location) => {
+                    DataTarget::Storage(resource_location)
+                }
+            },
+        }
+    }
 }

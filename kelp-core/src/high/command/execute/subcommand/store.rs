@@ -109,11 +109,11 @@ impl HighExecuteStoreSubcommand {
         match self {
             HighExecuteStoreSubcommand::Data(target, path, numeric_snbt_type, scale, next) => {
                 next.compile(datapack, ctx).map(|next| {
-                    let target = target.kind.compile(datapack, ctx);
+                    let target = target.compile(datapack, ctx);
                     let path = path.compile(datapack, ctx);
 
                     ExecuteStoreSubcommand::Data(
-                        target,
+                        target.target,
                         path,
                         numeric_snbt_type,
                         scale,

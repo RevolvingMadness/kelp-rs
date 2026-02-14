@@ -71,19 +71,24 @@ impl HighDataCommandModification {
     ) -> Option<DataCommandModification> {
         match self {
             HighDataCommandModification::From(target, path) => {
-                let target = target.kind.compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                Some(DataCommandModification::From(target, path))
+                Some(DataCommandModification::From(target.target, path))
             }
             HighDataCommandModification::String(target, path, start, end) => {
-                let target = target.kind.compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                Some(DataCommandModification::String(target, path, start, end))
+                Some(DataCommandModification::String(
+                    target.target,
+                    path,
+                    start,
+                    end,
+                ))
             }
             HighDataCommandModification::Value(expression) => {
-                let target = target.kind.clone().compile(datapack, ctx);
+                let target = target.clone().compile(datapack, ctx);
                 let path = path.clone().compile(datapack, ctx);
 
                 let expression = expression.resolve(datapack, ctx);
@@ -163,40 +168,40 @@ impl HighDataCommand {
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Command> {
         match self {
             HighDataCommand::Get(target, path, count) => {
-                let compiled_target = target.kind.compile(datapack, ctx);
+                let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.map(|path| path.compile(datapack, ctx));
 
                 Some(Command::Data(DataCommand::Get(
-                    compiled_target,
+                    compiled_target.target,
                     compiled_path,
                     count,
                 )))
             }
             HighDataCommand::Merge(target, expression) => {
-                let target = target.kind.compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
                 let expression = expression.resolve(datapack, ctx);
 
                 let snbt = expression.as_snbt_macros(ctx);
 
-                Some(Command::Data(DataCommand::Merge(target, snbt)))
+                Some(Command::Data(DataCommand::Merge(target.target, snbt)))
             }
             HighDataCommand::Modify(target, path, mode, modification) => {
                 let compiled_modification = modification.compile(datapack, ctx, &target, &path)?;
-                let compiled_target = target.kind.compile(datapack, ctx);
+                let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.compile(datapack, ctx);
 
                 Some(Command::Data(DataCommand::Modify(
-                    compiled_target,
+                    compiled_target.target,
                     compiled_path,
                     mode,
                     compiled_modification,
                 )))
             }
             HighDataCommand::Remove(target, path) => {
-                let target = target.kind.compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
-                Some(Command::Data(DataCommand::Remove(target, path)))
+                Some(Command::Data(DataCommand::Remove(target.target, path)))
             }
         }
     }

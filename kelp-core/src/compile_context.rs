@@ -1,20 +1,23 @@
 use std::{collections::BTreeMap, mem::take};
 
 use minecraft_command_types::{
-    command::{Command, data::DataTarget, function::FunctionCommandArguments},
+    command::{Command, function::FunctionCommandArguments},
     has_macro::HasMacro,
     nbt_path::{NbtPath, NbtPathNode},
     resource_location::ResourceLocation,
     snbt::SNBT,
 };
 
-use crate::{datapack::HighDatapack, expression::constant::ConstantExpressionKind};
+use crate::{
+    datapack::HighDatapack, expression::constant::ConstantExpressionKind,
+    high::data::GeneratedDataTarget,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct CompileContext {
     pub commands: Vec<Command>,
     pub macro_arguments: BTreeMap<usize, ConstantExpressionKind>,
-    pub macro_data: Option<(DataTarget, NbtPath)>,
+    pub macro_data: Option<(GeneratedDataTarget, NbtPath)>,
     macro_counter: usize,
 }
 
@@ -81,7 +84,10 @@ impl CompileContext {
                 datapack.current_namespace_name(),
                 unique_function,
             ),
-            Some(FunctionCommandArguments::DataTarget(target, Some(path))),
+            Some(FunctionCommandArguments::DataTarget(
+                target.target,
+                Some(path),
+            )),
         ));
     }
 

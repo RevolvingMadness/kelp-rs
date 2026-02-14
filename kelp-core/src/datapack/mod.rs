@@ -5,7 +5,7 @@ use crate::datapack::namespace::HighNamespace;
 use crate::expression::{
     constant::ConstantExpression, supports_variable_type_scope::SupportsVariableTypeScope,
 };
-use crate::high::data::{HighDataTarget, HighDataTargetKind};
+use crate::high::data::{GeneratedDataTarget, HighDataTarget, HighDataTargetKind};
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use crate::high::player_score::GeneratedPlayerScore;
 use crate::semantic_analysis_context::SemanticAnalysisInfo;
@@ -138,7 +138,7 @@ impl HighDatapack {
         self.current_namespace().get_unique_function_paths()
     }
 
-    pub fn get_unique_player_score(&self) -> GeneratedPlayerScore {
+    pub fn get_unique_score(&self) -> GeneratedPlayerScore {
         let incremented = self.increment_counter();
 
         let current_namespace = self.current_namespace();
@@ -151,14 +151,17 @@ impl HighDatapack {
         }
     }
 
-    pub fn get_unique_data(&self) -> (DataTarget, NbtPath) {
+    pub fn get_unique_data(&self) -> (GeneratedDataTarget, NbtPath) {
         let current_namespace_name = self.current_namespace_name();
 
         (
-            DataTarget::Storage(ResourceLocation::new_namespace_path(
-                "__kelp_storages__",
-                format!("__kelp_{}_storage__", current_namespace_name),
-            )),
+            GeneratedDataTarget {
+                is_generated: true,
+                target: DataTarget::Storage(ResourceLocation::new_namespace_path(
+                    "__kelp_storages__",
+                    format!("__kelp_{}_storage__", current_namespace_name),
+                )),
+            },
             NbtPath(nonempty![NbtPathNode::named_string(format!(
                 "__kelp_{}_storage_{}__",
                 current_namespace_name,
@@ -167,7 +170,7 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_unique_data_named(&self) -> (DataTarget, NbtPath, String) {
+    pub fn get_unique_data_named(&self) -> (GeneratedDataTarget, NbtPath, String) {
         let current_namespace_name = self.current_namespace_name();
         let name = format!(
             "__kelp_{}_storage_{}__",
@@ -176,10 +179,13 @@ impl HighDatapack {
         );
 
         (
-            DataTarget::Storage(ResourceLocation::new_namespace_path(
-                "__kelp_storages__",
-                format!("__kelp_{}_storage__", current_namespace_name),
-            )),
+            GeneratedDataTarget {
+                is_generated: true,
+                target: DataTarget::Storage(ResourceLocation::new_namespace_path(
+                    "__kelp_storages__",
+                    format!("__kelp_{}_storage__", current_namespace_name),
+                )),
+            },
             NbtPath(nonempty![NbtPathNode::named_string(name.clone())]),
             name,
         )

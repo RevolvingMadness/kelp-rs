@@ -214,7 +214,7 @@ impl Expression {
                 Place::Score(score)
             }
             ExpressionKind::Data(target, path) => {
-                let target = target.kind.compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
                 Place::Data(target, path)
@@ -673,13 +673,17 @@ impl Expression {
                     return resolved;
                 }
 
-                let unique_score = datapack.get_unique_player_score();
+                let unique_score = datapack.get_unique_score();
 
                 resolved.assign_to_score(datapack, ctx, unique_score.clone());
 
                 ConstantExpressionKind::PlayerScore(unique_score)
             }
-            ConstantExpressionKind::Data(_, _) => {
+            ConstantExpressionKind::Data(ref target, _) => {
+                if target.is_generated {
+                    return resolved;
+                }
+
                 let (unique_target, unique_path) = datapack.get_unique_data();
 
                 resolved.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
@@ -805,7 +809,7 @@ impl Expression {
                 ConstantExpressionKind::PlayerScore(score)
             }
             ExpressionKind::Data(target, path) => {
-                let target = target.kind.clone().compile(datapack, ctx);
+                let target = target.clone().compile(datapack, ctx);
                 let path = path.clone().compile(datapack, ctx);
 
                 ConstantExpressionKind::Data(target, path)
@@ -872,18 +876,18 @@ impl Expression {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        target: &GeneratedPlayerScore,
+        target: GeneratedPlayerScore,
     ) {
         match self.kind {
             ExpressionKind::Arithmetic(left, operator, right) => {
-                left.resolve_into_score(datapack, ctx, target);
+                left.resolve_into_score(datapack, ctx, target.clone());
                 right
                     .resolve(datapack, ctx)
                     .operate_on_score(datapack, ctx, target, operator);
             }
             _ => {
                 self.resolve(datapack, ctx)
-                    .assign_to_score(datapack, ctx, target.clone());
+                    .assign_to_score(datapack, ctx, target);
             }
         }
     }

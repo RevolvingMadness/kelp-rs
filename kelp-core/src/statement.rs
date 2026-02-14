@@ -178,11 +178,11 @@ impl StatementKind {
                     for_body_ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            unique_data_target_2,
+                            unique_data_target_2.target,
                             unique_path_2,
                             DataCommandModificationMode::Set,
                             DataCommandModification::String(
-                                unique_data_target.clone(),
+                                unique_data_target.target.clone(),
                                 Some(unique_path.clone()),
                                 Some(if is_reversed { -1 } else { 0 }),
                                 if is_reversed { None } else { Some(1) },
@@ -201,11 +201,11 @@ impl StatementKind {
                     for_body_ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            unique_data_target.clone(),
+                            unique_data_target.target.clone(),
                             unique_path.clone(),
                             DataCommandModificationMode::Set,
                             DataCommandModification::String(
-                                unique_data_target.clone(),
+                                unique_data_target.target.clone(),
                                 Some(unique_path.clone()),
                                 Some(if is_reversed { 0 } else { 1 }),
                                 if is_reversed { Some(-1) } else { None },
@@ -222,7 +222,7 @@ impl StatementKind {
                         Command::Execute(ExecuteSubcommand::If(
                             true,
                             ExecuteIfSubcommand::Data(
-                                unique_data_target,
+                                unique_data_target.target,
                                 unique_path,
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
@@ -279,7 +279,7 @@ impl StatementKind {
                     for_body_ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Remove(
-                            unique_data_target.clone(),
+                            unique_data_target.target.clone(),
                             unique_path.clone(),
                         )),
                     );
@@ -289,7 +289,7 @@ impl StatementKind {
                         Command::Execute(ExecuteSubcommand::If(
                             false,
                             ExecuteIfSubcommand::Data(
-                                unique_data_target,
+                                unique_data_target.target,
                                 unique_path,
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
@@ -356,10 +356,10 @@ impl StatementKind {
                 ctx.add_command(
                     datapack,
                     Command::Data(DataCommand::Modify(
-                        target,
+                        target.target,
                         path,
                         DataCommandModificationMode::Append,
-                        DataCommandModification::From(source, Some(source_path)),
+                        DataCommandModification::From(source.target, Some(source_path)),
                     )),
                 );
             }
@@ -368,7 +368,10 @@ impl StatementKind {
 
                 let (target, path) = expression.as_data(datapack, ctx);
 
-                ctx.add_command(datapack, Command::Data(DataCommand::Remove(target, path)));
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Remove(target.target, path)),
+                );
             }
         }
     }

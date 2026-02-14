@@ -314,12 +314,12 @@ impl HighExecuteIfSubcommand {
                 ))
             }
             HighExecuteIfSubcommand::Data(target, path, next) => {
-                let target = target.kind.compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
                 let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
 
-                Some(ExecuteIfSubcommand::Data(target, path, next))
+                Some(ExecuteIfSubcommand::Data(target.target, path, next))
             }
             HighExecuteIfSubcommand::Dimension(location, next) => {
                 let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));

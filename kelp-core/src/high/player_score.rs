@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use minecraft_command_types::{
     command::{
         Command, PlayerScore,
-        data::DataTarget,
         enums::{
             numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
             store_type::StoreType,
@@ -21,7 +20,7 @@ use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
     expression::constant::ConstantExpressionKind,
-    high::entity_selector::HighEntitySelector,
+    high::{data::GeneratedDataTarget, entity_selector::HighEntitySelector},
     operator::ArithmeticOperator,
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::{
@@ -102,10 +101,10 @@ impl GeneratedPlayerScore {
     }
 
     pub fn operate_on_score(
-        &self,
+        self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        target: &GeneratedPlayerScore,
+        target: GeneratedPlayerScore,
         operator: ArithmeticOperator,
     ) {
         match operator {
@@ -155,7 +154,7 @@ impl GeneratedPlayerScore {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        target: DataTarget,
+        target: GeneratedDataTarget,
         path: NbtPath,
     ) {
         ctx.add_command(
@@ -163,7 +162,7 @@ impl GeneratedPlayerScore {
             Command::Execute(ExecuteSubcommand::Store(
                 StoreType::Result,
                 ExecuteStoreSubcommand::Data(
-                    target,
+                    target.target,
                     path,
                     NumericSNBTType::Integer,
                     NotNan::new(1.0).unwrap(),
@@ -274,12 +273,12 @@ impl GeneratedPlayerScore {
             ArithmeticOperator::And => {
                 let right_score = value.as_score(datapack, ctx, false);
 
-                compile_bitwise_and_score(datapack, ctx, &self, &right_score);
+                compile_bitwise_and_score(datapack, ctx, self, right_score);
             }
             ArithmeticOperator::Or => {
                 let right_score = value.as_score(datapack, ctx, false);
 
-                compile_bitwise_or_score(datapack, ctx, &self, &right_score);
+                compile_bitwise_or_score(datapack, ctx, self, right_score);
             }
             ArithmeticOperator::LeftShift => {
                 let right_score = value.as_score(datapack, ctx, false);
@@ -287,8 +286,8 @@ impl GeneratedPlayerScore {
                 compile_shift_operation_score(
                     datapack,
                     ctx,
-                    &self,
-                    &right_score,
+                    self,
+                    right_score,
                     ScoreOperationOperator::Multiply,
                 );
             }
@@ -298,8 +297,8 @@ impl GeneratedPlayerScore {
                 compile_shift_operation_score(
                     datapack,
                     ctx,
-                    &self,
-                    &right_score,
+                    self,
+                    right_score,
                     ScoreOperationOperator::Divide,
                 );
             }

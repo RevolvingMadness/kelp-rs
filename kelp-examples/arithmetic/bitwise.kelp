@@ -1,19 +1,20 @@
 mcfn namespace:main {
-    let a = 5 to score // 101
-    let b = 3 to score // 011
+    let a = 5 to score
+    let b = 3 to score
 
-    tellraw @a 5 & 3 // 1
-    tellraw @a a & b // 1
+    tellraw @a (5 & 3) to score // 1
+    tellraw @a  a & b           // 1
 
-    tellraw @a 5 | 3 // 7
-    tellraw @a a | b // 7
+    tellraw @a (5 | 3) to score // 7
+    tellraw @a  a | b           // 7
 
     // Negative tests
     let c = -5 to score
     let d = -3 to score
-    tellraw @a -5 & -3 // -7
-    tellraw @a c & d
+    
+    tellraw @a (-5 & -3) to score // -7
+    tellraw @a  c  &  d           // -7
 
-    tellraw @a -5 | -3 // -1
-    tellraw @a c | d
+    tellraw @a (-5 | -3) to score // -1
+    tellraw @a  c  |  d           // -1
 }

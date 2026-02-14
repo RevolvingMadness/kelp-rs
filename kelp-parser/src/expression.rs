@@ -730,10 +730,9 @@ pub fn numeric_parser<'a>(input: &mut Stream<'a>) -> Option<LiteralExpressionKin
                         IntErrorKind::PosOverflow => {
                             input.add_validation_error_span(
                                 all_span,
-                                concat!(
-                                    $name,
-                                    " is greater than the maximum value of ",
-                                    stringify!($max)
+                                format!(
+                                    concat!($name, " is greater than the maximum value of {}"),
+                                    $max
                                 ),
                             );
                             $max
@@ -741,10 +740,9 @@ pub fn numeric_parser<'a>(input: &mut Stream<'a>) -> Option<LiteralExpressionKin
                         IntErrorKind::NegOverflow => {
                             input.add_validation_error_span(
                                 all_span,
-                                concat!(
-                                    $name,
-                                    " is less than the minimum value of ",
-                                    stringify!($min)
+                                format!(
+                                    concat!($name, " is less than the minimum value of {}"),
+                                    $min
                                 ),
                             );
                             $min

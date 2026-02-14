@@ -1,10 +1,5 @@
 use std::collections::BTreeMap;
 
-use minecraft_command_types::command::{
-    Command,
-    enums::score_operation_operator::ScoreOperationOperator,
-    scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
-};
 use minecraft_command_types_derive::HasMacro;
 use parser_rs::parser_range::ParserRange;
 
@@ -714,27 +709,14 @@ impl Expression {
             ExpressionKind::Constant(expression) => expression.kind,
             ExpressionKind::Unary(unary_operator, expression) => match unary_operator {
                 UnaryOperator::Negate => {
-                    let resolved_expression = expression.resolve(datapack, ctx);
-                    let new_score = resolved_expression.as_score(datapack, ctx, true);
-                    let constant_score = datapack.get_constant_score(-1);
+                    let expression = expression.resolve(datapack, ctx);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Operation(
-                                new_score.score.clone(),
-                                ScoreOperationOperator::Multiply,
-                                constant_score.score,
-                            ),
-                        )),
-                    );
-
-                    ConstantExpressionKind::PlayerScore(new_score)
+                    expression.negate(datapack, ctx)
                 }
                 UnaryOperator::Invert => {
                     let expression = expression.resolve(datapack, ctx);
 
-                    expression.invert().unwrap()
+                    expression.invert()
                 }
                 UnaryOperator::Reference => ConstantExpressionKind::Reference(Box::new(
                     expression

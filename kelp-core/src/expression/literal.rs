@@ -77,11 +77,23 @@ impl LiteralExpressionKind {
         })
     }
 
-    pub fn invert(self) -> Option<LiteralExpressionKind> {
-        Some(match self {
+    pub fn invert(self) -> LiteralExpressionKind {
+        match self {
             LiteralExpressionKind::Boolean(value) => LiteralExpressionKind::Boolean(!value),
-            _ => return None,
-        })
+            _ => unreachable!("Cannot invert expression {:?}", self),
+        }
+    }
+
+    pub fn negate(self) -> LiteralExpressionKind {
+        match self {
+            LiteralExpressionKind::Byte(value) => LiteralExpressionKind::Byte(-value),
+            LiteralExpressionKind::Short(value) => LiteralExpressionKind::Short(-value),
+            LiteralExpressionKind::Integer(value) => LiteralExpressionKind::Integer(-value),
+            LiteralExpressionKind::Long(value) => LiteralExpressionKind::Long(-value),
+            LiteralExpressionKind::Float(value) => LiteralExpressionKind::Float(-value),
+            LiteralExpressionKind::Double(value) => LiteralExpressionKind::Double(-value),
+            _ => unreachable!("Cannot negate expression {:?}", self),
+        }
     }
 
     pub fn compare(

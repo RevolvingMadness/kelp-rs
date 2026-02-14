@@ -366,19 +366,86 @@ impl ConstantExpressionKind {
         (unique_data, path)
     }
 
-    pub fn invert(self) -> Option<ConstantExpressionKind> {
-        Some(match self {
+    pub fn invert(self) -> ConstantExpressionKind {
+        match self {
             ConstantExpressionKind::Literal(expression) => {
                 ConstantExpressionKind::Literal(LiteralExpression {
                     span: expression.span,
-                    kind: expression.kind.invert()?,
+                    kind: expression.kind.invert(),
                 })
             }
             ConstantExpressionKind::Condition(inverted, subcommand) => {
                 ConstantExpressionKind::Condition(!inverted, subcommand)
             }
-            _ => return None,
-        })
+            _ => unreachable!("Cannot invert expression {:?}", self),
+        }
+    }
+
+    pub fn negate(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> ConstantExpressionKind {
+        match self {
+            ConstantExpressionKind::Literal(expression) => {
+                ConstantExpressionKind::Literal(LiteralExpression {
+                    span: expression.span,
+                    kind: expression.kind.negate(),
+                })
+            }
+            ConstantExpressionKind::PlayerScore(_) => {
+                let unique_score = datapack.get_unique_score();
+
+                self.assign_to_score(datapack, ctx, unique_score.clone());
+
+                let constant_score = datapack.get_constant_score(-1);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            unique_score.score.clone(),
+                            ScoreOperationOperator::Multiply,
+                            constant_score.score,
+                        ),
+                    )),
+                );
+
+                ConstantExpressionKind::PlayerScore(unique_score)
+            }
+            ConstantExpressionKind::Data(_, _) => {
+                let unique_score = self.clone().as_score(datapack, ctx, true);
+
+                self.assign_to_score(datapack, ctx, unique_score.clone());
+
+                let constant_score = datapack.get_constant_score(-1);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            unique_score.score.clone(),
+                            ScoreOperationOperator::Multiply,
+                            constant_score.score,
+                        ),
+                    )),
+                );
+
+                ConstantExpressionKind::PlayerScore(unique_score)
+            }
+            // TODO? ConstantExpressionKind::Command
+            ConstantExpressionKind::Dereference(expression) => {
+                expression.kind.dereference(datapack).negate(datapack, ctx)
+            }
+            ConstantExpressionKind::Reference(expression) => expression.kind.negate(datapack, ctx),
+            ConstantExpressionKind::Variable(name) => datapack
+                .get_variable(&name)
+                .unwrap()
+                .1
+                .kind
+                .negate(datapack, ctx),
+            _ => unreachable!("Cannot negate expression {:?}", self),
+        }
     }
 
     pub fn index(self, index: ConstantExpressionKind) -> ConstantExpressionKind {

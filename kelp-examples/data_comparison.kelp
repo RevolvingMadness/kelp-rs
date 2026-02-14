@@ -1,9 +1,11 @@
 mcfn namespace:main {
-    let i = 1 to data as data<any>
-    let f = 1.5 to data as data<any>
+    let i = 1 to data
+    let i2 = 2 to data
+    let f = 1.0 to data
+    let f2 = 1.5 to data
 
-    tellraw @a i == i
-    tellraw @a f == f
-    tellraw @a i == f
-    tellraw @a f == i
+    tellraw @a i == i  // 1
+    tellraw @a i == i2 // 0
+    tellraw @a f == f  // 1
+    tellraw @a f == f2 // 0
 }

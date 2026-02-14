@@ -1,7 +1,7 @@
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    data_type::{DataTypeKind, high::HighDataType},
+    data_type::DataTypeKind,
     datapack::HighDatapack,
     expression::{
         constant::{ConstantExpression, ConstantExpressionKind},
@@ -52,23 +52,23 @@ impl PatternKind {
     pub fn destructure(
         &self,
         datapack: &mut HighDatapack,
-        data_type: Option<HighDataType>,
+        data_type: DataTypeKind,
         value: ConstantExpression,
     ) {
         match self {
             PatternKind::Literal(_) => {}
             PatternKind::Wildcard => {}
             PatternKind::Binding(name) => {
-                let data_type = data_type
-                    .map(|data_type| data_type.kind.resolve())
-                    .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
-
                 datapack.declare_variable(name, data_type, value);
             }
             PatternKind::Tuple(patterns) => {
-                if let ConstantExpressionKind::Tuple(expressions) = value.kind {
-                    for (pattern, expression) in patterns.iter().zip(expressions) {
-                        pattern.kind.destructure(datapack, None, expression);
+                if let ConstantExpressionKind::Tuple(expressions) = value.kind
+                    && let DataTypeKind::Tuple(data_types) = data_type
+                {
+                    for ((pattern, expression), data_type) in
+                        patterns.iter().zip(expressions).zip(data_types)
+                    {
+                        pattern.kind.destructure(datapack, data_type, expression);
                     }
                 } else {
                     unreachable!()

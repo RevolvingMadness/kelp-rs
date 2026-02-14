@@ -1,8 +1,8 @@
-mcfn namespace:path {
+mcfn namespace:main {
     let x = 1 to score
     
     tellraw @a ["x: ", x]
     tellraw @a "x = 2"
-    x = 2
+    *x = 2
     tellraw @a ["x: ", x]
 }

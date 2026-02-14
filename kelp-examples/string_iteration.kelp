@@ -1,11 +1,11 @@
 mcfn namespace:main {
     let value = "Text" to data
 
-    string_for char in value {
+    for char in value {
         tellraw @a char
     }
 
-    reverse_string_for char in value {
+    reverse_for char in value {
         tellraw @a char
     }
 }

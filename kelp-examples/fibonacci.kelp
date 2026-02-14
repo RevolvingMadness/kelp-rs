@@ -8,9 +8,7 @@ mcfn namespace:main {
     while count < n {
         tellraw @a a
         
-        let temp = a + b
-        a = b
-        b = temp
+        (*a, *b) = (b, a + b)
         count += 1
     }
 

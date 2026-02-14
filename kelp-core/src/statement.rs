@@ -102,6 +102,10 @@ impl StatementKind {
                     .compile_as_statement(datapack, ctx);
             }
             StatementKind::VariableDeclaration(data_type, pattern, value) => {
+                let data_type = data_type
+                    .map(|data_type| data_type.kind.resolve())
+                    .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
+
                 let value = value.resolve_force(datapack, ctx);
 
                 pattern.kind.destructure(
@@ -486,12 +490,13 @@ impl Statement {
             }
             StatementKind::ForIn(_, name, expression, statement) => {
                 let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
-                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
 
                 let expression_type = expression.kind.infer_data_type(ctx)?;
 
                 let Some(iterable_type) = expression_type.get_iterable_type() else {
                     ctx.declare_variable_unknown::<()>(name);
+
+                    statement.perform_semantic_analysis(ctx, is_lhs);
 
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: expression.span,
@@ -503,8 +508,9 @@ impl Statement {
 
                 ctx.declare_variable_known(name, iterable_type);
 
+                statement.perform_semantic_analysis(ctx, is_lhs)?;
+
                 expression_result?;
-                statement_result?;
 
                 Some(())
             }

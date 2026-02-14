@@ -6,7 +6,6 @@ use parser_rs::{
     semantic_token::SemanticTokenKind, stream::Stream,
 };
 use std::collections::BTreeMap;
-use std::time::Instant;
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -135,15 +134,7 @@ impl Backend {
         let mut diagnostics = Vec::new();
         let input = Stream::new(&text);
 
-        let now = Instant::now();
         let result = file.parse_fully(input);
-        let elapsed = now.elapsed();
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!("Parsed in (change): {:?}", elapsed),
-            )
-            .await;
 
         let line_index = LineIndex::new(&text);
 
@@ -382,26 +373,13 @@ impl LanguageServer for Backend {
 
         let mut input = Stream::new(&state.text);
         input.config.semantic_tokens = true;
-        let now = Instant::now();
         let succeeded = file(&mut input).is_some();
-        let elapsed = now.elapsed();
 
         let semantic_tokens = if succeeded {
             input.semantic_tokens
         } else {
             input.max_error.semantic_tokens
         };
-
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!(
-                    "[SEMANTIC TOKENS (FULL )] {:?} {}",
-                    elapsed,
-                    semantic_tokens.len()
-                ),
-            )
-            .await;
 
         let lsp_tokens = process_semantic_tokens(&state.text, &state.line_index, semantic_tokens);
 
@@ -440,21 +418,7 @@ impl LanguageServer for Backend {
         let mut input = Stream::new(&state.text);
         input.config.semantic_tokens = true;
         input.semantic_tokens_range = range;
-        let now = Instant::now();
         let _ = file(&mut input);
-        let elapsed = now.elapsed();
-
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!(
-                    "[SEMANTIC TOKENS (RANGE)] {:?} {} {:?}",
-                    elapsed,
-                    input.semantic_tokens.len(),
-                    range
-                ),
-            )
-            .await;
 
         let lsp_tokens =
             process_semantic_tokens(&state.text, &state.line_index, input.semantic_tokens);
@@ -489,19 +453,7 @@ impl LanguageServer for Backend {
 
         let mut input = Stream::new(&state.text);
         input.cursor = Some(cursor_offset);
-        let now = Instant::now();
         let _ = file(&mut input);
-        let elapsed = now.elapsed();
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!(
-                    "Parsed in (completion) ({}): {:?}",
-                    input.suggestions.len(),
-                    elapsed
-                ),
-            )
-            .await;
 
         let completion_items = input
             .suggestions
@@ -573,18 +525,7 @@ impl LanguageServer for Backend {
         input.cursor = Some(cursor_offset);
         input.config.signatures = true;
 
-        let now = Instant::now();
-        let _ = file(&mut input);
-        let elapsed = now.elapsed();
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!(
-                    "Parsed in (signature): {:?} {:?} {:?}",
-                    elapsed, input.signatures, input.active_parameter
-                ),
-            )
-            .await;
+        file(&mut input);
 
         if input.signatures.is_empty() {
             Ok(None)

@@ -1,0 +1,5 @@
+mcfn namespace:main {
+    let { OnGround: on_ground } = entity @s {} as data<{ OnGround: byte }>
+
+    tellraw @a on_ground
+}

@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use crate::pattern::SpannedString;
+use crate::high::snbt_string::HighSNBTString;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PatternType {
@@ -14,7 +14,7 @@ pub enum PatternType {
     String,
     Tuple(Vec<PatternType>),
     Reference(Box<PatternType>),
-    Compound(BTreeMap<SpannedString, PatternType>),
+    Compound(BTreeMap<HighSNBTString, PatternType>),
     Any,
 }
 
@@ -55,7 +55,7 @@ impl Display for PatternType {
                         f.write_str(", ")?;
                     }
 
-                    write!(f, "{}: {}", key.value, pattern_type)?;
+                    write!(f, "{}: {}", key.snbt_string.1, pattern_type)?;
                 }
 
                 if !compound.is_empty() {

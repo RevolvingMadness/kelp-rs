@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use minecraft_command_types::nbt_path::NbtPathNode;
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
@@ -9,18 +10,13 @@ use crate::{
         constant::{ConstantExpression, ConstantExpressionKind},
         literal::LiteralExpression,
     },
+    high::snbt_string::HighSNBTString,
     pattern_type::PatternType,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
 };
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SpannedString {
-    pub span: ParserRange,
-    pub value: String,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PatternKind {
@@ -31,7 +27,7 @@ pub enum PatternKind {
 
     Tuple(Vec<Pattern>),
 
-    Compound(BTreeMap<SpannedString, Option<Pattern>>),
+    Compound(BTreeMap<HighSNBTString, Option<Pattern>>),
 }
 
 impl PatternKind {
@@ -100,16 +96,49 @@ impl PatternKind {
                 }
             }
             PatternKind::Compound(patterns) => {
-                if let ConstantExpressionKind::Compound(expressions) = value.kind
+                if let ConstantExpressionKind::Compound(expressions) = &value.kind
                     && let DataTypeKind::TypedCompound(data_types) = value_data_type
                 {
                     for (((key, pattern), (_, expression)), (_, data_type)) in
                         patterns.iter().zip(expressions).zip(data_types)
                     {
+                        let expression = expression.clone();
+
                         if let Some(pattern) = pattern {
                             pattern.kind.destructure(datapack, data_type, expression);
                         } else {
-                            datapack.declare_variable(&key.value, data_type, expression);
+                            datapack.declare_variable(&key.snbt_string.1, data_type, expression);
+                        }
+                    }
+                } else if let ConstantExpressionKind::Data(target, path) = &value.kind
+                    && let DataTypeKind::Data(data_type) = value_data_type
+                {
+                    for (key, pattern) in patterns {
+                        let data_type = *data_type.clone();
+                        let expression = ConstantExpressionKind::Data(
+                            target.clone(),
+                            path.clone()
+                                .with_node(NbtPathNode::Named(key.snbt_string.clone(), None)),
+                        )
+                        .into_dummy_constant_expression();
+
+                        if let Some(pattern) = pattern {
+                            pattern.kind.destructure(datapack, data_type, expression);
+                        } else {
+                            datapack.declare_variable(&key.snbt_string.1, data_type, expression);
+                        }
+                    }
+                } else if let ConstantExpressionKind::Compound(expressions) = &value.kind
+                    && let DataTypeKind::Compound(data_type) = value_data_type
+                {
+                    for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
+                        let expression = expression.clone();
+                        let data_type = *data_type.clone();
+
+                        if let Some(pattern) = pattern {
+                            pattern.kind.destructure(datapack, data_type, expression);
+                        } else {
+                            datapack.declare_variable(&key.snbt_string.1, data_type, expression);
                         }
                     }
                 } else {
@@ -136,7 +165,7 @@ impl PatternKind {
                     if let Some(pattern) = pattern {
                         pattern.kind.destructure_unknown(ctx);
                     } else {
-                        ctx.declare_variable_unknown(&key.value);
+                        ctx.declare_variable_unknown(&key.snbt_string.1);
                     }
                 }
             }
@@ -158,8 +187,7 @@ impl Pattern {
         value_type: DataTypeKind,
     ) -> Option<()> {
         match &self.kind {
-            PatternKind::Literal(_) => Some(()),
-            PatternKind::Wildcard => Some(()),
+            PatternKind::Literal(_) | PatternKind::Wildcard => Some(()),
             PatternKind::Binding(name) => {
                 ctx.declare_variable_known(name, value_type);
 
@@ -175,9 +203,9 @@ impl Pattern {
                         return ctx.add_info(SemanticAnalysisInfo {
                             span: value_span,
                             kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::MismatchedTupleLength {
-                                    expected: data_types.len(),
-                                    actual: patterns.len(),
+                                SemanticAnalysisError::MismatchedPatternTypes {
+                                    expected: DataTypeKind::Tuple(data_types),
+                                    actual: self.kind.get_type(),
                                 },
                             ),
                         });
@@ -211,7 +239,7 @@ impl Pattern {
                     for (key, pattern) in patterns.iter() {
                         let data_type = data_types
                             .iter()
-                            .find(|(value_key, _)| value_key.1 == key.value)
+                            .find(|(value_key, _)| value_key.1 == key.snbt_string.1)
                             .map(|(_, value)| value.clone());
 
                         if let Some(data_type) = data_type {
@@ -220,7 +248,7 @@ impl Pattern {
                                     ctx, value_span, data_type,
                                 );
                             } else {
-                                ctx.declare_variable_known(&key.value, data_type);
+                                ctx.declare_variable_known(&key.snbt_string.1, data_type);
                             }
                         } else {
                             ctx.add_info::<()>(SemanticAnalysisInfo {
@@ -228,7 +256,7 @@ impl Pattern {
                                 kind: SemanticAnalysisInfoKind::Error(
                                     SemanticAnalysisError::TypeDoesntHaveField {
                                         data_type: value_type.clone(),
-                                        field: key.value.clone(),
+                                        field: key.snbt_string.1.clone(),
                                     },
                                 ),
                             });
@@ -236,7 +264,7 @@ impl Pattern {
                             if let Some(pattern) = pattern {
                                 pattern.kind.destructure_unknown(ctx);
                             } else {
-                                ctx.declare_variable_unknown(&key.value);
+                                ctx.declare_variable_unknown(&key.snbt_string.1);
                             }
 
                             error = true;
@@ -244,12 +272,102 @@ impl Pattern {
                     }
 
                     if error { None } else { Some(()) }
+                } else if let DataTypeKind::Compound(data_type) = &value_type {
+                    for (key, pattern) in patterns.iter() {
+                        let data_type = *data_type.clone();
+
+                        if let Some(pattern) = pattern {
+                            pattern
+                                .perform_destructure_semantic_analysis(ctx, value_span, data_type);
+                        } else {
+                            ctx.declare_variable_known(&key.snbt_string.1, data_type);
+                        }
+                    }
+
+                    Some(())
+                } else if let DataTypeKind::Data(data_type) = &value_type {
+                    match &**data_type {
+                        DataTypeKind::Compound(data_type) => {
+                            for (key, pattern) in patterns.iter() {
+                                let data_type = *data_type.clone();
+
+                                if let Some(pattern) = pattern {
+                                    pattern.perform_destructure_semantic_analysis(
+                                        ctx, value_span, data_type,
+                                    );
+                                } else {
+                                    ctx.declare_variable_known(&key.snbt_string.1, data_type);
+                                }
+                            }
+
+                            Some(())
+                        }
+                        DataTypeKind::TypedCompound(data_types) => {
+                            let mut error = false;
+
+                            for (key, pattern) in patterns.iter() {
+                                let data_type = data_types
+                                    .iter()
+                                    .find(|(value_key, _)| value_key.1 == key.snbt_string.1)
+                                    .map(|(_, value)| value.clone());
+
+                                if let Some(data_type) = data_type {
+                                    if let Some(pattern) = pattern {
+                                        pattern.perform_destructure_semantic_analysis(
+                                            ctx, value_span, data_type,
+                                        );
+                                    } else {
+                                        ctx.declare_variable_known(&key.snbt_string.1, data_type);
+                                    }
+                                } else {
+                                    ctx.add_info::<()>(SemanticAnalysisInfo {
+                                        span: key.span,
+                                        kind: SemanticAnalysisInfoKind::Error(
+                                            SemanticAnalysisError::TypeDoesntHaveField {
+                                                data_type: value_type.clone(),
+                                                field: key.snbt_string.1.clone(),
+                                            },
+                                        ),
+                                    });
+
+                                    if let Some(pattern) = pattern {
+                                        pattern.kind.destructure_unknown(ctx);
+                                    } else {
+                                        ctx.declare_variable_unknown(&key.snbt_string.1);
+                                    }
+
+                                    error = true;
+                                }
+                            }
+
+                            if error { None } else { Some(()) }
+                        }
+                        _ => {
+                            for (key, pattern) in patterns {
+                                if let Some(pattern) = pattern {
+                                    pattern.kind.destructure_unknown(ctx);
+                                } else {
+                                    ctx.declare_variable_unknown(&key.snbt_string.1);
+                                }
+                            }
+
+                            ctx.add_info(SemanticAnalysisInfo {
+                                span: self.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::MismatchedPatternTypes {
+                                        expected: value_type,
+                                        actual: self.kind.get_type(),
+                                    },
+                                ),
+                            })
+                        }
+                    }
                 } else {
                     for (key, pattern) in patterns {
                         if let Some(pattern) = pattern {
                             pattern.kind.destructure_unknown(ctx);
                         } else {
-                            ctx.declare_variable_unknown(&key.value);
+                            ctx.declare_variable_unknown(&key.snbt_string.1);
                         }
                     }
 

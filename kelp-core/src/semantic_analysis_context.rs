@@ -30,10 +30,6 @@ pub enum SemanticAnalysisError {
         right: DataTypeKind,
     },
     CannotPerformAugmentedAssignment(DataTypeKind),
-    MismatchedTupleLength {
-        expected: usize,
-        actual: usize,
-    },
     MismatchedPatternTypes {
         expected: DataTypeKind,
         actual: PatternType,
@@ -61,7 +57,6 @@ pub enum SemanticAnalysisError {
     TypeDoesntHaveFields(DataTypeKind),
     CannotNegateType(DataTypeKind),
     CannotInvertType(DataTypeKind),
-    TypeRequiresReference(DataTypeKind),
     TypeDoesntHaveField {
         data_type: DataTypeKind,
         field: String,
@@ -100,13 +95,6 @@ impl Display for SemanticAnalysisError {
             ),
             Self::MismatchedTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)
-            }
-            Self::MismatchedTupleLength { actual, expected } => {
-                write!(
-                    f,
-                    "Expected tuple of length {} but got {}",
-                    actual, expected
-                )
             }
             Self::MismatchedPatternTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)
@@ -179,12 +167,9 @@ impl Display for SemanticAnalysisError {
             Self::TypeDoesntHaveField { data_type, field } => {
                 write!(
                     f,
-                    "The type '{}' doesn't have the field '{}'",
+                    "The type '{}' does not have a field named '{}'",
                     data_type, field
                 )
-            }
-            Self::TypeRequiresReference(data_type) => {
-                write!(f, "The type '{}' requires a reference", data_type)
             }
             Self::InvalidGenerics {
                 data_type_kind: data_type,

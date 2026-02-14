@@ -220,14 +220,6 @@ impl DataTypeKind {
         matches!(self, DataTypeKind::Boolean | DataTypeKind::Data(_))
     }
 
-    pub fn requires_reference(&self) -> bool {
-        matches!(self, DataTypeKind::Score | DataTypeKind::Data(_))
-    }
-
-    pub fn can_be_assigned_to(&self) -> bool {
-        matches!(self, DataTypeKind::Score | DataTypeKind::Data(_))
-    }
-
     pub fn is_score_value(&self) -> bool {
         match self {
             DataTypeKind::Boolean
@@ -585,6 +577,10 @@ impl DataTypeKind {
                 })
             }
             (Self::Compound(self_type), Self::Compound(other_type)) => self_type.equals(other_type),
+            (Self::Compound(compound_data_type), Self::TypedCompound(data_types))
+            | (Self::TypedCompound(data_types), Self::Compound(compound_data_type)) => data_types
+                .values()
+                .all(|data_type| data_type.equals(compound_data_type)),
             (Self::Data(self_data), Self::Data(other_data)) => self_data.equals(other_data),
             (Self::Custom(self_name, self_generics), Self::Custom(other_name, other_generics)) => {
                 self_name == other_name

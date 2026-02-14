@@ -2,8 +2,10 @@ use std::collections::BTreeMap;
 
 use kelp_core::{
     expression::literal::LiteralExpression,
-    pattern::{Pattern, PatternKind, SpannedString},
+    high::snbt_string::HighSNBTString,
+    pattern::{Pattern, PatternKind},
 };
+use minecraft_command_types::snbt::SNBTString;
 use parser_rs::{
     combinators::{char, choice::choice},
     fn_parser::FnParser,
@@ -51,9 +53,9 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
                 whitespace(input)?;
 
                 Some((
-                    SpannedString {
+                    HighSNBTString {
                         span: key_span,
-                        value: key,
+                        snbt_string: SNBTString(false, key.to_string()),
                     },
                     pattern,
                 ))

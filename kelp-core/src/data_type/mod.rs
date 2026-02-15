@@ -827,7 +827,8 @@ impl DataTypeKind {
                     false
                 }
             }
-            DataTypeKind::Compound(_) | DataTypeKind::Data(_) | DataTypeKind::SNBT => true,
+            DataTypeKind::Data(data_type) => data_type.has_field(field),
+            DataTypeKind::Compound(_) | DataTypeKind::SNBT => true,
             _ => false,
         }
     }
@@ -1016,7 +1017,9 @@ impl DataTypeKind {
                 return compound.get(field).cloned();
             }
             DataTypeKind::Compound(data_type) => *data_type.clone(),
-            DataTypeKind::Data(data_type) => return data_type.get_field_result(field),
+            DataTypeKind::Data(data_type) => {
+                DataTypeKind::Data(Box::new(data_type.get_field_result(field)?))
+            }
             DataTypeKind::Tuple(items) => {
                 return if let Ok(index) = field.1.parse::<i32>() {
                     items.get(index as usize).cloned()

@@ -160,8 +160,7 @@ impl ExpressionKind {
             ExpressionKind::FieldAccess(target, field) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
-                .get_field_result(&field.snbt_string)
-                .expect("Expression does not have the specified field"),
+                .get_field_result(&field.snbt_string)?,
             ExpressionKind::AsCast(_, data_type) => {
                 data_type.kind.resolve(supports_variable_type_scope, None)
             }
@@ -701,10 +700,11 @@ impl Expression {
 
                     resolved_data_type.as_place_type()?
                 }
-                ExpressionKind::FieldAccess(_, _) => self
-                    .kind
-                    .infer_data_type(supports_variable_type_scope)?
-                    .as_place_type()?,
+                ExpressionKind::FieldAccess(_, _) => {
+                    let r = self.kind.infer_data_type(supports_variable_type_scope)?;
+
+                    r.as_place_type()?
+                }
                 _ => return None,
             })
             .with_span(self.span),

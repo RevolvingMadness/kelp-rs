@@ -1,0 +1,7 @@
+mcfn namespace:main {
+    type pair<A, B> = { first: A, second: B }
+    let p: pair<integer, string> = { first: 1, second: "hello" }
+
+    type double_list<T> = list<T>
+    let l: double_list<double_list<integer>> = [[1], [2, 3]]
+}

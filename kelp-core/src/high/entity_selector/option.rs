@@ -48,7 +48,7 @@ impl HighEntitySelectorOption {
     ) -> Option<()> {
         match self {
             HighEntitySelectorOption::Nbt(_, expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs)
+                expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
             _ => Some(()),
         }

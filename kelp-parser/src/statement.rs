@@ -168,6 +168,44 @@ pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKin
     ))
 }
 
+pub fn data_type_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<StatementKind> {
+    literal("type")
+        .syntax(SemanticTokenKind::Keyword)
+        .parse(input)?;
+    required_inline_whitespace(input)?;
+    let name = identifier("type name")
+        .syntax(SemanticTokenKind::Class)
+        .parse(input)?;
+    let generics: Option<Vec<_>> = (|input: &mut Stream<'a>| {
+        char('<').parse(input)?;
+        whitespace(input)?;
+        let generics = identifier("generic parameter")
+            .syntax(SemanticTokenKind::Class)
+            .padded(whitespace)
+            .separated_by::<_, Vec<_>>(char(','))
+            .parse(input)?;
+        char('>').parse(input)?;
+        Some(generics)
+    })
+    .optional()
+    .parse(input)?;
+    inline_whitespace(input)?;
+    char('=').parse(input)?;
+    inline_whitespace(input)?;
+    let alias = parse_data_type.parse(input)?;
+
+    Some(StatementKind::TypeDeclaration(
+        name.to_string(),
+        generics.map(|generics| {
+            generics
+                .into_iter()
+                .map(|generic| generic.to_string())
+                .collect()
+        }),
+        alias,
+    ))
+}
+
 pub fn block_statement(input: &mut Stream) -> Option<StatementKind> {
     char('{').parse(input)?;
     whitespace(input)?;
@@ -215,6 +253,7 @@ pub fn parse_statement(input: &mut Stream) -> Option<Statement> {
         match_statement,
         if_statement,
         variable_declaration_statement,
+        data_type_declaration_statement,
         block_statement,
         append_statement,
         remove_statement,

@@ -1,0 +1,39 @@
+mcfn namespace:main {
+    type abilities = {
+        invulnerable: boolean,
+        mayfly: boolean,
+        instabuild: boolean,
+        walkSpeed: float,
+        mayBuild: boolean,
+        flying: boolean,
+        flySpeed: float
+    }
+
+    type entity = data<{ abilities: abilities }>
+
+    let {
+        abilities: {
+            invulnerable: is_invulnerable,
+            mayfly: can_fly,
+            instabuild: can_instabuild,
+            walkSpeed: walk_speed,
+            mayBuild: may_build,
+            flying: is_flying,
+            flySpeed: fly_speed
+        }
+    } = &(entity @s {} as entity)
+
+    tellraw @a ["is_invulnerable: ", is_invulnerable]
+    tellraw @a ["can_fly: ", can_fly]
+    tellraw @a ["can_instabuild: ", can_instabuild]
+    tellraw @a ["walk_speed: ", walk_speed]
+    tellraw @a ["may_build: ", may_build]
+    tellraw @a ["is_flying: ", is_flying]
+    tellraw @a ["fly_speed: ", fly_speed]
+
+    if is_invulnerable {
+        tellraw @a "You are invulnerable"
+    } else {
+        tellraw @a "You are not invulnerable"
+    }
+}

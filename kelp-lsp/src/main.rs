@@ -181,7 +181,8 @@ impl Backend {
                 ..Default::default()
             };
 
-            ctx.scopes.push_front(BTreeMap::new());
+            use kelp_core::semantic_analysis_context::Scope;
+            ctx.scopes.push_front(Scope::default());
 
             for statement in statements {
                 statement.perform_semantic_analysis(&mut ctx, false);

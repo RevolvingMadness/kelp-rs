@@ -1,5 +1,6 @@
 use crate::compile_context::CompileContext;
 use crate::data_type::DataTypeKind;
+use crate::data_type::high::HighDataType;
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::HighNamespace;
 use crate::expression::{
@@ -8,7 +9,10 @@ use crate::expression::{
 use crate::high::data::{GeneratedDataTarget, HighDataTarget, HighDataTargetKind};
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use crate::high::player_score::GeneratedPlayerScore;
-use crate::semantic_analysis_context::SemanticAnalysisInfo;
+use crate::semantic_analysis_context::{
+    SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
+};
+use crate::trait_ext::OptionIterExt;
 use minecraft_command_types::command::data::DataTarget;
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
 use minecraft_command_types::command::scoreboard::{
@@ -22,6 +26,7 @@ use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::SNBTString;
 use nonempty::{NonEmpty, nonempty};
+use parser_rs::parser_range::ParserRange;
 use serde_json::json;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashSet, VecDeque};
@@ -41,7 +46,103 @@ pub struct HighDatapackSettings {
     pub num_match_cases_to_split: usize,
 }
 
-pub type Scope = BTreeMap<String, (DataTypeKind, ConstantExpression)>;
+#[derive(Debug, Clone)]
+pub enum DataTypeDeclarationKind {
+    Alias {
+        name: String,
+        generics: Option<Vec<String>>,
+        alias: DataTypeKind,
+    },
+    Generic(String),
+}
+
+impl DataTypeDeclarationKind {
+    pub fn perform_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: ParserRange,
+        generic_names: Option<&Vec<String>>,
+        generic_types: &[HighDataType],
+    ) -> Option<()> {
+        generic_types
+            .iter()
+            .map(|generic| generic.perform_semantic_analysis(generic_names, ctx))
+            .all_some()?;
+
+        match self {
+            DataTypeDeclarationKind::Alias {
+                name,
+                generics: inner_generics,
+                ..
+            } => {
+                let actual_generics = generic_types.len();
+                let expected_generics = inner_generics
+                    .as_ref()
+                    .map(|generics| generics.len())
+                    .unwrap_or(0);
+
+                if expected_generics != actual_generics {
+                    ctx.add_info(SemanticAnalysisInfo {
+                        span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::InvalidGenerics {
+                                data_type_kind: name.clone(),
+                                expected: expected_generics,
+                                actual: actual_generics,
+                            },
+                        ),
+                    })
+                } else {
+                    Some(())
+                }
+            }
+            DataTypeDeclarationKind::Generic(_) => {
+                unreachable!()
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Scope {
+    pub variables: BTreeMap<String, (DataTypeKind, ConstantExpression)>,
+    pub types: BTreeMap<String, DataTypeDeclarationKind>,
+}
+
+impl Scope {
+    pub fn get_variable(&self, name: &str) -> Option<&(DataTypeKind, ConstantExpression)> {
+        self.variables.get(name)
+    }
+
+    pub fn get_variable_mut(
+        &mut self,
+        name: &str,
+    ) -> Option<&mut (DataTypeKind, ConstantExpression)> {
+        self.variables.get_mut(name)
+    }
+
+    pub fn contains_variable(&self, name: &str) -> bool {
+        self.variables.contains_key(name)
+    }
+
+    pub fn declare_variable(
+        &mut self,
+        name: String,
+        data_type: DataTypeKind,
+        value: ConstantExpression,
+    ) {
+        self.variables.insert(name, (data_type, value));
+    }
+
+    pub fn get_data_type(&self, name: &str) -> Option<&DataTypeDeclarationKind> {
+        self.types.get(name)
+    }
+
+    pub fn declare_data_type(&mut self, name: String, alias: DataTypeDeclarationKind) {
+        self.types.insert(name, alias);
+    }
+}
+
 pub type Scopes = VecDeque<Scope>;
 
 pub struct HighDatapack {
@@ -62,12 +163,16 @@ impl SupportsVariableTypeScope for HighDatapack {
     }
 
     fn add_info(&mut self, _: SemanticAnalysisInfo) {}
+
+    fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
+        self.get_data_type(name).map(Some)
+    }
 }
 
 impl HighDatapack {
     pub fn new(name: impl Into<String>) -> HighDatapack {
         let mut scopes = Scopes::new();
-        scopes.push_front(Scope::new());
+        scopes.push_front(Scope::default());
 
         HighDatapack {
             name: name.into(),
@@ -93,7 +198,7 @@ impl HighDatapack {
 
     #[inline]
     pub fn start_scope(&mut self) {
-        self.scopes.push_front(Scope::new());
+        self.scopes.push_front(Scope::default());
     }
 
     #[inline]
@@ -257,7 +362,7 @@ impl HighDatapack {
 
     pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, ConstantExpression)> {
         for scope in self.scopes.iter() {
-            if let Some(value) = scope.get(name) {
+            if let Some(value) = scope.get_variable(name) {
                 return Some(value.clone());
             }
         }
@@ -267,7 +372,7 @@ impl HighDatapack {
 
     pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut ConstantExpression> {
         for scope in self.scopes.iter_mut() {
-            if let Some((_, value)) = scope.get_mut(name) {
+            if let Some((_, value)) = scope.get_variable_mut(name) {
                 return Some(value);
             }
         }
@@ -275,10 +380,10 @@ impl HighDatapack {
         None
     }
 
-    pub fn get_variable_scope(&self, name: &str) -> Option<usize> {
-        for (i, scope) in self.scopes.iter().enumerate() {
-            if scope.contains_key(name) {
-                return Some(i);
+    pub fn get_data_type(&self, name: &str) -> Option<DataTypeDeclarationKind> {
+        for scope in self.scopes.iter() {
+            if let Some(value) = scope.get_data_type(name) {
+                return Some(value.clone());
             }
         }
 
@@ -288,24 +393,34 @@ impl HighDatapack {
     #[inline]
     #[must_use]
     pub fn variable_exists_in_current_scope(&self, name: &str) -> bool {
-        self.scopes.front().expect("No scopes").contains_key(name)
+        self.scopes
+            .front()
+            .expect("No scopes")
+            .contains_variable(name)
     }
 
     pub fn declare_variable(
         &mut self,
-        name: &str,
+        name: String,
         data_type: DataTypeKind,
         value: ConstantExpression,
     ) {
         self.scopes
             .front_mut()
             .expect("No scopes")
-            .insert(name.to_string(), (data_type, value));
+            .declare_variable(name, data_type, value);
+    }
+
+    pub fn declare_data_type(&mut self, name: String, kind: DataTypeDeclarationKind) {
+        self.scopes
+            .front_mut()
+            .expect("No scopes")
+            .declare_data_type(name, kind);
     }
 
     pub fn assign_variable(&mut self, name: &str, value: ConstantExpression) {
         for scope in self.scopes.iter_mut().rev() {
-            if let Some((_, existing_value)) = scope.get_mut(name) {
+            if let Some((_, existing_value)) = scope.get_variable_mut(name) {
                 *existing_value = value;
                 return;
             }

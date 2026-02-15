@@ -5,8 +5,8 @@ use minecraft_command_types::command::{
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack, expression::Expression,
-    high::command::scoreboard::players::HighScoreboardNumberFormat,
+    compile_context::CompileContext, data_type::DataTypeKind, datapack::HighDatapack,
+    expression::Expression, high::command::scoreboard::players::HighScoreboardNumberFormat,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -27,7 +27,7 @@ impl HighScoreboardModification {
         match self {
             HighScoreboardModification::DisplayAutoUpdate(_) => Some(()),
             HighScoreboardModification::DisplayName(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs)
+                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
             }
             HighScoreboardModification::NumberFormat(number_format) => number_format
                 .as_ref()
@@ -82,7 +82,9 @@ impl HighObjectivesScoreboardCommand {
             HighObjectivesScoreboardCommand::List => Some(()),
             HighObjectivesScoreboardCommand::Add(_, _, expression) => expression
                 .as_ref()
-                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
+                .map(|expression| {
+                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
+                })
                 .unwrap_or(Some(())),
             HighObjectivesScoreboardCommand::Remove(_) => Some(()),
             HighObjectivesScoreboardCommand::SetDisplay(_, _) => Some(()),

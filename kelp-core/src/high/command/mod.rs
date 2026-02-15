@@ -7,6 +7,7 @@ use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
+    data_type::DataTypeKind,
     datapack::HighDatapack,
     expression::Expression,
     high::{
@@ -62,7 +63,8 @@ impl HighCommand {
                 .unwrap_or(Some(())),
             HighCommand::Tellraw(selector, expression) => {
                 let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let expression_result =
+                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT));
 
                 selector_result?;
                 expression_result?;
@@ -73,7 +75,13 @@ impl HighCommand {
             HighCommand::Scoreboard(command) => command.perform_semantic_analysis(ctx, is_lhs),
             HighCommand::Summon(_, _, expression) => expression
                 .as_ref()
-                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
+                .map(|expression| {
+                    expression.perform_semantic_analysis(
+                        ctx,
+                        is_lhs,
+                        Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
+                    )
+                })
                 .unwrap_or(Some(())),
         }
     }

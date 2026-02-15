@@ -221,7 +221,10 @@ impl PlaceType {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedToData(value_type.clone()),
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: data_type.clone(),
+                                actual: value_type.clone(),
+                            },
                         ),
                     });
                 }
@@ -244,17 +247,7 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Variable(data_type) => {
-                if !data_type.equals(value_type) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: value.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: data_type,
-                                actual: value_type.clone(),
-                            },
-                        ),
-                    });
-                }
+                data_type.perform_equality_semantic_analysis(ctx, value_type, &value);
             }
             PlaceTypeKind::Underscore => {}
         }

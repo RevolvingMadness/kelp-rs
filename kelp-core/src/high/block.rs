@@ -24,7 +24,7 @@ impl HighBlockState {
         if let Some(data_tags) = &self.data_tags {
             data_tags
                 .values()
-                .map(|data_tag| data_tag.perform_semantic_analysis(ctx, is_lhs))
+                .map(|data_tag| data_tag.perform_semantic_analysis(ctx, is_lhs, None))
                 .all_some()
         } else {
             Some(())

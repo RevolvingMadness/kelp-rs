@@ -3,7 +3,9 @@ use clap::Parser;
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::HighDatapack;
 use kelp_core::generate_message_error;
-use kelp_core::semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisInfoKind};
+use kelp_core::semantic_analysis_context::{
+    Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
+};
 use kelp_core::statement::Statement;
 use kelp_core::trait_ext::OptionIterExt;
 use kelp_parser::file;
@@ -12,7 +14,6 @@ use parser_rs::ParseResult;
 use parser_rs::fn_parser::FnParser;
 use parser_rs::stream::Stream;
 use std::cmp::min;
-use std::collections::BTreeMap;
 use std::fs;
 use std::time::Instant;
 use yansi::Paint;
@@ -22,7 +23,9 @@ fn process_success(statements: Vec<Statement>, file_name: &str, source_text: &st
         max_infos: 10,
         ..Default::default()
     };
-    semantic_analysis_context.scopes.push_front(BTreeMap::new());
+    semantic_analysis_context
+        .scopes
+        .push_front(Scope::default());
 
     let start_semantic = Instant::now();
     let succeeded = statements

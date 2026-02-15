@@ -1,15 +1,18 @@
 use std::collections::BTreeMap;
 
-use crate::compile_context::CompileContext;
-use crate::data_type::{DataTypeKind, high::HighDataType};
-use crate::datapack::HighDatapack;
-use crate::expression::{Expression, constant::ConstantExpressionKind};
-use crate::pattern::Pattern;
-use crate::semantic_analysis_context::{
-    Scope, SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-    SemanticAnalysisInfoKind,
-};
+use crate::datapack::DataTypeDeclarationKind;
 use crate::trait_ext::OptionIterExt;
+use crate::{
+    compile_context::CompileContext,
+    data_type::{DataTypeKind, high::HighDataType},
+    datapack::HighDatapack,
+    expression::{Expression, constant::ConstantExpressionKind},
+    pattern::Pattern,
+    semantic_analysis_context::{
+        Scope, SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
+        SemanticAnalysisInfoKind,
+    },
+};
 use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{
     DataCommand, DataCommandModification, DataCommandModificationMode,
@@ -34,6 +37,7 @@ pub enum StatementKind {
     Block(Vec<Statement>),
     AppendData(Expression, Box<Expression>),
     RemoveData(Expression),
+    TypeDeclaration(String, Option<Vec<String>>, HighDataType),
 }
 
 fn compile_if(
@@ -103,16 +107,12 @@ impl StatementKind {
             }
             StatementKind::VariableDeclaration(data_type, pattern, value) => {
                 let data_type = data_type
-                    .map(|data_type| data_type.kind.resolve())
+                    .map(|data_type| data_type.kind.resolve(datapack, None))
                     .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
 
                 let value = value.resolve_force(datapack, ctx);
 
-                pattern.kind.destructure(
-                    datapack,
-                    data_type,
-                    value.into_dummy_constant_expression(),
-                );
+                data_type.destructure(datapack, value.into_dummy_constant_expression(), &pattern);
             }
             StatementKind::While(condition, body) => {
                 let mut while_body_ctx = CompileContext::default();
@@ -171,7 +171,7 @@ impl StatementKind {
 
                     datapack.start_scope();
                     datapack.declare_variable(
-                        &variable_name,
+                        variable_name,
                         DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
                         ConstantExpressionKind::Data(
                             unique_data_target_2.clone(),
@@ -263,7 +263,7 @@ impl StatementKind {
 
                     datapack.start_scope();
                     datapack.declare_variable(
-                        &variable_name,
+                        variable_name,
                         DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
                         ConstantExpressionKind::Data(
                             unique_data_target.clone(),
@@ -377,6 +377,18 @@ impl StatementKind {
                     Command::Data(DataCommand::Remove(target.target, path)),
                 );
             }
+            StatementKind::TypeDeclaration(name, generics, alias) => {
+                let alias = alias.kind.resolve(datapack, generics.as_ref());
+
+                datapack.declare_data_type(
+                    name.clone(),
+                    DataTypeDeclarationKind::Alias {
+                        name,
+                        generics,
+                        alias,
+                    },
+                );
+            }
         }
     }
 }
@@ -398,50 +410,53 @@ impl Statement {
                 statement.perform_semantic_analysis(ctx, is_lhs)
             }
             StatementKind::Expression(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs)
+                expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
             StatementKind::VariableDeclaration(data_type, pattern, value) => {
-                let value_error = value.perform_semantic_analysis(ctx, is_lhs).is_none();
+                let data_type = data_type.as_ref().map(|data_type| {
+                    data_type
+                        .perform_semantic_analysis(None, ctx)
+                        .map(|_| data_type.kind.resolve(ctx, None))
+                });
+
+                let data_type = match data_type {
+                    None => None,
+                    Some(Some(data_type)) => Some(data_type),
+                    Some(None) => {
+                        pattern.kind.destructure_unknown(ctx);
+                        return None;
+                    }
+                };
+
+                let value_error = value
+                    .perform_semantic_analysis(ctx, is_lhs, data_type.as_ref())
+                    .is_none();
 
                 pattern.perform_irrefutablity_semantic_analysis(ctx)?;
 
                 if value_error {
                     pattern.kind.destructure_unknown(ctx);
+
                     return None;
                 }
 
                 let value_type = value.kind.infer_data_type(ctx)?;
 
                 let final_type = if let Some(data_type) = data_type {
-                    if data_type.perform_semantic_analysis(ctx).is_none() {
-                        pattern.kind.destructure_unknown(ctx);
-                        return None;
-                    }
+                    data_type.perform_equality_semantic_analysis(ctx, &value_type, value)?;
 
-                    let data_type = data_type.kind.resolve();
-
-                    if !data_type.equals(&value_type) {
-                        return ctx.add_info(SemanticAnalysisInfo {
-                            span: value.span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::MismatchedTypes {
-                                    expected: data_type.clone(),
-                                    actual: value_type,
-                                },
-                            ),
-                        });
-                    }
                     data_type
                 } else {
                     value_type
                 };
 
-                pattern.perform_destructure_semantic_analysis(ctx, value.span, final_type)?;
+                final_type.perform_destructure_semantic_analysis(ctx, value.span, pattern)?;
 
                 Some(())
             }
             StatementKind::While(expression, statement) => {
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let expression_result =
+                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::Boolean));
                 let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
 
                 expression_result?;
@@ -463,7 +478,8 @@ impl Statement {
             }
             StatementKind::Match(_, _) => todo!(),
             StatementKind::If(expression, statement, else_statement) => {
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let expression_result =
+                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::Boolean));
                 let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
                 let else_statement_result = else_statement
                     .as_ref()
@@ -489,7 +505,7 @@ impl Statement {
                 Some(())
             }
             StatementKind::ForIn(_, name, expression, statement) => {
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs, None);
 
                 let expression_type = expression.kind.infer_data_type(ctx)?;
 
@@ -515,7 +531,7 @@ impl Statement {
                 Some(())
             }
             StatementKind::Block(statements) => {
-                ctx.scopes.push_front(Scope::new());
+                ctx.scopes.push_front(Scope::default());
 
                 let result = statements
                     .iter()
@@ -527,15 +543,55 @@ impl Statement {
                 result
             }
             StatementKind::AppendData(target, value) => {
-                let target_result = target.perform_semantic_analysis(ctx, is_lhs);
-                let value_result = value.perform_semantic_analysis(ctx, is_lhs);
+                let target_result = target.perform_semantic_analysis(
+                    ctx,
+                    is_lhs,
+                    Some(&DataTypeKind::Data(Box::new(DataTypeKind::SNBT))),
+                );
+                let value_result = value.perform_semantic_analysis(ctx, is_lhs, None);
 
                 target_result?;
                 value_result?;
 
                 Some(())
             }
-            StatementKind::RemoveData(target) => target.perform_semantic_analysis(ctx, is_lhs),
+            StatementKind::RemoveData(target) => target.perform_semantic_analysis(
+                ctx,
+                is_lhs,
+                Some(&DataTypeKind::Data(Box::new(DataTypeKind::SNBT))),
+            ),
+            StatementKind::TypeDeclaration(name, generics, alias) => {
+                if ctx.data_type_is_declared(name) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeIsAlreadyDefined(name.clone()),
+                        ),
+                    });
+                }
+
+                if alias
+                    .perform_semantic_analysis(generics.as_ref(), ctx)
+                    .is_some()
+                {
+                    let alias = alias.kind.resolve(ctx, generics.as_ref());
+
+                    ctx.declare_data_type(
+                        name.clone(),
+                        Some(DataTypeDeclarationKind::Alias {
+                            name: name.clone(),
+                            generics: generics.clone(),
+                            alias,
+                        }),
+                    );
+
+                    Some(())
+                } else {
+                    ctx.declare_data_type(name.clone(), None);
+
+                    None
+                }
+            }
         }
     }
 

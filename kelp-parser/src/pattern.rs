@@ -25,6 +25,7 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
             .map(|binding| PatternKind::Binding(binding.to_string())),
         |input: &mut Stream| {
             char('(').parse(input)?;
+            whitespace(input)?;
             let elements = pattern
                 .padded(whitespace)
                 .separated_by(char(','))
@@ -66,6 +67,12 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
             Some(PatternKind::Compound(
                 elements.into_iter().collect::<BTreeMap<_, _>>(),
             ))
+        },
+        |input: &mut Stream| {
+            char('&').parse(input)?;
+            let pattern = pattern.parse(input)?;
+
+            Some(PatternKind::Dereference(Box::new(pattern)))
         },
         literal_expression.spanned().map(|(value_span, value)| {
             PatternKind::Literal(LiteralExpression {

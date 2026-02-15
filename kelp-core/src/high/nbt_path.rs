@@ -29,7 +29,7 @@ impl HighNbtPathNode {
                 .iter()
                 .map(|(key, value)| {
                     let key = key.perform_semantic_analysis(ctx, is_lhs);
-                    let value = value.perform_semantic_analysis(ctx, is_lhs);
+                    let value = value.perform_semantic_analysis(ctx, is_lhs, None);
 
                     key?;
                     value?;
@@ -46,7 +46,7 @@ impl HighNbtPathNode {
                             .iter()
                             .map(|(key, value)| {
                                 let key = key.perform_semantic_analysis(ctx, is_lhs);
-                                let value = value.perform_semantic_analysis(ctx, is_lhs);
+                                let value = value.perform_semantic_analysis(ctx, is_lhs, None);
 
                                 key?;
                                 value?;
@@ -64,7 +64,7 @@ impl HighNbtPathNode {
             }
             HighNbtPathNode::Index(expression) => expression
                 .as_ref()
-                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs))
+                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs, None))
                 .unwrap_or(Some(())),
         }
     }

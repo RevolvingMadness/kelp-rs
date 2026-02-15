@@ -6,7 +6,8 @@ use std::{
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    data_type::{DataTypeKind, GenericDataTypeKind},
+    data_type::DataTypeKind,
+    datapack::DataTypeDeclarationKind,
     expression::supports_variable_type_scope::SupportsVariableTypeScope,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     pattern_type::PatternType,
@@ -45,6 +46,9 @@ pub enum SemanticAnalysisError {
         from: DataTypeKind,
         to: DataTypeKind,
     },
+    CompoundDoesNotContainKey(String),
+    UnexpectedKey(String),
+    TypeIsAlreadyDefined(String),
     PatternIsNotIrrefutable,
     UnknownType(String),
     TypeIsNotCondition(DataTypeKind),
@@ -62,7 +66,7 @@ pub enum SemanticAnalysisError {
         field: String,
     },
     InvalidGenerics {
-        data_type_kind: GenericDataTypeKind,
+        data_type_kind: String,
         expected: usize,
         actual: usize,
     },
@@ -108,6 +112,19 @@ impl Display for SemanticAnalysisError {
             }
             Self::CannotIterateType(data_type) => {
                 write!(f, "Cannot iterate over type '{}'", data_type)
+            }
+            Self::CompoundDoesNotContainKey(key) => {
+                write!(f, "Expected key '{}'", key)
+            }
+            Self::UnexpectedKey(key) => {
+                write!(f, " Unexpected key '{}'", key)
+            }
+            Self::TypeIsAlreadyDefined(name) => {
+                write!(
+                    f,
+                    "The type '{}' has already been declared in this scope",
+                    name
+                )
             }
             Self::InvalidAugmentedAssignmentType(operator, target_type, value_type) => {
                 let word = match operator {
@@ -222,7 +239,39 @@ pub struct SemanticAnalysisInfo {
     pub kind: SemanticAnalysisInfoKind,
 }
 
-pub type Scope = BTreeMap<String, Option<DataTypeKind>>;
+#[derive(Debug, Default, Clone)]
+pub struct Scope {
+    pub variables: BTreeMap<String, Option<DataTypeKind>>,
+    pub variable_types: BTreeMap<String, Option<DataTypeKind>>,
+    pub types: BTreeMap<String, Option<DataTypeDeclarationKind>>,
+}
+
+impl Scope {
+    pub fn declare_variable(&mut self, name: String, value: Option<DataTypeKind>) {
+        self.variable_types.insert(name, value);
+    }
+
+    pub fn variable_is_declared(&self, name: &str) -> bool {
+        self.variable_types.contains_key(name)
+    }
+
+    pub fn get_variable(&self, name: &str) -> Option<&Option<DataTypeKind>> {
+        self.variable_types.get(name)
+    }
+
+    pub fn declare_data_type(&mut self, name: String, kind: Option<DataTypeDeclarationKind>) {
+        self.types.insert(name, kind);
+    }
+
+    pub fn data_type_is_declared(&self, name: &str) -> bool {
+        self.types.contains_key(name)
+    }
+
+    pub fn get_data_type(&self, name: &str) -> Option<&Option<DataTypeDeclarationKind>> {
+        self.types.get(name)
+    }
+}
+
 pub type Scopes = VecDeque<Scope>;
 
 #[derive(Debug, Default, Clone)]
@@ -237,7 +286,7 @@ impl SemanticAnalysisContext {
     pub fn add_invalid_generics<T>(
         &mut self,
         span: ParserRange,
-        data_type: GenericDataTypeKind,
+        data_type: String,
         expected: usize,
         actual: usize,
     ) -> Option<T> {
@@ -266,7 +315,7 @@ impl SemanticAnalysisContext {
         self.scopes
             .front_mut()
             .expect("No scopes")
-            .insert(name.to_string(), data_type);
+            .declare_variable(name.to_string(), data_type);
     }
 
     #[inline]
@@ -279,17 +328,41 @@ impl SemanticAnalysisContext {
         self.declare_variable(name, None);
     }
 
+    pub fn declare_data_type(&mut self, name: String, kind: Option<DataTypeDeclarationKind>) {
+        self.scopes
+            .front_mut()
+            .expect("No scopes")
+            .declare_data_type(name, kind);
+    }
+
     pub fn variable_is_declared(&self, name: &str) -> bool {
         self.scopes
             .iter()
             .rev()
-            .any(|scope| scope.contains_key(name))
+            .any(|scope| scope.variable_is_declared(name))
+    }
+
+    pub fn data_type_is_declared(&self, name: &str) -> bool {
+        self.scopes
+            .iter()
+            .rev()
+            .any(|scope| scope.data_type_is_declared(name))
     }
 
     pub fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
         for scope in &self.scopes {
-            if let Some(value) = scope.get(name) {
-                return Some(value.clone());
+            if let Some(data_type) = scope.get_variable(name) {
+                return Some(data_type.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
+        for scope in &self.scopes {
+            if let Some(data_type) = scope.get_data_type(name) {
+                return Some(data_type.clone());
             }
         }
 
@@ -304,5 +377,9 @@ impl SupportsVariableTypeScope for SemanticAnalysisContext {
 
     fn add_info(&mut self, semantic_analysis_info: SemanticAnalysisInfo) {
         self.add_info::<()>(semantic_analysis_info);
+    }
+
+    fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
+        self.get_data_type(name)
     }
 }

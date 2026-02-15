@@ -72,6 +72,10 @@ pub fn parse_data_type(input: &mut Stream) -> Option<HighDataType> {
 
             char('(').parse(input)?;
             whitespace(input)?;
+            let data_types = parse_data_type
+                .padded(whitespace)
+                .separated_by::<_, Vec<_>>(char(','))
+                .parse(input)?;
             char(')').parse(input)?;
 
             Some(HighDataType {
@@ -79,7 +83,11 @@ pub fn parse_data_type(input: &mut Stream) -> Option<HighDataType> {
                     start,
                     end: input.position,
                 },
-                kind: HighDataTypeKind::Unit,
+                kind: if data_types.is_empty() {
+                    HighDataTypeKind::Unit
+                } else {
+                    HighDataTypeKind::Tuple(data_types)
+                },
             })
         },
         parse_typed_compound,

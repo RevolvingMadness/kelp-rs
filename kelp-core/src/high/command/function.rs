@@ -3,6 +3,7 @@ use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
+    data_type::DataTypeKind,
     datapack::HighDatapack,
     expression::ExpressionCompoundKind,
     high::{data::HighDataTarget, nbt_path::HighNbtPath},
@@ -25,7 +26,13 @@ impl HighFunctionCommandArguments {
         match self {
             HighFunctionCommandArguments::Compound(compound) => compound
                 .values()
-                .map(|value| value.perform_semantic_analysis(ctx, is_lhs))
+                .map(|value| {
+                    value.perform_semantic_analysis(
+                        ctx,
+                        is_lhs,
+                        Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
+                    )
+                })
                 .all_some(),
             HighFunctionCommandArguments::DataTarget(target, path) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);

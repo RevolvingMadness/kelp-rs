@@ -4,7 +4,9 @@ use minecraft_command_types::impl_has_macro_false;
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    data_type::{DataTypeKind, GenericDataTypeKind},
+    data_type::DataTypeKind,
+    datapack::DataTypeDeclarationKind,
+    expression::supports_variable_type_scope::SupportsVariableTypeScope,
     high::snbt_string::HighSNBTString,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -13,124 +15,218 @@ use crate::{
     trait_ext::OptionIterExt,
 };
 
+fn substitute_data_type(
+    data_type: &DataTypeKind,
+    substitutions: &BTreeMap<String, DataTypeKind>,
+) -> DataTypeKind {
+    match data_type {
+        DataTypeKind::List(inner) => {
+            DataTypeKind::List(Box::new(substitute_data_type(inner, substitutions)))
+        }
+        DataTypeKind::Compound(inner) => {
+            DataTypeKind::Compound(Box::new(substitute_data_type(inner, substitutions)))
+        }
+        DataTypeKind::Data(inner) => {
+            DataTypeKind::Data(Box::new(substitute_data_type(inner, substitutions)))
+        }
+        DataTypeKind::Reference(inner) => {
+            DataTypeKind::Reference(Box::new(substitute_data_type(inner, substitutions)))
+        }
+        DataTypeKind::Tuple(inner) => DataTypeKind::Tuple(
+            inner
+                .iter()
+                .map(|t| substitute_data_type(t, substitutions))
+                .collect(),
+        ),
+        DataTypeKind::TypedCompound(inner) => DataTypeKind::TypedCompound(
+            inner
+                .iter()
+                .map(|(k, v)| (k.clone(), substitute_data_type(v, substitutions)))
+                .collect(),
+        ),
+        DataTypeKind::Generic(name) => substitutions
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| data_type.clone()),
+        _ => data_type.clone(),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum HighDataTypeKind {
     Named(ParserRange, String, Vec<HighDataType>),
     TypedCompound(BTreeMap<HighSNBTString, HighDataType>),
     Reference(Box<HighDataType>),
+    Tuple(Vec<HighDataType>),
     Unit,
 }
 
 impl HighDataTypeKind {
-    pub fn resolve(&self) -> DataTypeKind {
+    pub fn resolve(
+        &self,
+        supports_variable_type_scope: &mut dyn SupportsVariableTypeScope,
+        generics: Option<&Vec<String>>,
+    ) -> DataTypeKind {
         match self {
-            HighDataTypeKind::Named(_, name, generics) => match name.as_str() {
+            HighDataTypeKind::Named(_, name, inner_generics) => match name.as_str() {
+                "boolean" => {
+                    debug_assert!(inner_generics.is_empty());
+
+                    DataTypeKind::Boolean
+                }
                 "byte" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::Byte
                 }
                 "short" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::Short
                 }
                 "integer" | "int" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::Integer
                 }
                 "long" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::Long
                 }
                 "float" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::Float
                 }
                 "double" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::Double
                 }
                 "string" | "str" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::String
                 }
                 "score" => {
-                    if !generics.is_empty() {
-                        unreachable!()
-                    }
+                    debug_assert!(inner_generics.is_empty());
 
                     DataTypeKind::Score
                 }
                 "list" => {
-                    if generics.is_empty() {
+                    if inner_generics.is_empty() {
                         DataTypeKind::List(Box::new(DataTypeKind::SNBT))
-                    } else if generics.len() == 1
-                        && let Some(first) = generics.first()
+                    } else if inner_generics.len() == 1
+                        && let Some(first) = inner_generics.first()
                     {
-                        DataTypeKind::List(Box::new(first.kind.resolve()))
+                        DataTypeKind::List(Box::new(
+                            first.kind.resolve(supports_variable_type_scope, generics),
+                        ))
                     } else {
                         unreachable!()
                     }
                 }
                 "compound" => {
-                    if generics.is_empty() {
+                    if inner_generics.is_empty() {
                         DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))
-                    } else if generics.len() == 1
-                        && let Some(first) = generics.first()
+                    } else if inner_generics.len() == 1
+                        && let Some(first) = inner_generics.first()
                     {
-                        DataTypeKind::Compound(Box::new(first.kind.resolve()))
+                        DataTypeKind::Compound(Box::new(
+                            first.kind.resolve(supports_variable_type_scope, generics),
+                        ))
                     } else {
                         unreachable!()
                     }
                 }
                 "data" => {
-                    if generics.is_empty() {
+                    if inner_generics.is_empty() {
                         DataTypeKind::Data(Box::new(DataTypeKind::SNBT))
-                    } else if generics.len() == 1
-                        && let Some(first) = generics.first()
+                    } else if inner_generics.len() == 1
+                        && let Some(first) = inner_generics.first()
                     {
-                        DataTypeKind::Data(Box::new(first.kind.resolve()))
+                        DataTypeKind::Data(Box::new(
+                            first.kind.resolve(supports_variable_type_scope, generics),
+                        ))
                     } else {
                         unreachable!()
                     }
                 }
                 "snbt" => DataTypeKind::SNBT,
-                _ => DataTypeKind::Custom(
-                    name.clone(),
-                    generics
-                        .iter()
-                        .map(|generic| generic.kind.resolve())
-                        .collect(),
-                ),
+                _ => {
+                    let data_type = supports_variable_type_scope
+                        .get_data_type(name)
+                        .unwrap_or_else(|| {
+                            if let Some(generics) = generics
+                                && generics.contains(name)
+                            {
+                                Some(DataTypeDeclarationKind::Generic(name.clone()))
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap();
+
+                    match data_type {
+                        DataTypeDeclarationKind::Alias {
+                            generics: alias_generics,
+                            alias,
+                            ..
+                        } => {
+                            if inner_generics.len()
+                                != alias_generics
+                                    .as_ref()
+                                    .map(|generics| generics.len())
+                                    .unwrap_or(0)
+                            {
+                                todo!()
+                            }
+
+                            if let Some(alias_generics) = alias_generics {
+                                let mut substitutions = BTreeMap::new();
+                                for (param, arg) in alias_generics.iter().zip(inner_generics.iter())
+                                {
+                                    substitutions.insert(
+                                        param.clone(),
+                                        arg.kind.resolve(supports_variable_type_scope, generics),
+                                    );
+                                }
+
+                                substitute_data_type(&alias, &substitutions)
+                            } else {
+                                alias
+                            }
+                        }
+                        DataTypeDeclarationKind::Generic(name) => DataTypeKind::Generic(name),
+                    }
+                }
             },
             HighDataTypeKind::Unit => DataTypeKind::Unit,
-            HighDataTypeKind::Reference(data_type) => {
-                DataTypeKind::Reference(Box::new(data_type.kind.resolve()))
-            }
+            HighDataTypeKind::Tuple(data_types) => DataTypeKind::Tuple(
+                data_types
+                    .iter()
+                    .map(|data_type| {
+                        data_type
+                            .kind
+                            .resolve(supports_variable_type_scope, generics)
+                    })
+                    .collect(),
+            ),
+            HighDataTypeKind::Reference(data_type) => DataTypeKind::Reference(Box::new(
+                data_type
+                    .kind
+                    .resolve(supports_variable_type_scope, generics),
+            )),
             HighDataTypeKind::TypedCompound(compound) => DataTypeKind::TypedCompound(
                 compound
                     .iter()
-                    .map(|(key, value)| (key.snbt_string.clone(), value.kind.resolve()))
+                    .map(|(key, value)| {
+                        (
+                            key.snbt_string.clone(),
+                            value.kind.resolve(supports_variable_type_scope, generics),
+                        )
+                    })
                     .collect(),
             ),
         }
@@ -146,76 +242,91 @@ pub struct HighDataType {
 impl_has_macro_false!(HighDataType);
 
 impl HighDataType {
-    pub fn perform_semantic_analysis(&self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        &self,
+        generics: Option<&Vec<String>>,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<()> {
         match &self.kind {
-            HighDataTypeKind::Named(span, name, generics) => match name.as_str() {
-                "byte" => {
-                    if !generics.is_empty() {
+            HighDataTypeKind::Named(span, name, inner_generics) => match name.as_str() {
+                "boolean" | "bool" => {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Byte,
+                            "boolean".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
+                        );
+                    }
+                }
+                "byte" => {
+                    if !inner_generics.is_empty() {
+                        return ctx.add_invalid_generics(
+                            self.span,
+                            "byte".to_string(),
+                            0,
+                            inner_generics.len(),
                         );
                     }
                 }
                 "short" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Short,
+                            "short".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
                 "integer" | "int" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Integer,
+                            "integer".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
                 "long" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Long,
+                            "long".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
                 "float" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Float,
+                            "float".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
                 "double" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Double,
+                            "double".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
                 "string" | "str" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::String,
+                            "string".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
@@ -231,82 +342,94 @@ impl HighDataType {
                     }
                 }
                 "score" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Score,
+                            "score".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
                 "list" => {
-                    if generics.len() != 1 {
+                    if inner_generics.len() != 1 {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::List,
+                            "list".to_string(),
                             1,
-                            generics.len(),
+                            inner_generics.len(),
                         );
-                    } else if let Some(first) = generics.first() {
-                        return first.perform_semantic_analysis(ctx);
+                    } else if let Some(first) = inner_generics.first() {
+                        return first.perform_semantic_analysis(generics, ctx);
                     }
                 }
                 "compound" => {
-                    if generics.len() != 1 {
+                    if inner_generics.len() != 1 {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Compound,
+                            "compound".to_string(),
                             1,
-                            generics.len(),
+                            inner_generics.len(),
                         );
-                    } else if let Some(first) = generics.first() {
-                        return first.perform_semantic_analysis(ctx);
+                    } else if let Some(first) = inner_generics.first() {
+                        return first.perform_semantic_analysis(generics, ctx);
                     }
                 }
                 "data" => {
-                    if generics.len() != 1 {
+                    if inner_generics.len() != 1 {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::Data,
+                            "data".to_string(),
                             1,
-                            generics.len(),
+                            inner_generics.len(),
                         );
-                    } else if let Some(first) = generics.first() {
-                        return first.perform_semantic_analysis(ctx);
+                    } else if let Some(first) = inner_generics.first() {
+                        return first.perform_semantic_analysis(generics, ctx);
                     }
                 }
                 "snbt" => {
-                    if !generics.is_empty() {
+                    if !inner_generics.is_empty() {
                         return ctx.add_invalid_generics(
                             self.span,
-                            GenericDataTypeKind::SNBT,
+                            "snbt".to_string(),
                             0,
-                            generics.len(),
+                            inner_generics.len(),
                         );
                     }
                 }
-                _ => {
-                    if ctx.get_variable(name).is_none() {
-                        return ctx.add_info(SemanticAnalysisInfo {
-                            span: *span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::UnknownType(name.clone()),
-                            ),
-                        });
+                _ => match ctx.get_data_type(name) {
+                    Some(result) => {
+                        return result?.perform_semantic_analysis(
+                            ctx,
+                            self.span,
+                            generics,
+                            inner_generics,
+                        );
                     }
-                }
+                    None => {
+                        if !generics.is_some_and(|generics| generics.contains(name)) {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: *span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::UnknownType(name.clone()),
+                                ),
+                            });
+                        }
+                    }
+                },
             },
             HighDataTypeKind::Unit => (),
+            HighDataTypeKind::Tuple(data_types) => data_types
+                .iter()
+                .map(|data_type| data_type.perform_semantic_analysis(generics, ctx))
+                .all_some()?,
             HighDataTypeKind::Reference(data_type) => {
-                return data_type.perform_semantic_analysis(ctx);
+                return data_type.perform_semantic_analysis(generics, ctx);
             }
-            HighDataTypeKind::TypedCompound(compound) => {
-                return compound
-                    .values()
-                    .map(|value| value.perform_semantic_analysis(ctx))
-                    .all_some();
-            }
+            HighDataTypeKind::TypedCompound(compound) => compound
+                .values()
+                .map(|value| value.perform_semantic_analysis(generics, ctx))
+                .all_some()?,
         }
 
         Some(())

@@ -15,6 +15,7 @@ pub enum PatternType {
     Tuple(Vec<PatternType>),
     Reference(Box<PatternType>),
     Compound(BTreeMap<HighSNBTString, PatternType>),
+    Dereference(Box<PatternType>),
     Any,
 }
 
@@ -65,6 +66,7 @@ impl Display for PatternType {
                 f.write_str("}")
             }
             PatternType::Any => f.write_str("_"),
+            PatternType::Dereference(pattern_type) => write!(f, "&{}", pattern_type),
         }
     }
 }

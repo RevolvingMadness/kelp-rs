@@ -7,6 +7,7 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
+    data_type::DataTypeKind,
     datapack::HighDatapack,
     expression::Expression,
     high::{data::HighDataTarget, nbt_path::HighNbtPath},
@@ -57,7 +58,7 @@ impl HighDataCommandModification {
                 Some(())
             }
             HighDataCommandModification::Value(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs)
+                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
             }
         }
     }
@@ -135,7 +136,11 @@ impl HighDataCommand {
             }
             HighDataCommand::Merge(target, expression) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs);
+                let expression_result = expression.perform_semantic_analysis(
+                    ctx,
+                    is_lhs,
+                    Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
+                );
 
                 target_result?;
                 expression_result?;

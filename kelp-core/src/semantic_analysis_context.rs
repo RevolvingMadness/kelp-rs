@@ -48,9 +48,9 @@ pub enum SemanticAnalysisError {
     },
     TypeIsNotStruct(String),
     MissingKey(String),
-    CompoundHasNoKey(String),
+    UnexpectedKey(String),
     MissingField(String),
-    StructHasNoField(String),
+    UnexpectedField(String),
     TypeIsAlreadyDefined(String),
     PatternIsNotIrrefutable,
     UnknownType(String),
@@ -122,14 +122,14 @@ impl Display for SemanticAnalysisError {
             Self::MissingKey(key) => {
                 write!(f, "Missing key '{}'", key)
             }
-            Self::CompoundHasNoKey(key) => {
-                write!(f, "Compound has no key named '{}'", key)
+            Self::UnexpectedKey(key) => {
+                write!(f, "Unexpected key '{}'", key)
             }
             Self::MissingField(field) => {
                 write!(f, "Missing field '{}'", field)
             }
-            Self::StructHasNoField(field) => {
-                write!(f, "Struct has no field named '{}'", field)
+            Self::UnexpectedField(field) => {
+                write!(f, "Unexpected field '{}'", field)
             }
             Self::TypeIsAlreadyDefined(name) => {
                 write!(

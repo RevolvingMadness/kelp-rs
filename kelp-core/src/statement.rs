@@ -433,58 +433,77 @@ impl Statement {
             StatementKind::Expression(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
-            StatementKind::VariableDeclaration(explicit_data_type, pattern, value) => {
-                let data_type = explicit_data_type.as_ref().map(|explicit_data_type| {
+            StatementKind::VariableDeclaration(explicit_type, pattern, value) => {
+                let resolved_explicit_type = explicit_type.as_ref().map(|explicit_data_type| {
                     explicit_data_type
                         .perform_semantic_analysis(None, ctx)
                         .and_then(|_| explicit_data_type.kind.resolve(ctx, None))
                 });
 
-                let value_type = value.kind.infer_data_type(ctx);
-
-                let data_type = match data_type {
-                    None => value_type.clone(),
+                let resolved_explicit_type = match resolved_explicit_type {
+                    None => None,
                     Some(Some(data_type)) => Some(data_type),
                     Some(None) => {
+                        let _ = value.perform_semantic_analysis(ctx, is_lhs, None);
+
                         pattern.kind.destructure_unknown(ctx);
 
                         return None;
                     }
                 };
 
-                if value
-                    .perform_semantic_analysis(ctx, is_lhs, data_type.as_ref())
-                    .is_none()
-                {
-                    let _ = pattern.perform_irrefutablity_semantic_analysis(ctx);
+                let Some(value_type) = value.kind.infer_data_type(ctx) else {
+                    let _ = value.perform_semantic_analysis(
+                        ctx,
+                        is_lhs,
+                        resolved_explicit_type.as_ref(),
+                    );
 
-                    if let Some(data_type) = data_type {
-                        let _ = data_type
-                            .perform_destructure_semantic_analysis(ctx, value.span, pattern);
-                    } else {
-                        pattern.kind.destructure_unknown(ctx);
-                    }
-
-                    return None;
-                }
-
-                pattern.perform_irrefutablity_semantic_analysis(ctx)?;
-
-                let Some(value_type) = value_type else {
                     pattern.kind.destructure_unknown(ctx);
 
                     return None;
                 };
 
-                let final_type = if let Some(data_type) = data_type {
-                    data_type.perform_equality_semantic_analysis(ctx, &value_type, value)?;
-
-                    data_type
-                } else {
-                    value_type
+                let variable_type = match resolved_explicit_type {
+                    None => value_type.clone(),
+                    Some(data_type) => data_type,
                 };
 
-                final_type.perform_destructure_semantic_analysis(ctx, value.span, pattern)?;
+                let mut error = false;
+
+                if value
+                    .perform_semantic_analysis(ctx, is_lhs, Some(&variable_type))
+                    .is_none()
+                {
+                    error = true;
+                }
+
+                if variable_type
+                    .perform_equality_semantic_analysis(ctx, &value_type, value)
+                    .is_none()
+                {
+                    error = true;
+                }
+
+                if pattern
+                    .perform_irrefutablity_semantic_analysis(ctx)
+                    .is_none()
+                {
+                    error = true;
+                }
+
+                if variable_type
+                    .destructure_and_perform_semantic_analysis(ctx, value.span, pattern)
+                    .is_none()
+                {
+                    pattern.kind.destructure_unknown(ctx);
+
+                    error = true;
+                }
+
+                if error {
+                    return None;
+                }
 
                 Some(())
             }

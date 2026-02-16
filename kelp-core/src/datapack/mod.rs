@@ -64,33 +64,64 @@ impl DataTypeDeclarationKind {
     pub fn get_struct_fields(
         &self,
         ctx: &impl SupportsVariableTypeScope,
-        name: &str,
         generic_types: &[DataTypeKind],
     ) -> Option<BTreeMap<String, Option<DataTypeKind>>> {
-        let DataTypeDeclarationKind::Struct {
-            fields,
-            generics: generics_names,
-            ..
-        } = ctx.get_data_type(name)??
-        else {
-            return None;
-        };
+        match self {
+            DataTypeDeclarationKind::Alias {
+                generics: generic_names,
+                alias,
+                ..
+            } => {
+                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
+                    .as_ref()
+                    .map(|generics_names| {
+                        generics_names
+                            .iter()
+                            .zip(generic_types.iter().cloned())
+                            .map(|(k, v)| (k.clone(), v))
+                            .collect()
+                    })
+                    .unwrap_or_default();
 
-        let substitutions: BTreeMap<String, DataTypeKind> = generics_names
-            .map(|generic_names| {
-                generic_names
-                    .into_iter()
-                    .zip(generic_types.iter().cloned())
-                    .collect()
-            })
-            .unwrap_or_default();
+                let resolved_alias = alias.clone().substitute(&substitutions)?;
 
-        Some(
-            fields
-                .into_iter()
-                .map(|(field_name, field_type)| (field_name, field_type.substitute(&substitutions)))
-                .collect(),
-        )
+                if let DataTypeKind::Struct(name, generics) = resolved_alias {
+                    let declaration = ctx.get_data_type(&name)??;
+                    declaration.get_struct_fields(ctx, &generics)
+                } else {
+                    None
+                }
+            }
+            DataTypeDeclarationKind::Struct {
+                fields,
+                generics: generics_names,
+                ..
+            } => {
+                let substitutions: BTreeMap<String, DataTypeKind> = generics_names
+                    .as_ref()
+                    .map(|generic_names| {
+                        generic_names
+                            .iter()
+                            .zip(generic_types.iter().cloned())
+                            .map(|(k, v)| (k.clone(), v))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                Some(
+                    fields
+                        .iter()
+                        .map(|(field_name, field_type)| {
+                            (
+                                field_name.clone(),
+                                field_type.clone().substitute(&substitutions),
+                            )
+                        })
+                        .collect(),
+                )
+            }
+            _ => None,
+        }
     }
 
     pub fn perform_semantic_analysis(

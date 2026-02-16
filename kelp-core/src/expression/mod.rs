@@ -362,9 +362,6 @@ impl Expression {
                 let left_result = left.perform_semantic_analysis(ctx, is_lhs, None);
                 let right_result = right.perform_semantic_analysis(ctx, is_lhs, None);
 
-                left_result?;
-                right_result?;
-
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
 
@@ -398,14 +395,14 @@ impl Expression {
                     });
                 }
 
+                left_result?;
+                right_result?;
+
                 Some(())
             }
             ExpressionKind::Comparison(left, operator, right) => {
                 let left_result = left.perform_semantic_analysis(ctx, is_lhs, None);
                 let right_result = right.perform_semantic_analysis(ctx, is_lhs, None);
-
-                left_result?;
-                right_result?;
 
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
@@ -423,14 +420,14 @@ impl Expression {
                     });
                 }
 
+                left_result?;
+                right_result?;
+
                 Some(())
             }
             ExpressionKind::Logical(left, operator, right) => {
                 let left_result = left.perform_semantic_analysis(ctx, is_lhs, None);
                 let right_result = right.perform_semantic_analysis(ctx, is_lhs, None);
-
-                left_result?;
-                right_result?;
 
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
@@ -447,6 +444,9 @@ impl Expression {
                         ),
                     });
                 }
+
+                left_result?;
+                right_result?;
 
                 Some(())
             }
@@ -684,22 +684,12 @@ impl Expression {
                 .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs, None))
                 .all_some(),
             ExpressionKind::Struct(name_span, name, generic_types, fields) => {
-                let ref declaration @ DataTypeDeclarationKind::Struct {
-                    ref name,
-                    generics: ref generics_names,
-                    ..
-                } = ctx.get_data_type(name)??
-                else {
-                    return None;
-                };
+                let declaration = ctx.get_data_type(name)??;
 
                 let resolved_generic_types = generic_types
                     .iter()
                     .map(|generic_type| {
-                        if generic_type
-                            .perform_semantic_analysis(generics_names.as_ref(), ctx)
-                            .is_none()
-                        {
+                        if generic_type.perform_semantic_analysis(None, ctx).is_none() {
                             None
                         } else {
                             generic_type.kind.resolve(ctx, None)
@@ -707,34 +697,69 @@ impl Expression {
                     })
                     .collect::<Option<Vec<_>>>()?;
 
-                declaration.perform_semantic_analysis(
-                    ctx,
-                    *name_span,
-                    generic_types.len(),
-                    &resolved_generic_types,
-                )?;
+                let mut error = false;
 
-                let defined_fields =
-                    declaration.get_struct_fields(ctx, name, &resolved_generic_types)?;
+                if declaration
+                    .perform_semantic_analysis(
+                        ctx,
+                        *name_span,
+                        generic_types.len(),
+                        &resolved_generic_types,
+                    )
+                    .is_none()
+                {
+                    error = true;
+                }
+
+                let defined_fields = declaration.get_struct_fields(ctx, &resolved_generic_types);
+
+                if defined_fields.is_none() {
+                    error = true;
+
+                    ctx.add_info::<()>(SemanticAnalysisInfo {
+                        span: *name_span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeIsNotStruct(name.clone()),
+                        ),
+                    });
+                }
+
+                if error {
+                    return None;
+                }
+
+                let defined_fields = defined_fields.unwrap();
 
                 let mut has_error = false;
 
                 for (field_name, field_value) in fields {
                     match defined_fields.get(&field_name.snbt_string.1) {
                         Some(expected_field_type) => {
-                            let actual_type = field_value.kind.infer_data_type(ctx).unwrap();
-
-                            if let Some(expected_field_type) = expected_field_type
-                                && expected_field_type
-                                    .perform_equality_semantic_analysis(
-                                        ctx,
-                                        &actual_type,
-                                        field_value,
-                                    )
-                                    .is_none()
+                            if field_value
+                                .perform_semantic_analysis(
+                                    ctx,
+                                    is_lhs,
+                                    expected_field_type.as_ref(),
+                                )
+                                .is_none()
                             {
                                 has_error = true;
-                                continue;
+                            }
+
+                            if let Some(actual_type) = field_value.kind.infer_data_type(ctx) {
+                                if let Some(expected_field_type) = expected_field_type
+                                    && expected_field_type
+                                        .perform_equality_semantic_analysis(
+                                            ctx,
+                                            &actual_type,
+                                            field_value,
+                                        )
+                                        .is_none()
+                                {
+                                    has_error = true;
+                                }
+                            } else {
+                                has_error = true;
                             }
                         }
                         None => {
@@ -743,7 +768,7 @@ impl Expression {
                             ctx.add_info::<()>(SemanticAnalysisInfo {
                                 span: field_name.span,
                                 kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::StructHasNoField(
+                                    SemanticAnalysisError::UnexpectedField(
                                         field_name.snbt_string.1.clone(),
                                     ),
                                 ),

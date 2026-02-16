@@ -296,7 +296,7 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Variable(data_type) => {
-                data_type.perform_equality_semantic_analysis(ctx, value_type, &value);
+                data_type.perform_equality_semantic_analysis(ctx, value_type, &value)?;
             }
             PlaceTypeKind::Underscore => {}
         }

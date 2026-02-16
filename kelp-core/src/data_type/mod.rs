@@ -274,7 +274,8 @@ impl DataTypeKind {
                     .iter()
                     .zip(data_types)
                     .map(|(pattern, data_type)| {
-                        data_type.perform_destructure_semantic_analysis(ctx, value_span, pattern)
+                        data_type
+                            .destructure_and_perform_semantic_analysis(ctx, value_span, pattern)
                     })
                     .all_some()
             }
@@ -319,8 +320,9 @@ impl DataTypeKind {
 
                     if let Some(data_type) = data_type {
                         if let Some(pattern) = pattern {
-                            data_type
-                                .perform_destructure_semantic_analysis(ctx, value_span, pattern)?;
+                            data_type.destructure_and_perform_semantic_analysis(
+                                ctx, value_span, pattern,
+                            )?;
                         } else {
                             ctx.declare_variable_known(&key.snbt_string.1, data_type);
                         }
@@ -353,7 +355,7 @@ impl DataTypeKind {
 
                     if let Some(pattern) = pattern {
                         data_type
-                            .perform_destructure_semantic_analysis(ctx, value_span, pattern)?;
+                            .destructure_and_perform_semantic_analysis(ctx, value_span, pattern)?;
                     } else {
                         ctx.declare_variable_known(&key.snbt_string.1, data_type);
                     }
@@ -363,7 +365,7 @@ impl DataTypeKind {
             }
             DataTypeKind::Data(data_type) => data_type
                 .wrap_data()
-                .perform_destructure_semantic_analysis(ctx, value_span, pattern),
+                .destructure_and_perform_semantic_analysis(ctx, value_span, pattern),
             DataTypeKind::Reference(_) => self
                 .distribute_references()
                 .perform_compound_destructure_semantic_analysis(patterns, ctx, value_span, pattern),
@@ -413,14 +415,14 @@ impl DataTypeKind {
                 }
 
                 let declaration = ctx.get_data_type(struct_name)??;
-                let fields = declaration.get_struct_fields(ctx, struct_name, generics)?;
+                let fields = declaration.get_struct_fields(ctx, generics)?;
 
                 let mut error = false;
                 for (key, pattern_opt) in field_patterns.iter() {
                     if let Some(field_type_opt) = fields.get(&key.snbt_string.1) {
                         let field_type = field_type_opt.clone()?;
                         if let Some(inner_pattern) = pattern_opt {
-                            field_type.perform_destructure_semantic_analysis(
+                            field_type.destructure_and_perform_semantic_analysis(
                                 ctx,
                                 value_span,
                                 inner_pattern,
@@ -433,7 +435,7 @@ impl DataTypeKind {
                         ctx.add_info::<()>(SemanticAnalysisInfo {
                             span: key.span,
                             kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::StructHasNoField(key.snbt_string.1.clone()),
+                                SemanticAnalysisError::UnexpectedField(key.snbt_string.1.clone()),
                             ),
                         });
                         if let Some(p) = pattern_opt {
@@ -482,7 +484,7 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    pub fn perform_destructure_semantic_analysis(
+    pub fn destructure_and_perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
         value_span: ParserRange,
@@ -520,7 +522,7 @@ impl DataTypeKind {
                         ),
                     })
                 } else {
-                    self.perform_destructure_semantic_analysis(ctx, value_span, inner_pattern)
+                    self.destructure_and_perform_semantic_analysis(ctx, value_span, inner_pattern)
                 }
             }
         }
@@ -632,9 +634,7 @@ impl DataTypeKind {
                 ConstantExpressionKind::Struct(v_s_name, _, fields),
             ) if s_name == name && v_s_name == name => {
                 let declaration = datapack.get_data_type(name).unwrap();
-                let field_types = declaration
-                    .get_struct_fields(datapack, name, &generics)
-                    .unwrap();
+                let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
                 for (key, pattern_opt) in field_patterns {
                     let expression = fields.get(&key.snbt_string.1).unwrap().clone();
@@ -653,9 +653,7 @@ impl DataTypeKind {
             }
             (DataTypeKind::Struct(_, generics), ConstantExpressionKind::Data(target, path)) => {
                 let declaration = datapack.get_data_type(name).unwrap();
-                let field_types = declaration
-                    .get_struct_fields(datapack, name, &generics)
-                    .unwrap();
+                let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
                 for (key, pattern_opt) in field_patterns {
                     let field_path = path
@@ -733,6 +731,7 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn perform_equality_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -788,9 +787,7 @@ impl DataTypeKind {
                             ctx.add_info::<()>(SemanticAnalysisInfo {
                                 span: key.span,
                                 kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::CompoundHasNoKey(
-                                        key.snbt_string.1.clone(),
-                                    ),
+                                    SemanticAnalysisError::UnexpectedKey(key.snbt_string.1.clone()),
                                 ),
                             });
                         }
@@ -1031,7 +1028,7 @@ impl DataTypeKind {
                     return None;
                 };
 
-                let fields = declaration.get_struct_fields(ctx, name, generic_types)?;
+                let fields = declaration.get_struct_fields(ctx, generic_types)?;
 
                 fields
                     .values()
@@ -1088,7 +1085,7 @@ impl DataTypeKind {
                     return None;
                 };
 
-                let fields = declaration.get_struct_fields(ctx, name, generic_types)?;
+                let fields = declaration.get_struct_fields(ctx, generic_types)?;
 
                 fields.contains_key(&field.snbt_string.1)
             }
@@ -1307,7 +1304,7 @@ impl DataTypeKind {
                 };
 
                 let fields =
-                    declaration.get_struct_fields(supports_variable_type_scope, name, generics)?;
+                    declaration.get_struct_fields(supports_variable_type_scope, generics)?;
 
                 fields.get(field).cloned()??
             }
@@ -1398,7 +1395,7 @@ impl DataTypeKind {
                 .values()
                 .all(|data_type| data_type.equals(compound_data_type)),
             (Self::Data(self_data), Self::Data(other_data)) => self_data.equals(other_data),
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+            _ => self == other,
         }
     }
 }

@@ -6,7 +6,7 @@ use parser_rs::parser_range::ParserRange;
 use crate::{
     compile_context::CompileContext,
     data_type::{DataTypeKind, high::HighDataType},
-    datapack::{DataTypeDeclarationKind, HighDatapack},
+    datapack::HighDatapack,
     expression::{
         constant::{ConstantExpression, ConstantExpressionKind},
         supports_variable_type_scope::SupportsVariableTypeScope,
@@ -187,11 +187,7 @@ impl ExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             ExpressionKind::Struct(_, name, generic_types, _) => {
-                let DataTypeDeclarationKind::Struct { name, .. } =
-                    supports_variable_type_scope.get_data_type(name)??
-                else {
-                    return None;
-                };
+                let declaration = supports_variable_type_scope.get_data_type(name)??;
 
                 let resolved_generics = generic_types
                     .iter()
@@ -202,7 +198,7 @@ impl ExpressionKind {
                     })
                     .collect::<Option<Vec<_>>>()?;
 
-                DataTypeKind::Struct(name, resolved_generics)
+                declaration.resolve(supports_variable_type_scope, &resolved_generics)?
             }
         })
     }
@@ -697,26 +693,15 @@ impl Expression {
                     })
                     .collect::<Option<Vec<_>>>()?;
 
-                let mut error = false;
+                declaration.perform_semantic_analysis(
+                    ctx,
+                    *name_span,
+                    generic_types.len(),
+                    &resolved_generic_types,
+                )?;
 
-                if declaration
-                    .perform_semantic_analysis(
-                        ctx,
-                        *name_span,
-                        generic_types.len(),
-                        &resolved_generic_types,
-                    )
-                    .is_none()
-                {
-                    error = true;
-                }
-
-                let defined_fields = declaration.get_struct_fields(ctx, &resolved_generic_types);
-
-                if defined_fields.is_none() {
-                    error = true;
-
-                    ctx.add_info::<()>(SemanticAnalysisInfo {
+                if declaration.resolve(ctx, &resolved_generic_types).is_none() {
+                    return ctx.add_info(SemanticAnalysisInfo {
                         span: *name_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::TypeIsNotStruct(name.clone()),
@@ -724,11 +709,18 @@ impl Expression {
                     });
                 }
 
-                if error {
-                    return None;
-                }
-
-                let defined_fields = defined_fields.unwrap();
+                let defined_fields =
+                    match declaration.get_struct_fields(ctx, &resolved_generic_types) {
+                        Some(fields) => fields,
+                        None => {
+                            return ctx.add_info(SemanticAnalysisInfo {
+                                span: *name_span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::TypeIsNotStruct(name.clone()),
+                                ),
+                            });
+                        }
+                    };
 
                 let mut has_error = false;
 

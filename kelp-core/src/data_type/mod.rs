@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, fmt::Display};
 use minecraft_command_types::{nbt_path::NbtPathNode, snbt::SNBTString};
 use minecraft_command_types_derive::HasMacro;
 use parser_rs::parser_range::ParserRange;
+use strum::{Display, EnumString};
 
 use crate::{
     datapack::{DataTypeDeclarationKind, HighDatapack},
@@ -23,6 +24,25 @@ use crate::{
 };
 
 pub mod high;
+
+#[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
+#[strum(serialize_all = "snake_case")]
+pub enum BuiltinDataTypeKind {
+    Boolean,
+    Byte,
+    Short,
+    Integer,
+    Long,
+    Float,
+    Double,
+    String,
+    Unit,
+    Score,
+    List,
+    Compound,
+    Data,
+    SNBT,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum DataTypeKind {

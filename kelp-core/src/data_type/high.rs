@@ -28,7 +28,7 @@ fn resolve_named_type(
     supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
     name: &String,
     generics: Option<&Vec<String>>,
-    inner_generics: &Vec<HighDataType>,
+    inner_generics: &[HighDataType],
 ) -> Option<DataTypeKind> {
     Some(match name.as_str() {
         "boolean" => {
@@ -77,43 +77,31 @@ fn resolve_named_type(
             DataTypeKind::Score
         }
         "list" => {
-            if inner_generics.is_empty() {
-                DataTypeKind::List(Box::new(DataTypeKind::SNBT))
-            } else if inner_generics.len() == 1
-                && let Some(first) = inner_generics.first()
-            {
-                DataTypeKind::List(Box::new(
-                    first.kind.resolve(supports_variable_type_scope, generics)?,
-                ))
-            } else {
-                unreachable!()
-            }
+            debug_assert!(inner_generics.len() == 1);
+
+            let first = inner_generics.first().unwrap();
+
+            DataTypeKind::List(Box::new(
+                first.kind.resolve(supports_variable_type_scope, generics)?,
+            ))
         }
         "compound" => {
-            if inner_generics.is_empty() {
-                DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))
-            } else if inner_generics.len() == 1
-                && let Some(first) = inner_generics.first()
-            {
-                DataTypeKind::Compound(Box::new(
-                    first.kind.resolve(supports_variable_type_scope, generics)?,
-                ))
-            } else {
-                unreachable!()
-            }
+            debug_assert!(inner_generics.len() == 1);
+
+            let first = inner_generics.first().unwrap();
+
+            DataTypeKind::Compound(Box::new(
+                first.kind.resolve(supports_variable_type_scope, generics)?,
+            ))
         }
         "data" => {
-            if inner_generics.is_empty() {
-                DataTypeKind::Data(Box::new(DataTypeKind::SNBT))
-            } else if inner_generics.len() == 1
-                && let Some(first) = inner_generics.first()
-            {
-                DataTypeKind::Data(Box::new(
-                    first.kind.resolve(supports_variable_type_scope, generics)?,
-                ))
-            } else {
-                unreachable!()
-            }
+            debug_assert!(inner_generics.len() == 1);
+
+            let first = inner_generics.first().unwrap();
+
+            DataTypeKind::Data(Box::new(
+                first.kind.resolve(supports_variable_type_scope, generics)?,
+            ))
         }
         "snbt" => DataTypeKind::SNBT,
         _ => {
@@ -162,12 +150,7 @@ fn resolve_named_type(
                     DataTypeKind::Struct(name, resolved_generics)
                 }
                 DataTypeDeclarationKind::Generic(name) => DataTypeKind::Generic(name),
-                DataTypeDeclarationKind::Builtin(name) => resolve_named_type(
-                    supports_variable_type_scope,
-                    &name,
-                    generics,
-                    inner_generics,
-                )?,
+                DataTypeDeclarationKind::Builtin(_) => unreachable!(),
             }
         }
     })

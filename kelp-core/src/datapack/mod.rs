@@ -1,5 +1,5 @@
 use crate::compile_context::CompileContext;
-use crate::data_type::DataTypeKind;
+use crate::data_type::{BuiltinDataTypeKind, DataTypeKind};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::HighNamespace;
 use crate::expression::{
@@ -56,7 +56,7 @@ pub enum DataTypeDeclarationKind {
         generics: Option<Vec<String>>,
         fields: BTreeMap<String, DataTypeKind>,
     },
-    Builtin(String),
+    Builtin(BuiltinDataTypeKind),
     Generic(String),
 }
 
@@ -187,7 +187,7 @@ impl DataTypeDeclarationKind {
                         span: generics_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::InvalidGenerics {
-                                data_type_kind: name.clone(),
+                                data_type_kind: name.to_string(),
                                 expected: 0,
                                 actual: resolved_generic_types.len(),
                             },
@@ -197,6 +197,58 @@ impl DataTypeDeclarationKind {
                     Some(())
                 }
             }
+        }
+    }
+
+    pub fn resolve(
+        &self,
+        ctx: &impl SupportsVariableTypeScope,
+        generic_types: &[DataTypeKind],
+    ) -> Option<DataTypeKind> {
+        match self {
+            DataTypeDeclarationKind::Alias {
+                generics: generic_names,
+                alias,
+                ..
+            } => {
+                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
+                    .as_ref()
+                    .map(|generics_names| {
+                        generics_names
+                            .iter()
+                            .zip(generic_types.iter().cloned())
+                            .map(|(k, v)| (k.clone(), v))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                let resolved_alias = alias.clone().substitute(&substitutions)?;
+
+                if let DataTypeKind::Struct(name, generics) = resolved_alias {
+                    let declaration = ctx.get_data_type(&name)??;
+                    declaration.resolve(ctx, &generics)
+                } else {
+                    Some(resolved_alias)
+                }
+            }
+            DataTypeDeclarationKind::Struct { name, generics, .. } => {
+                let substitutions: BTreeMap<String, DataTypeKind> = generics
+                    .as_ref()
+                    .map(|generic_names| {
+                        generic_names
+                            .iter()
+                            .zip(generic_types.iter().cloned())
+                            .map(|(k, v)| (k.clone(), v))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                Some(
+                    DataTypeKind::Struct(name.clone(), generic_types.to_vec())
+                        .substitute(&substitutions)?,
+                )
+            }
+            _ => None,
         }
     }
 }

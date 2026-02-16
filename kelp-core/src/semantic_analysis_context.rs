@@ -1,12 +1,13 @@
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt::Display,
+    str::FromStr,
 };
 
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    data_type::DataTypeKind,
+    data_type::{BuiltinDataTypeKind, DataTypeKind},
     datapack::DataTypeDeclarationKind,
     expression::supports_variable_type_scope::SupportsVariableTypeScope,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
@@ -378,13 +379,9 @@ impl SemanticAnalysisContext {
             }
         }
 
-        match name {
-            "boolean" | "byte" | "short" | "integer" | "int" | "long" | "float" | "double"
-            | "string" | "str" | "score" | "list" | "compound" | "data" | "snbt" => {
-                Some(Some(DataTypeDeclarationKind::Builtin(name.to_string())))
-            }
-            _ => None,
-        }
+        BuiltinDataTypeKind::from_str(name)
+            .ok()
+            .map(|builtin| Some(DataTypeDeclarationKind::Builtin(builtin)))
     }
 }
 

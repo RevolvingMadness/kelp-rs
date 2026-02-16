@@ -576,7 +576,7 @@ impl Expression {
 
                 let target_type = target.kind.infer_data_type(ctx)?;
 
-                if !target_type.can_be_indexed() {
+                if target_type.get_index_result().is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: target.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -605,7 +605,10 @@ impl Expression {
                     });
                 }
 
-                if !expression_type.has_field(ctx, field)? {
+                if expression_type
+                    .get_field_result(ctx, &field.snbt_string.1)
+                    .is_none()
+                {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: field.span,
                         kind: SemanticAnalysisInfoKind::Error(

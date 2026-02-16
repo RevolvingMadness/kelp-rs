@@ -989,7 +989,7 @@ impl DataTypeKind {
     pub fn as_place_type(self) -> Result<PlaceTypeKind, Self> {
         Ok(match self {
             DataTypeKind::Score => PlaceTypeKind::Score,
-            DataTypeKind::Data(data_type) => PlaceTypeKind::Data(*data_type),
+            data_type @ DataTypeKind::Data(_) => PlaceTypeKind::Data(data_type),
             _ => return Err(self),
         })
     }
@@ -1131,18 +1131,6 @@ impl DataTypeKind {
         })
     }
 
-    pub fn can_be_indexed(&self) -> bool {
-        match self {
-            DataTypeKind::Reference(data_type) => data_type.can_be_indexed(),
-
-            DataTypeKind::List(_) | DataTypeKind::Data(_) | DataTypeKind::SNBT => true,
-
-            DataTypeKind::Generic(_) => unreachable!(),
-
-            _ => false,
-        }
-    }
-
     pub fn has_fields(&self) -> bool {
         match self {
             DataTypeKind::Struct(_, _) => true,
@@ -1159,43 +1147,6 @@ impl DataTypeKind {
 
             _ => false,
         }
-    }
-
-    pub fn has_field(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        field: &HighSNBTString,
-    ) -> Option<bool> {
-        Some(match self {
-            DataTypeKind::Reference(data_type) => data_type.has_field(ctx, field)?,
-
-            DataTypeKind::Struct(name, generic_types) => {
-                let declaration @ DataTypeDeclarationKind::Struct { .. } =
-                    ctx.get_data_type(name)??
-                else {
-                    return None;
-                };
-
-                let fields = declaration.get_struct_fields(ctx, generic_types)?;
-
-                fields.contains_key(&field.snbt_string.1)
-            }
-
-            DataTypeKind::TypedCompound(compound) => {
-                compound.keys().any(|key| *key == field.snbt_string)
-            }
-            DataTypeKind::Tuple(data_types) => {
-                if let Ok(index) = field.snbt_string.1.parse::<i32>() {
-                    data_types.len() > (index as usize)
-                } else {
-                    false
-                }
-            }
-            DataTypeKind::Data(data_type) => data_type.has_field(ctx, field)?,
-            DataTypeKind::Compound(_) | DataTypeKind::SNBT => true,
-            DataTypeKind::Generic(_) => unreachable!(),
-            _ => false,
-        })
     }
 
     fn raw_get_arithmetic_result(
@@ -1258,44 +1209,42 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn perform_assignment_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
         span: ParserRange,
-        other: &DataTypeKind,
+        value_type: &DataTypeKind,
     ) -> Option<()> {
-        match (self, other) {
-            (DataTypeKind::Score, other) => {
-                if !other.is_score_value() {
+        match (self, value_type) {
+            (DataTypeKind::Score, value_type) => {
+                if !value_type.is_score_value() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedToScore(other.clone()),
+                            SemanticAnalysisError::CannotBeAssignedToScore(value_type.clone()),
                         ),
                     });
                 }
             }
-            (DataTypeKind::Data(data_type), other) => {
-                if !other.equals(data_type) {
+            (DataTypeKind::Data(_), value_type) => {
+                if !value_type.can_be_assigned_to_data(ctx)? {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: *data_type.clone(),
-                                actual: other.clone(),
-                            },
+                            SemanticAnalysisError::CannotBeAssignedToData(value_type.clone()),
                         ),
                     });
                 }
             }
-            (self_, other) => {
-                if !other.equals(self) {
+            (self_, value_type) => {
+                if !value_type.equals(self) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::MismatchedTypes {
                                 expected: self_.clone(),
-                                actual: other.clone(),
+                                actual: value_type.clone(),
                             },
                         ),
                     });
@@ -1306,7 +1255,7 @@ impl DataTypeKind {
         Some(())
     }
 
-    pub fn raw_can_perform_comparison(
+    fn raw_can_perform_comparison(
         &self,
         operator: &ComparisonOperator,
         other: &DataTypeKind,
@@ -1414,6 +1363,9 @@ impl DataTypeKind {
                     None
                 };
             }
+
+            DataTypeKind::SNBT => DataTypeKind::SNBT,
+
             _ => return None,
         })
     }

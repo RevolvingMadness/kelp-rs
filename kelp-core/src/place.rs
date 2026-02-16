@@ -95,15 +95,22 @@ impl Place {
                     .assign(datapack, ctx, value);
             }
             Place::Field(expression, field) => {
-                if expression.is_lvalue() {
-                    expression
-                        .access_field(field.1)
-                        .as_place()
-                        .assign(datapack, ctx, value);
-                } else {
-                    let mut new_container = *expression.clone();
+                let field_value = expression.clone().access_field(field.1.clone());
 
-                    match &mut new_container {
+                let is_lvalue = field_value.is_lvalue();
+
+                let place = if is_lvalue {
+                    field_value.as_place()
+                } else {
+                    expression.clone().as_place()
+                };
+
+                if is_lvalue {
+                    place.assign(datapack, ctx, value);
+                } else {
+                    let mut expression = *expression;
+
+                    match &mut expression {
                         ConstantExpressionKind::Struct(_, _, fields) => {
                             fields.insert(field.1, value.into_dummy_constant_expression());
                         }
@@ -116,10 +123,10 @@ impl Place {
                                 value.into_dummy_constant_expression(),
                             );
                         }
-                        _ => unreachable!("Cannot assign field to {:?}", new_container),
+                        _ => unreachable!("Cannot assign field to {:?}", expression),
                     }
 
-                    expression.as_place().assign(datapack, ctx, new_container);
+                    place.assign(datapack, ctx, expression);
                 }
             }
         }
@@ -186,7 +193,9 @@ impl Place {
                 let field_value = expression.clone().access_field(field.1.clone());
 
                 if field_value.is_lvalue() {
-                    field_value.compile_augmented_assignment(datapack, ctx, operator, value);
+                    field_value
+                        .as_place()
+                        .augmented_assign(datapack, ctx, operator, value);
                 } else {
                     let new_field_value =
                         field_value.perform_arithmetic(datapack, ctx, operator, value);
@@ -266,14 +275,11 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Data(data_type) => {
-                if !value_type.equals(&data_type) {
+                if !data_type.can_be_assigned_to_data(ctx)? {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: data_type.clone(),
-                                actual: value_type.clone(),
-                            },
+                            SemanticAnalysisError::CannotBeAssignedToData(value_type.clone()),
                         ),
                     });
                 }
@@ -296,7 +302,7 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Variable(data_type) => {
-                data_type.perform_equality_semantic_analysis(ctx, value_type, &value)?;
+                data_type.perform_assignment_semantic_analysis(ctx, value.span, value_type)?;
             }
             PlaceTypeKind::Underscore => {}
         }
@@ -323,7 +329,7 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Data(data_type) => {
-                if !value_type.can_perform_augmented_assignment(operator, &data_type) {
+                if !data_type.can_perform_augmented_assignment(operator, value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(

@@ -106,17 +106,13 @@ impl ExpressionKind {
                     .infer_data_type(supports_variable_type_scope)?;
 
                 match operator {
-                    UnaryOperator::Negate => expression_type
-                        .get_negated_result()
-                        .expect("Expression cannot be negated"),
+                    UnaryOperator::Negate => expression_type.get_negated_result()?,
                     UnaryOperator::Reference => DataTypeKind::Reference(Box::new(expression_type)),
                     UnaryOperator::Dereference => expression
                         .kind
                         .infer_data_type(supports_variable_type_scope)?
                         .dereference()?,
-                    UnaryOperator::Invert => expression_type
-                        .get_inverted_result()
-                        .expect("Expression cannot be inverted"),
+                    UnaryOperator::Invert => expression_type.get_inverted_result()?,
                 }
             }
             ExpressionKind::Arithmetic(left, operator, right) => {

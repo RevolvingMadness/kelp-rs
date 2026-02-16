@@ -5,7 +5,7 @@ use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext, datapack::HighDatapack, expression::ExpressionCompoundKind,
-    semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionIterExt,
+    semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]

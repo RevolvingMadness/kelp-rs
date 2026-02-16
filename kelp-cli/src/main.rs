@@ -7,7 +7,7 @@ use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_core::statement::Statement;
-use kelp_core::trait_ext::OptionIterExt;
+use kelp_core::trait_ext::OptionUnitIterExt;
 use kelp_parser::file;
 use nonempty::nonempty;
 use parser_rs::ParseResult;

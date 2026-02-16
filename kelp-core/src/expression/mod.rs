@@ -6,7 +6,7 @@ use parser_rs::parser_range::ParserRange;
 use crate::{
     compile_context::CompileContext,
     data_type::{DataTypeKind, high::HighDataType},
-    datapack::HighDatapack,
+    datapack::{DataTypeDeclarationKind, HighDatapack},
     expression::{
         constant::{ConstantExpression, ConstantExpressionKind},
         supports_variable_type_scope::SupportsVariableTypeScope,
@@ -25,7 +25,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
-    trait_ext::OptionIterExt,
+    trait_ext::OptionUnitIterExt,
 };
 
 pub mod constant;
@@ -55,14 +55,20 @@ pub enum ExpressionKind {
     AsCast(Box<Expression>, HighDataType),
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
+    Struct(
+        #[has_macro(ignore)] ParserRange,
+        String,
+        Vec<HighDataType>,
+        BTreeMap<HighSNBTString, Expression>,
+    ),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
 }
 
 impl ExpressionKind {
-    pub fn is_lvalue(&self, ctx: &mut SemanticAnalysisContext) -> bool {
-        match self {
+    pub fn is_lvalue(&self, ctx: &mut SemanticAnalysisContext) -> Option<bool> {
+        Some(match self {
             ExpressionKind::Constant(expression) => expression.kind.is_lvalue(),
             ExpressionKind::Unary(UnaryOperator::Dereference, _) => true,
             ExpressionKind::PlayerScore(_) => true,
@@ -70,11 +76,11 @@ impl ExpressionKind {
             ExpressionKind::Index(_, _) => true,
             ExpressionKind::FieldAccess(_, _) => true,
             ExpressionKind::AsCast(_, high_data_type) => {
-                high_data_type.kind.resolve(ctx, None).is_lvalue()
+                high_data_type.kind.resolve(ctx, None)?.is_lvalue()
             }
             ExpressionKind::ToCast(_, _) => true,
             _ => false,
-        }
+        })
     }
 
     pub fn can_be_dereferenced(&self) -> bool {
@@ -117,9 +123,7 @@ impl ExpressionKind {
                 let left_type = left.kind.infer_data_type(supports_variable_type_scope)?;
                 let right_type = right.kind.infer_data_type(supports_variable_type_scope)?;
 
-                left_type
-                    .get_arithmetic_result(operator, &right_type)
-                    .expect("Cannot perform arithmetic")
+                left_type.get_arithmetic_result(operator, &right_type)?
             }
             ExpressionKind::Comparison(_, _, _) | ExpressionKind::Logical(_, _, _) => {
                 DataTypeKind::Boolean
@@ -160,9 +164,9 @@ impl ExpressionKind {
             ExpressionKind::FieldAccess(target, field) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
-                .get_field_result(&field.snbt_string)?,
+                .get_field_result(supports_variable_type_scope, &field.snbt_string.1)?,
             ExpressionKind::AsCast(_, data_type) => {
-                data_type.kind.resolve(supports_variable_type_scope, None)
+                data_type.kind.resolve(supports_variable_type_scope, None)?
             }
             ExpressionKind::ToCast(expression, storage_type) => match storage_type {
                 RuntimeStorageType::Score => DataTypeKind::Score,
@@ -182,6 +186,24 @@ impl ExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
+            ExpressionKind::Struct(_, name, generic_types, _) => {
+                let DataTypeDeclarationKind::Struct { name, .. } =
+                    supports_variable_type_scope.get_data_type(name)??
+                else {
+                    return None;
+                };
+
+                let resolved_generics = generic_types
+                    .iter()
+                    .map(|generic_type| {
+                        generic_type
+                            .kind
+                            .resolve(supports_variable_type_scope, None)
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+
+                DataTypeKind::Struct(name, resolved_generics)
+            }
         })
     }
 }
@@ -303,7 +325,7 @@ impl Expression {
                         }
                     }
                     UnaryOperator::Reference => {
-                        if !expression.kind.is_lvalue(ctx) {
+                        if !expression.kind.is_lvalue(ctx)? {
                             return ctx.add_info(SemanticAnalysisInfo {
                                 span: expression.span,
                                 kind: SemanticAnalysisInfoKind::Error(
@@ -587,7 +609,7 @@ impl Expression {
                     });
                 }
 
-                if !expression_type.has_field(field) {
+                if !expression_type.has_field(ctx, field)? {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: field.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -609,7 +631,7 @@ impl Expression {
                 data_type_result?;
 
                 let expression_type = expression.kind.infer_data_type(ctx)?;
-                let data_type = data_type.kind.resolve(ctx, None);
+                let data_type = data_type.kind.resolve(ctx, None)?;
 
                 if !expression_type.can_cast_to(&data_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
@@ -644,7 +666,7 @@ impl Expression {
                         }
                     }
                     RuntimeStorageType::Data => {
-                        if !expression_type.can_be_assigned_to_data() {
+                        if !expression_type.can_be_assigned_to_data(ctx)? {
                             return ctx.add_info(SemanticAnalysisInfo {
                                 span: expression.span,
                                 kind: SemanticAnalysisInfoKind::Error(
@@ -661,6 +683,93 @@ impl Expression {
                 .iter()
                 .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs, None))
                 .all_some(),
+            ExpressionKind::Struct(name_span, name, generic_types, fields) => {
+                let ref declaration @ DataTypeDeclarationKind::Struct {
+                    ref name,
+                    generics: ref generics_names,
+                    ..
+                } = ctx.get_data_type(name)??
+                else {
+                    return None;
+                };
+
+                let resolved_generic_types = generic_types
+                    .iter()
+                    .map(|generic_type| {
+                        if generic_type
+                            .perform_semantic_analysis(generics_names.as_ref(), ctx)
+                            .is_none()
+                        {
+                            None
+                        } else {
+                            generic_type.kind.resolve(ctx, None)
+                        }
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+
+                declaration.perform_semantic_analysis(
+                    ctx,
+                    *name_span,
+                    generic_types.len(),
+                    &resolved_generic_types,
+                )?;
+
+                let defined_fields =
+                    declaration.get_struct_fields(ctx, name, &resolved_generic_types)?;
+
+                let mut has_error = false;
+
+                for (field_name, field_value) in fields {
+                    match defined_fields.get(&field_name.snbt_string.1) {
+                        Some(expected_field_type) => {
+                            let actual_type = field_value.kind.infer_data_type(ctx).unwrap();
+
+                            if let Some(expected_field_type) = expected_field_type
+                                && expected_field_type
+                                    .perform_equality_semantic_analysis(
+                                        ctx,
+                                        &actual_type,
+                                        field_value,
+                                    )
+                                    .is_none()
+                            {
+                                has_error = true;
+                                continue;
+                            }
+                        }
+                        None => {
+                            has_error = true;
+
+                            ctx.add_info::<()>(SemanticAnalysisInfo {
+                                span: field_name.span,
+                                kind: SemanticAnalysisInfoKind::Error(
+                                    SemanticAnalysisError::StructHasNoField(
+                                        field_name.snbt_string.1.clone(),
+                                    ),
+                                ),
+                            });
+                        }
+                    }
+                }
+
+                for defined_field in defined_fields.keys() {
+                    if !fields
+                        .keys()
+                        .any(|field| field.snbt_string.1 == *defined_field)
+                    {
+                        has_error = true;
+
+                        ctx.add_info::<()>(SemanticAnalysisInfo {
+                            span: self.span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::MissingField(defined_field.clone()),
+                            ),
+                        });
+                    }
+                }
+
+                if has_error { None } else { Some(()) }
+            }
         }
     }
 
@@ -685,10 +794,11 @@ impl Expression {
                 ExpressionKind::Unary(UnaryOperator::Dereference, _) => self
                     .kind
                     .infer_data_type(supports_variable_type_scope)?
-                    .as_place_type()?,
+                    .as_place_type()
+                    .ok()?,
                 ExpressionKind::AsCast(expression, data_type) => {
                     let resolved_data_type =
-                        data_type.kind.resolve(supports_variable_type_scope, None);
+                        data_type.kind.resolve(supports_variable_type_scope, None)?;
 
                     if !expression
                         .kind
@@ -698,18 +808,19 @@ impl Expression {
                         return None;
                     }
 
-                    resolved_data_type.as_place_type()?
+                    resolved_data_type.as_place_type().ok()?
                 }
-                ExpressionKind::FieldAccess(_, _) => {
-                    let r = self.kind.infer_data_type(supports_variable_type_scope)?;
-
-                    r.as_place_type()?
-                }
+                ExpressionKind::FieldAccess(_, _) => self
+                    .kind
+                    .infer_data_type(supports_variable_type_scope)?
+                    .as_place_type()
+                    .ok()?,
                 _ => return None,
             })
             .with_span(self.span),
         )
     }
+
     pub fn resolve_force(
         self,
         datapack: &mut HighDatapack,
@@ -819,11 +930,7 @@ impl Expression {
             ExpressionKind::Assignment(target, value) => {
                 let value = value.resolve(datapack, ctx);
 
-                target.as_place(datapack, ctx).assign(
-                    datapack,
-                    ctx,
-                    value.into_dummy_constant_expression(),
-                );
+                target.as_place(datapack, ctx).assign(datapack, ctx, value);
 
                 ConstantExpressionKind::Unit
             }
@@ -878,11 +985,11 @@ impl Expression {
             ExpressionKind::FieldAccess(target, field) => {
                 let target = target.resolve(datapack, ctx);
 
-                target.access_field(field.snbt_string)
+                target.access_field(field.snbt_string.1)
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.resolve(datapack, ctx);
-                let data_type = data_type.kind.resolve(datapack, None);
+                let data_type = data_type.kind.resolve(datapack, None).unwrap();
 
                 expression.cast_to(datapack, data_type)
             }
@@ -909,6 +1016,24 @@ impl Expression {
                         expression
                             .resolve(datapack, ctx)
                             .into_dummy_constant_expression()
+                    })
+                    .collect(),
+            ),
+            ExpressionKind::Struct(_, name, generics, fields) => ConstantExpressionKind::Struct(
+                name,
+                generics
+                    .into_iter()
+                    .map(|generic| generic.kind.resolve(datapack, None).unwrap())
+                    .collect(),
+                fields
+                    .into_iter()
+                    .map(|(key, field)| {
+                        (
+                            key.snbt_string.1,
+                            field
+                                .resolve(datapack, ctx)
+                                .into_dummy_constant_expression(),
+                        )
                     })
                     .collect(),
             ),

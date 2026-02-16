@@ -20,6 +20,7 @@ pub enum PatternKind {
     Binding(String),
 
     Tuple(Vec<Pattern>),
+    Struct(String, BTreeMap<HighSNBTString, Option<Pattern>>),
 
     Compound(BTreeMap<HighSNBTString, Option<Pattern>>),
 
@@ -37,6 +38,7 @@ impl PatternKind {
             }
             PatternKind::Compound(_) => true,
             PatternKind::Dereference(_) => true,
+            PatternKind::Struct(_, _) => true,
         }
     }
 
@@ -67,6 +69,21 @@ impl PatternKind {
             PatternKind::Dereference(pattern) => {
                 PatternType::Dereference(Box::new(pattern.kind.get_type()))
             }
+            PatternKind::Struct(name, field_patterns) => PatternType::Struct(
+                name.clone(),
+                field_patterns
+                    .iter()
+                    .map(|(key, pattern)| {
+                        (
+                            key.clone(),
+                            pattern
+                                .as_ref()
+                                .map(|pattern| pattern.kind.get_type())
+                                .unwrap_or(PatternType::Any),
+                        )
+                    })
+                    .collect(),
+            ),
         }
     }
 
@@ -93,7 +110,15 @@ impl PatternKind {
             }
             PatternKind::Dereference(pattern) => {
                 pattern.kind.destructure_unknown(ctx);
-                todo!()
+            }
+            PatternKind::Struct(_, field_patterns) => {
+                for (key, pattern) in field_patterns {
+                    if let Some(pattern) = pattern {
+                        pattern.kind.destructure_unknown(ctx);
+                    } else {
+                        ctx.declare_variable_unknown(&key.snbt_string.1);
+                    }
+                }
             }
         }
     }
@@ -106,6 +131,7 @@ pub struct Pattern {
 }
 
 impl Pattern {
+    #[must_use]
     pub fn perform_irrefutablity_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,

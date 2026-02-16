@@ -1,6 +1,5 @@
 use crate::compile_context::CompileContext;
 use crate::data_type::DataTypeKind;
-use crate::data_type::high::HighDataType;
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::HighNamespace;
 use crate::expression::{
@@ -12,7 +11,6 @@ use crate::high::player_score::GeneratedPlayerScore;
 use crate::semantic_analysis_context::{
     SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
 };
-use crate::trait_ext::OptionIterExt;
 use minecraft_command_types::command::data::DataTarget;
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
 use minecraft_command_types::command::scoreboard::{
@@ -53,42 +51,95 @@ pub enum DataTypeDeclarationKind {
         generics: Option<Vec<String>>,
         alias: DataTypeKind,
     },
+    Struct {
+        name: String,
+        generics: Option<Vec<String>>,
+        fields: BTreeMap<String, DataTypeKind>,
+    },
+    Builtin(String),
     Generic(String),
 }
 
 impl DataTypeDeclarationKind {
+    pub fn get_struct_fields(
+        &self,
+        ctx: &impl SupportsVariableTypeScope,
+        name: &str,
+        generic_types: &[DataTypeKind],
+    ) -> Option<BTreeMap<String, Option<DataTypeKind>>> {
+        let DataTypeDeclarationKind::Struct {
+            fields,
+            generics: generics_names,
+            ..
+        } = ctx.get_data_type(name)??
+        else {
+            return None;
+        };
+
+        let substitutions: BTreeMap<String, DataTypeKind> = generics_names
+            .map(|generic_names| {
+                generic_names
+                    .into_iter()
+                    .zip(generic_types.iter().cloned())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Some(
+            fields
+                .into_iter()
+                .map(|(field_name, field_type)| (field_name, field_type.substitute(&substitutions)))
+                .collect(),
+        )
+    }
+
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
-        span: ParserRange,
-        generic_names: Option<&Vec<String>>,
-        generic_types: &[HighDataType],
+        generics_span: ParserRange,
+        number_of_generics: usize,
+        resolved_generic_types: &[DataTypeKind],
     ) -> Option<()> {
-        generic_types
-            .iter()
-            .map(|generic| generic.perform_semantic_analysis(generic_names, ctx))
-            .all_some()?;
-
         match self {
             DataTypeDeclarationKind::Alias {
                 name,
                 generics: inner_generics,
                 ..
             } => {
-                let actual_generics = generic_types.len();
                 let expected_generics = inner_generics
                     .as_ref()
                     .map(|generics| generics.len())
                     .unwrap_or(0);
 
-                if expected_generics != actual_generics {
+                if expected_generics != number_of_generics {
                     ctx.add_info(SemanticAnalysisInfo {
-                        span,
+                        span: generics_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::InvalidGenerics {
                                 data_type_kind: name.clone(),
                                 expected: expected_generics,
-                                actual: actual_generics,
+                                actual: number_of_generics,
+                            },
+                        ),
+                    })
+                } else {
+                    Some(())
+                }
+            }
+            DataTypeDeclarationKind::Struct { name, generics, .. } => {
+                let expected_generics = generics
+                    .as_ref()
+                    .map(|generics| generics.len())
+                    .unwrap_or(0);
+
+                if expected_generics != number_of_generics {
+                    ctx.add_info(SemanticAnalysisInfo {
+                        span: generics_span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::InvalidGenerics {
+                                data_type_kind: name.clone(),
+                                expected: expected_generics,
+                                actual: number_of_generics,
                             },
                         ),
                     })
@@ -98,6 +149,22 @@ impl DataTypeDeclarationKind {
             }
             DataTypeDeclarationKind::Generic(_) => {
                 unreachable!()
+            }
+            DataTypeDeclarationKind::Builtin(name) => {
+                if !resolved_generic_types.is_empty() {
+                    ctx.add_info(SemanticAnalysisInfo {
+                        span: generics_span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::InvalidGenerics {
+                                data_type_kind: name.clone(),
+                                expected: 0,
+                                actual: resolved_generic_types.len(),
+                            },
+                        ),
+                    })
+                } else {
+                    Some(())
+                }
             }
         }
     }

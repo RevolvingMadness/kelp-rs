@@ -16,11 +16,11 @@ use crate::{
     high::player_score::GeneratedPlayerScore,
 };
 
-pub trait OptionIterExt {
+pub trait OptionUnitIterExt {
     fn all_some(self) -> Option<()>;
 }
 
-impl<I> OptionIterExt for I
+impl<I> OptionUnitIterExt for I
 where
     I: Iterator<Item = Option<()>>,
 {
@@ -35,15 +35,27 @@ where
     }
 }
 
-pub trait OptionExt {
-    fn panic_if_some(&self);
+pub trait OptionBoolIterExt {
+    fn all_some_true(self) -> Option<bool>;
 }
 
-impl<T> OptionExt for Option<T> {
-    fn panic_if_some(&self) {
-        if self.is_some() {
-            panic!("Option<T> must be None");
+impl<I> OptionBoolIterExt for I
+where
+    I: Iterator<Item = Option<bool>>,
+{
+    fn all_some_true(self) -> Option<bool> {
+        let mut failed = false;
+        let mut result = false;
+
+        for item in self {
+            if let Some(value) = item {
+                result |= !value;
+            } else {
+                failed = true;
+            }
         }
+
+        (!failed).then_some(!result)
     }
 }
 

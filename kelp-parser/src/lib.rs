@@ -89,9 +89,7 @@ pub fn identifier<'a>(name: &'static str) -> impl FnParser<'a, Output = &'a str>
             if c.is_ascii_alphabetic() || c == '_' {
                 end_byte_offset = c.len_utf8();
             } else {
-                let r = input.fail_expected_suggestion(&Expectation::Custom(name));
-
-                return r;
+                return input.fail_expected_suggestion(&Expectation::Custom(name));
             }
         } else {
             return input.fail_expected_suggestion(&Expectation::Custom(name));

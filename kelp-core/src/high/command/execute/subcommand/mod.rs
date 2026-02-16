@@ -28,7 +28,7 @@ use crate::{
         entity_selector::HighEntitySelector,
     },
     semantic_analysis_context::SemanticAnalysisContext,
-    trait_ext::OptionIterExt,
+    trait_ext::OptionUnitIterExt,
 };
 
 pub mod r#if;

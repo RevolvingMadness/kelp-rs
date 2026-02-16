@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::datapack::DataTypeDeclarationKind;
-use crate::trait_ext::OptionIterExt;
+use crate::trait_ext::OptionUnitIterExt;
 use crate::{
     compile_context::CompileContext,
     data_type::{DataTypeKind, high::HighDataType},
@@ -38,6 +38,7 @@ pub enum StatementKind {
     AppendData(Expression, Box<Expression>),
     RemoveData(Expression),
     TypeDeclaration(String, Option<Vec<String>>, HighDataType),
+    StructDeclaration(String, Option<Vec<String>>, BTreeMap<String, HighDataType>),
 }
 
 fn compile_if(
@@ -107,7 +108,7 @@ impl StatementKind {
             }
             StatementKind::VariableDeclaration(data_type, pattern, value) => {
                 let data_type = data_type
-                    .map(|data_type| data_type.kind.resolve(datapack, None))
+                    .map(|data_type| data_type.kind.resolve(datapack, None).unwrap())
                     .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
 
                 let value = value.resolve_force(datapack, ctx);
@@ -378,7 +379,7 @@ impl StatementKind {
                 );
             }
             StatementKind::TypeDeclaration(name, generics, alias) => {
-                let alias = alias.kind.resolve(datapack, generics.as_ref());
+                let alias = alias.kind.resolve(datapack, generics.as_ref()).unwrap();
 
                 datapack.declare_data_type(
                     name.clone(),
@@ -386,6 +387,26 @@ impl StatementKind {
                         name,
                         generics,
                         alias,
+                    },
+                );
+            }
+            StatementKind::StructDeclaration(name, generics, fields) => {
+                let resolved_fields = fields
+                    .into_iter()
+                    .map(|(key, data_type)| {
+                        (
+                            key,
+                            data_type.kind.resolve(datapack, generics.as_ref()).unwrap(),
+                        )
+                    })
+                    .collect();
+
+                datapack.declare_data_type(
+                    name.clone(),
+                    DataTypeDeclarationKind::Struct {
+                        name,
+                        generics,
+                        fields: resolved_fields,
                     },
                 );
             }
@@ -412,35 +433,48 @@ impl Statement {
             StatementKind::Expression(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
-            StatementKind::VariableDeclaration(data_type, pattern, value) => {
-                let data_type = data_type.as_ref().map(|data_type| {
-                    data_type
+            StatementKind::VariableDeclaration(explicit_data_type, pattern, value) => {
+                let data_type = explicit_data_type.as_ref().map(|explicit_data_type| {
+                    explicit_data_type
                         .perform_semantic_analysis(None, ctx)
-                        .map(|_| data_type.kind.resolve(ctx, None))
+                        .and_then(|_| explicit_data_type.kind.resolve(ctx, None))
                 });
 
+                let value_type = value.kind.infer_data_type(ctx);
+
                 let data_type = match data_type {
-                    None => None,
+                    None => value_type.clone(),
                     Some(Some(data_type)) => Some(data_type),
                     Some(None) => {
                         pattern.kind.destructure_unknown(ctx);
+
                         return None;
                     }
                 };
 
-                let value_error = value
+                if value
                     .perform_semantic_analysis(ctx, is_lhs, data_type.as_ref())
-                    .is_none();
+                    .is_none()
+                {
+                    let _ = pattern.perform_irrefutablity_semantic_analysis(ctx);
 
-                pattern.perform_irrefutablity_semantic_analysis(ctx)?;
-
-                if value_error {
-                    pattern.kind.destructure_unknown(ctx);
+                    if let Some(data_type) = data_type {
+                        let _ = data_type
+                            .perform_destructure_semantic_analysis(ctx, value.span, pattern);
+                    } else {
+                        pattern.kind.destructure_unknown(ctx);
+                    }
 
                     return None;
                 }
 
-                let value_type = value.kind.infer_data_type(ctx)?;
+                pattern.perform_irrefutablity_semantic_analysis(ctx)?;
+
+                let Some(value_type) = value_type else {
+                    pattern.kind.destructure_unknown(ctx);
+
+                    return None;
+                };
 
                 let final_type = if let Some(data_type) = data_type {
                     data_type.perform_equality_semantic_analysis(ctx, &value_type, value)?;
@@ -574,7 +608,7 @@ impl Statement {
                     .perform_semantic_analysis(generics.as_ref(), ctx)
                     .is_some()
                 {
-                    let alias = alias.kind.resolve(ctx, generics.as_ref());
+                    let alias = alias.kind.resolve(ctx, generics.as_ref()).unwrap();
 
                     ctx.declare_data_type(
                         name.clone(),
@@ -591,6 +625,42 @@ impl Statement {
 
                     None
                 }
+            }
+            StatementKind::StructDeclaration(name, generics, fields) => {
+                if ctx.data_type_is_declared(name) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeIsAlreadyDefined(name.clone()),
+                        ),
+                    });
+                }
+
+                fields
+                    .values()
+                    .map(|field| field.perform_semantic_analysis(generics.as_ref(), ctx))
+                    .all_some()?;
+
+                let resolved_fields = fields
+                    .iter()
+                    .map(|(key, field)| {
+                        field
+                            .kind
+                            .resolve(ctx, generics.as_ref())
+                            .map(|data_type| (key.clone(), data_type))
+                    })
+                    .collect::<Option<BTreeMap<_, _>>>()?;
+
+                ctx.declare_data_type(
+                    name.clone(),
+                    Some(DataTypeDeclarationKind::Struct {
+                        name: name.clone(),
+                        generics: generics.clone(),
+                        fields: resolved_fields,
+                    }),
+                );
+
+                Some(())
             }
         }
     }

@@ -174,13 +174,13 @@ pub fn data_type_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<Sta
         .parse(input)?;
     required_inline_whitespace(input)?;
     let name = identifier("type name")
-        .syntax(SemanticTokenKind::Class)
+        .syntax(SemanticTokenKind::Type)
         .parse(input)?;
     let generics: Option<Vec<_>> = (|input: &mut Stream<'a>| {
         char('<').parse(input)?;
         whitespace(input)?;
         let generics = identifier("generic parameter")
-            .syntax(SemanticTokenKind::Class)
+            .syntax(SemanticTokenKind::TypeParameter)
             .padded(whitespace)
             .separated_by::<_, Vec<_>>(char(','))
             .parse(input)?;
@@ -189,9 +189,9 @@ pub fn data_type_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<Sta
     })
     .optional()
     .parse(input)?;
-    inline_whitespace(input)?;
+    whitespace(input)?;
     char('=').parse(input)?;
-    inline_whitespace(input)?;
+    whitespace(input)?;
     let alias = parse_data_type.parse(input)?;
 
     Some(StatementKind::TypeDeclaration(
@@ -203,6 +203,78 @@ pub fn data_type_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<Sta
                 .collect()
         }),
         alias,
+    ))
+}
+
+pub fn struct_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<StatementKind> {
+    literal("struct")
+        .syntax(SemanticTokenKind::Keyword)
+        .parse(input)?;
+
+    required_inline_whitespace(input)?;
+
+    let name = identifier("struct name")
+        .syntax(SemanticTokenKind::Struct)
+        .parse(input)?;
+
+    let generics: Option<Vec<_>> = (|input: &mut Stream<'a>| {
+        char('<').parse(input)?;
+        whitespace(input)?;
+
+        let generics = identifier("generic parameter")
+            .syntax(SemanticTokenKind::TypeParameter)
+            .padded(whitespace)
+            .separated_by::<_, Vec<_>>(char(','))
+            .parse(input)?;
+
+        char('>').parse(input)?;
+
+        Some(generics)
+    })
+    .optional()
+    .parse(input)?;
+
+    if generics.is_some() {
+        whitespace(input)?;
+    } else {
+        inline_whitespace(input)?;
+    }
+
+    char('{').parse(input)?;
+
+    let fields = (|input: &mut Stream| {
+        whitespace(input)?;
+
+        let field_name = identifier("field name")
+            .syntax(SemanticTokenKind::Property)
+            .parse(input)?;
+
+        whitespace(input)?;
+
+        char(':').parse(input)?;
+
+        whitespace(input)?;
+
+        let field_type = parse_data_type(input)?;
+
+        whitespace(input)?;
+
+        Some((field_name.to_string(), field_type))
+    })
+    .separated_by::<_, Vec<_>>(char(','))
+    .parse(input)?;
+
+    char('}').parse(input)?;
+
+    Some(StatementKind::StructDeclaration(
+        name.to_string(),
+        generics.map(|generics| {
+            generics
+                .into_iter()
+                .map(|generic| generic.to_string())
+                .collect()
+        }),
+        fields.into_iter().collect(),
     ))
 }
 
@@ -246,13 +318,14 @@ pub fn expression_statement(input: &mut Stream) -> Option<StatementKind> {
 }
 
 pub fn parse_statement(input: &mut Stream) -> Option<Statement> {
-    let r = choice((
+    let (span, statement) = choice((
         mcfunction_statement,
         while_statement,
         for_in_statement,
         match_statement,
         if_statement,
         variable_declaration_statement,
+        struct_declaration_statement,
         data_type_declaration_statement,
         block_statement,
         append_statement,
@@ -261,9 +334,7 @@ pub fn parse_statement(input: &mut Stream) -> Option<Statement> {
     ))
     .spanned()
     .label("statement")
-    .parse(input);
-
-    let (span, statement) = r?;
+    .parse(input)?;
 
     Some(Statement::new(span, statement))
 }

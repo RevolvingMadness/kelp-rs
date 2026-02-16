@@ -13,6 +13,7 @@ pub enum PatternType {
     Double,
     String,
     Tuple(Vec<PatternType>),
+    Struct(String, BTreeMap<HighSNBTString, PatternType>),
     Reference(Box<PatternType>),
     Compound(BTreeMap<HighSNBTString, PatternType>),
     Dereference(Box<PatternType>),
@@ -42,6 +43,29 @@ impl Display for PatternType {
                 }
 
                 f.write_str(")")
+            }
+            PatternType::Struct(name, fields) => {
+                write!(f, "{} {{", name)?;
+
+                if !fields.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                for (i, (key, pattern_type)) in fields.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    write!(f, "{}: {}", key.snbt_string.1, pattern_type)?;
+                }
+
+                if !fields.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                f.write_str("}")?;
+
+                Ok(())
             }
             PatternType::Reference(pattern) => write!(f, "&{}", pattern),
             PatternType::Compound(compound) => {

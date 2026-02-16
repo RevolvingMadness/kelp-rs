@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, num::IntErrorKind};
 
 use kelp_core::{
+    data_type::high::HighDataType,
     expression::{
         Expression, ExpressionCompoundKind, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
@@ -568,15 +569,87 @@ pub fn atom(input: &mut Stream) -> Option<Expression> {
                 Some(ExpressionKind::Tuple(elements))
             }
         },
-        identifier("variable name")
-            .spanned()
-            .syntax(SemanticTokenKind::Variable)
-            .map(|(identifier_span, identifier)| {
-                ExpressionKind::Constant(ConstantExpression {
-                    span: identifier_span,
-                    kind: ConstantExpressionKind::Variable(identifier.to_string()),
+        |input: &mut Stream| {
+            let (name_span, name) = identifier("struct or variable name")
+                .spanned()
+                .parse(input)?;
+
+            let generics_fields = (|input: &mut Stream| {
+                let generics: Option<Vec<HighDataType>> = (|input: &mut Stream| {
+                    char('<').parse(input)?;
+                    let generics = parse_data_type
+                        .padded(whitespace)
+                        .syntax(SemanticTokenKind::TypeParameter)
+                        .separated_by::<_, Vec<_>>(char(','))
+                        .parse(input)?;
+                    char('>').parse(input)?;
+
+                    Some(generics)
                 })
-            }),
+                .optional()
+                .parse(input)?;
+
+                if generics.is_some() {
+                    whitespace(input)?;
+                } else {
+                    inline_whitespace(input)?;
+                }
+
+                let fields = (|input: &mut Stream| {
+                    char('{').parse(input)?;
+                    whitespace(input)?;
+
+                    let fields = (|input: &mut Stream| {
+                        let (field_name_span, field_name) = identifier("field name")
+                            .spanned()
+                            .syntax(SemanticTokenKind::Variable)
+                            .parse(input)?;
+                        whitespace(input)?;
+                        char(':').parse(input)?;
+                        whitespace(input)?;
+                        let value = expression(input)?;
+
+                        Some((
+                            HighSNBTString {
+                                span: field_name_span,
+                                snbt_string: SNBTString(false, field_name.to_string()),
+                            },
+                            value,
+                        ))
+                    })
+                    .padded(whitespace)
+                    .separated_by::<_, Vec<_>>(char(','))
+                    .parse(input)?;
+
+                    char('}').parse(input)?;
+
+                    Some(fields)
+                })
+                .parse(input)?;
+
+                Some((generics, fields))
+            })
+            .optional()
+            .parse(input)?;
+
+            Some(if let Some((generics, fields)) = generics_fields {
+                input.add_syntax(name_span, SemanticTokenKind::Struct);
+
+                ExpressionKind::Struct(
+                    name_span,
+                    name.to_string(),
+                    generics.unwrap_or_default(),
+                    fields.into_iter().collect(),
+                )
+            } else {
+                input.add_syntax(name_span, SemanticTokenKind::Variable);
+
+                ExpressionKind::Constant(ConstantExpression {
+                    span: name_span,
+                    kind: ConstantExpressionKind::Variable(name.to_string()),
+                })
+            })
+        },
         |input: &mut Stream<'_>| {
             char('/').optional().parse(input)?;
 

@@ -46,8 +46,11 @@ pub enum SemanticAnalysisError {
         from: DataTypeKind,
         to: DataTypeKind,
     },
-    CompoundDoesNotContainKey(String),
-    UnexpectedKey(String),
+    TypeIsNotStruct(String),
+    MissingKey(String),
+    CompoundHasNoKey(String),
+    MissingField(String),
+    StructHasNoField(String),
     TypeIsAlreadyDefined(String),
     PatternIsNotIrrefutable,
     UnknownType(String),
@@ -110,14 +113,23 @@ impl Display for SemanticAnalysisError {
             Self::UnknownType(name) => {
                 write!(f, "Unknown type '{}'", name)
             }
+            Self::TypeIsNotStruct(name) => {
+                write!(f, "The type '{}' is not a struct", name)
+            }
             Self::CannotIterateType(data_type) => {
                 write!(f, "Cannot iterate over type '{}'", data_type)
             }
-            Self::CompoundDoesNotContainKey(key) => {
-                write!(f, "Expected key '{}'", key)
+            Self::MissingKey(key) => {
+                write!(f, "Missing key '{}'", key)
             }
-            Self::UnexpectedKey(key) => {
-                write!(f, " Unexpected key '{}'", key)
+            Self::CompoundHasNoKey(key) => {
+                write!(f, "Compound has no key named '{}'", key)
+            }
+            Self::MissingField(field) => {
+                write!(f, "Missing field '{}'", field)
+            }
+            Self::StructHasNoField(field) => {
+                write!(f, "Struct has no field named '{}'", field)
             }
             Self::TypeIsAlreadyDefined(name) => {
                 write!(
@@ -366,7 +378,13 @@ impl SemanticAnalysisContext {
             }
         }
 
-        None
+        match name {
+            "boolean" | "byte" | "short" | "integer" | "int" | "long" | "float" | "double"
+            | "string" | "str" | "score" | "list" | "compound" | "data" | "snbt" => {
+                Some(Some(DataTypeDeclarationKind::Builtin(name.to_string())))
+            }
+            _ => None,
+        }
     }
 }
 

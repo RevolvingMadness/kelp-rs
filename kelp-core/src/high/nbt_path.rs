@@ -8,7 +8,7 @@ use crate::{
     expression::{Expression, ExpressionCompoundKind},
     high::snbt_string::HighSNBTString,
     semantic_analysis_context::SemanticAnalysisContext,
-    trait_ext::OptionIterExt,
+    trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]

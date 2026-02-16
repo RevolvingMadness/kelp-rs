@@ -1,13 +1,15 @@
 use std::{collections::BTreeMap, fmt::Display};
 
 use minecraft_command_types::{nbt_path::NbtPathNode, snbt::SNBTString};
+use minecraft_command_types_derive::HasMacro;
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
-    datapack::HighDatapack,
+    datapack::{DataTypeDeclarationKind, HighDatapack},
     expression::{
         Expression, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
+        supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::snbt_string::HighSNBTString,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -17,12 +19,12 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
-    trait_ext::OptionIterExt,
+    trait_ext::{OptionBoolIterExt, OptionUnitIterExt},
 };
 
 pub mod high;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum DataTypeKind {
     Boolean,
     Byte,
@@ -42,6 +44,7 @@ pub enum DataTypeKind {
     Generic(String),
     Tuple(Vec<DataTypeKind>),
     SNBT,
+    Struct(String, Vec<DataTypeKind>),
 }
 
 impl Display for DataTypeKind {
@@ -96,12 +99,73 @@ impl Display for DataTypeKind {
 
                 f.write_str(")")
             }
-            DataTypeKind::SNBT => write!(f, "snbt"),
+            DataTypeKind::SNBT => f.write_str("snbt"),
+            DataTypeKind::Struct(name, generics) => {
+                f.write_str(name)?;
+
+                if !generics.is_empty() {
+                    f.write_str("<")?;
+
+                    for (i, data_type) in generics.iter().enumerate() {
+                        if i != 0 {
+                            f.write_str(", ")?;
+                        }
+
+                        write!(f, "{}", data_type)?;
+                    }
+
+                    f.write_str(">")?;
+                }
+
+                Ok(())
+            }
         }
     }
 }
 
 impl DataTypeKind {
+    #[must_use]
+    pub fn substitute(
+        self,
+        substitutions: &BTreeMap<String, DataTypeKind>,
+    ) -> Option<DataTypeKind> {
+        Some(match self {
+            DataTypeKind::List(inner) => {
+                DataTypeKind::List(Box::new(inner.substitute(substitutions)?))
+            }
+            DataTypeKind::Compound(inner) => {
+                DataTypeKind::Compound(Box::new(inner.substitute(substitutions)?))
+            }
+            DataTypeKind::Data(inner) => {
+                DataTypeKind::Data(Box::new(inner.substitute(substitutions)?))
+            }
+            DataTypeKind::Reference(inner) => {
+                DataTypeKind::Reference(Box::new(inner.substitute(substitutions)?))
+            }
+            DataTypeKind::Tuple(inner) => DataTypeKind::Tuple(
+                inner
+                    .into_iter()
+                    .map(|t| t.substitute(substitutions))
+                    .collect::<Option<_>>()?,
+            ),
+            DataTypeKind::TypedCompound(inner) => DataTypeKind::TypedCompound(
+                inner
+                    .into_iter()
+                    .map(|(k, v)| v.substitute(substitutions).map(|v| (k, v)))
+                    .collect::<Option<_>>()?,
+            ),
+            DataTypeKind::Generic(ref name) => substitutions.get(name)?.clone(),
+            DataTypeKind::Struct(name, generics) => DataTypeKind::Struct(
+                name,
+                generics
+                    .into_iter()
+                    .map(|g| g.substitute(substitutions))
+                    .collect::<Option<_>>()?,
+            ),
+            _ => self,
+        })
+    }
+
     #[inline]
     #[must_use]
     fn reference(self) -> DataTypeKind {
@@ -121,6 +185,13 @@ impl DataTypeKind {
                         .map(|data_type| data_type.reference())
                         .collect(),
                 ),
+                DataTypeKind::Struct(name, generic_types) => DataTypeKind::Struct(
+                    name,
+                    generic_types
+                        .into_iter()
+                        .map(|generic_type| generic_type.reference())
+                        .collect(),
+                ),
                 DataTypeKind::TypedCompound(compound) => DataTypeKind::TypedCompound(
                     compound
                         .into_iter()
@@ -128,7 +199,7 @@ impl DataTypeKind {
                         .collect(),
                 ),
                 DataTypeKind::Compound(data_type) => {
-                    DataTypeKind::Compound(Box::new(DataTypeKind::Reference(data_type)))
+                    DataTypeKind::Compound(Box::new(data_type.reference()))
                 }
                 DataTypeKind::Data(data_type) => {
                     DataTypeKind::Data(Box::new(data_type.reference()))
@@ -162,6 +233,13 @@ impl DataTypeKind {
             DataTypeKind::Compound(data_type) => {
                 DataTypeKind::Compound(Box::new(data_type.wrap_data()))
             }
+            DataTypeKind::Struct(name, generic_types) => DataTypeKind::Struct(
+                name,
+                generic_types
+                    .into_iter()
+                    .map(|generic_type| generic_type.wrap_data())
+                    .collect(),
+            ),
             _ => DataTypeKind::Data(Box::new(self)),
         }
     }
@@ -312,6 +390,98 @@ impl DataTypeKind {
     }
 
     #[must_use]
+    pub fn perform_struct_destructure_semantic_analysis(
+        self,
+        name: &str,
+        field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
+        ctx: &mut SemanticAnalysisContext,
+        value_span: ParserRange,
+        pattern: &Pattern,
+    ) -> Option<()> {
+        match self {
+            DataTypeKind::Struct(ref struct_name, ref generics) => {
+                if struct_name != name {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: pattern.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedPatternTypes {
+                                expected: self.clone(),
+                                actual: pattern.kind.get_type(),
+                            },
+                        ),
+                    });
+                }
+
+                let declaration = ctx.get_data_type(struct_name)??;
+                let fields = declaration.get_struct_fields(ctx, struct_name, generics)?;
+
+                let mut error = false;
+                for (key, pattern_opt) in field_patterns.iter() {
+                    if let Some(field_type_opt) = fields.get(&key.snbt_string.1) {
+                        let field_type = field_type_opt.clone()?;
+                        if let Some(inner_pattern) = pattern_opt {
+                            field_type.perform_destructure_semantic_analysis(
+                                ctx,
+                                value_span,
+                                inner_pattern,
+                            )?;
+                        } else {
+                            ctx.declare_variable_known(&key.snbt_string.1, field_type);
+                        }
+                    } else {
+                        error = true;
+                        ctx.add_info::<()>(SemanticAnalysisInfo {
+                            span: key.span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::StructHasNoField(key.snbt_string.1.clone()),
+                            ),
+                        });
+                        if let Some(p) = pattern_opt {
+                            p.kind.destructure_unknown(ctx);
+                        } else {
+                            ctx.declare_variable_unknown(&key.snbt_string.1);
+                        }
+                    }
+                }
+                if error { None } else { Some(()) }
+            }
+            DataTypeKind::Reference(_) => self
+                .distribute_references()
+                .perform_struct_destructure_semantic_analysis(
+                    name,
+                    field_patterns,
+                    ctx,
+                    value_span,
+                    pattern,
+                ),
+            DataTypeKind::Data(inner) => inner
+                .wrap_data()
+                .perform_struct_destructure_semantic_analysis(
+                    name,
+                    field_patterns,
+                    ctx,
+                    value_span,
+                    pattern,
+                ),
+            _ => {
+                for inner in field_patterns.values().flatten() {
+                    inner.kind.destructure_unknown(ctx);
+                }
+
+                ctx.add_info(SemanticAnalysisInfo {
+                    span: pattern.span,
+                    kind: SemanticAnalysisInfoKind::Error(
+                        SemanticAnalysisError::MismatchedPatternTypes {
+                            expected: self,
+                            actual: pattern.kind.get_type(),
+                        },
+                    ),
+                })
+            }
+        }
+    }
+
+    #[must_use]
     pub fn perform_destructure_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -330,6 +500,14 @@ impl DataTypeKind {
             }
             PatternKind::Compound(patterns) => self
                 .perform_compound_destructure_semantic_analysis(patterns, ctx, value_span, pattern),
+            PatternKind::Struct(name, field_patterns) => self
+                .perform_struct_destructure_semantic_analysis(
+                    name,
+                    field_patterns,
+                    ctx,
+                    value_span,
+                    pattern,
+                ),
             pattern_kind @ PatternKind::Dereference(inner_pattern) => {
                 if !self.can_be_dereferenced() {
                     ctx.add_info(SemanticAnalysisInfo {
@@ -441,6 +619,86 @@ impl DataTypeKind {
         }
     }
 
+    pub fn destructure_struct(
+        self,
+        name: &str,
+        field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
+        datapack: &mut HighDatapack,
+        value: ConstantExpressionKind,
+    ) {
+        match (self, value) {
+            (
+                DataTypeKind::Struct(s_name, generics),
+                ConstantExpressionKind::Struct(v_s_name, _, fields),
+            ) if s_name == name && v_s_name == name => {
+                let declaration = datapack.get_data_type(name).unwrap();
+                let field_types = declaration
+                    .get_struct_fields(datapack, name, &generics)
+                    .unwrap();
+
+                for (key, pattern_opt) in field_patterns {
+                    let expression = fields.get(&key.snbt_string.1).unwrap().clone();
+                    let data_type = field_types
+                        .get(&key.snbt_string.1)
+                        .unwrap()
+                        .clone()
+                        .unwrap();
+
+                    if let Some(pattern) = pattern_opt {
+                        data_type.destructure(datapack, expression, pattern);
+                    } else {
+                        datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
+                    }
+                }
+            }
+            (DataTypeKind::Struct(_, generics), ConstantExpressionKind::Data(target, path)) => {
+                let declaration = datapack.get_data_type(name).unwrap();
+                let field_types = declaration
+                    .get_struct_fields(datapack, name, &generics)
+                    .unwrap();
+
+                for (key, pattern_opt) in field_patterns {
+                    let field_path = path
+                        .clone()
+                        .with_node(NbtPathNode::Named(key.snbt_string.clone(), None));
+                    let field_value = ConstantExpressionKind::Data(target.clone(), field_path)
+                        .into_dummy_constant_expression();
+
+                    let data_type = field_types
+                        .get(&key.snbt_string.1)
+                        .unwrap()
+                        .clone()
+                        .unwrap();
+                    let data_wrapped_type = DataTypeKind::Data(Box::new(data_type));
+
+                    if let Some(pattern) = pattern_opt {
+                        data_wrapped_type.destructure(datapack, field_value, pattern);
+                    } else {
+                        datapack.declare_variable(
+                            key.snbt_string.1.clone(),
+                            data_wrapped_type,
+                            field_value,
+                        );
+                    }
+                }
+            }
+            (DataTypeKind::Reference(inner), ConstantExpressionKind::Reference(val)) => {
+                inner.distribute_references().destructure_struct(
+                    name,
+                    field_patterns,
+                    datapack,
+                    val.kind.distribute_references(),
+                );
+            }
+            (DataTypeKind::Data(inner_type), value @ ConstantExpressionKind::Data(_, _)) => {
+                inner_type
+                    .wrap_data()
+                    .destructure_struct(name, field_patterns, datapack, value)
+            }
+            (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
+        }
+    }
+
     pub fn destructure(
         self,
         datapack: &mut HighDatapack,
@@ -469,6 +727,9 @@ impl DataTypeKind {
                     .unwrap()
                     .destructure(datapack, value, pattern);
             }
+            PatternKind::Struct(name, field_patterns) => {
+                self.destructure_struct(name, field_patterns, datapack, value.kind);
+            }
         }
     }
 
@@ -478,42 +739,24 @@ impl DataTypeKind {
         value_type: &DataTypeKind,
         value: &Expression,
     ) -> Option<()> {
-        if match self {
-            DataTypeKind::Boolean => matches!(value_type, DataTypeKind::Boolean),
-            DataTypeKind::Byte => matches!(value_type, DataTypeKind::Byte),
-            DataTypeKind::Short => matches!(value_type, DataTypeKind::Short),
-            DataTypeKind::Integer => matches!(value_type, DataTypeKind::Integer),
-            DataTypeKind::Long => matches!(value_type, DataTypeKind::Long),
-            DataTypeKind::Float => matches!(value_type, DataTypeKind::Float),
-            DataTypeKind::Double => matches!(value_type, DataTypeKind::Double),
-            DataTypeKind::String => matches!(value_type, DataTypeKind::String),
-            DataTypeKind::Unit => matches!(value_type, DataTypeKind::Unit),
-            DataTypeKind::Score => matches!(value_type, DataTypeKind::Score),
-            DataTypeKind::List(data_type) => {
-                if let ExpressionKind::List(expressions) = &value.kind {
-                    expressions
-                        .iter()
-                        .map(|expression| {
-                            let expression_type = expression.kind.infer_data_type(ctx).unwrap();
+        if match (self, &value.kind) {
+            (DataTypeKind::List(data_type), ExpressionKind::List(expressions)) => {
+                expressions
+                    .iter()
+                    .map(|expression| {
+                        let expression_type = expression.kind.infer_data_type(ctx).unwrap();
 
-                            data_type.perform_equality_semantic_analysis(
-                                ctx,
-                                &expression_type,
-                                expression,
-                            )
-                        })
-                        .all_some()?;
+                        data_type.perform_equality_semantic_analysis(
+                            ctx,
+                            &expression_type,
+                            expression,
+                        )
+                    })
+                    .all_some()?;
 
-                    true
-                } else {
-                    false
-                }
+                true
             }
-            DataTypeKind::TypedCompound(data_types) => {
-                let ExpressionKind::Compound(expressions) = &value.kind else {
-                    return None;
-                };
-
+            (DataTypeKind::TypedCompound(data_types), ExpressionKind::Compound(expressions)) => {
                 let mut has_error = false;
 
                 for (key, expression) in expressions {
@@ -545,7 +788,9 @@ impl DataTypeKind {
                             ctx.add_info::<()>(SemanticAnalysisInfo {
                                 span: key.span,
                                 kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::UnexpectedKey(key.snbt_string.1.clone()),
+                                    SemanticAnalysisError::CompoundHasNoKey(
+                                        key.snbt_string.1.clone(),
+                                    ),
                                 ),
                             });
                         }
@@ -561,9 +806,7 @@ impl DataTypeKind {
                         ctx.add_info::<()>(SemanticAnalysisInfo {
                             span: value.span,
                             kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::CompoundDoesNotContainKey(
-                                    expected_key.1.clone(),
-                                ),
+                                SemanticAnalysisError::MissingKey(expected_key.1.clone()),
                             ),
                         });
                     }
@@ -575,67 +818,57 @@ impl DataTypeKind {
 
                 true
             }
-            DataTypeKind::Compound(data_type) => {
-                if let ExpressionKind::Compound(expressions) = &value.kind {
-                    expressions
-                        .values()
-                        .map(|expression| {
-                            let expression_type = expression.kind.infer_data_type(ctx).unwrap();
+            (DataTypeKind::Compound(data_type), ExpressionKind::Compound(expressions)) => {
+                expressions
+                    .values()
+                    .map(|expression| {
+                        let expression_type = expression.kind.infer_data_type(ctx).unwrap();
 
-                            data_type.perform_equality_semantic_analysis(
-                                ctx,
-                                &expression_type,
-                                expression,
-                            )
-                        })
-                        .all_some()?;
+                        data_type.perform_equality_semantic_analysis(
+                            ctx,
+                            &expression_type,
+                            expression,
+                        )
+                    })
+                    .all_some()?;
 
-                    true
-                } else {
-                    false
-                }
+                true
             }
-            DataTypeKind::Data(_) => matches!(value_type, DataTypeKind::Data(_)),
-            DataTypeKind::Reference(data_type) => {
-                if let ExpressionKind::Unary(UnaryOperator::Reference, expression) = &value.kind {
-                    let expression_type = expression.kind.infer_data_type(ctx).unwrap();
+            (DataTypeKind::Data(inner_type), ExpressionKind::Data(_, _)) => {
+                inner_type.perform_equality_semantic_analysis(ctx, value_type, value)?;
 
-                    data_type.perform_equality_semantic_analysis(
-                        ctx,
-                        &expression_type,
-                        expression,
-                    )?;
-
-                    true
-                } else {
-                    false
-                }
+                true
             }
-            DataTypeKind::Generic(_) => todo!(),
-            DataTypeKind::Tuple(data_types) => {
-                if let ExpressionKind::Tuple(expressions) = &value.kind
-                    && expressions.len() == data_types.len()
-                {
-                    expressions
-                        .iter()
-                        .zip(data_types)
-                        .map(|(expression, data_type)| {
-                            let expression_type = expression.kind.infer_data_type(ctx).unwrap();
+            (
+                DataTypeKind::Reference(data_type),
+                ExpressionKind::Unary(UnaryOperator::Reference, expression),
+            ) => {
+                let expression_type = expression.kind.infer_data_type(ctx).unwrap();
 
-                            data_type.perform_equality_semantic_analysis(
-                                ctx,
-                                &expression_type,
-                                expression,
-                            )
-                        })
-                        .all_some()?;
+                data_type.perform_equality_semantic_analysis(ctx, &expression_type, expression)?;
 
-                    true
-                } else {
-                    false
-                }
+                true
             }
-            DataTypeKind::SNBT => value_type.is_snbt_like(),
+            (DataTypeKind::Tuple(data_types), ExpressionKind::Tuple(expressions))
+                if expressions.len() == data_types.len() =>
+            {
+                expressions
+                    .iter()
+                    .zip(data_types)
+                    .map(|(expression, data_type)| {
+                        let expression_type = expression.kind.infer_data_type(ctx).unwrap();
+
+                        data_type.perform_equality_semantic_analysis(
+                            ctx,
+                            &expression_type,
+                            expression,
+                        )
+                    })
+                    .all_some()?;
+
+                true
+            }
+            _ => self.equals(value_type),
         } {
             Some(())
         } else {
@@ -665,11 +898,11 @@ impl DataTypeKind {
         })
     }
 
-    pub fn as_place_type(self) -> Option<PlaceTypeKind> {
-        Some(match self {
+    pub fn as_place_type(self) -> Result<PlaceTypeKind, Self> {
+        Ok(match self {
             DataTypeKind::Score => PlaceTypeKind::Score,
             DataTypeKind::Data(data_type) => PlaceTypeKind::Data(*data_type),
-            _ => return None,
+            _ => return Err(self),
         })
     }
 
@@ -731,6 +964,8 @@ impl DataTypeKind {
 
             DataTypeKind::Reference(data_type) => data_type.is_condition(),
 
+            DataTypeKind::Generic(_) => unreachable!(),
+
             _ => false,
         }
     }
@@ -745,6 +980,7 @@ impl DataTypeKind {
             DataTypeKind::Data(data_type) | DataTypeKind::Reference(data_type) => {
                 data_type.is_score_value()
             }
+            DataTypeKind::Generic(_) => unreachable!(),
             _ => false,
         }
     }
@@ -766,27 +1002,45 @@ impl DataTypeKind {
             }
             DataTypeKind::Compound(data_type) => data_type.is_snbt_like(),
             DataTypeKind::SNBT => true,
+            DataTypeKind::Struct(_, _) => true,
+            DataTypeKind::Generic(_) => unreachable!(),
             _ => false,
         }
     }
 
-    pub fn can_be_assigned_to_data(&self) -> bool {
-        match self {
+    pub fn can_be_assigned_to_data(&self, ctx: &mut SemanticAnalysisContext) -> Option<bool> {
+        Some(match self {
             DataTypeKind::Unit => true,
             DataTypeKind::Score => true,
-            DataTypeKind::List(data_type) => data_type.can_be_assigned_to_data(),
+            DataTypeKind::List(data_type) => data_type.can_be_assigned_to_data(ctx)?,
             DataTypeKind::TypedCompound(compound) => compound
                 .values()
-                .all(|data_type| data_type.can_be_assigned_to_data()),
-            DataTypeKind::Compound(compound) => compound.can_be_assigned_to_data(),
-            DataTypeKind::Data(data_type) => data_type.can_be_assigned_to_data(),
-            DataTypeKind::Reference(data_type) => data_type.can_be_assigned_to_data(),
+                .map(|data_type| data_type.can_be_assigned_to_data(ctx))
+                .all_some_true()?,
+            DataTypeKind::Compound(compound) => compound.can_be_assigned_to_data(ctx)?,
+            DataTypeKind::Data(data_type) => data_type.can_be_assigned_to_data(ctx)?,
+            DataTypeKind::Reference(data_type) => data_type.can_be_assigned_to_data(ctx)?,
             DataTypeKind::Tuple(data_types) => data_types
                 .iter()
-                .all(|data_type| data_type.can_be_assigned_to_data()),
-            DataTypeKind::SNBT => true,
+                .map(|data_type| data_type.can_be_assigned_to_data(ctx))
+                .all_some_true()?,
+            DataTypeKind::Struct(name, generic_types) => {
+                let declaration @ DataTypeDeclarationKind::Struct { .. } =
+                    ctx.get_data_type(name)??
+                else {
+                    return None;
+                };
+
+                let fields = declaration.get_struct_fields(ctx, name, generic_types)?;
+
+                fields
+                    .values()
+                    .map(|field_type| field_type.as_ref()?.can_be_assigned_to_data(ctx))
+                    .all_some_true()?
+            }
+            DataTypeKind::Generic(_) => unreachable!(),
             _ => self.is_snbt_like(),
-        }
+        })
     }
 
     pub fn can_be_indexed(&self) -> bool {
@@ -795,12 +1049,16 @@ impl DataTypeKind {
 
             DataTypeKind::List(_) | DataTypeKind::Data(_) | DataTypeKind::SNBT => true,
 
+            DataTypeKind::Generic(_) => unreachable!(),
+
             _ => false,
         }
     }
 
     pub fn has_fields(&self) -> bool {
         match self {
+            DataTypeKind::Struct(_, _) => true,
+
             DataTypeKind::Reference(data_type) => data_type.has_fields(),
 
             DataTypeKind::TypedCompound(_)
@@ -809,13 +1067,31 @@ impl DataTypeKind {
             | DataTypeKind::Tuple(_)
             | DataTypeKind::SNBT => true,
 
+            DataTypeKind::Generic(_) => unreachable!(),
+
             _ => false,
         }
     }
 
-    pub fn has_field(&self, field: &HighSNBTString) -> bool {
-        match self {
-            DataTypeKind::Reference(data_type) => data_type.has_field(field),
+    pub fn has_field(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        field: &HighSNBTString,
+    ) -> Option<bool> {
+        Some(match self {
+            DataTypeKind::Reference(data_type) => data_type.has_field(ctx, field)?,
+
+            DataTypeKind::Struct(name, generic_types) => {
+                let declaration @ DataTypeDeclarationKind::Struct { .. } =
+                    ctx.get_data_type(name)??
+                else {
+                    return None;
+                };
+
+                let fields = declaration.get_struct_fields(ctx, name, generic_types)?;
+
+                fields.contains_key(&field.snbt_string.1)
+            }
 
             DataTypeKind::TypedCompound(compound) => {
                 compound.keys().any(|key| *key == field.snbt_string)
@@ -827,10 +1103,11 @@ impl DataTypeKind {
                     false
                 }
             }
-            DataTypeKind::Data(data_type) => data_type.has_field(field),
+            DataTypeKind::Data(data_type) => data_type.has_field(ctx, field)?,
             DataTypeKind::Compound(_) | DataTypeKind::SNBT => true,
+            DataTypeKind::Generic(_) => unreachable!(),
             _ => false,
-        }
+        })
     }
 
     fn raw_get_arithmetic_result(
@@ -943,7 +1220,7 @@ impl DataTypeKind {
 
     pub fn raw_can_perform_comparison(
         &self,
-        _operator: &ComparisonOperator,
+        operator: &ComparisonOperator,
         other: &DataTypeKind,
     ) -> bool {
         match (self, other) {
@@ -957,6 +1234,12 @@ impl DataTypeKind {
                 if other.is_score_value() =>
             {
                 true
+            }
+            (DataTypeKind::Data(inner_type), other) | (other, DataTypeKind::Data(inner_type))
+                if *operator == ComparisonOperator::EqualTo
+                    || *operator == ComparisonOperator::NotEqualTo =>
+            {
+                inner_type.can_perform_comparison(operator, other)
             }
             _ => false,
         }
@@ -974,12 +1257,9 @@ impl DataTypeKind {
         }
 
         match (self, other) {
-            (DataTypeKind::Reference(self_), DataTypeKind::Reference(other)) => {
-                self_.raw_can_perform_comparison(operator, other)
-            }
-            (_, DataTypeKind::Reference(other)) => self.raw_can_perform_comparison(operator, other),
-            (DataTypeKind::Reference(self_), other) => {
-                self_.raw_can_perform_comparison(operator, other)
+            (DataTypeKind::Reference(data_type), other)
+            | (other, DataTypeKind::Reference(data_type)) => {
+                data_type.raw_can_perform_comparison(operator, other)
             }
 
             _ => self.raw_can_perform_comparison(operator, other),
@@ -1009,19 +1289,38 @@ impl DataTypeKind {
         })
     }
 
-    pub fn get_field_result(&self, field: &SNBTString) -> Option<DataTypeKind> {
+    pub fn get_field_result(
+        &self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+        field: &String,
+    ) -> Option<DataTypeKind> {
         Some(match self {
-            DataTypeKind::Reference(self_) => self_.get_field_result(field)?,
+            DataTypeKind::Reference(self_) => {
+                self_.get_field_result(supports_variable_type_scope, field)?
+            }
+
+            DataTypeKind::Struct(name, generics) => {
+                let declaration @ DataTypeDeclarationKind::Struct { .. } =
+                    supports_variable_type_scope.get_data_type(name)??
+                else {
+                    return None;
+                };
+
+                let fields =
+                    declaration.get_struct_fields(supports_variable_type_scope, name, generics)?;
+
+                fields.get(field).cloned()??
+            }
 
             DataTypeKind::TypedCompound(compound) => {
-                return compound.get(field).cloned();
+                compound.iter().find(|(key, _)| key.1 == *field)?.1.clone()
             }
             DataTypeKind::Compound(data_type) => *data_type.clone(),
-            DataTypeKind::Data(data_type) => {
-                DataTypeKind::Data(Box::new(data_type.get_field_result(field)?))
-            }
+            DataTypeKind::Data(data_type) => DataTypeKind::Data(Box::new(
+                data_type.get_field_result(supports_variable_type_scope, field)?,
+            )),
             DataTypeKind::Tuple(items) => {
-                return if let Ok(index) = field.1.parse::<i32>() {
+                return if let Ok(index) = field.parse::<i32>() {
                     items.get(index as usize).cloned()
                 } else {
                     None

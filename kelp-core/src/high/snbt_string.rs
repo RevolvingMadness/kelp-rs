@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use minecraft_command_types::{has_macro::HasMacro, impl_has_macro_false, snbt::SNBTString};
 use parser_rs::parser_range::ParserRange;
 
@@ -16,7 +18,7 @@ impl_has_macro_false!(HighSNBTString);
 impl From<String> for HighSNBTString {
     fn from(value: String) -> Self {
         HighSNBTString {
-            span: ParserRange { start: 0, end: 0 },
+            span: ParserRange::dummy(),
             snbt_string: SNBTString(false, value),
         }
     }

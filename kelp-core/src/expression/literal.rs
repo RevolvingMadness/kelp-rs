@@ -227,8 +227,20 @@ impl LiteralExpressionKind {
                     SNBT::Float(*value)
                 }
             }
-            LiteralExpressionKind::Double(value) => SNBT::Double(*value),
-            LiteralExpressionKind::String(string) => SNBT::String(string.snbt_string.clone()),
+            LiteralExpressionKind::Double(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Double(*value)
+                }
+            }
+            LiteralExpressionKind::String(string) => {
+                if force_display {
+                    SNBT::string(format!("\"{}\"", string.snbt_string.1))
+                } else {
+                    SNBT::String(string.snbt_string.clone())
+                }
+            }
         }
     }
 

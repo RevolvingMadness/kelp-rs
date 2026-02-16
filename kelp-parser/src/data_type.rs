@@ -96,7 +96,7 @@ pub fn parse_data_type(input: &mut Stream) -> Option<HighDataType> {
 
             let (name_span, name) = identifier("data type")
                 .spanned()
-                .syntax(SemanticTokenKind::Class)
+                .syntax(SemanticTokenKind::Type)
                 .parse(input)?;
 
             let generics = (|input: &mut Stream| {
@@ -110,6 +110,7 @@ pub fn parse_data_type(input: &mut Stream) -> Option<HighDataType> {
                         inline_whitespace(input)?;
                         Some(())
                     })
+                    .syntax(SemanticTokenKind::TypeParameter)
                     .parse(input)?;
 
                 inline_whitespace(input)?;

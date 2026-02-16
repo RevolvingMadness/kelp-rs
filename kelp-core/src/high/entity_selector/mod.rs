@@ -4,7 +4,7 @@ use minecraft_command_types_derive::HasMacro;
 use crate::{
     compile_context::CompileContext, datapack::HighDatapack,
     high::entity_selector::option::HighEntitySelectorOption,
-    semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionIterExt,
+    semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
 };
 
 pub mod option;

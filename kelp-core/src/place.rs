@@ -19,13 +19,15 @@ use crate::{
         Expression, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
     },
-    high::{data::GeneratedDataTarget, player_score::GeneratedPlayerScore},
+    high::{
+        data::GeneratedDataTarget, player_score::GeneratedPlayerScore, snbt_string::HighSNBTString,
+    },
     operator::ArithmeticOperator,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
-    trait_ext::OptionIterExt,
+    trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug)]
@@ -44,21 +46,21 @@ impl Place {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        value: ConstantExpression,
+        value: ConstantExpressionKind,
     ) {
         match self {
             Place::Score(score) => {
-                value.kind.assign_to_score(datapack, ctx, score);
+                value.assign_to_score(datapack, ctx, score);
             }
             Place::Data(target, path) => {
-                value.kind.assign_to_data(datapack, ctx, target, path);
+                value.assign_to_data(datapack, ctx, target, path);
             }
             Place::Variable(name) => {
-                datapack.assign_variable(&name, value);
+                datapack.assign_variable(&name, value.into_dummy_constant_expression());
             }
             Place::Underscore => {}
             Place::Tuple(places) => {
-                if let ConstantExpressionKind::Tuple(values) = value.kind {
+                if let ConstantExpressionKind::Tuple(values) = value {
                     if places.len() != values.len() {
                         return;
                     }
@@ -80,7 +82,7 @@ impl Place {
                         .collect();
 
                     for (place, val) in places.into_iter().zip(safe_values) {
-                        place.assign(datapack, ctx, val);
+                        place.assign(datapack, ctx, val.kind);
                     }
                 } else {
                     unreachable!()
@@ -93,10 +95,32 @@ impl Place {
                     .assign(datapack, ctx, value);
             }
             Place::Field(expression, field) => {
-                expression
-                    .access_field(field)
-                    .as_place()
-                    .assign(datapack, ctx, value);
+                if expression.is_lvalue() {
+                    expression
+                        .access_field(field.1)
+                        .as_place()
+                        .assign(datapack, ctx, value);
+                } else {
+                    let mut new_container = *expression.clone();
+
+                    match &mut new_container {
+                        ConstantExpressionKind::Struct(_, _, fields) => {
+                            fields.insert(field.1, value.into_dummy_constant_expression());
+                        }
+                        ConstantExpressionKind::Compound(fields) => {
+                            fields.insert(
+                                HighSNBTString {
+                                    span: ParserRange::dummy(),
+                                    snbt_string: SNBTString(false, field.1),
+                                },
+                                value.into_dummy_constant_expression(),
+                            );
+                        }
+                        _ => unreachable!("Cannot assign field to {:?}", new_container),
+                    }
+
+                    expression.as_place().assign(datapack, ctx, new_container);
+                }
             }
         }
     }
@@ -158,6 +182,37 @@ impl Place {
                     datapack.get_variable_mut(&name).unwrap().kind = new_kind;
                 }
             }
+            Place::Field(expression, field) => {
+                let field_value = expression.clone().access_field(field.1.clone());
+
+                if field_value.is_lvalue() {
+                    field_value.compile_augmented_assignment(datapack, ctx, operator, value);
+                } else {
+                    let new_field_value =
+                        field_value.perform_arithmetic(datapack, ctx, operator, value);
+
+                    let mut new_container = *expression.clone();
+
+                    match &mut new_container {
+                        ConstantExpressionKind::Struct(_, _, fields) => {
+                            fields
+                                .insert(field.1, new_field_value.into_dummy_constant_expression());
+                        }
+                        ConstantExpressionKind::Compound(fields) => {
+                            fields.insert(
+                                HighSNBTString {
+                                    span: ParserRange::dummy(),
+                                    snbt_string: SNBTString(false, field.1),
+                                },
+                                new_field_value.into_dummy_constant_expression(),
+                            );
+                        }
+                        _ => unreachable!("Cannot assign field to {:?}", new_container),
+                    }
+
+                    expression.as_place().assign(datapack, ctx, new_container);
+                }
+            }
             Place::Tuple(_) | Place::Underscore => {
                 unreachable!()
             }
@@ -165,12 +220,6 @@ impl Place {
                 expression
                     .dereference(datapack)
                     .as_place(datapack, ctx)
-                    .augmented_assign(datapack, ctx, operator, value);
-            }
-            Place::Field(expression, field) => {
-                expression
-                    .access_field(field)
-                    .as_place()
                     .augmented_assign(datapack, ctx, operator, value);
             }
         }

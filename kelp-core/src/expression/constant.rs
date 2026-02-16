@@ -114,6 +114,11 @@ pub enum ConstantExpressionKind {
     Reference(Box<ConstantExpression>),
     Variable(String),
     Unit,
+    Struct(
+        String,
+        Vec<DataTypeKind>,
+        BTreeMap<String, ConstantExpression>,
+    ),
 }
 
 impl ConstantExpressionKind {
@@ -189,7 +194,8 @@ impl ConstantExpressionKind {
             | ConstantExpressionKind::Tuple(_)
             | ConstantExpressionKind::Underscore
             | ConstantExpressionKind::Unit
-            | ConstantExpressionKind::Reference(_) => unreachable!("{:?}", self),
+            | ConstantExpressionKind::Reference(_)
+            | ConstantExpressionKind::Struct(_, _, _) => unreachable!("{:?}", self),
         }
     }
 
@@ -279,6 +285,9 @@ impl ConstantExpressionKind {
                     .infer_data_type(supports_variable_type_scope)?,
             )),
             ConstantExpressionKind::Underscore => unreachable!(),
+            ConstantExpressionKind::Struct(name, generics_types, _) => {
+                DataTypeKind::Struct(name.clone(), generics_types.clone())
+            }
         })
     }
 
@@ -343,6 +352,11 @@ impl ConstantExpressionKind {
                 .kind
                 .compile_as_statement(datapack, ctx),
             ConstantExpressionKind::Underscore => unreachable!(),
+            ConstantExpressionKind::Struct(_, _, fields) => {
+                for field in fields.values() {
+                    field.kind.compile_as_statement(datapack, ctx);
+                }
+            }
         }
     }
 
@@ -519,7 +533,7 @@ impl ConstantExpressionKind {
         }
     }
 
-    pub fn access_field(self, field: SNBTString) -> ConstantExpressionKind {
+    pub fn access_field(self, field: String) -> ConstantExpressionKind {
         match self {
             ConstantExpressionKind::Literal(_)
             | ConstantExpressionKind::List(_)
@@ -532,27 +546,33 @@ impl ConstantExpressionKind {
                 unreachable!("Expression does not have any fields {:?}", self)
             }
             ConstantExpressionKind::Underscore => unreachable!(),
-
             ConstantExpressionKind::Reference(expression) => expression.kind.access_field(field),
-
             ConstantExpressionKind::Compound(compound) => {
                 compound
                     .into_iter()
-                    .find(|(key, _)| key.snbt_string == field)
+                    .find(|(key, _)| key.snbt_string.1 == *field)
                     .map(|(_, value)| value)
                     .unwrap()
                     .kind
             }
             ConstantExpressionKind::Data(target, path) => ConstantExpressionKind::Data(
                 target,
-                path.with_node(NbtPathNode::Named(field, None)),
+                path.with_node(NbtPathNode::Named(SNBTString(false, field.clone()), None)),
             ),
             ConstantExpressionKind::Tuple(mut expressions) => {
-                if let Ok(index) = field.1.parse::<i32>() {
+                if let Ok(index) = field.parse::<i32>() {
                     expressions.remove(index as usize).kind
                 } else {
-                    unreachable!("Tuple does not have field {:?}", field.1);
+                    unreachable!("Tuple does not have field {:?}", field);
                 }
+            }
+            ConstantExpressionKind::Struct(_, _, fields) => {
+                fields
+                    .into_iter()
+                    .find(|(key, _)| *key == field)
+                    .unwrap()
+                    .1
+                    .kind
             }
         }
     }
@@ -594,7 +614,7 @@ impl ConstantExpressionKind {
 
             (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
                 ConstantExpressionKind::Literal(LiteralExpression {
-                    span: ParserRange { start: 0, end: 0 },
+                    span: ParserRange::dummy(),
                     kind: left.kind.perform_arithmetic(operator, right.kind).unwrap(),
                 })
             }
@@ -653,7 +673,7 @@ impl ConstantExpressionKind {
 
             (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
                 ConstantExpressionKind::Literal(LiteralExpression {
-                    span: ParserRange { start: 0, end: 0 },
+                    span: ParserRange::dummy(),
                     kind: left.kind.compare(operator, right.kind).unwrap(),
                 })
             }
@@ -1022,7 +1042,8 @@ impl ConstantExpressionKind {
             | ConstantExpressionKind::Unit
             | ConstantExpressionKind::Reference(_)
             | ConstantExpressionKind::Dereference(_)
-            | ConstantExpressionKind::Underscore => {
+            | ConstantExpressionKind::Underscore
+            | ConstantExpressionKind::Struct(_, _, _) => {
                 unreachable!()
             }
         }
@@ -1133,6 +1154,54 @@ impl ConstantExpressionKind {
                 .kind
                 .as_text_component(datapack, ctx, force_display),
             ConstantExpressionKind::Underscore => unreachable!(),
+            ConstantExpressionKind::Struct(name, generics, fields) => {
+                let mut output = Vec::new();
+
+                output.push(SNBT::string(if generics.is_empty() {
+                    if !fields.is_empty() {
+                        format!("{} {{ ", name)
+                    } else {
+                        format!("{} {{", name)
+                    }
+                } else {
+                    name
+                }));
+
+                if !generics.is_empty() {
+                    output.push(SNBT::string("<"));
+
+                    for (i, generic) in generics.into_iter().enumerate() {
+                        if i != 0 {
+                            output.push(SNBT::string(", "));
+                        }
+
+                        output.push(SNBT::string(format!("{}", generic)));
+                    }
+
+                    output.push(SNBT::string(if !fields.is_empty() {
+                        "> { "
+                    } else {
+                        "> {"
+                    }));
+                }
+
+                for (i, (key, value)) in fields.iter().enumerate() {
+                    if i != 0 {
+                        output.push(SNBT::string(", "));
+                    }
+
+                    output.push(SNBT::string(format!("{}: ", key)));
+                    output.push(value.kind.clone().as_text_component(datapack, ctx, true));
+                }
+
+                if !fields.is_empty() {
+                    output.push(SNBT::string(" }"));
+                } else {
+                    output.push(SNBT::string("}"));
+                }
+
+                SNBT::List(output)
+            }
         }
     }
 
@@ -1218,6 +1287,7 @@ impl ConstantExpressionKind {
                 .kind
                 .assign_to_score(datapack, ctx, target),
             ConstantExpressionKind::Underscore => unreachable!(),
+            ConstantExpressionKind::Struct(_, _, _) => unreachable!(),
         }
     }
 
@@ -1315,8 +1385,8 @@ impl ConstantExpressionKind {
                 ctx.add_command(
                     datapack,
                     Command::Data(DataCommand::Modify(
-                        target.target.clone(),
-                        path.clone(),
+                        target.target,
+                        path,
                         DataCommandModificationMode::Set,
                         DataCommandModification::Value(SNBT::Compound(unit_btreemap)),
                     )),
@@ -1324,6 +1394,21 @@ impl ConstantExpressionKind {
             }
             ConstantExpressionKind::Reference(expression) => {
                 expression.kind.assign_to_data(datapack, ctx, target, path)
+            }
+            ConstantExpressionKind::Struct(name, _, fields) => {
+                let mut map = BTreeMap::new();
+
+                map.insert(SNBTString(false, name.to_string()), SNBT::string(name));
+
+                for (key, value) in fields {
+                    value.kind.assign_to_data(
+                        datapack,
+                        ctx,
+                        target.clone(),
+                        path.clone()
+                            .with_node(NbtPathNode::Named(SNBTString(false, key.clone()), None)),
+                    );
+                }
             }
             _ => unreachable!(),
         }
@@ -1367,6 +1452,17 @@ impl ConstantExpressionKind {
                 .map(|(key, value)| value.kind.as_snbt().map(|v| (key.snbt_string.clone(), v)))
                 .collect::<Option<_>>()
                 .map(SNBT::Compound),
+
+            ConstantExpressionKind::Unit => {
+                let mut unit_btreemap = BTreeMap::new();
+
+                unit_btreemap.insert(
+                    SNBTString(false, "__kelp_rs_unit__".to_string()),
+                    SNBT::Byte(1),
+                );
+
+                Some(SNBT::Compound(unit_btreemap))
+            }
 
             _ => None,
         }
@@ -1529,9 +1625,7 @@ impl ConstantExpression {
             ConstantExpressionKind::Literal(expression) => {
                 expression.kind.perform_semantic_analysis(ctx, is_lhs)
             }
-            ConstantExpressionKind::Unit
-            | ConstantExpressionKind::PlayerScore(_)
-            | ConstantExpressionKind::Data(_, _) => Some(()),
+            ConstantExpressionKind::Unit => Some(()),
             ConstantExpressionKind::Reference(expression) => {
                 let data_type = expression.kind.infer_data_type(ctx)?;
 
@@ -1572,40 +1666,15 @@ impl ConstantExpression {
                     Some(())
                 }
             }
-            ConstantExpressionKind::List(list) => list
-                .iter()
-                .map(|item| item.perform_semantic_analysis(ctx, is_lhs))
-                .collect::<Option<()>>(),
-            ConstantExpressionKind::Compound(compound) => compound
-                .values()
-                .map(|value| value.perform_semantic_analysis(ctx, is_lhs))
-                .collect::<Option<()>>(),
-            ConstantExpressionKind::Condition(_, _) => {
-                // TODO future
-
-                Some(())
-            }
-            ConstantExpressionKind::Command(_command) => {
-                // TODO future
-
-                Some(())
-            }
-            ConstantExpressionKind::Tuple(items) => items
-                .iter()
-                .map(|item| item.perform_semantic_analysis(ctx, is_lhs))
-                .collect::<Option<()>>(),
-            ConstantExpressionKind::Underscore => {
-                if !is_lhs {
-                    ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::UnderscoreExpression,
-                        ),
-                    })
-                } else {
-                    Some(())
-                }
-            }
+            ConstantExpressionKind::PlayerScore(_)
+            | ConstantExpressionKind::Data(_, _)
+            | ConstantExpressionKind::List(_)
+            | ConstantExpressionKind::Compound(_)
+            | ConstantExpressionKind::Condition(_, _)
+            | ConstantExpressionKind::Command(_)
+            | ConstantExpressionKind::Tuple(_)
+            | ConstantExpressionKind::Underscore
+            | ConstantExpressionKind::Struct(_, _, _) => unreachable!(),
         }
     }
 

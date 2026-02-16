@@ -20,9 +20,61 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
         char('_')
             .syntax(SemanticTokenKind::Variable)
             .map_to(PatternKind::Wildcard),
-        identifier("binding name")
-            .syntax(SemanticTokenKind::Variable)
-            .map(|binding| PatternKind::Binding(binding.to_string())),
+        |input: &mut Stream| {
+            let (name_span, name) = identifier("struct or binding name")
+                .spanned()
+                .parse(input)?;
+
+            let struct_fields = (|input: &mut Stream| {
+                whitespace(input)?;
+
+                char('{').parse(input)?;
+
+                let fields = (|input: &mut Stream| {
+                    let (field_name_span, field_name) = identifier("field name")
+                        .spanned()
+                        .syntax(SemanticTokenKind::Variable)
+                        .parse(input)?;
+
+                    whitespace(input)?;
+
+                    let pattern = (|input: &mut Stream| {
+                        char(':').parse(input)?;
+                        whitespace(input)?;
+                        pattern(input)
+                    })
+                    .optional()
+                    .parse(input)?;
+
+                    Some((
+                        HighSNBTString {
+                            span: field_name_span,
+                            snbt_string: SNBTString(false, field_name.to_string()),
+                        },
+                        pattern,
+                    ))
+                })
+                .padded(whitespace)
+                .separated_by::<_, Vec<_>>(char(','))
+                .parse(input)?;
+
+                char('}').parse(input)?;
+
+                Some(fields)
+            })
+            .optional()
+            .parse(input)?;
+
+            Some(if let Some(fields) = struct_fields {
+                input.add_syntax(name_span, SemanticTokenKind::Class);
+
+                PatternKind::Struct(name.to_string(), fields.into_iter().collect())
+            } else {
+                input.add_syntax(name_span, SemanticTokenKind::Variable);
+
+                PatternKind::Binding(name.to_string())
+            })
+        },
         |input: &mut Stream| {
             char('(').parse(input)?;
             whitespace(input)?;

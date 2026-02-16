@@ -58,24 +58,20 @@ impl HighDataTypeKind {
                         alias,
                         ..
                     } => {
-                        if let Some(alias_generics) = alias_generic_names {
-                            let mut substitutions: BTreeMap<String, DataTypeKind> = BTreeMap::new();
+                        let mut substitutions: BTreeMap<String, DataTypeKind> = BTreeMap::new();
 
-                            for (alias_generic_name, generic_type) in
-                                alias_generics.iter().zip(generic_types.iter())
-                            {
-                                substitutions.insert(
-                                    alias_generic_name.clone(),
-                                    generic_type
-                                        .kind
-                                        .resolve(supports_variable_type_scope, generic_names)?,
-                                );
-                            }
-
-                            alias.substitute(&substitutions)?
-                        } else {
-                            alias
+                        for (alias_generic_name, generic_type) in
+                            alias_generic_names.iter().zip(generic_types.iter())
+                        {
+                            substitutions.insert(
+                                alias_generic_name.clone(),
+                                generic_type
+                                    .kind
+                                    .resolve(supports_variable_type_scope, generic_names)?,
+                            );
                         }
+
+                        alias.substitute(&substitutions)?
                     }
                     DataTypeDeclarationKind::Struct { name, .. } => {
                         let resolved_generics = generic_types
@@ -139,43 +135,61 @@ impl HighDataType {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<()> {
         match &self.kind {
-            HighDataTypeKind::Named(span, name, generic_types) => {
-                generic_types
-                    .iter()
-                    .map(|generic_type| {
-                        generic_type.perform_semantic_analysis(context_generics, ctx)
-                    })
-                    .all_some()?;
-
-                let number_of_generics = generic_types.len();
-
-                let resolved_generic_types: Vec<DataTypeKind> = generic_types
-                    .iter()
-                    .map(|generic| generic.kind.resolve(ctx, context_generics).unwrap())
-                    .collect();
+            HighDataTypeKind::Named(name_span, name, generic_types) => {
+                let actual_generic_count = generic_types.len();
 
                 if let Ok(builtin_type) = BuiltinDataTypeKind::from_str(name) {
-                    let actual_generic_count = resolved_generic_types.len();
                     let expected_generic_count = builtin_type.generic_count();
 
                     if actual_generic_count != expected_generic_count {
                         return ctx.add_invalid_generics(
-                            self.span,
+                            *name_span,
                             builtin_type.to_string(),
                             expected_generic_count,
                             actual_generic_count,
                         );
                     }
 
+                    generic_types
+                        .iter()
+                        .map(|generic_type| {
+                            generic_type.perform_semantic_analysis(context_generics, ctx)
+                        })
+                        .all_some()?;
+
                     return Some(());
                 }
 
                 match ctx.get_data_type(name) {
-                    Some(result) => {
-                        return result?.perform_semantic_analysis(
+                    Some(None) => return None,
+                    Some(Some(result)) => {
+                        let expected_generic_count = result.generic_count();
+
+                        if actual_generic_count != expected_generic_count {
+                            return ctx.add_invalid_generics(
+                                *name_span,
+                                result.name().to_string(),
+                                expected_generic_count,
+                                actual_generic_count,
+                            );
+                        }
+
+                        generic_types
+                            .iter()
+                            .map(|generic_type| {
+                                generic_type.perform_semantic_analysis(context_generics, ctx)
+                            })
+                            .all_some()?;
+
+                        let resolved_generic_types: Vec<DataTypeKind> = generic_types
+                            .iter()
+                            .map(|generic| generic.kind.resolve(ctx, context_generics).unwrap())
+                            .collect();
+
+                        return result.perform_semantic_analysis(
                             ctx,
                             self.span,
-                            number_of_generics,
+                            actual_generic_count,
                             &resolved_generic_types,
                         );
                     }
@@ -184,7 +198,7 @@ impl HighDataType {
                             .is_none_or(|context_generics| !context_generics.contains(name))
                         {
                             return ctx.add_info(SemanticAnalysisInfo {
-                                span: *span,
+                                span: *name_span,
                                 kind: SemanticAnalysisInfoKind::Error(
                                     SemanticAnalysisError::UnknownType(name.clone()),
                                 ),

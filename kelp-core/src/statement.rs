@@ -37,8 +37,8 @@ pub enum StatementKind {
     Block(Vec<Statement>),
     AppendData(Expression, Box<Expression>),
     RemoveData(Expression),
-    TypeDeclaration(String, Option<Vec<String>>, HighDataType),
-    StructDeclaration(String, Option<Vec<String>>, BTreeMap<String, HighDataType>),
+    TypeDeclaration(String, Vec<String>, HighDataType),
+    StructDeclaration(String, Vec<String>, BTreeMap<String, HighDataType>),
 }
 
 fn compile_if(
@@ -379,7 +379,7 @@ impl StatementKind {
                 );
             }
             StatementKind::TypeDeclaration(name, generics, alias) => {
-                let alias = alias.kind.resolve(datapack, generics.as_ref()).unwrap();
+                let alias = alias.kind.resolve(datapack, Some(&generics)).unwrap();
 
                 datapack.declare_data_type(
                     name.clone(),
@@ -396,7 +396,7 @@ impl StatementKind {
                     .map(|(key, data_type)| {
                         (
                             key,
-                            data_type.kind.resolve(datapack, generics.as_ref()).unwrap(),
+                            data_type.kind.resolve(datapack, Some(&generics)).unwrap(),
                         )
                     })
                     .collect();
@@ -624,10 +624,10 @@ impl Statement {
                 }
 
                 if alias
-                    .perform_semantic_analysis(generics.as_ref(), ctx)
+                    .perform_semantic_analysis(Some(generics), ctx)
                     .is_some()
                 {
-                    let alias = alias.kind.resolve(ctx, generics.as_ref()).unwrap();
+                    let alias = alias.kind.resolve(ctx, Some(generics)).unwrap();
 
                     ctx.declare_data_type(
                         name.clone(),
@@ -657,7 +657,7 @@ impl Statement {
 
                 fields
                     .values()
-                    .map(|field| field.perform_semantic_analysis(generics.as_ref(), ctx))
+                    .map(|field| field.perform_semantic_analysis(Some(generics), ctx))
                     .all_some()?;
 
                 let resolved_fields = fields
@@ -665,7 +665,7 @@ impl Statement {
                     .map(|(key, field)| {
                         field
                             .kind
-                            .resolve(ctx, generics.as_ref())
+                            .resolve(ctx, Some(generics))
                             .map(|data_type| (key.clone(), data_type))
                     })
                     .collect::<Option<BTreeMap<_, _>>>()?;

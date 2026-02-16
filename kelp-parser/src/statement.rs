@@ -196,12 +196,11 @@ pub fn data_type_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<Sta
 
     Some(StatementKind::TypeDeclaration(
         name.to_string(),
-        generics.map(|generics| {
-            generics
-                .into_iter()
-                .map(|generic| generic.to_string())
-                .collect()
-        }),
+        generics
+            .unwrap_or_default()
+            .into_iter()
+            .map(|generic| generic.to_string())
+            .collect(),
         alias,
     ))
 }
@@ -268,12 +267,11 @@ pub fn struct_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<Statem
 
     Some(StatementKind::StructDeclaration(
         name.to_string(),
-        generics.map(|generics| {
-            generics
-                .into_iter()
-                .map(|generic| generic.to_string())
-                .collect()
-        }),
+        generics
+            .unwrap_or_default()
+            .into_iter()
+            .map(|generic| generic.to_string())
+            .collect(),
         fields.into_iter().collect(),
     ))
 }

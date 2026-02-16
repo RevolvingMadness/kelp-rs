@@ -48,12 +48,12 @@ pub struct HighDatapackSettings {
 pub enum DataTypeDeclarationKind {
     Alias {
         name: String,
-        generics: Option<Vec<String>>,
+        generics: Vec<String>,
         alias: DataTypeKind,
     },
     Struct {
         name: String,
-        generics: Option<Vec<String>>,
+        generics: Vec<String>,
         fields: BTreeMap<String, DataTypeKind>,
     },
     Builtin(BuiltinDataTypeKind),
@@ -61,6 +61,30 @@ pub enum DataTypeDeclarationKind {
 }
 
 impl DataTypeDeclarationKind {
+    pub fn name(&self) -> String {
+        match self {
+            DataTypeDeclarationKind::Alias { name, .. } => name.clone(),
+            DataTypeDeclarationKind::Struct { name, .. } => name.clone(),
+            DataTypeDeclarationKind::Builtin(builtin_type) => builtin_type.to_string(),
+            DataTypeDeclarationKind::Generic(name) => name.clone(),
+        }
+    }
+
+    pub fn generic_count(&self) -> usize {
+        match self {
+            DataTypeDeclarationKind::Alias {
+                generics: generic_names,
+                ..
+            } => generic_names.len(),
+            DataTypeDeclarationKind::Struct {
+                generics: generic_names,
+                ..
+            } => generic_names.len(),
+            DataTypeDeclarationKind::Builtin(builtin_type) => builtin_type.generic_count(),
+            DataTypeDeclarationKind::Generic(_) => 0,
+        }
+    }
+
     pub fn get_struct_fields(
         &self,
         ctx: &impl SupportsVariableTypeScope,
@@ -73,15 +97,10 @@ impl DataTypeDeclarationKind {
                 ..
             } => {
                 let substitutions: BTreeMap<String, DataTypeKind> = generic_names
-                    .as_ref()
-                    .map(|generics_names| {
-                        generics_names
-                            .iter()
-                            .zip(generic_types.iter().cloned())
-                            .map(|(k, v)| (k.clone(), v))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                    .iter()
+                    .zip(generic_types.iter().cloned())
+                    .map(|(k, v)| (k.clone(), v))
+                    .collect();
 
                 let resolved_alias = alias.clone().substitute(&substitutions)?;
 
@@ -94,19 +113,14 @@ impl DataTypeDeclarationKind {
             }
             DataTypeDeclarationKind::Struct {
                 fields,
-                generics: generics_names,
+                generics: generic_names,
                 ..
             } => {
-                let substitutions: BTreeMap<String, DataTypeKind> = generics_names
-                    .as_ref()
-                    .map(|generic_names| {
-                        generic_names
-                            .iter()
-                            .zip(generic_types.iter().cloned())
-                            .map(|(k, v)| (k.clone(), v))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
+                    .iter()
+                    .zip(generic_types.iter().cloned())
+                    .map(|(k, v)| (k.clone(), v))
+                    .collect();
 
                 Some(
                     fields
@@ -137,10 +151,7 @@ impl DataTypeDeclarationKind {
                 generics: inner_generics,
                 ..
             } => {
-                let expected_generics = inner_generics
-                    .as_ref()
-                    .map(|generics| generics.len())
-                    .unwrap_or(0);
+                let expected_generics = inner_generics.len();
 
                 if expected_generics != number_of_generics {
                     ctx.add_info(SemanticAnalysisInfo {
@@ -158,10 +169,7 @@ impl DataTypeDeclarationKind {
                 }
             }
             DataTypeDeclarationKind::Struct { name, generics, .. } => {
-                let expected_generics = generics
-                    .as_ref()
-                    .map(|generics| generics.len())
-                    .unwrap_or(0);
+                let expected_generics = generics.len();
 
                 if expected_generics != number_of_generics {
                     ctx.add_info(SemanticAnalysisInfo {
@@ -212,15 +220,10 @@ impl DataTypeDeclarationKind {
                 ..
             } => {
                 let substitutions: BTreeMap<String, DataTypeKind> = generic_names
-                    .as_ref()
-                    .map(|generics_names| {
-                        generics_names
-                            .iter()
-                            .zip(generic_types.iter().cloned())
-                            .map(|(k, v)| (k.clone(), v))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                    .iter()
+                    .zip(generic_types.iter().cloned())
+                    .map(|(k, v)| (k.clone(), v))
+                    .collect();
 
                 let resolved_alias = alias.clone().substitute(&substitutions)?;
 
@@ -231,17 +234,16 @@ impl DataTypeDeclarationKind {
                     Some(resolved_alias)
                 }
             }
-            DataTypeDeclarationKind::Struct { name, generics, .. } => {
-                let substitutions: BTreeMap<String, DataTypeKind> = generics
-                    .as_ref()
-                    .map(|generic_names| {
-                        generic_names
-                            .iter()
-                            .zip(generic_types.iter().cloned())
-                            .map(|(k, v)| (k.clone(), v))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+            DataTypeDeclarationKind::Struct {
+                name,
+                generics: generic_names,
+                ..
+            } => {
+                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
+                    .iter()
+                    .zip(generic_types.iter().cloned())
+                    .map(|(k, v)| (k.clone(), v))
+                    .collect();
 
                 Some(
                     DataTypeKind::Struct(name.clone(), generic_types.to_vec())

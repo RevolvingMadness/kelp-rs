@@ -6,6 +6,7 @@ use parser_rs::parser_range::ParserRange;
 use strum::{Display, EnumString};
 
 use crate::{
+    data_type::high::HighDataType,
     datapack::{DataTypeDeclarationKind, HighDatapack},
     expression::{
         Expression, ExpressionKind,
@@ -28,20 +29,90 @@ pub mod high;
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
 pub enum BuiltinDataTypeKind {
+    #[strum(serialize = "boolean", serialize = "bool")]
     Boolean,
     Byte,
     Short,
+    #[strum(serialize = "integer", serialize = "int")]
     Integer,
     Long,
     Float,
     Double,
+    #[strum(serialize = "string", serialize = "str")]
     String,
+    #[strum(serialize = "()", serialize = "unit")]
     Unit,
     Score,
     List,
     Compound,
     Data,
+    #[strum(
+        serialize = "snbt",
+        serialize = "nbt",
+        serialize = "SNBT",
+        serialize = "NBT"
+    )]
     SNBT,
+}
+
+impl BuiltinDataTypeKind {
+    pub fn to_data_type(
+        &self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+        generic_names: Option<&Vec<String>>,
+        generic_types: &[HighDataType],
+    ) -> Option<DataTypeKind> {
+        debug_assert!(generic_types.len() == self.generic_count());
+
+        Some(match self {
+            BuiltinDataTypeKind::Unit => DataTypeKind::Unit,
+            BuiltinDataTypeKind::Boolean => DataTypeKind::Boolean,
+            BuiltinDataTypeKind::Byte => DataTypeKind::Byte,
+            BuiltinDataTypeKind::Short => DataTypeKind::Short,
+            BuiltinDataTypeKind::Integer => DataTypeKind::Integer,
+            BuiltinDataTypeKind::Long => DataTypeKind::Long,
+            BuiltinDataTypeKind::Float => DataTypeKind::Float,
+            BuiltinDataTypeKind::Double => DataTypeKind::Double,
+            BuiltinDataTypeKind::String => DataTypeKind::String,
+            BuiltinDataTypeKind::Score => DataTypeKind::Score,
+            BuiltinDataTypeKind::SNBT => DataTypeKind::SNBT,
+            BuiltinDataTypeKind::List
+            | BuiltinDataTypeKind::Compound
+            | BuiltinDataTypeKind::Data => {
+                let resolved_generic_type = Box::new(
+                    generic_types[0]
+                        .kind
+                        .resolve(supports_variable_type_scope, generic_names)?,
+                );
+
+                match self {
+                    BuiltinDataTypeKind::List => DataTypeKind::List(resolved_generic_type),
+                    BuiltinDataTypeKind::Compound => DataTypeKind::Compound(resolved_generic_type),
+                    BuiltinDataTypeKind::Data => DataTypeKind::Data(resolved_generic_type),
+                    _ => unreachable!(),
+                }
+            }
+        })
+    }
+
+    pub fn generic_count(&self) -> usize {
+        match self {
+            BuiltinDataTypeKind::Boolean
+            | BuiltinDataTypeKind::Byte
+            | BuiltinDataTypeKind::Short
+            | BuiltinDataTypeKind::Integer
+            | BuiltinDataTypeKind::Long
+            | BuiltinDataTypeKind::Float
+            | BuiltinDataTypeKind::Double
+            | BuiltinDataTypeKind::String
+            | BuiltinDataTypeKind::Unit
+            | BuiltinDataTypeKind::Score
+            | BuiltinDataTypeKind::SNBT => 0,
+            BuiltinDataTypeKind::List
+            | BuiltinDataTypeKind::Compound
+            | BuiltinDataTypeKind::Data => 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]

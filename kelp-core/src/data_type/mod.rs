@@ -6,6 +6,7 @@ use parser_rs::parser_range::ParserRange;
 use strum::{Display, EnumString};
 
 use crate::{
+    compile_context::CompileContext,
     data_type::high::HighDataType,
     datapack::{DataTypeDeclarationKind, HighDatapack},
     expression::{
@@ -621,8 +622,9 @@ impl DataTypeKind {
 
     pub fn destructure_tuple(
         self,
-        patterns: &[Pattern],
         datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        patterns: &[Pattern],
         value: ConstantExpressionKind,
     ) {
         match (self, value) {
@@ -630,13 +632,14 @@ impl DataTypeKind {
                 for ((pattern, expression), data_type) in
                     patterns.iter().zip(expressions).zip(data_types)
                 {
-                    data_type.destructure(datapack, expression, pattern);
+                    data_type.destructure(datapack, ctx, expression, pattern);
                 }
             }
             (DataTypeKind::Reference(self_), ConstantExpressionKind::Reference(value)) => {
                 self_.distribute_references().destructure_tuple(
-                    patterns,
                     datapack,
+                    ctx,
+                    patterns,
                     value.kind.distribute_references(),
                 );
             }
@@ -646,8 +649,9 @@ impl DataTypeKind {
 
     pub fn destructure_compound(
         self,
-        patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
         datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
         value: ConstantExpressionKind,
     ) {
         match (self, value) {
@@ -660,7 +664,7 @@ impl DataTypeKind {
                     let data_type = data_types.get(&key.snbt_string).unwrap().clone();
 
                     if let Some(pattern) = pattern {
-                        data_type.destructure(datapack, expression, pattern);
+                        data_type.destructure(datapack, ctx, expression, pattern);
                     } else {
                         datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
                     }
@@ -672,14 +676,14 @@ impl DataTypeKind {
                     let data_type = *data_type.clone();
 
                     if let Some(pattern) = pattern {
-                        data_type.destructure(datapack, expression, pattern);
+                        data_type.destructure(datapack, ctx, expression, pattern);
                     } else {
                         datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
                     }
                 }
             }
             (DataTypeKind::Data(data_type), value @ ConstantExpressionKind::Data(_, _)) => {
-                data_type.destructure_compound(patterns, datapack, value);
+                data_type.destructure_compound(datapack, ctx, patterns, value);
             }
             (
                 DataTypeKind::TypedCompound(data_types),
@@ -695,7 +699,7 @@ impl DataTypeKind {
                     let data_type = data_types.get(&key.snbt_string).unwrap().clone();
 
                     if let Some(pattern) = pattern {
-                        data_type.destructure(datapack, expression, pattern);
+                        data_type.destructure(datapack, ctx, expression, pattern);
                     } else {
                         datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
                     }
@@ -703,8 +707,9 @@ impl DataTypeKind {
             }
             (DataTypeKind::Reference(self_), ConstantExpressionKind::Reference(value)) => {
                 self_.distribute_references().destructure_compound(
-                    patterns,
                     datapack,
+                    ctx,
+                    patterns,
                     value.kind.distribute_references(),
                 );
             }
@@ -714,9 +719,10 @@ impl DataTypeKind {
 
     pub fn destructure_struct(
         self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
         name: &str,
         field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
-        datapack: &mut HighDatapack,
         value: ConstantExpressionKind,
     ) {
         match (self, value) {
@@ -736,7 +742,7 @@ impl DataTypeKind {
                         .unwrap();
 
                     if let Some(pattern) = pattern_opt {
-                        data_type.destructure(datapack, expression, pattern);
+                        data_type.destructure(datapack, ctx, expression, pattern);
                     } else {
                         datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
                     }
@@ -761,7 +767,7 @@ impl DataTypeKind {
                     let data_wrapped_type = DataTypeKind::Data(Box::new(data_type));
 
                     if let Some(pattern) = pattern_opt {
-                        data_wrapped_type.destructure(datapack, field_value, pattern);
+                        data_wrapped_type.destructure(datapack, ctx, field_value, pattern);
                     } else {
                         datapack.declare_variable(
                             key.snbt_string.1.clone(),
@@ -773,16 +779,21 @@ impl DataTypeKind {
             }
             (DataTypeKind::Reference(inner), ConstantExpressionKind::Reference(val)) => {
                 inner.distribute_references().destructure_struct(
+                    datapack,
+                    ctx,
                     name,
                     field_patterns,
-                    datapack,
                     val.kind.distribute_references(),
                 );
             }
             (DataTypeKind::Data(inner_type), value @ ConstantExpressionKind::Data(_, _)) => {
-                inner_type
-                    .wrap_data()
-                    .destructure_struct(name, field_patterns, datapack, value)
+                inner_type.wrap_data().destructure_struct(
+                    datapack,
+                    ctx,
+                    name,
+                    field_patterns,
+                    value,
+                )
             }
             (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
         }
@@ -791,6 +802,7 @@ impl DataTypeKind {
     pub fn destructure(
         self,
         datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
         value: ConstantExpression,
         pattern: &Pattern,
     ) {
@@ -801,23 +813,23 @@ impl DataTypeKind {
                 datapack.declare_variable(name.clone(), self, value);
             }
             PatternKind::Tuple(patterns) => {
-                self.destructure_tuple(patterns, datapack, value.kind);
+                self.destructure_tuple(datapack, ctx, patterns, value.kind);
             }
             PatternKind::Compound(patterns) => {
-                self.destructure_compound(patterns, datapack, value.kind);
+                self.destructure_compound(datapack, ctx, patterns, value.kind);
             }
             PatternKind::Dereference(pattern) => {
                 let value = value
                     .kind
-                    .dereference(datapack)
+                    .dereference(datapack, ctx)
                     .into_dummy_constant_expression();
 
                 self.dereference()
                     .unwrap()
-                    .destructure(datapack, value, pattern);
+                    .destructure(datapack, ctx, value, pattern);
             }
             PatternKind::Struct(name, field_patterns) => {
-                self.destructure_struct(name, field_patterns, datapack, value.kind);
+                self.destructure_struct(datapack, ctx, name, field_patterns, value.kind);
             }
         }
     }

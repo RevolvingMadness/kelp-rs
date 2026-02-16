@@ -913,7 +913,7 @@ impl Expression {
                         .into_dummy_constant_expression(),
                 )),
                 UnaryOperator::Dereference => {
-                    expression.resolve(datapack, ctx).dereference(datapack)
+                    expression.resolve(datapack, ctx).dereference(datapack, ctx)
                 }
             },
             ExpressionKind::Arithmetic(left, operator, right) => {

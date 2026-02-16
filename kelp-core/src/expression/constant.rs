@@ -183,7 +183,7 @@ impl ConstantExpressionKind {
             }
             ConstantExpressionKind::Dereference(expression) => expression
                 .kind
-                .dereference(datapack)
+                .dereference(datapack, ctx)
                 .compile_augmented_assignment(datapack, ctx, operator, value),
             ConstantExpressionKind::Variable(_)
             | ConstantExpressionKind::Literal(_)
@@ -486,9 +486,10 @@ impl ConstantExpressionKind {
                 ConstantExpressionKind::PlayerScore(unique_score)
             }
             // TODO? ConstantExpressionKind::Command
-            ConstantExpressionKind::Dereference(expression) => {
-                expression.kind.dereference(datapack).negate(datapack, ctx)
-            }
+            ConstantExpressionKind::Dereference(expression) => expression
+                .kind
+                .dereference(datapack, ctx)
+                .negate(datapack, ctx),
             ConstantExpressionKind::Reference(expression) => expression.kind.negate(datapack, ctx),
             ConstantExpressionKind::Variable(name) => datapack
                 .get_variable(&name)
@@ -1509,11 +1510,28 @@ impl ConstantExpressionKind {
         }
     }
 
-    pub fn dereference(self, datapack: &mut HighDatapack) -> ConstantExpressionKind {
+    pub fn dereference(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> ConstantExpressionKind {
         match self {
             ConstantExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1.kind,
             ConstantExpressionKind::Reference(expression) => expression.kind,
-            ConstantExpressionKind::PlayerScore(_) | ConstantExpressionKind::Data(_, _) => self,
+            ConstantExpressionKind::PlayerScore(_) => {
+                let unique_score = datapack.get_unique_score();
+
+                self.assign_to_score(datapack, ctx, unique_score.clone());
+
+                ConstantExpressionKind::PlayerScore(unique_score)
+            }
+            ConstantExpressionKind::Data(_, _) => {
+                let (unique_target, unique_path) = datapack.get_unique_data();
+
+                self.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
+
+                ConstantExpressionKind::Data(unique_target, unique_path)
+            }
             _ => unreachable!("This expression cannot be dereferenced {:?}", self),
         }
     }

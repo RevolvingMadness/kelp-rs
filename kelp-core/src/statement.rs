@@ -111,9 +111,14 @@ impl StatementKind {
                     .map(|data_type| data_type.kind.resolve(datapack, None).unwrap())
                     .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
 
-                let value = value.resolve_force(datapack, ctx);
+                let value = value.resolve(datapack, ctx);
 
-                data_type.destructure(datapack, value.into_dummy_constant_expression(), &pattern);
+                data_type.destructure(
+                    datapack,
+                    ctx,
+                    value.into_dummy_constant_expression(),
+                    &pattern,
+                );
             }
             StatementKind::While(condition, body) => {
                 let mut while_body_ctx = CompileContext::default();

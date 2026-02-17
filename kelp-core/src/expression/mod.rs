@@ -663,16 +663,7 @@ impl Expression {
                             });
                         }
                     }
-                    RuntimeStorageType::Data => {
-                        if !expression_type.can_be_assigned_to_data(ctx)? {
-                            return ctx.add_info(SemanticAnalysisInfo {
-                                span: expression.span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::CannotBeAssignedToData(expression_type),
-                                ),
-                            });
-                        }
-                    }
+                    RuntimeStorageType::Data => {}
                 }
 
                 Some(())
@@ -682,7 +673,20 @@ impl Expression {
                 .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs, None))
                 .all_some(),
             ExpressionKind::Struct(name_span, name, generic_types, fields) => {
-                let declaration = ctx.get_data_type(name)??;
+                let declaration = ctx.get_data_type(name);
+
+                let declaration = match declaration {
+                    None => {
+                        return ctx.add_info(SemanticAnalysisInfo {
+                            span: *name_span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::UnknownType(name.clone()),
+                            ),
+                        });
+                    }
+                    Some(Some(declaration)) => declaration,
+                    Some(None) => return None,
+                };
 
                 let resolved_generic_types = generic_types
                     .iter()
@@ -702,7 +706,10 @@ impl Expression {
                     &resolved_generic_types,
                 )?;
 
-                if declaration.resolve(ctx, &resolved_generic_types).is_none() {
+                if !matches!(
+                    declaration.resolve(ctx, &resolved_generic_types),
+                    Some(DataTypeKind::Struct(_, _))
+                ) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: *name_span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -714,14 +721,7 @@ impl Expression {
                 let defined_fields =
                     match declaration.get_struct_fields(ctx, &resolved_generic_types) {
                         Some(fields) => fields,
-                        None => {
-                            return ctx.add_info(SemanticAnalysisInfo {
-                                span: *name_span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::TypeIsNotStruct(name.clone()),
-                                ),
-                            });
-                        }
+                        None => unreachable!(),
                     };
 
                 let mut has_error = false;
@@ -838,40 +838,6 @@ impl Expression {
             })
             .with_span(self.span),
         )
-    }
-
-    pub fn resolve_force(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-    ) -> ConstantExpressionKind {
-        let resolved = self.resolve(datapack, ctx);
-
-        match resolved {
-            ConstantExpressionKind::PlayerScore(ref score) => {
-                if score.is_generated {
-                    return resolved;
-                }
-
-                let unique_score = datapack.get_unique_score();
-
-                resolved.assign_to_score(datapack, ctx, unique_score.clone());
-
-                ConstantExpressionKind::PlayerScore(unique_score)
-            }
-            ConstantExpressionKind::Data(ref target, _) => {
-                if target.is_generated {
-                    return resolved;
-                }
-
-                let (unique_target, unique_path) = datapack.get_unique_data();
-
-                resolved.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
-
-                ConstantExpressionKind::Data(unique_target, unique_path)
-            }
-            _ => resolved,
-        }
     }
 
     pub fn resolve(

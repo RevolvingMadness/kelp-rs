@@ -274,16 +274,7 @@ impl PlaceType {
                     });
                 }
             }
-            PlaceTypeKind::Data(data_type) => {
-                if !data_type.can_be_assigned_to_data(ctx)? {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: value.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedToData(value_type.clone()),
-                        ),
-                    });
-                }
-            }
+            PlaceTypeKind::Data(_) => {}
             PlaceTypeKind::Tuple(place_types, _) => {
                 if let ExpressionKind::Tuple(expressions) = value.kind {
                     assert!(expressions.len() == place_types.len());

@@ -4,7 +4,10 @@ use minecraft_command_types::{
     command::{
         Command,
         data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
-        enums::{score_operation_operator::ScoreOperationOperator, store_type::StoreType},
+        enums::{
+            numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
+            store_type::StoreType,
+        },
         execute::{
             ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
         },
@@ -17,6 +20,7 @@ use minecraft_command_types::{
     snbt::{SNBT, SNBTString},
 };
 use minecraft_command_types_derive::HasMacro;
+use ordered_float::NotNan;
 use parser_rs::parser_range::ParserRange;
 
 use crate::{
@@ -64,16 +68,16 @@ pub fn compile_shift_operation(
 }
 
 pub fn split_constants_list(
-    list: &[ConstantExpression],
+    list: Vec<ConstantExpression>,
 ) -> (Vec<SNBT>, Vec<(usize, ConstantExpression)>) {
     let mut constants = Vec::new();
     let mut non_constants = Vec::new();
 
-    for (i, expression) in list.iter().enumerate() {
+    for (i, expression) in list.into_iter().enumerate() {
         if let Some(snbt) = expression.kind.as_snbt() {
             constants.push(snbt);
         } else {
-            non_constants.push((i, expression.clone()));
+            non_constants.push((i, expression));
             constants.push(SNBT::Compound(BTreeMap::new()));
         }
     }
@@ -82,17 +86,17 @@ pub fn split_constants_list(
 }
 
 pub fn split_constants_compound(
-    compound: &ConstantExpressionCompoundKind,
+    compound: ConstantExpressionCompoundKind,
 ) -> (SNBTCompound, ConstantExpressionCompoundKind) {
     let mut constants = BTreeMap::new();
     let mut non_constants = BTreeMap::new();
 
-    for (key, expression) in compound.iter() {
+    for (key, expression) in compound.into_iter() {
         if let Some(snbt) = expression.kind.as_snbt() {
-            constants.insert(key.snbt_string.clone(), snbt);
+            constants.insert(key.snbt_string, snbt);
         } else {
-            non_constants.insert(key.clone(), expression.clone());
             constants.insert(key.snbt_string.clone(), SNBT::Compound(BTreeMap::new()));
+            non_constants.insert(key, expression);
         }
     }
 
@@ -389,12 +393,12 @@ impl ConstantExpressionKind {
 
     #[must_use]
     pub fn as_data(
-        &self,
+        self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
     ) -> (GeneratedDataTarget, NbtPath) {
         match self {
-            ConstantExpressionKind::Data(target, path) => (target.clone(), path.clone()),
+            ConstantExpressionKind::Data(target, path) => (target, path),
             _ => {
                 let (unique_data, path) = datapack.get_unique_data();
 
@@ -407,7 +411,7 @@ impl ConstantExpressionKind {
 
     #[must_use]
     pub fn as_data_force(
-        &self,
+        self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
     ) -> (GeneratedDataTarget, NbtPath) {
@@ -584,7 +588,7 @@ impl ConstantExpressionKind {
     }
 
     pub fn as_data_command_modification(
-        &self,
+        self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
     ) -> DataCommandModification {
@@ -1311,7 +1315,7 @@ impl ConstantExpressionKind {
     }
 
     pub fn assign_to_data(
-        &self,
+        self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         target: GeneratedDataTarget,
@@ -1342,10 +1346,7 @@ impl ConstantExpressionKind {
                         target.target,
                         path,
                         DataCommandModificationMode::Set,
-                        DataCommandModification::From(
-                            inner_target.target.clone(),
-                            Some(inner_path.clone()),
-                        ),
+                        DataCommandModification::From(inner_target.target, Some(inner_path)),
                     )),
                 );
             }
@@ -1394,23 +1395,7 @@ impl ConstantExpressionKind {
                     );
                 }
             }
-            ConstantExpressionKind::Unit => {
-                let mut unit_btreemap = BTreeMap::new();
-                unit_btreemap.insert(
-                    SNBTString(false, "__kelp_rs_unit__".to_string()),
-                    SNBT::Byte(1),
-                );
-
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        target.target,
-                        path,
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::Value(SNBT::Compound(unit_btreemap)),
-                    )),
-                );
-            }
+            ConstantExpressionKind::Unit => unreachable!(),
             ConstantExpressionKind::Reference(expression) => {
                 expression.kind.assign_to_data(datapack, ctx, target, path)
             }
@@ -1425,11 +1410,70 @@ impl ConstantExpressionKind {
                         ctx,
                         target.clone(),
                         path.clone()
-                            .with_node(NbtPathNode::Named(SNBTString(false, key.clone()), None)),
+                            .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
                     );
                 }
             }
-            _ => unreachable!(),
+            ConstantExpressionKind::Tuple(expressions) => {
+                let (constants, non_constants) = split_constants_list(expressions);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Modify(
+                        target.target.clone(),
+                        path.clone(),
+                        DataCommandModificationMode::Set,
+                        DataCommandModification::Value(SNBT::List(constants)),
+                    )),
+                );
+
+                for (index, non_constant) in non_constants {
+                    non_constant.kind.assign_to_data(
+                        datapack,
+                        ctx,
+                        target.clone(),
+                        path.clone()
+                            .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                    );
+                }
+            }
+            ConstantExpressionKind::Literal(_) => unreachable!(),
+            ConstantExpressionKind::Underscore => unreachable!(),
+            ConstantExpressionKind::Condition(inverted, execute_if_subcommand) => {
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Data(
+                            target.target,
+                            path,
+                            NumericSNBTType::Integer,
+                            NotNan::new(1.0).unwrap(),
+                            Box::new(ExecuteSubcommand::If(inverted, execute_if_subcommand)),
+                        ),
+                    )),
+                );
+            }
+            ConstantExpressionKind::Command(command) => {
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Data(
+                            target.target,
+                            path,
+                            NumericSNBTType::Integer,
+                            NotNan::new(1.0).unwrap(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
+                        ),
+                    )),
+                );
+            }
+            ConstantExpressionKind::Dereference(expression) => expression
+                .kind
+                .dereference(datapack, ctx)
+                .assign_to_data(datapack, ctx, target, path),
+            ConstantExpressionKind::Variable(_) => unreachable!(),
         }
     }
 
@@ -1460,7 +1504,8 @@ impl ConstantExpressionKind {
                 Some(expression.clone().kind.into_snbt())
             }
 
-            ConstantExpressionKind::List(expressions) => expressions
+            ConstantExpressionKind::List(expressions)
+            | ConstantExpressionKind::Tuple(expressions) => expressions
                 .iter()
                 .map(|expr| expr.kind.as_snbt())
                 .collect::<Option<Vec<_>>>()

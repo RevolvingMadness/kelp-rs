@@ -22,7 +22,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
-    trait_ext::{OptionBoolIterExt, OptionUnitIterExt},
+    trait_ext::OptionUnitIterExt,
 };
 
 pub mod high;
@@ -1105,41 +1105,6 @@ impl DataTypeKind {
         }
     }
 
-    pub fn can_be_assigned_to_data(&self, ctx: &mut SemanticAnalysisContext) -> Option<bool> {
-        Some(match self {
-            DataTypeKind::Unit => true,
-            DataTypeKind::Score => true,
-            DataTypeKind::List(data_type) => data_type.can_be_assigned_to_data(ctx)?,
-            DataTypeKind::TypedCompound(compound) => compound
-                .values()
-                .map(|data_type| data_type.can_be_assigned_to_data(ctx))
-                .all_some_true()?,
-            DataTypeKind::Compound(compound) => compound.can_be_assigned_to_data(ctx)?,
-            DataTypeKind::Data(data_type) => data_type.can_be_assigned_to_data(ctx)?,
-            DataTypeKind::Reference(data_type) => data_type.can_be_assigned_to_data(ctx)?,
-            DataTypeKind::Tuple(data_types) => data_types
-                .iter()
-                .map(|data_type| data_type.can_be_assigned_to_data(ctx))
-                .all_some_true()?,
-            DataTypeKind::Struct(name, generic_types) => {
-                let declaration @ DataTypeDeclarationKind::Struct { .. } =
-                    ctx.get_data_type(name)??
-                else {
-                    return None;
-                };
-
-                let fields = declaration.get_struct_fields(ctx, generic_types)?;
-
-                fields
-                    .values()
-                    .map(|field_type| field_type.as_ref()?.can_be_assigned_to_data(ctx))
-                    .all_some_true()?
-            }
-            DataTypeKind::Generic(_) => unreachable!(),
-            _ => self.is_snbt_like(),
-        })
-    }
-
     pub fn has_fields(&self) -> bool {
         match self {
             DataTypeKind::Struct(_, _) => true,
@@ -1236,16 +1201,7 @@ impl DataTypeKind {
                     });
                 }
             }
-            (DataTypeKind::Data(_), value_type) => {
-                if !value_type.can_be_assigned_to_data(ctx)? {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedToData(value_type.clone()),
-                        ),
-                    });
-                }
-            }
+            (DataTypeKind::Data(_), _) => {}
             (self_, value_type) => {
                 if !value_type.equals(self) {
                     return ctx.add_info(SemanticAnalysisInfo {

@@ -342,7 +342,7 @@ fn cast(input: &mut Stream) -> Option<Expression> {
                         runtime_storage_type_span,
                         format!("Unknown runtime storage type '{}'", runtime_storage_type),
                     );
-                    continue;
+                    RuntimeStorageType::Score
                 }
             };
 

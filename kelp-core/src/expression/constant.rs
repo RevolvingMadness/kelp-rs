@@ -290,7 +290,7 @@ impl ConstantExpressionKind {
             )),
             ConstantExpressionKind::Underscore => unreachable!(),
             ConstantExpressionKind::Struct(name, generics_types, _) => {
-                DataTypeKind::Struct(name.clone(), generics_types.clone())
+                DataTypeKind::Struct(name.clone(), generics_types.clone(), false)
             }
         })
     }

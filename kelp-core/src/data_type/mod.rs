@@ -1,13 +1,15 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use minecraft_command_types::{nbt_path::NbtPathNode, snbt::SNBTString};
+use minecraft_command_types::{
+    nbt_path::NbtPathNode,
+    snbt::{SNBT, SNBTString},
+};
 use minecraft_command_types_derive::HasMacro;
 use parser_rs::parser_range::ParserRange;
 use strum::{Display, EnumString};
 
 use crate::{
     compile_context::CompileContext,
-    data_type::high::HighDataType,
     datapack::{DataTypeDeclarationKind, HighDatapack},
     expression::{
         Expression, ExpressionKind,
@@ -57,12 +59,7 @@ pub enum BuiltinDataTypeKind {
 }
 
 impl BuiltinDataTypeKind {
-    pub fn to_data_type(
-        &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
-        generic_names: Option<&Vec<String>>,
-        generic_types: &[HighDataType],
-    ) -> Option<DataTypeKind> {
+    pub fn to_data_type(&self, generic_types: Vec<DataTypeKind>) -> Option<DataTypeKind> {
         if generic_types.len() != self.generic_count() {
             return None;
         }
@@ -82,11 +79,7 @@ impl BuiltinDataTypeKind {
             BuiltinDataTypeKind::List
             | BuiltinDataTypeKind::Compound
             | BuiltinDataTypeKind::Data => {
-                let resolved_generic_type = Box::new(
-                    generic_types[0]
-                        .kind
-                        .resolve(supports_variable_type_scope, generic_names)?,
-                );
+                let resolved_generic_type = Box::new(generic_types.first().unwrap().clone());
 
                 match self {
                     BuiltinDataTypeKind::List => DataTypeKind::List(resolved_generic_type),
@@ -138,7 +131,7 @@ pub enum DataTypeKind {
     Generic(String),
     Tuple(Vec<DataTypeKind>),
     SNBT,
-    Struct(String, Vec<DataTypeKind>),
+    Struct(String, Vec<DataTypeKind>, bool),
 }
 
 impl Display for DataTypeKind {
@@ -194,7 +187,7 @@ impl Display for DataTypeKind {
                 f.write_str(")")
             }
             DataTypeKind::SNBT => f.write_str("snbt"),
-            DataTypeKind::Struct(name, generics) => {
+            DataTypeKind::Struct(name, generics, is_data) => {
                 f.write_str(name)?;
 
                 if !generics.is_empty() {
@@ -211,6 +204,10 @@ impl Display for DataTypeKind {
                     f.write_str(">")?;
                 }
 
+                if *is_data {
+                    f.write_str(" (data)")?;
+                }
+
                 Ok(())
             }
         }
@@ -218,6 +215,44 @@ impl Display for DataTypeKind {
 }
 
 impl DataTypeKind {
+    pub fn to_data(self) -> DataTypeKind {
+        match self {
+            DataTypeKind::Boolean => DataTypeKind::Boolean,
+            DataTypeKind::Byte => DataTypeKind::Byte,
+            DataTypeKind::Short => DataTypeKind::Short,
+            DataTypeKind::Integer => DataTypeKind::Integer,
+            DataTypeKind::Long => DataTypeKind::Long,
+            DataTypeKind::Float => DataTypeKind::Float,
+            DataTypeKind::Double => DataTypeKind::Double,
+            DataTypeKind::String => DataTypeKind::String,
+            DataTypeKind::Unit => DataTypeKind::Unit,
+            DataTypeKind::Score => DataTypeKind::Integer,
+            DataTypeKind::List(data_type) => DataTypeKind::List(Box::new(data_type.to_data())),
+            DataTypeKind::TypedCompound(compound) => DataTypeKind::TypedCompound(
+                compound
+                    .into_iter()
+                    .map(|(key, value)| (key, value.to_data()))
+                    .collect(),
+            ),
+            DataTypeKind::Compound(data_type) => {
+                DataTypeKind::Compound(Box::new(data_type.to_data()))
+            }
+            DataTypeKind::Data(data_type) => data_type.to_data(),
+            DataTypeKind::Reference(data_type) => data_type.to_data(),
+            DataTypeKind::Generic(_) => unreachable!(),
+            DataTypeKind::Tuple(data_types) => DataTypeKind::Tuple(
+                data_types
+                    .into_iter()
+                    .map(|data_type| data_type.to_data())
+                    .collect(),
+            ),
+            DataTypeKind::SNBT => DataTypeKind::SNBT,
+            DataTypeKind::Struct(name, generic_types, _) => {
+                DataTypeKind::Struct(name, generic_types, true)
+            }
+        }
+    }
+
     #[must_use]
     pub fn substitute(
         self,
@@ -249,12 +284,13 @@ impl DataTypeKind {
                     .collect::<Option<_>>()?,
             ),
             DataTypeKind::Generic(ref name) => substitutions.get(name)?.clone(),
-            DataTypeKind::Struct(name, generics) => DataTypeKind::Struct(
+            DataTypeKind::Struct(name, generics, is_data) => DataTypeKind::Struct(
                 name,
                 generics
                     .into_iter()
                     .map(|g| g.substitute(substitutions))
                     .collect::<Option<_>>()?,
+                is_data,
             ),
             _ => self,
         })
@@ -279,12 +315,13 @@ impl DataTypeKind {
                         .map(|data_type| data_type.reference())
                         .collect(),
                 ),
-                DataTypeKind::Struct(name, generic_types) => DataTypeKind::Struct(
+                DataTypeKind::Struct(name, generic_types, is_data) => DataTypeKind::Struct(
                     name,
                     generic_types
                         .into_iter()
                         .map(|generic_type| generic_type.reference())
                         .collect(),
+                    is_data,
                 ),
                 DataTypeKind::TypedCompound(compound) => DataTypeKind::TypedCompound(
                     compound
@@ -327,12 +364,13 @@ impl DataTypeKind {
             DataTypeKind::Compound(data_type) => {
                 DataTypeKind::Compound(Box::new(data_type.wrap_data()))
             }
-            DataTypeKind::Struct(name, generic_types) => DataTypeKind::Struct(
+            DataTypeKind::Struct(name, generic_types, is_data) => DataTypeKind::Struct(
                 name,
                 generic_types
                     .into_iter()
                     .map(|generic_type| generic_type.wrap_data())
                     .collect(),
+                is_data,
             ),
             _ => DataTypeKind::Data(Box::new(self)),
         }
@@ -376,6 +414,9 @@ impl DataTypeKind {
             DataTypeKind::Reference(_) => self
                 .distribute_references()
                 .perform_tuple_destructure_semantic_analysis(patterns, ctx, value_span, pattern),
+            DataTypeKind::Data(data_type) => data_type
+                .wrap_data()
+                .destructure_and_perform_semantic_analysis(ctx, value_span, pattern),
             _ => {
                 for pattern in patterns {
                     pattern.kind.destructure_unknown(ctx);
@@ -495,7 +536,7 @@ impl DataTypeKind {
         pattern: &Pattern,
     ) -> Option<()> {
         match self {
-            DataTypeKind::Struct(ref struct_name, ref generics) => {
+            DataTypeKind::Struct(ref struct_name, ref generics, _) => {
                 if struct_name != name {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: pattern.span,
@@ -513,8 +554,9 @@ impl DataTypeKind {
 
                 let mut error = false;
                 for (key, pattern_opt) in field_patterns.iter() {
-                    if let Some(field_type_opt) = fields.get(&key.snbt_string.1) {
-                        let field_type = field_type_opt.clone()?;
+                    if let Some(field_type) = fields.get(&key.snbt_string.1) {
+                        let field_type = field_type.clone();
+
                         if let Some(inner_pattern) = pattern_opt {
                             field_type.destructure_and_perform_semantic_analysis(
                                 ctx,
@@ -637,6 +679,22 @@ impl DataTypeKind {
                     data_type.destructure(datapack, ctx, expression, pattern);
                 }
             }
+            (DataTypeKind::Tuple(data_types), ConstantExpressionKind::Data(target, path)) => {
+                for (i, (pattern, data_type)) in patterns.iter().zip(data_types).enumerate() {
+                    let expression = ConstantExpressionKind::Data(
+                        target.clone(),
+                        path.clone()
+                            .with_node(NbtPathNode::Index(Some(SNBT::Integer(i as i32)))),
+                    );
+
+                    data_type.destructure(
+                        datapack,
+                        ctx,
+                        expression.into_dummy_constant_expression(),
+                        pattern,
+                    );
+                }
+            }
             (DataTypeKind::Reference(self_), ConstantExpressionKind::Reference(value)) => {
                 self_.distribute_references().destructure_tuple(
                     datapack,
@@ -644,6 +702,11 @@ impl DataTypeKind {
                     patterns,
                     value.kind.distribute_references(),
                 );
+            }
+            (DataTypeKind::Data(inner_type), value @ ConstantExpressionKind::Data(_, _)) => {
+                inner_type
+                    .wrap_data()
+                    .destructure_tuple(datapack, ctx, patterns, value);
             }
             (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
         }
@@ -729,7 +792,7 @@ impl DataTypeKind {
     ) {
         match (self, value) {
             (
-                DataTypeKind::Struct(s_name, generics),
+                DataTypeKind::Struct(s_name, generics, _),
                 ConstantExpressionKind::Struct(v_s_name, _, fields),
             ) if s_name == name && v_s_name == name => {
                 let declaration = datapack.get_data_type(name).unwrap();
@@ -737,11 +800,7 @@ impl DataTypeKind {
 
                 for (key, pattern_opt) in field_patterns {
                     let expression = fields.get(&key.snbt_string.1).unwrap().clone();
-                    let data_type = field_types
-                        .get(&key.snbt_string.1)
-                        .unwrap()
-                        .clone()
-                        .unwrap();
+                    let data_type = field_types.get(&key.snbt_string.1).unwrap().clone();
 
                     if let Some(pattern) = pattern_opt {
                         data_type.destructure(datapack, ctx, expression, pattern);
@@ -750,7 +809,7 @@ impl DataTypeKind {
                     }
                 }
             }
-            (DataTypeKind::Struct(_, generics), ConstantExpressionKind::Data(target, path)) => {
+            (DataTypeKind::Struct(_, generics, _), ConstantExpressionKind::Data(target, path)) => {
                 let declaration = datapack.get_data_type(name).unwrap();
                 let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
@@ -761,11 +820,8 @@ impl DataTypeKind {
                     let field_value = ConstantExpressionKind::Data(target.clone(), field_path)
                         .into_dummy_constant_expression();
 
-                    let data_type = field_types
-                        .get(&key.snbt_string.1)
-                        .unwrap()
-                        .clone()
-                        .unwrap();
+                    let data_type = field_types.get(&key.snbt_string.1).unwrap().clone();
+
                     let data_wrapped_type = DataTypeKind::Data(Box::new(data_type));
 
                     if let Some(pattern) = pattern_opt {
@@ -1099,7 +1155,7 @@ impl DataTypeKind {
             }
             DataTypeKind::Compound(data_type) => data_type.is_snbt_like(),
             DataTypeKind::SNBT => true,
-            DataTypeKind::Struct(_, _) => true,
+            DataTypeKind::Struct(_, _, _) => true,
             DataTypeKind::Generic(_) => unreachable!(),
             _ => false,
         }
@@ -1107,7 +1163,7 @@ impl DataTypeKind {
 
     pub fn has_fields(&self) -> bool {
         match self {
-            DataTypeKind::Struct(_, _) => true,
+            DataTypeKind::Struct(_, _, _) => true,
 
             DataTypeKind::Reference(data_type) => data_type.has_fields(),
 
@@ -1126,7 +1182,7 @@ impl DataTypeKind {
     #[allow(clippy::only_used_in_recursion)]
     fn raw_get_arithmetic_result(
         &self,
-        operator: &ArithmeticOperator,
+        _operator: &ArithmeticOperator,
         other: &DataTypeKind,
     ) -> Option<DataTypeKind> {
         Some(match (self, other) {
@@ -1139,8 +1195,10 @@ impl DataTypeKind {
             {
                 DataTypeKind::Score
             }
-            (DataTypeKind::Data(inner_type), other) | (other, DataTypeKind::Data(inner_type)) => {
-                inner_type.raw_get_arithmetic_result(operator, other)?
+            (DataTypeKind::Data(inner_type), other) | (other, DataTypeKind::Data(inner_type))
+                if other.is_score_value() && inner_type.is_score_value() =>
+            {
+                DataTypeKind::Score
             }
             _ => return None,
         })
@@ -1308,7 +1366,7 @@ impl DataTypeKind {
                 self_.get_field_result(supports_variable_type_scope, field)?
             }
 
-            DataTypeKind::Struct(name, generics) => {
+            DataTypeKind::Struct(name, generics, is_data) => {
                 let declaration @ DataTypeDeclarationKind::Struct { .. } =
                     supports_variable_type_scope.get_data_type(name)??
                 else {
@@ -1318,7 +1376,9 @@ impl DataTypeKind {
                 let fields =
                     declaration.get_struct_fields(supports_variable_type_scope, generics)?;
 
-                fields.get(field).cloned()??
+                let field = fields.get(field).cloned()?;
+
+                if *is_data { field.to_data() } else { field }
             }
 
             DataTypeKind::TypedCompound(compound) => {
@@ -1388,7 +1448,7 @@ impl DataTypeKind {
 
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::SNBT, other) | (other, Self::SNBT) => other.is_snbt_like(),
+            (Self::SNBT, _) | (_, Self::SNBT) => true,
             (Self::List(self_type), Self::List(other_type)) => self_type.equals(other_type),
             (Self::Tuple(self_elements), Self::Tuple(other_elements)) => {
                 self_elements.len() == other_elements.len()

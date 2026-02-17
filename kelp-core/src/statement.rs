@@ -356,12 +356,13 @@ impl StatementKind {
                     compile_if(datapack, ctx, else_body_ctx, !invert, compiled_condition);
                 }
             }
-            StatementKind::AppendData(target, source) => {
+            StatementKind::AppendData(target, value) => {
                 let target = target.resolve(datapack, ctx);
-                let source = source.resolve(datapack, ctx);
+                let value = value.resolve(datapack, ctx);
 
                 let (target, path) = target.as_data(datapack, ctx);
-                let (source, source_path) = source.as_data(datapack, ctx);
+
+                let modification = value.as_data_command_modification(datapack, ctx);
 
                 ctx.add_command(
                     datapack,
@@ -369,7 +370,7 @@ impl StatementKind {
                         target.target,
                         path,
                         DataCommandModificationMode::Append,
-                        DataCommandModification::From(source.target, Some(source_path)),
+                        modification,
                     )),
                 );
             }
@@ -604,7 +605,9 @@ impl Statement {
                 let target_result = target.perform_semantic_analysis(
                     ctx,
                     is_lhs,
-                    Some(&DataTypeKind::Data(Box::new(DataTypeKind::SNBT))),
+                    Some(&DataTypeKind::Data(Box::new(DataTypeKind::List(Box::new(
+                        DataTypeKind::SNBT,
+                    ))))),
                 );
                 let value_result = value.perform_semantic_analysis(ctx, is_lhs, None);
 
@@ -660,10 +663,16 @@ impl Statement {
                     });
                 }
 
-                fields
+                if fields
                     .values()
                     .map(|field| field.perform_semantic_analysis(Some(generics), ctx))
-                    .all_some()?;
+                    .all_some()
+                    .is_none()
+                {
+                    ctx.declare_data_type(name.clone(), None);
+
+                    return None;
+                }
 
                 let resolved_fields = fields
                     .iter()

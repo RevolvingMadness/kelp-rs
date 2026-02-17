@@ -165,15 +165,13 @@ impl ExpressionKind {
             }
             ExpressionKind::ToCast(expression, storage_type) => match storage_type {
                 RuntimeStorageType::Score => DataTypeKind::Score,
-                RuntimeStorageType::Data => DataTypeKind::Data(Box::new(
-                    match expression
+                RuntimeStorageType::Data => {
+                    let expression_type = expression
                         .kind
-                        .infer_data_type(supports_variable_type_scope)?
-                    {
-                        DataTypeKind::Data(inner_type) => *inner_type,
-                        data_type => data_type,
-                    },
-                )),
+                        .infer_data_type(supports_variable_type_scope)?;
+
+                    DataTypeKind::Data(Box::new(expression_type.to_data()))
+                }
             },
             ExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
@@ -197,7 +195,7 @@ impl ExpressionKind {
                     })
                     .collect::<Option<Vec<_>>>()?;
 
-                declaration.resolve(supports_variable_type_scope, &resolved_generics)?
+                declaration.resolve(supports_variable_type_scope, resolved_generics)?
             }
         })
     }
@@ -706,10 +704,9 @@ impl Expression {
                     &resolved_generic_types,
                 )?;
 
-                if !matches!(
-                    declaration.resolve(ctx, &resolved_generic_types),
-                    Some(DataTypeKind::Struct(_, _))
-                ) {
+                let defined_fields = declaration.get_struct_fields(ctx, &resolved_generic_types);
+
+                if !declaration.resolve_is_struct(ctx, resolved_generic_types)? {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: *name_span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -718,11 +715,7 @@ impl Expression {
                     });
                 }
 
-                let defined_fields =
-                    match declaration.get_struct_fields(ctx, &resolved_generic_types) {
-                        Some(fields) => fields,
-                        None => unreachable!(),
-                    };
+                let defined_fields = defined_fields?;
 
                 let mut has_error = false;
 
@@ -730,25 +723,20 @@ impl Expression {
                     match defined_fields.get(&field_name.snbt_string.1) {
                         Some(expected_field_type) => {
                             if field_value
-                                .perform_semantic_analysis(
-                                    ctx,
-                                    is_lhs,
-                                    expected_field_type.as_ref(),
-                                )
+                                .perform_semantic_analysis(ctx, is_lhs, Some(expected_field_type))
                                 .is_none()
                             {
                                 has_error = true;
                             }
 
                             if let Some(actual_type) = field_value.kind.infer_data_type(ctx) {
-                                if let Some(expected_field_type) = expected_field_type
-                                    && expected_field_type
-                                        .perform_equality_semantic_analysis(
-                                            ctx,
-                                            &actual_type,
-                                            field_value,
-                                        )
-                                        .is_none()
+                                if expected_field_type
+                                    .perform_equality_semantic_analysis(
+                                        ctx,
+                                        &actual_type,
+                                        field_value,
+                                    )
+                                    .is_none()
                                 {
                                     has_error = true;
                                 }

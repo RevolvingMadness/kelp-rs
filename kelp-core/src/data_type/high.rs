@@ -32,12 +32,17 @@ impl HighDataTypeKind {
     ) -> Option<DataTypeKind> {
         Some(match self {
             HighDataTypeKind::Named(_, name, generic_types) => {
+                let generic_types = generic_types
+                    .iter()
+                    .map(|generic_type| {
+                        generic_type
+                            .kind
+                            .resolve(supports_variable_type_scope, generic_names)
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+
                 if let Ok(builtin_type) = BuiltinDataTypeKind::from_str(name) {
-                    return builtin_type.to_data_type(
-                        supports_variable_type_scope,
-                        generic_names,
-                        generic_types,
-                    );
+                    return builtin_type.to_data_type(generic_types);
                 }
 
                 let data_type = supports_variable_type_scope
@@ -60,29 +65,17 @@ impl HighDataTypeKind {
                     } => {
                         let mut substitutions: BTreeMap<String, DataTypeKind> = BTreeMap::new();
 
-                        for (alias_generic_name, generic_type) in
-                            alias_generic_names.iter().zip(generic_types.iter())
+                        for (alias_generic_name, generic_type) in alias_generic_names
+                            .into_iter()
+                            .zip(generic_types.into_iter())
                         {
-                            substitutions.insert(
-                                alias_generic_name.clone(),
-                                generic_type
-                                    .kind
-                                    .resolve(supports_variable_type_scope, generic_names)?,
-                            );
+                            substitutions.insert(alias_generic_name, generic_type);
                         }
 
                         alias.substitute(&substitutions)?
                     }
                     DataTypeDeclarationKind::Struct { name, .. } => {
-                        let resolved_generics = generic_types
-                            .iter()
-                            .map(|generic| {
-                                generic
-                                    .kind
-                                    .resolve(supports_variable_type_scope, generic_names)
-                            })
-                            .collect::<Option<Vec<_>>>()?;
-                        DataTypeKind::Struct(name, resolved_generics)
+                        DataTypeKind::Struct(name, generic_types, false)
                     }
                     DataTypeDeclarationKind::Generic(name) => DataTypeKind::Generic(name),
                     DataTypeDeclarationKind::Builtin(_) => unreachable!(),

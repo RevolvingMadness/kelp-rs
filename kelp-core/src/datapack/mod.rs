@@ -61,6 +61,17 @@ pub enum DataTypeDeclarationKind {
 }
 
 impl DataTypeDeclarationKind {
+    pub fn resolve_is_struct(
+        self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+        generic_types: Vec<DataTypeKind>,
+    ) -> Option<bool> {
+        Some(matches!(
+            self.resolve(supports_variable_type_scope, generic_types)?,
+            DataTypeKind::Struct(_, _, _)
+        ))
+    }
+
     pub fn name(&self) -> String {
         match self {
             DataTypeDeclarationKind::Alias { name, .. } => name.clone(),
@@ -89,7 +100,7 @@ impl DataTypeDeclarationKind {
         &self,
         ctx: &impl SupportsVariableTypeScope,
         generic_types: &[DataTypeKind],
-    ) -> Option<BTreeMap<String, Option<DataTypeKind>>> {
+    ) -> Option<BTreeMap<String, DataTypeKind>> {
         match self {
             DataTypeDeclarationKind::Alias {
                 generics: generic_names,
@@ -104,7 +115,7 @@ impl DataTypeDeclarationKind {
 
                 let resolved_alias = alias.clone().substitute(&substitutions)?;
 
-                if let DataTypeKind::Struct(name, generics) = resolved_alias {
+                if let DataTypeKind::Struct(name, generics, _) = resolved_alias {
                     let declaration = ctx.get_data_type(&name)??;
                     declaration.get_struct_fields(ctx, &generics)
                 } else {
@@ -126,12 +137,11 @@ impl DataTypeDeclarationKind {
                     fields
                         .iter()
                         .map(|(field_name, field_type)| {
-                            (
-                                field_name.clone(),
-                                field_type.clone().substitute(&substitutions),
-                            )
+                            let substituted = field_type.clone().substitute(&substitutions)?;
+
+                            Some((field_name.clone(), substituted))
                         })
-                        .collect(),
+                        .collect::<Option<_>>()?,
                 )
             }
             _ => None,
@@ -209,9 +219,9 @@ impl DataTypeDeclarationKind {
     }
 
     pub fn resolve(
-        &self,
-        ctx: &impl SupportsVariableTypeScope,
-        generic_types: &[DataTypeKind],
+        self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+        generic_types: Vec<DataTypeKind>,
     ) -> Option<DataTypeKind> {
         match self {
             DataTypeDeclarationKind::Alias {
@@ -219,17 +229,14 @@ impl DataTypeDeclarationKind {
                 alias,
                 ..
             } => {
-                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
-                    .iter()
-                    .zip(generic_types.iter().cloned())
-                    .map(|(k, v)| (k.clone(), v))
-                    .collect();
+                let substitutions: BTreeMap<String, DataTypeKind> =
+                    generic_names.into_iter().zip(generic_types).collect();
 
                 let resolved_alias = alias.clone().substitute(&substitutions)?;
 
-                if let DataTypeKind::Struct(name, generics) = resolved_alias {
-                    let declaration = ctx.get_data_type(&name)??;
-                    declaration.resolve(ctx, &generics)
+                if let DataTypeKind::Struct(name, generics, _) = resolved_alias {
+                    let declaration = supports_variable_type_scope.get_data_type(&name)??;
+                    declaration.resolve(supports_variable_type_scope, generics)
                 } else {
                     Some(resolved_alias)
                 }
@@ -240,17 +247,14 @@ impl DataTypeDeclarationKind {
                 ..
             } => {
                 let substitutions: BTreeMap<String, DataTypeKind> = generic_names
-                    .iter()
-                    .zip(generic_types.iter().cloned())
-                    .map(|(k, v)| (k.clone(), v))
+                    .into_iter()
+                    .zip(generic_types.clone())
                     .collect();
 
-                Some(
-                    DataTypeKind::Struct(name.clone(), generic_types.to_vec())
-                        .substitute(&substitutions)?,
-                )
+                Some(DataTypeKind::Struct(name, generic_types, false).substitute(&substitutions)?)
             }
-            _ => None,
+            DataTypeDeclarationKind::Builtin(data_type) => data_type.to_data_type(generic_types),
+            DataTypeDeclarationKind::Generic(_) => unreachable!(),
         }
     }
 }

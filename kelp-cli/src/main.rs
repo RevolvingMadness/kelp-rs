@@ -10,9 +10,9 @@ use kelp_core::statement::Statement;
 use kelp_core::trait_ext::OptionUnitIterExt;
 use kelp_parser::file;
 use nonempty::nonempty;
-use parser_rs::ParseResult;
 use parser_rs::fn_parser::FnParser;
 use parser_rs::stream::Stream;
+use parser_rs::ParseResult;
 use std::cmp::min;
 use std::fs;
 use std::path::Path;
@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 use yansi::Paint;
 
 #[derive(Parser)]
-#[command(name = "kelp", version = "1.0", about = "Kelp language toolchain")]
+#[command(name = "kelp")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

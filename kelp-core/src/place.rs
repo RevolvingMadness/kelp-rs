@@ -344,9 +344,13 @@ impl PlaceType {
             PlaceTypeKind::Variable(data_type) => {
                 if !data_type.can_perform_augmented_assignment(operator, value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
+                        span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotPerformAugmentedAssignment(data_type),
+                            SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                                *operator,
+                                data_type,
+                                value_type.clone(),
+                            ),
                         ),
                     });
                 }

@@ -373,15 +373,17 @@ impl SemanticAnalysisContext {
     }
 
     pub fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
+        if let Ok(data_type) = BuiltinDataTypeKind::from_str(name) {
+            return Some(Some(DataTypeDeclarationKind::Builtin(data_type)));
+        }
+
         for scope in &self.scopes {
             if let Some(data_type) = scope.get_data_type(name) {
                 return Some(data_type.clone());
             }
         }
 
-        BuiltinDataTypeKind::from_str(name)
-            .ok()
-            .map(|builtin| Some(DataTypeDeclarationKind::Builtin(builtin)))
+        None
     }
 }
 

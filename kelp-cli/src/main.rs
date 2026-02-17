@@ -16,7 +16,7 @@ use parser_rs::stream::Stream;
 use std::cmp::min;
 use std::fs;
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use yansi::Paint;
 
 #[derive(Parser)]
@@ -156,14 +156,15 @@ fn handle_run(ignore_validation_errors: bool) {
         input.config.max_validation_errors = 10;
     }
 
-    let now = Instant::now();
+    let start_parse = Instant::now();
     let result = file.parse_fully(input);
-    let elapsed = now.elapsed();
+    let parse_elapsed = start_parse.elapsed();
 
     match (result.validation_errors.is_empty(), result.succeeded()) {
         (true, true) => {
-            println!("{} Parsed in {:?}", "Done:".cyan(), elapsed.green());
+            println!("{} Parsed in {:?}", "Done:".cyan(), parse_elapsed.green());
             process_success(
+                parse_elapsed,
                 result.result.unwrap(),
                 &target_path,
                 &input_text,
@@ -176,6 +177,7 @@ fn handle_run(ignore_validation_errors: bool) {
                 "Ignoring validation errors and compiling anyway".yellow()
             );
             process_success(
+                parse_elapsed,
                 result.result.unwrap(),
                 &target_path,
                 &input_text,
@@ -183,13 +185,18 @@ fn handle_run(ignore_validation_errors: bool) {
             );
         }
         (_, _) => {
-            println!("{} Parsing failed in {:?}", "Error:".red(), elapsed.red());
+            println!(
+                "{} Parsing failed in {:?}",
+                "Error:".red(),
+                parse_elapsed.red()
+            );
             process_failure(result, &target_path, &input_text);
         }
     }
 }
 
 fn process_success(
+    parse_elapsed: Duration,
     statements: Vec<Statement>,
     file_name: &str,
     source_text: &str,
@@ -284,7 +291,7 @@ fn process_success(
     println!(
         "\n{} Total processing time: {:?}",
         "Finished:".bold().bright_green(),
-        (semantic_elapsed + compile_elapsed + gen_elapsed + io_elapsed).green()
+        (parse_elapsed + semantic_elapsed + compile_elapsed + gen_elapsed + io_elapsed).green()
     );
 }
 

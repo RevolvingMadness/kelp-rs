@@ -6,4 +6,6 @@ kelp-extension/node_modules
 kelp-extension/client/server
 kelp-extension/.vscode-test
 
+kelp_project/
+
 *.code-workspace

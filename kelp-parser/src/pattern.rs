@@ -30,6 +30,8 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
 
                 char('{').parse(input)?;
 
+                whitespace(input)?;
+
                 let fields = (|input: &mut Stream| {
                     let (field_name_span, field_name) = identifier("field name")
                         .spanned()
@@ -99,7 +101,7 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
                     whitespace(input)?;
                     char(':').parse(input)?;
                     whitespace(input)?;
-                    pattern.parse(input)
+                    pattern(input)
                 })
                 .optional()
                 .parse(input)?;
@@ -122,7 +124,7 @@ pub fn pattern(input: &mut Stream) -> Option<Pattern> {
         },
         |input: &mut Stream| {
             char('&').parse(input)?;
-            let pattern = pattern.parse(input)?;
+            let pattern = pattern(input)?;
 
             Some(PatternKind::Dereference(Box::new(pattern)))
         },

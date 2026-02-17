@@ -499,7 +499,7 @@ pub fn parse_scoreboard_command(input: &mut Stream) -> Option<HighCommand> {
         suggest_literal("scoreboard")
             .syntax_keyword()
             .parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
 
         let command = choice((
             (|input: &mut Stream| {

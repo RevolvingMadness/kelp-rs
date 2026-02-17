@@ -36,7 +36,7 @@ pub fn while_statement(input: &mut Stream) -> Option<StatementKind> {
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let condition = expression.parse(input)?;
+    let condition = expression(input)?;
     // Expression already consumes trailing whitespace
     let (statement_span, statement_kind) = block_statement.spanned().parse(input)?;
 
@@ -66,7 +66,7 @@ pub fn for_in_statement(input: &mut Stream) -> Option<StatementKind> {
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let target = expression.parse(input)?;
+    let target = expression(input)?;
     // Expression already consumes trailing whitespace
     let (statement_span, statement_kind) = block_statement.spanned().parse(input)?;
 
@@ -87,16 +87,16 @@ pub fn match_statement(input: &mut Stream) -> Option<StatementKind> {
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let target = expression.parse(input)?;
+    let target = expression(input)?;
     // Expression already consumes trailing whitespace
     char('{').parse(input)?;
     let cases = (|input: &mut Stream| {
         whitespace(input)?;
-        let number = parse_integer_range.parse(input)?;
+        let number = parse_integer_range(input)?;
         whitespace(input)?;
         literal("->").parse(input)?;
         whitespace(input)?;
-        let statement = parse_statement.parse(input)?;
+        let statement = parse_statement(input)?;
         Some((number, Box::new(statement)))
     })
     .separated_by::<_, Vec<_>>(newline_whitespace("end of match case"))
@@ -112,7 +112,7 @@ pub fn if_statement(input: &mut Stream) -> Option<StatementKind> {
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let condition = expression.parse(input)?;
+    let condition = expression(input)?;
     let (body_span, body_kind) = block_statement.spanned().parse(input)?;
     let else_body = (|input: &mut Stream| {
         required_inline_whitespace(input)?;
@@ -147,7 +147,7 @@ pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKin
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let pattern = pattern.parse(input)?;
+    let pattern = pattern(input)?;
     let data_type = (|input: &mut Stream| {
         inline_whitespace(input)?;
         char(':').parse(input)?;
@@ -161,7 +161,7 @@ pub fn variable_declaration_statement(input: &mut Stream) -> Option<StatementKin
     inline_whitespace(input)?;
     char('=').parse(input)?;
     inline_whitespace(input)?;
-    let value = expression.parse(input)?;
+    let value = expression(input)?;
 
     Some(StatementKind::VariableDeclaration(
         data_type, pattern, value,
@@ -192,7 +192,7 @@ pub fn data_type_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<Sta
     whitespace(input)?;
     char('=').parse(input)?;
     whitespace(input)?;
-    let alias = parse_data_type.parse(input)?;
+    let alias = parse_data_type(input)?;
 
     Some(StatementKind::TypeDeclaration(
         name.to_string(),
@@ -240,6 +240,8 @@ pub fn struct_declaration_statement<'a>(input: &mut Stream<'a>) -> Option<Statem
     }
 
     char('{').parse(input)?;
+
+    whitespace(input)?;
 
     let fields = (|input: &mut Stream| {
         whitespace(input)?;
@@ -293,9 +295,9 @@ pub fn append_statement(input: &mut Stream) -> Option<StatementKind> {
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let target = expression.parse(input)?;
+    let target = expression(input)?;
     required_inline_whitespace(input)?;
-    let source = expression.parse(input)?;
+    let source = expression(input)?;
 
     Some(StatementKind::AppendData(target, Box::new(source)))
 }
@@ -305,7 +307,7 @@ pub fn remove_statement(input: &mut Stream) -> Option<StatementKind> {
         .syntax(SemanticTokenKind::Keyword)
         .parse(input)?;
     required_inline_whitespace(input)?;
-    let expression = expression.parse(input)?;
+    let expression = expression(input)?;
 
     Some(StatementKind::RemoveData(expression))
 }

@@ -28,9 +28,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, Output 
                     suggest_literal("block")
                         .syntax(SemanticTokenKind::Class)
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
 
-                    let coordinates = parse_coordinates.parse(input)?;
+                    let coordinates = parse_coordinates(input)?;
 
                     Some(HighDataTargetKind::Block(coordinates))
                 },
@@ -38,9 +38,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, Output 
                     suggest_literal("storage")
                         .syntax(SemanticTokenKind::Class)
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
 
-                    let location = parse_resource_location.parse(input)?;
+                    let location = parse_resource_location(input)?;
 
                     Some(HighDataTargetKind::Storage(location))
                 },
@@ -48,9 +48,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, Output 
                     suggest_literal("entity")
                         .syntax(SemanticTokenKind::Class)
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
 
-                    let selector = parse_entity_selector.parse(input)?;
+                    let selector = parse_entity_selector(input)?;
 
                     Some(HighDataTargetKind::Entity(selector))
                 },
@@ -65,9 +65,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, Output 
                     literal("block")
                         .syntax(SemanticTokenKind::Class)
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
 
-                    let coordinates = parse_coordinates.parse(input)?;
+                    let coordinates = parse_coordinates(input)?;
 
                     Some(HighDataTargetKind::Block(coordinates))
                 },
@@ -75,9 +75,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, Output 
                     literal("storage")
                         .syntax(SemanticTokenKind::Class)
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
 
-                    let location = parse_resource_location.parse(input)?;
+                    let location = parse_resource_location(input)?;
 
                     Some(HighDataTargetKind::Storage(location))
                 },
@@ -85,9 +85,9 @@ pub fn parse_data_target<'a>(prefix_optional: bool) -> impl FnParser<'a, Output 
                     literal("entity")
                         .syntax(SemanticTokenKind::Class)
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
 
-                    let selector = parse_entity_selector.parse(input)?;
+                    let selector = parse_entity_selector(input)?;
 
                     Some(HighDataTargetKind::Entity(selector))
                 },
@@ -123,7 +123,7 @@ pub fn parse_nbt_path_named(input: &mut Stream) -> Option<HighNbtPathNode> {
 
 pub fn parse_nbt_path_index(input: &mut Stream) -> Option<HighNbtPathNode> {
     char('[').parse(input)?;
-    whitespace.parse(input)?;
+    whitespace(input)?;
 
     let value = expression.map(Box::new).optional().parse(input)?;
 
@@ -149,7 +149,7 @@ pub fn parse_nbt_path(input: &mut Stream) -> Option<HighNbtPath> {
             if has_dot {
                 choice((parse_nbt_path_named, parse_nbt_path_index)).parse(input)
             } else {
-                parse_nbt_path_index.parse(input)
+                parse_nbt_path_index(input)
             }
         })
         .many::<Vec<_>>()
@@ -170,19 +170,19 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
 
     let data_command = (|input: &mut Stream| {
         suggest_literal("data").syntax_keyword().parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         choice((
             (|input: &mut Stream| {
                 suggest_literal("get").parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let target = parse_data_target(true).next_signature_parameter().parse(input)?;
                 let (path, scale) = split_2(
                     (|input: &mut Stream| {
-                        required_inline_whitespace.parse(input)?;
+                        required_inline_whitespace(input)?;
                         let path = parse_nbt_path.next_signature_parameter().parse(input)?;
 
                         let scale = (|input: &mut Stream| {
-                            required_inline_whitespace.parse(input)?;
+                            required_inline_whitespace(input)?;
                             float.next_signature_parameter().parse(input)
                         })
                         .optional()
@@ -199,9 +199,9 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
             .signature(0),
             (|input: &mut Stream| {
                 suggest_literal("merge").parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let target = parse_data_target(true).next_signature_parameter().parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let expression = expression.next_signature_parameter().parse(input)?;
 
                 Some(HighDataCommand::Merge(target, Box::new(expression)))
@@ -209,18 +209,18 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
             .signature(1),
             (|input: &mut Stream| {
                 suggest_literal("modify").parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let target = parse_data_target(true).next_signature_parameter().parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let path = parse_nbt_path.next_signature_parameter().parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let mode = choice((
                     suggest_literal("append")
                         .signature(0)
                         .map_to(DataCommandModificationMode::Append),
                     (|input: &mut Stream| {
                         suggest_literal("insert").parse(input)?;
-                        required_inline_whitespace.parse(input)?;
+                        required_inline_whitespace(input)?;
                         let index = integer.next_signature_parameter().parse(input)?;
 
                         Some(DataCommandModificationMode::Insert(index))
@@ -253,16 +253,16 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
                 ])
                 .next_signature_parameter()
                 .parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let modification = (|input: &mut Stream| {
                     choice((
                         (|input: &mut Stream| {
                             suggest_literal("from").parse(input)?;
-                            required_inline_whitespace.parse(input)?;
+                            required_inline_whitespace(input)?;
                             let target =
                                 parse_data_target(true).next_signature_parameter().parse(input)?;
                             let path = (|input: &mut Stream| {
-                                required_inline_whitespace.parse(input)?;
+                                required_inline_whitespace(input)?;
                                 parse_nbt_path.next_signature_parameter().parse(input)
                             })
                             .optional()
@@ -273,23 +273,23 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
                         .signature(0),
                         (|input: &mut Stream| {
                             suggest_literal("string").parse(input)?;
-                            required_inline_whitespace.parse(input)?;
+                            required_inline_whitespace(input)?;
                             let target =
                                 parse_data_target(true).next_signature_parameter().parse(input)?;
                             let (path, start, end) = split_3(
                                 (|input: &mut Stream| {
-                                    required_inline_whitespace.parse(input)?;
+                                    required_inline_whitespace(input)?;
                                     let path =
                                         parse_nbt_path.next_signature_parameter().parse(input)?;
                                     let (start, end) = split_2(
                                         (|input: &mut Stream| {
-                                            required_inline_whitespace.parse(input)?;
+                                            required_inline_whitespace(input)?;
                                             let start = integer
                                                 .next_signature_parameter()
                                                 .parse(input)?;
 
                                             let end = (|input: &mut Stream| {
-                                                required_inline_whitespace.parse(input)?;
+                                                required_inline_whitespace(input)?;
                                                 integer
                                                     .next_signature_parameter()
                                                     .parse(input)
@@ -314,7 +314,7 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
                         .signature(1),
                         (|input: &mut Stream| {
                             suggest_literal("value").parse(input)?;
-                            required_inline_whitespace.parse(input)?;
+                            required_inline_whitespace(input)?;
                             let value = expression.next_signature_parameter().parse(input)?;
 
                             Some(HighDataCommandModification::Value(Box::new(value)))
@@ -344,9 +344,9 @@ pub fn parse_data_command(input: &mut Stream) -> Option<HighCommand> {
             .signature(2),
             (|input: &mut Stream| {
                 suggest_literal("remove").parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let target = parse_data_target(true).next_signature_parameter().parse(input)?;
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let path = parse_nbt_path.next_signature_parameter().parse(input)?;
 
                 Some(HighDataCommand::Remove(target, path))

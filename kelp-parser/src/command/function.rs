@@ -10,12 +10,12 @@ use parser_rs::{combinators::suggest_literal, fn_parser::FnParser, stream::Strea
 pub fn parse_function_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {
         suggest_literal("function").syntax_keyword().parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         let id = parse_resource_location
             .next_signature_parameter()
             .parse(input)?;
         let arguments: Option<Option<HighFunctionCommandArguments>> = (|input: &mut Stream| {
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
 
             expression
                 .next_signature_parameter()

@@ -30,7 +30,7 @@ fn parse_local_component<'a>(can_mix: bool) -> impl FnParser<'a, Output = Option
                 return result;
             }
 
-            let value = float.parse(input)?;
+            let value = float(input)?;
 
             input.add_validation_error_span(
                 start..input.position,
@@ -47,11 +47,11 @@ pub fn parse_local_coordinates(input: &mut Stream) -> Option<Coordinates> {
     (|input: &mut Stream| {
         let x = parse_local_component(false).parse(input)?;
 
-        required_whitespace.parse(input)?;
+        required_whitespace(input)?;
 
         let y = parse_local_component(true).parse(input)?;
 
-        required_whitespace.parse(input)?;
+        required_whitespace(input)?;
 
         let z = parse_local_component(true).parse(input)?;
 
@@ -92,7 +92,7 @@ pub fn parse_world_coordinate<'a>(can_mix: bool) -> impl FnParser<'a, Output = W
                 })
             },
             |input: &mut Stream| {
-                let value = float.parse(input)?;
+                let value = float(input)?;
                 Some(WorldCoordinate {
                     relative: false,
                     value: Some(value),
@@ -108,11 +108,11 @@ fn parse_world_coordinates(input: &mut Stream) -> Option<Coordinates> {
     (|input: &mut Stream| {
         let x = parse_world_coordinate(false).parse(input)?;
 
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
 
         let y = parse_world_coordinate(true).parse(input)?;
 
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
 
         let z = parse_world_coordinate(true).parse(input)?;
 
@@ -124,8 +124,8 @@ fn parse_world_coordinates(input: &mut Stream) -> Option<Coordinates> {
 
 pub fn parse_coordinates(input: &mut Stream) -> Option<Coordinates> {
     choice((
-        |input: &mut Stream| parse_world_coordinates.parse(input),
-        |input: &mut Stream| parse_local_coordinates.parse(input),
+        |input: &mut Stream| parse_world_coordinates(input),
+        |input: &mut Stream| parse_local_coordinates(input),
     ))
     .parse(input)
 }

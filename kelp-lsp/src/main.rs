@@ -177,7 +177,7 @@ impl Backend {
 
         if let Ok(statements) = result.result {
             let mut ctx = SemanticAnalysisContext {
-                max_infos: 25,
+                max_infos: usize::MAX,
                 ..Default::default()
             };
 

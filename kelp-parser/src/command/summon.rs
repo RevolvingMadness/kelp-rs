@@ -8,16 +8,16 @@ use parser_rs::{combinators::suggest_literal, fn_parser::FnParser, stream::Strea
 pub fn parse_summon_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {
         suggest_literal("summon").syntax_keyword().parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         let entity = parse_resource_location
             .next_signature_parameter()
             .parse(input)?;
         let (position, nbt) = split_2(
             (|input: &mut Stream| {
-                required_inline_whitespace.parse(input)?;
+                required_inline_whitespace(input)?;
                 let position = parse_coordinates.next_signature_parameter().parse(input)?;
                 let nbt = (|input: &mut Stream| {
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
                     expression.next_signature_parameter().parse(input)
                 })
                 .optional()

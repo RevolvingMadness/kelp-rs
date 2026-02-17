@@ -10,7 +10,7 @@ use parser_rs::{
 pub fn parse_return_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {
         suggest_literal("return").syntax_keyword().parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
 
         let command = choice((
             integer

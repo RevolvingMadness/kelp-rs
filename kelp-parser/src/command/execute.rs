@@ -39,7 +39,7 @@ use std::collections::BTreeSet;
 const NEXT_PARAMETER: (&str, Option<&str>) = ("<next>", Some("The next subcommand"));
 
 fn parse_next(input: &mut Stream) -> Option<Box<HighExecuteSubcommand>> {
-    required_inline_whitespace.parse(input)?;
+    required_inline_whitespace(input)?;
     parse_execute_subcommand
         .next_signature_parameter()
         .parse(input)
@@ -47,17 +47,17 @@ fn parse_next(input: &mut Stream) -> Option<Box<HighExecuteSubcommand>> {
 }
 
 pub fn parse_block_state<'a>(input: &mut Stream<'a>) -> Option<HighBlockState> {
-    let id = parse_resource_location.parse(input)?;
+    let id = parse_resource_location(input)?;
     let block_states = (|input: &mut Stream<'a>| {
         char('[').parse(input)?;
         let block_states = (|input: &mut Stream<'a>| {
-            whitespace.parse(input)?;
+            whitespace(input)?;
             let key = identifier("block state key").parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
             char('=').parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
             let value = identifier("block state value").parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
             Some((key, value))
         })
         .separated_by::<_, Vec<_>>(char(','))
@@ -86,24 +86,24 @@ pub fn parse_item_source(input: &mut Stream) -> Option<HighItemSource> {
         |input: &mut Stream| {
             (|input: &mut Stream| {
                 suggest_literal("block").parse(input)?;
-                required_inline_whitespace.parse(input)
+                required_inline_whitespace(input)
             })
             .optional()
             .parse(input)?;
 
-            let coordinates = parse_coordinates.parse(input)?;
+            let coordinates = parse_coordinates(input)?;
 
             Some(HighItemSource::Block(coordinates))
         },
         |input: &mut Stream| {
             (|input: &mut Stream| {
                 suggest_literal("entity").parse(input)?;
-                required_inline_whitespace.parse(input)
+                required_inline_whitespace(input)
             })
             .optional()
             .parse(input)?;
 
-            let selector = parse_entity_selector.parse(input)?;
+            let selector = parse_entity_selector(input)?;
 
             Some(HighItemSource::Entity(selector))
         },
@@ -122,15 +122,15 @@ pub fn parse_item_type(input: &mut Stream) -> Option<ItemType> {
 pub fn parse_item_test(input: &mut Stream) -> Option<(bool, HighItemTest)> {
     let negated = char('!').optional().parse(input)?.is_some();
 
-    let location = parse_resource_location.parse(input)?;
+    let location = parse_resource_location(input)?;
 
     let optional_match = (|input: &mut Stream| {
-        whitespace.parse(input)?;
+        whitespace(input)?;
 
         let is_matches = choice((char('=').map_to(true), char('~').map_to(false))).parse(input)?;
 
-        whitespace.parse(input)?;
-        let value = expression.parse(input)?;
+        whitespace(input)?;
+        let value = expression(input)?;
         Some((is_matches, value))
     })
     .optional()
@@ -159,15 +159,15 @@ pub fn parse_or_group(input: &mut Stream) -> Option<HighOrGroup> {
 }
 
 pub fn parse_item_predicate(input: &mut Stream) -> Option<HighItemPredicate> {
-    let item_type = parse_item_type.parse(input)?;
+    let item_type = parse_item_type(input)?;
 
     let tests = (|input: &mut Stream| {
         char('[').parse(input)?;
 
         let inner_parser = |input: &mut Stream| {
-            whitespace.parse(input)?;
-            let or_group = parse_or_group.parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
+            let or_group = parse_or_group(input)?;
+            whitespace(input)?;
             Some(or_group)
         };
 
@@ -187,8 +187,8 @@ pub fn parse_item_predicate(input: &mut Stream) -> Option<HighItemPredicate> {
 }
 
 pub fn parse_player_score(input: &mut Stream) -> Option<HighPlayerScore> {
-    let selector = parse_entity_selector.parse(input)?;
-    required_inline_whitespace.parse(input)?;
+    let selector = parse_entity_selector(input)?;
+    required_inline_whitespace(input)?;
     let score = identifier("scoreboard objective").parse(input)?;
 
     Some(HighPlayerScore::new(selector, score.to_string()))
@@ -209,15 +209,15 @@ pub fn parse_score_comparison(input: &mut Stream) -> Option<HighScoreComparison>
     choice((
         |input: &mut Stream| {
             suggest_literal("matches").parse(input)?;
-            required_inline_whitespace.parse(input)?;
-            let range = parse_integer_range.parse(input)?;
+            required_inline_whitespace(input)?;
+            let range = parse_integer_range(input)?;
 
             Some(HighScoreComparison::Range(range))
         },
         |input: &mut Stream| {
-            let operator = parse_score_comparison_operator.parse(input)?;
-            required_inline_whitespace.parse(input)?;
-            let score = parse_player_score.parse(input)?;
+            let operator = parse_score_comparison_operator(input)?;
+            required_inline_whitespace(input)?;
+            let score = parse_player_score(input)?;
             Some(HighScoreComparison::Score(operator, score))
         },
     ))
@@ -228,9 +228,9 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
     choice((
         (|input: &mut Stream| {
             suggest_literal("biome").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let coordinates = parse_coordinates.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let biome = parse_resource_location
                 .next_signature_parameter()
                 .parse(input)?;
@@ -241,13 +241,13 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(0),
         (|input: &mut Stream| {
             suggest_literal("blocks").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let start = parse_coordinates.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let end = parse_coordinates.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let destination = parse_coordinates.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let mode = parse_if_blocks_mode
                 .next_signature_parameter()
                 .parse(input)?;
@@ -264,9 +264,9 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(1),
         (|input: &mut Stream| {
             suggest_literal("block").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let coordinates = parse_coordinates.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let predicate = parse_block_state.next_signature_parameter().parse(input)?;
             let next = parse_next.optional().parse(input)?;
 
@@ -275,11 +275,11 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(2),
         (|input: &mut Stream| {
             suggest_literal("data").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let target = parse_data_target(true)
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let path = parse_nbt_path.next_signature_parameter().parse(input)?;
             let next = parse_next.optional().parse(input)?;
 
@@ -288,7 +288,7 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(3),
         (|input: &mut Stream| {
             suggest_literal("dimension").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let dimension = parse_resource_location
                 .next_signature_parameter()
                 .parse(input)?;
@@ -299,7 +299,7 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(4),
         (|input: &mut Stream| {
             suggest_literal("entity").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
@@ -310,7 +310,7 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(5),
         (|input: &mut Stream| {
             suggest_literal("function").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let function = parse_resource_location
                 .next_signature_parameter()
                 .parse(input)?;
@@ -322,14 +322,14 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(6),
         (|input: &mut Stream| {
             suggest_literal("items").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let source = parse_item_source.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let slot = key("item slot")
                 .label("slot")
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let item_predicate = parse_item_predicate
                 .next_signature_parameter()
                 .parse(input)?;
@@ -345,7 +345,7 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(7),
         (|input: &mut Stream| {
             suggest_literal("loaded").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let column_position = parse_column_position
                 .next_signature_parameter()
                 .parse(input)?;
@@ -356,7 +356,7 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(8),
         (|input: &mut Stream| {
             suggest_literal("predicate").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let predicate = parse_resource_location
                 .next_signature_parameter()
                 .parse(input)?;
@@ -367,27 +367,27 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
         .signature(9),
         choice(((|input: &mut Stream| {
             suggest_literal("score").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let objective = identifier("scoreboard objective")
                 .next_signature_parameter()
                 .parse(input)?;
             let score = HighPlayerScore::new(selector, objective.to_string());
 
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let comparison = choice((
                 (|input: &mut Stream| {
                     let op = parse_score_comparison_operator
                         .next_signature_parameter()
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
                     let source_selector = parse_entity_selector
                         .next_signature_parameter()
                         .parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
                     let source_objective = identifier("scoreboard objective")
                         .next_signature_parameter()
                         .parse(input)?;
@@ -399,7 +399,7 @@ pub fn parse_execute_if_subcommand(input: &mut Stream) -> Option<HighExecuteIfSu
                 .signature(0),
                 (|input: &mut Stream| {
                     suggest_literal("matches").parse(input)?;
-                    required_inline_whitespace.parse(input)?;
+                    required_inline_whitespace(input)?;
                     let range = parse_integer_range
                         .next_signature_parameter()
                         .parse(input)?;
@@ -565,15 +565,15 @@ pub fn parse_execute_store_command(input: &mut Stream) -> Option<HighExecuteStor
             let target = parse_data_target(true)
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let path = parse_nbt_path.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let numeric_snbt_type = parse_numeric_snbt_type
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let scale = float.next_signature_parameter().parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteStoreSubcommand::Data(
                 target,
@@ -586,15 +586,15 @@ pub fn parse_execute_store_command(input: &mut Stream) -> Option<HighExecuteStor
         .signature(0),
         (|input: &mut Stream| {
             suggest_literal("bossbar").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let location = parse_resource_location
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let bossbar_store_type = parse_bossbar_store_type
                 .next_signature_parameter()
                 .parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteStoreSubcommand::Bossbar(
                 location,
@@ -605,16 +605,16 @@ pub fn parse_execute_store_command(input: &mut Stream) -> Option<HighExecuteStor
         .signature(1),
         (|input: &mut Stream| {
             suggest_literal("score").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let objective = identifier("objective")
                 .next_signature_parameter()
                 .parse(input)?;
             let score = HighPlayerScore::new(selector, objective.to_string());
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteStoreSubcommand::Score(score, next))
         })
@@ -746,11 +746,11 @@ pub fn parse_facing(input: &mut Stream) -> Option<HighFacing> {
             .map(HighFacing::Position),
         (|input: &mut Stream| {
             suggest_literal("entity").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let anchor = parse_entity_anchor
                 .next_signature_parameter()
                 .parse(input)?;
@@ -785,7 +785,7 @@ pub fn parse_positioned(input: &mut Stream) -> Option<HighPositioned> {
             .map(HighPositioned::Position),
         (|input: &mut Stream| {
             suggest_literal("as").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
@@ -795,7 +795,7 @@ pub fn parse_positioned(input: &mut Stream) -> Option<HighPositioned> {
         .signature(1),
         (|input: &mut Stream| {
             suggest_literal("over").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let heightmap = parse_heightmap.next_signature_parameter().parse(input)?;
 
             Some(HighPositioned::Over(heightmap))
@@ -826,7 +826,7 @@ pub fn parse_rotated(input: &mut Stream) -> Option<HighRotated> {
     choice((
         (|input: &mut Stream| {
             let yaw = float.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let pitch = float.next_signature_parameter().parse(input)?;
 
             Some(HighRotated::Rotation(Rotation(yaw, pitch)))
@@ -834,7 +834,7 @@ pub fn parse_rotated(input: &mut Stream) -> Option<HighRotated> {
         .signature(0),
         (|input: &mut Stream| {
             suggest_literal("as").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
@@ -862,100 +862,100 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
     choice((
         (|input: &mut Stream| {
             suggest_literal("align").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let swizzle = parse_axes.next_signature_parameter().parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::Align(swizzle, next))
         })
         .signature(0),
         (|input: &mut Stream| {
             suggest_literal("anchored").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let anchor = parse_entity_anchor
                 .next_signature_parameter()
                 .parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::Anchored(anchor, next))
         })
         .signature(1),
         (|input: &mut Stream| {
             suggest_literal("as").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::As(selector, next))
         })
         .signature(2),
         (|input: &mut Stream| {
             suggest_literal("at").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let selector = parse_entity_selector
                 .next_signature_parameter()
                 .parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::At(selector, next))
         })
         .signature(3),
         (|input: &mut Stream| {
             suggest_literal("facing").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let facing = parse_facing.next_signature_parameter().parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::Facing(facing, next))
         })
         .signature(4),
         (|input: &mut Stream| {
             suggest_literal("in").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let location = parse_resource_location
                 .next_signature_parameter()
                 .parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::In(location, next))
         })
         .signature(5),
         (|input: &mut Stream| {
             suggest_literal("on").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let relation = parse_relation.next_signature_parameter().parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::On(relation, next))
         })
         .signature(6),
         (|input: &mut Stream| {
             suggest_literal("positioned").parse(input)?;
-            required_inline_whitespace.parse(input)?;
-            let positioned = parse_positioned.parse(input)?;
-            let next = parse_next.parse(input)?;
+            required_inline_whitespace(input)?;
+            let positioned = parse_positioned(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::Positioned(positioned, next))
         })
         .signature(7),
         (|input: &mut Stream| {
             suggest_literal("rotated").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let rotated = parse_rotated.next_signature_parameter().parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::Rotated(rotated, next))
         })
         .signature(8),
         (|input: &mut Stream| {
             suggest_literal("summon").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let location = parse_resource_location
                 .next_signature_parameter()
                 .parse(input)?;
-            let next = parse_next.parse(input)?;
+            let next = parse_next(input)?;
 
             Some(HighExecuteSubcommand::Summon(location, next))
         })
@@ -966,7 +966,7 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
                 suggest_literal("unless").map_to(true),
             ))
             .parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let if_subcommand = parse_execute_if_subcommand
                 .next_signature_parameter()
                 .parse(input)?;
@@ -976,9 +976,9 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
         .signature(10),
         (|input: &mut Stream| {
             suggest_literal("store").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let store_type = parse_store_type.next_signature_parameter().parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             let store_subcommand = parse_execute_store_command
                 .next_signature_parameter()
                 .parse(input)?;
@@ -987,14 +987,14 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
         .signature(11),
         (|input: &mut Stream| {
             suggest_literal("run").parse(input)?;
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
 
             let commands: Vec<HighCommand> = choice((
                 |input: &mut Stream| {
                     let start = input.position;
 
                     char('{').parse(input)?;
-                    whitespace.parse(input)?;
+                    whitespace(input)?;
 
                     let result = parse_command
                         .separated_by::<_, Vec<_>>(newline_whitespace("end of command"))
@@ -1013,7 +1013,7 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
 
                     Some(result)
                 },
-                |input: &mut Stream| parse_command.parse(input).map(|v| vec![v]),
+                |input: &mut Stream| parse_command(input).map(|v| vec![v]),
             ))
             .next_signature_parameter()
             .parse(input)?;
@@ -1025,12 +1025,12 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
             let start = input.position;
 
             char('{').parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
             let result = parse_execute_subcommand
                 .separated_by::<_, Vec<_>>(newline_whitespace("end of execute subcommand"))
                 .parse(input)?;
 
-            whitespace.parse(input)?;
+            whitespace(input)?;
             char('}').parse(input)?;
 
             if result.is_empty() {
@@ -1144,7 +1144,7 @@ pub fn parse_execute_subcommand(input: &mut Stream) -> Option<HighExecuteSubcomm
 pub fn parse_execute_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {
         suggest_literal("execute").syntax_keyword().parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         parse_execute_subcommand
             .next_signature_parameter()
             .parse(input)

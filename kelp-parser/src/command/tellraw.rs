@@ -7,11 +7,11 @@ use parser_rs::{combinators::suggest_literal, fn_parser::FnParser, stream::Strea
 pub fn parse_tellraw_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {
         suggest_literal("tellraw").syntax_keyword().parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         let selector = parse_entity_selector
             .next_signature_parameter()
             .parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         let value = expression.next_signature_parameter().parse(input)?;
 
         Some(HighCommand::Tellraw(selector, value))

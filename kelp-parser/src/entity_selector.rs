@@ -24,14 +24,15 @@ where
 {
     move |input: &mut Stream<'a>| {
         char('{').parse(input)?;
+        whitespace(input)?;
         let pairs = (|input: &mut Stream<'a>| {
-            whitespace.parse(input)?;
+            whitespace(input)?;
             let key = key_parser.parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
             char('=').parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
             let value = value_parser.parse(input)?;
-            whitespace.parse(input)?;
+            whitespace(input)?;
             Some((key, value))
         })
         .separated_by::<_, Vec<_>>(char(','))
@@ -159,9 +160,9 @@ fn parse_entity_selector_option<'a>(
         .parse(input)?;
 
     let equals = |input: &mut Stream| {
-        whitespace.parse(input)?;
+        whitespace(input)?;
         char('=').parse(input)?;
-        whitespace.parse(input)
+        whitespace(input)
     };
 
     match key {
@@ -175,7 +176,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = float.parse(input)?;
+            let value = float(input)?;
 
             options.contains_x = true;
 
@@ -191,7 +192,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = float.parse(input)?;
+            let value = float(input)?;
 
             options.contains_y = true;
 
@@ -207,7 +208,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = float.parse(input)?;
+            let value = float(input)?;
 
             options.contains_z = true;
 
@@ -223,7 +224,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = parse_float_range.parse(input)?;
+            let value = parse_float_range(input)?;
 
             options.contains_distance = true;
 
@@ -239,7 +240,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = float.parse(input)?;
+            let value = float(input)?;
 
             options.contains_dx = true;
 
@@ -255,7 +256,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = float.parse(input)?;
+            let value = float(input)?;
 
             options.contains_dy = true;
 
@@ -271,7 +272,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = float.parse(input)?;
+            let value = float(input)?;
 
             options.contains_dz = true;
 
@@ -287,7 +288,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = parse_float_range.parse(input)?;
+            let value = parse_float_range(input)?;
 
             options.contains_x_rotation = true;
 
@@ -303,7 +304,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let value = parse_float_range.parse(input)?;
+            let value = parse_float_range(input)?;
 
             options.contains_y_rotation = true;
 
@@ -386,7 +387,7 @@ fn parse_entity_selector_option<'a>(
 
             let inverted = char('!').optional().parse(input)?.is_some();
 
-            let type_ = parse_resource_location.parse(input)?;
+            let type_ = parse_resource_location(input)?;
 
             if !inverted {
                 if options.contains_type_not_inverted {
@@ -403,7 +404,7 @@ fn parse_entity_selector_option<'a>(
 
             let inverted = char('!').optional().parse(input)?.is_some();
 
-            let predicate = parse_resource_location.parse(input)?;
+            let predicate = parse_resource_location(input)?;
 
             Some(HighEntitySelectorOption::Predicate(inverted, predicate))
         }
@@ -412,7 +413,7 @@ fn parse_entity_selector_option<'a>(
 
             let inverted = char('!').optional().parse(input)?.is_some();
 
-            let nbt = expression.parse(input)?;
+            let nbt = expression(input)?;
 
             Some(HighEntitySelectorOption::Nbt(inverted, Box::new(nbt)))
         }
@@ -421,7 +422,7 @@ fn parse_entity_selector_option<'a>(
 
             let inverted = char('!').optional().parse(input)?.is_some();
 
-            let gamemode = parse_gamemode.parse(input)?;
+            let gamemode = parse_gamemode(input)?;
 
             if !inverted {
                 if options.contains_gamemode_not_inverted {
@@ -443,7 +444,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let level = parse_integer_range.parse(input)?;
+            let level = parse_integer_range(input)?;
 
             options.contains_level = true;
 
@@ -486,7 +487,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let limit = integer.parse(input)?;
+            let limit = integer(input)?;
 
             options.contains_limit = true;
 
@@ -502,7 +503,7 @@ fn parse_entity_selector_option<'a>(
 
             equals(input)?;
 
-            let sort = parse_sort.parse(input)?;
+            let sort = parse_sort(input)?;
 
             options.contains_sort = true;
 
@@ -576,9 +577,9 @@ pub fn parse_entity_selector(input: &mut Stream) -> Option<HighEntitySelector> {
                 let mut options = EntitySelectorOptions::default();
 
                 let options = (|input: &mut Stream| {
-                    whitespace.parse(input)?;
+                    whitespace(input)?;
                     let result = parse_entity_selector_option(input, &mut options)?;
-                    whitespace.parse(input)?;
+                    whitespace(input)?;
                     Some(result)
                 })
                 .separated_by(char(','))

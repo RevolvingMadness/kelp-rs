@@ -9,7 +9,7 @@ pub fn parse_difficulty_command(input: &mut Stream) -> Option<HighCommand> {
             .syntax_keyword()
             .parse(input)?;
         let difficulty = (|input: &mut Stream| {
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             parse_difficulty.next_signature_parameter().parse(input)
         })
         .optional()

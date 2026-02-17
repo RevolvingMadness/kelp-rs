@@ -155,8 +155,7 @@ impl ExpressionKind {
             ExpressionKind::Index(target, _) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
-                .get_index_result()
-                .expect("Expression cannot be indexed"),
+                .get_index_result()?,
             ExpressionKind::FieldAccess(target, field) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
@@ -167,9 +166,13 @@ impl ExpressionKind {
             ExpressionKind::ToCast(expression, storage_type) => match storage_type {
                 RuntimeStorageType::Score => DataTypeKind::Score,
                 RuntimeStorageType::Data => DataTypeKind::Data(Box::new(
-                    expression
+                    match expression
                         .kind
-                        .infer_data_type(supports_variable_type_scope)?,
+                        .infer_data_type(supports_variable_type_scope)?
+                    {
+                        DataTypeKind::Data(inner_type) => *inner_type,
+                        data_type => data_type,
+                    },
                 )),
             },
             ExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(

@@ -63,7 +63,9 @@ impl BuiltinDataTypeKind {
         generic_names: Option<&Vec<String>>,
         generic_types: &[HighDataType],
     ) -> Option<DataTypeKind> {
-        debug_assert!(generic_types.len() == self.generic_count());
+        if generic_types.len() != self.generic_count() {
+            return None;
+        }
 
         Some(match self {
             BuiltinDataTypeKind::Unit => DataTypeKind::Unit,
@@ -934,11 +936,6 @@ impl DataTypeKind {
 
                 true
             }
-            (DataTypeKind::Data(inner_type), ExpressionKind::Data(_, _)) => {
-                inner_type.perform_equality_semantic_analysis(ctx, value_type, value)?;
-
-                true
-            }
             (
                 DataTypeKind::Reference(data_type),
                 ExpressionKind::Unary(UnaryOperator::Reference, expression),
@@ -1161,9 +1158,10 @@ impl DataTypeKind {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn raw_get_arithmetic_result(
         &self,
-        _operator: &ArithmeticOperator,
+        operator: &ArithmeticOperator,
         other: &DataTypeKind,
     ) -> Option<DataTypeKind> {
         Some(match (self, other) {
@@ -1176,6 +1174,9 @@ impl DataTypeKind {
             {
                 DataTypeKind::Score
             }
+            (DataTypeKind::Data(inner_type), other) | (other, DataTypeKind::Data(inner_type)) => {
+                inner_type.raw_get_arithmetic_result(operator, other)?
+            }
             _ => return None,
         })
     }
@@ -1186,13 +1187,9 @@ impl DataTypeKind {
         other: &DataTypeKind,
     ) -> Option<DataTypeKind> {
         match (self, other) {
-            (DataTypeKind::Reference(self_), DataTypeKind::Reference(other)) => {
+            (DataTypeKind::Reference(self_), other) | (other, DataTypeKind::Reference(self_)) => {
                 self_.raw_get_arithmetic_result(operator, other)
             }
-            (DataTypeKind::Reference(self_), other) => {
-                self_.raw_get_arithmetic_result(operator, other)
-            }
-            (_, DataTypeKind::Reference(other)) => self.raw_get_arithmetic_result(operator, other),
 
             _ => self.raw_get_arithmetic_result(operator, other),
         }
@@ -1290,6 +1287,11 @@ impl DataTypeKind {
             {
                 inner_type.can_perform_comparison(operator, other)
             }
+            (DataTypeKind::Data(inner_type), other) | (other, DataTypeKind::Data(inner_type))
+                if inner_type.is_score_value() && other.is_score_value() =>
+            {
+                inner_type.can_perform_comparison(operator, other)
+            }
             _ => false,
         }
     }
@@ -1331,7 +1333,9 @@ impl DataTypeKind {
             DataTypeKind::Reference(self_) => self_.get_index_result()?,
 
             DataTypeKind::List(data_type) => *data_type.clone(),
-            DataTypeKind::Data(data_type) => data_type.get_index_result()?,
+            DataTypeKind::Data(data_type) => {
+                DataTypeKind::Data(Box::new(data_type.get_index_result()?))
+            }
             DataTypeKind::SNBT => DataTypeKind::SNBT,
 
             _ => return None,

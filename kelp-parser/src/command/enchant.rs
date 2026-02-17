@@ -7,18 +7,18 @@ use parser_rs::{combinators::suggest_literal, fn_parser::FnParser, stream::Strea
 pub fn parse_enchant_command(input: &mut Stream) -> Option<HighCommand> {
     (|input: &mut Stream| {
         suggest_literal("enchant").syntax_keyword().parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         let selector = parse_entity_selector
             .next_signature_parameter()
             .parse(input)?;
-        required_inline_whitespace.parse(input)?;
+        required_inline_whitespace(input)?;
         let location = parse_resource_location
             .next_signature_parameter()
             .parse(input);
 
         let location = location?;
         let level = (|input: &mut Stream| {
-            required_inline_whitespace.parse(input)?;
+            required_inline_whitespace(input)?;
             integer.next_signature_parameter().parse(input)
         })
         .optional()

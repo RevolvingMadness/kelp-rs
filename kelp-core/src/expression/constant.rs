@@ -718,13 +718,31 @@ impl ConstantExpressionKind {
                     ),
                 )
             }
-            (ConstantExpressionKind::PlayerScore(left_score), right_kind) => {
-                let right_score = right_kind.as_score(datapack, ctx, false);
+            (self_ @ ConstantExpressionKind::Data(_, _), other)
+            | (other, self_ @ ConstantExpressionKind::Data(_, _)) => {
+                let score = self_.as_score(datapack, ctx, false);
+
+                let other_score = other.as_score(datapack, ctx, false);
 
                 ConstantExpressionKind::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
-                        left_score.score,
+                        score.score,
+                        ScoreComparison::Score(
+                            operator.into_score_comparison_operator(),
+                            other_score.score,
+                        ),
+                        None,
+                    ),
+                )
+            }
+            (ConstantExpressionKind::PlayerScore(score), other) => {
+                let right_score = other.as_score(datapack, ctx, false);
+
+                ConstantExpressionKind::Condition(
+                    operator.should_execute_if_be_inverted(),
+                    ExecuteIfSubcommand::Score(
+                        score.score,
                         ScoreComparison::Score(
                             operator.into_score_comparison_operator(),
                             right_score.score,

@@ -135,11 +135,11 @@ pub fn float<'a>(input: &mut Stream<'a>) -> Option<NotNan<f32>> {
         let start = input.position;
 
         char('-').optional().parse(input)?;
-        digits.parse(input)?;
+        digits(input)?;
 
         (|input: &mut Stream<'a>| {
             char('.').parse(input)?;
-            digits.parse(input)
+            digits(input)
         })
         .optional()
         .parse(input)?;
@@ -534,15 +534,15 @@ pub fn digits(input: &mut Stream) -> Option<()> {
 }
 
 pub fn file(input: &mut Stream) -> Option<Vec<Statement>> {
-    whitespace.parse(input)?;
+    whitespace(input)?;
 
     let result = parse_statement
         .separated_by(newline_whitespace("end of statement"))
         .parse(input)?;
 
-    whitespace.parse(input)?;
+    whitespace(input)?;
 
-    end_of_file.parse(input)?;
+    end_of_file(input)?;
 
     Some(result)
 }

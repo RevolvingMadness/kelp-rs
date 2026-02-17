@@ -37,7 +37,7 @@ use crate::{
 pub fn expression(input: &mut Stream) -> Option<Expression> {
     let has_tick = char('`').optional().parse(input)?.is_some();
 
-    let result = assignment.parse(input);
+    let result = assignment(input);
 
     if has_tick {
         char('`').parse(input)?;
@@ -47,7 +47,7 @@ pub fn expression(input: &mut Stream) -> Option<Expression> {
 }
 
 fn assignment(input: &mut Stream) -> Option<Expression> {
-    let left = logical_or.parse(input)?;
+    let left = logical_or(input)?;
 
     if let Some(operator) = choice((
         literal("+=").map_to(ArithmeticOperator::Add),
@@ -92,11 +92,11 @@ fn assignment(input: &mut Stream) -> Option<Expression> {
 }
 
 fn logical_or(input: &mut Stream) -> Option<Expression> {
-    let mut left = logical_and.parse(input)?;
+    let mut left = logical_and(input)?;
 
     while literal("||").optional().parse(input)?.is_some() {
         inline_whitespace(input)?;
-        let right = logical_and.parse(input)?;
+        let right = logical_and(input)?;
         let end = right.span.end;
 
         left = Expression {
@@ -112,11 +112,11 @@ fn logical_or(input: &mut Stream) -> Option<Expression> {
 }
 
 fn logical_and(input: &mut Stream) -> Option<Expression> {
-    let mut left = bitwise_or.parse(input)?;
+    let mut left = bitwise_or(input)?;
 
     while literal("&&").optional().parse(input)?.is_some() {
         inline_whitespace(input)?;
-        let right = bitwise_or.parse(input)?;
+        let right = bitwise_or(input)?;
         let end = right.span.end;
 
         left = Expression {
@@ -132,7 +132,7 @@ fn logical_and(input: &mut Stream) -> Option<Expression> {
 }
 
 fn bitwise_or(input: &mut Stream) -> Option<Expression> {
-    let mut left = bitwise_and.parse(input)?;
+    let mut left = bitwise_and(input)?;
 
     while char('|')
         .not_followed_by(char('|'))
@@ -141,7 +141,7 @@ fn bitwise_or(input: &mut Stream) -> Option<Expression> {
         .is_some()
     {
         inline_whitespace(input)?;
-        let right = bitwise_and.parse(input)?;
+        let right = bitwise_and(input)?;
         let end = right.span.end;
 
         left = Expression {
@@ -161,7 +161,7 @@ fn bitwise_or(input: &mut Stream) -> Option<Expression> {
 }
 
 fn bitwise_and(input: &mut Stream) -> Option<Expression> {
-    let mut left = comparison.parse(input)?;
+    let mut left = comparison(input)?;
 
     while char('&')
         .not_followed_by(char('&'))
@@ -170,7 +170,7 @@ fn bitwise_and(input: &mut Stream) -> Option<Expression> {
         .is_some()
     {
         inline_whitespace(input)?;
-        let right = comparison.parse(input)?;
+        let right = comparison(input)?;
         let end = right.span.end;
 
         left = Expression {
@@ -190,7 +190,7 @@ fn bitwise_and(input: &mut Stream) -> Option<Expression> {
 }
 
 fn comparison(input: &mut Stream) -> Option<Expression> {
-    let mut left = shift.parse(input)?;
+    let mut left = shift(input)?;
 
     while let Some(operator) = choice((
         literal("==").map_to(ComparisonOperator::EqualTo),
@@ -207,7 +207,7 @@ fn comparison(input: &mut Stream) -> Option<Expression> {
     {
         inline_whitespace(input)?;
 
-        let right = shift.parse(input)?;
+        let right = shift(input)?;
 
         left = Expression {
             span: ParserRange {
@@ -222,7 +222,7 @@ fn comparison(input: &mut Stream) -> Option<Expression> {
 }
 
 fn shift(input: &mut Stream) -> Option<Expression> {
-    let mut left = term.parse(input)?;
+    let mut left = term(input)?;
 
     while let Some(operator) = choice((
         literal("<<").map_to(ArithmeticOperator::LeftShift),
@@ -232,7 +232,7 @@ fn shift(input: &mut Stream) -> Option<Expression> {
     .parse(input)?
     {
         inline_whitespace(input)?;
-        let right = term.parse(input)?;
+        let right = term(input)?;
 
         left = Expression {
             span: ParserRange {
@@ -247,7 +247,7 @@ fn shift(input: &mut Stream) -> Option<Expression> {
 }
 
 fn term(input: &mut Stream) -> Option<Expression> {
-    let mut left = factor.parse(input)?;
+    let mut left = factor(input)?;
 
     while let Some(operator) = choice((
         char('+')
@@ -262,7 +262,7 @@ fn term(input: &mut Stream) -> Option<Expression> {
     {
         inline_whitespace(input)?;
 
-        let right = factor.parse(input)?;
+        let right = factor(input)?;
 
         left = Expression {
             span: ParserRange {
@@ -277,7 +277,7 @@ fn term(input: &mut Stream) -> Option<Expression> {
 }
 
 fn factor(input: &mut Stream) -> Option<Expression> {
-    let mut left = cast.parse(input)?;
+    let mut left = cast(input)?;
 
     while let Some(operator) = choice((
         char('*')
@@ -295,7 +295,7 @@ fn factor(input: &mut Stream) -> Option<Expression> {
     {
         inline_whitespace(input)?;
 
-        let right = cast.parse(input)?;
+        let right = cast(input)?;
 
         left = Expression {
             span: ParserRange {
@@ -310,7 +310,7 @@ fn factor(input: &mut Stream) -> Option<Expression> {
 }
 
 fn cast(input: &mut Stream) -> Option<Expression> {
-    let mut left = unary.parse(input)?;
+    let mut left = unary(input)?;
 
     loop {
         inline_whitespace(input)?;
@@ -375,7 +375,7 @@ fn unary(input: &mut Stream) -> Option<Expression> {
     {
         inline_whitespace(input)?;
 
-        let expr = unary.parse(input)?;
+        let expr = unary(input)?;
 
         Some(Expression {
             span: ParserRange {
@@ -385,18 +385,18 @@ fn unary(input: &mut Stream) -> Option<Expression> {
             kind: ExpressionKind::Unary(operator, Box::new(expr)),
         })
     } else {
-        postfix.parse(input)
+        postfix(input)
     }
 }
 
 fn postfix(input: &mut Stream) -> Option<Expression> {
-    let mut left = atom.parse(input)?;
+    let mut left = atom(input)?;
 
     loop {
         if char('[').optional().parse(input)?.is_some() {
             inline_whitespace(input)?;
 
-            let index = expression.parse(input)?;
+            let index = expression(input)?;
 
             inline_whitespace(input)?;
 
@@ -454,7 +454,7 @@ pub fn parse_compound(input: &mut Stream) -> Option<ExpressionCompoundKind> {
         whitespace(input)?;
         char(':').parse(input)?;
         whitespace(input)?;
-        let value = expression.parse(input)?;
+        let value = expression(input)?;
         whitespace(input)?;
 
         Some((
@@ -512,7 +512,7 @@ pub fn atom(input: &mut Stream) -> Option<Expression> {
 
             let elements = (|input: &mut Stream| {
                 whitespace(input)?;
-                let element = expression.parse(input)?;
+                let element = expression(input)?;
                 whitespace(input)?;
 
                 Some(element)
@@ -537,7 +537,7 @@ pub fn atom(input: &mut Stream) -> Option<Expression> {
         |input: &mut Stream| {
             let target = parse_data_target(false).parse(input)?;
             required_inline_whitespace(input)?;
-            let path = parse_nbt_path.parse(input)?;
+            let path = parse_nbt_path(input)?;
             Some(ExpressionKind::Data(target, path))
         },
         |input: &mut Stream| {
@@ -547,7 +547,7 @@ pub fn atom(input: &mut Stream) -> Option<Expression> {
 
             let (elements, has_trailing_comma) = (|input: &mut Stream| {
                 whitespace(input)?;
-                let element = expression.parse(input)?;
+                let element = expression(input)?;
                 whitespace(input)?;
                 Some(element)
             })
@@ -739,7 +739,7 @@ pub fn numeric_parser<'a>(input: &mut Stream<'a>) -> Option<LiteralExpressionKin
                         whole_slice,
                         10,
                         if char('.').optional().parse(input)?.is_some() {
-                            digits.parse(input)?;
+                            digits(input)?;
                             true
                         } else {
                             false

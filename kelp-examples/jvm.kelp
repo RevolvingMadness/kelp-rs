@@ -1,26 +1,26 @@
 // SCORE: bc
-let classfile_raw: value = storage bc:parser/classfile raw
-let classfile_index: value = score index bc
+let classfile_raw = storage bc:parser/classfile raw as data<list<integer>>
+let classfile_index = score index bc
 
-let tag_utf8: value = 1
-let tag_integer: value = 3
-let tag_float: value = 4
-let tag_long: value = 5
-let tag_double: value = 6
-let tag_class: value = 7
-let tag_string: value = 8
-let tag_fieldref: value = 9
-let tag_methodref: value = 10
-let tag_interface_methodref: value = 11
-let tag_name_and_type: value = 12
-let tag_method_handle: value = 15
-let tag_method_type: value = 16
-let tag_invoke_dynamic: value = 18
+let tag_utf8 = 1
+let tag_integer = 3
+let tag_float = 4
+let tag_long = 5
+let tag_double = 6
+let tag_class = 7
+let tag_string = 8
+let tag_fieldref = 9
+let tag_methodref = 10
+let tag_interface_methodref = 11
+let tag_name_and_type = 12
+let tag_method_handle = 15
+let tag_method_type = 16
+let tag_invoke_dynamic = 18
 
 // SCORE: parser_parse_u1
-let parse_u1_output: value = score output parser_parse_u1
+let parse_u1_output = score output parser_parse_u1
 
-mcfunction bc:parser/parse_u1 {
+mcfn bc:parser/parse_u1 {
     if !classfile_raw[classfile_index] {
         return 1
     }
@@ -31,16 +31,16 @@ mcfunction bc:parser/parse_u1 {
 }
 
 // SCORE: parser_parse_u2
-let parser_parse_u2_output: value = score output parser_parse_u2
+let parser_parse_u2_output = score output parser_parse_u2
 
-mcfunction bc:parser/parse_u2 {
+mcfn bc:parser/parse_u2 {
     if !classfile_raw[classfile_index] {
         return 1
     }
 
-    let copied: data = classfile_raw
+    let copied = classfile_raw to data
 
-    let first: score = (copied[classfile_index]) * 256
+    let first = ((copied[classfile_index]) * 256) to score
     classfile_index += 1
 
     if !copied[classfile_index] {
@@ -53,16 +53,16 @@ mcfunction bc:parser/parse_u2 {
 }
 
 // SCORE: parser_parse_u4_part
-let parse_u4_part_output: value = score output parser_parse_u4_part
+let parse_u4_part_output = score output parser_parse_u4_part
 
-mcfunction bc:parser/parse_u4_part {
+mcfn bc:parser/parse_u4_part {
     if !classfile_raw[classfile_index] {
         return 1
     }
 
-    let copied: data = classfile_raw
+    let copied = classfile_raw to data
 
-    let first: score = (copied[classfile_index]) * 256
+    let first = ((copied[classfile_index]) * 256) to score
     classfile_index += 1
 
     if !copied[classfile_index] {
@@ -74,20 +74,20 @@ mcfunction bc:parser/parse_u4_part {
     parse_u4_part_output = first
 }
 
-let parser_parse_bytes_length: value = storage bc:parser/parse_bytes length
-let parser_parse_bytes_output: value = storage bc:parser/parse_bytes output
+let parser_parse_bytes_length = storage bc:parser/parse_bytes length as data<integer>
+let parser_parse_bytes_output = storage bc:parser/parse_bytes output as data<list<integer>>
 
-mcfunction bc:parser/parse_bytes {
+mcfn bc:parser/parse_bytes {
     parser_parse_bytes_output = []
 
     if !classfile_raw[classfile_index] {
         return 1
     }
 
-    let offset: score = 0
+    let offset = 0 to score
 
     while offset < parser_parse_bytes_length {
-        let byte: value = classfile_raw[classfile_index]
+        let byte = classfile_raw[classfile_index]
 
         append parser_parse_bytes_output byte
         
@@ -96,23 +96,23 @@ mcfunction bc:parser/parse_bytes {
     }
 }
 
-let constant_pool_raw: value = storage bc:parser/classfile classfile.constant_pool_raw
+let constant_pool_raw = storage bc:parser/classfile classfile.constant_pool_raw
 
-mcfunction bc:parser/constant_pool/parse {
+mcfn bc:parser/constant_pool/parse {
     function bc:parser/parse_u2
     let constant_pool_entries: score = parser_parse_u2_output
 
     constant_pool_raw = [{}]
 
-    let index: score = 1
+    let index = 1 to score
 
     while index < constant_pool_entries {
         function bc:parser/parse_u1
 
-        let tag: score = parse_u1_output
+        let tag = *parse_u1_output
 
-        let entry: data = {tag: tag}
-        let parsed_slots: score = 1
+        let entry = {tag: tag} to data as data<compound<snbt>>
+        let parsed_slots = 1 to score
 
         if tag == tag_utf8 {
             function bc:parser/parse_u2
@@ -147,10 +147,10 @@ mcfunction bc:parser/constant_pool/parse {
 }
 
 // SCORE: byte_to_string
-let byte_to_string_byte: value = score byte byte_to_string
-let byte_to_string_output: value = storage bc:parser/byte_to_string output
+let byte_to_string_byte = score byte byte_to_string
+let byte_to_string_output = storage bc:parser/byte_to_string output
 
-mcfunction bc:parser/byte_to_string {
+mcfn bc:parser/byte_to_string {
     if (byte_to_string_byte >= 32 && byte_to_string_byte <= 44) {
         function bc:parser/byte_to_string/part_0
     } else if (byte_to_string_byte >= 45 && byte_to_string_byte <= 57) {
@@ -170,7 +170,7 @@ mcfunction bc:parser/byte_to_string {
     }
 }
 
-mcfunction bc:parser/byte_to_string/part_0 {
+mcfn bc:parser/byte_to_string/part_0 {
     if (byte_to_string_byte == 32) {
         byte_to_string_output = " "
     } else if (byte_to_string_byte == 33) {
@@ -200,7 +200,7 @@ mcfunction bc:parser/byte_to_string/part_0 {
         }
 }
 
-mcfunction bc:parser/byte_to_string/part_1 {
+mcfn bc:parser/byte_to_string/part_1 {
     if (byte_to_string_byte == 45) {
         byte_to_string_output = "-"
     } else if (byte_to_string_byte == 46) {
@@ -230,7 +230,7 @@ mcfunction bc:parser/byte_to_string/part_1 {
          }
 }
 
-mcfunction bc:parser/byte_to_string/part_2 {
+mcfn bc:parser/byte_to_string/part_2 {
     if (byte_to_string_byte == 58) {
         byte_to_string_output = ":"
     } else if (byte_to_string_byte == 59) {
@@ -260,7 +260,7 @@ mcfunction bc:parser/byte_to_string/part_2 {
     }
 }
 
-mcfunction bc:parser/byte_to_string/part_3 {
+mcfn bc:parser/byte_to_string/part_3 {
     if (byte_to_string_byte == 71) {
         byte_to_string_output = "G"
     } else if (byte_to_string_byte == 72) {
@@ -290,7 +290,7 @@ mcfunction bc:parser/byte_to_string/part_3 {
     }
 }
 
-mcfunction bc:parser/byte_to_string/part_4 {
+mcfn bc:parser/byte_to_string/part_4 {
     if (byte_to_string_byte == 84) {
         byte_to_string_output = "T"
     } else if (byte_to_string_byte == 85) {
@@ -320,7 +320,7 @@ mcfunction bc:parser/byte_to_string/part_4 {
     }
 }
 
-mcfunction bc:parser/byte_to_string/part_5 {
+mcfn bc:parser/byte_to_string/part_5 {
     if (byte_to_string_byte == 97) {
         byte_to_string_output = "a"
     } else if (byte_to_string_byte == 98) {
@@ -350,7 +350,7 @@ mcfunction bc:parser/byte_to_string/part_5 {
     }
 }
 
-mcfunction bc:parser/byte_to_string/part_6 {
+mcfn bc:parser/byte_to_string/part_6 {
     if (byte_to_string_byte == 110) {
         byte_to_string_output = "n"
     } else if (byte_to_string_byte == 111) {
@@ -380,7 +380,7 @@ mcfunction bc:parser/byte_to_string/part_6 {
     }
 }
 
-mcfunction bc:parser/byte_to_string/part_7 {
+mcfn bc:parser/byte_to_string/part_7 {
     if (byte_to_string_byte == 123) {
         byte_to_string_output = "{"
     } else if (byte_to_string_byte == 124) {
@@ -392,10 +392,10 @@ mcfunction bc:parser/byte_to_string/part_7 {
     }
 }
 
-let bytes_to_string_bytes: value = storage bc:parser/bytes_to_string bytes
-let bytes_to_string_output: value = storage bc:parser/bytes_to_string output
+let bytes_to_string_bytes = storage bc:parser/bytes_to_string bytes
+let bytes_to_string_output = storage bc:parser/bytes_to_string output as data<string>
 
-mcfunction bc:parser/bytes_to_string {
+mcfn bc:parser/bytes_to_string {
     bytes_to_string_output = ""
 
     for byte in bytes_to_string_bytes {
@@ -408,13 +408,13 @@ mcfunction bc:parser/bytes_to_string {
 }
 
 // SCORE: resolve_cp_utf8
-let resolve_cp_utf8_index: value = score index resolve_cp_utf8
-let resolve_cp_utf8_output: value = storage bc:parser/resolve_cp_utf8 output
+let resolve_cp_utf8_index = score index resolve_cp_utf8
+let resolve_cp_utf8_output = storage bc:parser/resolve_cp_utf8 output
 
-mcfunction bc:parser/resolve_cp_utf8 {
+mcfn bc:parser/resolve_cp_utf8 {
     resolve_cp_utf8_output = "INVALID_UTF8_INDEX"
 
-    let entry: data = constant_pool_raw[resolve_cp_utf8_index]
+    let entry = constant_pool_raw[resolve_cp_utf8_index] to data
 
     if entry && entry.tag == tag_utf8 {
         bytes_to_string_bytes = entry.value
@@ -424,13 +424,13 @@ mcfunction bc:parser/resolve_cp_utf8 {
 }
 
 // SCORE: resolve_class_name
-let resolve_class_name_index: value = score index resolve_class_name
-let resolve_class_name_output: value = storage bc:parser/resolve_class_name output
+let resolve_class_name_index = score index resolve_class_name
+let resolve_class_name_output = storage bc:parser/resolve_class_name output
 
-mcfunction bc:parser/resolve_class_name {
+mcfn bc:parser/resolve_class_name {
     resolve_class_name_output = "INVALID_CLASS_INDEX"
 
-    let entry: data = constant_pool_raw[resolve_class_name_index]
+    let entry = constant_pool_raw[resolve_class_name_index] to data
 
     if entry && entry.tag == tag_class {
         resolve_cp_utf8_index = entry.name_index
@@ -439,23 +439,23 @@ mcfunction bc:parser/resolve_class_name {
     }
 }
 
-let owner_struct_stack: value = storage bc:parser/parse_attributes owner_struct_stack
-let current_owner_struct: value = storage bc:parser/parse_attributes owner_struct_stack[-1]
+let owner_struct_stack = storage bc:parser/parse_attributes owner_struct_stack
+let current_owner_struct = storage bc:parser/parse_attributes owner_struct_stack[-1]
 
-let attribute_stack: value = storage bc:parser/parse_attributes attribute_stack
-let current_attribute: value = storage bc:parser/parse_attributes attribute_stack[-1]
-let parse_attributes_is_class_attributes: score = 0
+let attribute_stack = storage bc:parser/parse_attributes attribute_stack
+let current_attribute = storage bc:parser/parse_attributes attribute_stack[-1]
+let parse_attributes_is_class_attributes = 0 to score
 
-mcfunction bc:parser/parse_attributes {
+mcfn bc:parser/parse_attributes {
     function bc:parser/parse_u2
-    let attributes_count: score = parser_parse_u2_output
+    let attributes_count = parser_parse_u2_output to score
     current_owner_struct.attributes_count = attributes_count
 
-    let index: score = 0
+    let index = 0 to score
 
     while index < attributes_count {
-        append attribute_stack {}
-        let attribute: value = current_attribute
+        append (attribute_stack) {}
+        let attribute = current_attribute
         function bc:parser/parse_u2
         attribute.attribute_name_index = parser_parse_u2_output
 
@@ -492,19 +492,19 @@ mcfunction bc:parser/parse_attributes {
             function bc:parser/parse_u2
             let exception_table_length: score = parser_parse_u2_output
 
-            let exception_table: value = attribute.exception_table
+            let exception_table = attribute.exception_table
             exception_table = []
 
             if exception_table_length != 0 {
                 tellraw @a {text: "TODO", color: "red"}
             }
 
-            let index: score = 0
+            let index = 0 to score
 
             while index < exception_table_length {
                 
-                append exception_table {}
-                let exception_table_entry: value = exception_table[-1]
+                append (exception_table) {}
+                let exception_table_entry = exception_table[-1] as data<snbt>
 
                 function bc:parser/parse_u2
                 exception_table_entry.start_pc = parser_parse_u2_output
@@ -527,14 +527,14 @@ mcfunction bc:parser/parse_attributes {
             function bc:parser/parse_u2
             let line_number_table_length: score = parser_parse_u2_output
 
-            let line_number_table: value = attribute.line_number_table
+            let line_number_table = attribute.line_number_table
             line_number_table = []
 
-            let index: score = 0
+            let index = 0 to score
 
             while index < line_number_table_length {
-                append line_number_table {}
-                let line_number_table_entry: value = line_number_table[-1]
+                append (line_number_table) {}
+                let line_number_table_entry = line_number_table[-1]
 
                 function bc:parser/parse_u2
                 line_number_table_entry.start_pc = parser_parse_u2_output
@@ -544,7 +544,7 @@ mcfunction bc:parser/parse_attributes {
 
                 index += 1
             }
-        } else if attribute.name == "SourceFile" && parse_attributes_is_class_attributes {
+        } else if attribute.name == "SourceFile" && parse_attributes_is_class_attributes != 0 {
             function bc:parser/parse_u2
             attribute.sourcefile_index = parser_parse_u2_output
 
@@ -564,7 +564,7 @@ mcfunction bc:parser/parse_attributes {
     parse_attributes_is_class_attributes = 0
 }
 
-mcfunction bc:parser/parse_interfaces {
+mcfn bc:parser/parse_interfaces {
     function bc:parser/parse_u2
     let interfaces_count: score = parser_parse_u2_output
     storage bc:parser/classfile classfile.interfaces_count = interfaces_count
@@ -584,17 +584,17 @@ mcfunction bc:parser/parse_interfaces {
     }
 }
 
-mcfunction bc:parser/parse_fields {
+mcfn bc:parser/parse_fields {
     function bc:parser/parse_u2
     let fields_count: score = parser_parse_u2_output
     storage bc:parser/classfile classfile.fields_count = fields_count
-    let fields: value = storage bc:parser/classfile classfile.fields
+    let fields = storage bc:parser/classfile classfile.fields
     fields = []
 
-    let index: score = 0
+    let index = 0 to score
 
     while index < fields_count {
-        let field: data = {}
+        let field = {} to data
 
         function bc:parser/parse_u2
         field.access_flags = parser_parse_u2_output
@@ -624,17 +624,17 @@ mcfunction bc:parser/parse_fields {
     }
 }
 
-mcfunction bc:parser/parse_methods {
+mcfn bc:parser/parse_methods {
     function bc:parser/parse_u2
     let methods_count: score = parser_parse_u2_output
     storage bc:parser/classfile classfile.methods_count = methods_count
-    let methods: value = storage bc:parser/classfile classfile.methods
+    let methods = storage bc:parser/classfile classfile.methods
     methods = []
 
-    let index: score = 0
+    let index = 0 to score
 
     while index < methods_count {
-        let method: data = {}
+        let method = {} to data as data<compound<snbt>>
 
         function bc:parser/parse_u2
         method.access_flags = parser_parse_u2_output
@@ -645,11 +645,11 @@ mcfunction bc:parser/parse_methods {
         function bc:parser/parse_u2
         method.descriptor_index = parser_parse_u2_output
 
-        resolve_cp_utf8_index = method.name_index
+        resolve_cp_utf8_index = method.name_index as data<integer>
         function bc:parser/resolve_cp_utf8
         method.name = resolve_cp_utf8_output
 
-        resolve_cp_utf8_index = method.descriptor_index
+        resolve_cp_utf8_index = method.descriptor_index as data<integer>
         function bc:parser/resolve_cp_utf8
         method.descriptor = resolve_cp_utf8_output
 
@@ -664,18 +664,18 @@ mcfunction bc:parser/parse_methods {
     }
 }
 
-let constant_pool: value = storage bc:parser/classfile classfile.constant_pool
+let constant_pool = storage bc:parser/classfile classfile.constant_pool
 
-mcfunction bc:parser/resolve_constant_pool_for_interpreter {
+mcfn bc:parser/resolve_constant_pool_for_interpreter {
     constant_pool = [{}]
 
     let index: score = 1
     let len: score = constant_pool_raw
 
     while index < constant_pool_raw {
-        let raw_entry: data = constant_pool_raw[index]
+        let raw_entry = *constant_pool_raw[index]
         if raw_entry {
-            let tag: value = raw_entry.tag
+            let tag = raw_entry.tag
             if tag == tag_utf8 {
                 append `constant_pool` [tag_utf8, raw_entry.value]
             } else if tag == tag_integer {
@@ -698,14 +698,14 @@ mcfunction bc:parser/resolve_constant_pool_for_interpreter {
                 append `constant_pool` raw_entry
             }
         } else {
-            append constant_pool {}
+            append (constant_pool) {}
         }
 
         index += 1
     }
 }
 
-mcfunction bc:parser/parse {
+mcfn bc:parser/parse {
     classfile_index = 0
 
     function bc:parser/parse_u4_part
@@ -745,12 +745,12 @@ mcfunction bc:parser/parse {
     storage bc:parser/classfile classfile = owner_struct_stack[-1]
     remove owner_struct_stack[-1]
 
-    resolve_class_name_index = storage bc:parser/classfile classfile.this_class_index
+    resolve_class_name_index = storage bc:parser/classfile classfile.this_class_index as data<integer>
     function bc:parser/resolve_class_name
     storage bc:parser/classfile classfile.this_class = resolve_class_name_output
 
     if storage bc:parser/classfile classfile.super_class_index != 0 {
-        resolve_class_name_index = storage bc:parser/classfile classfile.super_class_index
+        resolve_class_name_index = storage bc:parser/classfile classfile.super_class_index as data<integer>
         function bc:parser/resolve_class_name
         storage bc:parser/classfile classfile.super_class = resolve_class_name_output
     } else {
@@ -764,22 +764,31 @@ mcfunction bc:parser/parse {
 
 // ----------------------------------------------------------------
 
-let jvm_interpreter: value = storage bc:parser/interpreter interpreter
-let stack_frames: value = jvm_interpreter.stack_frames
-let frame: value = stack_frames[-1]
-let parsed_class_data: value = storage bc:parser/interpreter parsed_class_data
+struct StackFrame {
+    bytecode: data<list<int>>,
+    pc: score
+}
+
+struct Interpreter {
+    stack_frames: data<list<StackFrame>>
+}
+
+let jvm_interpreter = storage bc:parser/interpreter interpreter as data<Interpreter>
+let stack_frames = jvm_interpreter.stack_frames
+let frame = stack_frames[-1]
+let parsed_class_data = storage bc:parser/interpreter parsed_class_data
 
 // SCORE: interpreter_parse_u2
-let interpreter_parse_u2_output: value = score output interpreter_parse_u2
+let interpreter_parse_u2_output = score output interpreter_parse_u2
 
-mcfunction bc:interpreter/parse_u2 {
+mcfn bc:interpreter/parse_u2 {
     if !frame.bytecode[frame.pc] {
         return 1
     }
 
-    let copied: data = frame.bytecode
+    let copied = frame.bytecode to data
 
-    let first: score = (copied[frame.pc]) * 256
+    let first = ((copied[frame.pc]) * 256) to score
     frame.pc += 1
 
     if !copied[frame.pc] {
@@ -792,14 +801,14 @@ mcfunction bc:interpreter/parse_u2 {
 }
 
 // SCORE: interpreter_parse_i2
-let interpreter_parse_i2_output: value = score output interpreter_parse_i2
+let interpreter_parse_i2_output = score output interpreter_parse_i2
 
-mcfunction bc:interpreter/parse_i2 {
+mcfn bc:interpreter/parse_i2 {
     if !frame.bytecode[frame.pc] {
         return 1
     }
 
-    let copied: data = frame.bytecode
+    let copied = frame.bytecode to data
 
     let first: score = (copied[frame.pc]) * 256
     frame.pc += 1
@@ -817,44 +826,44 @@ mcfunction bc:interpreter/parse_i2 {
     interpreter_parse_i2_output = first
 }
 
-let load_class_data_class_data: value = storage bc:interpreter/load_class_data class_data
+let load_class_data_class_data = storage bc:interpreter/load_class_data class_data
 
-mcfunction bc:interpreter/load_class_data {
-    let class_name: value = load_class_data_class_data.name
+mcfn bc:interpreter/load_class_data {
+    let class_name = load_class_data_class_data.name
 
     tellraw @a ["Loading class data for '", class_name, "'"]
 
     jvm_interpreter.loaded_classes."$(class_name)" = load_class_data_class_data
 }
 
-let class_files_to_load: value = storage bc:parser/interpreter class_files_to_load
+let class_files_to_load = storage bc:parser/interpreter class_files_to_load as data<list<snbt>>
 
-mcfunction bc:init {
+mcfn bc:init {
     parsed_class_data = {}
     stack_frames = []
 
     class_files_to_load = [
-        ["Main", [202, 254, 186, 190, 0, 0, 0, 69, 0, 39, 10, 0, 2, 0, 3, 7, 0, 4, 12, 0, 5, 0, 6, 1, 0, 16, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 79, 98, 106, 101, 99, 116, 1, 0, 6, 60, 105, 110, 105, 116, 62, 1, 0, 3, 40, 41, 86, 9, 0, 8, 0, 9, 7, 0, 10, 12, 0, 11, 0, 12, 1, 0, 16, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 83, 121, 115, 116, 101, 109, 1, 0, 3, 111, 117, 116, 1, 0, 21, 76, 106, 97, 118, 97, 47, 105, 111, 47, 80, 114, 105, 110, 116, 83, 116, 114, 101, 97, 109, 59, 8, 0, 14, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 49, 10, 0, 16, 0, 17, 7, 0, 18, 12, 0, 19, 0, 20, 1, 0, 19, 106, 97, 118, 97, 47, 105, 111, 47, 80, 114, 105, 110, 116, 83, 116, 114, 101, 97, 109, 1, 0, 7, 112, 114, 105, 110, 116, 108, 110, 1, 0, 21, 40, 76, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 83, 116, 114, 105, 110, 103, 59, 41, 86, 8, 0, 22, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 50, 8, 0, 24, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 51, 8, 0, 26, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 52, 8, 0, 28, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 53, 8, 0, 30, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 54, 7, 0, 32, 1, 0, 4, 77, 97, 105, 110, 1, 0, 4, 67, 111, 100, 101, 1, 0, 15, 76, 105, 110, 101, 78, 117, 109, 98, 101, 114, 84, 97, 98, 108, 101, 1, 0, 4, 109, 97, 105, 110, 1, 0, 22, 40, 91, 76, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 83, 116, 114, 105, 110, 103, 59, 41, 86, 1, 0, 10, 83, 111, 117, 114, 99, 101, 70, 105, 108, 101, 1, 0, 9, 77, 97, 105, 110, 46, 106, 97, 118, 97, 0, 33, 0, 31, 0, 2, 0, 0, 0, 0, 0, 2, 0, 1, 0, 5, 0, 6, 0, 1, 0, 33, 0, 0, 0, 29, 0, 1, 0, 1, 0, 0, 0, 5, 42, 183, 0, 1, 177, 0, 0, 0, 1, 0, 34, 0, 0, 0, 6, 0, 1, 0, 0, 0, 1, 0, 9, 0, 35, 0, 36, 0, 1, 0, 33, 0, 0, 0, 97, 0, 2, 0, 1, 0, 0, 0, 49, 178, 0, 7, 18, 10, 182, 0, 15, 178, 0, 7, 18, 21, 182, 0, 15, 178, 0, 7, 18, 23, 182, 0, 15, 178, 0, 7, 18, 25, 182, 0, 15, 178, 0, 7, 18, 27, 182, 0, 15, 178, 0, 7, 18, 29, 182, 0, 15, 177, 0, 0, 0, 1, 0, 34, 0, 0, 0, 30, 0, 7, 0, 0, 0, 3, 0, 8, 0, 4, 0, 16, 0, 5, 0, 24, 0, 6, 0, 32, 0, 7, 0, 40, 0, 8, 0, 48, 0, 9, 0, 1, 0, 37, 0, 0, 0, 2, 0, 38]]
+        ("Main", [202, 254, 186, 190, 0, 0, 0, 69, 0, 39, 10, 0, 2, 0, 3, 7, 0, 4, 12, 0, 5, 0, 6, 1, 0, 16, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 79, 98, 106, 101, 99, 116, 1, 0, 6, 60, 105, 110, 105, 116, 62, 1, 0, 3, 40, 41, 86, 9, 0, 8, 0, 9, 7, 0, 10, 12, 0, 11, 0, 12, 1, 0, 16, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 83, 121, 115, 116, 101, 109, 1, 0, 3, 111, 117, 116, 1, 0, 21, 76, 106, 97, 118, 97, 47, 105, 111, 47, 80, 114, 105, 110, 116, 83, 116, 114, 101, 97, 109, 59, 8, 0, 14, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 49, 10, 0, 16, 0, 17, 7, 0, 18, 12, 0, 19, 0, 20, 1, 0, 19, 106, 97, 118, 97, 47, 105, 111, 47, 80, 114, 105, 110, 116, 83, 116, 114, 101, 97, 109, 1, 0, 7, 112, 114, 105, 110, 116, 108, 110, 1, 0, 21, 40, 76, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 83, 116, 114, 105, 110, 103, 59, 41, 86, 8, 0, 22, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 50, 8, 0, 24, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 51, 8, 0, 26, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 52, 8, 0, 28, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 53, 8, 0, 30, 1, 0, 10, 80, 114, 105, 110, 116, 108, 110, 32, 35, 54, 7, 0, 32, 1, 0, 4, 77, 97, 105, 110, 1, 0, 4, 67, 111, 100, 101, 1, 0, 15, 76, 105, 110, 101, 78, 117, 109, 98, 101, 114, 84, 97, 98, 108, 101, 1, 0, 4, 109, 97, 105, 110, 1, 0, 22, 40, 91, 76, 106, 97, 118, 97, 47, 108, 97, 110, 103, 47, 83, 116, 114, 105, 110, 103, 59, 41, 86, 1, 0, 10, 83, 111, 117, 114, 99, 101, 70, 105, 108, 101, 1, 0, 9, 77, 97, 105, 110, 46, 106, 97, 118, 97, 0, 33, 0, 31, 0, 2, 0, 0, 0, 0, 0, 2, 0, 1, 0, 5, 0, 6, 0, 1, 0, 33, 0, 0, 0, 29, 0, 1, 0, 1, 0, 0, 0, 5, 42, 183, 0, 1, 177, 0, 0, 0, 1, 0, 34, 0, 0, 0, 6, 0, 1, 0, 0, 0, 1, 0, 9, 0, 35, 0, 36, 0, 1, 0, 33, 0, 0, 0, 97, 0, 2, 0, 1, 0, 0, 0, 49, 178, 0, 7, 18, 10, 182, 0, 15, 178, 0, 7, 18, 21, 182, 0, 15, 178, 0, 7, 18, 23, 182, 0, 15, 178, 0, 7, 18, 25, 182, 0, 15, 178, 0, 7, 18, 27, 182, 0, 15, 178, 0, 7, 18, 29, 182, 0, 15, 177, 0, 0, 0, 1, 0, 34, 0, 0, 0, 30, 0, 7, 0, 0, 0, 3, 0, 8, 0, 4, 0, 16, 0, 5, 0, 24, 0, 6, 0, 32, 0, 7, 0, 40, 0, 8, 0, 48, 0, 9, 0, 1, 0, 37, 0, 0, 0, 2, 0, 38])
     ]
 }
 
-let run_method_by_name_class_name: value = storage bc:interpreter/run_method_by_name class_name
-let run_method_by_name_method_name: value = storage bc:interpreter/run_method_by_name method_name
-let run_method_by_name_descriptor: value = storage bc:interpreter/run_method_by_name descriptor
-let run_method_by_name_args: value = storage bc:interpreter/run_method_by_name args
+let run_method_by_name_class_name = storage bc:interpreter/run_method_by_name class_name
+let run_method_by_name_method_name = storage bc:interpreter/run_method_by_name method_name
+let run_method_by_name_descriptor = storage bc:interpreter/run_method_by_name descriptor
+let run_method_by_name_args = storage bc:interpreter/run_method_by_name args
 
-let new_stack_frame_method_info: value = storage bc:interpreter/new_stack_frame method_info
-let new_stack_frame_args: value = storage bc:interpreter/new_stack_frame args
-let new_stack_frame_class_file_data: value = storage bc:interpreter/new_stack_frame class_file_data
+let new_stack_frame_method_info = storage bc:interpreter/new_stack_frame method_info
+let new_stack_frame_args = storage bc:interpreter/new_stack_frame args
+let new_stack_frame_class_file_data = storage bc:interpreter/new_stack_frame class_file_data
 
-mcfunction bc:interpreter/new_stack_frame {
+mcfn bc:interpreter/new_stack_frame {
     tellraw @a "Creating a new stack frame"
 
-    append stack_frames {}
-    let stack_frame: value = stack_frames[-1]
+    append (stack_frames) {}
+    let stack_frame = stack_frames[-1]
 
     stack_frame.method_info = new_stack_frame_method_info
-    let code_attribute: data = {}
+    let code_attribute = {} to data
 
     reverse_for attribute in new_stack_frame_method_info.attributes {
         if attribute.name == "Code" {
@@ -888,11 +897,11 @@ mcfunction bc:interpreter/new_stack_frame {
     let is_static: score = new_stack_frame_method_info.access_flags & 0x0008
 
     let current_local_index: score = 0
-    let args_for_params: data = {}
+    let args_for_params = {} to data
 
     if is_static == 0 {
         if new_stack_frame_args {
-            let args_copy: data = new_stack_frame_args
+            let args_copy = *new_stack_frame_args
             stack_frame.locals[current_local_index] = args_copy[0]
             remove args_copy[0]
             current_local_index += 1
@@ -910,14 +919,14 @@ mcfunction bc:interpreter/new_stack_frame {
     }
 }
 
-let current_class_data: value = stack_frames[-1].class_file_data
+let current_class_data = stack_frames[-1].class_file_data
 
 // SCORE get_cp_entry
 let get_cp_entry_index: score = score index get_cp_entry
-let get_cp_entry_class_data: data = storage bc:interpreter/get_cp_entry class_data
-let get_cp_entry_output: data = storage bc:interpreter/get_cp_entry output
+let get_cp_entry_class_data = storage bc:interpreter/get_cp_entry class_data
+let get_cp_entry_output = storage bc:interpreter/get_cp_entry output
 
-mcfunction bc:interpreter/get_cp_entry {
+mcfn bc:interpreter/get_cp_entry {
     if get_cp_entry_class_data == {} {
         get_cp_entry_class_data = current_class_data
     }
@@ -928,16 +937,16 @@ mcfunction bc:interpreter/get_cp_entry {
 }
 
 let get_utf8_from_cp_index: score = score index get_utf8_from_cp
-let get_utf8_from_cp_class_data: data = storage bc:interpreter/get_utf8_from_cp class_data
-let get_utf8_from_cp_output: data = storage bc:interpreter/get_utf8_from_cp output
+let get_utf8_from_cp_class_data = storage bc:interpreter/get_utf8_from_cp class_data
+let get_utf8_from_cp_output = storage bc:interpreter/get_utf8_from_cp output
 
-mcfunction bc:interpreter/get_utf8_from_cp {
+mcfn bc:interpreter/get_utf8_from_cp {
     get_cp_entry_index = get_utf8_from_cp_index
     get_cp_entry_class_data = get_utf8_from_cp_class_data
     function bc:interpreter/get_cp_entry
 
     let tag: score = get_cp_entry_output[0]
-    let value: data = get_cp_entry_output[1]
+    let value = *get_cp_entry_output[1]
 
     if tag != tag_utf8 {
         tellraw @a {text: "Expected utf8", color: "red"}
@@ -949,16 +958,16 @@ mcfunction bc:interpreter/get_utf8_from_cp {
 }
 
 // SCORE: parse_descriptor_for_arg_count
-let parse_descriptor_for_arg_count_descriptor: value = storage bc:parse_descriptor_for_arg_count descriptor
-let parse_descriptor_for_arg_count_output: value = score output parse_descriptor_for_arg_count
+let parse_descriptor_for_arg_count_descriptor = storage bc:parse_descriptor_for_arg_count descriptor
+let parse_descriptor_for_arg_count_output = score output parse_descriptor_for_arg_count
 
-mcfunction bc:interpreter/parse_descriptor_for_arg_count {
+mcfn bc:interpreter/parse_descriptor_for_arg_count {
     parse_descriptor_for_arg_count_output = 0
     let in_args: score = 0
     let type_parsing_state: score = 0
     let early_return: score = 0
 
-    string_for char in parse_descriptor_for_arg_count_descriptor {
+    for char in parse_descriptor_for_arg_count_descriptor {
         if !early_return {
             if char == "(" {
                 in_args = 1
@@ -984,7 +993,7 @@ mcfunction bc:interpreter/parse_descriptor_for_arg_count {
     }
 }
 
-mcfunction bc:interpreter/execute {
+mcfn bc:interpreter/execute {
     tellraw @a "Executing..."
     tellraw @a ""
 
@@ -1028,12 +1037,12 @@ mcfunction bc:interpreter/execute {
                 get_utf8_from_cp_index = field_entry_class_index
                 get_utf8_from_cp_class_data = frame.class_file_data
                 function bc:interpreter/get_utf8_from_cp
-                let target_class_name_for_field: data = get_utf8_from_cp_output
+                let target_class_name_for_field = *get_utf8_from_cp_output
 
                 get_utf8_from_cp_index = field_entry_class_index
                 get_utf8_from_cp_class_data = frame.class_file_data
                 function bc:interpreter/get_utf8_from_cp
-                let target_class_name: data = get_utf8_from_cp_output
+                let target_class_name = *get_utf8_from_cp_output
 
                 get_cp_entry_index = name_and_type_index
                 get_cp_entry_class_data = frame.class_file_data
@@ -1045,14 +1054,14 @@ mcfunction bc:interpreter/execute {
                 get_utf8_from_cp_index = name_index
                 get_utf8_from_cp_class_data = frame.class_file_data
                 function bc:interpreter/get_utf8_from_cp
-                let field_name: data = get_utf8_from_cp_output
+                let field_name = *get_utf8_from_cp_output
 
                 get_utf8_from_cp_index = descriptor_index
                 get_utf8_from_cp_class_data = frame.class_file_data
                 function bc:interpreter/get_utf8_from_cp
-                let field_descriptor: data = get_utf8_from_cp_output
+                let field_descriptor = *get_utf8_from_cp_output
 
-                let target_class_data: value = jvm_interpreter.loaded_classes."$(target_class_name_for_field)"
+                let target_class_data = jvm_interpreter.loaded_classes."$(target_class_name_for_field)"
 
                 if !target_class_data {
                     tellraw @a {text: "Class for getstatic not found.", color: "red"}
@@ -1077,7 +1086,7 @@ mcfunction bc:interpreter/execute {
                         target_class_data.static_fields = []
                     }
 
-                    let static_fields: value = target_class_data.static_fields
+                    let static_fields = target_class_data.static_fields
 
                     if static_fields."$(field_name)" {
                         append frame.operand_stack static_fields."$(field_name)"
@@ -1094,8 +1103,8 @@ mcfunction bc:interpreter/execute {
                 get_cp_entry_index = constant_index
                 get_cp_entry_class_data = frame.class_file_data
                 function bc:interpreter/get_cp_entry
-                let cp_entry_type: data = get_cp_entry_output[0]
-                let cp_val_or_idx: data = get_cp_entry_output[1]
+                let cp_entry_type = *get_cp_entry_output[0]
+                let cp_val_or_idx = *get_cp_entry_output[1]
 
                 if cp_entry_type == tag_string {
                     get_utf8_from_cp_index = cp_val_or_idx
@@ -1133,18 +1142,18 @@ mcfunction bc:interpreter/execute {
                 get_utf8_from_cp_index = name_index
                 get_utf8_from_cp_class_data = frame.class_file_data
                 function bc:interpreter/get_utf8_from_cp
-                let method_name: data = get_utf8_from_cp_output
+                let method_name = *get_utf8_from_cp_output
 
                 get_utf8_from_cp_index = descriptor_index
                 get_utf8_from_cp_class_data = frame.class_file_data
                 function bc:interpreter/get_utf8_from_cp
-                let method_descriptor: data = get_utf8_from_cp_output
+                let method_descriptor = *get_utf8_from_cp_output
 
                 parse_descriptor_for_arg_count_descriptor = method_descriptor
                 function bc:interpreter/parse_descriptor_for_arg_count
                 let num_args: score = parse_descriptor_for_arg_count_output
 
-                let old_args_for_method_params: data = []
+                let old_args_for_method_params = [] to data
 
                 let index: score = 0
 
@@ -1155,7 +1164,7 @@ mcfunction bc:interpreter/execute {
                     index += 1
                 }
 
-                let args_for_method_params: data = []
+                let args_for_method_params = [] to data
 
                 index = 0
 
@@ -1170,15 +1179,15 @@ mcfunction bc:interpreter/execute {
                     tellraw @a ["Attempt to call ", method_name, " on null object"]
                 }
 
-                let obj_ref_this: data = frame.operand_stack[-1]
+                let obj_ref_this = *frame.operand_stack[-1]
                 remove frame.operand_stack[-1]
 
-                let obj_data: data = jvm_interpreter.object_heap."$(obj_ref_this.id)"
+                let obj_data = *jvm_interpreter.object_heap."$(obj_ref_this.id)"
 
-                let actual_obj_type_name: value = obj_data.type
+                let actual_obj_type_name = obj_data.type
 
                 // TODO create insert statement
-                let all_args_for_call: data = []
+                let all_args_for_call = [] to data
 
                 append all_args_for_call obj_ref_this
 
@@ -1318,13 +1327,13 @@ mcfunction bc:interpreter/execute {
     }
 }
 
-mcfunction bc:interpreter/run_method_by_name {
+mcfn bc:interpreter/run_method_by_name {
     if !jvm_interpreter.loaded_classes."$(run_method_by_name_class_name)" {
         tellraw @a "Not loaded"
         return fail
     }
 
-    let class_data: value = jvm_interpreter.loaded_classes."$(run_method_by_name_class_name)"
+    let class_data = jvm_interpreter.loaded_classes."$(run_method_by_name_class_name)"
 
     let method_info: data = {}
 
@@ -1352,16 +1361,16 @@ mcfunction bc:interpreter/run_method_by_name {
     }
 }
 
-mcfunction bc:main {
+mcfn bc:main {
     function bc:init
 
     for class_file_to_load in class_files_to_load {
-        let name: value = class_file_to_load[0]
-        let raw_data: value = class_file_to_load[1]
+        let name = class_file_to_load[0]
+        let raw_data = class_file_to_load[1]
 
         classfile_raw = raw_data
         function bc:parser/parse
-        let class_data: value = storage bc:parser/classfile classfile
+        let class_data = storage bc:parser/classfile classfile
 
         load_class_data_class_data = class_data
         function bc:interpreter/load_class_data
@@ -1445,14 +1454,14 @@ mcfunction bc:main {
     load_class_data_class_data = print_stream_stub_class_data
     function bc:interpreter/load_class_data
 
-    let main_class_data: value = parsed_class_data.Main
-    let main_class_actual_name: value = main_class_data.name
+    let main_class_data = parsed_class_data.Main
+    let main_class_actual_name = main_class_data.name
 
     tellraw @a ["Locating Main method in class ", main_class_actual_name]
 
-    let main_method_name_to_run: value = "main"
-    let main_method_descriptor_to_run: value = "([Ljava/lang/String;)V"
-    let main_method_args_to_run: value = [
+    let main_method_name_to_run = "main"
+    let main_method_descriptor_to_run = "([Ljava/lang/String;)V"
+    let main_method_args_to_run = [
         {"type": "array", "element_type": "Ljava/lang/String;", "value": []}
     ]
 

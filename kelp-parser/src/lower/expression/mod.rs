@@ -84,16 +84,16 @@ impl<'a> CSTExpression<'a> {
 
     #[must_use]
     pub(crate) fn try_parse(parser: &mut Parser) -> bool {
-        Self::parse_expression(parser)
+        Self::try_parse_expression(parser)
     }
 
-    fn parse_expression(parser: &mut Parser) -> bool {
-        Self::parse_assignment(parser)
+    fn try_parse_expression(parser: &mut Parser) -> bool {
+        Self::try_parse_assignment(parser)
     }
 
-    fn parse_assignment(parser: &mut Parser) -> bool {
+    fn try_parse_assignment(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_logical_or(parser) {
+        if !Self::try_parse_logical_or(parser) {
             return false;
         }
 
@@ -125,7 +125,7 @@ impl<'a> CSTExpression<'a> {
 
             parser.skip_inline_whitespace();
 
-            if !Self::parse_assignment(parser) {
+            if !Self::try_parse_assignment(parser) {
                 parser.recover_newline("Expected expression after assignment operator");
             }
 
@@ -134,10 +134,10 @@ impl<'a> CSTExpression<'a> {
         true
     }
 
-    fn parse_logical_or(parser: &mut Parser) -> bool {
+    fn try_parse_logical_or(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
 
-        if !Self::parse_logical_and(parser) {
+        if !Self::try_parse_logical_and(parser) {
             return false;
         }
 
@@ -145,30 +145,30 @@ impl<'a> CSTExpression<'a> {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::PipePipe, 2);
             parser.skip_inline_whitespace();
-            Self::parse_logical_and(parser);
+            Self::try_parse_logical_and(parser);
             parser.finish_node();
         }
         true
     }
 
-    fn parse_logical_and(parser: &mut Parser) -> bool {
+    fn try_parse_logical_and(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_bitwise_or(parser) {
+        if !Self::try_parse_bitwise_or(parser) {
             return false;
         }
         while parser.peek_char() == Some('&') && parser.peek_nth_char(1) == Some('&') {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::AmpersandAmpersand, 2);
             parser.skip_inline_whitespace();
-            Self::parse_bitwise_or(parser);
+            Self::try_parse_bitwise_or(parser);
             parser.finish_node();
         }
         true
     }
 
-    fn parse_bitwise_or(parser: &mut Parser) -> bool {
+    fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_bitwise_and(parser) {
+        if !Self::try_parse_bitwise_and(parser) {
             return false;
         }
         while parser.peek_char() == Some('|')
@@ -178,15 +178,15 @@ impl<'a> CSTExpression<'a> {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::Pipe, 1);
             parser.skip_inline_whitespace();
-            Self::parse_bitwise_and(parser);
+            Self::try_parse_bitwise_and(parser);
             parser.finish_node();
         }
         true
     }
 
-    fn parse_bitwise_and(parser: &mut Parser) -> bool {
+    fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_equality(parser) {
+        if !Self::try_parse_equality(parser) {
             return false;
         }
         while parser.peek_char() == Some('&')
@@ -196,15 +196,15 @@ impl<'a> CSTExpression<'a> {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::Ampersand, 1);
             parser.skip_inline_whitespace();
-            Self::parse_equality(parser);
+            Self::try_parse_equality(parser);
             parser.finish_node();
         }
         true
     }
 
-    fn parse_equality(parser: &mut Parser) -> bool {
+    fn try_parse_equality(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_comparison(parser) {
+        if !Self::try_parse_comparison(parser) {
             return false;
         }
         loop {
@@ -218,7 +218,7 @@ impl<'a> CSTExpression<'a> {
                 parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
                 parser.add_token(kind, len);
                 parser.skip_inline_whitespace();
-                Self::parse_comparison(parser);
+                Self::try_parse_comparison(parser);
                 parser.finish_node();
             } else {
                 break;
@@ -227,9 +227,9 @@ impl<'a> CSTExpression<'a> {
         true
     }
 
-    fn parse_comparison(parser: &mut Parser) -> bool {
+    fn try_parse_comparison(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_shift(parser) {
+        if !Self::try_parse_shift(parser) {
             return false;
         }
         loop {
@@ -249,7 +249,7 @@ impl<'a> CSTExpression<'a> {
                 parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
                 parser.add_token(kind, len);
                 parser.skip_inline_whitespace();
-                Self::parse_shift(parser);
+                Self::try_parse_shift(parser);
                 parser.finish_node();
             } else {
                 break;
@@ -258,9 +258,9 @@ impl<'a> CSTExpression<'a> {
         true
     }
 
-    fn parse_shift(parser: &mut Parser) -> bool {
+    fn try_parse_shift(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_term(parser) {
+        if !Self::try_parse_term(parser) {
             return false;
         }
         loop {
@@ -282,7 +282,7 @@ impl<'a> CSTExpression<'a> {
                 parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
                 parser.add_token(kind, len);
                 parser.skip_inline_whitespace();
-                Self::parse_term(parser);
+                Self::try_parse_term(parser);
                 parser.finish_node();
             } else {
                 break;
@@ -291,9 +291,9 @@ impl<'a> CSTExpression<'a> {
         true
     }
 
-    fn parse_term(parser: &mut Parser) -> bool {
+    fn try_parse_term(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
-        if !Self::parse_factor(parser) {
+        if !Self::try_parse_factor(parser) {
             return false;
         }
         while let Some(c) = parser.peek_char()
@@ -303,7 +303,7 @@ impl<'a> CSTExpression<'a> {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.bump_char();
             parser.skip_inline_whitespace();
-            if !Self::parse_factor(parser) {
+            if !Self::try_parse_factor(parser) {
                 parser.recover_newline("Expected expression after operator");
             }
             parser.finish_node();
@@ -311,10 +311,10 @@ impl<'a> CSTExpression<'a> {
         true
     }
 
-    fn parse_factor(parser: &mut Parser) -> bool {
+    fn try_parse_factor(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
 
-        if !Self::parse_unary(parser) {
+        if !Self::try_parse_unary(parser) {
             return false;
         }
 
@@ -325,7 +325,7 @@ impl<'a> CSTExpression<'a> {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.bump_char();
             parser.skip_inline_whitespace();
-            if !Self::parse_unary(parser) {
+            if !Self::try_parse_unary(parser) {
                 parser.recover_newline("Expected expression after operator");
             }
             parser.finish_node();
@@ -333,21 +333,21 @@ impl<'a> CSTExpression<'a> {
         true
     }
 
-    fn parse_unary(parser: &mut Parser) -> bool {
-        if let Some(c) = parser.peek_char()
-            && (c == '!' || c == '-' || c == '*' || c == '&')
-        {
+    fn try_parse_unary(parser: &mut Parser) -> bool {
+        if matches!(parser.peek_char(), Some('!' | '-' | '*' | '&')) {
             parser.start_node(SyntaxKind::UnaryExpression);
             parser.bump_char();
             parser.skip_inline_whitespace();
-            Self::parse_unary(parser);
+            Self::try_parse_unary(parser);
             parser.finish_node();
+
             return true;
         }
-        Self::parse_postfix(parser)
+
+        Self::try_parse_postfix(parser)
     }
 
-    fn parse_postfix(parser: &mut Parser) -> bool {
+    fn try_parse_postfix(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
         if !Self::try_parse_primary(parser) {
             return false;
@@ -355,12 +355,13 @@ impl<'a> CSTExpression<'a> {
 
         loop {
             parser.skip_inline_whitespace();
+
             match parser.peek_char() {
                 Some('[') => {
                     parser.start_node_at(checkpoint, SyntaxKind::IndexExpression);
                     parser.bump_char();
                     parser.skip_whitespace();
-                    if !Self::parse_expression(parser) {
+                    if !Self::try_parse_expression(parser) {
                         parser.recover_newline("Expected index expression");
                     }
                     parser.skip_whitespace();

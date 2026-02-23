@@ -54,16 +54,6 @@ impl<'a> CSTDataType<'a> {
         }
     }
 
-    pub fn expect(parser: &mut Parser) -> bool {
-        if Self::try_parse(parser) {
-            true
-        } else {
-            parser.error("Expected data type");
-
-            false
-        }
-    }
-
     fn parse_reference(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
         parser.start_node_at(checkpoint, SyntaxKind::ReferenceDataType);

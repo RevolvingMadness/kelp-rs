@@ -82,7 +82,7 @@ impl<'a> CSTStructDeclarationStatement<'a> {
             loop {
                 parser.skip_whitespace();
 
-                if parser.is_eof() || parser.peek_char() == Some('>') {
+                if parser.is_eof() || matches!(parser.peek_char(), Some('>' | '{' | '}')) {
                     break;
                 }
 
@@ -94,7 +94,9 @@ impl<'a> CSTStructDeclarationStatement<'a> {
 
                 parser.skip_whitespace();
 
-                if !parser.try_bump_char(',') && parser.peek_char() != Some('>') {
+                if !parser.try_bump_char(',')
+                    && !matches!(parser.peek_char(), Some('>' | '{' | '}' | ','))
+                {
                     parser.error("Expected ',' or '>'");
 
                     Self::bump_until_next_generic_parameter(parser);
@@ -129,11 +131,15 @@ impl<'a> CSTStructDeclarationStatement<'a> {
 
             parser.skip_whitespace();
 
-            parser.expect_char(':', "Expected ':'");
+            let parsed_colon = parser.expect_char(':', "Expected ':'");
 
             parser.skip_whitespace();
 
-            if !CSTDataType::expect(parser) {
+            if !CSTDataType::try_parse(parser) {
+                if parsed_colon {
+                    parser.error("Expected data type");
+                }
+
                 CSTStructExpression::bump_until_next_field_or_end(parser);
 
                 parser.finish_node();
@@ -149,7 +155,7 @@ impl<'a> CSTStructDeclarationStatement<'a> {
             }
         }
 
-        parser.expect_char('}', "Expected '{'");
+        parser.expect_char('}', "Expected '}'");
 
         parser.finish_node();
 

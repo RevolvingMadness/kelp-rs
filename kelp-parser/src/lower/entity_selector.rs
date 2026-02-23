@@ -64,7 +64,7 @@ impl<'a> CSTEntitySelector<'a> {
 
         match key_string.as_str() {
             "x" | "y" | "z" | "dx" | "dy" | "dz" | "x_rotation" | "y_rotation" => {
-                parser.expect_float("Expected float value");
+                parser.expect_fractional_value("Expected float value");
             }
 
             "name" | "tag" | "team" | "type" | "gamemode" | "sort" => {

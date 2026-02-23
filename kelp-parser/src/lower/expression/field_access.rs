@@ -11,7 +11,7 @@ impl<'a> CSTFieldAccessExpression<'a> {
 
     pub fn field(&self) -> Option<(Span, &'a str)> {
         self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier || token.kind == SyntaxKind::Integer {
+            if token.kind == SyntaxKind::Identifier || token.kind == SyntaxKind::WholeValue {
                 Some((token.span, token.text))
             } else {
                 None

@@ -26,7 +26,7 @@ impl<'a> CSTCoordinates<'a> {
             parser.bump_char();
         }
 
-        parser.try_parse_float();
+        parser.try_parse_fractional_value();
 
         parser.finish_node();
     }

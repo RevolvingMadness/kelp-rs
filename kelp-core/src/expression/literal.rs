@@ -35,6 +35,12 @@ pub enum LiteralExpressionKind {
 }
 
 impl LiteralExpressionKind {
+    #[inline]
+    #[must_use]
+    pub fn with_span(self, span: Span) -> LiteralExpression {
+        LiteralExpression { span, kind: self }
+    }
+
     pub fn get_pattern_type(&self) -> PatternType {
         match self {
             LiteralExpressionKind::Boolean(_) => PatternType::Boolean,

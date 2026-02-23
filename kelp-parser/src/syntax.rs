@@ -4,8 +4,8 @@ pub enum SyntaxKind {
     Root,
     Identifier,
     Keyword,
-    Integer,
-    Float,
+    WholeValue,
+    FractionalValue,
     At,                        // @
     Tilde,                     // ~
     Caret,                     // ^
@@ -112,7 +112,16 @@ pub enum SyntaxKind {
     FieldAccessExpression,
     AssignmentExpression,
     UnaryExpression,
-    LiteralExpression,
+    VariableExpression,
+    ByteExpression,
+    ShortExpression,
+    IntegerExpression,
+    LongExpression,
+    FloatExpression,
+    DoubleExpression,
+    NumericExpressionSuffix,
+    CharExpression,
+    StringExpression,
     BooleanExpression,
     IndexExpression,
     ListExpression,

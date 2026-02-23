@@ -21,7 +21,7 @@ impl<'a> CSTWorldCoordinate<'a> {
         if has_symbol {
             parser.bump_char();
         }
-        parser.try_parse_float();
+        parser.try_parse_fractional_value();
         parser.finish_node();
 
         true
@@ -41,7 +41,7 @@ impl<'a> CSTWorldCoordinate<'a> {
 
     fn offset(&self) -> Option<NotNan<f32>> {
         self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Float {
+            if token.kind == SyntaxKind::FractionalValue {
                 Some(token.text.parse().unwrap())
             } else {
                 None

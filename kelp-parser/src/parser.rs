@@ -51,7 +51,7 @@ impl<'a> Parser<'a> {
         self.source[self.pos..].chars().nth(n)
     }
 
-    pub(crate) fn peek_integer(&self) -> Option<&'a str> {
+    pub(crate) fn peek_whole_value(&self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut len = 0;
         let mut chars = s.chars();
@@ -69,7 +69,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn peek_float(&self) -> Option<&'a str> {
+    pub(crate) fn peek_fractional_value(&self) -> Option<(bool, &'a str)> {
         let s = &self.source[self.pos..];
         let mut len = 0;
         let chars = s.chars();
@@ -87,15 +87,15 @@ impl<'a> Parser<'a> {
         }
 
         if len > 0 {
-            Some(&self.source[self.pos..self.pos + len])
+            Some((has_dot, &self.source[self.pos..self.pos + len]))
         } else {
             None
         }
     }
 
-    pub(crate) fn expect_float(&mut self, message: &str) -> bool {
-        if let Some(text) = self.peek_float() {
-            self.add_token(SyntaxKind::Float, text.len());
+    pub(crate) fn expect_fractional_value(&mut self, message: &str) -> bool {
+        if let Some((_, text)) = self.peek_fractional_value() {
+            self.add_token(SyntaxKind::FractionalValue, text.len());
             true
         } else {
             self.error(message);
@@ -103,9 +103,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn try_parse_float(&mut self) -> bool {
-        if let Some(text) = self.peek_float() {
-            self.add_token(SyntaxKind::Float, text.len());
+    pub(crate) fn try_parse_fractional_value(&mut self) -> bool {
+        if let Some((_, text)) = self.peek_fractional_value() {
+            self.add_token(SyntaxKind::FractionalValue, text.len());
 
             true
         } else {
@@ -530,7 +530,7 @@ impl<'a> Parser<'a> {
         self.start_node(SyntaxKind::Range);
 
         let checkpoint = self.checkpoint();
-        if self.try_parse_float() {
+        if self.try_parse_fractional_value() {
             self.start_node_at(checkpoint, SyntaxKind::RangeBound);
             self.finish_node();
         }
@@ -540,7 +540,7 @@ impl<'a> Parser<'a> {
             self.bump_char();
 
             let checkpoint = self.checkpoint();
-            if self.try_parse_float() {
+            if self.try_parse_fractional_value() {
                 self.start_node_at(checkpoint, SyntaxKind::RangeBound);
                 self.finish_node();
             }
@@ -657,8 +657,14 @@ impl<'a> Parser<'a> {
     }
 
     pub fn bump_char(&mut self) {
-        if let Some(c) = self.peek_char() {
-            self.add_token(Self::char_to_kind(c), c.len_utf8());
+        if let Some(char) = self.peek_char() {
+            self.add_token(Self::char_to_kind(char), char.len_utf8());
+        }
+    }
+
+    pub fn bump_char_kind(&mut self, kind: SyntaxKind) {
+        if let Some(char) = self.peek_char() {
+            self.add_token(kind, char.len_utf8());
         }
     }
 

@@ -1,5 +1,8 @@
 use kelp_core::{
-    expression::{Expression, ExpressionKind, constant::ConstantExpressionKind},
+    expression::{
+        Expression, ExpressionKind, constant::ConstantExpressionKind,
+        literal::LiteralExpressionKind,
+    },
     high::{command::HighCommand, player_score::HighPlayerScore, snbt_string::HighSNBTString},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     runtime_storage_type::RuntimeStorageType,
@@ -11,17 +14,32 @@ use crate::{
     cst_node,
     cstlib::CSTNodeType,
     lower::{
-        Lowerer,
         data::{nbt_path::CSTNBTPath, target::CSTDataTarget},
         data_type::CSTDataType,
         entity_selector::CSTEntitySelector,
         expression::{
-            as_cast::CSTAsCastExpression, assignment::CSTAssignmentExpression,
-            compound::CSTCompoundExpression, field_access::CSTFieldAccessExpression,
-            index::CSTIndexExpression, list::CSTListExpression,
-            parenthesized::CSTParenthesizedExpression, r#struct::CSTStructExpression,
-            to_cast::CSTToCastExpression, token::CSTTokenExpression, tuple::CSTTupleExpression,
-            unary::CSTUnaryExpression, unit::CSTUnitExpression,
+            as_cast::CSTAsCastExpression,
+            assignment::CSTAssignmentExpression,
+            char::CSTCharExpression,
+            compound::CSTCompoundExpression,
+            field_access::CSTFieldAccessExpression,
+            index::CSTIndexExpression,
+            list::CSTListExpression,
+            numeric::{
+                fractional::{double::CSTDoubleExpression, float::CSTFloatExpression},
+                whole::{
+                    byte::CSTByteExpression, integer::CSTIntegerExpression,
+                    long::CSTLongExpression, short::CSTShortExpression,
+                },
+            },
+            parenthesized::CSTParenthesizedExpression,
+            string::CSTStringExpression,
+            r#struct::CSTStructExpression,
+            to_cast::CSTToCastExpression,
+            tuple::CSTTupleExpression,
+            unary::CSTUnaryExpression,
+            unit::CSTUnitExpression,
+            variable::CSTVariableExpression,
         },
     },
     parser::Parser,
@@ -30,17 +48,20 @@ use crate::{
 
 pub mod as_cast;
 pub mod assignment;
+pub mod char;
 pub mod compound;
 pub mod field_access;
 pub mod index;
 pub mod list;
+pub mod numeric;
 pub mod parenthesized;
+pub mod string;
 pub mod r#struct;
 pub mod to_cast;
-pub mod token;
 pub mod tuple;
 pub mod unary;
 pub mod unit;
+pub mod variable;
 
 #[derive(Debug)]
 pub enum CSTExpressionKind<'a> {
@@ -58,7 +79,15 @@ pub enum CSTExpressionKind<'a> {
     Paren(CSTParenthesizedExpression<'a>),
     ToCast(CSTToCastExpression<'a>),
     AsCast(CSTAsCastExpression<'a>),
-    Token(CSTTokenExpression<'a>),
+    Variable(CSTVariableExpression<'a>),
+    Byte(CSTByteExpression<'a>),
+    Short(CSTShortExpression<'a>),
+    Integer(CSTIntegerExpression<'a>),
+    Long(CSTLongExpression<'a>),
+    Float(CSTFloatExpression<'a>),
+    Double(CSTDoubleExpression<'a>),
+    Char(CSTCharExpression<'a>),
+    String(CSTStringExpression<'a>),
     FieldAccess(CSTFieldAccessExpression<'a>),
     Struct(CSTStructExpression<'a>),
 }
@@ -453,7 +482,7 @@ impl<'a> CSTExpression<'a> {
             }
             Some('\'') => {
                 if let Some(text) = parser.peek_quoted_char() {
-                    parser.start_node(SyntaxKind::LiteralExpression);
+                    parser.start_node(SyntaxKind::CharExpression);
                     parser.add_token(SyntaxKind::Char, text.len());
                     parser.finish_node();
 
@@ -464,7 +493,7 @@ impl<'a> CSTExpression<'a> {
             }
             Some('"') => {
                 if let Some(text) = parser.peek_quoted_string() {
-                    parser.start_node(SyntaxKind::LiteralExpression);
+                    parser.start_node(SyntaxKind::StringExpression);
                     parser.add_token(SyntaxKind::String, text.len());
                     parser.finish_node();
 
@@ -474,26 +503,40 @@ impl<'a> CSTExpression<'a> {
                 }
             }
             Some(char) if char.is_ascii_digit() => {
-                parser.start_node(SyntaxKind::LiteralExpression);
+                let (is_fractional, text) = parser.peek_fractional_value().unwrap();
 
-                let (text, kind) = if let Some(float_text) = parser.peek_float()
-                    && float_text.contains('.')
-                {
-                    (float_text, SyntaxKind::Float)
-                } else {
-                    (parser.peek_integer().unwrap(), SyntaxKind::Integer)
+                let (has_suffix, kind) = match parser.peek_nth_char(text.len()) {
+                    Some('b' | 'B') => (true, (SyntaxKind::ByteExpression)),
+                    Some('s' | 'S') => (true, (SyntaxKind::ShortExpression)),
+                    Some('i' | 'I') => (true, (SyntaxKind::IntegerExpression)),
+                    Some('l' | 'L') => (true, (SyntaxKind::LongExpression)),
+                    Some('f' | 'F') => (true, (SyntaxKind::FloatExpression)),
+                    Some('d' | 'D') => (true, (SyntaxKind::DoubleExpression)),
+                    _ => (
+                        false,
+                        if is_fractional {
+                            SyntaxKind::FloatExpression
+                        } else {
+                            SyntaxKind::IntegerExpression
+                        },
+                    ),
                 };
 
-                let mut total_len = text.len();
+                let inner_kind = if is_fractional {
+                    SyntaxKind::FractionalValue
+                } else {
+                    SyntaxKind::WholeValue
+                };
 
-                if let Some(suffix) = parser.peek_nth_char(total_len)
-                    && "bsilfdBSILFD".contains(suffix)
-                {
-                    total_len += suffix.len_utf8();
+                parser.start_node(kind);
+                parser.add_token(inner_kind, text.len());
+
+                if has_suffix {
+                    parser.bump_char_kind(SyntaxKind::NumericExpressionSuffix);
                 }
 
-                parser.add_token(kind, total_len);
                 parser.finish_node();
+
                 true
             }
             _ => {
@@ -508,7 +551,7 @@ impl<'a> CSTExpression<'a> {
                         }
                         "tellraw" => {
                             if !CSTTellrawCommandExpression::try_parse(parser) {
-                                parser.start_node(SyntaxKind::LiteralExpression);
+                                parser.start_node(SyntaxKind::VariableExpression);
                                 parser.bump_identifier("tellraw");
                                 parser.finish_node();
                             }
@@ -517,7 +560,7 @@ impl<'a> CSTExpression<'a> {
                         }
                         "score" => {
                             if !CSTScoreExpression::try_parse(parser) {
-                                parser.start_node(SyntaxKind::LiteralExpression);
+                                parser.start_node(SyntaxKind::VariableExpression);
                                 parser.bump_identifier("score");
                                 parser.finish_node();
                             }
@@ -526,7 +569,7 @@ impl<'a> CSTExpression<'a> {
                         }
                         "entity" | "block" | "storage" => {
                             if !CSTDataExpression::try_parse(parser) {
-                                parser.start_node(SyntaxKind::LiteralExpression);
+                                parser.start_node(SyntaxKind::VariableExpression);
                                 parser.bump_identifier(text);
                                 parser.finish_node();
                             }
@@ -623,7 +666,7 @@ impl<'a> CSTExpression<'a> {
                                 parser.finish_node();
                             } else {
                                 parser.restore_state(state);
-                                parser.start_node_at(checkpoint, SyntaxKind::LiteralExpression);
+                                parser.start_node_at(checkpoint, SyntaxKind::VariableExpression);
                                 parser.finish_node();
                             }
 
@@ -642,6 +685,33 @@ impl<'a> CSTExpression<'a> {
             (match node.kind()? {
                 SyntaxKind::UnaryExpression => {
                     CSTExpressionKind::Unary(CSTUnaryExpression::cast(node)?)
+                }
+                SyntaxKind::VariableExpression => {
+                    CSTExpressionKind::Variable(CSTVariableExpression::cast(node)?)
+                }
+                SyntaxKind::ByteExpression => {
+                    CSTExpressionKind::Byte(CSTByteExpression::cast(node)?)
+                }
+                SyntaxKind::ShortExpression => {
+                    CSTExpressionKind::Short(CSTShortExpression::cast(node)?)
+                }
+                SyntaxKind::IntegerExpression => {
+                    CSTExpressionKind::Integer(CSTIntegerExpression::cast(node)?)
+                }
+                SyntaxKind::LongExpression => {
+                    CSTExpressionKind::Long(CSTLongExpression::cast(node)?)
+                }
+                SyntaxKind::FloatExpression => {
+                    CSTExpressionKind::Float(CSTFloatExpression::cast(node)?)
+                }
+                SyntaxKind::DoubleExpression => {
+                    CSTExpressionKind::Double(CSTDoubleExpression::cast(node)?)
+                }
+                SyntaxKind::CharExpression => {
+                    CSTExpressionKind::Char(CSTCharExpression::cast(node)?)
+                }
+                SyntaxKind::StringExpression => {
+                    CSTExpressionKind::String(CSTStringExpression::cast(node)?)
                 }
                 SyntaxKind::AssignmentExpression => {
                     CSTExpressionKind::Assignment(CSTAssignmentExpression::cast(node)?)
@@ -679,9 +749,6 @@ impl<'a> CSTExpression<'a> {
                 SyntaxKind::ToCastExpression => {
                     CSTExpressionKind::ToCast(CSTToCastExpression::cast(node)?)
                 }
-                SyntaxKind::LiteralExpression => {
-                    CSTExpressionKind::Token(CSTTokenExpression::cast(node)?)
-                }
                 SyntaxKind::FieldAccessExpression => {
                     CSTExpressionKind::FieldAccess(CSTFieldAccessExpression::cast(node)?)
                 }
@@ -713,6 +780,102 @@ impl<'a> CSTExpression<'a> {
                     };
                     let operand = expression.operand()?.lower()?;
                     ExpressionKind::Unary(operator, Box::new(operand))
+                }
+                CSTExpressionKind::Variable(expression) => {
+                    let name = expression.name()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Variable(name.to_string()).with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::Byte(expression) => {
+                    let value = expression.value()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::Byte(value).with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::Short(expression) => {
+                    let value = expression.value()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::Short(value).with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::Integer(expression) => {
+                    let value = expression.value()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::Integer(value).with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::Long(expression) => {
+                    let value = expression.value()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::Long(value).with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::Float(expression) => {
+                    let value = expression.value()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::Float(value).with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::Double(expression) => {
+                    let value = expression.value()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::Double(value).with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::Char(expression) => {
+                    let value = expression.value()?;
+
+                    // TODO
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::String(HighSNBTString {
+                                span: self.span,
+                                snbt_string: SNBTString(false, value.to_string()),
+                            })
+                            .with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
+                }
+                CSTExpressionKind::String(expression) => {
+                    let value = expression.value()?;
+
+                    ExpressionKind::Constant(
+                        ConstantExpressionKind::Literal(
+                            LiteralExpressionKind::String(HighSNBTString {
+                                span: self.span,
+                                snbt_string: SNBTString(false, value.to_string()),
+                            })
+                            .with_span(self.span),
+                        )
+                        .with_span(self.span),
+                    )
                 }
                 CSTExpressionKind::Assignment(expression) => {
                     let left = expression.lhs()?.lower()?;
@@ -866,41 +1029,6 @@ impl<'a> CSTExpression<'a> {
                     };
 
                     ExpressionKind::ToCast(Box::new(expression), runtime_storage_type)
-                }
-                CSTExpressionKind::Token(expression) => {
-                    let token = expression.value_token()?;
-
-                    let kind = token.kind;
-
-                    match kind {
-                        SyntaxKind::Integer
-                        | SyntaxKind::Float
-                        | SyntaxKind::String
-                        | SyntaxKind::Char => {
-                            let literal = Lowerer::lower_literal_from_token(token)?;
-                            let span = literal.span;
-
-                            ExpressionKind::Constant(
-                                ConstantExpressionKind::Literal(literal).with_span(span),
-                            )
-                        }
-
-                        SyntaxKind::Identifier => {
-                            let name = token.text.to_string();
-                            let span = expression.span();
-
-                            ExpressionKind::Constant(
-                                ConstantExpressionKind::Variable(name).with_span(span),
-                            )
-                        }
-
-                        _ => {
-                            #[cfg(debug_assertions)]
-                            println!("Unexpected token kind {:?} in literal expression", kind);
-
-                            return None;
-                        }
-                    }
                 }
                 CSTExpressionKind::FieldAccess(expression) => {
                     let target = expression.target()?.lower()?;

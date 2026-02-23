@@ -1,5 +1,3 @@
-use parser_rs::{Expectation, ParseError};
-
 pub mod compile_context;
 pub mod data_type;
 pub mod datapack;
@@ -11,6 +9,7 @@ pub mod pattern_type;
 pub mod place;
 pub mod runtime_storage_type;
 pub mod semantic_analysis_context;
+pub mod span;
 pub mod statement;
 pub mod trait_ext;
 
@@ -33,29 +32,5 @@ fn format_expected<T: ToString>(items: Vec<T>) -> String {
                 .join(", ");
             format!("expected {}, or {}", all_but_last_str, last.to_string())
         }
-    }
-}
-
-pub fn generate_message_error(error: &ParseError) -> String {
-    if !error.messages.is_empty() {
-        format_expected(error.messages.to_vec())
-    } else {
-        let expected = error
-            .expected
-            .iter()
-            .map(|expected| match expected {
-                Expectation::Literal(literal) => format!(r#""{}""#, literal),
-                Expectation::Custom(custom) => custom.to_string(),
-                Expectation::Char(char) => format!("'{}'", char),
-                Expectation::Digit => "digit".to_string(),
-                Expectation::Identifier => "identifier".to_string(),
-                Expectation::NewlineWhitespace => "whitespace containing a newline".to_string(),
-                Expectation::Whitespace => "whitespace".to_string(),
-                Expectation::StartOfFile => "start of file".to_string(),
-                Expectation::EndOfFile => "end of file".to_string(),
-            })
-            .collect::<Vec<_>>();
-
-        format_expected(expected)
     }
 }

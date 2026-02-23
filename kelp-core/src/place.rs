@@ -9,7 +9,6 @@ use minecraft_command_types::{
     snbt::SNBTString,
 };
 use ordered_float::NotNan;
-use parser_rs::parser_range::ParserRange;
 
 use crate::{
     compile_context::CompileContext,
@@ -27,6 +26,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
+    span::Span,
     trait_ext::OptionUnitIterExt,
 };
 
@@ -117,7 +117,7 @@ impl Place {
                         ConstantExpressionKind::Compound(fields) => {
                             fields.insert(
                                 HighSNBTString {
-                                    span: ParserRange::dummy(),
+                                    span: Span::dummy(),
                                     snbt_string: SNBTString(false, field.1),
                                 },
                                 value.into_dummy_constant_expression(),
@@ -210,7 +210,7 @@ impl Place {
                         ConstantExpressionKind::Compound(fields) => {
                             fields.insert(
                                 HighSNBTString {
-                                    span: ParserRange::dummy(),
+                                    span: Span::dummy(),
                                     snbt_string: SNBTString(false, field.1),
                                 },
                                 new_field_value.into_dummy_constant_expression(),
@@ -245,14 +245,14 @@ pub enum PlaceTypeKind {
 }
 
 impl PlaceTypeKind {
-    pub fn with_span(self, span: ParserRange) -> PlaceType {
+    pub fn with_span(self, span: Span) -> PlaceType {
         PlaceType { span, kind: self }
     }
 }
 
 #[derive(Debug)]
 pub struct PlaceType {
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: PlaceTypeKind,
 }
 

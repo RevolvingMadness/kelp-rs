@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use parser_rs::parser_range::ParserRange;
-
 use crate::{
     expression::literal::LiteralExpression,
     high::snbt_string::HighSNBTString,
@@ -10,6 +8,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
+    span::Span,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +27,12 @@ pub enum PatternKind {
 }
 
 impl PatternKind {
+    #[inline]
+    #[must_use]
+    pub fn with_span(self, span: Span) -> Pattern {
+        Pattern { span, kind: self }
+    }
+
     pub fn is_irrefutable(&self) -> bool {
         match self {
             PatternKind::Literal(_) => false,
@@ -126,7 +131,7 @@ impl PatternKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pattern {
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: PatternKind,
 }
 

@@ -1,15 +1,18 @@
 use std::hash::Hash;
 
 use minecraft_command_types::{has_macro::HasMacro, impl_has_macro_false, snbt::SNBTString};
-use parser_rs::parser_range::ParserRange;
 
-use crate::semantic_analysis_context::{
-    SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
+use crate::{
+    semantic_analysis_context::{
+        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
+        SemanticAnalysisInfoKind,
+    },
+    span::Span,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct HighSNBTString {
-    pub span: ParserRange,
+    pub span: Span,
     pub snbt_string: SNBTString,
 }
 
@@ -18,7 +21,7 @@ impl_has_macro_false!(HighSNBTString);
 impl From<String> for HighSNBTString {
     fn from(value: String) -> Self {
         HighSNBTString {
-            span: ParserRange::dummy(),
+            span: Span::dummy(),
             snbt_string: SNBTString(false, value),
         }
     }

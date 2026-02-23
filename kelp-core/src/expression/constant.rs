@@ -21,7 +21,6 @@ use minecraft_command_types::{
 };
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
-use parser_rs::parser_range::ParserRange;
 
 use crate::{
     compile_context::CompileContext,
@@ -42,6 +41,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
+    span::Span,
 };
 
 pub type ConstantExpressionCompoundKind = BTreeMap<HighSNBTString, ConstantExpression>;
@@ -126,6 +126,12 @@ pub enum ConstantExpressionKind {
 }
 
 impl ConstantExpressionKind {
+    #[inline(always)]
+    #[must_use]
+    pub fn with_span(self, span: Span) -> ConstantExpression {
+        ConstantExpression { span, kind: self }
+    }
+
     pub fn distribute_references(self) -> ConstantExpressionKind {
         match self {
             ConstantExpressionKind::Reference(inner) => match inner.kind.distribute_references() {
@@ -297,7 +303,7 @@ impl ConstantExpressionKind {
 
     pub fn into_dummy_constant_expression(self) -> ConstantExpression {
         ConstantExpression {
-            span: ParserRange::default(),
+            span: Span::dummy(),
             kind: self,
         }
     }
@@ -619,16 +625,12 @@ impl ConstantExpressionKind {
 
             (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
                 ConstantExpressionKind::Literal(LiteralExpression {
-                    span: ParserRange::dummy(),
+                    span: Span::dummy(),
                     kind: left.kind.perform_arithmetic(operator, right.kind).unwrap(),
                 })
             }
 
-            (
-                left_kind @ (ConstantExpressionKind::PlayerScore(_)
-                | ConstantExpressionKind::Data(_, _)),
-                right_kind,
-            ) => {
+            (left_kind, right_kind) => {
                 // TODO maybe better checking?
                 // TODO assign into score
 
@@ -639,24 +641,6 @@ impl ConstantExpressionKind {
 
                 ConstantExpressionKind::PlayerScore(unique_score)
             }
-
-            (
-                left_kind,
-                right_kind @ (ConstantExpressionKind::PlayerScore(_)
-                | ConstantExpressionKind::Data(_, _)),
-            ) => {
-                // TODO maybe better checking?
-                // TODO assign into score
-
-                let unique_score = datapack.get_unique_score();
-
-                left_kind.assign_to_score(datapack, ctx, unique_score.clone());
-                right_kind.operate_on_score(datapack, ctx, unique_score.clone(), operator);
-
-                ConstantExpressionKind::PlayerScore(unique_score)
-            }
-
-            (left_kind, right_kind) => unreachable!("{:?} {:?}", left_kind, right_kind),
         }
     }
 
@@ -678,7 +662,7 @@ impl ConstantExpressionKind {
 
             (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
                 ConstantExpressionKind::Literal(LiteralExpression {
-                    span: ParserRange::dummy(),
+                    span: Span::dummy(),
                     kind: left.kind.compare(operator, right.kind).unwrap(),
                 })
             }
@@ -1672,8 +1656,7 @@ impl ConstantExpressionKind {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct ConstantExpression {
-    #[has_macro(ignore)]
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: ConstantExpressionKind,
 }
 

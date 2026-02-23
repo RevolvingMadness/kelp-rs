@@ -1,0 +1,69 @@
+use crate::{
+    cst_node,
+    lower::{
+        expression::CSTExpression,
+        statement::{CSTStatement, block::CSTBlockStatement},
+    },
+    parser::Parser,
+    syntax::SyntaxKind,
+};
+
+cst_node!(CSTIfStatement, SyntaxKind::IfStatement);
+
+impl<'a> CSTIfStatement<'a> {
+    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
+
+        parser.start_node(SyntaxKind::IfStatement);
+        parser.bump_keyword("if".len());
+        parser.skip_inline_whitespace();
+
+        if !CSTExpression::try_parse(parser) {
+            parser.restore_state(state);
+
+            return false;
+        }
+
+        parser.skip_whitespace();
+
+        if !CSTBlockStatement::try_parse(parser) {
+            parser.recover_newline("Expected block statement");
+        }
+
+        parser.skip_whitespace();
+
+        if let Some("else") = parser.peek_identifier() {
+            parser.bump_identifier("else");
+
+            parser.skip_whitespace();
+
+            if parser.peek_char() == Some('{') {
+                if !CSTBlockStatement::try_parse(parser) {
+                    parser.recover_newline("Expected block statement");
+                }
+            } else if parser.peek_identifier() == Some("if") {
+                if !CSTIfStatement::try_parse(parser) {
+                    parser.recover_newline("Expected if statement");
+                }
+            } else {
+                parser.recover_newline("Expected block or if statement");
+            }
+        }
+
+        parser.finish_node();
+
+        true
+    }
+
+    pub fn condition(&self) -> Option<CSTExpression<'a>> {
+        self.0.children().find_map(CSTExpression::cast)
+    }
+
+    pub fn body(&self) -> Option<CSTStatement<'a>> {
+        self.0.children().filter_map(CSTStatement::cast).nth(1)
+    }
+
+    pub fn else_body(&self) -> Option<CSTStatement<'a>> {
+        self.0.children().filter_map(CSTStatement::cast).nth(2)
+    }
+}

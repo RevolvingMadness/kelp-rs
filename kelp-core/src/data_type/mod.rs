@@ -5,7 +5,6 @@ use minecraft_command_types::{
     snbt::{SNBT, SNBTString},
 };
 use minecraft_command_types_derive::HasMacro;
-use parser_rs::parser_range::ParserRange;
 use strum::{Display, EnumString};
 
 use crate::{
@@ -24,6 +23,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
+    span::Span,
     trait_ext::OptionUnitIterExt,
 };
 
@@ -381,7 +381,7 @@ impl DataTypeKind {
         self,
         patterns: &Vec<Pattern>,
         ctx: &mut SemanticAnalysisContext,
-        value_span: ParserRange,
+        value_span: Span,
         pattern: &Pattern,
     ) -> Option<()> {
         match self {
@@ -440,7 +440,7 @@ impl DataTypeKind {
         self,
         patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
         ctx: &mut SemanticAnalysisContext,
-        value_span: ParserRange,
+        value_span: Span,
         pattern: &Pattern,
     ) -> Option<()> {
         match self {
@@ -532,7 +532,7 @@ impl DataTypeKind {
         name: &str,
         field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
         ctx: &mut SemanticAnalysisContext,
-        value_span: ParserRange,
+        value_span: Span,
         pattern: &Pattern,
     ) -> Option<()> {
         match self {
@@ -623,7 +623,7 @@ impl DataTypeKind {
     pub fn destructure_and_perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        value_span: ParserRange,
+        value_span: Span,
         pattern: &Pattern,
     ) -> Option<()> {
         match &pattern.kind {
@@ -1245,7 +1245,7 @@ impl DataTypeKind {
     pub fn perform_assignment_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
-        span: ParserRange,
+        span: Span,
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match (self, value_type) {

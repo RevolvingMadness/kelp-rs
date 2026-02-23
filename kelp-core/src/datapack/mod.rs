@@ -11,6 +11,7 @@ use crate::high::player_score::GeneratedPlayerScore;
 use crate::semantic_analysis_context::{
     SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
 };
+use crate::span::Span;
 use minecraft_command_types::command::data::DataTarget;
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
 use minecraft_command_types::command::scoreboard::{
@@ -24,7 +25,6 @@ use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::SNBTString;
 use nonempty::{NonEmpty, nonempty};
-use parser_rs::parser_range::ParserRange;
 use serde_json::json;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashSet, VecDeque};
@@ -151,7 +151,7 @@ impl DataTypeDeclarationKind {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
-        generics_span: ParserRange,
+        generics_span: Span,
         number_of_generics: usize,
         resolved_generic_types: &[DataTypeKind],
     ) -> Option<()> {
@@ -465,10 +465,7 @@ impl HighDatapack {
         );
 
         (
-            HighDataTarget {
-                is_generated: true,
-                kind: HighDataTargetKind::Storage(storage_location.clone()),
-            },
+            HighDataTargetKind::Storage(storage_location.clone()).into_generated(),
             DataTarget::Storage(storage_location),
             NbtPath(nonempty![NbtPathNode::named_string(name.clone())]),
             name,
@@ -499,6 +496,7 @@ impl HighDatapack {
         (
             HighDataTarget {
                 is_generated: true,
+                span: Span::dummy(),
                 kind: HighDataTargetKind::Storage(ResourceLocation::new_namespace_path(
                     "__kelp_storages__",
                     format!("__kelp_{}_storage__", current_namespace_name),

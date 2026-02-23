@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr};
 
 use minecraft_command_types::impl_has_macro_false;
-use parser_rs::parser_range::ParserRange;
 
 use crate::{
     data_type::{BuiltinDataTypeKind, DataTypeKind},
@@ -12,12 +11,13 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
+    span::Span,
     trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum HighDataTypeKind {
-    Named(ParserRange, String, Vec<HighDataType>),
+    Named(Span, String, Vec<HighDataType>),
     TypedCompound(BTreeMap<HighSNBTString, HighDataType>),
     Reference(Box<HighDataType>),
     Tuple(Vec<HighDataType>),
@@ -114,7 +114,7 @@ impl HighDataTypeKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighDataType {
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: HighDataTypeKind,
 }
 

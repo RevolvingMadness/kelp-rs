@@ -9,7 +9,6 @@ use minecraft_command_types::{
 };
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
-use parser_rs::parser_range::ParserRange;
 
 use crate::{
     compile_context::CompileContext,
@@ -20,6 +19,7 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     semantic_analysis_context::SemanticAnalysisContext,
+    span::Span,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -546,7 +546,6 @@ impl LiteralExpressionKind {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct LiteralExpression {
-    #[has_macro(ignore)]
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: LiteralExpressionKind,
 }

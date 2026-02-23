@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 kelp-core = { workspace = true }
 ordered-float = { workspace = true }
-parser-rs = { workspace = true }
 minecraft-command-types = { workspace = true }
 nonempty = { workspace = true }
 serde_json = { workspace = true }

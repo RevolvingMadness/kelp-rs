@@ -1,25 +1,20 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
-use clap::{Parser, Subcommand};
+use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::HighDatapack;
-use kelp_core::generate_message_error;
 use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_core::statement::Statement;
-use kelp_core::trait_ext::OptionUnitIterExt;
-use kelp_parser::file;
+use kelp_parser::lower::Lowerer;
+use kelp_parser::parser::{ParseResult, Parser};
 use nonempty::nonempty;
-use parser_rs::fn_parser::FnParser;
-use parser_rs::stream::Stream;
-use parser_rs::ParseResult;
-use std::cmp::min;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use yansi::Paint;
 
-#[derive(Parser)]
+#[derive(ClapParser)]
 #[command(name = "kelp")]
 struct Cli {
     #[command(subcommand)]
@@ -29,6 +24,9 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Build {
+        #[arg(value_name = "PATH")]
+        path: Option<PathBuf>,
+
         #[arg(long)]
         ignore_validation_errors: bool,
     },
@@ -42,9 +40,10 @@ fn main() {
 
     match cli.command {
         Commands::Build {
+            path,
             ignore_validation_errors,
         } => {
-            handle_run(ignore_validation_errors);
+            handle_run(path, ignore_validation_errors);
         }
         Commands::New { name } => {
             handle_new(&name.replace("-", "_"));
@@ -112,20 +111,23 @@ fn handle_new(input: &str) {
     );
 }
 
-fn handle_run(ignore_validation_errors: bool) {
+fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
+    let root = project_path.unwrap_or_else(|| std::env::current_dir().unwrap());
+    let kelp_toml = root.join("Kelp.toml");
+    let main_kelp = root.join("src/main.kelp");
+
     let (target_path, project_name) = {
-        if Path::new("Kelp.toml").exists() {
-            let main_path = "src/main.kelp".to_string();
-            if !Path::new(&main_path).exists() {
+        if kelp_toml.exists() {
+            if !main_kelp.exists() {
                 eprintln!(
                     "{} Kelp.toml found, but {} is missing.",
                     "Error:".red(),
-                    main_path
+                    main_kelp.display()
                 );
                 return;
             }
 
-            let name = fs::read_to_string("Kelp.toml")
+            let name = fs::read_to_string(&kelp_toml)
                 .ok()
                 .and_then(|content| {
                     content
@@ -136,9 +138,13 @@ fn handle_run(ignore_validation_errors: bool) {
                 })
                 .unwrap_or_else(|| "Kelp Project".to_string());
 
-            (main_path, name)
+            (main_kelp, name)
         } else {
-            eprintln!("{} No Kelp.toml found.", "Error:".red());
+            eprintln!(
+                "{} No Kelp.toml found at {}.",
+                "Error:".red(),
+                root.display()
+            );
             return;
         }
     };
@@ -146,62 +152,48 @@ fn handle_run(ignore_validation_errors: bool) {
     let input_text = match fs::read_to_string(&target_path) {
         Ok(content) => content,
         Err(e) => {
-            eprintln!("{} Could not read {}: {}", "Error:".red(), target_path, e);
+            eprintln!(
+                "{} Could not read {}: {}",
+                "Error:".red(),
+                target_path.display(),
+                e
+            );
             return;
         }
     };
 
-    let mut input = Stream::new(&input_text);
-    if !ignore_validation_errors {
-        input.config.max_validation_errors = 10;
-    }
+    let target_path_str = target_path.to_string_lossy();
+
+    let parser = Parser::new(&input_text);
 
     let start_parse = Instant::now();
-    let result = file.parse_fully(input);
+    let ParseResult { root, errors } = parser.parse();
     let parse_elapsed = start_parse.elapsed();
 
-    match (result.validation_errors.is_empty(), result.succeeded()) {
-        (true, true) => {
-            println!("{} Parsed in {:?}", "Done:".cyan(), parse_elapsed.green());
-            process_success(
-                parse_elapsed,
-                result.result.unwrap(),
-                &target_path,
-                &input_text,
-                &project_name,
-            );
-        }
-        (false, true) if ignore_validation_errors => {
-            println!(
-                "{}",
-                "Ignoring validation errors and compiling anyway".yellow()
-            );
-            process_success(
-                parse_elapsed,
-                result.result.unwrap(),
-                &target_path,
-                &input_text,
-                &project_name,
-            );
-        }
-        (_, _) => {
-            println!(
-                "{} Parsing failed in {:?}",
-                "Error:".red(),
-                parse_elapsed.red()
-            );
-            process_failure(result, &target_path, &input_text);
-        }
-    }
-}
+    root.print(0);
 
-fn process_success(
-    parse_elapsed: Duration,
-    statements: Vec<Statement>,
-    file_name: &str,
-    source_text: &str,
-    project_name: &str,
-) {
+    let error_input_text = format!("{} ", input_text);
+
+    let parse_succeeded = errors.is_empty();
+
+    for error in errors {
+        let span = (target_path_str.as_ref(), error.span.start..error.span.end);
+
+        Report::build(ReportKind::Error, span.clone())
+            .with_label(
+                Label::new(span)
+                    .with_message(error.message.to_string())
+                    .with_color(Color::Red),
+            )
+            .finish()
+            .print((target_path_str.as_ref(), Source::from(&error_input_text)))
+            .unwrap();
+    }
+
+    let lower_start = Instant::now();
+    let statements = Lowerer::lower_root(&root);
+    let lower_elapsed = lower_start.elapsed();
+
     let mut semantic_analysis_context = SemanticAnalysisContext {
         max_infos: 10,
         ..Default::default()
@@ -211,42 +203,66 @@ fn process_success(
         .push_front(Scope::default());
 
     let start_semantic = Instant::now();
-    let succeeded = statements
-        .iter()
-        .map(|statement| statement.perform_semantic_analysis(&mut semantic_analysis_context, false))
-        .all_some();
+    for statement in statements.iter() {
+        statement.perform_semantic_analysis(&mut semantic_analysis_context, false);
+    }
     let semantic_elapsed = start_semantic.elapsed();
+    let semantic_analysis_succeeded = semantic_analysis_context.infos.is_empty();
 
+    for info in semantic_analysis_context.infos {
+        match info.kind {
+            SemanticAnalysisInfoKind::Error(error) => {
+                let span = (&target_path_str, info.span.into_range());
+                Report::build(ReportKind::Error, span.clone())
+                    .with_label(
+                        Label::new(span)
+                            .with_message(format!("{}", error))
+                            .with_color(Color::Red),
+                    )
+                    .finish()
+                    .print((&target_path_str, Source::from(&input_text)))
+                    .unwrap();
+            }
+        }
+    }
+
+    let part_1_elapsed = parse_elapsed + lower_elapsed + semantic_elapsed;
+
+    println!("{} Parsed in {:?}", "Done:".cyan(), parse_elapsed.green());
+    println!("{} Lowered in {:?}", "Done:".cyan(), lower_elapsed.green());
     println!(
         "{} Semantic analysis finished in {:?}",
         "Done:".cyan(),
-        if succeeded.is_some() {
+        if semantic_analysis_succeeded {
             semantic_elapsed.green()
         } else {
             semantic_elapsed.red()
         }
     );
+    println!(
+        "{} Part 1 complete in {:?}",
+        "Done:".cyan(),
+        part_1_elapsed.green()
+    );
 
-    if succeeded.is_none() {
-        for info in semantic_analysis_context.infos {
-            match info.kind {
-                SemanticAnalysisInfoKind::Error(error) => {
-                    let span = (file_name, info.span.into_range());
-                    Report::build(ReportKind::Error, span.clone())
-                        .with_label(
-                            Label::new(span)
-                                .with_message(format!("{}", error))
-                                .with_color(Color::Red),
-                        )
-                        .finish()
-                        .print((file_name, Source::from(source_text)))
-                        .unwrap();
-                }
-            }
-        }
-        return;
+    if semantic_analysis_succeeded && parse_succeeded {
+        process_success(
+            part_1_elapsed,
+            statements,
+            &target_path_str,
+            &input_text,
+            &project_name,
+        );
     }
+}
 
+fn process_success(
+    existing_elapsed: Duration,
+    statements: Vec<Statement>,
+    file_name: &str,
+    source_text: &str,
+    project_name: &str,
+) {
     let mut datapack = HighDatapack::new(project_name);
     datapack.settings.num_match_cases_to_split = 5;
     datapack.push_namespace("main");
@@ -277,7 +293,7 @@ fn process_success(
         gen_elapsed.green()
     );
 
-    let datapack_dir = dirs::home_dir().unwrap().join(".var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher/instances/1.21.11/minecraft/saves/kelp-rs/datapacks/kelp-rs Datapack");
+    let datapack_dir = dirs::home_dir().unwrap().join(".local/share/PrismLauncher/instances/1.21.11/minecraft/saves/kelp-rs/datapacks/kelp-rs Datapack");
 
     let start_io = Instant::now();
     if datapack_dir.exists() {
@@ -291,43 +307,43 @@ fn process_success(
     println!(
         "\n{} Total processing time: {:?}",
         "Finished:".bold().bright_green(),
-        (parse_elapsed + semantic_elapsed + compile_elapsed + gen_elapsed + io_elapsed).green()
+        (existing_elapsed + compile_elapsed + gen_elapsed + io_elapsed).green()
     );
 }
 
-fn process_failure<T>(result: ParseResult<T>, file_name: &str, source_text: &str) {
-    for validation_error in &result.validation_errors {
-        let span = (file_name, validation_error.span.into_range());
+// fn process_failure<T>(result: ParseResult<T>, file_name: &str, source_text: &str) {
+//     for validation_error in &result.validation_errors {
+//         let span = (file_name, validation_error.span.into_range());
 
-        Report::build(ReportKind::Error, span.clone())
-            .with_label(
-                Label::new(span)
-                    .with_message(validation_error.message.clone())
-                    .with_color(Color::Red),
-            )
-            .finish()
-            .print((file_name, Source::from(source_text)))
-            .unwrap();
-    }
+//         Report::build(ReportKind::Error, span.clone())
+//             .with_label(
+//                 Label::new(span)
+//                     .with_message(validation_error.message.clone())
+//                     .with_color(Color::Red),
+//             )
+//             .finish()
+//             .print((file_name, Source::from(source_text)))
+//             .unwrap();
+//     }
 
-    let Err(ref error) = result.result else {
-        return;
-    };
+//     let Err(ref error) = result.result else {
+//         return;
+//     };
 
-    let mut new_span = error.span;
-    new_span.end = min(new_span.end, source_text.len());
-    new_span.start = min(new_span.start, new_span.end);
-    let span = (file_name, new_span.into_range());
+//     let mut new_span = error.span;
+//     new_span.end = min(new_span.end, source_text.len());
+//     new_span.start = min(new_span.start, new_span.end);
+//     let span = (file_name, new_span.into_range());
 
-    if result.failed() {
-        Report::build(ReportKind::Error, span.clone())
-            .with_label(
-                Label::new(span)
-                    .with_message(generate_message_error(error))
-                    .with_color(Color::Red),
-            )
-            .finish()
-            .print((file_name, Source::from(source_text)))
-            .unwrap();
-    }
-}
+//     if result.failed() {
+//         Report::build(ReportKind::Error, span.clone())
+//             .with_label(
+//                 Label::new(span)
+//                     .with_message(generate_message_error(error))
+//                     .with_color(Color::Red),
+//             )
+//             .finish()
+//             .print((file_name, Source::from(source_text)))
+//             .unwrap();
+//     }
+// }

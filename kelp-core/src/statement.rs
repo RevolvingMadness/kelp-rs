@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::datapack::DataTypeDeclarationKind;
+use crate::span::Span;
 use crate::trait_ext::OptionUnitIterExt;
 use crate::{
     compile_context::CompileContext,
@@ -23,7 +24,6 @@ use minecraft_command_types::range::IntegerRange;
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::{SNBT, SNBTString};
 use nonempty::nonempty;
-use parser_rs::parser_range::ParserRange;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
@@ -81,6 +81,12 @@ fn compile_if(
 }
 
 impl StatementKind {
+    #[inline]
+    #[must_use]
+    pub fn with_span(self, span: Span) -> Statement {
+        Statement { span, kind: self }
+    }
+
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
             StatementKind::MCFunction(id, statement) => {
@@ -422,7 +428,7 @@ impl StatementKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Statement {
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: StatementKind,
 }
 
@@ -698,7 +704,7 @@ impl Statement {
         }
     }
 
-    pub fn new(span: ParserRange, kind: StatementKind) -> Statement {
+    pub fn new(span: Span, kind: StatementKind) -> Statement {
         Statement { span, kind }
     }
 }

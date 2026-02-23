@@ -1,0 +1,56 @@
+use crate::{
+    cst_node,
+    lower::{data_type::CSTDataType, expression::CSTExpression, pattern::CSTPattern},
+    parser::Parser,
+    syntax::SyntaxKind,
+};
+
+cst_node!(CSTLetStatement, SyntaxKind::LetStatement);
+
+impl<'a> CSTLetStatement<'a> {
+    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
+
+        parser.start_node(SyntaxKind::LetStatement);
+        parser.bump_keyword("let".len());
+        parser.skip_whitespace();
+
+        if !CSTPattern::try_parse(parser) {
+            parser.restore_state(state);
+            return false;
+        }
+
+        parser.skip_whitespace();
+
+        if parser.try_bump_char(':') {
+            parser.skip_whitespace();
+
+            if !CSTDataType::try_parse(parser) {
+                parser.error("Expected data type");
+            }
+
+            parser.skip_whitespace();
+        }
+
+        parser.expect_char('=', "Expected '='");
+        parser.skip_whitespace();
+        if !CSTExpression::try_parse(parser) {
+            parser.recover_newline("Expected expression");
+        }
+        parser.finish_node();
+
+        true
+    }
+
+    pub fn pattern(&self) -> Option<CSTPattern<'a>> {
+        self.0.children().find_map(CSTPattern::cast)
+    }
+
+    pub fn data_type(&self) -> Option<CSTDataType<'a>> {
+        self.0.children().find_map(CSTDataType::cast)
+    }
+
+    pub fn value(&self) -> Option<CSTExpression<'a>> {
+        self.0.children().find_map(CSTExpression::cast)
+    }
+}

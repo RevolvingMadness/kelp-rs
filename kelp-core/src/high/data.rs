@@ -6,6 +6,7 @@ use minecraft_command_types_derive::HasMacro;
 use crate::{
     compile_context::CompileContext, datapack::HighDatapack,
     high::entity_selector::HighEntitySelector, semantic_analysis_context::SemanticAnalysisContext,
+    span::Span,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -22,6 +23,22 @@ pub enum HighDataTargetKind {
 }
 
 impl HighDataTargetKind {
+    pub fn with_regular_span(self, span: Span) -> HighDataTarget {
+        HighDataTarget {
+            is_generated: false,
+            span,
+            kind: self,
+        }
+    }
+
+    pub fn with_generated_span(self) -> HighDataTarget {
+        HighDataTarget {
+            is_generated: true,
+            span: Span::dummy(),
+            kind: self,
+        }
+    }
+
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -38,15 +55,17 @@ impl HighDataTargetKind {
     pub fn into_generated(self) -> HighDataTarget {
         HighDataTarget {
             is_generated: true,
+            span: Span::dummy(),
             kind: self,
         }
     }
 
     #[inline]
     #[must_use]
-    pub fn into_regular(self) -> HighDataTarget {
+    pub fn into_regular(self, span: Span) -> HighDataTarget {
         HighDataTarget {
             is_generated: false,
+            span,
             kind: self,
         }
     }
@@ -55,6 +74,7 @@ impl HighDataTargetKind {
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct HighDataTarget {
     pub is_generated: bool,
+    pub span: Span,
     pub kind: HighDataTargetKind,
 }
 

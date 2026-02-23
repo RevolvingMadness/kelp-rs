@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use minecraft_command_types_derive::HasMacro;
-use parser_rs::parser_range::ParserRange;
 
 use crate::{
     compile_context::CompileContext,
@@ -9,6 +8,7 @@ use crate::{
     datapack::HighDatapack,
     expression::{
         constant::{ConstantExpression, ConstantExpressionKind},
+        literal::{LiteralExpression, LiteralExpressionKind},
         supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::{
@@ -25,6 +25,7 @@ use crate::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
     },
+    span::Span,
     trait_ext::OptionUnitIterExt,
 };
 
@@ -56,7 +57,7 @@ pub enum ExpressionKind {
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Struct(
-        #[has_macro(ignore)] ParserRange,
+        Span,
         String,
         Vec<HighDataType>,
         BTreeMap<HighSNBTString, Expression>,
@@ -67,6 +68,36 @@ pub enum ExpressionKind {
 }
 
 impl ExpressionKind {
+    #[inline(always)]
+    #[must_use]
+    pub fn with_span(self, span: Span) -> Expression {
+        Expression { span, kind: self }
+    }
+
+    pub fn is_index_out_of_bounds(&self, index: &Expression) -> Option<bool> {
+        let ExpressionKind::List(expressions) = self else {
+            return None;
+        };
+
+        let Expression {
+            kind:
+                ExpressionKind::Constant(ConstantExpression {
+                    kind:
+                        ConstantExpressionKind::Literal(LiteralExpression {
+                            kind: LiteralExpressionKind::Integer(index),
+                            ..
+                        }),
+                    ..
+                }),
+            ..
+        } = index
+        else {
+            return Some(false);
+        };
+
+        Some((*index as usize) >= expressions.len())
+    }
+
     pub fn is_lvalue(&self, ctx: &mut SemanticAnalysisContext) -> Option<bool> {
         Some(match self {
             ExpressionKind::Constant(expression) => expression.kind.is_lvalue(),
@@ -204,7 +235,7 @@ impl ExpressionKind {
 impl ExpressionKind {
     pub fn into_dummy_expression(self) -> Expression {
         Expression {
-            span: ParserRange::default(),
+            span: Span::dummy(),
             kind: self,
         }
     }
@@ -212,8 +243,7 @@ impl ExpressionKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct Expression {
-    #[has_macro(ignore)]
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: ExpressionKind,
 }
 
@@ -578,6 +608,15 @@ impl Expression {
                         span: target.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::CannotBeIndexed(target_type),
+                        ),
+                    });
+                }
+
+                if let Some(true) = target.kind.is_index_out_of_bounds(index) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: index.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::IndexOutOfBounds,
                         ),
                     });
                 }

@@ -4,14 +4,13 @@ use std::{
     str::FromStr,
 };
 
-use parser_rs::parser_range::ParserRange;
-
 use crate::{
     data_type::{BuiltinDataTypeKind, DataTypeKind},
     datapack::DataTypeDeclarationKind,
     expression::supports_variable_type_scope::SupportsVariableTypeScope,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     pattern_type::PatternType,
+    span::Span,
 };
 
 #[derive(Debug, Clone)]
@@ -59,6 +58,7 @@ pub enum SemanticAnalysisError {
     CannotBeAssignedToScore(DataTypeKind),
     CannotBeAssignedToData(DataTypeKind),
     CannotBeIndexed(DataTypeKind),
+    IndexOutOfBounds,
     CannotBeDereferenced(DataTypeKind),
     CannotBeReferenced(DataTypeKind),
     CannotBeAssignedTo,
@@ -178,6 +178,9 @@ impl Display for SemanticAnalysisError {
             Self::CannotBeIndexed(data_type) => {
                 write!(f, "The type '{}' cannot be indexed", data_type)
             }
+            Self::IndexOutOfBounds => {
+                write!(f, "Index out of bounds")
+            }
             Self::CannotBeDereferenced(data_type) => {
                 write!(f, "The type '{}' cannot be dereferenced", data_type)
             }
@@ -248,7 +251,7 @@ pub enum SemanticAnalysisInfoKind {
 
 #[derive(Debug, Clone)]
 pub struct SemanticAnalysisInfo {
-    pub span: ParserRange,
+    pub span: Span,
     pub kind: SemanticAnalysisInfoKind,
 }
 
@@ -298,7 +301,7 @@ impl SemanticAnalysisContext {
     #[inline]
     pub fn add_invalid_generics<T>(
         &mut self,
-        span: ParserRange,
+        span: Span,
         data_type: String,
         expected: usize,
         actual: usize,

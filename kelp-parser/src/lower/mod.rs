@@ -19,7 +19,6 @@ pub mod expression;
 pub mod pattern;
 pub mod resource_location;
 pub mod statement;
-pub mod struct_field;
 
 pub struct Lowerer;
 

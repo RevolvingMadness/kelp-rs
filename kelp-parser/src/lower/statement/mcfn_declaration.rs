@@ -41,7 +41,7 @@ impl<'a> CSTMCFNDeclarationStatement<'a> {
     pub fn block_statement(&self) -> Option<CSTStatement<'a>> {
         self.0
             .children()
-            .find(|n| n.is_kind(SyntaxKind::Block))
+            .find(|n| n.is_kind(SyntaxKind::BlockStatement))
             .and_then(CSTStatement::cast)
     }
 }

@@ -27,7 +27,7 @@ use nonempty::nonempty;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
-    MCFunction(ResourceLocation, Box<Statement>),
+    MCFNDeclaration(ResourceLocation, Box<Statement>),
     Expression(Expression),
     VariableDeclaration(Option<HighDataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
@@ -89,7 +89,7 @@ impl StatementKind {
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
-            StatementKind::MCFunction(id, statement) => {
+            StatementKind::MCFNDeclaration(id, statement) => {
                 datapack.within_namespace(id.namespace(), |datapack| {
                     datapack.push_function_to_current_namespace(id.paths.clone());
 
@@ -439,7 +439,7 @@ impl Statement {
         is_lhs: bool,
     ) -> Option<()> {
         match &self.kind {
-            StatementKind::MCFunction(_, statement) => {
+            StatementKind::MCFNDeclaration(_, statement) => {
                 statement.perform_semantic_analysis(ctx, is_lhs)
             }
             StatementKind::Expression(expression) => {

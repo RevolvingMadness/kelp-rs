@@ -1,6 +1,6 @@
 use crate::{cst_node, lower::statement::CSTStatement, parser::Parser, syntax::SyntaxKind};
 
-cst_node!(CSTBlockStatement, SyntaxKind::Block);
+cst_node!(CSTBlockStatement, SyntaxKind::BlockStatement);
 
 impl<'a> CSTBlockStatement<'a> {
     pub fn statements(&self) -> impl Iterator<Item = CSTStatement<'a>> {
@@ -12,7 +12,7 @@ impl<'a> CSTBlockStatement<'a> {
             return false;
         }
 
-        parser.start_node(SyntaxKind::Block);
+        parser.start_node(SyntaxKind::BlockStatement);
         parser.bump_char();
 
         let mut is_first = true;

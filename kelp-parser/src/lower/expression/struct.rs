@@ -2,13 +2,51 @@ use kelp_core::span::Span;
 
 use crate::{
     cst_node,
-    lower::{data_type::CSTDataType, struct_field::CSTStructField},
+    lower::{data_type::CSTDataType, expression::CSTExpression},
+    parser::Parser,
     syntax::SyntaxKind,
 };
+
+cst_node!(CSTStructExpressionField, SyntaxKind::StructExpressionField);
+
+impl<'a> CSTStructExpressionField<'a> {
+    pub fn name(&self) -> Option<(Span, &'a str)> {
+        self.0.children_tokens().find_map(|token| {
+            if token.kind == SyntaxKind::Identifier {
+                Some((token.span, token.text))
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn value(&self) -> Option<CSTExpression<'a>> {
+        self.0.children().find_map(CSTExpression::cast)
+    }
+}
 
 cst_node!(CSTStructExpression, SyntaxKind::StructExpression);
 
 impl<'a> CSTStructExpression<'a> {
+    pub(crate) fn bump_until_next_field_or_end(parser: &mut Parser) {
+        let chars = parser.source[parser.pos..].chars();
+        let mut length = 0;
+
+        for char in chars {
+            if char == ',' || char == '}' || char.is_alphabetic() {
+                break;
+            }
+
+            length += char.len_utf8();
+        }
+
+        if length > 0 {
+            parser.add_token(SyntaxKind::Garbage, length);
+        }
+
+        parser.try_bump_char(',');
+    }
+
     pub fn name(&self) -> Option<(Span, &'a str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -23,7 +61,7 @@ impl<'a> CSTStructExpression<'a> {
         self.0.children().filter_map(CSTDataType::cast).collect()
     }
 
-    pub fn fields(&self) -> impl Iterator<Item = CSTStructField<'a>> {
-        self.0.children().filter_map(CSTStructField::cast)
+    pub fn fields(&self) -> impl Iterator<Item = CSTStructExpressionField<'a>> {
+        self.0.children().filter_map(CSTStructExpressionField::cast)
     }
 }

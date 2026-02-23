@@ -85,11 +85,13 @@ pub enum SyntaxKind {
     StructPattern,
     StructPatternField,
 
+    BlockStatement,
     IfStatement,
-    WhileStatement,
     LetStatement,
     MCFNDeclarationStatement,
-    Block,
+    StructDeclarationStatement,
+    StructDeclarationField,
+    WhileStatement,
 
     Range,
     RangeBound,
@@ -105,9 +107,8 @@ pub enum SyntaxKind {
     StorageDataTarget,
     EntityDataTarget,
 
-    StructField,
-
     StructExpression,
+    StructExpressionField,
     FieldAccessExpression,
     AssignmentExpression,
     UnaryExpression,

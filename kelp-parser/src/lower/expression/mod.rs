@@ -574,30 +574,43 @@ impl<'a> CSTExpression<'a> {
                                 if is_struct_sig && parser.peek_char() == Some('{') {
                                     parser.bump_char();
                                     parser.skip_whitespace();
-                                    while let Some(field) = parser.peek_identifier() {
-                                        let field_cp = parser.checkpoint();
-                                        parser.bump_identifier(field);
-                                        parser.skip_whitespace();
-                                        if !parser.expect_char(':', "Expected ':'") {
-                                            return false;
+                                    while parser.peek_char() != Some('}') {
+                                        parser.start_node(SyntaxKind::StructExpressionField);
+
+                                        if !parser.expect_identifier("Expected struct field name") {
+                                            CSTStructExpression::bump_until_next_field_or_end(
+                                                parser,
+                                            );
+                                            parser.finish_node();
+
+                                            continue;
                                         }
+
                                         parser.skip_whitespace();
-                                        if !Self::parse_expression(parser) {
-                                            return false;
+
+                                        parser.expect_char(':', "Expected ':'");
+
+                                        parser.skip_whitespace();
+
+                                        if !Self::try_parse(parser) {
+                                            parser.error("Expected expression");
+                                            CSTStructExpression::bump_until_next_field_or_end(
+                                                parser,
+                                            );
+                                            parser.finish_node();
+                                            continue;
                                         }
-                                        parser.start_node_at(field_cp, SyntaxKind::StructField);
                                         parser.finish_node();
 
                                         parser.skip_whitespace();
-                                        if parser.peek_char() == Some(',') {
-                                            parser.bump_char();
+                                        if parser.try_bump_char(',') {
                                             parser.skip_whitespace();
                                         } else {
                                             break;
                                         }
                                     }
-                                    if parser.peek_char() == Some('}') {
-                                        parser.bump_char();
+
+                                    if parser.expect_char('}', "Expected '}'") {
                                         return true;
                                     }
                                 }
@@ -907,7 +920,7 @@ impl<'a> CSTExpression<'a> {
                     let generics = expression
                         .generics()
                         .into_iter()
-                        .filter_map(|g| g.lower())
+                        .filter_map(CSTDataType::lower)
                         .collect();
 
                     let fields = expression

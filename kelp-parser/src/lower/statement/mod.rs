@@ -9,8 +9,12 @@ use crate::{
         data_type::CSTDataType,
         expression::CSTExpression,
         statement::{
-            block::CSTBlockStatement, r#if::CSTIfStatement, r#let::CSTLetStatement,
-            mcfn_declaration::CSTMCFNDeclarationStatement, r#while::CSTWhileStatement,
+            block::CSTBlockStatement,
+            r#if::CSTIfStatement,
+            r#let::CSTLetStatement,
+            mcfn_declaration::CSTMCFNDeclarationStatement,
+            struct_declaration::{CSTStructDeclarationField, CSTStructDeclarationStatement},
+            r#while::CSTWhileStatement,
         },
     },
     parser::Parser,
@@ -21,16 +25,18 @@ pub mod block;
 pub mod r#if;
 pub mod r#let;
 pub mod mcfn_declaration;
+pub mod struct_declaration;
 pub mod r#while;
 
 #[derive(Debug)]
 pub enum CSTStatementKind<'a> {
-    MCFNDeclaration(CSTMCFNDeclarationStatement<'a>),
-    If(CSTIfStatement<'a>),
-    While(CSTWhileStatement<'a>),
-    Let(CSTLetStatement<'a>),
-    Expression(CSTExpression<'a>),
     Block(CSTBlockStatement<'a>),
+    Expression(CSTExpression<'a>),
+    If(CSTIfStatement<'a>),
+    Let(CSTLetStatement<'a>),
+    MCFNDeclaration(CSTMCFNDeclarationStatement<'a>),
+    StructDeclaration(CSTStructDeclarationStatement<'a>),
+    While(CSTWhileStatement<'a>),
 }
 
 impl<'a> CSTStatementKind<'a> {
@@ -63,23 +69,28 @@ impl<'a> CSTStatement<'a> {
             _ => {
                 if let Some(text) = parser.peek_identifier() {
                     match text {
-                        "mcfn" => {
-                            if CSTMCFNDeclarationStatement::try_parse(parser) {
-                                return true;
-                            }
-                        }
                         "if" => {
                             if CSTIfStatement::try_parse(parser) {
                                 return true;
                             }
                         }
-                        "while" => {
-                            if CSTWhileStatement::try_parse(parser) {
+                        "let" => {
+                            if CSTLetStatement::try_parse(parser) {
                                 return true;
                             }
                         }
-                        "let" => {
-                            if CSTLetStatement::try_parse(parser) {
+                        "mcfn" => {
+                            if CSTMCFNDeclarationStatement::try_parse(parser) {
+                                return true;
+                            }
+                        }
+                        "struct" => {
+                            if CSTStructDeclarationStatement::try_parse(parser) {
+                                return true;
+                            }
+                        }
+                        "while" => {
+                            if CSTWhileStatement::try_parse(parser) {
                                 return true;
                             }
                         }
@@ -114,15 +125,20 @@ impl<'a> CSTStatement<'a> {
     pub fn cast(node: &'a CSTNodeType) -> Option<CSTStatement<'a>> {
         Some(
             (match node.kind()? {
+                SyntaxKind::BlockStatement => {
+                    CSTStatementKind::Block(CSTBlockStatement::cast(node)?)
+                }
+                SyntaxKind::IfStatement => CSTStatementKind::If(CSTIfStatement::cast(node)?),
+                SyntaxKind::LetStatement => CSTStatementKind::Let(CSTLetStatement::cast(node)?),
                 SyntaxKind::MCFNDeclarationStatement => {
                     CSTStatementKind::MCFNDeclaration(CSTMCFNDeclarationStatement::cast(node)?)
                 }
-                SyntaxKind::IfStatement => CSTStatementKind::If(CSTIfStatement::cast(node)?),
+                SyntaxKind::StructDeclarationStatement => {
+                    CSTStatementKind::StructDeclaration(CSTStructDeclarationStatement::cast(node)?)
+                }
                 SyntaxKind::WhileStatement => {
                     CSTStatementKind::While(CSTWhileStatement::cast(node)?)
                 }
-                SyntaxKind::LetStatement => CSTStatementKind::Let(CSTLetStatement::cast(node)?),
-                SyntaxKind::Block => CSTStatementKind::Block(CSTBlockStatement::cast(node)?),
                 _ => {
                     if let Some(expression) = CSTExpression::cast(node) {
                         CSTStatementKind::Expression(expression)
@@ -141,12 +157,16 @@ impl<'a> CSTStatement<'a> {
     pub fn lower(self) -> Option<Statement> {
         Some(
             (match self.kind {
-                CSTStatementKind::MCFNDeclaration(statement) => {
-                    let resource_location = statement.resource_location()?.lower()?;
+                CSTStatementKind::Block(statement) => {
+                    let statements = statement
+                        .statements()
+                        .filter_map(CSTStatement::lower)
+                        .collect();
 
-                    let statement = statement.block_statement()?.lower()?;
-
-                    StatementKind::MCFunction(resource_location, Box::new(statement))
+                    StatementKind::Block(statements)
+                }
+                CSTStatementKind::Expression(expression) => {
+                    StatementKind::Expression(expression.lower()?)
                 }
                 CSTStatementKind::If(statement) => {
                     let condition = statement.condition()?.lower()?;
@@ -158,12 +178,6 @@ impl<'a> CSTStatement<'a> {
 
                     StatementKind::If(condition, Box::new(body), else_body)
                 }
-                CSTStatementKind::While(statement) => {
-                    let condition = statement.condition()?.lower()?;
-                    let body = statement.body()?.lower()?;
-
-                    StatementKind::While(condition, Box::new(body))
-                }
                 CSTStatementKind::Let(statement) => {
                     let pattern = statement.pattern()?.lower()?;
 
@@ -173,16 +187,30 @@ impl<'a> CSTStatement<'a> {
 
                     StatementKind::VariableDeclaration(data_type, pattern, value)
                 }
-                CSTStatementKind::Block(statement) => {
-                    let statements = statement
-                        .statements()
-                        .filter_map(CSTStatement::lower)
+                CSTStatementKind::MCFNDeclaration(statement) => {
+                    let resource_location = statement.resource_location()?.lower()?;
+
+                    let statement = statement.block_statement()?.lower()?;
+
+                    StatementKind::MCFNDeclaration(resource_location, Box::new(statement))
+                }
+                CSTStatementKind::StructDeclaration(statement) => {
+                    let name = statement.name()?.to_string();
+
+                    let generics = statement.generics().map(ToString::to_string).collect();
+
+                    let fields = statement
+                        .fields()
+                        .filter_map(CSTStructDeclarationField::lower)
                         .collect();
 
-                    StatementKind::Block(statements)
+                    StatementKind::StructDeclaration(name, generics, fields)
                 }
-                CSTStatementKind::Expression(expression) => {
-                    StatementKind::Expression(expression.lower()?)
+                CSTStatementKind::While(statement) => {
+                    let condition = statement.condition()?.lower()?;
+                    let body = statement.body()?.lower()?;
+
+                    StatementKind::While(condition, Box::new(body))
                 }
             })
             .with_span(self.span),

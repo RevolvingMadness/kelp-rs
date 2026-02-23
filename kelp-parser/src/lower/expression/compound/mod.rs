@@ -33,7 +33,7 @@ impl<'a> CSTCompoundExpression<'a> {
             parser.start_node(SyntaxKind::CompoundExpressionEntry);
 
             if !parser.try_parse_string_or_identifier() {
-                parser.error("Expected key");
+                parser.error("Expected compound key");
                 CSTCompoundExpression::bump_until_next_compound_entry_or_end(parser);
                 parser.finish_node();
 
@@ -62,29 +62,28 @@ impl<'a> CSTCompoundExpression<'a> {
             parser.finish_node();
             parser.skip_whitespace();
 
-            if parser.peek_char() == Some(',') {
-                parser.bump_char();
-            } else if parser.peek_char() != Some('}') {
-                parser.error("Expected ',' or '}' after compound entry");
+            if !parser.try_bump_char(',') && parser.peek_char() != Some('}') {
+                parser.error("Expected ',' or '}'");
                 CSTCompoundExpression::bump_until_next_compound_entry_or_end(parser);
             }
         }
 
-        parser.expect_char('}', "Expected '}' to terminate compound expression");
+        parser.expect_char('}', "Expected '}'");
         parser.finish_node();
 
         true
     }
 
     fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
+        let chars = parser.source[parser.pos..].chars();
         let mut length = 0;
 
-        while let Some(c) = parser.peek_nth_char(length) {
-            if c == ',' || c == '}' || c == '\n' {
+        for char in chars {
+            if char == ',' || char == '}' || char == '\n' {
                 break;
             }
 
-            length += c.len_utf8();
+            length += char.len_utf8();
         }
 
         if length > 0 {

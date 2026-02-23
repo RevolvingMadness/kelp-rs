@@ -2,7 +2,7 @@ use kelp_core::span::Span;
 
 use crate::{
     cstlib::{CSTNodeType, error::CSTError, node::CSTNode, token::CSTToken},
-    lower::statement::CSTStatement,
+    lower::root::CSTRoot,
     syntax::SyntaxKind,
 };
 
@@ -260,12 +260,12 @@ impl<'a> Parser<'a> {
         self.events.push(Event::Token { kind, text });
     }
 
-    pub fn build_tree(self) -> CSTNodeType<'a> {
+    pub fn build_tree(&'a self) -> CSTNodeType<'a> {
         let mut stack = vec![(None, 0usize, Vec::new())];
 
         let mut current_offset = 0usize;
 
-        for event in self.events {
+        for event in self.events.iter() {
             match event {
                 Event::StartNode(kind) => {
                     stack.push((Some(kind), current_offset, Vec::new()));
@@ -279,7 +279,7 @@ impl<'a> Parser<'a> {
                         .unwrap()
                         .2
                         .push(CSTNodeType::Token(CSTToken {
-                            kind,
+                            kind: *kind,
                             text,
                             span: Span {
                                 start,
@@ -293,7 +293,7 @@ impl<'a> Parser<'a> {
                         .unwrap()
                         .2
                         .push(CSTNodeType::Error(CSTError {
-                            message,
+                            message: message.clone(),
                             span: Span {
                                 start: current_offset,
                                 end: current_offset + len,
@@ -304,7 +304,7 @@ impl<'a> Parser<'a> {
                     let (kind, start_offset, children) = stack.pop().unwrap();
 
                     let node = CSTNodeType::Node(CSTNode {
-                        kind: kind.unwrap(),
+                        kind: *kind.unwrap(),
                         children,
                         span: Span {
                             start: start_offset,
@@ -316,7 +316,9 @@ impl<'a> Parser<'a> {
             }
         }
 
-        stack.pop().unwrap().2.into_iter().next().unwrap()
+        let (_, _, nodes) = stack.pop().unwrap();
+
+        nodes.into_iter().next().unwrap()
     }
 
     pub fn save_state(&self) -> (usize, usize) {
@@ -458,24 +460,8 @@ impl<'a> Parser<'a> {
         true
     }
 
-    pub fn parse(mut self) -> ParseResult<'a> {
-        self.start_node(SyntaxKind::Root);
-
-        self.skip_whitespace();
-
-        let mut is_first = true;
-
-        while !self.is_eof() {
-            if !is_first {
-                let _ = self.expect_newline_whitespace("Expected newline to mark end of statement");
-            }
-
-            let _ = CSTStatement::try_parse(&mut self);
-
-            is_first = false;
-        }
-
-        self.finish_node();
+    pub fn parse(&'a mut self) -> ParseResult<'a> {
+        CSTRoot::parse(self);
 
         let root = self.build_tree();
         let mut errors = Vec::new();
@@ -486,12 +472,12 @@ impl<'a> Parser<'a> {
 
     fn extract_errors(errors: &mut Vec<CSTError>, node: &CSTNodeType) {
         match node {
-            CSTNodeType::Node(n) => {
-                for child in &n.children {
+            CSTNodeType::Node(node) => {
+                for child in node.children.iter() {
                     Self::extract_errors(errors, child);
                 }
             }
-            CSTNodeType::Error(err) => errors.push(err.clone()),
+            CSTNodeType::Error(error) => errors.push(error.clone()),
             _ => {}
         }
     }

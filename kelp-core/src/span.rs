@@ -26,6 +26,18 @@ impl Span {
     pub fn into_range(self) -> Range<usize> {
         self.start..self.end
     }
+
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
 }
 
 impl_has_macro_false!(Span);

@@ -6,7 +6,7 @@ use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_core::statement::Statement;
-use kelp_parser::lower::Lowerer;
+use kelp_parser::lower::root::CSTRoot;
 use kelp_parser::parser::{ParseResult, Parser};
 use nonempty::nonempty;
 use std::fs;
@@ -164,13 +164,15 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     let target_path_str = target_path.to_string_lossy();
 
-    let parser = Parser::new(&input_text);
+    let mut parser = Parser::new(&input_text);
 
     let start_parse = Instant::now();
     let ParseResult { root, errors } = parser.parse();
     let parse_elapsed = start_parse.elapsed();
 
     root.print(0);
+
+    let root = CSTRoot::cast(&root).unwrap();
 
     let error_input_text = format!("{} ", input_text);
 
@@ -191,7 +193,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     }
 
     let lower_start = Instant::now();
-    let statements = Lowerer::lower_root(&root);
+    let statements = root.lower();
     let lower_elapsed = lower_start.elapsed();
 
     let mut semantic_analysis_context = SemanticAnalysisContext {

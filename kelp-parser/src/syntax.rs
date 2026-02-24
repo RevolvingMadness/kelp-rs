@@ -134,7 +134,6 @@ pub enum SyntaxKind {
     UnitExpression,
     TupleExpression,
     ToCastExpression,
-    RuntimeStorageType,
     AsCastExpression,
     ParenthesizedExpression,
 

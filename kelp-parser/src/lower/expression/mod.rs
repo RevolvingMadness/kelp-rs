@@ -410,13 +410,9 @@ impl<'a> CSTExpression<'a> {
 
                     if id == "to" {
                         parser.start_node_at(checkpoint, SyntaxKind::ToCastExpression);
-                        parser.bump_identifier("to");
+                        parser.bump_keyword("to");
                         parser.expect_inline_whitespace();
-                        if let Some(text) = parser.peek_identifier() {
-                            parser.add_token(SyntaxKind::RuntimeStorageType, text.len());
-                        } else {
-                            parser.error("Expected runtime storage type");
-                        }
+                        parser.expect_identifier("Expected runtime storage type");
                         parser.finish_node();
                     } else if id == "as" {
                         parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
@@ -1219,12 +1215,18 @@ impl<'a> CSTExpression<'a> {
                     inner.collect_semantic_tokens(tokens);
                 }
 
-                if let Some(token) = expression
-                    .0
-                    .children_tokens()
-                    .find(|t| t.kind == SyntaxKind::RuntimeStorageType)
-                {
-                    tokens.push(SemanticToken::new(token.span, SemanticTokenType::Keyword));
+                if let Some(to_keyword_span) = expression.to_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        to_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                if let Some(runtime_storage_type_span) = expression.runtime_storage_type_span() {
+                    tokens.push(SemanticToken::new(
+                        runtime_storage_type_span,
+                        SemanticTokenType::Class,
+                    ));
                 }
             }
             CSTExpressionKind::FieldAccess(expression) => {

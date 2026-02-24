@@ -14,6 +14,7 @@ use crate::{
         resource_location::CSTResourceLocation,
     },
     parser::Parser,
+    semantic_token::SemanticToken,
     syntax::SyntaxKind,
 };
 
@@ -43,10 +44,12 @@ pub struct CSTDataTarget<'a> {
 }
 
 impl<'a> CSTDataTarget<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         let Some(identifier) = parser.peek_identifier() else {
             return false;
         };
+
+        let state = parser.save_state();
 
         match identifier {
             "entity" => {
@@ -55,6 +58,8 @@ impl<'a> CSTDataTarget<'a> {
                 parser.bump_identifier("entity");
 
                 if !parser.expect_inline_whitespace() || !CSTEntitySelector::try_parse(parser) {
+                    parser.restore_state(state);
+
                     return false;
                 }
             }
@@ -64,6 +69,8 @@ impl<'a> CSTDataTarget<'a> {
                 parser.bump_identifier("block");
 
                 if !parser.expect_inline_whitespace() || !CSTCoordinates::try_parse(parser) {
+                    parser.restore_state(state);
+
                     return false;
                 }
             }
@@ -73,6 +80,8 @@ impl<'a> CSTDataTarget<'a> {
                 parser.bump_identifier("storage");
 
                 if !parser.expect_inline_whitespace() || !CSTResourceLocation::try_parse(parser) {
+                    parser.restore_state(state);
+
                     return false;
                 }
             }
@@ -107,26 +116,40 @@ impl<'a> CSTDataTarget<'a> {
         )
     }
 
-    pub fn lower(self) -> Option<HighDataTarget> {
+    pub fn lower(self, text: &str) -> Option<HighDataTarget> {
         Some(
             (match self.kind {
                 CSTDataTargetKind::Entity(target) => {
-                    let selector = target.selector()?.lower()?;
+                    let selector = target.selector()?.lower(text)?;
 
                     HighDataTargetKind::Entity(selector)
                 }
                 CSTDataTargetKind::Block(target) => {
-                    let coordinates = target.coordinates()?.lower()?;
+                    let coordinates = target.coordinates()?.lower(text)?;
 
                     HighDataTargetKind::Block(coordinates)
                 }
                 CSTDataTargetKind::Storage(target) => {
-                    let resource_location = target.resource_location()?.lower()?;
+                    let resource_location = target.resource_location()?.lower(text)?;
 
                     HighDataTargetKind::Storage(resource_location)
                 }
             })
             .with_regular_span(self.span),
         )
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match &self.kind {
+            CSTDataTargetKind::Entity(target) => {
+                target.collect_semantic_tokens(tokens);
+            }
+            CSTDataTargetKind::Block(target) => {
+                target.collect_semantic_tokens(tokens);
+            }
+            CSTDataTargetKind::Storage(target) => {
+                target.collect_semantic_tokens(tokens);
+            }
+        }
     }
 }

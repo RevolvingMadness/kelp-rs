@@ -170,7 +170,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let ParseResult { root, errors } = parser.parse();
     let parse_elapsed = start_parse.elapsed();
 
-    root.print(0);
+    root.print(&input_text, 0);
 
     let root = CSTRoot::cast(&root).unwrap();
 
@@ -193,7 +193,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     }
 
     let lower_start = Instant::now();
-    let statements = root.lower();
+    let statements = root.lower(&input_text);
     let lower_elapsed = lower_start.elapsed();
 
     let mut semantic_analysis_context = SemanticAnalysisContext {
@@ -261,8 +261,8 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 fn process_success(
     existing_elapsed: Duration,
     statements: Vec<Statement>,
-    file_name: &str,
-    source_text: &str,
+    _file_name: &str,
+    _source_text: &str,
     project_name: &str,
 ) {
     let mut datapack = HighDatapack::new(project_name);

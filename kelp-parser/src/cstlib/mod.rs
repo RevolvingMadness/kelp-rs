@@ -10,15 +10,15 @@ pub mod node;
 pub mod token;
 
 #[derive(Debug, Clone)]
-pub enum CSTNodeType<'a> {
-    Node(CSTNode<'a>),
-    Token(CSTToken<'a>),
+pub enum CSTNodeType {
+    Node(CSTNode),
+    Token(CSTToken),
     Error(CSTError),
 }
 
-impl<'a> CSTNodeType<'a> {
+impl CSTNodeType {
     #[must_use]
-    pub fn as_node(&'a self) -> Option<&'a CSTNode<'a>> {
+    pub fn as_node(&self) -> Option<&CSTNode> {
         if let CSTNodeType::Node(node) = self {
             Some(node)
         } else {
@@ -27,7 +27,7 @@ impl<'a> CSTNodeType<'a> {
     }
 
     #[must_use]
-    pub fn as_token(&'a self) -> Option<&'a CSTToken<'a>> {
+    pub fn as_token(&self) -> Option<&CSTToken> {
         if let CSTNodeType::Token(token) = self {
             Some(token)
         } else {
@@ -67,14 +67,14 @@ impl<'a> CSTNodeType<'a> {
         self.kind() == Some(kind)
     }
 
-    pub fn children(&'a self) -> impl DoubleEndedIterator<Item = &'a CSTNodeType<'a>> {
+    pub fn children(&self) -> impl DoubleEndedIterator<Item = &CSTNodeType> {
         match self {
             CSTNodeType::Node(node) => node.children.iter(),
             _ => [].iter(),
         }
     }
 
-    pub fn children_tokens(&'a self) -> impl Iterator<Item = &'a CSTToken<'a>> {
+    pub fn children_tokens(&self) -> impl Iterator<Item = &CSTToken> {
         if let CSTNodeType::Node(node) = self {
             Some(node.children.iter().filter_map(CSTNodeType::as_token))
                 .into_iter()
@@ -84,22 +84,13 @@ impl<'a> CSTNodeType<'a> {
         }
     }
 
-    #[must_use]
-    pub fn text(&self) -> &str {
-        if let CSTNodeType::Token(token) = self {
-            token.text
-        } else {
-            ""
-        }
-    }
-
-    pub fn print(&self, depth: usize) {
+    pub fn print(&self, text: &str, depth: usize) {
         let indent = "  ".repeat(depth);
         match self {
             CSTNodeType::Node(node) => {
                 println!("{}{:?}@{}", indent, node.kind, node.span);
                 for child in &node.children {
-                    child.print(depth + 1);
+                    child.print(text, depth + 1);
                 }
             }
             CSTNodeType::Token(token) => {
@@ -108,7 +99,7 @@ impl<'a> CSTNodeType<'a> {
                     indent,
                     token.kind,
                     token.span,
-                    token.text.escape_default()
+                    token.text(text).escape_default(),
                 );
             }
             CSTNodeType::Error(error) => {

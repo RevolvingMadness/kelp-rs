@@ -9,10 +9,10 @@ impl<'a> CSTFieldAccessExpression<'a> {
         self.0.children().find_map(CSTExpression::cast)
     }
 
-    pub fn field(&self) -> Option<(Span, &'a str)> {
+    pub fn field<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier || token.kind == SyntaxKind::WholeValue {
-                Some((token.span, token.text))
+                Some((token.span, token.text(text)))
             } else {
                 None
             }

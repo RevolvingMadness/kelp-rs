@@ -7,6 +7,7 @@ use crate::{
         CSTNBTPathNode, index::CSTNBTPathIndexNode, named::CSTNBTPathNamedNode,
     },
     parser::Parser,
+    semantic_token::SemanticToken,
     syntax::SyntaxKind,
 };
 
@@ -15,7 +16,7 @@ pub mod node;
 cst_node!(CSTNBTPath, SyntaxKind::NBTPath);
 
 impl<'a> CSTNBTPath<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         let checkpoint = parser.checkpoint();
         parser.start_node(SyntaxKind::NBTPath);
 
@@ -56,13 +57,19 @@ impl<'a> CSTNBTPath<'a> {
         self.0.children().filter_map(CSTNBTPathNode::cast).collect()
     }
 
-    pub fn lower(self) -> Option<HighNbtPath> {
+    pub fn lower(self, text: &str) -> Option<HighNbtPath> {
         let nodes = self
             .nodes()
             .into_iter()
-            .filter_map(CSTNBTPathNode::lower)
+            .filter_map(|node| node.lower(text))
             .collect();
 
         Some(HighNbtPath(NonEmpty::from_vec(nodes)?))
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        for node in self.nodes() {
+            node.collect_semantic_tokens(tokens);
+        }
     }
 }

@@ -1,4 +1,4 @@
-use kelp_core::data_type::high::HighDataType;
+use kelp_core::{data_type::high::HighDataType, span::Span};
 
 use crate::{
     cst_node,
@@ -13,18 +13,28 @@ cst_node!(
 );
 
 impl<'a> CSTStructDeclarationField<'a> {
-    pub(crate) fn lower(self) -> Option<(String, HighDataType)> {
-        let name = self.name()?;
+    pub fn lower(self, text: &str) -> Option<(String, HighDataType)> {
+        let name = self.name(text)?;
 
-        let data_type = self.data_type()?.lower()?;
+        let data_type = self.data_type()?.lower(text)?;
 
         Some((name.to_string(), data_type))
     }
 
-    pub fn name(&self) -> Option<&'a str> {
+    pub fn name_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
-                Some(token.text)
+                Some(token.span)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
+        self.0.children_tokens().find_map(|token| {
+            if token.kind == SyntaxKind::Identifier {
+                Some(token.text(text))
             } else {
                 None
             }
@@ -63,11 +73,11 @@ impl<'a> CSTStructDeclarationStatement<'a> {
         }
     }
 
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         let beginning = parser.save_state();
 
         parser.start_node(SyntaxKind::StructDeclarationStatement);
-        parser.bump_keyword("struct".len());
+        parser.bump_keyword("struct");
         parser.expect_inline_whitespace();
 
         if !parser.expect_identifier("Expected struct name") {
@@ -162,22 +172,45 @@ impl<'a> CSTStructDeclarationStatement<'a> {
         true
     }
 
-    pub fn name(&self) -> Option<&'a str> {
+    pub fn struct_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text)
+            if token.kind == SyntaxKind::Keyword {
+                Some(token.span)
             } else {
                 None
             }
         })
     }
 
-    pub fn generics(&self) -> impl Iterator<Item = &'a str> {
+    pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
+        self.0.children_tokens().find_map(|token| {
+            if token.kind == SyntaxKind::Identifier {
+                Some(token.text(text))
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn generics_span(&self) -> impl Iterator<Item = Span> {
         self.0
             .children_tokens()
             .filter_map(|token| {
                 if token.kind == SyntaxKind::Identifier {
-                    Some(token.text)
+                    Some(token.span)
+                } else {
+                    None
+                }
+            })
+            .skip(1)
+    }
+
+    pub fn generics<'b>(&self, text: &'b str) -> impl Iterator<Item = &'b str> {
+        self.0
+            .children_tokens()
+            .filter_map(|token| {
+                if token.kind == SyntaxKind::Identifier {
+                    Some(token.text(text))
                 } else {
                     None
                 }

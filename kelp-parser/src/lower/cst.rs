@@ -2,7 +2,7 @@
 macro_rules! cst_node {
     ($name:ident, $kind:pat) => {
         #[derive(Debug, Clone, Copy)]
-        pub struct $name<'a>(pub &'a $crate::cstlib::CSTNodeType<'a>);
+        pub struct $name<'a>(pub &'a $crate::cstlib::CSTNodeType);
 
         impl<'a> $name<'a> {
             pub fn cast(node: &'a $crate::cstlib::CSTNodeType) -> Option<Self> {

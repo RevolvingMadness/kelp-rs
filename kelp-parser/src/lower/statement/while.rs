@@ -1,3 +1,5 @@
+use kelp_core::span::Span;
+
 use crate::{
     cst_node,
     lower::{expression::CSTExpression, statement::CSTStatement},
@@ -8,11 +10,11 @@ use crate::{
 cst_node!(CSTWhileStatement, SyntaxKind::WhileStatement);
 
 impl<'a> CSTWhileStatement<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         let state = parser.save_state();
 
         parser.start_node(SyntaxKind::WhileStatement);
-        parser.bump_keyword("while".len());
+        parser.bump_keyword("while");
         parser.skip_inline_whitespace();
 
         if !CSTExpression::try_parse(parser) {
@@ -30,6 +32,16 @@ impl<'a> CSTWhileStatement<'a> {
         parser.finish_node();
 
         true
+    }
+
+    pub fn while_keyword_span(&self) -> Option<Span> {
+        self.0.children_tokens().find_map(|token| {
+            if token.kind == SyntaxKind::Keyword {
+                Some(token.span)
+            } else {
+                None
+            }
+        })
     }
 
     pub fn condition(&self) -> Option<CSTExpression<'a>> {

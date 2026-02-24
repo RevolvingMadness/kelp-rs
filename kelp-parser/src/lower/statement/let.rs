@@ -1,3 +1,5 @@
+use kelp_core::span::Span;
+
 use crate::{
     cst_node,
     lower::{data_type::CSTDataType, expression::CSTExpression, pattern::CSTPattern},
@@ -8,11 +10,11 @@ use crate::{
 cst_node!(CSTLetStatement, SyntaxKind::LetStatement);
 
 impl<'a> CSTLetStatement<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         let state = parser.save_state();
 
         parser.start_node(SyntaxKind::LetStatement);
-        parser.bump_keyword("let".len());
+        parser.bump_keyword("let");
         parser.skip_whitespace();
 
         if !CSTPattern::try_parse(parser) {
@@ -40,6 +42,16 @@ impl<'a> CSTLetStatement<'a> {
         parser.finish_node();
 
         true
+    }
+
+    pub fn let_keyword_span(&self) -> Option<Span> {
+        self.0.children_tokens().find_map(|token| {
+            if token.kind == SyntaxKind::Keyword {
+                Some(token.span)
+            } else {
+                None
+            }
+        })
     }
 
     pub fn pattern(&self) -> Option<CSTPattern<'a>> {

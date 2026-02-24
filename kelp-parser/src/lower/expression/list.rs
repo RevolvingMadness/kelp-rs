@@ -5,7 +5,7 @@ use crate::{cst_node, lower::expression::CSTExpression, parser::Parser, syntax::
 cst_node!(CSTListExpression, SyntaxKind::ListExpression);
 
 impl<'a> CSTListExpression<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         if parser.peek_char() != Some('[') {
             return false;
         }
@@ -41,13 +41,13 @@ impl<'a> CSTListExpression<'a> {
         true
     }
 
-    fn expressions(&self) -> impl Iterator<Item = CSTExpression<'a>> {
+    pub fn expressions(&self) -> impl Iterator<Item = CSTExpression<'a>> {
         self.0.children().filter_map(CSTExpression::cast)
     }
 
-    pub(crate) fn lower(self) -> Vec<Expression> {
+    pub fn lower(self, text: &str) -> Vec<Expression> {
         self.expressions()
-            .filter_map(CSTExpression::lower)
+            .filter_map(|expression| expression.lower(text))
             .collect()
     }
 }

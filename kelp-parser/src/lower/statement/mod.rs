@@ -6,18 +6,15 @@ use kelp_core::{
 use crate::{
     cstlib::CSTNodeType,
     lower::{
-        data_type::CSTDataType,
         expression::CSTExpression,
         statement::{
-            block::CSTBlockStatement,
-            r#if::CSTIfStatement,
-            r#let::CSTLetStatement,
+            block::CSTBlockStatement, r#if::CSTIfStatement, r#let::CSTLetStatement,
             mcfn_declaration::CSTMCFNDeclarationStatement,
-            struct_declaration::{CSTStructDeclarationField, CSTStructDeclarationStatement},
-            r#while::CSTWhileStatement,
+            struct_declaration::CSTStructDeclarationStatement, r#while::CSTWhileStatement,
         },
     },
     parser::Parser,
+    semantic_token::{SemanticToken, SemanticTokenType},
     syntax::SyntaxKind,
 };
 
@@ -154,66 +151,178 @@ impl<'a> CSTStatement<'a> {
         )
     }
 
-    pub fn lower(self) -> Option<Statement> {
+    pub fn lower(self, text: &str) -> Option<Statement> {
         Some(
             (match self.kind {
                 CSTStatementKind::Block(statement) => {
                     let statements = statement
                         .statements()
-                        .filter_map(CSTStatement::lower)
+                        .filter_map(|statement| statement.lower(text))
                         .collect();
 
                     StatementKind::Block(statements)
                 }
                 CSTStatementKind::Expression(expression) => {
-                    StatementKind::Expression(expression.lower()?)
+                    StatementKind::Expression(expression.lower(text)?)
                 }
                 CSTStatementKind::If(statement) => {
-                    let condition = statement.condition()?.lower()?;
-                    let body = statement.body()?.lower()?;
+                    let condition = statement.condition()?.lower(text)?;
+                    let body = statement.body()?.lower(text)?;
                     let else_body = statement
                         .else_body()
-                        .and_then(CSTStatement::lower)
+                        .and_then(|statement| statement.lower(text))
                         .map(Box::new);
 
                     StatementKind::If(condition, Box::new(body), else_body)
                 }
                 CSTStatementKind::Let(statement) => {
-                    let pattern = statement.pattern()?.lower()?;
+                    let pattern = statement.pattern()?.lower(text)?;
 
-                    let data_type = statement.data_type().and_then(CSTDataType::lower);
+                    let data_type = statement
+                        .data_type()
+                        .and_then(|data_type| data_type.lower(text));
 
-                    let value = statement.value()?.lower()?;
+                    let value = statement.value()?.lower(text)?;
 
                     StatementKind::VariableDeclaration(data_type, pattern, value)
                 }
                 CSTStatementKind::MCFNDeclaration(statement) => {
-                    let resource_location = statement.resource_location()?.lower()?;
+                    let resource_location = statement.resource_location()?.lower(text)?;
 
-                    let statement = statement.block_statement()?.lower()?;
+                    let statement = statement.block_statement()?.lower(text)?;
 
                     StatementKind::MCFNDeclaration(resource_location, Box::new(statement))
                 }
                 CSTStatementKind::StructDeclaration(statement) => {
-                    let name = statement.name()?.to_string();
+                    let name = statement.name(text)?.to_string();
 
-                    let generics = statement.generics().map(ToString::to_string).collect();
+                    let generics = statement.generics(text).map(ToString::to_string).collect();
 
                     let fields = statement
                         .fields()
-                        .filter_map(CSTStructDeclarationField::lower)
+                        .filter_map(|struct_declaration_field| struct_declaration_field.lower(text))
                         .collect();
 
                     StatementKind::StructDeclaration(name, generics, fields)
                 }
                 CSTStatementKind::While(statement) => {
-                    let condition = statement.condition()?.lower()?;
-                    let body = statement.body()?.lower()?;
+                    let condition = statement.condition()?.lower(text)?;
+                    let body = statement.body()?.lower(text)?;
 
                     StatementKind::While(condition, Box::new(body))
                 }
             })
             .with_span(self.span),
         )
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match &self.kind {
+            CSTStatementKind::Block(statement) => {
+                for statement in statement.statements() {
+                    statement.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTStatementKind::Expression(statement) => {
+                statement.collect_semantic_tokens(tokens);
+            }
+            CSTStatementKind::If(statement) => {
+                if let Some(if_keyword_span) = statement.if_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        if_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                if let Some(condition) = statement.condition() {
+                    condition.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(body) = statement.body() {
+                    body.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(else_keyword_span) = statement.else_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        else_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                if let Some(else_body) = statement.else_body() {
+                    else_body.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTStatementKind::Let(statement) => {
+                if let Some(let_keyword_span) = statement.let_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        let_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                if let Some(pattern) = statement.pattern() {
+                    pattern.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(value) = statement.value() {
+                    value.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTStatementKind::MCFNDeclaration(statement) => {
+                if let Some(mcfn_keyword_span) = statement.mcfn_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        mcfn_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                if let Some(resource_location) = statement.resource_location() {
+                    resource_location.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(block_statement) = statement.block_statement() {
+                    block_statement.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTStatementKind::StructDeclaration(statement) => {
+                if let Some(struct_keyword_span) = statement.struct_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        struct_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                for generic_span in statement.generics_span() {
+                    tokens.push(SemanticToken::new(generic_span, SemanticTokenType::Class));
+                }
+
+                for field in statement.fields() {
+                    if let Some(name_span) = field.name_span() {
+                        tokens.push(SemanticToken::new(name_span, SemanticTokenType::Variable));
+                    }
+
+                    if let Some(data_type) = field.data_type() {
+                        data_type.collect_semantic_tokens(tokens);
+                    }
+                }
+            }
+            CSTStatementKind::While(statement) => {
+                if let Some(while_keyword_span) = statement.while_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        while_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                if let Some(condition) = statement.condition() {
+                    condition.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(body) = statement.body() {
+                    body.collect_semantic_tokens(tokens);
+                }
+            }
+        }
     }
 }

@@ -12,6 +12,7 @@ use crate::{
         wildcard::CSTWildcardPattern,
     },
     parser::Parser,
+    semantic_token::SemanticToken,
     syntax::SyntaxKind,
 };
 
@@ -44,7 +45,7 @@ pub struct CSTPattern<'a> {
 
 impl<'a> CSTPattern<'a> {
     #[must_use]
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         match parser.peek_char() {
             Some('(') => {
                 parser.start_node(SyntaxKind::TuplePattern);
@@ -141,7 +142,7 @@ impl<'a> CSTPattern<'a> {
         }
     }
 
-    pub fn cast(node: &'a CSTNodeType<'a>) -> Option<CSTPattern<'a>> {
+    pub fn cast(node: &'a CSTNodeType) -> Option<CSTPattern<'a>> {
         Some(
             (match node.kind()? {
                 SyntaxKind::WildcardPattern => {
@@ -163,31 +164,35 @@ impl<'a> CSTPattern<'a> {
         )
     }
 
-    pub fn lower(self) -> Option<Pattern> {
+    pub fn lower(self, text: &str) -> Option<Pattern> {
         Some(
             (match self.kind {
                 CSTPatternKind::Wildcard(_) => PatternKind::Wildcard,
                 CSTPatternKind::Tuple(pattern) => {
-                    let patterns = pattern.patterns().filter_map(CSTPattern::lower).collect();
+                    let patterns = pattern
+                        .patterns()
+                        .filter_map(|pattern| pattern.lower(text))
+                        .collect();
 
                     PatternKind::Tuple(patterns)
                 }
                 CSTPatternKind::Binding(pattern) => {
-                    let name = pattern.name()?.to_string();
+                    let name = pattern.name(text)?.to_string();
 
                     PatternKind::Binding(name)
                 }
                 CSTPatternKind::Struct(pattern) => {
-                    let struct_name = pattern.name()?.to_string();
+                    let struct_name = pattern.name(text)?.to_string();
 
                     let fields = pattern
                         .fields()
                         .into_iter()
                         .filter_map(|field| {
-                            let (field_name_span, field_name) = field.name()?;
+                            let (field_name_span, field_name) = field.name(text)?;
                             let field_name = field_name.to_string();
 
-                            let field_pattern = field.pattern().and_then(CSTPattern::lower);
+                            let field_pattern =
+                                field.pattern().and_then(|pattern| pattern.lower(text));
 
                             Some((
                                 HighSNBTString {
@@ -204,5 +209,22 @@ impl<'a> CSTPattern<'a> {
             })
             .with_span(self.span),
         )
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match &self.kind {
+            CSTPatternKind::Wildcard(pattern) => {
+                pattern.collect_semantic_tokens(tokens);
+            }
+            CSTPatternKind::Tuple(pattern) => {
+                pattern.collect_semantic_tokens(tokens);
+            }
+            CSTPatternKind::Binding(pattern) => {
+                pattern.collect_semantic_tokens(tokens);
+            }
+            CSTPatternKind::Struct(pattern) => {
+                pattern.collect_semantic_tokens(tokens);
+            }
+        }
     }
 }

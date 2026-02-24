@@ -10,10 +10,10 @@ use crate::{
 cst_node!(CSTStructExpressionField, SyntaxKind::StructExpressionField);
 
 impl<'a> CSTStructExpressionField<'a> {
-    pub fn name(&self) -> Option<(Span, &'a str)> {
+    pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
-                Some((token.span, token.text))
+                Some((token.span, token.text(text)))
             } else {
                 None
             }
@@ -28,7 +28,7 @@ impl<'a> CSTStructExpressionField<'a> {
 cst_node!(CSTStructExpression, SyntaxKind::StructExpression);
 
 impl<'a> CSTStructExpression<'a> {
-    pub(crate) fn bump_until_next_field_or_end(parser: &mut Parser) {
+    pub fn bump_until_next_field_or_end(parser: &mut Parser) {
         let chars = parser.source[parser.pos..].chars();
         let mut length = 0;
 
@@ -47,10 +47,10 @@ impl<'a> CSTStructExpression<'a> {
         parser.try_bump_char(',');
     }
 
-    pub fn name(&self) -> Option<(Span, &'a str)> {
+    pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
-                Some((token.span, token.text))
+                Some((token.span, token.text(text)))
             } else {
                 None
             }

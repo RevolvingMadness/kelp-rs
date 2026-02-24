@@ -7,6 +7,7 @@ use crate::{
         world::{CSTWorldCoordinate, CSTWorldCoordinates},
     },
     parser::Parser,
+    semantic_token::SemanticToken,
     syntax::SyntaxKind,
 };
 
@@ -19,7 +20,7 @@ pub enum CSTCoordinates<'a> {
 }
 
 impl<'a> CSTCoordinates<'a> {
-    pub(crate) fn parse_local_coordinate(parser: &mut Parser) {
+    pub fn parse_local_coordinate(parser: &mut Parser) {
         parser.start_node(SyntaxKind::LocalCoordinate);
 
         if !parser.expect_char('^', "Expected '^'") {
@@ -31,7 +32,7 @@ impl<'a> CSTCoordinates<'a> {
         parser.finish_node();
     }
 
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         let Some(char) = parser.peek_char() else {
             return false;
         };
@@ -78,18 +79,57 @@ impl<'a> CSTCoordinates<'a> {
         }
     }
 
-    pub fn lower(self) -> Option<Coordinates> {
+    pub fn lower(self, text: &str) -> Option<Coordinates> {
         Some(match self {
             CSTCoordinates::World(coordinates) => {
-                let (x, y, z) = coordinates.coordinates()?;
+                let (x, y, z) = coordinates.coordinates();
 
-                Coordinates::World(x.lower()?, y.lower()?, z.lower()?)
+                Coordinates::World(x?.lower(text)?, y?.lower(text)?, z?.lower(text)?)
             }
             CSTCoordinates::Local(coordinates) => {
                 let (x, y, z) = coordinates.coordinates();
 
-                Coordinates::Local(x, y, z)
+                Coordinates::Local(
+                    x.and_then(|x| x.lower(text)),
+                    y.and_then(|y| y.lower(text)),
+                    z.and_then(|z| z.lower(text)),
+                )
             }
         })
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match self {
+            CSTCoordinates::World(coordinates) => {
+                let (x, y, z) = coordinates.coordinates();
+
+                if let Some(x) = x {
+                    x.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(y) = y {
+                    y.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(z) = z {
+                    z.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTCoordinates::Local(coordinates) => {
+                let (x, y, z) = coordinates.coordinates();
+
+                if let Some(x) = x {
+                    x.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(y) = y {
+                    y.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(z) = z {
+                    z.collect_semantic_tokens(tokens);
+                }
+            }
+        }
     }
 }

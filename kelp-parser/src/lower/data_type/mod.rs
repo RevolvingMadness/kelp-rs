@@ -8,11 +8,21 @@ use kelp_core::{
 use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
-    cst_node,
-    cstlib::{CSTNodeType, token::CSTToken},
+    cstlib::CSTNodeType,
+    lower::data_type::{
+        named::CSTNamedDataType, reference::CSTReferenceDataType, tuple::CSTTupleDataType,
+        typed_compound::CSTTypedCompoundDataType, unit::CSTUnitDataType,
+    },
     parser::Parser,
+    semantic_token::{SemanticToken, SemanticTokenType},
     syntax::SyntaxKind,
 };
+
+pub mod named;
+pub mod reference;
+pub mod tuple;
+pub mod typed_compound;
+pub mod unit;
 
 #[derive(Debug)]
 pub enum CSTDataTypeKind<'a> {
@@ -95,7 +105,7 @@ impl<'a> CSTDataType<'a> {
         }
 
         parser.start_node_at(checkpoint, SyntaxKind::TupleDataType);
-        parser.expect_char(')', "Expected closing parenthesis ')'");
+        parser.expect_char(')', "Expected ')'");
         parser.finish_node();
 
         true
@@ -200,32 +210,35 @@ impl<'a> CSTDataType<'a> {
         )
     }
 
-    pub fn lower(self) -> Option<HighDataType> {
+    pub fn lower(self, text: &str) -> Option<HighDataType> {
         let kind = match self.kind {
-            CSTDataTypeKind::Reference(ty) => {
-                let inner = ty.inner()?.lower()?;
+            CSTDataTypeKind::Reference(data_type) => {
+                let inner = data_type.inner()?.lower(text)?;
                 HighDataTypeKind::Reference(Box::new(inner))
             }
-            CSTDataTypeKind::Tuple(ty) => {
-                let data_types = ty
+            CSTDataTypeKind::Tuple(data_type) => {
+                let data_types = data_type
                     .data_types()
                     .into_iter()
-                    .filter_map(CSTDataType::lower)
+                    .filter_map(|data_type| data_type.lower(text))
                     .collect();
                 HighDataTypeKind::Tuple(data_types)
             }
             CSTDataTypeKind::Unit(_) => HighDataTypeKind::Unit,
-            CSTDataTypeKind::TypedCompound(ty) => {
+            CSTDataTypeKind::TypedCompound(data_type) => {
                 let mut elements = BTreeMap::new();
 
-                for field in ty.fields() {
+                for field in data_type.fields() {
                     let name_token = field.name_token()?;
-                    let data_type = field.data_type()?.lower()?;
+                    let data_type = field.data_type()?.lower(text)?;
 
                     elements.insert(
                         HighSNBTString {
                             span: name_token.span,
-                            snbt_string: SNBTString(false, name_token.text.to_string()),
+                            snbt_string: SNBTString(
+                                false,
+                                text[name_token.span.into_range()].to_string(),
+                            ),
                         },
                         data_type,
                     );
@@ -233,15 +246,19 @@ impl<'a> CSTDataType<'a> {
 
                 HighDataTypeKind::TypedCompound(elements)
             }
-            CSTDataTypeKind::Named(ty) => {
-                let name_token = ty.name_token()?;
-                let generics = ty
+            CSTDataTypeKind::Named(data_type) => {
+                let name_token = data_type.name_token()?;
+                let generics = data_type
                     .generics()
                     .into_iter()
-                    .filter_map(CSTDataType::lower)
+                    .filter_map(|data_type| data_type.lower(text))
                     .collect();
 
-                HighDataTypeKind::Named(name_token.span, name_token.text.to_string(), generics)
+                HighDataTypeKind::Named(
+                    name_token.span,
+                    text[name_token.span.into_range()].to_string(),
+                    generics,
+                )
             }
         };
 
@@ -250,61 +267,45 @@ impl<'a> CSTDataType<'a> {
             kind,
         })
     }
-}
 
-cst_node!(CSTReferenceDataType, SyntaxKind::ReferenceDataType);
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match &self.kind {
+            CSTDataTypeKind::Reference(data_type) => {
+                if let Some(inner) = data_type.inner() {
+                    inner.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTDataTypeKind::Tuple(data_type) => {
+                for data_type in data_type.data_types() {
+                    data_type.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTDataTypeKind::Unit(_) => {}
+            CSTDataTypeKind::TypedCompound(data_type) => {
+                for field in data_type.fields() {
+                    if let Some(name_token) = field.name_token() {
+                        tokens.push(SemanticToken::new(
+                            name_token.span,
+                            SemanticTokenType::Variable,
+                        ));
+                    }
+                    if let Some(data_type) = field.data_type() {
+                        data_type.collect_semantic_tokens(tokens);
+                    }
+                }
+            }
+            CSTDataTypeKind::Named(data_type) => {
+                if let Some(name_token) = data_type.name_token() {
+                    tokens.push(SemanticToken::new(
+                        name_token.span,
+                        SemanticTokenType::Class,
+                    ));
+                }
 
-impl<'a> CSTReferenceDataType<'a> {
-    pub fn inner(&self) -> Option<CSTDataType<'a>> {
-        self.0.children().find_map(CSTDataType::cast)
-    }
-}
-
-cst_node!(CSTTupleDataType, SyntaxKind::TupleDataType);
-
-impl<'a> CSTTupleDataType<'a> {
-    pub fn data_types(&self) -> Vec<CSTDataType<'a>> {
-        self.0.children().filter_map(CSTDataType::cast).collect()
-    }
-}
-
-cst_node!(CSTUnitDataType, SyntaxKind::UnitDataType);
-
-cst_node!(CSTTypedCompoundDataType, SyntaxKind::TypedCompoundDataType);
-
-impl<'a> CSTTypedCompoundDataType<'a> {
-    pub fn fields(&self) -> Vec<CSTTypedCompoundField<'a>> {
-        self.0
-            .children()
-            .filter_map(CSTTypedCompoundField::cast)
-            .collect()
-    }
-}
-
-cst_node!(CSTTypedCompoundField, SyntaxKind::TypedCompoundField);
-
-impl<'a> CSTTypedCompoundField<'a> {
-    pub fn name_token(&self) -> Option<&'a CSTToken<'a>> {
-        self.0
-            .children_tokens()
-            .find(|t| t.kind == SyntaxKind::Identifier)
-    }
-
-    pub fn data_type(&self) -> Option<CSTDataType<'a>> {
-        self.0.children().find_map(CSTDataType::cast)
-    }
-}
-
-cst_node!(CSTNamedDataType, SyntaxKind::NamedDataType);
-
-impl<'a> CSTNamedDataType<'a> {
-    pub fn name_token(&self) -> Option<&'a CSTToken<'a>> {
-        self.0
-            .children_tokens()
-            .find(|t| t.kind == SyntaxKind::Identifier)
-    }
-
-    pub fn generics(&self) -> Vec<CSTDataType<'a>> {
-        self.0.children().filter_map(CSTDataType::cast).collect()
+                for generic in data_type.generics() {
+                    generic.collect_semantic_tokens(tokens);
+                }
+            }
+        }
     }
 }

@@ -1,41 +1,14 @@
 use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
-use kelp_core::span::Span;
-use kelp_parser::lower::Lowerer;
+use kelp_parser::lower::root::CSTRoot;
 use kelp_parser::parser::{ParseResult, Parser};
+use kelp_parser::semantic_token::SemanticToken as KelpSemanticToken;
 use std::collections::BTreeMap;
 use tokio::sync::RwLock;
-use tower_lsp::jsonrpc::Result;
+use tower_lsp::jsonrpc::{Error, Result};
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-
-pub mod cst;
-
-const LEGEND_TYPE: &[SemanticTokenType] = &[
-    SemanticTokenType::NAMESPACE,
-    SemanticTokenType::CLASS,
-    SemanticTokenType::ENUM,
-    SemanticTokenType::INTERFACE,
-    SemanticTokenType::STRUCT,
-    SemanticTokenType::TYPE_PARAMETER,
-    SemanticTokenType::TYPE,
-    SemanticTokenType::PARAMETER,
-    SemanticTokenType::VARIABLE,
-    SemanticTokenType::PROPERTY,
-    SemanticTokenType::ENUM_MEMBER,
-    SemanticTokenType::DECORATOR,
-    SemanticTokenType::EVENT,
-    SemanticTokenType::FUNCTION,
-    SemanticTokenType::METHOD,
-    SemanticTokenType::MACRO,
-    SemanticTokenType::COMMENT,
-    SemanticTokenType::STRING,
-    SemanticTokenType::KEYWORD,
-    SemanticTokenType::NUMBER,
-    SemanticTokenType::REGEXP,
-    SemanticTokenType::OPERATOR,
-];
 
 #[derive(Debug, Clone)]
 struct LineIndex {
@@ -79,7 +52,7 @@ impl LineIndex {
         }
     }
 
-    fn position_to_offset(&self, position: Position) -> Option<usize> {
+    fn _position_to_offset(&self, position: Position) -> Option<usize> {
         let line = position.line as usize;
         if line >= self.line_starts.len() {
             return Some(self.text.len());
@@ -115,10 +88,11 @@ impl LineIndex {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct DocumentState {
     text: String,
     line_index: LineIndex,
+    parse_result: ParseResult,
 }
 
 #[derive(Debug)]
@@ -146,13 +120,13 @@ impl Backend {
     async fn process_text(&self, uri: &Url, text: String) -> Option<Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
 
-        let parser = Parser::new(&text);
-        let ParseResult { root, errors } = parser.parse();
+        let mut parser = Parser::new(&text);
+        let parse_result = parser.parse();
 
         let line_index = LineIndex::new(&text);
 
-        if !errors.is_empty() {
-            diagnostics.extend(errors.into_iter().map(|error| Diagnostic {
+        for error in &parse_result.errors {
+            diagnostics.push(Diagnostic {
                 range: Range {
                     start: line_index.offset_to_position(error.span.start),
                     end: line_index.offset_to_position(error.span.end),
@@ -165,9 +139,11 @@ impl Backend {
                 related_information: None,
                 tags: None,
                 data: None,
-            }));
-        } else {
-            let statements = Lowerer::lower_root(&root);
+            });
+        }
+
+        if let Some(root) = CSTRoot::cast(&parse_result.root) {
+            let statements = root.lower(&text);
 
             let mut ctx = SemanticAnalysisContext {
                 max_infos: usize::MAX,
@@ -180,51 +156,84 @@ impl Backend {
                 statement.perform_semantic_analysis(&mut ctx, false);
             }
 
-            diagnostics.extend(ctx.infos.iter().map(|info| Diagnostic {
-                range: Range {
-                    start: line_index.offset_to_position(info.span.start),
-                    end: line_index.offset_to_position(info.span.end),
-                },
-                severity: Some(match info.kind {
-                    SemanticAnalysisInfoKind::Error(_) => DiagnosticSeverity::ERROR,
-                }),
-                source: Some("kelp-lsp".to_string()),
-                message: match &info.kind {
-                    SemanticAnalysisInfoKind::Error(error) => error.to_string(),
-                },
-                code_description: None,
-                code: None,
-                related_information: None,
-                tags: None,
-                data: None,
-            }));
+            for info in ctx.infos {
+                diagnostics.push(Diagnostic {
+                    range: Range {
+                        start: line_index.offset_to_position(info.span.start),
+                        end: line_index.offset_to_position(info.span.end),
+                    },
+                    severity: Some(match info.kind {
+                        SemanticAnalysisInfoKind::Error(_) => DiagnosticSeverity::ERROR,
+                    }),
+                    source: Some("kelp-lsp".to_string()),
+                    message: match &info.kind {
+                        SemanticAnalysisInfoKind::Error(error) => error.to_string(),
+                    },
+                    code_description: None,
+                    code: None,
+                    related_information: None,
+                    tags: None,
+                    data: None,
+                });
+            }
         }
 
         let mut map = self.document_map.write().await;
-        map.insert(uri.clone(), DocumentState { text, line_index });
+        map.insert(
+            uri.clone(),
+            DocumentState {
+                text,
+                line_index,
+                parse_result,
+            },
+        );
 
         Some(diagnostics)
     }
 }
 
-fn process_semantic_tokens(
+fn semantic_tokens_legend() -> SemanticTokensLegend {
+    SemanticTokensLegend {
+        token_types: vec![
+            SemanticTokenType::NAMESPACE,
+            SemanticTokenType::TYPE,
+            SemanticTokenType::CLASS,
+            SemanticTokenType::ENUM,
+            SemanticTokenType::INTERFACE,
+            SemanticTokenType::STRUCT,
+            SemanticTokenType::TYPE_PARAMETER,
+            SemanticTokenType::PARAMETER,
+            SemanticTokenType::VARIABLE,
+            SemanticTokenType::PROPERTY,
+            SemanticTokenType::ENUM_MEMBER,
+            SemanticTokenType::EVENT,
+            SemanticTokenType::FUNCTION,
+            SemanticTokenType::METHOD,
+            SemanticTokenType::MACRO,
+            SemanticTokenType::KEYWORD,
+            SemanticTokenType::MODIFIER,
+            SemanticTokenType::COMMENT,
+            SemanticTokenType::STRING,
+            SemanticTokenType::NUMBER,
+            SemanticTokenType::REGEXP,
+            SemanticTokenType::OPERATOR,
+            SemanticTokenType::DECORATOR,
+        ],
+        token_modifiers: vec![],
+    }
+}
+
+fn encode_semantic_tokens(
     text: &str,
     line_index: &LineIndex,
-    parser_tokens: Vec<(Span, SemanticToken)>,
+    tokens: &[KelpSemanticToken],
 ) -> Vec<SemanticToken> {
-    if parser_tokens.is_empty() {
-        return Vec::new();
-    }
-
-    let mut semantic_tokens_from_parser = parser_tokens;
-    semantic_tokens_from_parser.sort_by_key(|(span, _)| span.start);
-
-    let mut previous_line = 0;
+    let mut result = Vec::new();
     let mut previous_start_utf16 = 0;
-    let mut lsp_tokens = Vec::new();
+    let mut previous_line = 0;
 
-    for (span, token) in semantic_tokens_from_parser {
-        let start_pos = line_index.offset_to_position(span.start);
+    for token in tokens {
+        let start_pos = line_index.offset_to_position(token.span.start);
 
         let delta_line = start_pos.line - previous_line;
         let delta_start = if delta_line == 0 {
@@ -233,21 +242,23 @@ fn process_semantic_tokens(
             start_pos.character
         };
 
-        let length = text[span.into_range()].encode_utf16().count() as u32;
+        let length = text[token.span.into_range()].encode_utf16().count() as u32;
 
-        lsp_tokens.push(SemanticToken {
+        let modifier_mask = token.modifiers.iter().fold(0, |acc, m| acc | m.to_bit());
+
+        result.push(SemanticToken {
             delta_line,
             delta_start,
             length,
-            token_type: token.token_type,
-            token_modifiers_bitset: 0,
+            token_type: token.type_.to_index(),
+            token_modifiers_bitset: modifier_mask,
         });
 
         previous_line = start_pos.line;
         previous_start_utf16 = start_pos.character;
     }
 
-    lsp_tokens
+    result
 }
 
 #[tower_lsp::async_trait]
@@ -259,10 +270,7 @@ impl LanguageServer for Backend {
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
                         SemanticTokensOptions {
                             work_done_progress_options: WorkDoneProgressOptions::default(),
-                            legend: SemanticTokensLegend {
-                                token_types: LEGEND_TYPE.to_vec(),
-                                token_modifiers: vec![],
-                            },
+                            legend: semantic_tokens_legend(),
                             full: Some(SemanticTokensFullOptions::Bool(true)),
                             range: Some(true),
                         },
@@ -327,39 +335,34 @@ impl LanguageServer for Backend {
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        // let uri = params.text_document.uri;
-        // let map = self.document_map.read().await;
-        // let state = map
-        //     .get(&uri)
-        //     .ok_or_else(|| tower_lsp::jsonrpc::Error::invalid_params("Document not found"))?;
+        let uri = params.text_document.uri;
+        let map = self.document_map.read().await;
+        let state = map
+            .get(&uri)
+            .ok_or_else(|| Error::invalid_params("Document not found"))?;
 
-        // let mut input = Stream::new(&state.text);
-        // input.config.semantic_tokens = true;
-        // let succeeded = file(&mut input).is_some();
+        let Some(root) = CSTRoot::cast(&state.parse_result.root) else {
+            return Ok(None);
+        };
 
-        // let semantic_tokens = if succeeded {
-        //     input.semantic_tokens
-        // } else {
-        //     input.max_error.semantic_tokens
-        // };
+        let semantic_tokens = root.collect_semantic_tokens();
 
-        // let lsp_tokens = process_semantic_tokens(&state.text, &state.line_index, semantic_tokens);
+        let semantic_tokens =
+            encode_semantic_tokens(&state.text, &state.line_index, &semantic_tokens);
 
-        // if lsp_tokens.is_empty() {
-        //     Ok(None)
-        // } else {
-        //     Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
-        //         result_id: None,
-        //         data: lsp_tokens,
-        //     })))
-        // }
-
-        Ok(None)
+        if semantic_tokens.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+                result_id: None,
+                data: semantic_tokens,
+            })))
+        }
     }
 
     async fn semantic_tokens_range(
         &self,
-        params: SemanticTokensRangeParams,
+        _params: SemanticTokensRangeParams,
     ) -> Result<Option<SemanticTokensRangeResult>> {
         // let uri = params.text_document.uri;
         // let map = self.document_map.read().await;
@@ -395,7 +398,7 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
-    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+    async fn completion(&self, _params: CompletionParams) -> Result<Option<CompletionResponse>> {
         // let uri = params.text_document_position.text_document.uri;
         // let cursor_position = params.text_document_position.position;
 
@@ -460,7 +463,7 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
-    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+    async fn signature_help(&self, _params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
         // let uri = params.text_document_position_params.text_document.uri;
         // let cursor_position = params.text_document_position_params.position;
 

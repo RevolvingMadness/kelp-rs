@@ -1,3 +1,5 @@
+use kelp_core::span::Span;
+
 use crate::{
     cst_node,
     lower::{
@@ -11,11 +13,11 @@ use crate::{
 cst_node!(CSTIfStatement, SyntaxKind::IfStatement);
 
 impl<'a> CSTIfStatement<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         let state = parser.save_state();
 
         parser.start_node(SyntaxKind::IfStatement);
-        parser.bump_keyword("if".len());
+        parser.bump_keyword("if");
         parser.skip_inline_whitespace();
 
         if !CSTExpression::try_parse(parser) {
@@ -33,7 +35,7 @@ impl<'a> CSTIfStatement<'a> {
         parser.skip_whitespace();
 
         if let Some("else") = parser.peek_identifier() {
-            parser.bump_identifier("else");
+            parser.bump_keyword("else");
 
             parser.skip_whitespace();
 
@@ -53,6 +55,29 @@ impl<'a> CSTIfStatement<'a> {
         parser.finish_node();
 
         true
+    }
+
+    pub fn if_keyword_span(&self) -> Option<Span> {
+        self.0.children_tokens().find_map(|token| {
+            if token.kind == SyntaxKind::Keyword {
+                Some(token.span)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn else_keyword_span(&self) -> Option<Span> {
+        self.0
+            .children_tokens()
+            .filter_map(|token| {
+                if token.kind == SyntaxKind::Keyword {
+                    Some(token.span)
+                } else {
+                    None
+                }
+            })
+            .nth(1)
     }
 
     pub fn condition(&self) -> Option<CSTExpression<'a>> {

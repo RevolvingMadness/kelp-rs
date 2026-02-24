@@ -11,17 +11,17 @@ use kelp_core::{
 use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
-    cst_node,
     cstlib::CSTNodeType,
     lower::{
-        data::{nbt_path::CSTNBTPath, target::CSTDataTarget},
         data_type::CSTDataType,
-        entity_selector::CSTEntitySelector,
         expression::{
             as_cast::CSTAsCastExpression,
             assignment::CSTAssignmentExpression,
+            binary::CSTBinaryExpression,
             char::CSTCharExpression,
+            command::tellraw::CSTTellrawCommandExpression,
             compound::CSTCompoundExpression,
+            data::CSTDataExpression,
             field_access::CSTFieldAccessExpression,
             index::CSTIndexExpression,
             list::CSTListExpression,
@@ -33,6 +33,7 @@ use crate::{
                 },
             },
             parenthesized::CSTParenthesizedExpression,
+            score::CSTScoreExpression,
             string::CSTStringExpression,
             r#struct::CSTStructExpression,
             to_cast::CSTToCastExpression,
@@ -43,18 +44,23 @@ use crate::{
         },
     },
     parser::Parser,
+    semantic_token::{SemanticToken, SemanticTokenType},
     syntax::SyntaxKind,
 };
 
 pub mod as_cast;
 pub mod assignment;
+pub mod binary;
 pub mod char;
+pub mod command;
 pub mod compound;
+pub mod data;
 pub mod field_access;
 pub mod index;
 pub mod list;
 pub mod numeric;
 pub mod parenthesized;
+pub mod score;
 pub mod string;
 pub mod r#struct;
 pub mod to_cast;
@@ -70,7 +76,7 @@ pub enum CSTExpressionKind<'a> {
     Binary(CSTBinaryExpression<'a>),
     Data(CSTDataExpression<'a>),
     Score(CSTScoreExpression<'a>),
-    Tellraw(CSTTellrawCommandExpression<'a>),
+    TellrawCommand(CSTTellrawCommandExpression<'a>),
     Unit(CSTUnitExpression<'a>),
     Compound(CSTCompoundExpression<'a>),
     List(CSTListExpression<'a>),
@@ -107,12 +113,12 @@ pub struct CSTExpression<'a> {
 }
 
 impl<'a> CSTExpression<'a> {
-    pub(crate) fn is_recovery(char: char) -> bool {
+    pub fn is_recovery(char: char) -> bool {
         char.is_alphanumeric() || char == '('
     }
 
     #[must_use]
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         Self::try_parse_expression(parser)
     }
 
@@ -445,13 +451,14 @@ impl<'a> CSTExpression<'a> {
                     return true;
                 }
 
-                if !CSTExpression::try_parse(parser) {
-                    parser.error("Expected expression");
-                }
+                let should_emit_error = CSTExpression::try_parse(parser);
+                let first_expression_pos = parser.pos;
 
                 parser.skip_whitespace();
 
                 let mut is_tuple = false;
+
+                let mut emitted_error = !should_emit_error;
 
                 if parser.peek_char() == Some(',') {
                     is_tuple = true;
@@ -463,7 +470,16 @@ impl<'a> CSTExpression<'a> {
                             break;
                         }
 
-                        let _ = CSTExpression::try_parse(parser);
+                        if !CSTExpression::try_parse(parser) {
+                            if !emitted_error {
+                                parser.error_at(first_expression_pos, "Expected expression");
+
+                                emitted_error = true;
+                            }
+
+                            parser.error("Expected expression");
+                        }
+
                         parser.skip_whitespace();
                     }
                 }
@@ -475,7 +491,13 @@ impl<'a> CSTExpression<'a> {
                 };
 
                 parser.start_node_at(checkpoint, kind);
-                parser.expect_char(')', "Expected closing parenthesis");
+                if !parser.try_bump_char(')') {
+                    if emitted_error {
+                        parser.error("Expected ')'");
+                    } else {
+                        parser.error("Expected expression or ')'");
+                    }
+                }
                 parser.finish_node();
 
                 true
@@ -732,7 +754,7 @@ impl<'a> CSTExpression<'a> {
                     CSTExpressionKind::Score(CSTScoreExpression::cast(node)?)
                 }
                 SyntaxKind::TellrawCommandExpression => {
-                    CSTExpressionKind::Tellraw(CSTTellrawCommandExpression::cast(node)?)
+                    CSTExpressionKind::TellrawCommand(CSTTellrawCommandExpression::cast(node)?)
                 }
                 SyntaxKind::UnitExpression => {
                     CSTExpressionKind::Unit(CSTUnitExpression::cast(node)?)
@@ -766,7 +788,7 @@ impl<'a> CSTExpression<'a> {
         )
     }
 
-    pub fn lower(self) -> Option<Expression> {
+    pub fn lower(self, text: &str) -> Option<Expression> {
         Some(
             (match self.kind {
                 CSTExpressionKind::Unary(expression) => {
@@ -778,18 +800,18 @@ impl<'a> CSTExpression<'a> {
                         SyntaxKind::Ampersand => UnaryOperator::Reference,
                         _ => return None,
                     };
-                    let operand = expression.operand()?.lower()?;
+                    let operand = expression.operand()?.lower(text)?;
                     ExpressionKind::Unary(operator, Box::new(operand))
                 }
                 CSTExpressionKind::Variable(expression) => {
-                    let name = expression.name()?;
+                    let name = expression.name(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Variable(name.to_string()).with_span(self.span),
                     )
                 }
                 CSTExpressionKind::Byte(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Literal(
@@ -799,7 +821,7 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Short(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Literal(
@@ -809,7 +831,7 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Integer(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Literal(
@@ -819,7 +841,7 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Long(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Literal(
@@ -829,7 +851,7 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Float(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Literal(
@@ -839,7 +861,7 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Double(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Literal(
@@ -849,7 +871,7 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Char(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     // TODO
                     ExpressionKind::Constant(
@@ -864,7 +886,7 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::String(expression) => {
-                    let value = expression.value()?;
+                    let value = expression.value(text)?;
 
                     ExpressionKind::Constant(
                         ConstantExpressionKind::Literal(
@@ -878,8 +900,8 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Assignment(expression) => {
-                    let left = expression.lhs()?.lower()?;
-                    let right = expression.rhs()?.lower()?;
+                    let left = expression.lhs()?.lower(text)?;
+                    let right = expression.rhs()?.lower(text)?;
                     let op_kind = expression.op_kind()?;
 
                     let operator = match op_kind {
@@ -910,9 +932,9 @@ impl<'a> CSTExpression<'a> {
                     }
                 }
                 CSTExpressionKind::Binary(expression) => {
-                    let left = expression.lhs()?.lower()?;
-                    let right = expression.rhs()?.lower()?;
-                    let (_, op_kind) = expression.op_details()?;
+                    let left = expression.lhs()?.lower(text)?;
+                    let right = expression.rhs()?.lower(text)?;
+                    let (_, op_kind) = expression.op_details(text)?;
 
                     match op_kind {
                         SyntaxKind::Plus
@@ -969,14 +991,14 @@ impl<'a> CSTExpression<'a> {
                     }
                 }
                 CSTExpressionKind::Data(expression) => {
-                    let target = expression.data_target()?.lower()?;
-                    let path = expression.nbt_path()?.lower()?;
+                    let target = expression.data_target()?.lower(text)?;
+                    let path = expression.nbt_path()?.lower(text)?;
 
                     ExpressionKind::Data(target, path)
                 }
                 CSTExpressionKind::Score(expression) => {
-                    let selector = expression.selector()?.lower()?;
-                    let objective = expression.message()?.to_string();
+                    let selector = expression.selector()?.lower(text)?;
+                    let objective = expression.message(text)?.to_string();
 
                     ExpressionKind::PlayerScore(HighPlayerScore {
                         is_generated: false,
@@ -984,9 +1006,9 @@ impl<'a> CSTExpression<'a> {
                         objective,
                     })
                 }
-                CSTExpressionKind::Tellraw(expression) => {
-                    let selector = expression.selector()?.lower()?;
-                    let value = expression.message()?.lower()?;
+                CSTExpressionKind::TellrawCommand(expression) => {
+                    let selector = expression.selector()?.lower(text)?;
+                    let value = expression.message()?.lower(text)?;
 
                     ExpressionKind::Command(Box::new(HighCommand::Tellraw(selector, value)))
                 }
@@ -994,34 +1016,36 @@ impl<'a> CSTExpression<'a> {
                     ExpressionKind::Constant(ConstantExpressionKind::Unit.with_span(self.span))
                 }
                 CSTExpressionKind::Compound(expression) => {
-                    ExpressionKind::Compound(expression.lower())
+                    ExpressionKind::Compound(expression.lower(text))
                 }
                 CSTExpressionKind::Index(expression) => {
-                    let target = expression.target()?.lower()?;
-                    let index = expression.index()?.lower()?;
+                    let target = expression.target()?.lower(text)?;
+                    let index = expression.index()?.lower(text)?;
 
                     ExpressionKind::Index(Box::new(target), Box::new(index))
                 }
-                CSTExpressionKind::List(expression) => ExpressionKind::List(expression.lower()),
+                CSTExpressionKind::List(expression) => ExpressionKind::List(expression.lower(text)),
                 CSTExpressionKind::Tuple(expression) => {
                     let expressions = expression
                         .expressions()
                         .into_iter()
-                        .filter_map(CSTExpression::lower)
+                        .filter_map(|expression| expression.lower(text))
                         .collect();
 
                     ExpressionKind::Tuple(expressions)
                 }
-                CSTExpressionKind::Paren(expression) => return expression.expression()?.lower(),
+                CSTExpressionKind::Paren(expression) => {
+                    return expression.expression()?.lower(text);
+                }
                 CSTExpressionKind::AsCast(expression) => {
-                    let data_type = expression.data_type()?.lower()?;
-                    let expression = expression.expression()?.lower()?;
+                    let data_type = expression.data_type()?.lower(text)?;
+                    let expression = expression.expression()?.lower(text)?;
 
                     ExpressionKind::AsCast(Box::new(expression), data_type)
                 }
                 CSTExpressionKind::ToCast(expression) => {
-                    let runtime_storage_type = expression.runtime_storage_type()?;
-                    let expression = expression.expression()?.lower()?;
+                    let runtime_storage_type = expression.runtime_storage_type(text)?;
+                    let expression = expression.expression()?.lower(text)?;
 
                     let runtime_storage_type = match runtime_storage_type {
                         "data" => RuntimeStorageType::Data,
@@ -1031,8 +1055,8 @@ impl<'a> CSTExpression<'a> {
                     ExpressionKind::ToCast(Box::new(expression), runtime_storage_type)
                 }
                 CSTExpressionKind::FieldAccess(expression) => {
-                    let target = expression.target()?.lower()?;
-                    let (field_span, field_name) = expression.field()?;
+                    let target = expression.target()?.lower(text)?;
+                    let (field_span, field_name) = expression.field(text)?;
 
                     ExpressionKind::FieldAccess(
                         Box::new(target),
@@ -1043,20 +1067,20 @@ impl<'a> CSTExpression<'a> {
                     )
                 }
                 CSTExpressionKind::Struct(expression) => {
-                    let (name_span, name) = expression.name()?;
+                    let (name_span, name) = expression.name(text)?;
                     let name = name.to_string();
 
                     let generics = expression
                         .generics()
                         .into_iter()
-                        .filter_map(CSTDataType::lower)
+                        .filter_map(|data_type| data_type.lower(text))
                         .collect();
 
                     let fields = expression
                         .fields()
                         .filter_map(|field| {
-                            let (name_span, name) = field.name()?;
-                            let value = field.value()?.lower()?;
+                            let (name_span, name) = field.name(text)?;
+                            let value = field.value()?.lower(text)?;
 
                             Some((
                                 HighSNBTString {
@@ -1074,166 +1098,178 @@ impl<'a> CSTExpression<'a> {
             .with_span(self.span),
         )
     }
-}
 
-cst_node!(CSTBinaryExpression, SyntaxKind::BinaryExpression);
-
-impl<'a> CSTBinaryExpression<'a> {
-    pub fn lhs(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
-    }
-
-    pub fn rhs(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().filter_map(CSTExpression::cast).nth(1)
-    }
-
-    pub fn op_details(&self) -> Option<(&'a str, SyntaxKind)> {
-        self.0.children().find_map(|child| {
-            if let CSTNodeType::Token(token) = child
-                && matches!(
-                    token.kind,
-                    SyntaxKind::Plus
-                        | SyntaxKind::Minus
-                        | SyntaxKind::Star
-                        | SyntaxKind::ForwardSlash
-                        | SyntaxKind::Percent
-                        | SyntaxKind::RightArrow
-                        | SyntaxKind::RightArrowEqual
-                        | SyntaxKind::LeftArrow
-                        | SyntaxKind::LeftArrowEqual
-                        | SyntaxKind::EqualEqual
-                        | SyntaxKind::ExclamationMarkEqual
-                        | SyntaxKind::AmpersandAmpersand
-                        | SyntaxKind::PipePipe
-                        | SyntaxKind::Ampersand
-                        | SyntaxKind::Pipe
-                        | SyntaxKind::LeftArrowLeftArrow
-                        | SyntaxKind::RightArrowRightArrow
-                )
-            {
-                return Some((token.text, token.kind));
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match &self.kind {
+            CSTExpressionKind::Unary(expression) => {
+                if let Some(operand) = expression.operand() {
+                    operand.collect_semantic_tokens(tokens);
+                }
             }
-            None
-        })
-    }
-}
-
-cst_node!(CSTScoreExpression, SyntaxKind::ScoreExpression);
-
-impl<'a> CSTScoreExpression<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
-        let state = parser.save_state();
-
-        parser.start_node(SyntaxKind::ScoreExpression);
-        parser.bump_identifier("score");
-
-        if !parser.expect_inline_whitespace() || !CSTEntitySelector::try_parse(parser) {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        parser.expect_inline_whitespace();
-
-        parser.expect_identifier("Expected scoreboard objective");
-
-        parser.finish_node();
-
-        true
-    }
-
-    pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
-        self.0.children().find_map(CSTEntitySelector::cast)
-    }
-
-    pub fn message(&self) -> Option<&'a str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text)
-            } else {
-                None
+            CSTExpressionKind::Variable(expression) => {
+                if let Some(name_span) = expression.name_span() {
+                    tokens.push(SemanticToken::new(name_span, SemanticTokenType::Variable));
+                }
             }
-        })
-    }
-}
+            CSTExpressionKind::Byte(_)
+            | CSTExpressionKind::Short(_)
+            | CSTExpressionKind::Integer(_)
+            | CSTExpressionKind::Long(_)
+            | CSTExpressionKind::Float(_)
+            | CSTExpressionKind::Double(_) => {
+                tokens.push(SemanticToken::new(self.span, SemanticTokenType::Number));
+            }
+            CSTExpressionKind::Char(_) | CSTExpressionKind::String(_) => {
+                tokens.push(SemanticToken::new(self.span, SemanticTokenType::String));
+            }
+            CSTExpressionKind::Assignment(expression) => {
+                if let Some(lhs) = expression.lhs() {
+                    lhs.collect_semantic_tokens(tokens);
+                }
 
-cst_node!(CSTDataExpression, SyntaxKind::DataExpression);
+                if let Some(rhs) = expression.rhs() {
+                    rhs.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::Binary(expression) => {
+                if let Some(lhs) = expression.lhs() {
+                    lhs.collect_semantic_tokens(tokens);
+                }
 
-impl<'a> CSTDataExpression<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.checkpoint();
+                if let Some(rhs) = expression.rhs() {
+                    rhs.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::Data(expression) => {
+                if let Some(target) = expression.data_target() {
+                    target.collect_semantic_tokens(tokens);
+                }
 
-        if !CSTDataTarget::try_parse(parser) {
-            return false;
+                if let Some(path) = expression.nbt_path() {
+                    path.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::Score(expression) => {
+                if let Some(selector) = expression.selector() {
+                    selector.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(message_span) = expression.message_span() {
+                    tokens.push(SemanticToken::new(
+                        message_span,
+                        SemanticTokenType::Variable,
+                    ));
+                }
+            }
+            CSTExpressionKind::TellrawCommand(expression) => {
+                if let Some(tellraw_keyword_span) = expression.tellraw_keyword_span() {
+                    tokens.push(SemanticToken::new(
+                        tellraw_keyword_span,
+                        SemanticTokenType::Keyword,
+                    ));
+                }
+
+                if let Some(selector) = expression.selector() {
+                    selector.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(message) = expression.message() {
+                    message.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::Unit(_) => {}
+            CSTExpressionKind::Compound(expression) => {
+                expression.collect_semantic_tokens(tokens);
+            }
+            CSTExpressionKind::List(expression) => {
+                for item in expression.expressions() {
+                    item.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::Index(expression) => {
+                if let Some(target) = expression.target() {
+                    target.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(index) = expression.index() {
+                    index.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::Tuple(expression) => {
+                for item in expression.expressions() {
+                    item.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::Paren(expression) => {
+                if let Some(inner) = expression.expression() {
+                    inner.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::AsCast(expression) => {
+                if let Some(inner) = expression.expression() {
+                    inner.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(data_type) = expression.data_type() {
+                    data_type.collect_semantic_tokens(tokens);
+                }
+            }
+            CSTExpressionKind::ToCast(expression) => {
+                if let Some(inner) = expression.expression() {
+                    inner.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(token) = expression
+                    .0
+                    .children_tokens()
+                    .find(|t| t.kind == SyntaxKind::RuntimeStorageType)
+                {
+                    tokens.push(SemanticToken::new(token.span, SemanticTokenType::Keyword));
+                }
+            }
+            CSTExpressionKind::FieldAccess(expression) => {
+                if let Some(target) = expression.target() {
+                    target.collect_semantic_tokens(tokens);
+                }
+
+                if let Some(token) = expression
+                    .0
+                    .children_tokens()
+                    .filter(|t| t.kind == SyntaxKind::Identifier)
+                    .last()
+                {
+                    tokens.push(SemanticToken::new(token.span, SemanticTokenType::Property));
+                }
+            }
+            CSTExpressionKind::Struct(expression) => {
+                if let Some(token) = expression
+                    .0
+                    .children_tokens()
+                    .find(|t| t.kind == SyntaxKind::Identifier)
+                {
+                    tokens.push(SemanticToken::new(token.span, SemanticTokenType::Struct));
+                }
+
+                for generic in expression.generics() {
+                    generic.collect_semantic_tokens(tokens);
+                }
+
+                for field in expression.fields() {
+                    if let Some(name_token) = field
+                        .0
+                        .children_tokens()
+                        .find(|t| t.kind == SyntaxKind::Identifier)
+                    {
+                        tokens.push(SemanticToken::new(
+                            name_token.span,
+                            SemanticTokenType::Property,
+                        ));
+                    }
+                    if let Some(value) = field.value() {
+                        value.collect_semantic_tokens(tokens);
+                    }
+                }
+            }
         }
-
-        parser.start_node_at(checkpoint, SyntaxKind::DataExpression);
-
-        parser.expect_inline_whitespace();
-
-        CSTNBTPath::try_parse(parser);
-
-        parser.finish_node();
-
-        true
-    }
-    pub fn data_target(&self) -> Option<CSTDataTarget<'a>> {
-        self.0.children().find_map(CSTDataTarget::cast)
-    }
-
-    pub fn nbt_path(&self) -> Option<CSTNBTPath<'a>> {
-        self.0.children().find_map(CSTNBTPath::cast)
-    }
-}
-
-cst_node!(
-    CSTTellrawCommandExpression,
-    SyntaxKind::TellrawCommandExpression
-);
-
-impl<'a> CSTTellrawCommandExpression<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
-        let state = parser.save_state();
-
-        parser.start_node(SyntaxKind::TellrawCommandExpression);
-        parser.bump_identifier("tellraw");
-
-        let parsed_inline_whitespace = parser.expect_inline_whitespace();
-
-        if !parsed_inline_whitespace {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        let parsed_entity_selector = CSTEntitySelector::try_parse(parser);
-
-        if !parsed_entity_selector {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        if parsed_entity_selector {
-            parser.expect_inline_whitespace();
-        } else {
-            parser.skip_inline_whitespace();
-        }
-
-        if !CSTExpression::try_parse(parser) {
-            parser.recover_newline("Expected expression");
-        }
-
-        parser.finish_node();
-
-        true
-    }
-
-    pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
-        self.0.children().find_map(CSTEntitySelector::cast)
-    }
-
-    pub fn message(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
     }
 }

@@ -7,6 +7,7 @@ use crate::{
     cst_node,
     lower::expression::{CSTExpression, compound::entry::CSTCompoundExpressionEntry},
     parser::Parser,
+    semantic_token::SemanticToken,
     syntax::SyntaxKind,
 };
 
@@ -15,7 +16,7 @@ pub mod entry;
 cst_node!(CSTCompoundExpression, SyntaxKind::CompoundExpression);
 
 impl<'a> CSTCompoundExpression<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         if parser.peek_char() != Some('{') {
             return false;
         }
@@ -95,23 +96,23 @@ impl<'a> CSTCompoundExpression<'a> {
         }
     }
 
-    fn entries(&self) -> impl Iterator<Item = CSTCompoundExpressionEntry<'a>> {
+    pub fn entries(&self) -> impl Iterator<Item = CSTCompoundExpressionEntry<'a>> {
         self.0
             .children()
             .filter_map(CSTCompoundExpressionEntry::cast)
     }
 
-    pub(crate) fn lower(self) -> BTreeMap<HighSNBTString, Expression> {
+    pub fn lower(self, text: &str) -> BTreeMap<HighSNBTString, Expression> {
         let mut compound = BTreeMap::new();
 
         for entry in self.entries() {
-            if let (Some((key_span, key)), Some(value)) = (entry.key(), entry.value())
-                && let Some(value) = value.lower()
+            if let (Some((key_span, key)), Some(value)) = (entry.key(text), entry.value())
+                && let Some(value) = value.lower(text)
             {
                 compound.insert(
                     HighSNBTString {
                         span: key_span,
-                        snbt_string: SNBTString(false, key),
+                        snbt_string: SNBTString(false, key.to_string()),
                     },
                     value,
                 );
@@ -119,5 +120,11 @@ impl<'a> CSTCompoundExpression<'a> {
         }
 
         compound
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        for entry in self.entries() {
+            entry.collect_semantic_tokens(tokens);
+        }
     }
 }

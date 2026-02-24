@@ -1,7 +1,16 @@
 use kelp_core::high::entity_selector::HighEntitySelector;
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
-use crate::{cst_node, cstlib::CSTNodeType, parser::Parser, syntax::SyntaxKind};
+use crate::{
+    cstlib::CSTNodeType,
+    lower::entity_selector::{name::CSTNameEntitySelector, variable::CSTVariableEntitySelector},
+    parser::Parser,
+    semantic_token::SemanticToken,
+    syntax::SyntaxKind,
+};
+
+pub mod name;
+pub mod variable;
 
 pub enum CSTEntitySelector<'a> {
     Variable(CSTVariableEntitySelector<'a>),
@@ -9,7 +18,7 @@ pub enum CSTEntitySelector<'a> {
 }
 
 impl<'a> CSTEntitySelector<'a> {
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         if parser.try_start_node_bump('@', SyntaxKind::VariableEntitySelector) {
             if let Some(text) = parser.peek_identifier() {
                 parser.add_token(SyntaxKind::EntitySelectorVariable, text.len());
@@ -154,10 +163,10 @@ impl<'a> CSTEntitySelector<'a> {
         }
     }
 
-    pub fn lower(self) -> Option<HighEntitySelector> {
+    pub fn lower(self, text: &str) -> Option<HighEntitySelector> {
         Some(match self {
             CSTEntitySelector::Variable(selector) => {
-                let variable = selector.variable()?;
+                let variable = selector.variable(text)?;
 
                 let variable = match variable {
                     "a" => EntitySelectorVariable::A,
@@ -171,41 +180,21 @@ impl<'a> CSTEntitySelector<'a> {
                 HighEntitySelector::Variable(variable, Vec::new())
             }
             CSTEntitySelector::Name(selector) => {
-                let name = selector.name()?;
+                let name = selector.name(text)?;
 
                 HighEntitySelector::Name(name.to_string())
             }
         })
     }
-}
 
-cst_node!(
-    CSTVariableEntitySelector,
-    SyntaxKind::VariableEntitySelector
-);
-
-impl<'a> CSTVariableEntitySelector<'a> {
-    pub fn variable(&self) -> Option<&'a str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::EntitySelectorVariable {
-                Some(token.text)
-            } else {
-                None
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match self {
+            CSTEntitySelector::Variable(selector) => {
+                selector.collect_semantic_tokens(tokens);
             }
-        })
-    }
-}
-
-cst_node!(CSTNameEntitySelector, SyntaxKind::EntitySelectorName);
-
-impl<'a> CSTNameEntitySelector<'a> {
-    pub fn name(&self) -> Option<&'a str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::EntitySelectorName {
-                Some(token.text)
-            } else {
-                None
+            CSTEntitySelector::Name(selector) => {
+                selector.collect_semantic_tokens(tokens);
             }
-        })
+        }
     }
 }

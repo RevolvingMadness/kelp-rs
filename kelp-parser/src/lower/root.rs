@@ -1,11 +1,14 @@
 use kelp_core::statement::Statement;
 
-use crate::{cst_node, lower::statement::CSTStatement, parser::Parser, syntax::SyntaxKind};
+use crate::{
+    cst_node, lower::statement::CSTStatement, parser::Parser, semantic_token::SemanticToken,
+    syntax::SyntaxKind,
+};
 
 cst_node!(CSTRoot, SyntaxKind::Root);
 
 impl<'a> CSTRoot<'a> {
-    pub(crate) fn parse(parser: &mut Parser) {
+    pub fn parse(parser: &mut Parser) {
         parser.start_node(SyntaxKind::Root);
 
         parser.skip_whitespace();
@@ -26,14 +29,26 @@ impl<'a> CSTRoot<'a> {
         parser.finish_node();
     }
 
-    pub fn lower(self) -> Vec<Statement> {
+    pub fn lower(self, text: &str) -> Vec<Statement> {
         self.statements()
             .into_iter()
-            .filter_map(CSTStatement::lower)
+            .filter_map(|statement| statement.lower(text))
             .collect()
     }
 
     pub fn statements(&self) -> Vec<CSTStatement<'a>> {
         self.0.children().filter_map(CSTStatement::cast).collect()
+    }
+
+    pub fn collect_semantic_tokens(&self) -> Vec<SemanticToken> {
+        let mut tokens = Vec::new();
+
+        for statement in self.statements() {
+            statement.collect_semantic_tokens(&mut tokens);
+        }
+
+        tokens.sort_by_key(|t| t.span.start);
+
+        tokens
     }
 }

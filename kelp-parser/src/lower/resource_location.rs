@@ -1,17 +1,22 @@
 use minecraft_command_types::resource_location::ResourceLocation;
 use nonempty::NonEmpty;
 
-use crate::{cst_node, parser::Parser, syntax::SyntaxKind};
+use crate::{
+    cst_node,
+    parser::Parser,
+    semantic_token::{SemanticToken, SemanticTokenType},
+    syntax::SyntaxKind,
+};
 
 cst_node!(CSTResourceLocationPaths, SyntaxKind::ResourceLocationPaths);
 
 impl<'a> CSTResourceLocationPaths<'a> {
-    pub fn paths(&self) -> Vec<&'a str> {
+    pub fn paths<'b>(&self, text: &'b str) -> Vec<&'b str> {
         self.0
             .children_tokens()
             .filter_map(|token| {
                 if token.kind == SyntaxKind::Identifier {
-                    Some(token.text)
+                    Some(token.text(text))
                 } else {
                     None
                 }
@@ -42,7 +47,7 @@ impl<'a> CSTResourceLocation<'a> {
     }
 
     #[must_use]
-    pub(crate) fn try_parse(parser: &mut Parser) -> bool {
+    pub fn try_parse(parser: &mut Parser) -> bool {
         parser.start_node(SyntaxKind::ResourceLocation);
 
         if parser.peek_char() == Some('#') {
@@ -70,13 +75,13 @@ impl<'a> CSTResourceLocation<'a> {
         true
     }
 
-    pub fn lower(self) -> Option<ResourceLocation> {
+    pub fn lower(self, text: &str) -> Option<ResourceLocation> {
         let is_tag = self.is_tag();
 
-        let namespace = self.namespace().map(ToString::to_string);
+        let namespace = self.namespace(text).map(ToString::to_string);
 
         let paths = self
-            .paths()
+            .paths(text)
             .into_iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();
@@ -94,13 +99,13 @@ impl<'a> CSTResourceLocation<'a> {
             .any(|token| token.kind == SyntaxKind::ResourceLocationTag)
     }
 
-    pub fn namespace(&self) -> Option<&'a str> {
+    pub fn namespace<'b>(&self, text: &'b str) -> Option<&'b str> {
         self.0.children().find_map(|node| {
             if node.kind()? == SyntaxKind::ResourceLocationNamespace {
                 Some(
                     (node.children_tokens().find_map(|token| {
                         if token.kind == SyntaxKind::Identifier {
-                            Some(token.text)
+                            Some(token.text(text))
                         } else {
                             None
                         }
@@ -113,7 +118,7 @@ impl<'a> CSTResourceLocation<'a> {
         })
     }
 
-    pub fn paths(&self) -> Vec<&'a str> {
+    pub fn paths<'b>(&self, text: &'b str) -> Vec<&'b str> {
         self.0
             .children()
             .find_map(|node| {
@@ -122,7 +127,7 @@ impl<'a> CSTResourceLocation<'a> {
                         node.children_tokens()
                             .filter_map(|token| {
                                 if token.kind == SyntaxKind::Identifier {
-                                    Some(token.text)
+                                    Some(token.text(text))
                                 } else {
                                     None
                                 }
@@ -134,5 +139,9 @@ impl<'a> CSTResourceLocation<'a> {
                 }
             })
             .unwrap()
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        tokens.push(SemanticToken::new(self.span(), SemanticTokenType::Function));
     }
 }

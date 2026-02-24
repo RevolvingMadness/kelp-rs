@@ -7,8 +7,8 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ParseResult<'a> {
-    pub root: CSTNodeType<'a>,
+pub struct ParseResult {
+    pub root: CSTNodeType,
     pub errors: Vec<CSTError>,
 }
 
@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
         self.source[self.pos..].chars().next()
     }
 
-    pub(crate) fn peek_char(&self) -> Option<char> {
+    pub fn peek_char(&self) -> Option<char> {
         self.source[self.pos..].chars().next()
     }
 
@@ -51,7 +51,7 @@ impl<'a> Parser<'a> {
         self.source[self.pos..].chars().nth(n)
     }
 
-    pub(crate) fn peek_whole_value(&self) -> Option<&'a str> {
+    pub fn _peek_whole_value(&self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut len = 0;
         let mut chars = s.chars();
@@ -69,7 +69,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn peek_fractional_value(&self) -> Option<(bool, &'a str)> {
+    pub fn peek_fractional_value(&self) -> Option<(bool, &'a str)> {
         let s = &self.source[self.pos..];
         let mut len = 0;
         let chars = s.chars();
@@ -93,7 +93,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn expect_fractional_value(&mut self, message: &str) -> bool {
+    pub fn expect_fractional_value(&mut self, message: &str) -> bool {
         if let Some((_, text)) = self.peek_fractional_value() {
             self.add_token(SyntaxKind::FractionalValue, text.len());
             true
@@ -103,7 +103,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn try_parse_fractional_value(&mut self) -> bool {
+    pub fn try_parse_fractional_value(&mut self) -> bool {
         if let Some((_, text)) = self.peek_fractional_value() {
             self.add_token(SyntaxKind::FractionalValue, text.len());
 
@@ -113,7 +113,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn peek_identifier(&self) -> Option<&'a str> {
+    pub fn peek_identifier(&self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut chars = s.chars();
 
@@ -135,7 +135,7 @@ impl<'a> Parser<'a> {
         Some(&self.source[self.pos..end])
     }
 
-    pub(crate) fn peek_quoted_char(&mut self) -> Option<&'a str> {
+    pub fn peek_quoted_char(&mut self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut chars = s.chars();
 
@@ -165,7 +165,7 @@ impl<'a> Parser<'a> {
         Some(&self.source[start..(end)])
     }
 
-    pub(crate) fn peek_quoted_string(&mut self) -> Option<&'a str> {
+    pub fn peek_quoted_string(&mut self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut chars = s.chars();
 
@@ -218,6 +218,10 @@ impl<'a> Parser<'a> {
         self.error_with_len(message, 1);
     }
 
+    pub fn error_at(&mut self, position: usize, message: impl ToString) {
+        self.error_with_len_at(position, message, 1);
+    }
+
     pub fn error_with_len(&mut self, message: impl ToString, len: usize) {
         if self.error_count >= self.max_errors {
             return;
@@ -260,7 +264,7 @@ impl<'a> Parser<'a> {
         self.events.push(Event::Token { kind, text });
     }
 
-    pub fn build_tree(&'a self) -> CSTNodeType<'a> {
+    pub fn build_tree(&'a self) -> CSTNodeType {
         let mut stack = vec![(None, 0usize, Vec::new())];
 
         let mut current_offset = 0usize;
@@ -280,7 +284,6 @@ impl<'a> Parser<'a> {
                         .2
                         .push(CSTNodeType::Token(CSTToken {
                             kind: *kind,
-                            text,
                             span: Span {
                                 start,
                                 end: current_offset,
@@ -429,15 +432,20 @@ impl<'a> Parser<'a> {
         });
     }
 
-    pub(crate) fn skip_whitespace(&mut self) {
+    pub fn skip_whitespace(&mut self) {
         self.skip_whitespace_internal(false);
     }
 
-    pub(crate) fn skip_inline_whitespace(&mut self) {
+    pub fn skip_inline_whitespace(&mut self) {
         self.skip_whitespace_internal(true);
     }
 
-    pub(crate) fn expect_inline_whitespace(&mut self) -> bool {
+    #[inline]
+    pub fn expect_inline_whitespace(&mut self) -> bool {
+        self.expect_inline_whitespace_if(true)
+    }
+
+    pub fn expect_inline_whitespace_if(&mut self, display_message: bool) -> bool {
         let start_pos = self.pos;
 
         self.skip_whitespace_internal(true);
@@ -445,12 +453,15 @@ impl<'a> Parser<'a> {
         if self.pos > start_pos {
             true
         } else {
-            self.error("Expected inline whitespace");
+            if display_message {
+                self.error("Expected inline whitespace");
+            }
+
             false
         }
     }
 
-    pub(crate) fn expect_newline_whitespace(&mut self, message: &str) -> bool {
+    pub fn expect_newline_whitespace(&mut self, message: &str) -> bool {
         let start = self.pos;
         let found_newline = self.skip_whitespace_internal(false);
         if !found_newline && !self.is_eof() {
@@ -460,7 +471,7 @@ impl<'a> Parser<'a> {
         true
     }
 
-    pub fn parse(&'a mut self) -> ParseResult<'a> {
+    pub fn parse(&mut self) -> ParseResult {
         CSTRoot::parse(self);
 
         let root = self.build_tree();
@@ -493,13 +504,13 @@ impl<'a> Parser<'a> {
         self.add_token(SyntaxKind::Garbage, length);
     }
 
-    pub(crate) fn recover_newline(&mut self, message: impl ToString) {
+    pub fn recover_newline(&mut self, message: impl ToString) {
         self.error(message);
 
         self.bump_until_newline();
     }
 
-    pub(crate) fn try_parse_string_or_identifier(&mut self) -> bool {
+    pub fn try_parse_string_or_identifier(&mut self) -> bool {
         if self.peek_char() == Some('"') {
             let text = self.peek_quoted_string().unwrap();
             self.add_token(SyntaxKind::String, text.len());
@@ -512,7 +523,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn parse_range(&mut self) {
+    pub fn parse_range(&mut self) {
         self.start_node(SyntaxKind::Range);
 
         let checkpoint = self.checkpoint();
@@ -535,7 +546,7 @@ impl<'a> Parser<'a> {
         self.finish_node();
     }
 
-    pub(crate) fn try_bump_char(&mut self, expected: char) -> bool {
+    pub fn try_bump_char(&mut self, expected: char) -> bool {
         if self.peek_char() == Some(expected) {
             self.add_token(Self::char_to_kind(expected), expected.len_utf8());
 
@@ -545,7 +556,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn expect_char(&mut self, expected: char, message: &str) -> bool {
+    pub fn expect_char(&mut self, expected: char, message: &str) -> bool {
         if self.try_bump_char(expected) {
             true
         } else {
@@ -554,7 +565,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn expect_identifier(&mut self, message: &str) -> bool {
+    pub fn expect_identifier(&mut self, message: &str) -> bool {
         if let Some(text) = self.peek_identifier() {
             self.add_token(SyntaxKind::Identifier, text.len());
 
@@ -565,7 +576,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn try_start_node_bump(&mut self, char: char, node_kind: SyntaxKind) -> bool {
+    pub fn try_start_node_bump(&mut self, char: char, node_kind: SyntaxKind) -> bool {
         if self.peek_char() == Some(char) {
             self.start_node(node_kind);
 
@@ -577,7 +588,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn expect_no_bump(&mut self, char: char, message: &str) -> bool {
+    pub fn expect_no_bump(&mut self, char: char, message: &str) -> bool {
         if self.peek_char() == Some(char) {
             true
         } else {
@@ -586,13 +597,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn start_bump_finish_node(&mut self, kind: SyntaxKind, len: usize) {
+    pub fn start_bump_finish_node(&mut self, kind: SyntaxKind, len: usize) {
         self.start_node(kind);
         self.add_token(kind, len);
         self.finish_node();
     }
 
-    pub(crate) fn start_node_bump(&mut self, kind: SyntaxKind, len: usize) {
+    pub fn start_node_bump(&mut self, kind: SyntaxKind, len: usize) {
         self.start_node(kind);
         self.add_token(kind, len);
     }
@@ -634,7 +645,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn bump_until_char(&mut self, stop_chars: &[char]) {
+    pub fn bump_until_char(&mut self, stop_chars: &[char]) {
         while let Some(c) = self.peek_char()
             && !stop_chars.contains(&c)
         {
@@ -659,8 +670,8 @@ impl<'a> Parser<'a> {
         self.add_token(SyntaxKind::Identifier, identifier.len());
     }
 
-    pub fn bump_keyword(&mut self, len: usize) {
-        self.add_token(SyntaxKind::Keyword, len);
+    pub fn bump_keyword(&mut self, keyword: &str) {
+        self.add_token(SyntaxKind::Keyword, keyword.len());
     }
 
     pub fn checkpoint(&self) -> usize {

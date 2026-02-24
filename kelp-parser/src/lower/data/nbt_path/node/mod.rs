@@ -5,9 +5,10 @@ use crate::{
     cstlib::CSTNodeType,
     lower::{
         data::nbt_path::node::{index::CSTNBTPathIndexNode, named::CSTNBTPathNamedNode},
-        expression::{CSTExpression, compound::CSTCompoundExpression},
+        expression::compound::CSTCompoundExpression,
     },
     parser::Parser,
+    semantic_token::SemanticToken,
     syntax::SyntaxKind,
 };
 
@@ -21,7 +22,7 @@ pub enum CSTNBTPathNode<'a> {
 }
 
 impl<'a> CSTNBTPathNode<'a> {
-    pub(crate) fn try_parse_start(parser: &mut Parser) -> bool {
+    pub fn try_parse_start(parser: &mut Parser) -> bool {
         let char = parser.peek_char();
 
         if char == Some('{') {
@@ -51,16 +52,22 @@ impl<'a> CSTNBTPathNode<'a> {
         }
     }
 
-    pub fn lower(node: CSTNBTPathNode) -> Option<HighNbtPathNode> {
-        Some(match node {
+    pub fn lower(self, text: &str) -> Option<HighNbtPathNode> {
+        Some(match self {
             CSTNBTPathNode::Index(node) => {
                 let index = node.index();
 
-                HighNbtPathNode::Index(index.and_then(CSTExpression::lower).map(Box::new))
+                HighNbtPathNode::Index(
+                    index
+                        .and_then(|expression| expression.lower(text))
+                        .map(Box::new),
+                )
             }
             CSTNBTPathNode::Named(node) => {
-                let (span, name) = node.name()?;
-                let compound = node.compound().map(CSTCompoundExpression::lower);
+                let (span, name) = node.name(text)?;
+                let compound = node
+                    .compound()
+                    .map(|compound_expression| compound_expression.lower(text));
 
                 HighNbtPathNode::Named(
                     HighSNBTString {
@@ -71,5 +78,16 @@ impl<'a> CSTNBTPathNode<'a> {
                 )
             }
         })
+    }
+
+    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
+        match self {
+            CSTNBTPathNode::Named(node) => {
+                node.collect_semantic_tokens(tokens);
+            }
+            CSTNBTPathNode::Index(node) => {
+                node.collect_semantic_tokens(tokens);
+            }
+        }
     }
 }

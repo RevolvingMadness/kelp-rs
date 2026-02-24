@@ -46,7 +46,7 @@ impl<'a> CSTLocalCoordinates<'a> {
         Option<CSTLocalCoordinate<'a>>,
         Option<CSTLocalCoordinate<'a>>,
     ) {
-        let mut coordinates = self.0.children().filter_map(CSTLocalCoordinate::cast);
+        let mut coordinates = self.children().filter_map(CSTLocalCoordinate::cast);
 
         let x = coordinates.next();
         let y = coordinates.next();

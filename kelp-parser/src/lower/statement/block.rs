@@ -4,7 +4,7 @@ cst_node!(CSTBlockStatement, SyntaxKind::BlockStatement);
 
 impl<'a> CSTBlockStatement<'a> {
     pub fn statements(&self) -> impl Iterator<Item = CSTStatement<'a>> {
-        self.0.children().filter_map(CSTStatement::cast)
+        self.children().filter_map(CSTStatement::cast)
     }
 
     pub fn try_parse(parser: &mut Parser) -> bool {

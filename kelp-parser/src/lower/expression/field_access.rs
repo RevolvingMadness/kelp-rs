@@ -6,7 +6,7 @@ cst_node!(CSTFieldAccessExpression, SyntaxKind::FieldAccessExpression);
 
 impl<'a> CSTFieldAccessExpression<'a> {
     pub fn target(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 
     pub fn field<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {

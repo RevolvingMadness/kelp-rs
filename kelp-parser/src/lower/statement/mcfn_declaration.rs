@@ -47,7 +47,7 @@ impl<'a> CSTMCFNDeclarationStatement<'a> {
     }
 
     pub fn resource_location(&self) -> Option<CSTResourceLocation<'a>> {
-        self.0.children().find_map(CSTResourceLocation::cast)
+        self.children().find_map(CSTResourceLocation::cast)
     }
 
     pub fn block_statement(&self) -> Option<CSTStatement<'a>> {

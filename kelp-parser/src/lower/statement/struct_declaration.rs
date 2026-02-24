@@ -42,7 +42,7 @@ impl<'a> CSTStructDeclarationField<'a> {
     }
 
     pub fn data_type(&self) -> Option<CSTDataType<'a>> {
-        self.0.children().find_map(CSTDataType::cast)
+        self.children().find_map(CSTDataType::cast)
     }
 }
 

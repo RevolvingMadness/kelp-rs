@@ -21,7 +21,7 @@ impl<'a> CSTStorageDataTarget<'a> {
     }
 
     pub fn resource_location(&self) -> Option<CSTResourceLocation<'a>> {
-        self.0.children().find_map(CSTResourceLocation::cast)
+        self.children().find_map(CSTResourceLocation::cast)
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {

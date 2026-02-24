@@ -61,10 +61,10 @@ impl<'a> CSTTellrawCommandExpression<'a> {
     }
 
     pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
-        self.0.children().find_map(CSTEntitySelector::cast)
+        self.children().find_map(CSTEntitySelector::cast)
     }
 
     pub fn message(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 }

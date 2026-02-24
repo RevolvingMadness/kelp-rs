@@ -89,7 +89,7 @@ impl<'a> CSTWorldCoordinates<'a> {
         Option<CSTWorldCoordinate<'a>>,
         Option<CSTWorldCoordinate<'a>>,
     ) {
-        let mut coordinates = self.0.children().filter_map(CSTWorldCoordinate::cast);
+        let mut coordinates = self.children().filter_map(CSTWorldCoordinate::cast);
 
         let x = coordinates.next();
         let y = coordinates.next();

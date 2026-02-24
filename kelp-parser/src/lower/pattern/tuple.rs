@@ -6,7 +6,7 @@ cst_node!(CSTTuplePattern, SyntaxKind::TuplePattern);
 
 impl<'a> CSTTuplePattern<'a> {
     pub fn patterns(&self) -> impl Iterator<Item = CSTPattern<'a>> {
-        self.0.children().filter_map(CSTPattern::cast)
+        self.children().filter_map(CSTPattern::cast)
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {

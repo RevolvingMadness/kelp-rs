@@ -100,7 +100,7 @@ impl<'a> CSTResourceLocation<'a> {
     }
 
     pub fn namespace<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.0.children().find_map(|node| {
+        self.children().find_map(|node| {
             if node.kind()? == SyntaxKind::ResourceLocationNamespace {
                 Some(
                     (node.children_tokens().find_map(|token| {

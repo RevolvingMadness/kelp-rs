@@ -81,14 +81,14 @@ impl<'a> CSTIfStatement<'a> {
     }
 
     pub fn condition(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 
     pub fn body(&self) -> Option<CSTStatement<'a>> {
-        self.0.children().filter_map(CSTStatement::cast).nth(1)
+        self.children().filter_map(CSTStatement::cast).nth(1)
     }
 
     pub fn else_body(&self) -> Option<CSTStatement<'a>> {
-        self.0.children().filter_map(CSTStatement::cast).nth(2)
+        self.children().filter_map(CSTStatement::cast).nth(2)
     }
 }

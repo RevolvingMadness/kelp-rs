@@ -26,10 +26,10 @@ impl<'a> CSTDataExpression<'a> {
         true
     }
     pub fn data_target(&self) -> Option<CSTDataTarget<'a>> {
-        self.0.children().find_map(CSTDataTarget::cast)
+        self.children().find_map(CSTDataTarget::cast)
     }
 
     pub fn nbt_path(&self) -> Option<CSTNBTPath<'a>> {
-        self.0.children().find_map(CSTNBTPath::cast)
+        self.children().find_map(CSTNBTPath::cast)
     }
 }

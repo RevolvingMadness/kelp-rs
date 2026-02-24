@@ -29,7 +29,7 @@ impl<'a> CSTNBTPathIndexNode<'a> {
     }
 
     pub fn index(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {

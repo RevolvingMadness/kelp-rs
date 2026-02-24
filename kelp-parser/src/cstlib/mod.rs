@@ -1,3 +1,5 @@
+use std::slice::Iter;
+
 use kelp_core::span::Span;
 
 use crate::{
@@ -67,7 +69,7 @@ impl CSTNodeType {
         self.kind() == Some(kind)
     }
 
-    pub fn children(&self) -> impl DoubleEndedIterator<Item = &CSTNodeType> {
+    pub fn children<'a>(&'a self) -> Iter<'a, CSTNodeType> {
         match self {
             CSTNodeType::Node(node) => node.children.iter(),
             _ => [].iter(),

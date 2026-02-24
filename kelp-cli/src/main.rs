@@ -179,7 +179,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let parse_succeeded = errors.is_empty();
 
     for error in errors {
-        let span = (target_path_str.as_ref(), error.span.start..error.span.end);
+        let span = (target_path_str.as_ref(), error.span.into_range());
 
         Report::build(ReportKind::Error, span.clone())
             .with_label(

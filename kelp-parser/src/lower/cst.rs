@@ -16,6 +16,10 @@ macro_rules! cst_node {
             pub fn span(&self) -> kelp_core::span::Span {
                 self.0.span()
             }
+
+            pub fn children(&self) -> std::slice::Iter<'a, $crate::cstlib::CSTNodeType> {
+                self.0.children()
+            }
         }
     };
 }

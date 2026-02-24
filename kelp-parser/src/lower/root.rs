@@ -37,7 +37,7 @@ impl<'a> CSTRoot<'a> {
     }
 
     pub fn statements(&self) -> Vec<CSTStatement<'a>> {
-        self.0.children().filter_map(CSTStatement::cast).collect()
+        self.children().filter_map(CSTStatement::cast).collect()
     }
 
     pub fn collect_semantic_tokens(&self) -> Vec<SemanticToken> {

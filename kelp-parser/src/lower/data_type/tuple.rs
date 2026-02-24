@@ -4,6 +4,6 @@ cst_node!(CSTTupleDataType, SyntaxKind::TupleDataType);
 
 impl<'a> CSTTupleDataType<'a> {
     pub fn data_types(&self) -> Vec<CSTDataType<'a>> {
-        self.0.children().filter_map(CSTDataType::cast).collect()
+        self.children().filter_map(CSTDataType::cast).collect()
     }
 }

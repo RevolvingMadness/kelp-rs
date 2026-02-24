@@ -4,11 +4,11 @@ cst_node!(CSTAssignmentExpression, SyntaxKind::AssignmentExpression);
 
 impl<'a> CSTAssignmentExpression<'a> {
     pub fn lhs(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 
     pub fn rhs(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().filter_map(CSTExpression::cast).nth(1)
+        self.children().filter_map(CSTExpression::cast).nth(1)
     }
 
     pub fn op_kind(&self) -> Option<SyntaxKind> {

@@ -42,7 +42,7 @@ impl<'a> CSTListExpression<'a> {
     }
 
     pub fn expressions(&self) -> impl Iterator<Item = CSTExpression<'a>> {
-        self.0.children().filter_map(CSTExpression::cast)
+        self.children().filter_map(CSTExpression::cast)
     }
 
     pub fn lower(self, text: &str) -> Vec<Expression> {

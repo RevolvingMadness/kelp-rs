@@ -45,10 +45,10 @@ impl<'a> CSTWhileStatement<'a> {
     }
 
     pub fn condition(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 
     pub fn body(&self) -> Option<CSTStatement<'a>> {
-        self.0.children().rev().find_map(CSTStatement::cast)
+        self.children().rev().find_map(CSTStatement::cast)
     }
 }

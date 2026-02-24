@@ -21,7 +21,7 @@ impl<'a> CSTStructExpressionField<'a> {
     }
 
     pub fn value(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 }
 
@@ -58,10 +58,10 @@ impl<'a> CSTStructExpression<'a> {
     }
 
     pub fn generics(&self) -> Vec<CSTDataType<'a>> {
-        self.0.children().filter_map(CSTDataType::cast).collect()
+        self.children().filter_map(CSTDataType::cast).collect()
     }
 
     pub fn fields(&self) -> impl Iterator<Item = CSTStructExpressionField<'a>> {
-        self.0.children().filter_map(CSTStructExpressionField::cast)
+        self.children().filter_map(CSTStructExpressionField::cast)
     }
 }

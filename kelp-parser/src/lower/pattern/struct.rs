@@ -26,7 +26,7 @@ impl<'a> CSTStructPatternField<'a> {
     }
 
     pub fn pattern(&self) -> Option<CSTPattern<'a>> {
-        self.0.children().find_map(CSTPattern::cast)
+        self.children().find_map(CSTPattern::cast)
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {

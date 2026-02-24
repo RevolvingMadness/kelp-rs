@@ -29,7 +29,7 @@ impl<'a> CSTScoreExpression<'a> {
     }
 
     pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
-        self.0.children().find_map(CSTEntitySelector::cast)
+        self.children().find_map(CSTEntitySelector::cast)
     }
 
     pub fn message_span(&self) -> Option<Span> {

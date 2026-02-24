@@ -4,7 +4,7 @@ cst_node!(CSTUnaryExpression, SyntaxKind::UnaryExpression);
 
 impl<'a> CSTUnaryExpression<'a> {
     pub fn operand(&self) -> Option<CSTExpression<'a>> {
-        self.0.children().find_map(CSTExpression::cast)
+        self.children().find_map(CSTExpression::cast)
     }
 
     pub fn op_kind(&self) -> Option<SyntaxKind> {

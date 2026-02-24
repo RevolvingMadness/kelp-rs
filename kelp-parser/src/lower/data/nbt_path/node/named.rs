@@ -37,7 +37,7 @@ impl<'a> CSTNBTPathNamedNode<'a> {
     }
 
     pub fn compound(&self) -> Option<CSTCompoundExpression<'a>> {
-        self.0.children().find_map(CSTCompoundExpression::cast)
+        self.children().find_map(CSTCompoundExpression::cast)
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {

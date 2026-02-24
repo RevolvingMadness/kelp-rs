@@ -54,7 +54,7 @@ impl<'a> CSTNBTPath<'a> {
     }
 
     pub fn nodes(&self) -> Vec<CSTNBTPathNode<'a>> {
-        self.0.children().filter_map(CSTNBTPathNode::cast).collect()
+        self.children().filter_map(CSTNBTPathNode::cast).collect()
     }
 
     pub fn lower(self, text: &str) -> Option<HighNbtPath> {

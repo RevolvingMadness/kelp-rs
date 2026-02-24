@@ -21,7 +21,7 @@ impl<'a> CSTBlockDataTarget<'a> {
     }
 
     pub fn coordinates(&self) -> Option<CSTCoordinates<'a>> {
-        self.0.children().find_map(CSTCoordinates::cast)
+        self.children().find_map(CSTCoordinates::cast)
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {

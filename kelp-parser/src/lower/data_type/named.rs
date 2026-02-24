@@ -10,6 +10,6 @@ impl<'a> CSTNamedDataType<'a> {
     }
 
     pub fn generics(&self) -> Vec<CSTDataType<'a>> {
-        self.0.children().filter_map(CSTDataType::cast).collect()
+        self.children().filter_map(CSTDataType::cast).collect()
     }
 }

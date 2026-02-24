@@ -10,6 +10,7 @@ use crate::{
 cst_node!(CSTEntityDataTarget, SyntaxKind::EntityDataTarget);
 
 impl<'a> CSTEntityDataTarget<'a> {
+    #[must_use]
     pub fn entity_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -20,6 +21,7 @@ impl<'a> CSTEntityDataTarget<'a> {
         })
     }
 
+    #[must_use]
     pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
         self.children().find_map(CSTEntitySelector::cast)
     }

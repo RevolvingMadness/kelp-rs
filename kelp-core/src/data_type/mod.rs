@@ -59,7 +59,8 @@ pub enum BuiltinDataTypeKind {
 }
 
 impl BuiltinDataTypeKind {
-    pub fn to_data_type(&self, generic_types: Vec<DataTypeKind>) -> Option<DataTypeKind> {
+    #[must_use]
+    pub fn to_data_type(&self, generic_types: &[DataTypeKind]) -> Option<DataTypeKind> {
         if generic_types.len() != self.generic_count() {
             return None;
         }
@@ -91,6 +92,7 @@ impl BuiltinDataTypeKind {
         })
     }
 
+    #[must_use]
     pub fn generic_count(&self) -> usize {
         match self {
             BuiltinDataTypeKind::Boolean
@@ -215,18 +217,18 @@ impl Display for DataTypeKind {
 }
 
 impl DataTypeKind {
+    #[must_use]
     pub fn to_data(self) -> DataTypeKind {
         match self {
             DataTypeKind::Boolean => DataTypeKind::Boolean,
             DataTypeKind::Byte => DataTypeKind::Byte,
             DataTypeKind::Short => DataTypeKind::Short,
-            DataTypeKind::Integer => DataTypeKind::Integer,
+            DataTypeKind::Integer | DataTypeKind::Score => DataTypeKind::Integer,
             DataTypeKind::Long => DataTypeKind::Long,
             DataTypeKind::Float => DataTypeKind::Float,
             DataTypeKind::Double => DataTypeKind::Double,
             DataTypeKind::String => DataTypeKind::String,
             DataTypeKind::Unit => DataTypeKind::Unit,
-            DataTypeKind::Score => DataTypeKind::Integer,
             DataTypeKind::List(data_type) => DataTypeKind::List(Box::new(data_type.to_data())),
             DataTypeKind::TypedCompound(compound) => DataTypeKind::TypedCompound(
                 compound
@@ -237,15 +239,13 @@ impl DataTypeKind {
             DataTypeKind::Compound(data_type) => {
                 DataTypeKind::Compound(Box::new(data_type.to_data()))
             }
-            DataTypeKind::Data(data_type) => data_type.to_data(),
-            DataTypeKind::Reference(data_type) => data_type.to_data(),
+            DataTypeKind::Data(data_type) | DataTypeKind::Reference(data_type) => {
+                data_type.to_data()
+            }
             DataTypeKind::Generic(_) => unreachable!(),
-            DataTypeKind::Tuple(data_types) => DataTypeKind::Tuple(
-                data_types
-                    .into_iter()
-                    .map(|data_type| data_type.to_data())
-                    .collect(),
-            ),
+            DataTypeKind::Tuple(data_types) => {
+                DataTypeKind::Tuple(data_types.into_iter().map(DataTypeKind::to_data).collect())
+            }
             DataTypeKind::SNBT => DataTypeKind::SNBT,
             DataTypeKind::Struct(name, generic_types, _) => {
                 DataTypeKind::Struct(name, generic_types, true)
@@ -312,14 +312,14 @@ impl DataTypeKind {
                 DataTypeKind::Tuple(data_types) => DataTypeKind::Tuple(
                     data_types
                         .into_iter()
-                        .map(|data_type| data_type.reference())
+                        .map(DataTypeKind::reference)
                         .collect(),
                 ),
                 DataTypeKind::Struct(name, generic_types, is_data) => DataTypeKind::Struct(
                     name,
                     generic_types
                         .into_iter()
-                        .map(|generic_type| generic_type.reference())
+                        .map(DataTypeKind::reference)
                         .collect(),
                     is_data,
                 ),
@@ -352,7 +352,7 @@ impl DataTypeKind {
             DataTypeKind::Tuple(data_types) => DataTypeKind::Tuple(
                 data_types
                     .into_iter()
-                    .map(|data_type| data_type.wrap_data())
+                    .map(DataTypeKind::wrap_data)
                     .collect(),
             ),
             DataTypeKind::TypedCompound(compound) => DataTypeKind::TypedCompound(
@@ -368,7 +368,7 @@ impl DataTypeKind {
                 name,
                 generic_types
                     .into_iter()
-                    .map(|generic_type| generic_type.wrap_data())
+                    .map(DataTypeKind::wrap_data)
                     .collect(),
                 is_data,
             ),
@@ -447,7 +447,7 @@ impl DataTypeKind {
             DataTypeKind::TypedCompound(ref data_types) => {
                 let mut error = false;
 
-                for (key, pattern) in patterns.iter() {
+                for (key, pattern) in patterns {
                     let data_type = data_types
                         .iter()
                         .find(|(value_key, _)| value_key.1 == key.snbt_string.1)
@@ -485,7 +485,7 @@ impl DataTypeKind {
                 if error { None } else { Some(()) }
             }
             DataTypeKind::Compound(data_type) => {
-                for (key, pattern) in patterns.iter() {
+                for (key, pattern) in patterns {
                     let data_type = *data_type.clone();
 
                     if let Some(pattern) = pattern {
@@ -553,7 +553,7 @@ impl DataTypeKind {
                 let fields = declaration.get_struct_fields(ctx, generics)?;
 
                 let mut error = false;
-                for (key, pattern_opt) in field_patterns.iter() {
+                for (key, pattern_opt) in field_patterns {
                     if let Some(field_type) = fields.get(&key.snbt_string.1) {
                         let field_type = field_type.clone();
 
@@ -648,7 +648,7 @@ impl DataTypeKind {
                 ),
             pattern_kind @ PatternKind::Dereference(inner_pattern) => {
                 if !self.can_be_dereferenced() {
-                    ctx.add_info(SemanticAnalysisInfo {
+                    return ctx.add_info(SemanticAnalysisInfo {
                         span: pattern.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::MismatchedPatternTypes {
@@ -656,10 +656,10 @@ impl DataTypeKind {
                                 actual: pattern_kind.get_type(),
                             },
                         ),
-                    })
-                } else {
-                    self.destructure_and_perform_semantic_analysis(ctx, value_span, inner_pattern)
+                    });
                 }
+
+                self.destructure_and_perform_semantic_analysis(ctx, value_span, inner_pattern)
             }
         }
     }
@@ -851,7 +851,7 @@ impl DataTypeKind {
                     name,
                     field_patterns,
                     value,
-                )
+                );
             }
             (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
         }
@@ -865,8 +865,7 @@ impl DataTypeKind {
         pattern: &Pattern,
     ) {
         match &pattern.kind {
-            PatternKind::Literal(_) => {}
-            PatternKind::Wildcard => {}
+            PatternKind::Literal(_) | PatternKind::Wildcard => {}
             PatternKind::Binding(name) => {
                 datapack.declare_variable(name.clone(), self, value);
             }
@@ -920,38 +919,30 @@ impl DataTypeKind {
                 let mut has_error = false;
 
                 for (key, expression) in expressions {
-                    match data_types.get(&key.snbt_string) {
-                        Some(data_type) => {
-                            let expression_type = match expression.kind.infer_data_type(ctx) {
-                                Some(t) => t,
-                                None => {
-                                    has_error = true;
+                    let Some(data_type) = data_types.get(&key.snbt_string) else {
+                        has_error = true;
 
-                                    continue;
-                                }
-                            };
+                        ctx.add_info::<()>(SemanticAnalysisInfo {
+                            span: key.span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::UnexpectedKey(key.snbt_string.1.clone()),
+                            ),
+                        });
 
-                            if data_type
-                                .perform_equality_semantic_analysis(
-                                    ctx,
-                                    &expression_type,
-                                    expression,
-                                )
-                                .is_none()
-                            {
-                                has_error = true;
-                            }
-                        }
-                        None => {
-                            has_error = true;
+                        continue;
+                    };
 
-                            ctx.add_info::<()>(SemanticAnalysisInfo {
-                                span: key.span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::UnexpectedKey(key.snbt_string.1.clone()),
-                                ),
-                            });
-                        }
+                    let Some(expression_type) = expression.kind.infer_data_type(ctx) else {
+                        has_error = true;
+
+                        continue;
+                    };
+
+                    if data_type
+                        .perform_equality_semantic_analysis(ctx, &expression_type, expression)
+                        .is_none()
+                    {
+                        has_error = true;
                     }
                 }
 
@@ -1035,6 +1026,7 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn get_iterable_type(&self) -> Option<DataTypeKind> {
         Some(match self {
             DataTypeKind::Reference(self_) => match &**self_ {
@@ -1059,6 +1051,7 @@ impl DataTypeKind {
         })
     }
 
+    #[must_use]
     pub fn dereference(self) -> Option<DataTypeKind> {
         Some(match self {
             DataTypeKind::Reference(data_type) => *data_type,
@@ -1068,10 +1061,12 @@ impl DataTypeKind {
         })
     }
 
+    #[must_use]
     pub fn is_lvalue(&self) -> bool {
         matches!(self, DataTypeKind::Score | DataTypeKind::Data(_))
     }
 
+    #[must_use]
     pub fn can_cast_to(&self, data_type: &DataTypeKind) -> bool {
         if self.equals(data_type) {
             return true;
@@ -1079,38 +1074,53 @@ impl DataTypeKind {
 
         matches!(
             (self, data_type),
-            (DataTypeKind::Byte, DataTypeKind::Short)
-                | (DataTypeKind::Byte, DataTypeKind::Integer)
-                | (DataTypeKind::Byte, DataTypeKind::Long)
-                | (DataTypeKind::Byte, DataTypeKind::Float)
-                | (DataTypeKind::Byte, DataTypeKind::Double)
-                | (DataTypeKind::Short, DataTypeKind::Byte)
-                | (DataTypeKind::Short, DataTypeKind::Integer)
-                | (DataTypeKind::Short, DataTypeKind::Long)
-                | (DataTypeKind::Short, DataTypeKind::Float)
-                | (DataTypeKind::Short, DataTypeKind::Double)
-                | (DataTypeKind::Integer, DataTypeKind::Byte)
-                | (DataTypeKind::Integer, DataTypeKind::Short)
-                | (DataTypeKind::Integer, DataTypeKind::Long)
-                | (DataTypeKind::Integer, DataTypeKind::Float)
-                | (DataTypeKind::Integer, DataTypeKind::Double)
-                | (DataTypeKind::Long, DataTypeKind::Byte)
-                | (DataTypeKind::Long, DataTypeKind::Short)
-                | (DataTypeKind::Long, DataTypeKind::Integer)
-                | (DataTypeKind::Long, DataTypeKind::Float)
-                | (DataTypeKind::Long, DataTypeKind::Double)
-                | (DataTypeKind::Float, DataTypeKind::Byte)
-                | (DataTypeKind::Float, DataTypeKind::Short)
-                | (DataTypeKind::Float, DataTypeKind::Integer)
-                | (DataTypeKind::Float, DataTypeKind::Long)
-                | (DataTypeKind::Float, DataTypeKind::Double)
-                | (DataTypeKind::Double, DataTypeKind::Byte)
-                | (DataTypeKind::Double, DataTypeKind::Short)
-                | (DataTypeKind::Double, DataTypeKind::Integer)
-                | (DataTypeKind::Double, DataTypeKind::Long)
-                | (DataTypeKind::Double, DataTypeKind::Float)
+            (
+                DataTypeKind::Byte
+                    | DataTypeKind::Integer
+                    | DataTypeKind::Long
+                    | DataTypeKind::Float
+                    | DataTypeKind::Double,
+                DataTypeKind::Short
+            ) | (
+                DataTypeKind::Byte
+                    | DataTypeKind::Short
+                    | DataTypeKind::Long
+                    | DataTypeKind::Float
+                    | DataTypeKind::Double,
+                DataTypeKind::Integer
+            ) | (
+                DataTypeKind::Byte
+                    | DataTypeKind::Short
+                    | DataTypeKind::Integer
+                    | DataTypeKind::Float
+                    | DataTypeKind::Double,
+                DataTypeKind::Long
+            ) | (
+                DataTypeKind::Byte
+                    | DataTypeKind::Short
+                    | DataTypeKind::Integer
+                    | DataTypeKind::Long
+                    | DataTypeKind::Double,
+                DataTypeKind::Float
+            ) | (
+                DataTypeKind::Byte
+                    | DataTypeKind::Short
+                    | DataTypeKind::Integer
+                    | DataTypeKind::Long
+                    | DataTypeKind::Float,
+                DataTypeKind::Double
+            ) | (
+                DataTypeKind::Short
+                    | DataTypeKind::Integer
+                    | DataTypeKind::Long
+                    | DataTypeKind::Float
+                    | DataTypeKind::Double,
+                DataTypeKind::Byte
+            )
         )
     }
+
+    #[must_use]
     pub fn is_condition(&self) -> bool {
         match self {
             DataTypeKind::Boolean | DataTypeKind::Data(_) => true,
@@ -1123,6 +1133,7 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn is_score_value(&self) -> bool {
         match self {
             DataTypeKind::Boolean
@@ -1138,36 +1149,38 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn is_snbt_like(&self) -> bool {
         match self {
-            DataTypeKind::Boolean => true,
-            DataTypeKind::Byte => true,
-            DataTypeKind::Short => true,
-            DataTypeKind::Integer => true,
-            DataTypeKind::Long => true,
-            DataTypeKind::Float => true,
-            DataTypeKind::Double => true,
-            DataTypeKind::String => true,
-            DataTypeKind::Score => true,
-            DataTypeKind::List(data_type) => data_type.is_snbt_like(),
             DataTypeKind::TypedCompound(compound) => {
-                compound.values().all(|value| value.is_snbt_like())
+                compound.values().all(DataTypeKind::is_snbt_like)
             }
-            DataTypeKind::Compound(data_type) => data_type.is_snbt_like(),
-            DataTypeKind::SNBT => true,
-            DataTypeKind::Struct(_, _, _) => true,
+            DataTypeKind::List(data_type) | DataTypeKind::Compound(data_type) => {
+                data_type.is_snbt_like()
+            }
+            DataTypeKind::Boolean
+            | DataTypeKind::Byte
+            | DataTypeKind::Short
+            | DataTypeKind::Integer
+            | DataTypeKind::Long
+            | DataTypeKind::Float
+            | DataTypeKind::Double
+            | DataTypeKind::String
+            | DataTypeKind::Score
+            | DataTypeKind::SNBT
+            | DataTypeKind::Struct(_, _, _) => true,
             DataTypeKind::Generic(_) => unreachable!(),
             _ => false,
         }
     }
 
+    #[must_use]
     pub fn has_fields(&self) -> bool {
         match self {
-            DataTypeKind::Struct(_, _, _) => true,
-
             DataTypeKind::Reference(data_type) => data_type.has_fields(),
 
-            DataTypeKind::TypedCompound(_)
+            DataTypeKind::Struct(_, _, _)
+            | DataTypeKind::TypedCompound(_)
             | DataTypeKind::Compound(_)
             | DataTypeKind::Data(_)
             | DataTypeKind::Tuple(_)
@@ -1182,7 +1195,7 @@ impl DataTypeKind {
     #[allow(clippy::only_used_in_recursion)]
     fn raw_get_arithmetic_result(
         &self,
-        _operator: &ArithmeticOperator,
+        _operator: ArithmeticOperator,
         other: &DataTypeKind,
     ) -> Option<DataTypeKind> {
         Some(match (self, other) {
@@ -1204,9 +1217,10 @@ impl DataTypeKind {
         })
     }
 
+    #[must_use]
     pub fn get_arithmetic_result(
         &self,
-        operator: &ArithmeticOperator,
+        operator: ArithmeticOperator,
         other: &DataTypeKind,
     ) -> Option<DataTypeKind> {
         match (self, other) {
@@ -1218,6 +1232,7 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn can_perform_augmented_assignment(
         &self,
         operator: &ArithmeticOperator,
@@ -1225,10 +1240,10 @@ impl DataTypeKind {
     ) -> bool {
         match (self, other) {
             (_, other) if *operator == ArithmeticOperator::Swap && !other.is_lvalue() => false,
-            (DataTypeKind::Byte, DataTypeKind::Byte) => true,
-            (DataTypeKind::Short, DataTypeKind::Short) => true,
-            (DataTypeKind::Integer, DataTypeKind::Integer) => true,
-            (DataTypeKind::Long, DataTypeKind::Long) => true,
+            (DataTypeKind::Byte, DataTypeKind::Byte)
+            | (DataTypeKind::Short, DataTypeKind::Short)
+            | (DataTypeKind::Integer, DataTypeKind::Integer)
+            | (DataTypeKind::Long, DataTypeKind::Long) => true,
             (DataTypeKind::Data(inner), other) => {
                 inner.can_perform_augmented_assignment(operator, other)
             }
@@ -1278,26 +1293,27 @@ impl DataTypeKind {
         Some(())
     }
 
+    #[must_use]
     fn raw_can_perform_comparison(
         &self,
-        operator: &ComparisonOperator,
+        operator: ComparisonOperator,
         other: &DataTypeKind,
     ) -> bool {
         match (self, other) {
-            (DataTypeKind::Byte, DataTypeKind::Byte) => true,
-            (DataTypeKind::Short, DataTypeKind::Short) => true,
-            (DataTypeKind::Integer, DataTypeKind::Integer) => true,
-            (DataTypeKind::Long, DataTypeKind::Long) => true,
-            (DataTypeKind::Float, DataTypeKind::Float) => true,
-            (DataTypeKind::Double, DataTypeKind::Double) => true,
+            (DataTypeKind::Byte, DataTypeKind::Byte)
+            | (DataTypeKind::Short, DataTypeKind::Short)
+            | (DataTypeKind::Integer, DataTypeKind::Integer)
+            | (DataTypeKind::Long, DataTypeKind::Long)
+            | (DataTypeKind::Float, DataTypeKind::Float)
+            | (DataTypeKind::Double, DataTypeKind::Double) => true,
             (DataTypeKind::Score, other) | (other, DataTypeKind::Score)
                 if other.is_score_value() =>
             {
                 true
             }
             (DataTypeKind::Data(inner_type), other) | (other, DataTypeKind::Data(inner_type))
-                if *operator == ComparisonOperator::EqualTo
-                    || *operator == ComparisonOperator::NotEqualTo =>
+                if operator == ComparisonOperator::EqualTo
+                    || operator == ComparisonOperator::NotEqualTo =>
             {
                 inner_type.can_perform_comparison(operator, other)
             }
@@ -1310,12 +1326,13 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn can_perform_comparison(
         &self,
-        operator: &ComparisonOperator,
+        operator: ComparisonOperator,
         other: &DataTypeKind,
     ) -> bool {
-        if (*operator == ComparisonOperator::EqualTo || *operator == ComparisonOperator::NotEqualTo)
+        if (operator == ComparisonOperator::EqualTo || operator == ComparisonOperator::NotEqualTo)
             && self.equals(other)
         {
             return true;
@@ -1331,6 +1348,7 @@ impl DataTypeKind {
         }
     }
 
+    #[must_use]
     pub fn can_perform_logical_comparison(
         &self,
         _operator: &LogicalOperator,
@@ -1342,6 +1360,7 @@ impl DataTypeKind {
         )
     }
 
+    #[must_use]
     pub fn get_index_result(&self) -> Option<DataTypeKind> {
         Some(match self {
             DataTypeKind::Reference(self_) => self_.get_index_result()?,
@@ -1402,10 +1421,12 @@ impl DataTypeKind {
         })
     }
 
+    #[must_use]
     pub fn can_be_referenced(&self) -> bool {
         matches!(self, DataTypeKind::Data(_) | DataTypeKind::Score)
     }
 
+    #[must_use]
     pub fn can_be_dereferenced(&self) -> bool {
         matches!(
             self,
@@ -1413,6 +1434,7 @@ impl DataTypeKind {
         )
     }
 
+    #[must_use]
     pub fn get_negated_result(&self) -> Option<DataTypeKind> {
         Some(match self {
             DataTypeKind::Reference(self_) => match **self_ {
@@ -1433,6 +1455,7 @@ impl DataTypeKind {
         })
     }
 
+    #[must_use]
     pub fn get_inverted_result(&self) -> Option<DataTypeKind> {
         Some(match self {
             DataTypeKind::Reference(self_) => match **self_ {
@@ -1446,10 +1469,14 @@ impl DataTypeKind {
         })
     }
 
+    #[must_use]
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::SNBT, _) | (_, Self::SNBT) => true,
-            (Self::List(self_type), Self::List(other_type)) => self_type.equals(other_type),
+            (Self::List(self_type), Self::List(other_type))
+            | (Self::Compound(self_type), Self::Compound(other_type)) => {
+                self_type.equals(other_type)
+            }
             (Self::Tuple(self_elements), Self::Tuple(other_elements)) => {
                 self_elements.len() == other_elements.len()
                     && self_elements
@@ -1464,7 +1491,6 @@ impl DataTypeKind {
                         .is_some_and(|self_type| self_type.equals(other_type))
                 })
             }
-            (Self::Compound(self_type), Self::Compound(other_type)) => self_type.equals(other_type),
             (Self::Compound(compound_data_type), Self::TypedCompound(data_types))
             | (Self::TypedCompound(data_types), Self::Compound(compound_data_type)) => data_types
                 .values()

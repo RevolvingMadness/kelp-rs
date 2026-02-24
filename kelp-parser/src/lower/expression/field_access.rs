@@ -5,10 +5,12 @@ use crate::{cst_node, lower::expression::CSTExpression, syntax::SyntaxKind};
 cst_node!(CSTFieldAccessExpression, SyntaxKind::FieldAccessExpression);
 
 impl<'a> CSTFieldAccessExpression<'a> {
+    #[must_use]
     pub fn target(&self) -> Option<CSTExpression<'a>> {
         self.children().find_map(CSTExpression::cast)
     }
 
+    #[must_use]
     pub fn field<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier || token.kind == SyntaxKind::WholeValue {

@@ -13,6 +13,7 @@ cst_node!(
 );
 
 impl<'a> CSTStructDeclarationField<'a> {
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<(String, HighDataType)> {
         let name = self.name(text)?;
 
@@ -21,6 +22,7 @@ impl<'a> CSTStructDeclarationField<'a> {
         Some((name.to_string(), data_type))
     }
 
+    #[must_use]
     pub fn name_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -31,14 +33,9 @@ impl<'a> CSTStructDeclarationField<'a> {
         })
     }
 
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text(text))
-            } else {
-                None
-            }
-        })
+        Some(&text[self.name_span()?.into_range()])
     }
 
     pub fn data_type(&self) -> Option<CSTDataType<'a>> {
@@ -172,6 +169,7 @@ impl<'a> CSTStructDeclarationStatement<'a> {
         true
     }
 
+    #[must_use]
     pub fn struct_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Keyword {
@@ -182,6 +180,7 @@ impl<'a> CSTStructDeclarationStatement<'a> {
         })
     }
 
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {

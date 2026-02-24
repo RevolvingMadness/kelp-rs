@@ -30,10 +30,8 @@ impl HighScoreboardNumberFormat {
     ) -> Option<()> {
         match self {
             HighScoreboardNumberFormat::Blank => Some(()),
-            HighScoreboardNumberFormat::Fixed(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
-            }
-            HighScoreboardNumberFormat::Styled(expression) => {
+            HighScoreboardNumberFormat::Fixed(expression)
+            | HighScoreboardNumberFormat::Styled(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
             }
         }
@@ -71,12 +69,9 @@ impl HighPlayersDisplayScoreboardCommand {
         match self {
             HighPlayersDisplayScoreboardCommand::Name(score, expression) => {
                 let score_result = score.perform_semantic_analysis(ctx, is_lhs);
-                let expression_result = expression
-                    .as_ref()
-                    .map(|expression| {
-                        expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
-                    })
-                    .unwrap_or(Some(()));
+                let expression_result = expression.as_ref().map_or(Some(()), |expression| {
+                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
+                });
 
                 score_result?;
                 expression_result?;
@@ -85,10 +80,10 @@ impl HighPlayersDisplayScoreboardCommand {
             }
             HighPlayersDisplayScoreboardCommand::NumberFormat(score, number_format) => {
                 let score_result = score.perform_semantic_analysis(ctx, is_lhs);
-                let number_format_result = number_format
-                    .as_ref()
-                    .map(|number_format| number_format.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                let number_format_result =
+                    number_format.as_ref().map_or(Some(()), |number_format| {
+                        number_format.perform_semantic_analysis(ctx, is_lhs)
+                    });
 
                 score_result?;
                 number_format_result?;
@@ -144,27 +139,20 @@ impl HighPlayersScoreboardCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighPlayersScoreboardCommand::List(selector) => selector
-                .as_ref()
-                .map(|selector| selector.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
-            HighPlayersScoreboardCommand::Get(score) => {
-                score.perform_semantic_analysis(ctx, is_lhs)
+            HighPlayersScoreboardCommand::List(selector) => {
+                selector.as_ref().map_or(Some(()), |selector| {
+                    selector.perform_semantic_analysis(ctx, is_lhs)
+                })
             }
-            HighPlayersScoreboardCommand::Set(score, _) => {
-                score.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighPlayersScoreboardCommand::Add(score, _) => {
-                score.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighPlayersScoreboardCommand::Remove(score, _) => {
+            HighPlayersScoreboardCommand::Get(score)
+            | HighPlayersScoreboardCommand::Set(score, _)
+            | HighPlayersScoreboardCommand::Add(score, _)
+            | HighPlayersScoreboardCommand::Remove(score, _)
+            | HighPlayersScoreboardCommand::Enable(score) => {
                 score.perform_semantic_analysis(ctx, is_lhs)
             }
             HighPlayersScoreboardCommand::Reset(selector, _) => {
                 selector.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighPlayersScoreboardCommand::Enable(score) => {
-                score.perform_semantic_analysis(ctx, is_lhs)
             }
             HighPlayersScoreboardCommand::Operation(left, _, right) => {
                 let left_result = left.perform_semantic_analysis(ctx, is_lhs);

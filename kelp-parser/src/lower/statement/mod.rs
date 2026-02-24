@@ -51,6 +51,7 @@ pub struct CSTStatement<'a> {
 }
 
 impl<'a> CSTStatement<'a> {
+    #[must_use]
     pub fn is_recovery(char: char) -> bool {
         CSTExpression::is_recovery(char) || char == '\n' || char == '{'
     }
@@ -119,6 +120,7 @@ impl<'a> CSTStatement<'a> {
         }
     }
 
+    #[must_use]
     pub fn cast(node: &'a CSTNodeType) -> Option<CSTStatement<'a>> {
         Some(
             (match node.kind()? {

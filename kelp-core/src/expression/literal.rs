@@ -41,6 +41,7 @@ impl LiteralExpressionKind {
         LiteralExpression { span, kind: self }
     }
 
+    #[must_use]
     pub fn get_pattern_type(&self) -> PatternType {
         match self {
             LiteralExpressionKind::Boolean(_) => PatternType::Boolean,
@@ -54,6 +55,7 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn get_data_type(&self) -> DataTypeKind {
         match self {
             LiteralExpressionKind::Boolean(_) => DataTypeKind::Boolean,
@@ -67,10 +69,11 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn try_as_i32(&self, force: bool) -> Option<i32> {
         Some(match self {
-            LiteralExpressionKind::Byte(v) => *v as i32,
-            LiteralExpressionKind::Short(v) => *v as i32,
+            LiteralExpressionKind::Byte(v) => i32::from(*v),
+            LiteralExpressionKind::Short(v) => i32::from(*v),
             LiteralExpressionKind::Integer(v) => *v,
             LiteralExpressionKind::Long(v) => *v as i32,
             LiteralExpressionKind::Float(v) if force => v.into_inner() as i32,
@@ -83,6 +86,7 @@ impl LiteralExpressionKind {
         })
     }
 
+    #[must_use]
     pub fn invert(self) -> LiteralExpressionKind {
         match self {
             LiteralExpressionKind::Boolean(value) => LiteralExpressionKind::Boolean(!value),
@@ -90,6 +94,7 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn negate(self) -> LiteralExpressionKind {
         match self {
             LiteralExpressionKind::Byte(value) => LiteralExpressionKind::Byte(-value),
@@ -102,6 +107,7 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn compare(
         self,
         operator: ComparisonOperator,
@@ -181,7 +187,7 @@ impl LiteralExpressionKind {
                 false,
                 ExecuteIfSubcommand::Score(
                     datapack.get_constant_score(1).score,
-                    ScoreComparison::Range(IntegerRange::new_single(if *value { 1 } else { 0 })),
+                    ScoreComparison::Range(IntegerRange::new_single(i32::from(*value))),
                     None,
                 ),
             ),
@@ -189,13 +195,14 @@ impl LiteralExpressionKind {
         })
     }
 
+    #[must_use]
     pub fn as_text_component(&self, force_display: bool) -> SNBT {
         match self {
             LiteralExpressionKind::Boolean(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Byte(if *value { 1 } else { 0 })
+                    SNBT::Byte(i8::from(*value))
                 }
             }
             LiteralExpressionKind::Byte(value) => {
@@ -261,21 +268,21 @@ impl LiteralExpressionKind {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, value as i32),
+                    PlayersScoreboardCommand::Set(target, i32::from(value)),
                 );
             }
             Self::Byte(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, value as i32),
+                    PlayersScoreboardCommand::Set(target, i32::from(value)),
                 );
             }
             Self::Short(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target, value as i32),
+                    PlayersScoreboardCommand::Set(target, i32::from(value)),
                 );
             }
             Self::Integer(value) => {
@@ -319,9 +326,10 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn into_snbt(self) -> SNBT {
         match self {
-            LiteralExpressionKind::Boolean(value) => SNBT::Byte(if value { 1 } else { 0 }),
+            LiteralExpressionKind::Boolean(value) => SNBT::Byte(i8::from(value)),
             LiteralExpressionKind::Byte(value) => SNBT::Byte(value),
             LiteralExpressionKind::Short(value) => SNBT::Short(value),
             LiteralExpressionKind::Integer(value) => SNBT::Integer(value),
@@ -332,38 +340,39 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn cast_to(self, data_type: DataTypeKind) -> LiteralExpressionKind {
         match (self, data_type) {
             (LiteralExpressionKind::Byte(value), DataTypeKind::Short) => {
-                LiteralExpressionKind::Short(value as i16)
+                LiteralExpressionKind::Short(i16::from(value))
             }
             (LiteralExpressionKind::Byte(value), DataTypeKind::Integer) => {
-                LiteralExpressionKind::Integer(value as i32)
+                LiteralExpressionKind::Integer(i32::from(value))
             }
             (LiteralExpressionKind::Byte(value), DataTypeKind::Long) => {
-                LiteralExpressionKind::Long(value as i64)
+                LiteralExpressionKind::Long(i64::from(value))
             }
             (LiteralExpressionKind::Byte(value), DataTypeKind::Float) => {
-                LiteralExpressionKind::Float(NotNan::new(value as f32).unwrap())
+                LiteralExpressionKind::Float(NotNan::new(f32::from(value)).unwrap())
             }
             (LiteralExpressionKind::Byte(value), DataTypeKind::Double) => {
-                LiteralExpressionKind::Double(NotNan::new(value as f64).unwrap())
+                LiteralExpressionKind::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
             (LiteralExpressionKind::Short(value), DataTypeKind::Byte) => {
                 LiteralExpressionKind::Byte(value as i8)
             }
             (LiteralExpressionKind::Short(value), DataTypeKind::Integer) => {
-                LiteralExpressionKind::Integer(value as i32)
+                LiteralExpressionKind::Integer(i32::from(value))
             }
             (LiteralExpressionKind::Short(value), DataTypeKind::Long) => {
-                LiteralExpressionKind::Long(value as i64)
+                LiteralExpressionKind::Long(i64::from(value))
             }
             (LiteralExpressionKind::Short(value), DataTypeKind::Float) => {
-                LiteralExpressionKind::Float(NotNan::new(value as f32).unwrap())
+                LiteralExpressionKind::Float(NotNan::new(f32::from(value)).unwrap())
             }
             (LiteralExpressionKind::Short(value), DataTypeKind::Double) => {
-                LiteralExpressionKind::Double(NotNan::new(value as f64).unwrap())
+                LiteralExpressionKind::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
             (LiteralExpressionKind::Integer(value), DataTypeKind::Byte) => {
@@ -373,13 +382,13 @@ impl LiteralExpressionKind {
                 LiteralExpressionKind::Short(value as i16)
             }
             (LiteralExpressionKind::Integer(value), DataTypeKind::Long) => {
-                LiteralExpressionKind::Long(value as i64)
+                LiteralExpressionKind::Long(i64::from(value))
             }
             (LiteralExpressionKind::Integer(value), DataTypeKind::Float) => {
                 LiteralExpressionKind::Float(NotNan::new(value as f32).unwrap())
             }
             (LiteralExpressionKind::Integer(value), DataTypeKind::Double) => {
-                LiteralExpressionKind::Double(NotNan::new(value as f64).unwrap())
+                LiteralExpressionKind::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
             (LiteralExpressionKind::Long(value), DataTypeKind::Byte) => {
@@ -457,12 +466,13 @@ impl LiteralExpressionKind {
         }
     }
 
+    #[must_use]
     pub fn perform_arithmetic(
         &self,
         operator: ArithmeticOperator,
         right: LiteralExpressionKind,
-    ) -> Option<LiteralExpressionKind> {
-        Some(match (self, right) {
+    ) -> LiteralExpressionKind {
+        match (self, right) {
             (LiteralExpressionKind::Byte(left), LiteralExpressionKind::Byte(right)) => {
                 LiteralExpressionKind::Byte(match operator {
                     ArithmeticOperator::Add => left.wrapping_add(right),
@@ -474,7 +484,7 @@ impl LiteralExpressionKind {
                     ArithmeticOperator::Or => left | right,
                     ArithmeticOperator::LeftShift => left << right,
                     ArithmeticOperator::RightShift => left >> right,
-                    ArithmeticOperator::Swap => return None,
+                    ArithmeticOperator::Swap => unreachable!(),
                 })
             }
 
@@ -489,7 +499,7 @@ impl LiteralExpressionKind {
                     ArithmeticOperator::Or => left | right,
                     ArithmeticOperator::LeftShift => left << right,
                     ArithmeticOperator::RightShift => left >> right,
-                    ArithmeticOperator::Swap => return None,
+                    ArithmeticOperator::Swap => unreachable!(),
                 })
             }
 
@@ -504,7 +514,7 @@ impl LiteralExpressionKind {
                     ArithmeticOperator::Or => left | right,
                     ArithmeticOperator::LeftShift => left << right,
                     ArithmeticOperator::RightShift => left >> right,
-                    ArithmeticOperator::Swap => return None,
+                    ArithmeticOperator::Swap => unreachable!(),
                 })
             }
 
@@ -519,7 +529,7 @@ impl LiteralExpressionKind {
                     ArithmeticOperator::Or => left | right,
                     ArithmeticOperator::LeftShift => left << right,
                     ArithmeticOperator::RightShift => left >> right,
-                    ArithmeticOperator::Swap => return None,
+                    ArithmeticOperator::Swap => unreachable!(),
                 })
             }
 
@@ -530,7 +540,7 @@ impl LiteralExpressionKind {
                     ArithmeticOperator::Multiply => left * right,
                     ArithmeticOperator::FloorDivide => left / right,
                     ArithmeticOperator::Modulo => left % right,
-                    _ => return None,
+                    _ => unreachable!(),
                 })
             }
 
@@ -541,12 +551,12 @@ impl LiteralExpressionKind {
                     ArithmeticOperator::Multiply => left * right,
                     ArithmeticOperator::FloorDivide => left / right,
                     ArithmeticOperator::Modulo => left % right,
-                    _ => return None,
+                    _ => unreachable!(),
                 })
             }
 
-            _ => return None,
-        })
+            _ => unreachable!(),
+        }
     }
 }
 

@@ -20,7 +20,7 @@ impl HighItemSource {
     ) -> Option<()> {
         match self {
             HighItemSource::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
-            _ => Some(()),
+            HighItemSource::Block(_) => Some(()),
         }
     }
 

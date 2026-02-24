@@ -72,22 +72,24 @@ impl DataTypeDeclarationKind {
         ))
     }
 
+    #[must_use]
     pub fn name(&self) -> String {
         match self {
-            DataTypeDeclarationKind::Alias { name, .. } => name.clone(),
-            DataTypeDeclarationKind::Struct { name, .. } => name.clone(),
             DataTypeDeclarationKind::Builtin(builtin_type) => builtin_type.to_string(),
-            DataTypeDeclarationKind::Generic(name) => name.clone(),
+            DataTypeDeclarationKind::Alias { name, .. }
+            | DataTypeDeclarationKind::Struct { name, .. }
+            | DataTypeDeclarationKind::Generic(name) => name.clone(),
         }
     }
 
+    #[must_use]
     pub fn generic_count(&self) -> usize {
         match self {
             DataTypeDeclarationKind::Alias {
                 generics: generic_names,
                 ..
-            } => generic_names.len(),
-            DataTypeDeclarationKind::Struct {
+            }
+            | DataTypeDeclarationKind::Struct {
                 generics: generic_names,
                 ..
             } => generic_names.len(),
@@ -164,7 +166,7 @@ impl DataTypeDeclarationKind {
                 let expected_generics = inner_generics.len();
 
                 if expected_generics != number_of_generics {
-                    ctx.add_info(SemanticAnalysisInfo {
+                    return ctx.add_info(SemanticAnalysisInfo {
                         span: generics_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::InvalidGenerics {
@@ -173,16 +175,16 @@ impl DataTypeDeclarationKind {
                                 actual: number_of_generics,
                             },
                         ),
-                    })
-                } else {
-                    Some(())
+                    });
                 }
+
+                Some(())
             }
             DataTypeDeclarationKind::Struct { name, generics, .. } => {
                 let expected_generics = generics.len();
 
                 if expected_generics != number_of_generics {
-                    ctx.add_info(SemanticAnalysisInfo {
+                    return ctx.add_info(SemanticAnalysisInfo {
                         span: generics_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::InvalidGenerics {
@@ -191,17 +193,17 @@ impl DataTypeDeclarationKind {
                                 actual: number_of_generics,
                             },
                         ),
-                    })
-                } else {
-                    Some(())
+                    });
                 }
+
+                Some(())
             }
             DataTypeDeclarationKind::Generic(_) => {
                 unreachable!()
             }
             DataTypeDeclarationKind::Builtin(name) => {
                 if !resolved_generic_types.is_empty() {
-                    ctx.add_info(SemanticAnalysisInfo {
+                    return ctx.add_info(SemanticAnalysisInfo {
                         span: generics_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::InvalidGenerics {
@@ -210,10 +212,10 @@ impl DataTypeDeclarationKind {
                                 actual: resolved_generic_types.len(),
                             },
                         ),
-                    })
-                } else {
-                    Some(())
+                    });
                 }
+
+                Some(())
             }
         }
     }
@@ -253,7 +255,7 @@ impl DataTypeDeclarationKind {
 
                 Some(DataTypeKind::Struct(name, generic_types, false).substitute(&substitutions)?)
             }
-            DataTypeDeclarationKind::Builtin(data_type) => data_type.to_data_type(generic_types),
+            DataTypeDeclarationKind::Builtin(data_type) => data_type.to_data_type(&generic_types),
             DataTypeDeclarationKind::Generic(_) => unreachable!(),
         }
     }
@@ -266,10 +268,14 @@ pub struct Scope {
 }
 
 impl Scope {
+    #[inline]
+    #[must_use]
     pub fn get_variable(&self, name: &str) -> Option<&(DataTypeKind, ConstantExpression)> {
         self.variables.get(name)
     }
 
+    #[inline]
+    #[must_use]
     pub fn get_variable_mut(
         &mut self,
         name: &str,
@@ -277,10 +283,13 @@ impl Scope {
         self.variables.get_mut(name)
     }
 
+    #[inline]
+    #[must_use]
     pub fn contains_variable(&self, name: &str) -> bool {
         self.variables.contains_key(name)
     }
 
+    #[inline]
     pub fn declare_variable(
         &mut self,
         name: String,
@@ -290,10 +299,13 @@ impl Scope {
         self.variables.insert(name, (data_type, value));
     }
 
+    #[inline]
+    #[must_use]
     pub fn get_data_type(&self, name: &str) -> Option<&DataTypeDeclarationKind> {
         self.types.get(name)
     }
 
+    #[inline]
     pub fn declare_data_type(&mut self, name: String, alias: DataTypeDeclarationKind) {
         self.types.insert(name, alias);
     }
@@ -465,7 +477,7 @@ impl HighDatapack {
         );
 
         (
-            HighDataTargetKind::Storage(storage_location.clone()).into_generated(),
+            HighDataTargetKind::Storage(storage_location.clone()).with_generated_span(),
             DataTarget::Storage(storage_location),
             NbtPath(nonempty![NbtPathNode::named_string(name.clone())]),
             name,
@@ -515,7 +527,7 @@ impl HighDatapack {
     }
 
     pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, ConstantExpression)> {
-        for scope in self.scopes.iter() {
+        for scope in &self.scopes {
             if let Some(value) = scope.get_variable(name) {
                 return Some(value.clone());
             }
@@ -525,7 +537,7 @@ impl HighDatapack {
     }
 
     pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut ConstantExpression> {
-        for scope in self.scopes.iter_mut() {
+        for scope in &mut self.scopes {
             if let Some((_, value)) = scope.get_variable_mut(name) {
                 return Some(value);
             }
@@ -535,7 +547,7 @@ impl HighDatapack {
     }
 
     pub fn get_data_type(&self, name: &str) -> Option<DataTypeDeclarationKind> {
-        for scope in self.scopes.iter() {
+        for scope in &self.scopes {
             if let Some(value) = scope.get_data_type(name) {
                 return Some(value.clone());
             }
@@ -631,6 +643,7 @@ impl HighDatapack {
     }
 
     #[inline]
+    #[must_use]
     pub fn get_constant_selector(constant: i32) -> EntitySelector {
         EntitySelector::Name(format!("__kelp_constant_{}__", constant))
     }
@@ -764,7 +777,7 @@ impl HighDatapack {
                     )),
                 );
 
-                for constant in used_constants.iter() {
+                for constant in &used_constants {
                     load_function_ctx.add_command(
                         self,
                         Command::Scoreboard(ScoreboardCommand::Players(
@@ -800,7 +813,7 @@ impl HighDatapack {
             );
         }
 
-        for (name, namespace) in self.namespaces.iter_mut() {
+        for (name, namespace) in &mut self.namespaces {
             self.namespace_stack.push(name.clone());
 
             namespace.ensure_load_function(&mut output_datapack);
@@ -808,9 +821,9 @@ impl HighDatapack {
             self.namespace_stack.pop();
         }
 
-        for (name, namespace) in self.namespaces.iter() {
+        for (name, namespace) in &self.namespaces {
             let compiled_namespace = namespace.compile();
-            output_datapack.add_namespace(name.clone(), compiled_namespace);
+            output_datapack.add_namespace(name, compiled_namespace);
         }
 
         if self.requirements.get().always_succeed_predicate {

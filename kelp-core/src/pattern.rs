@@ -33,20 +33,22 @@ impl PatternKind {
         Pattern { span, kind: self }
     }
 
+    #[must_use]
     pub fn is_irrefutable(&self) -> bool {
         match self {
             PatternKind::Literal(_) => false,
-            PatternKind::Wildcard => true,
-            PatternKind::Binding(_) => true,
+            PatternKind::Wildcard
+            | PatternKind::Binding(_)
+            | PatternKind::Compound(_)
+            | PatternKind::Dereference(_)
+            | PatternKind::Struct(_, _) => true,
             PatternKind::Tuple(patterns) => {
                 patterns.iter().all(|pattern| pattern.kind.is_irrefutable())
             }
-            PatternKind::Compound(_) => true,
-            PatternKind::Dereference(_) => true,
-            PatternKind::Struct(_, _) => true,
         }
     }
 
+    #[must_use]
     pub fn get_type(&self) -> PatternType {
         match self {
             PatternKind::Literal(expression) => expression.kind.get_pattern_type(),
@@ -65,8 +67,7 @@ impl PatternKind {
                             key.clone(),
                             pattern
                                 .as_ref()
-                                .map(|pattern| pattern.kind.get_type())
-                                .unwrap_or(PatternType::Any),
+                                .map_or(PatternType::Any, |pattern| pattern.kind.get_type()),
                         )
                     })
                     .collect(),
@@ -83,8 +84,7 @@ impl PatternKind {
                             key.clone(),
                             pattern
                                 .as_ref()
-                                .map(|pattern| pattern.kind.get_type())
-                                .unwrap_or(PatternType::Any),
+                                .map_or(PatternType::Any, |pattern| pattern.kind.get_type()),
                         )
                     })
                     .collect(),
@@ -94,8 +94,7 @@ impl PatternKind {
 
     pub fn destructure_unknown(&self, ctx: &mut SemanticAnalysisContext) {
         match self {
-            PatternKind::Literal(_) => {}
-            PatternKind::Wildcard => {}
+            PatternKind::Literal(_) | PatternKind::Wildcard => {}
             PatternKind::Binding(name) => {
                 ctx.declare_variable_unknown(name);
             }

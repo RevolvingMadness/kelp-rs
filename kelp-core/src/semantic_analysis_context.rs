@@ -267,10 +267,14 @@ impl Scope {
         self.variable_types.insert(name, value);
     }
 
+    #[inline]
+    #[must_use]
     pub fn variable_is_declared(&self, name: &str) -> bool {
         self.variable_types.contains_key(name)
     }
 
+    #[inline]
+    #[must_use]
     pub fn get_variable(&self, name: &str) -> Option<&Option<DataTypeKind>> {
         self.variable_types.get(name)
     }
@@ -279,10 +283,14 @@ impl Scope {
         self.types.insert(name, kind);
     }
 
+    #[inline]
+    #[must_use]
     pub fn data_type_is_declared(&self, name: &str) -> bool {
         self.types.contains_key(name)
     }
 
+    #[inline]
+    #[must_use]
     pub fn get_data_type(&self, name: &str) -> Option<&Option<DataTypeDeclarationKind>> {
         self.types.get(name)
     }
@@ -351,6 +359,7 @@ impl SemanticAnalysisContext {
             .declare_data_type(name, kind);
     }
 
+    #[must_use]
     pub fn variable_is_declared(&self, name: &str) -> bool {
         self.scopes
             .iter()
@@ -358,6 +367,7 @@ impl SemanticAnalysisContext {
             .any(|scope| scope.variable_is_declared(name))
     }
 
+    #[must_use]
     pub fn data_type_is_declared(&self, name: &str) -> bool {
         self.scopes
             .iter()
@@ -365,6 +375,7 @@ impl SemanticAnalysisContext {
             .any(|scope| scope.data_type_is_declared(name))
     }
 
+    #[must_use]
     pub fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
         for scope in &self.scopes {
             if let Some(data_type) = scope.get_variable(name) {
@@ -375,6 +386,7 @@ impl SemanticAnalysisContext {
         None
     }
 
+    #[must_use]
     pub fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
         if let Ok(data_type) = BuiltinDataTypeKind::from_str(name) {
             return Some(Some(DataTypeDeclarationKind::Builtin(data_type)));

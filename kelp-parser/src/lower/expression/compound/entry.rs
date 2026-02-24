@@ -13,6 +13,7 @@ cst_node!(
 );
 
 impl<'a> CSTCompoundExpressionEntry<'a> {
+    #[must_use]
     pub fn key_span(&self) -> Option<(SyntaxKind, Span)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier || token.kind == SyntaxKind::String {
@@ -23,6 +24,7 @@ impl<'a> CSTCompoundExpressionEntry<'a> {
         })
     }
 
+    #[must_use]
     pub fn key<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier || token.kind == SyntaxKind::String {
@@ -37,6 +39,7 @@ impl<'a> CSTCompoundExpressionEntry<'a> {
         })
     }
 
+    #[must_use]
     pub fn value(&self) -> Option<CSTExpression<'a>> {
         self.children().find_map(CSTExpression::cast)
     }

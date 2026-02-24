@@ -6,7 +6,8 @@ use crate::{
 
 cst_node!(CSTBindingPattern, SyntaxKind::BindingPattern);
 
-impl<'a> CSTBindingPattern<'a> {
+impl CSTBindingPattern<'_> {
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {

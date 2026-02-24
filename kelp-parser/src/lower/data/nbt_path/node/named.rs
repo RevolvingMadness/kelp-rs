@@ -26,6 +26,7 @@ impl<'a> CSTNBTPathNamedNode<'a> {
         true
     }
 
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -36,6 +37,7 @@ impl<'a> CSTNBTPathNamedNode<'a> {
         })
     }
 
+    #[must_use]
     pub fn compound(&self) -> Option<CSTCompoundExpression<'a>> {
         self.children().find_map(CSTCompoundExpression::cast)
     }

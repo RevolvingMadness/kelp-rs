@@ -25,15 +25,16 @@ impl HighScoreboardModification {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighScoreboardModification::DisplayAutoUpdate(_) => Some(()),
             HighScoreboardModification::DisplayName(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
             }
-            HighScoreboardModification::NumberFormat(number_format) => number_format
-                .as_ref()
-                .map(|number_format| number_format.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
-            HighScoreboardModification::RenderType(_) => Some(()),
+            HighScoreboardModification::NumberFormat(number_format) => {
+                number_format.as_ref().map_or(Some(()), |number_format| {
+                    number_format.perform_semantic_analysis(ctx, is_lhs)
+                })
+            }
+            HighScoreboardModification::DisplayAutoUpdate(_)
+            | HighScoreboardModification::RenderType(_) => Some(()),
         }
     }
 
@@ -79,15 +80,14 @@ impl HighObjectivesScoreboardCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighObjectivesScoreboardCommand::List => Some(()),
-            HighObjectivesScoreboardCommand::Add(_, _, expression) => expression
-                .as_ref()
-                .map(|expression| {
+            HighObjectivesScoreboardCommand::Add(_, _, expression) => {
+                expression.as_ref().map_or(Some(()), |expression| {
                     expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
                 })
-                .unwrap_or(Some(())),
-            HighObjectivesScoreboardCommand::Remove(_) => Some(()),
-            HighObjectivesScoreboardCommand::SetDisplay(_, _) => Some(()),
+            }
+            HighObjectivesScoreboardCommand::List
+            | HighObjectivesScoreboardCommand::Remove(_)
+            | HighObjectivesScoreboardCommand::SetDisplay(_, _) => Some(()),
             HighObjectivesScoreboardCommand::Modify(_, modification) => {
                 modification.perform_semantic_analysis(ctx, is_lhs)
             }

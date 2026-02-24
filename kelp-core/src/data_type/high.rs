@@ -42,7 +42,7 @@ impl HighDataTypeKind {
                     .collect::<Option<Vec<_>>>()?;
 
                 if let Ok(builtin_type) = BuiltinDataTypeKind::from_str(name) {
-                    return builtin_type.to_data_type(generic_types);
+                    return builtin_type.to_data_type(&generic_types);
                 }
 
                 let data_type = supports_variable_type_scope
@@ -161,7 +161,7 @@ impl HighDataType {
                         if actual_generic_count != expected_generic_count {
                             return ctx.add_invalid_generics(
                                 *name_span,
-                                result.name().to_string(),
+                                result.name(),
                                 expected_generic_count,
                                 actual_generic_count,
                             );

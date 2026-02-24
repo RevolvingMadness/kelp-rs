@@ -46,7 +46,7 @@ fn main() {
             handle_run(path, ignore_validation_errors);
         }
         Commands::New { name } => {
-            handle_new(&name.replace("-", "_"));
+            handle_new(&name.replace('-', "_"));
         }
     }
 }
@@ -134,7 +134,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
                         .lines()
                         .find(|l| l.starts_with("name ="))
                         .and_then(|l| l.split('"').nth(1))
-                        .map(|s| s.to_string())
+                        .map(ToString::to_string)
                 })
                 .unwrap_or_else(|| "Kelp Project".to_string());
 
@@ -184,7 +184,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         Report::build(ReportKind::Error, span.clone())
             .with_label(
                 Label::new(span)
-                    .with_message(error.message.to_string())
+                    .with_message(error.message)
                     .with_color(Color::Red),
             )
             .finish()
@@ -205,7 +205,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         .push_front(Scope::default());
 
     let start_semantic = Instant::now();
-    for statement in statements.iter() {
+    for statement in &statements {
         statement.perform_semantic_analysis(&mut semantic_analysis_context, false);
     }
     let semantic_elapsed = start_semantic.elapsed();

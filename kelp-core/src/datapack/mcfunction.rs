@@ -22,14 +22,18 @@ impl Display for MCFunction {
 }
 
 impl MCFunction {
+    #[inline]
     pub fn add_command(&mut self, command: Command) {
         self.commands.push(command);
     }
 
+    #[inline]
     pub fn add_commands(&mut self, commands: Vec<Command>) {
         self.commands.extend(commands);
     }
 
+    #[inline]
+    #[must_use]
     pub fn commands(&self) -> &Vec<Command> {
         &self.commands
     }

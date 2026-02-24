@@ -22,6 +22,8 @@ pub struct CompileContext {
 }
 
 impl CompileContext {
+    #[inline]
+    #[must_use]
     pub fn create_child_ctx(&mut self) -> CompileContext {
         CompileContext {
             macro_data: self.macro_data.clone(),
@@ -30,10 +32,13 @@ impl CompileContext {
         }
     }
 
+    #[inline]
     pub fn compile(&mut self) -> Vec<Command> {
         self.commands.clone()
     }
 
+    #[inline]
+    #[must_use]
     pub fn num_commands(&self) -> usize {
         self.commands.len()
     }
@@ -113,6 +118,7 @@ impl CompileContext {
         SNBT::Macro(id.to_string())
     }
 
+    #[inline]
     pub fn extend_context(&mut self, other: CompileContext) {
         self.commands.extend(other.commands);
     }

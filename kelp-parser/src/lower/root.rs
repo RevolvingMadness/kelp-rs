@@ -29,6 +29,7 @@ impl<'a> CSTRoot<'a> {
         parser.finish_node();
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Vec<Statement> {
         self.statements()
             .into_iter()
@@ -36,10 +37,12 @@ impl<'a> CSTRoot<'a> {
             .collect()
     }
 
+    #[must_use]
     pub fn statements(&self) -> Vec<CSTStatement<'a>> {
         self.children().filter_map(CSTStatement::cast).collect()
     }
 
+    #[must_use]
     pub fn collect_semantic_tokens(&self) -> Vec<SemanticToken> {
         let mut tokens = Vec::new();
 

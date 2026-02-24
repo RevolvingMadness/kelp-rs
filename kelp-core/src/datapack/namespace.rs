@@ -38,6 +38,8 @@ fn join_non_empty(non_empty: &NonEmpty<String>, separator: &str) -> String {
 }
 
 impl HighNamespace {
+    #[inline]
+    #[must_use]
     pub fn new(name: String) -> HighNamespace {
         HighNamespace {
             name,

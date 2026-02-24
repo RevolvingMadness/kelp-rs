@@ -1,20 +1,18 @@
-use kelp_core::high::entity_selector::HighEntitySelector;
-use minecraft_command_types::entity_selector::EntitySelectorVariable;
+use kelp_core::{high::entity_selector::HighEntitySelector, span::Span};
 
 use crate::{
     cstlib::CSTNodeType,
-    lower::entity_selector::{name::CSTNameEntitySelector, variable::CSTVariableEntitySelector},
+    lower::entity_selector::variable::CSTVariableEntitySelector,
     parser::Parser,
-    semantic_token::SemanticToken,
+    semantic_token::{SemanticToken, SemanticTokenType},
     syntax::SyntaxKind,
 };
 
-pub mod name;
 pub mod variable;
 
 pub enum CSTEntitySelector<'a> {
     Variable(CSTVariableEntitySelector<'a>),
-    Name(CSTNameEntitySelector<'a>),
+    Name(Span),
 }
 
 impl<'a> CSTEntitySelector<'a> {
@@ -42,14 +40,16 @@ impl<'a> CSTEntitySelector<'a> {
         true
     }
 
-    fn parse_option(parser: &mut Parser) {
+    #[must_use]
+    fn parse_option(parser: &mut Parser) -> bool {
         parser.start_node(SyntaxKind::VariableEntitySelectorOption);
 
         let Some(key_name) = parser.peek_identifier() else {
             parser.error("Expected selector option name");
             CSTEntitySelector::recover_option(parser);
             parser.finish_node();
-            return;
+
+            return false;
         };
 
         let key_string = key_name.to_string();
@@ -60,8 +60,8 @@ impl<'a> CSTEntitySelector<'a> {
         if !parser.expect_char('=', "Expected '=' after option name") {
             CSTEntitySelector::recover_option(parser);
             parser.finish_node();
-            return;
         }
+
         parser.skip_whitespace();
 
         let is_negated = parser.try_bump_char('!');
@@ -103,6 +103,8 @@ impl<'a> CSTEntitySelector<'a> {
 
         parser.finish_node();
         parser.finish_node();
+
+        true
     }
 
     fn parse_scores_option(parser: &mut Parser) {
@@ -114,6 +116,7 @@ impl<'a> CSTEntitySelector<'a> {
         parser.expect_char('}', "Expected '}'");
     }
 
+    #[inline]
     fn recover_option(parser: &mut Parser) {
         parser.bump_until_char(&[',', ']']);
     }
@@ -124,36 +127,42 @@ impl<'a> CSTEntitySelector<'a> {
 
         let mut is_first = true;
 
-        while !parser.is_eof() {
-            if parser.peek_char() == Some(']') {
-                parser.add_token(SyntaxKind::RightBracket, 1);
+        loop {
+            parser.skip_whitespace();
+
+            if parser.is_eof() || parser.peek_char() == Some(']') {
+                parser.bump_char();
+
                 break;
             }
 
             if !is_first {
                 if !parser.expect_char(',', "Expected ',' or ']'") {
-                    CSTEntitySelector::recover_option(parser);
+                    Self::recover_option(parser);
+
                     continue;
                 }
+
                 parser.skip_whitespace();
             }
 
-            CSTEntitySelector::parse_option(parser);
-            parser.skip_whitespace();
+            if !Self::parse_option(parser) {
+                Self::recover_option(parser);
+            }
+
             is_first = false;
         }
 
         parser.finish_node();
     }
 
+    #[must_use]
     pub fn cast(node: &'a CSTNodeType) -> Option<CSTEntitySelector<'a>> {
         match node.kind()? {
             SyntaxKind::VariableEntitySelector => {
                 CSTVariableEntitySelector::cast(node).map(CSTEntitySelector::Variable)
             }
-            SyntaxKind::EntitySelectorName => {
-                CSTNameEntitySelector::cast(node).map(CSTEntitySelector::Name)
-            }
+            SyntaxKind::EntitySelectorName => Some(CSTEntitySelector::Name(node.span())),
             _ => {
                 #[cfg(debug_assertions)]
                 println!("Failed to cast node {:?} to CSTEntitySelector", node);
@@ -163,28 +172,14 @@ impl<'a> CSTEntitySelector<'a> {
         }
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<HighEntitySelector> {
-        Some(match self {
-            CSTEntitySelector::Variable(selector) => {
-                let variable = selector.variable(text)?;
-
-                let variable = match variable {
-                    "a" => EntitySelectorVariable::A,
-                    "e" => EntitySelectorVariable::E,
-                    "n" => EntitySelectorVariable::N,
-                    "p" => EntitySelectorVariable::P,
-                    "r" => EntitySelectorVariable::R,
-                    _ => EntitySelectorVariable::S,
-                };
-
-                HighEntitySelector::Variable(variable, Vec::new())
-            }
-            CSTEntitySelector::Name(selector) => {
-                let name = selector.name(text)?;
-
-                HighEntitySelector::Name(name.to_string())
-            }
-        })
+        match self {
+            CSTEntitySelector::Variable(selector) => selector.lower(text),
+            CSTEntitySelector::Name(name_span) => Some(HighEntitySelector::Name(
+                text[name_span.into_range()].to_string(),
+            )),
+        }
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
@@ -192,8 +187,8 @@ impl<'a> CSTEntitySelector<'a> {
             CSTEntitySelector::Variable(selector) => {
                 selector.collect_semantic_tokens(tokens);
             }
-            CSTEntitySelector::Name(selector) => {
-                selector.collect_semantic_tokens(tokens);
+            CSTEntitySelector::Name(name_span) => {
+                tokens.push(SemanticToken::new(*name_span, SemanticTokenType::Variable));
             }
         }
     }

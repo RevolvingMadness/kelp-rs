@@ -10,6 +10,7 @@ use crate::{
 cst_node!(CSTBlockDataTarget, SyntaxKind::BlockDataTarget);
 
 impl<'a> CSTBlockDataTarget<'a> {
+    #[must_use]
     pub fn block_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -20,6 +21,7 @@ impl<'a> CSTBlockDataTarget<'a> {
         })
     }
 
+    #[must_use]
     pub fn coordinates(&self) -> Option<CSTCoordinates<'a>> {
         self.children().find_map(CSTCoordinates::cast)
     }

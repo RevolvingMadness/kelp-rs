@@ -39,33 +39,31 @@ impl HighNbtPathNode {
                 .all_some(),
             HighNbtPathNode::Named(name, compound) => {
                 let name = name.perform_semantic_analysis(ctx, is_lhs);
-                let compound = compound
-                    .as_ref()
-                    .map(|compound| {
-                        compound
-                            .iter()
-                            .map(|(key, value)| {
-                                let key = key.perform_semantic_analysis(ctx, is_lhs);
-                                let value = value.perform_semantic_analysis(ctx, is_lhs, None);
+                let compound = compound.as_ref().map_or(Some(()), |compound| {
+                    compound
+                        .iter()
+                        .map(|(key, value)| {
+                            let key = key.perform_semantic_analysis(ctx, is_lhs);
+                            let value = value.perform_semantic_analysis(ctx, is_lhs, None);
 
-                                key?;
-                                value?;
+                            key?;
+                            value?;
 
-                                Some(())
-                            })
-                            .collect::<Option<()>>()
-                    })
-                    .unwrap_or(Some(()));
+                            Some(())
+                        })
+                        .collect::<Option<()>>()
+                });
 
                 name?;
                 compound?;
 
                 Some(())
             }
-            HighNbtPathNode::Index(expression) => expression
-                .as_ref()
-                .map(|expression| expression.perform_semantic_analysis(ctx, is_lhs, None))
-                .unwrap_or(Some(())),
+            HighNbtPathNode::Index(expression) => {
+                expression.as_ref().map_or(Some(()), |expression| {
+                    expression.perform_semantic_analysis(ctx, is_lhs, None)
+                })
+            }
         }
     }
 
@@ -120,6 +118,7 @@ impl HighNbtPath {
         NbtPath(self.0.map(|node| node.compile(datapack, ctx)))
     }
 
+    #[must_use]
     pub fn with_node(mut self, node: HighNbtPathNode) -> Self {
         self.0.push(node);
 

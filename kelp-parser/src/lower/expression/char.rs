@@ -2,7 +2,8 @@ use crate::{cst_node, syntax::SyntaxKind};
 
 cst_node!(CSTCharExpression, SyntaxKind::CharExpression);
 
-impl<'a> CSTCharExpression<'a> {
+impl CSTCharExpression<'_> {
+    #[must_use]
     pub fn value(&self, text: &str) -> Option<char> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Char {

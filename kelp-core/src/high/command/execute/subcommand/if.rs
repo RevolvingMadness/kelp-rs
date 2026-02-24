@@ -64,6 +64,7 @@ pub enum HighExecuteIfSubcommand {
 }
 
 impl HighExecuteIfSubcommand {
+    #[must_use]
     pub fn then(self, next: HighExecuteSubcommand) -> HighExecuteIfSubcommand {
         match self {
             HighExecuteIfSubcommand::Biome(
@@ -196,14 +197,12 @@ impl HighExecuteIfSubcommand {
         match self {
             HighExecuteIfSubcommand::Biome(_, _, next) => next
                 .as_ref()
-                .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
+                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
             HighExecuteIfSubcommand::Block(_, block_state, next) => {
                 let block_state_result = block_state.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next
                     .as_ref()
-                    .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
 
                 block_state_result?;
                 next_result?;
@@ -212,15 +211,13 @@ impl HighExecuteIfSubcommand {
             }
             HighExecuteIfSubcommand::Blocks(_, _, _, _, next) => next
                 .as_ref()
-                .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
+                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
             HighExecuteIfSubcommand::Data(target, path, next) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next
                     .as_ref()
-                    .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
 
                 target_result?;
                 path_result?;
@@ -230,14 +227,12 @@ impl HighExecuteIfSubcommand {
             }
             HighExecuteIfSubcommand::Dimension(_, next) => next
                 .as_ref()
-                .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
+                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
             HighExecuteIfSubcommand::Entity(selector, next) => {
                 let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next
                     .as_ref()
-                    .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
 
                 selector_result?;
                 next_result?;
@@ -246,15 +241,13 @@ impl HighExecuteIfSubcommand {
             }
             HighExecuteIfSubcommand::Function(_, next) => next
                 .as_ref()
-                .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
+                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
             HighExecuteIfSubcommand::Items(item_source, _, item_predicate, next) => {
                 let item_source_result = item_source.perform_semantic_analysis(ctx, is_lhs);
                 let item_predicate_result = item_predicate.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next
                     .as_ref()
-                    .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
 
                 item_source_result?;
                 item_predicate_result?;
@@ -264,20 +257,17 @@ impl HighExecuteIfSubcommand {
             }
             HighExecuteIfSubcommand::Loaded(_, next) => next
                 .as_ref()
-                .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
+                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
             HighExecuteIfSubcommand::Predicate(_, next) => next
                 .as_ref()
-                .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
+                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
             HighExecuteIfSubcommand::Score(score, score_comparison, next) => {
                 let score_result = score.perform_semantic_analysis(ctx, is_lhs);
                 let score_comparison_result =
                     score_comparison.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next
                     .as_ref()
-                    .map(|next| next.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
 
                 score_result?;
                 score_comparison_result?;

@@ -19,6 +19,7 @@ impl<'a> CSTLetStatement<'a> {
 
         if !CSTPattern::try_parse(parser) {
             parser.restore_state(state);
+
             return false;
         }
 
@@ -34,16 +35,23 @@ impl<'a> CSTLetStatement<'a> {
             parser.skip_whitespace();
         }
 
-        parser.expect_char('=', "Expected '='");
+        let parsed_equals = parser.try_bump_char('=');
+        if !parsed_equals {
+            parser.error("Expected '='");
+        }
+
         parser.skip_whitespace();
-        if !CSTExpression::try_parse(parser) {
+
+        if !CSTExpression::try_parse(parser) && parsed_equals {
             parser.recover_newline("Expected expression");
         }
+
         parser.finish_node();
 
         true
     }
 
+    #[must_use]
     pub fn let_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Keyword {
@@ -54,14 +62,17 @@ impl<'a> CSTLetStatement<'a> {
         })
     }
 
+    #[must_use]
     pub fn pattern(&self) -> Option<CSTPattern<'a>> {
         self.children().find_map(CSTPattern::cast)
     }
 
+    #[must_use]
     pub fn data_type(&self) -> Option<CSTDataType<'a>> {
         self.children().find_map(CSTDataType::cast)
     }
 
+    #[must_use]
     pub fn value(&self) -> Option<CSTExpression<'a>> {
         self.children().find_map(CSTExpression::cast)
     }

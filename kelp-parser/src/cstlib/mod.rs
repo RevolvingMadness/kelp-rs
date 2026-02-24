@@ -69,7 +69,7 @@ impl CSTNodeType {
         self.kind() == Some(kind)
     }
 
-    pub fn children<'a>(&'a self) -> Iter<'a, CSTNodeType> {
+    pub fn children(&self) -> Iter<'_, CSTNodeType> {
         match self {
             CSTNodeType::Node(node) => node.children.iter(),
             _ => [].iter(),

@@ -57,10 +57,11 @@ impl HighCommand {
             HighCommand::Difficulty(_) => Some(()),
             HighCommand::Enchant(selector, _, _) => selector.perform_semantic_analysis(ctx, is_lhs),
             HighCommand::Execute(subcommand) => subcommand.perform_semantic_analysis(ctx, is_lhs),
-            HighCommand::Function(_, arguments) => arguments
-                .as_ref()
-                .map(|arguments| arguments.perform_semantic_analysis(ctx, is_lhs))
-                .unwrap_or(Some(())),
+            HighCommand::Function(_, arguments) => {
+                arguments.as_ref().map_or(Some(()), |arguments| {
+                    arguments.perform_semantic_analysis(ctx, is_lhs)
+                })
+            }
             HighCommand::Tellraw(selector, expression) => {
                 let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
                 let expression_result =
@@ -73,16 +74,15 @@ impl HighCommand {
             }
             HighCommand::Return(command) => command.perform_semantic_analysis(ctx, is_lhs),
             HighCommand::Scoreboard(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            HighCommand::Summon(_, _, expression) => expression
-                .as_ref()
-                .map(|expression| {
+            HighCommand::Summon(_, _, expression) => {
+                expression.as_ref().map_or(Some(()), |expression| {
                     expression.perform_semantic_analysis(
                         ctx,
                         is_lhs,
                         Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
                     )
                 })
-                .unwrap_or(Some(())),
+            }
         }
     }
 

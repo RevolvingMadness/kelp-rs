@@ -36,6 +36,7 @@ impl<'a> CSTMCFNDeclarationStatement<'a> {
         true
     }
 
+    #[must_use]
     pub fn mcfn_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Keyword {
@@ -46,10 +47,12 @@ impl<'a> CSTMCFNDeclarationStatement<'a> {
         })
     }
 
+    #[must_use]
     pub fn resource_location(&self) -> Option<CSTResourceLocation<'a>> {
         self.children().find_map(CSTResourceLocation::cast)
     }
 
+    #[must_use]
     pub fn block_statement(&self) -> Option<CSTStatement<'a>> {
         self.0
             .children()

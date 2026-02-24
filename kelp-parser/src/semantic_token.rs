@@ -47,6 +47,7 @@ pub enum SemanticTokenType {
 }
 
 impl SemanticTokenType {
+    #[must_use]
     pub fn to_index(self) -> u32 {
         match self {
             SemanticTokenType::Namespace => 0,
@@ -80,6 +81,7 @@ impl SemanticTokenType {
 pub enum SemanticTokenModifier {}
 
 impl SemanticTokenModifier {
+    #[must_use]
     pub fn to_bit(self) -> u32 {
         match self {}
     }

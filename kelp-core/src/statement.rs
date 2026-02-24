@@ -223,7 +223,7 @@ impl StatementKind {
                             DataCommandModification::String(
                                 unique_data_target.target.clone(),
                                 Some(unique_path.clone()),
-                                Some(if is_reversed { 0 } else { 1 }),
+                                Some(i32::from(!is_reversed)),
                                 if is_reversed { Some(-1) } else { None },
                             ),
                         )),
@@ -449,7 +449,7 @@ impl Statement {
                 let resolved_explicit_type = explicit_type.as_ref().map(|explicit_data_type| {
                     explicit_data_type
                         .perform_semantic_analysis(None, ctx)
-                        .and_then(|_| explicit_data_type.kind.resolve(ctx, None))
+                        .and_then(|()| explicit_data_type.kind.resolve(ctx, None))
                 });
 
                 let resolved_explicit_type = match resolved_explicit_type {
@@ -546,10 +546,10 @@ impl Statement {
                 let expression_result =
                     expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::Boolean));
                 let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
-                let else_statement_result = else_statement
-                    .as_ref()
-                    .map(|else_statement| else_statement.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                let else_statement_result =
+                    else_statement.as_ref().map_or(Some(()), |else_statement| {
+                        else_statement.perform_semantic_analysis(ctx, is_lhs)
+                    });
 
                 expression_result?;
 
@@ -704,6 +704,8 @@ impl Statement {
         }
     }
 
+    #[inline]
+    #[must_use]
     pub fn new(span: Span, kind: StatementKind) -> Statement {
         Statement { span, kind }
     }

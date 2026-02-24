@@ -10,6 +10,7 @@ use crate::{
 cst_node!(CSTStructExpressionField, SyntaxKind::StructExpressionField);
 
 impl<'a> CSTStructExpressionField<'a> {
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -20,6 +21,7 @@ impl<'a> CSTStructExpressionField<'a> {
         })
     }
 
+    #[must_use]
     pub fn value(&self) -> Option<CSTExpression<'a>> {
         self.children().find_map(CSTExpression::cast)
     }
@@ -47,6 +49,7 @@ impl<'a> CSTStructExpression<'a> {
         parser.try_bump_char(',');
     }
 
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -57,6 +60,7 @@ impl<'a> CSTStructExpression<'a> {
         })
     }
 
+    #[must_use]
     pub fn generics(&self) -> Vec<CSTDataType<'a>> {
         self.children().filter_map(CSTDataType::cast).collect()
     }

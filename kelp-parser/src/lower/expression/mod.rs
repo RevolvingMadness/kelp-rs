@@ -113,6 +113,7 @@ pub struct CSTExpression<'a> {
 }
 
 impl<'a> CSTExpression<'a> {
+    #[must_use]
     pub fn is_recovery(char: char) -> bool {
         char.is_alphanumeric() || char == '('
     }
@@ -698,6 +699,7 @@ impl<'a> CSTExpression<'a> {
         }
     }
 
+    #[must_use]
     pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         Some(
             (match node.kind()? {
@@ -784,13 +786,14 @@ impl<'a> CSTExpression<'a> {
         )
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<Expression> {
         Some(
             (match self.kind {
                 CSTExpressionKind::Unary(expression) => {
                     let op_kind = expression.op_kind()?;
                     let operator = match op_kind {
-                        SyntaxKind::ExclamationMark => UnaryOperator::Negate,
+                        SyntaxKind::ExclamationMark => UnaryOperator::Invert,
                         SyntaxKind::Minus => UnaryOperator::Negate,
                         SyntaxKind::Star => UnaryOperator::Dereference,
                         SyntaxKind::Ampersand => UnaryOperator::Reference,

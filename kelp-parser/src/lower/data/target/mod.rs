@@ -93,6 +93,7 @@ impl<'a> CSTDataTarget<'a> {
         true
     }
 
+    #[must_use]
     pub fn cast(node: &'a CSTNodeType) -> Option<CSTDataTarget<'a>> {
         Some(
             (match node.kind()? {
@@ -116,6 +117,7 @@ impl<'a> CSTDataTarget<'a> {
         )
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<HighDataTarget> {
         Some(
             (match self.kind {

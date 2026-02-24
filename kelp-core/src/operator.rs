@@ -37,10 +37,12 @@ impl Display for ArithmeticOperator {
 }
 
 impl ArithmeticOperator {
+    #[must_use]
     pub fn is_additive(self) -> bool {
         matches!(self, ArithmeticOperator::Add | ArithmeticOperator::Subtract)
     }
 
+    #[must_use]
     pub fn into_scoreboard_players_operation_operator(self) -> Option<ScoreOperationOperator> {
         match self {
             ArithmeticOperator::Add => Some(ScoreOperationOperator::Add),
@@ -93,6 +95,7 @@ impl Display for ComparisonOperator {
 }
 
 impl ComparisonOperator {
+    #[must_use]
     pub fn into_score_comparison_operator(self) -> ScoreComparisonOperator {
         match self {
             ComparisonOperator::LessThan => ScoreComparisonOperator::LessThan,
@@ -107,6 +110,7 @@ impl ComparisonOperator {
         }
     }
 
+    #[must_use]
     pub fn should_execute_if_be_inverted(&self) -> bool {
         matches!(self, ComparisonOperator::NotEqualTo)
     }

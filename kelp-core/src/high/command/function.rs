@@ -38,8 +38,7 @@ impl HighFunctionCommandArguments {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
-                    .map(|path| path.perform_semantic_analysis(ctx, is_lhs))
-                    .unwrap_or(Some(()));
+                    .map_or(Some(()), |path| path.perform_semantic_analysis(ctx, is_lhs));
 
                 target_result?;
                 path_result?;

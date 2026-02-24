@@ -8,7 +8,8 @@ use crate::{
 
 cst_node!(CSTLocalCoordinate, SyntaxKind::LocalCoordinate);
 
-impl<'a> CSTLocalCoordinate<'a> {
+impl CSTLocalCoordinate<'_> {
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<NotNan<f32>> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::FractionalValue {

@@ -79,6 +79,7 @@ impl<'a> CSTCoordinates<'a> {
         }
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<Coordinates> {
         Some(match self {
             CSTCoordinates::World(coordinates) => {

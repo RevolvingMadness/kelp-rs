@@ -19,30 +19,20 @@ impl<'a> CSTTellrawCommandExpression<'a> {
         parser.start_node(SyntaxKind::TellrawCommandExpression);
         parser.bump_keyword("tellraw");
 
-        let parsed_inline_whitespace = parser.expect_inline_whitespace();
-
-        if !parsed_inline_whitespace {
+        if !parser.expect_inline_whitespace() || !CSTEntitySelector::try_parse(parser) {
             parser.restore_state(state);
 
             return false;
         }
 
-        let parsed_entity_selector = CSTEntitySelector::try_parse(parser);
-
-        if !parsed_entity_selector {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        if parsed_entity_selector {
-            parser.expect_inline_whitespace();
-        } else {
-            parser.skip_inline_whitespace();
-        }
+        let parsed_whitespace = parser.expect_inline_whitespace();
 
         if !CSTExpression::try_parse(parser) {
-            parser.recover_newline("Expected expression");
+            if parsed_whitespace {
+                parser.recover_newline("Expected expression");
+            } else {
+                parser.bump_until_newline();
+            }
         }
 
         parser.finish_node();
@@ -50,6 +40,7 @@ impl<'a> CSTTellrawCommandExpression<'a> {
         true
     }
 
+    #[must_use]
     pub fn tellraw_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Keyword {
@@ -60,10 +51,12 @@ impl<'a> CSTTellrawCommandExpression<'a> {
         })
     }
 
+    #[must_use]
     pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
         self.children().find_map(CSTEntitySelector::cast)
     }
 
+    #[must_use]
     pub fn message(&self) -> Option<CSTExpression<'a>> {
         self.children().find_map(CSTExpression::cast)
     }

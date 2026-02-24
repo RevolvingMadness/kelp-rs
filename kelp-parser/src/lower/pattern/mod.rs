@@ -142,6 +142,7 @@ impl<'a> CSTPattern<'a> {
         }
     }
 
+    #[must_use]
     pub fn cast(node: &'a CSTNodeType) -> Option<CSTPattern<'a>> {
         Some(
             (match node.kind()? {
@@ -164,6 +165,7 @@ impl<'a> CSTPattern<'a> {
         )
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<Pattern> {
         Some(
             (match self.kind {

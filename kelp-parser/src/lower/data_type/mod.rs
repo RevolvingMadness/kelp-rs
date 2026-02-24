@@ -187,6 +187,7 @@ impl<'a> CSTDataType<'a> {
         true
     }
 
+    #[must_use]
     pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         Some(
             (match node.kind()? {
@@ -210,6 +211,7 @@ impl<'a> CSTDataType<'a> {
         )
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<HighDataType> {
         let kind = match self.kind {
             CSTDataTypeKind::Reference(data_type) => {

@@ -63,12 +63,13 @@ impl GeneratedPlayerScore {
         )))
     }
 
+    #[must_use]
     pub fn to_text_component(self) -> SNBT {
         let mut text_component = BTreeMap::new();
         let mut score = BTreeMap::new();
         score.insert(
             SNBTString(false, "name".to_string()),
-            SNBT::string(self.score.selector),
+            SNBT::string(self.score.selector.to_string()),
         );
         score.insert(
             SNBTString(false, "objective".to_string()),

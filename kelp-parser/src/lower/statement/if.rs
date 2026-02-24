@@ -57,6 +57,7 @@ impl<'a> CSTIfStatement<'a> {
         true
     }
 
+    #[must_use]
     pub fn if_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Keyword {
@@ -67,6 +68,7 @@ impl<'a> CSTIfStatement<'a> {
         })
     }
 
+    #[must_use]
     pub fn else_keyword_span(&self) -> Option<Span> {
         self.0
             .children_tokens()
@@ -80,14 +82,17 @@ impl<'a> CSTIfStatement<'a> {
             .nth(1)
     }
 
+    #[must_use]
     pub fn condition(&self) -> Option<CSTExpression<'a>> {
         self.children().find_map(CSTExpression::cast)
     }
 
+    #[must_use]
     pub fn body(&self) -> Option<CSTStatement<'a>> {
         self.children().filter_map(CSTStatement::cast).nth(1)
     }
 
+    #[must_use]
     pub fn else_body(&self) -> Option<CSTStatement<'a>> {
         self.children().filter_map(CSTStatement::cast).nth(2)
     }

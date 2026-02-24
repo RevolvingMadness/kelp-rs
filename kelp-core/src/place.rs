@@ -245,6 +245,8 @@ pub enum PlaceTypeKind {
 }
 
 impl PlaceTypeKind {
+    #[inline]
+    #[must_use]
     pub fn with_span(self, span: Span) -> PlaceType {
         PlaceType { span, kind: self }
     }
@@ -274,28 +276,27 @@ impl PlaceType {
                     });
                 }
             }
-            PlaceTypeKind::Data(_) => {}
+            PlaceTypeKind::Data(_) | PlaceTypeKind::Underscore => {}
             PlaceTypeKind::Tuple(place_types, _) => {
-                if let ExpressionKind::Tuple(expressions) = value.kind {
-                    assert!(expressions.len() == place_types.len());
+                let ExpressionKind::Tuple(expressions) = value.kind else {
+                    unreachable!();
+                };
 
-                    return place_types
-                        .into_iter()
-                        .zip(expressions)
-                        .map(|(place_type, value)| {
-                            let value_type = value.kind.infer_data_type(ctx)?;
+                assert!(expressions.len() == place_types.len());
 
-                            place_type.perform_assignment_semantic_analysis(ctx, value, &value_type)
-                        })
-                        .all_some();
-                } else {
-                    unreachable!()
-                }
+                place_types
+                    .into_iter()
+                    .zip(expressions)
+                    .map(|(place_type, value)| {
+                        let value_type = value.kind.infer_data_type(ctx)?;
+
+                        place_type.perform_assignment_semantic_analysis(ctx, value, &value_type)
+                    })
+                    .all_some()?;
             }
             PlaceTypeKind::Variable(data_type) => {
                 data_type.perform_assignment_semantic_analysis(ctx, value.span, value_type)?;
             }
-            PlaceTypeKind::Underscore => {}
         }
 
         Some(())
@@ -305,7 +306,7 @@ impl PlaceType {
         self,
         ctx: &mut SemanticAnalysisContext,
         operator: &ArithmeticOperator,
-        value: Expression,
+        value: &Expression,
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match self.kind {

@@ -34,6 +34,7 @@ impl<'a> CSTWhileStatement<'a> {
         true
     }
 
+    #[must_use]
     pub fn while_keyword_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Keyword {
@@ -44,10 +45,12 @@ impl<'a> CSTWhileStatement<'a> {
         })
     }
 
+    #[must_use]
     pub fn condition(&self) -> Option<CSTExpression<'a>> {
         self.children().find_map(CSTExpression::cast)
     }
 
+    #[must_use]
     pub fn body(&self) -> Option<CSTStatement<'a>> {
         self.children().rev().find_map(CSTStatement::cast)
     }

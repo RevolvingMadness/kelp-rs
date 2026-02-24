@@ -82,7 +82,7 @@ pub fn compile_bitwise_and_score(
         ))),
     );
 
-    let sign_bit_val = -2147483648;
+    let sign_bit_val = -2_147_483_648;
     let sign_bit_const = datapack.get_constant_score(sign_bit_val);
 
     ctx.add_command(
@@ -131,7 +131,7 @@ pub fn compile_bitwise_and_score(
         datapack,
         Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
             power_of_2.score.clone(),
-            1073741824,
+            1_073_741_824,
         ))),
     );
 
@@ -235,7 +235,7 @@ pub fn compile_bitwise_or_score(
         ))),
     );
 
-    let sign_bit_val = -2147483648;
+    let sign_bit_val = -2_147_483_648;
     let sign_bit_const = datapack.get_constant_score(sign_bit_val);
 
     ctx.add_command(
@@ -295,7 +295,10 @@ pub fn compile_bitwise_or_score(
     }
 
     let power_of_2 = datapack.get_unique_score();
-    ctx.add_command(datapack, power_of_2.clone().create_set_command(1073741824));
+    ctx.add_command(
+        datapack,
+        power_of_2.clone().create_set_command(1_073_741_824),
+    );
 
     datapack.while_loop(
         ctx,

@@ -10,7 +10,8 @@ use crate::{
 
 cst_node!(CSTResourceLocationPaths, SyntaxKind::ResourceLocationPaths);
 
-impl<'a> CSTResourceLocationPaths<'a> {
+impl CSTResourceLocationPaths<'_> {
+    #[must_use]
     pub fn paths<'b>(&self, text: &'b str) -> Vec<&'b str> {
         self.0
             .children_tokens()
@@ -27,7 +28,7 @@ impl<'a> CSTResourceLocationPaths<'a> {
 
 cst_node!(CSTResourceLocation, SyntaxKind::ResourceLocation);
 
-impl<'a> CSTResourceLocation<'a> {
+impl CSTResourceLocation<'_> {
     fn try_parse_paths(parser: &mut Parser) -> bool {
         let mut result = true;
 
@@ -75,6 +76,7 @@ impl<'a> CSTResourceLocation<'a> {
         true
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<ResourceLocation> {
         let is_tag = self.is_tag();
 
@@ -93,12 +95,14 @@ impl<'a> CSTResourceLocation<'a> {
         ))
     }
 
+    #[must_use]
     pub fn is_tag(&self) -> bool {
         self.0
             .children_tokens()
             .any(|token| token.kind == SyntaxKind::ResourceLocationTag)
     }
 
+    #[must_use]
     pub fn namespace<'b>(&self, text: &'b str) -> Option<&'b str> {
         self.children().find_map(|node| {
             if node.kind()? == SyntaxKind::ResourceLocationNamespace {
@@ -118,6 +122,7 @@ impl<'a> CSTResourceLocation<'a> {
         })
     }
 
+    #[must_use]
     pub fn paths<'b>(&self, text: &'b str) -> Vec<&'b str> {
         self.0
             .children()

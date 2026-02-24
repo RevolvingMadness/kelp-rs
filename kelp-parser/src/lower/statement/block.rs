@@ -8,7 +8,7 @@ impl<'a> CSTBlockStatement<'a> {
     }
 
     pub fn try_parse(parser: &mut Parser) -> bool {
-        if !parser.expect_no_bump('{', "Expected '{'") {
+        if !parser.expect_no_bump('{', "Expected block statement") {
             return false;
         }
 

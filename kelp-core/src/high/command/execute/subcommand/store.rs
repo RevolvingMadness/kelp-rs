@@ -36,6 +36,7 @@ pub enum HighExecuteStoreSubcommand {
 }
 
 impl HighExecuteStoreSubcommand {
+    #[must_use]
     pub fn then(self, next: HighExecuteSubcommand) -> HighExecuteStoreSubcommand {
         match self {
             HighExecuteStoreSubcommand::Data(

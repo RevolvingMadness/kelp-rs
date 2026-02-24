@@ -10,7 +10,7 @@ use crate::{
 
 cst_node!(CSTWorldCoordinate, SyntaxKind::WorldCoordinate);
 
-impl<'a> CSTWorldCoordinate<'a> {
+impl CSTWorldCoordinate<'_> {
     pub fn try_parse(parser: &mut Parser) -> bool {
         let Some(char) = parser.peek_char() else {
             return false;
@@ -32,19 +32,22 @@ impl<'a> CSTWorldCoordinate<'a> {
         true
     }
 
-    fn is_relative(&self) -> bool {
+    #[must_use]
+    fn is_relative(self) -> bool {
         self.0
             .children_tokens()
             .any(|token| token.kind == SyntaxKind::Tilde)
     }
 
-    fn _is_mismatch(&self) -> bool {
+    #[must_use]
+    fn _is_mismatch(self) -> bool {
         self.0
             .children_tokens()
             .any(|token| token.kind == SyntaxKind::Caret)
     }
 
-    fn offset(&self, text: &str) -> Option<NotNan<f32>> {
+    #[must_use]
+    fn offset(self, text: &str) -> Option<NotNan<f32>> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::FractionalValue {
                 Some(token.text(text).parse().unwrap())
@@ -54,6 +57,7 @@ impl<'a> CSTWorldCoordinate<'a> {
         })
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Option<WorldCoordinate> {
         let is_relative = self.is_relative();
         let offset = self.offset(text);

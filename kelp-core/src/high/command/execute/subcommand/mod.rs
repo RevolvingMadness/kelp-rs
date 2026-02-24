@@ -53,6 +53,7 @@ pub enum HighExecuteSubcommand {
 }
 
 impl HighExecuteSubcommand {
+    #[must_use]
     pub fn then(self, next: HighExecuteSubcommand) -> HighExecuteSubcommand {
         match self {
             HighExecuteSubcommand::Align(btree_set, high_execute_subcommand) => {
@@ -133,9 +134,8 @@ impl HighExecuteSubcommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighExecuteSubcommand::Align(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            HighExecuteSubcommand::Anchored(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            HighExecuteSubcommand::As(selector, next) => {
+            HighExecuteSubcommand::As(selector, next)
+            | HighExecuteSubcommand::At(selector, next) => {
                 let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next.perform_semantic_analysis(ctx, is_lhs);
 
@@ -144,23 +144,16 @@ impl HighExecuteSubcommand {
 
                 Some(())
             }
-            HighExecuteSubcommand::At(selector, next) => {
-                let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
-                let next_result = next.perform_semantic_analysis(ctx, is_lhs);
-
-                selector_result?;
-                next_result?;
-
-                Some(())
-            }
-            HighExecuteSubcommand::Facing(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            HighExecuteSubcommand::In(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            HighExecuteSubcommand::On(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::Positioned(_, next) => {
                 next.perform_semantic_analysis(ctx, is_lhs)
             }
-            HighExecuteSubcommand::Rotated(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            HighExecuteSubcommand::Summon(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            HighExecuteSubcommand::Align(_, next)
+            | HighExecuteSubcommand::Anchored(_, next)
+            | HighExecuteSubcommand::Facing(_, next)
+            | HighExecuteSubcommand::In(_, next)
+            | HighExecuteSubcommand::On(_, next)
+            | HighExecuteSubcommand::Rotated(_, next)
+            | HighExecuteSubcommand::Summon(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
             HighExecuteSubcommand::If(_, if_subcommand) => {
                 if_subcommand.perform_semantic_analysis(ctx, is_lhs)
             }

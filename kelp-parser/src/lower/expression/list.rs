@@ -45,6 +45,7 @@ impl<'a> CSTListExpression<'a> {
         self.children().filter_map(CSTExpression::cast)
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> Vec<Expression> {
         self.expressions()
             .filter_map(|expression| expression.lower(text))

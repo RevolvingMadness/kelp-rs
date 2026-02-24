@@ -24,10 +24,8 @@ impl HighItemTest {
     ) -> Option<()> {
         match self {
             HighItemTest::Component(_) => Some(()),
-            HighItemTest::ComponentMatches(_, expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, None)
-            }
-            HighItemTest::Predicate(_, expression) => {
+            HighItemTest::ComponentMatches(_, expression)
+            | HighItemTest::Predicate(_, expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
         }

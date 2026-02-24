@@ -68,12 +68,13 @@ pub enum ExpressionKind {
 }
 
 impl ExpressionKind {
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub fn with_span(self, span: Span) -> Expression {
         Expression { span, kind: self }
     }
 
+    #[must_use]
     pub fn is_index_out_of_bounds(&self, index: &Expression) -> Option<bool> {
         let ExpressionKind::List(expressions) = self else {
             return None;
@@ -101,24 +102,24 @@ impl ExpressionKind {
     pub fn is_lvalue(&self, ctx: &mut SemanticAnalysisContext) -> Option<bool> {
         Some(match self {
             ExpressionKind::Constant(expression) => expression.kind.is_lvalue(),
-            ExpressionKind::Unary(UnaryOperator::Dereference, _) => true,
-            ExpressionKind::PlayerScore(_) => true,
-            ExpressionKind::Data(_, _) => true,
-            ExpressionKind::Index(_, _) => true,
-            ExpressionKind::FieldAccess(_, _) => true,
+            ExpressionKind::Unary(UnaryOperator::Dereference, _)
+            | ExpressionKind::PlayerScore(_)
+            | ExpressionKind::Data(_, _)
+            | ExpressionKind::Index(_, _)
+            | ExpressionKind::FieldAccess(_, _)
+            | ExpressionKind::ToCast(_, _) => true,
             ExpressionKind::AsCast(_, high_data_type) => {
                 high_data_type.kind.resolve(ctx, None)?.is_lvalue()
             }
-            ExpressionKind::ToCast(_, _) => true,
             _ => false,
         })
     }
 
+    #[must_use]
     pub fn can_be_dereferenced(&self) -> bool {
         match self {
             ExpressionKind::Constant(expression) => expression.kind.can_be_dereferenced(),
-            ExpressionKind::Unary(UnaryOperator::Reference, _) => true,
-            ExpressionKind::Unary(UnaryOperator::Dereference, _) => true,
+            ExpressionKind::Unary(UnaryOperator::Reference | UnaryOperator::Dereference, _) => true,
             _ => false,
         }
     }
@@ -150,7 +151,7 @@ impl ExpressionKind {
                 let left_type = left.kind.infer_data_type(supports_variable_type_scope)?;
                 let right_type = right.kind.infer_data_type(supports_variable_type_scope)?;
 
-                left_type.get_arithmetic_result(operator, &right_type)?
+                left_type.get_arithmetic_result(*operator, &right_type)?
             }
             ExpressionKind::Comparison(_, _, _) | ExpressionKind::Logical(_, _, _) => {
                 DataTypeKind::Boolean
@@ -233,6 +234,8 @@ impl ExpressionKind {
 }
 
 impl ExpressionKind {
+    #[inline]
+    #[must_use]
     pub fn into_dummy_expression(self) -> Expression {
         Expression {
             span: Span::dummy(),
@@ -280,6 +283,7 @@ impl Expression {
         }
     }
 
+    #[must_use]
     pub fn dereference(self, datapack: &mut HighDatapack) -> Expression {
         match self.kind {
             ExpressionKind::Constant(expression) => match expression.kind {
@@ -292,14 +296,8 @@ impl Expression {
                 ConstantExpressionKind::Reference(expression) => {
                     expression.into_constant_expression()
                 }
-                kind @ ConstantExpressionKind::PlayerScore(_) => Expression {
-                    span: self.span,
-                    kind: ExpressionKind::Constant(ConstantExpression {
-                        span: self.span,
-                        kind,
-                    }),
-                },
-                kind @ ConstantExpressionKind::Data(_, _) => Expression {
+                kind @ (ConstantExpressionKind::PlayerScore(_)
+                | ConstantExpressionKind::Data(_, _)) => Expression {
                     span: self.span,
                     kind: ExpressionKind::Constant(ConstantExpression {
                         span: self.span,
@@ -310,8 +308,7 @@ impl Expression {
                     unreachable!("This expression cannot be dereferenced {:?}", expression)
                 }
             },
-            ExpressionKind::PlayerScore(_) => self,
-            ExpressionKind::Data(_, _) => self,
+            ExpressionKind::PlayerScore(_) | ExpressionKind::Data(_, _) => self,
             ExpressionKind::Unary(UnaryOperator::Reference, expression) => *expression,
             ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
                 expression.dereference(datapack).dereference(datapack)
@@ -388,7 +385,7 @@ impl Expression {
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
 
-                let result_type = left_type.get_arithmetic_result(operator, &right_type);
+                let result_type = left_type.get_arithmetic_result(*operator, &right_type);
 
                 if result_type.is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
@@ -430,7 +427,7 @@ impl Expression {
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
 
-                if !left_type.can_perform_comparison(operator, &right_type) {
+                if !left_type.can_perform_comparison(*operator, &right_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -494,7 +491,7 @@ impl Expression {
                 place.perform_augmented_assignment_semantic_analysis(
                     ctx,
                     operator,
-                    *value.clone(),
+                    value,
                     &value_data_type,
                 )?;
 
@@ -759,42 +756,40 @@ impl Expression {
                 let mut has_error = false;
 
                 for (field_name, field_value) in fields {
-                    match defined_fields.get(&field_name.snbt_string.1) {
-                        Some(expected_field_type) => {
-                            if field_value
-                                .perform_semantic_analysis(ctx, is_lhs, Some(expected_field_type))
-                                .is_none()
-                            {
-                                has_error = true;
-                            }
+                    let Some(expected_field_type) = defined_fields.get(&field_name.snbt_string.1)
+                    else {
+                        has_error = true;
 
-                            if let Some(actual_type) = field_value.kind.infer_data_type(ctx) {
-                                if expected_field_type
-                                    .perform_equality_semantic_analysis(
-                                        ctx,
-                                        &actual_type,
-                                        field_value,
-                                    )
-                                    .is_none()
-                                {
-                                    has_error = true;
-                                }
-                            } else {
-                                has_error = true;
-                            }
-                        }
-                        None => {
-                            has_error = true;
-
-                            ctx.add_info::<()>(SemanticAnalysisInfo {
-                                span: field_name.span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::UnexpectedField(
-                                        field_name.snbt_string.1.clone(),
-                                    ),
+                        ctx.add_info::<()>(SemanticAnalysisInfo {
+                            span: field_name.span,
+                            kind: SemanticAnalysisInfoKind::Error(
+                                SemanticAnalysisError::UnexpectedField(
+                                    field_name.snbt_string.1.clone(),
                                 ),
-                            });
-                        }
+                            ),
+                        });
+
+                        continue;
+                    };
+
+                    if field_value
+                        .perform_semantic_analysis(ctx, is_lhs, Some(expected_field_type))
+                        .is_none()
+                    {
+                        has_error = true;
+                    }
+
+                    let Some(actual_type) = field_value.kind.infer_data_type(ctx) else {
+                        has_error = true;
+
+                        continue;
+                    };
+
+                    if expected_field_type
+                        .perform_equality_semantic_analysis(ctx, &actual_type, field_value)
+                        .is_none()
+                    {
+                        has_error = true;
                     }
                 }
 
@@ -837,7 +832,8 @@ impl Expression {
                 }
                 ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score,
                 ExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
-                ExpressionKind::Unary(UnaryOperator::Dereference, _) => self
+                ExpressionKind::Unary(UnaryOperator::Dereference, _)
+                | ExpressionKind::FieldAccess(_, _) => self
                     .kind
                     .infer_data_type(supports_variable_type_scope)?
                     .as_place_type()
@@ -856,11 +852,6 @@ impl Expression {
 
                     resolved_data_type.as_place_type().ok()?
                 }
-                ExpressionKind::FieldAccess(_, _) => self
-                    .kind
-                    .infer_data_type(supports_variable_type_scope)?
-                    .as_place_type()
-                    .ok()?,
                 _ => return None,
             })
             .with_span(self.span),

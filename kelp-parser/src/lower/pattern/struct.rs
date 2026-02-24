@@ -10,6 +10,7 @@ use crate::{
 cst_node!(CSTStructPatternField, SyntaxKind::StructPatternField);
 
 impl<'a> CSTStructPatternField<'a> {
+    #[must_use]
     pub fn name_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -20,9 +21,11 @@ impl<'a> CSTStructPatternField<'a> {
         })
     }
 
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
-        self.name_span()
-            .map(|name_span| (name_span, &text[name_span.into_range()]))
+        let name_span = self.name_span()?;
+
+        Some((name_span, &text[name_span.into_range()]))
     }
 
     pub fn pattern(&self) -> Option<CSTPattern<'a>> {
@@ -43,6 +46,7 @@ impl<'a> CSTStructPatternField<'a> {
 cst_node!(CSTStructPattern, SyntaxKind::StructPattern);
 
 impl<'a> CSTStructPattern<'a> {
+    #[must_use]
     pub fn name_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -53,14 +57,9 @@ impl<'a> CSTStructPattern<'a> {
         })
     }
 
+    #[must_use]
     pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text(text))
-            } else {
-                None
-            }
-        })
+        Some(&text[self.name_span()?.into_range()])
     }
 
     pub fn fields(&self) -> Vec<CSTStructPatternField<'a>> {

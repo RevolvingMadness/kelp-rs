@@ -133,7 +133,7 @@ impl Backend {
                 },
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("kelp-lsp".to_string()),
-                message: error.message.to_string(),
+                message: error.message.clone(),
                 code_description: None,
                 code: None,
                 related_information: None,
@@ -290,7 +290,7 @@ impl LanguageServer for Backend {
                         "{".to_string(),
                         "@".to_string(),
                     ]),
-                    work_done_progress_options: Default::default(),
+                    work_done_progress_options: WorkDoneProgressOptions::default(),
                     all_commit_characters: None,
                     ..Default::default()
                 }),

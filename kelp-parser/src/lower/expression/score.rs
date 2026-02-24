@@ -28,10 +28,12 @@ impl<'a> CSTScoreExpression<'a> {
         true
     }
 
+    #[must_use]
     pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
         self.children().find_map(CSTEntitySelector::cast)
     }
 
+    #[must_use]
     pub fn message_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {
@@ -42,6 +44,7 @@ impl<'a> CSTScoreExpression<'a> {
         })
     }
 
+    #[must_use]
     pub fn message<'b>(&self, text: &'b str) -> Option<&'b str> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::Identifier {

@@ -29,6 +29,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    #[must_use]
     pub fn new(source: &'a str) -> Self {
         Self {
             source,
@@ -39,18 +40,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[must_use]
     pub fn peek(&self) -> Option<char> {
         self.source[self.pos..].chars().next()
     }
 
+    #[must_use]
     pub fn peek_char(&self) -> Option<char> {
         self.source[self.pos..].chars().next()
     }
 
+    #[must_use]
     pub fn peek_nth_char(&self, n: usize) -> Option<char> {
         self.source[self.pos..].chars().nth(n)
     }
 
+    #[must_use]
     pub fn _peek_whole_value(&self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut len = 0;
@@ -69,6 +74,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[must_use]
     pub fn peek_fractional_value(&self) -> Option<(bool, &'a str)> {
         let s = &self.source[self.pos..];
         let mut len = 0;
@@ -113,6 +119,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[must_use]
     pub fn peek_identifier(&self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut chars = s.chars();
@@ -196,6 +203,7 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
+    #[must_use]
     pub fn is_eof(&self) -> bool {
         self.pos >= self.source.len()
     }
@@ -214,21 +222,21 @@ impl<'a> Parser<'a> {
         self.events.push(Event::FinishNode);
     }
 
-    pub fn error(&mut self, message: impl ToString) {
+    pub fn error(&mut self, message: &str) {
         self.error_with_len(message, 1);
     }
 
-    pub fn error_at(&mut self, position: usize, message: impl ToString) {
+    pub fn error_at(&mut self, position: usize, message: &str) {
         self.error_with_len_at(position, message, 1);
     }
 
-    pub fn error_with_len(&mut self, message: impl ToString, len: usize) {
+    pub fn error_with_len(&mut self, message: &str, len: usize) {
         if self.error_count >= self.max_errors {
             return;
         }
 
         #[cfg(debug_assertions)]
-        println!("Error: {}", message.to_string());
+        println!("Error: {}", message);
 
         self.events.push(Event::Error {
             message: message.to_string(),
@@ -238,13 +246,13 @@ impl<'a> Parser<'a> {
         self.error_count += 1;
     }
 
-    pub fn error_with_len_at(&mut self, position: usize, message: impl ToString, len: usize) {
+    pub fn error_with_len_at(&mut self, position: usize, message: &str, len: usize) {
         if self.error_count >= self.max_errors {
             return;
         }
 
         #[cfg(debug_assertions)]
-        println!("Error: {}", message.to_string());
+        println!("Error: {}", message);
 
         self.events.insert(
             position,
@@ -264,12 +272,13 @@ impl<'a> Parser<'a> {
         self.events.push(Event::Token { kind, text });
     }
 
+    #[must_use]
     pub fn build_tree(&'a self) -> CSTNodeType {
         let mut stack = vec![(None, 0usize, Vec::new())];
 
         let mut current_offset = 0usize;
 
-        for event in self.events.iter() {
+        for event in &self.events {
             match event {
                 Event::StartNode(kind) => {
                     stack.push((Some(kind), current_offset, Vec::new()));
@@ -324,6 +333,7 @@ impl<'a> Parser<'a> {
         nodes.into_iter().next().unwrap()
     }
 
+    #[must_use]
     pub fn save_state(&self) -> (usize, usize) {
         (self.pos, self.events.len())
     }
@@ -334,7 +344,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     fn skip_whitespace_internal(&mut self, stop_at_newline: bool) -> bool {
         let mut contains_newline = false;
         let mut start_pos = self.pos;
@@ -359,7 +369,6 @@ impl<'a> Parser<'a> {
                         }
                         self.add_comment_token(comment_start);
                         start_pos = self.pos;
-                        continue;
                     } else if next_b == b'*' {
                         self.add_whitespace_token(start_pos);
                         let comment_start = self.pos;
@@ -379,7 +388,6 @@ impl<'a> Parser<'a> {
                         }
                         self.add_comment_token(comment_start);
                         start_pos = self.pos;
-                        continue;
                     } else {
                         break;
                     }
@@ -484,16 +492,16 @@ impl<'a> Parser<'a> {
     fn extract_errors(errors: &mut Vec<CSTError>, node: &CSTNodeType) {
         match node {
             CSTNodeType::Node(node) => {
-                for child in node.children.iter() {
+                for child in &node.children {
                     Self::extract_errors(errors, child);
                 }
             }
             CSTNodeType::Error(error) => errors.push(error.clone()),
-            _ => {}
+            CSTNodeType::Token(_) => {}
         }
     }
 
-    fn bump_until_newline(&mut self) {
+    pub fn bump_until_newline(&mut self) {
         let bytes = &self.source.as_bytes()[self.pos..];
 
         let length = bytes
@@ -504,7 +512,7 @@ impl<'a> Parser<'a> {
         self.add_token(SyntaxKind::Garbage, length);
     }
 
-    pub fn recover_newline(&mut self, message: impl ToString) {
+    pub fn recover_newline(&mut self, message: &str) {
         self.error(message);
 
         self.bump_until_newline();
@@ -674,6 +682,7 @@ impl<'a> Parser<'a> {
         self.add_token(SyntaxKind::Keyword, keyword.len());
     }
 
+    #[must_use]
     pub fn checkpoint(&self) -> usize {
         self.events.len()
     }

@@ -102,6 +102,7 @@ impl<'a> CSTCompoundExpression<'a> {
             .filter_map(CSTCompoundExpressionEntry::cast)
     }
 
+    #[must_use]
     pub fn lower(self, text: &str) -> BTreeMap<HighSNBTString, Expression> {
         let mut compound = BTreeMap::new();
 

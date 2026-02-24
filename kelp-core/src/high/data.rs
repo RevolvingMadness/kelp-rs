@@ -23,6 +23,8 @@ pub enum HighDataTargetKind {
 }
 
 impl HighDataTargetKind {
+    #[inline]
+    #[must_use]
     pub fn with_regular_span(self, span: Span) -> HighDataTarget {
         HighDataTarget {
             is_generated: false,
@@ -31,6 +33,8 @@ impl HighDataTargetKind {
         }
     }
 
+    #[inline]
+    #[must_use]
     pub fn with_generated_span(self) -> HighDataTarget {
         HighDataTarget {
             is_generated: true,
@@ -47,26 +51,6 @@ impl HighDataTargetKind {
         match self {
             HighDataTargetKind::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
             _ => Some(()),
-        }
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn into_generated(self) -> HighDataTarget {
-        HighDataTarget {
-            is_generated: true,
-            span: Span::dummy(),
-            kind: self,
-        }
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn into_regular(self, span: Span) -> HighDataTarget {
-        HighDataTarget {
-            is_generated: false,
-            span,
-            kind: self,
         }
     }
 }

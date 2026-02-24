@@ -1,4 +1,5 @@
-use kelp_core::span::Span;
+use kelp_core::{high::entity_selector::HighEntitySelector, span::Span};
+use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
     cst_node,
@@ -11,7 +12,8 @@ cst_node!(
     SyntaxKind::VariableEntitySelector
 );
 
-impl<'a> CSTVariableEntitySelector<'a> {
+impl CSTVariableEntitySelector<'_> {
+    #[must_use]
     pub fn variable_span(&self) -> Option<Span> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::EntitySelectorVariable {
@@ -22,6 +24,7 @@ impl<'a> CSTVariableEntitySelector<'a> {
         })
     }
 
+    #[must_use]
     pub fn variable<'b>(&self, text: &'b str) -> Option<&'b str> {
         self.0.children_tokens().find_map(|token| {
             if token.kind == SyntaxKind::EntitySelectorVariable {
@@ -30,6 +33,22 @@ impl<'a> CSTVariableEntitySelector<'a> {
                 None
             }
         })
+    }
+
+    #[must_use]
+    pub fn lower(self, text: &str) -> Option<HighEntitySelector> {
+        let variable = self.variable(text)?;
+
+        let variable = match variable {
+            "a" => EntitySelectorVariable::A,
+            "e" => EntitySelectorVariable::E,
+            "n" => EntitySelectorVariable::N,
+            "p" => EntitySelectorVariable::P,
+            "r" => EntitySelectorVariable::R,
+            _ => EntitySelectorVariable::S,
+        };
+
+        Some(HighEntitySelector::Variable(variable, Vec::new()))
     }
 
     pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {

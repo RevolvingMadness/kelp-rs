@@ -22,35 +22,37 @@ pub enum ArithmeticOperator {
 impl Display for ArithmeticOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            ArithmeticOperator::Add => "+",
-            ArithmeticOperator::Subtract => "-",
-            ArithmeticOperator::Multiply => "*",
-            ArithmeticOperator::FloorDivide => "/",
-            ArithmeticOperator::Modulo => "%",
-            ArithmeticOperator::And => "&",
-            ArithmeticOperator::Or => "|",
-            ArithmeticOperator::LeftShift => "<<",
-            ArithmeticOperator::RightShift => ">>",
-            ArithmeticOperator::Swap => "><",
+            Self::Add => "+",
+            Self::Subtract => "-",
+            Self::Multiply => "*",
+            Self::FloorDivide => "/",
+            Self::Modulo => "%",
+            Self::And => "&",
+            Self::Or => "|",
+            Self::LeftShift => "<<",
+            Self::RightShift => ">>",
+            Self::Swap => "><",
         })
     }
 }
 
 impl ArithmeticOperator {
     #[must_use]
-    pub fn is_additive(self) -> bool {
-        matches!(self, ArithmeticOperator::Add | ArithmeticOperator::Subtract)
+    pub const fn is_additive(self) -> bool {
+        matches!(self, Self::Add | Self::Subtract)
     }
 
     #[must_use]
-    pub fn into_scoreboard_players_operation_operator(self) -> Option<ScoreOperationOperator> {
+    pub const fn into_scoreboard_players_operation_operator(
+        self,
+    ) -> Option<ScoreOperationOperator> {
         match self {
-            ArithmeticOperator::Add => Some(ScoreOperationOperator::Add),
-            ArithmeticOperator::Subtract => Some(ScoreOperationOperator::Subtract),
-            ArithmeticOperator::Multiply => Some(ScoreOperationOperator::Multiply),
-            ArithmeticOperator::FloorDivide => Some(ScoreOperationOperator::Divide),
-            ArithmeticOperator::Modulo => Some(ScoreOperationOperator::Modulo),
-            ArithmeticOperator::Swap => Some(ScoreOperationOperator::Swap),
+            Self::Add => Some(ScoreOperationOperator::Add),
+            Self::Subtract => Some(ScoreOperationOperator::Subtract),
+            Self::Multiply => Some(ScoreOperationOperator::Multiply),
+            Self::FloorDivide => Some(ScoreOperationOperator::Divide),
+            Self::Modulo => Some(ScoreOperationOperator::Modulo),
+            Self::Swap => Some(ScoreOperationOperator::Swap),
             _ => None,
         }
     }
@@ -65,8 +67,8 @@ pub enum LogicalOperator {
 impl Display for LogicalOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            LogicalOperator::And => "&&",
-            LogicalOperator::Or => "||",
+            Self::And => "&&",
+            Self::Or => "||",
         })
     }
 }
@@ -84,35 +86,31 @@ pub enum ComparisonOperator {
 impl Display for ComparisonOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            ComparisonOperator::LessThan => "<",
-            ComparisonOperator::LessThanOrEqualTo => "<=",
-            ComparisonOperator::GreaterThan => ">",
-            ComparisonOperator::GreaterThanOrEqualTo => ">=",
-            ComparisonOperator::EqualTo => "==",
-            ComparisonOperator::NotEqualTo => "!=",
+            Self::LessThan => "<",
+            Self::LessThanOrEqualTo => "<=",
+            Self::GreaterThan => ">",
+            Self::GreaterThanOrEqualTo => ">=",
+            Self::EqualTo => "==",
+            Self::NotEqualTo => "!=",
         })
     }
 }
 
 impl ComparisonOperator {
     #[must_use]
-    pub fn into_score_comparison_operator(self) -> ScoreComparisonOperator {
+    pub const fn into_score_comparison_operator(self) -> ScoreComparisonOperator {
         match self {
-            ComparisonOperator::LessThan => ScoreComparisonOperator::LessThan,
-            ComparisonOperator::LessThanOrEqualTo => ScoreComparisonOperator::LessThanOrEqualTo,
-            ComparisonOperator::GreaterThan => ScoreComparisonOperator::GreaterThan,
-            ComparisonOperator::GreaterThanOrEqualTo => {
-                ScoreComparisonOperator::GreaterThanOrEqualTo
-            }
-            ComparisonOperator::EqualTo | ComparisonOperator::NotEqualTo => {
-                ScoreComparisonOperator::EqualTo
-            }
+            Self::LessThan => ScoreComparisonOperator::LessThan,
+            Self::LessThanOrEqualTo => ScoreComparisonOperator::LessThanOrEqualTo,
+            Self::GreaterThan => ScoreComparisonOperator::GreaterThan,
+            Self::GreaterThanOrEqualTo => ScoreComparisonOperator::GreaterThanOrEqualTo,
+            Self::EqualTo | Self::NotEqualTo => ScoreComparisonOperator::EqualTo,
         }
     }
 
     #[must_use]
-    pub fn should_execute_if_be_inverted(&self) -> bool {
-        matches!(self, ComparisonOperator::NotEqualTo)
+    pub const fn should_execute_if_be_inverted(&self) -> bool {
+        matches!(self, Self::NotEqualTo)
     }
 }
 

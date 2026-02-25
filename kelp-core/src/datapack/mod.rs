@@ -75,26 +75,26 @@ impl DataTypeDeclarationKind {
     #[must_use]
     pub fn name(&self) -> String {
         match self {
-            DataTypeDeclarationKind::Builtin(builtin_type) => builtin_type.to_string(),
-            DataTypeDeclarationKind::Alias { name, .. }
-            | DataTypeDeclarationKind::Struct { name, .. }
-            | DataTypeDeclarationKind::Generic(name) => name.clone(),
+            Self::Builtin(builtin_type) => builtin_type.to_string(),
+            Self::Alias { name, .. } | Self::Struct { name, .. } | Self::Generic(name) => {
+                name.clone()
+            }
         }
     }
 
     #[must_use]
-    pub fn generic_count(&self) -> usize {
+    pub const fn generic_count(&self) -> usize {
         match self {
-            DataTypeDeclarationKind::Alias {
+            Self::Alias {
                 generics: generic_names,
                 ..
             }
-            | DataTypeDeclarationKind::Struct {
+            | Self::Struct {
                 generics: generic_names,
                 ..
             } => generic_names.len(),
-            DataTypeDeclarationKind::Builtin(builtin_type) => builtin_type.generic_count(),
-            DataTypeDeclarationKind::Generic(_) => 0,
+            Self::Builtin(builtin_type) => builtin_type.generic_count(),
+            Self::Generic(_) => 0,
         }
     }
 
@@ -104,7 +104,7 @@ impl DataTypeDeclarationKind {
         generic_types: &[DataTypeKind],
     ) -> Option<BTreeMap<String, DataTypeKind>> {
         match self {
-            DataTypeDeclarationKind::Alias {
+            Self::Alias {
                 generics: generic_names,
                 alias,
                 ..
@@ -124,7 +124,7 @@ impl DataTypeDeclarationKind {
                     None
                 }
             }
-            DataTypeDeclarationKind::Struct {
+            Self::Struct {
                 fields,
                 generics: generic_names,
                 ..
@@ -158,7 +158,7 @@ impl DataTypeDeclarationKind {
         resolved_generic_types: &[DataTypeKind],
     ) -> Option<()> {
         match self {
-            DataTypeDeclarationKind::Alias {
+            Self::Alias {
                 name,
                 generics: inner_generics,
                 ..
@@ -180,7 +180,7 @@ impl DataTypeDeclarationKind {
 
                 Some(())
             }
-            DataTypeDeclarationKind::Struct { name, generics, .. } => {
+            Self::Struct { name, generics, .. } => {
                 let expected_generics = generics.len();
 
                 if expected_generics != number_of_generics {
@@ -198,10 +198,10 @@ impl DataTypeDeclarationKind {
 
                 Some(())
             }
-            DataTypeDeclarationKind::Generic(_) => {
+            Self::Generic(_) => {
                 unreachable!()
             }
-            DataTypeDeclarationKind::Builtin(name) => {
+            Self::Builtin(name) => {
                 if !resolved_generic_types.is_empty() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: generics_span,
@@ -226,7 +226,7 @@ impl DataTypeDeclarationKind {
         generic_types: Vec<DataTypeKind>,
     ) -> Option<DataTypeKind> {
         match self {
-            DataTypeDeclarationKind::Alias {
+            Self::Alias {
                 generics: generic_names,
                 alias,
                 ..
@@ -234,7 +234,7 @@ impl DataTypeDeclarationKind {
                 let substitutions: BTreeMap<String, DataTypeKind> =
                     generic_names.into_iter().zip(generic_types).collect();
 
-                let resolved_alias = alias.clone().substitute(&substitutions)?;
+                let resolved_alias = alias.substitute(&substitutions)?;
 
                 if let DataTypeKind::Struct(name, generics, _) = resolved_alias {
                     let declaration = supports_variable_type_scope.get_data_type(&name)??;
@@ -243,7 +243,7 @@ impl DataTypeDeclarationKind {
                     Some(resolved_alias)
                 }
             }
-            DataTypeDeclarationKind::Struct {
+            Self::Struct {
                 name,
                 generics: generic_names,
                 ..
@@ -255,8 +255,8 @@ impl DataTypeDeclarationKind {
 
                 Some(DataTypeKind::Struct(name, generic_types, false).substitute(&substitutions)?)
             }
-            DataTypeDeclarationKind::Builtin(data_type) => data_type.to_data_type(&generic_types),
-            DataTypeDeclarationKind::Generic(_) => unreachable!(),
+            Self::Builtin(data_type) => data_type.to_data_type(&generic_types),
+            Self::Generic(_) => unreachable!(),
         }
     }
 }
@@ -338,11 +338,11 @@ impl SupportsVariableTypeScope for HighDatapack {
 }
 
 impl HighDatapack {
-    pub fn new(name: impl Into<String>) -> HighDatapack {
+    pub fn new(name: impl Into<String>) -> Self {
         let mut scopes = Scopes::new();
         scopes.push_front(Scope::default());
 
-        HighDatapack {
+        Self {
             name: name.into(),
             requirements: Cell::new(HighDatapackRequirements::default()),
             settings: HighDatapackSettings::default(),
@@ -388,7 +388,7 @@ impl HighDatapack {
 
     pub fn within_namespace<F>(&mut self, name: &str, function: F)
     where
-        F: FnOnce(&mut HighDatapack),
+        F: FnOnce(&mut Self),
     {
         self.add_default_namespace_if_missing(name);
 
@@ -630,7 +630,7 @@ impl HighDatapack {
         GeneratedPlayerScore {
             is_generated: true,
             score: PlayerScore::new(
-                HighDatapack::get_constant_selector(constant),
+                Self::get_constant_selector(constant),
                 self.get_constants_objective(),
             ),
         }
@@ -688,8 +688,8 @@ impl HighDatapack {
 
     pub fn while_loop<C, B>(&mut self, ctx: &mut CompileContext, condition: C, body: B)
     where
-        C: Fn(&mut HighDatapack, &mut CompileContext) -> (bool, ExecuteIfSubcommand),
-        B: FnOnce(&mut HighDatapack, &mut CompileContext),
+        C: Fn(&mut Self, &mut CompileContext) -> (bool, ExecuteIfSubcommand),
+        B: FnOnce(&mut Self, &mut CompileContext),
     {
         let loop_function_paths = self.get_unique_function_paths();
         let current_namespace_name = self.current_namespace_name().to_string();

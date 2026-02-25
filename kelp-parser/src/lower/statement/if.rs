@@ -34,7 +34,7 @@ impl<'a> CSTIfStatement<'a> {
 
         parser.skip_whitespace();
 
-        if let Some("else") = parser.peek_identifier() {
+        if parser.peek_identifier() == Some("else") {
             parser.bump_keyword("else");
 
             parser.skip_whitespace();

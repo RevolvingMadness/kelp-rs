@@ -25,7 +25,7 @@ impl HighNbtPathNode {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighNbtPathNode::RootCompound(compound) => compound
+            Self::RootCompound(compound) => compound
                 .iter()
                 .map(|(key, value)| {
                     let key = key.perform_semantic_analysis(ctx, is_lhs);
@@ -37,7 +37,7 @@ impl HighNbtPathNode {
                     Some(())
                 })
                 .all_some(),
-            HighNbtPathNode::Named(name, compound) => {
+            Self::Named(name, compound) => {
                 let name = name.perform_semantic_analysis(ctx, is_lhs);
                 let compound = compound.as_ref().map_or(Some(()), |compound| {
                     compound
@@ -59,17 +59,15 @@ impl HighNbtPathNode {
 
                 Some(())
             }
-            HighNbtPathNode::Index(expression) => {
-                expression.as_ref().map_or(Some(()), |expression| {
-                    expression.perform_semantic_analysis(ctx, is_lhs, None)
-                })
-            }
+            Self::Index(expression) => expression.as_ref().map_or(Some(()), |expression| {
+                expression.perform_semantic_analysis(ctx, is_lhs, None)
+            }),
         }
     }
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> NbtPathNode {
         match self {
-            HighNbtPathNode::RootCompound(compound) => NbtPathNode::RootCompound(
+            Self::RootCompound(compound) => NbtPathNode::RootCompound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -79,7 +77,7 @@ impl HighNbtPathNode {
                     })
                     .collect(),
             ),
-            HighNbtPathNode::Named(name, expression) => NbtPathNode::Named(
+            Self::Named(name, expression) => NbtPathNode::Named(
                 name.snbt_string,
                 expression.map(|expression| {
                     expression
@@ -92,7 +90,7 @@ impl HighNbtPathNode {
                         .collect::<SNBTCompound>()
                 }),
             ),
-            HighNbtPathNode::Index(expression) => NbtPathNode::Index(
+            Self::Index(expression) => NbtPathNode::Index(
                 expression.map(|expression| expression.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
         }

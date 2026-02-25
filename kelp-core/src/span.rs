@@ -15,27 +15,23 @@ impl Display for Span {
 }
 
 impl Span {
-    #[inline]
     #[must_use]
-    pub fn dummy() -> Self {
+    pub const fn dummy() -> Self {
         Self { start: 0, end: 0 }
     }
 
-    #[inline]
     #[must_use]
-    pub fn into_range(self) -> Range<usize> {
+    pub const fn into_range(self) -> Range<usize> {
         self.start..self.end
     }
 
-    #[inline]
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.end - self.start
     }
 
-    #[inline]
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.start == self.end
     }
 }

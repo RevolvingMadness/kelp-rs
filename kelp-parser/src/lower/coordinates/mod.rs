@@ -62,7 +62,7 @@ impl<'a> CSTCoordinates<'a> {
         }
     }
 
-    pub fn cast(node: &'a CSTNodeType) -> Option<CSTCoordinates<'a>> {
+    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         match node.kind()? {
             SyntaxKind::WorldCoordinates => {
                 CSTWorldCoordinates::cast(node).map(CSTCoordinates::World)

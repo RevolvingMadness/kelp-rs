@@ -39,7 +39,7 @@ impl<'a> CSTNBTPathNode<'a> {
         CSTNBTPathNamedNode::try_parse(parser)
     }
 
-    pub fn cast(node: &'a CSTNodeType) -> Option<CSTNBTPathNode<'a>> {
+    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         match node.kind()? {
             SyntaxKind::NBTPathNamed => CSTNBTPathNamedNode::cast(node).map(CSTNBTPathNode::Named),
             SyntaxKind::NBTPathIndex => CSTNBTPathIndexNode::cast(node).map(CSTNBTPathNode::Index),

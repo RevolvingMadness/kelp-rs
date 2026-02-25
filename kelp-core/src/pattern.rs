@@ -27,39 +27,36 @@ pub enum PatternKind {
 }
 
 impl PatternKind {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> Pattern {
+    pub const fn with_span(self, span: Span) -> Pattern {
         Pattern { span, kind: self }
     }
 
     #[must_use]
     pub fn is_irrefutable(&self) -> bool {
         match self {
-            PatternKind::Literal(_) => false,
-            PatternKind::Wildcard
-            | PatternKind::Binding(_)
-            | PatternKind::Compound(_)
-            | PatternKind::Dereference(_)
-            | PatternKind::Struct(_, _) => true,
-            PatternKind::Tuple(patterns) => {
-                patterns.iter().all(|pattern| pattern.kind.is_irrefutable())
-            }
+            Self::Literal(_) => false,
+            Self::Wildcard
+            | Self::Binding(_)
+            | Self::Compound(_)
+            | Self::Dereference(_)
+            | Self::Struct(_, _) => true,
+            Self::Tuple(patterns) => patterns.iter().all(|pattern| pattern.kind.is_irrefutable()),
         }
     }
 
     #[must_use]
     pub fn get_type(&self) -> PatternType {
         match self {
-            PatternKind::Literal(expression) => expression.kind.get_pattern_type(),
-            PatternKind::Wildcard | PatternKind::Binding(_) => PatternType::Any,
-            PatternKind::Tuple(patterns) => PatternType::Tuple(
+            Self::Literal(expression) => expression.kind.get_pattern_type(),
+            Self::Wildcard | Self::Binding(_) => PatternType::Any,
+            Self::Tuple(patterns) => PatternType::Tuple(
                 patterns
                     .iter()
                     .map(|pattern| pattern.kind.get_type())
                     .collect(),
             ),
-            PatternKind::Compound(compound) => PatternType::Compound(
+            Self::Compound(compound) => PatternType::Compound(
                 compound
                     .iter()
                     .map(|(key, pattern)| {
@@ -72,10 +69,10 @@ impl PatternKind {
                     })
                     .collect(),
             ),
-            PatternKind::Dereference(pattern) => {
+            Self::Dereference(pattern) => {
                 PatternType::Dereference(Box::new(pattern.kind.get_type()))
             }
-            PatternKind::Struct(name, field_patterns) => PatternType::Struct(
+            Self::Struct(name, field_patterns) => PatternType::Struct(
                 name.clone(),
                 field_patterns
                     .iter()
@@ -94,16 +91,16 @@ impl PatternKind {
 
     pub fn destructure_unknown(&self, ctx: &mut SemanticAnalysisContext) {
         match self {
-            PatternKind::Literal(_) | PatternKind::Wildcard => {}
-            PatternKind::Binding(name) => {
+            Self::Literal(_) | Self::Wildcard => {}
+            Self::Binding(name) => {
                 ctx.declare_variable_unknown(name);
             }
-            PatternKind::Tuple(patterns) => {
+            Self::Tuple(patterns) => {
                 for pattern in patterns {
                     pattern.kind.destructure_unknown(ctx);
                 }
             }
-            PatternKind::Compound(compound) => {
+            Self::Compound(compound) => {
                 for (key, pattern) in compound {
                     if let Some(pattern) = pattern {
                         pattern.kind.destructure_unknown(ctx);
@@ -112,10 +109,10 @@ impl PatternKind {
                     }
                 }
             }
-            PatternKind::Dereference(pattern) => {
+            Self::Dereference(pattern) => {
                 pattern.kind.destructure_unknown(ctx);
             }
-            PatternKind::Struct(_, field_patterns) => {
+            Self::Struct(_, field_patterns) => {
                 for (key, pattern) in field_patterns {
                     if let Some(pattern) = pattern {
                         pattern.kind.destructure_unknown(ctx);

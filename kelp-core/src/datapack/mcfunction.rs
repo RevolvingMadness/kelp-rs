@@ -32,9 +32,8 @@ impl MCFunction {
         self.commands.extend(commands);
     }
 
-    #[inline]
     #[must_use]
-    pub fn commands(&self) -> &Vec<Command> {
+    pub const fn commands(&self) -> &Vec<Command> {
         &self.commands
     }
 }

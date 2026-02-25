@@ -19,15 +19,15 @@ impl HighItemSource {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighItemSource::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
-            HighItemSource::Block(_) => Some(()),
+            Self::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
+            Self::Block(_) => Some(()),
         }
     }
 
     pub fn compile(&self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> ItemSource {
         match self {
-            HighItemSource::Block(coordinates) => ItemSource::Block(*coordinates),
-            HighItemSource::Entity(selector) => {
+            Self::Block(coordinates) => ItemSource::Block(*coordinates),
+            Self::Entity(selector) => {
                 let selector = selector.clone().compile(datapack, ctx);
 
                 ItemSource::Entity(selector)

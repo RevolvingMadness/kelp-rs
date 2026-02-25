@@ -24,7 +24,7 @@ impl HighFunctionCommandArguments {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighFunctionCommandArguments::Compound(compound) => compound
+            Self::Compound(compound) => compound
                 .values()
                 .map(|value| {
                     value.perform_semantic_analysis(
@@ -34,7 +34,7 @@ impl HighFunctionCommandArguments {
                     )
                 })
                 .all_some(),
-            HighFunctionCommandArguments::DataTarget(target, path) => {
+            Self::DataTarget(target, path) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
@@ -54,7 +54,7 @@ impl HighFunctionCommandArguments {
         ctx: &mut CompileContext,
     ) -> FunctionCommandArguments {
         match self {
-            HighFunctionCommandArguments::Compound(compound) => FunctionCommandArguments::Compound(
+            Self::Compound(compound) => FunctionCommandArguments::Compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -64,8 +64,8 @@ impl HighFunctionCommandArguments {
                     })
                     .collect(),
             ),
-            HighFunctionCommandArguments::DataTarget(target, path) => {
-                let target = target.clone().compile(datapack, ctx);
+            Self::DataTarget(target, path) => {
+                let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
                 FunctionCommandArguments::DataTarget(target.target, path)

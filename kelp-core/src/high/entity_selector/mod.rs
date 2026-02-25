@@ -23,24 +23,24 @@ impl HighEntitySelector {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighEntitySelector::Variable(_, options) => options
+            Self::Variable(_, options) => options
                 .iter()
                 .map(|option| option.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
-            HighEntitySelector::Name(_) => Some(()),
+            Self::Name(_) => Some(()),
         }
     }
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> EntitySelector {
         match self {
-            HighEntitySelector::Variable(variable, options) => EntitySelector::Variable(
+            Self::Variable(variable, options) => EntitySelector::Variable(
                 variable,
                 options
                     .into_iter()
                     .map(|option| option.compile(datapack, ctx))
                     .collect(),
             ),
-            HighEntitySelector::Name(name) => EntitySelector::Name(name),
+            Self::Name(name) => EntitySelector::Name(name),
         }
     }
 }

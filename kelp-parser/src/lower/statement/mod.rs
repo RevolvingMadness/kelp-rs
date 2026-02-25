@@ -37,9 +37,8 @@ pub enum CSTStatementKind<'a> {
 }
 
 impl<'a> CSTStatementKind<'a> {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> CSTStatement<'a> {
+    pub const fn with_span(self, span: Span) -> CSTStatement<'a> {
         CSTStatement { span, kind: self }
     }
 }
@@ -62,6 +61,7 @@ impl<'a> CSTStatement<'a> {
             return false;
         };
 
+        #[allow(clippy::single_match_else)]
         match c {
             '{' => CSTBlockStatement::try_parse(parser),
             _ => {
@@ -121,7 +121,7 @@ impl<'a> CSTStatement<'a> {
     }
 
     #[must_use]
-    pub fn cast(node: &'a CSTNodeType) -> Option<CSTStatement<'a>> {
+    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         Some(
             (match node.kind()? {
                 SyntaxKind::BlockStatement => {

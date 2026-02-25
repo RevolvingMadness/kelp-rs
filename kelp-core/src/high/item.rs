@@ -23,9 +23,8 @@ impl HighItemTest {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighItemTest::Component(_) => Some(()),
-            HighItemTest::ComponentMatches(_, expression)
-            | HighItemTest::Predicate(_, expression) => {
+            Self::Component(_) => Some(()),
+            Self::ComponentMatches(_, expression) | Self::Predicate(_, expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
         }
@@ -33,12 +32,12 @@ impl HighItemTest {
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> ItemTest {
         match self {
-            HighItemTest::Component(location) => ItemTest::Component(location),
-            HighItemTest::ComponentMatches(location, value) => ItemTest::ComponentMatches(
+            Self::Component(location) => ItemTest::Component(location),
+            Self::ComponentMatches(location, value) => ItemTest::ComponentMatches(
                 location,
                 value.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
-            HighItemTest::Predicate(location, value) => {
+            Self::Predicate(location, value) => {
                 ItemTest::Predicate(location, value.resolve(datapack, ctx).as_snbt_macros(ctx))
             }
         }

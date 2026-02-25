@@ -30,7 +30,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     #[must_use]
-    pub fn new(source: &'a str) -> Self {
+    pub const fn new(source: &'a str) -> Self {
         Self {
             source,
             pos: 0,
@@ -202,9 +202,8 @@ impl<'a> Parser<'a> {
         Some(&self.source[start..end])
     }
 
-    #[inline]
     #[must_use]
-    pub fn is_eof(&self) -> bool {
+    pub const fn is_eof(&self) -> bool {
         self.pos >= self.source.len()
     }
 
@@ -334,7 +333,7 @@ impl<'a> Parser<'a> {
     }
 
     #[must_use]
-    pub fn save_state(&self) -> (usize, usize) {
+    pub const fn save_state(&self) -> (usize, usize) {
         (self.pos, self.events.len())
     }
 
@@ -616,7 +615,7 @@ impl Parser<'_> {
         self.add_token(kind, len);
     }
 
-    fn char_to_kind(c: char) -> SyntaxKind {
+    const fn char_to_kind(c: char) -> SyntaxKind {
         match c {
             '@' => SyntaxKind::At,
             '~' => SyntaxKind::Tilde,
@@ -683,7 +682,7 @@ impl Parser<'_> {
     }
 
     #[must_use]
-    pub fn checkpoint(&self) -> usize {
+    pub const fn checkpoint(&self) -> usize {
         self.events.len()
     }
 

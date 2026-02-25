@@ -37,11 +37,7 @@ pub struct GeneratedPlayerScore {
 impl GeneratedPlayerScore {
     #[inline]
     #[must_use]
-    pub fn operation(
-        self,
-        operator: ScoreOperationOperator,
-        other: GeneratedPlayerScore,
-    ) -> Command {
+    pub fn operation(self, operator: ScoreOperationOperator, other: Self) -> Command {
         Command::Scoreboard(ScoreboardCommand::Players(
             PlayersScoreboardCommand::Operation(self.score, operator, other.score),
         ))
@@ -87,7 +83,7 @@ impl GeneratedPlayerScore {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        target: GeneratedPlayerScore,
+        target: Self,
     ) {
         ctx.add_command(
             datapack,
@@ -105,7 +101,7 @@ impl GeneratedPlayerScore {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        target: GeneratedPlayerScore,
+        target: Self,
         operator: ArithmeticOperator,
     ) {
         match operator {
@@ -138,11 +134,11 @@ impl GeneratedPlayerScore {
                     datapack,
                     Command::Scoreboard(ScoreboardCommand::Players(
                         PlayersScoreboardCommand::Operation(
-                            target.score.clone(),
+                            target.score,
                             operator
                                 .into_scoreboard_players_operation_operator()
                                 .unwrap(),
-                            self.score.clone(),
+                            self.score,
                         ),
                     )),
                 );
@@ -329,9 +325,8 @@ pub struct HighPlayerScore {
 }
 
 impl HighPlayerScore {
-    #[inline]
     #[must_use]
-    pub fn new(selector: HighEntitySelector, objective: String) -> Self {
+    pub const fn new(selector: HighEntitySelector, objective: String) -> Self {
         Self {
             is_generated: false,
             selector,

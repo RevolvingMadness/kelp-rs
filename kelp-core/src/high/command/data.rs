@@ -33,7 +33,7 @@ impl HighDataCommandModification {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighDataCommandModification::From(target, path) => {
+            Self::From(target, path) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
@@ -44,7 +44,7 @@ impl HighDataCommandModification {
 
                 Some(())
             }
-            HighDataCommandModification::String(target, path, _, _) => {
+            Self::String(target, path, _, _) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
@@ -55,7 +55,7 @@ impl HighDataCommandModification {
 
                 Some(())
             }
-            HighDataCommandModification::Value(expression) => {
+            Self::Value(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
             }
         }
@@ -69,13 +69,13 @@ impl HighDataCommandModification {
         path: &HighNbtPath,
     ) -> Option<DataCommandModification> {
         match self {
-            HighDataCommandModification::From(target, path) => {
+            Self::From(target, path) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
                 Some(DataCommandModification::From(target.target, path))
             }
-            HighDataCommandModification::String(target, path, start, end) => {
+            Self::String(target, path, start, end) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
@@ -86,13 +86,13 @@ impl HighDataCommandModification {
                     end,
                 ))
             }
-            HighDataCommandModification::Value(expression) => {
+            Self::Value(expression) => {
                 let target = target.clone().compile(datapack, ctx);
                 let path = path.clone().compile(datapack, ctx);
 
                 let expression = expression.resolve(datapack, ctx);
 
-                expression.assign_to_data(datapack, ctx, target.clone(), path.clone());
+                expression.assign_to_data(datapack, ctx, target, path);
 
                 None
             }
@@ -120,7 +120,7 @@ impl HighDataCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighDataCommand::Get(target, path, _) => {
+            Self::Get(target, path, _) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path
                     .as_ref()
@@ -131,7 +131,7 @@ impl HighDataCommand {
 
                 Some(())
             }
-            HighDataCommand::Merge(target, expression) => {
+            Self::Merge(target, expression) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let expression_result = expression.perform_semantic_analysis(
                     ctx,
@@ -144,7 +144,7 @@ impl HighDataCommand {
 
                 Some(())
             }
-            HighDataCommand::Modify(target, path, _, modification) => {
+            Self::Modify(target, path, _, modification) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path.perform_semantic_analysis(ctx, is_lhs);
                 let modification_result = modification.perform_semantic_analysis(ctx, is_lhs);
@@ -155,7 +155,7 @@ impl HighDataCommand {
 
                 Some(())
             }
-            HighDataCommand::Remove(target, path) => {
+            Self::Remove(target, path) => {
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path.perform_semantic_analysis(ctx, is_lhs);
 
@@ -169,7 +169,7 @@ impl HighDataCommand {
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Command> {
         match self {
-            HighDataCommand::Get(target, path, count) => {
+            Self::Get(target, path, count) => {
                 let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.map(|path| path.compile(datapack, ctx));
 
@@ -179,7 +179,7 @@ impl HighDataCommand {
                     count,
                 )))
             }
-            HighDataCommand::Merge(target, expression) => {
+            Self::Merge(target, expression) => {
                 let target = target.compile(datapack, ctx);
                 let expression = expression.resolve(datapack, ctx);
 
@@ -187,7 +187,7 @@ impl HighDataCommand {
 
                 Some(Command::Data(DataCommand::Merge(target.target, snbt)))
             }
-            HighDataCommand::Modify(target, path, mode, modification) => {
+            Self::Modify(target, path, mode, modification) => {
                 let compiled_modification = modification.compile(datapack, ctx, &target, &path)?;
                 let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.compile(datapack, ctx);
@@ -199,7 +199,7 @@ impl HighDataCommand {
                     compiled_modification,
                 )))
             }
-            HighDataCommand::Remove(target, path) => {
+            Self::Remove(target, path) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 

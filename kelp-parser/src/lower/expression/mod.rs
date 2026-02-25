@@ -99,9 +99,8 @@ pub enum CSTExpressionKind<'a> {
 }
 
 impl<'a> CSTExpressionKind<'a> {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> CSTExpression<'a> {
+    pub const fn with_span(self, span: Span) -> CSTExpression<'a> {
         CSTExpression { span, kind: self }
     }
 }
@@ -392,6 +391,7 @@ impl<'a> CSTExpression<'a> {
         loop {
             parser.skip_inline_whitespace();
 
+            #[allow(clippy::single_match_else)]
             match parser.peek_char() {
                 Some('[') => {
                     parser.start_node_at(checkpoint, SyntaxKind::IndexExpression);
@@ -499,28 +499,20 @@ impl<'a> CSTExpression<'a> {
 
                 true
             }
-            Some('\'') => {
-                if let Some(text) = parser.peek_quoted_char() {
-                    parser.start_node(SyntaxKind::CharExpression);
-                    parser.add_token(SyntaxKind::Char, text.len());
-                    parser.finish_node();
+            Some('\'') => parser.peek_quoted_char().is_some_and(|text| {
+                parser.start_node(SyntaxKind::CharExpression);
+                parser.add_token(SyntaxKind::Char, text.len());
+                parser.finish_node();
 
-                    true
-                } else {
-                    false
-                }
-            }
-            Some('"') => {
-                if let Some(text) = parser.peek_quoted_string() {
-                    parser.start_node(SyntaxKind::StringExpression);
-                    parser.add_token(SyntaxKind::String, text.len());
-                    parser.finish_node();
+                true
+            }),
+            Some('"') => parser.peek_quoted_string().is_some_and(|text| {
+                parser.start_node(SyntaxKind::StringExpression);
+                parser.add_token(SyntaxKind::String, text.len());
+                parser.finish_node();
 
-                    true
-                } else {
-                    false
-                }
-            }
+                true
+            }),
             Some(char) if char.is_ascii_digit() => {
                 let (is_fractional, text) = parser.peek_fractional_value().unwrap();
 
@@ -558,144 +550,134 @@ impl<'a> CSTExpression<'a> {
 
                 true
             }
-            _ => {
-                if let Some(text) = parser.peek_identifier() {
-                    match text {
-                        "true" | "false" => {
-                            parser.start_node(SyntaxKind::BooleanExpression);
-                            parser.bump_identifier(text);
-                            parser.finish_node();
+            _ => parser.peek_identifier().is_some_and(|text| match text {
+                "true" | "false" => {
+                    parser.start_node(SyntaxKind::BooleanExpression);
+                    parser.bump_identifier(text);
+                    parser.finish_node();
 
-                            true
-                        }
-                        "tellraw" => {
-                            if !CSTTellrawCommandExpression::try_parse(parser) {
-                                parser.start_node(SyntaxKind::VariableExpression);
-                                parser.bump_identifier("tellraw");
-                                parser.finish_node();
-                            }
-
-                            true
-                        }
-                        "score" => {
-                            if !CSTScoreExpression::try_parse(parser) {
-                                parser.start_node(SyntaxKind::VariableExpression);
-                                parser.bump_identifier("score");
-                                parser.finish_node();
-                            }
-
-                            true
-                        }
-                        "entity" | "block" | "storage" => {
-                            if !CSTDataExpression::try_parse(parser) {
-                                parser.start_node(SyntaxKind::VariableExpression);
-                                parser.bump_identifier(text);
-                                parser.finish_node();
-                            }
-
-                            true
-                        }
-                        _ => {
-                            let checkpoint = parser.checkpoint();
-                            parser.bump_identifier(text);
-
-                            let state = parser.save_state();
-
-                            let parsed_struct = (|| {
-                                let mut is_struct_sig = true;
-                                if parser.peek_char() == Some('<') {
-                                    parser.bump_char();
-                                    parser.skip_whitespace();
-                                    if parser.peek_char() != Some('>') {
-                                        loop {
-                                            parser.skip_whitespace();
-                                            if !CSTDataType::try_parse(parser) {
-                                                is_struct_sig = false;
-                                                break;
-                                            }
-                                            parser.skip_whitespace();
-                                            if parser.peek_char() == Some(',') {
-                                                parser.bump_char();
-                                            } else {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if is_struct_sig {
-                                        parser.skip_whitespace();
-                                        if parser.peek_char() == Some('>') {
-                                            parser.bump_char();
-                                            parser.skip_whitespace();
-                                        } else {
-                                            is_struct_sig = false;
-                                        }
-                                    }
-                                } else {
-                                    parser.skip_inline_whitespace();
-                                }
-
-                                if is_struct_sig && parser.peek_char() == Some('{') {
-                                    parser.bump_char();
-                                    parser.skip_whitespace();
-                                    while parser.peek_char() != Some('}') {
-                                        parser.start_node(SyntaxKind::StructExpressionField);
-
-                                        if !parser.expect_identifier("Expected struct field name") {
-                                            CSTStructExpression::bump_until_next_field_or_end(
-                                                parser,
-                                            );
-                                            parser.finish_node();
-
-                                            continue;
-                                        }
-
-                                        parser.skip_whitespace();
-
-                                        parser.expect_char(':', "Expected ':'");
-
-                                        parser.skip_whitespace();
-
-                                        if !Self::try_parse(parser) {
-                                            parser.error("Expected expression");
-                                            CSTStructExpression::bump_until_next_field_or_end(
-                                                parser,
-                                            );
-                                            parser.finish_node();
-                                            continue;
-                                        }
-                                        parser.finish_node();
-
-                                        parser.skip_whitespace();
-                                        if parser.try_bump_char(',') {
-                                            parser.skip_whitespace();
-                                        } else {
-                                            break;
-                                        }
-                                    }
-
-                                    if parser.expect_char('}', "Expected '}'") {
-                                        return true;
-                                    }
-                                }
-                                false
-                            })();
-
-                            if parsed_struct {
-                                parser.start_node_at(checkpoint, SyntaxKind::StructExpression);
-                                parser.finish_node();
-                            } else {
-                                parser.restore_state(state);
-                                parser.start_node_at(checkpoint, SyntaxKind::VariableExpression);
-                                parser.finish_node();
-                            }
-
-                            true
-                        }
-                    }
-                } else {
-                    false
+                    true
                 }
-            }
+                "tellraw" => {
+                    if !CSTTellrawCommandExpression::try_parse(parser) {
+                        parser.start_node(SyntaxKind::VariableExpression);
+                        parser.bump_identifier("tellraw");
+                        parser.finish_node();
+                    }
+
+                    true
+                }
+                "score" => {
+                    if !CSTScoreExpression::try_parse(parser) {
+                        parser.start_node(SyntaxKind::VariableExpression);
+                        parser.bump_identifier("score");
+                        parser.finish_node();
+                    }
+
+                    true
+                }
+                "entity" | "block" | "storage" => {
+                    if !CSTDataExpression::try_parse(parser) {
+                        parser.start_node(SyntaxKind::VariableExpression);
+                        parser.bump_identifier(text);
+                        parser.finish_node();
+                    }
+
+                    true
+                }
+                _ => {
+                    let checkpoint = parser.checkpoint();
+                    parser.bump_identifier(text);
+
+                    let state = parser.save_state();
+
+                    let parsed_struct = (|| {
+                        let mut is_struct_sig = true;
+                        if parser.peek_char() == Some('<') {
+                            parser.bump_char();
+                            parser.skip_whitespace();
+                            if parser.peek_char() != Some('>') {
+                                loop {
+                                    parser.skip_whitespace();
+                                    if !CSTDataType::try_parse(parser) {
+                                        is_struct_sig = false;
+                                        break;
+                                    }
+                                    parser.skip_whitespace();
+                                    if parser.peek_char() == Some(',') {
+                                        parser.bump_char();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                            if is_struct_sig {
+                                parser.skip_whitespace();
+                                if parser.peek_char() == Some('>') {
+                                    parser.bump_char();
+                                    parser.skip_whitespace();
+                                } else {
+                                    is_struct_sig = false;
+                                }
+                            }
+                        } else {
+                            parser.skip_inline_whitespace();
+                        }
+
+                        if is_struct_sig && parser.peek_char() == Some('{') {
+                            parser.bump_char();
+                            parser.skip_whitespace();
+                            while parser.peek_char() != Some('}') {
+                                parser.start_node(SyntaxKind::StructExpressionField);
+
+                                if !parser.expect_identifier("Expected struct field name") {
+                                    CSTStructExpression::bump_until_next_field_or_end(parser);
+                                    parser.finish_node();
+
+                                    continue;
+                                }
+
+                                parser.skip_whitespace();
+
+                                parser.expect_char(':', "Expected ':'");
+
+                                parser.skip_whitespace();
+
+                                if !Self::try_parse(parser) {
+                                    parser.error("Expected expression");
+                                    CSTStructExpression::bump_until_next_field_or_end(parser);
+                                    parser.finish_node();
+                                    continue;
+                                }
+                                parser.finish_node();
+
+                                parser.skip_whitespace();
+                                if parser.try_bump_char(',') {
+                                    parser.skip_whitespace();
+                                } else {
+                                    break;
+                                }
+                            }
+
+                            if parser.expect_char('}', "Expected '}'") {
+                                return true;
+                            }
+                        }
+                        false
+                    })();
+
+                    if parsed_struct {
+                        parser.start_node_at(checkpoint, SyntaxKind::StructExpression);
+                    } else {
+                        parser.restore_state(state);
+                        parser.start_node_at(checkpoint, SyntaxKind::VariableExpression);
+                    }
+
+                    parser.finish_node();
+
+                    true
+                }
+            }),
         }
     }
 

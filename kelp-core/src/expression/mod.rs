@@ -68,21 +68,20 @@ pub enum ExpressionKind {
 }
 
 impl ExpressionKind {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> Expression {
+    pub const fn with_span(self, span: Span) -> Expression {
         Expression { span, kind: self }
     }
 
     #[must_use]
-    pub fn is_index_out_of_bounds(&self, index: &Expression) -> Option<bool> {
-        let ExpressionKind::List(expressions) = self else {
+    pub const fn is_index_out_of_bounds(&self, index: &Expression) -> Option<bool> {
+        let Self::List(expressions) = self else {
             return None;
         };
 
         let Expression {
             kind:
-                ExpressionKind::Constant(ConstantExpression {
+                Self::Constant(ConstantExpression {
                     kind:
                         ConstantExpressionKind::Literal(LiteralExpression {
                             kind: LiteralExpressionKind::Integer(index),
@@ -93,7 +92,7 @@ impl ExpressionKind {
             ..
         } = index
         else {
-            return Some(false);
+            return None;
         };
 
         Some((*index as usize) >= expressions.len())
@@ -101,25 +100,23 @@ impl ExpressionKind {
 
     pub fn is_lvalue(&self, ctx: &mut SemanticAnalysisContext) -> Option<bool> {
         Some(match self {
-            ExpressionKind::Constant(expression) => expression.kind.is_lvalue(),
-            ExpressionKind::Unary(UnaryOperator::Dereference, _)
-            | ExpressionKind::PlayerScore(_)
-            | ExpressionKind::Data(_, _)
-            | ExpressionKind::Index(_, _)
-            | ExpressionKind::FieldAccess(_, _)
-            | ExpressionKind::ToCast(_, _) => true,
-            ExpressionKind::AsCast(_, high_data_type) => {
-                high_data_type.kind.resolve(ctx, None)?.is_lvalue()
-            }
+            Self::Constant(expression) => expression.kind.is_lvalue(),
+            Self::Unary(UnaryOperator::Dereference, _)
+            | Self::PlayerScore(_)
+            | Self::Data(_, _)
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _)
+            | Self::ToCast(_, _) => true,
+            Self::AsCast(_, high_data_type) => high_data_type.kind.resolve(ctx, None)?.is_lvalue(),
             _ => false,
         })
     }
 
     #[must_use]
-    pub fn can_be_dereferenced(&self) -> bool {
+    pub const fn can_be_dereferenced(&self) -> bool {
         match self {
-            ExpressionKind::Constant(expression) => expression.kind.can_be_dereferenced(),
-            ExpressionKind::Unary(UnaryOperator::Reference | UnaryOperator::Dereference, _) => true,
+            Self::Constant(expression) => expression.kind.can_be_dereferenced(),
+            Self::Unary(UnaryOperator::Reference | UnaryOperator::Dereference, _) => true,
             _ => false,
         }
     }
@@ -129,10 +126,10 @@ impl ExpressionKind {
         supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
     ) -> Option<DataTypeKind> {
         Some(match self {
-            ExpressionKind::Constant(constant_expression) => constant_expression
+            Self::Constant(constant_expression) => constant_expression
                 .kind
                 .infer_data_type(supports_variable_type_scope)?,
-            ExpressionKind::Unary(operator, expression) => {
+            Self::Unary(operator, expression) => {
                 let expression_type = expression
                     .kind
                     .infer_data_type(supports_variable_type_scope)?;
@@ -147,19 +144,15 @@ impl ExpressionKind {
                     UnaryOperator::Invert => expression_type.get_inverted_result()?,
                 }
             }
-            ExpressionKind::Arithmetic(left, operator, right) => {
+            Self::Arithmetic(left, operator, right) => {
                 let left_type = left.kind.infer_data_type(supports_variable_type_scope)?;
                 let right_type = right.kind.infer_data_type(supports_variable_type_scope)?;
 
                 left_type.get_arithmetic_result(*operator, &right_type)?
             }
-            ExpressionKind::Comparison(_, _, _) | ExpressionKind::Logical(_, _, _) => {
-                DataTypeKind::Boolean
-            }
-            ExpressionKind::Assignment(_, _) | ExpressionKind::AugmentedAssignment(_, _, _) => {
-                DataTypeKind::Unit
-            }
-            ExpressionKind::List(list) => {
+            Self::Comparison(_, _, _) | Self::Logical(_, _, _) => DataTypeKind::Boolean,
+            Self::Assignment(_, _) | Self::AugmentedAssignment(_, _, _) => DataTypeKind::Unit,
+            Self::List(list) => {
                 let data_type = if let Some(first) = list.first() {
                     first.kind.infer_data_type(supports_variable_type_scope)?
                 } else {
@@ -168,7 +161,7 @@ impl ExpressionKind {
 
                 DataTypeKind::List(Box::new(data_type))
             }
-            ExpressionKind::Compound(compound) => DataTypeKind::TypedCompound(
+            Self::Compound(compound) => DataTypeKind::TypedCompound(
                 compound
                     .clone()
                     .into_iter()
@@ -180,22 +173,22 @@ impl ExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            ExpressionKind::PlayerScore(_) => DataTypeKind::Score,
-            ExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-            ExpressionKind::Condition(_, _) => DataTypeKind::Byte,
-            ExpressionKind::Command(_) => DataTypeKind::Integer,
-            ExpressionKind::Index(target, _) => target
+            Self::PlayerScore(_) => DataTypeKind::Score,
+            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
+            Self::Condition(_, _) => DataTypeKind::Byte,
+            Self::Command(_) => DataTypeKind::Integer,
+            Self::Index(target, _) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
                 .get_index_result()?,
-            ExpressionKind::FieldAccess(target, field) => target
+            Self::FieldAccess(target, field) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
                 .get_field_result(supports_variable_type_scope, &field.snbt_string.1)?,
-            ExpressionKind::AsCast(_, data_type) => {
+            Self::AsCast(_, data_type) => {
                 data_type.kind.resolve(supports_variable_type_scope, None)?
             }
-            ExpressionKind::ToCast(expression, storage_type) => match storage_type {
+            Self::ToCast(expression, storage_type) => match storage_type {
                 RuntimeStorageType::Score => DataTypeKind::Score,
                 RuntimeStorageType::Data => {
                     let expression_type = expression
@@ -205,7 +198,7 @@ impl ExpressionKind {
                     DataTypeKind::Data(Box::new(expression_type.to_data()))
                 }
             },
-            ExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(
+            Self::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
                     .iter()
                     .map(|expression| {
@@ -215,7 +208,7 @@ impl ExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            ExpressionKind::Struct(_, name, generic_types, _) => {
+            Self::Struct(_, name, generic_types, _) => {
                 let declaration = supports_variable_type_scope.get_data_type(name)??;
 
                 let resolved_generics = generic_types
@@ -231,12 +224,9 @@ impl ExpressionKind {
             }
         })
     }
-}
 
-impl ExpressionKind {
-    #[inline]
     #[must_use]
-    pub fn into_dummy_expression(self) -> Expression {
+    pub const fn into_dummy_expression(self) -> Expression {
         Expression {
             span: Span::dummy(),
             kind: self,
@@ -284,7 +274,7 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn dereference(self, datapack: &mut HighDatapack) -> Expression {
+    pub fn dereference(self, datapack: &mut HighDatapack) -> Self {
         match self.kind {
             ExpressionKind::Constant(expression) => match expression.kind {
                 ConstantExpressionKind::Variable(name) => datapack
@@ -297,7 +287,7 @@ impl Expression {
                     expression.into_constant_expression()
                 }
                 kind @ (ConstantExpressionKind::PlayerScore(_)
-                | ConstantExpressionKind::Data(_, _)) => Expression {
+                | ConstantExpressionKind::Data(_, _)) => Self {
                     span: self.span,
                     kind: ExpressionKind::Constant(ConstantExpression {
                         span: self.span,
@@ -609,7 +599,7 @@ impl Expression {
                     });
                 }
 
-                if let Some(true) = target.kind.is_index_out_of_bounds(index) {
+                if target.kind.is_index_out_of_bounds(index) == Some(true) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: index.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -957,13 +947,13 @@ impl Expression {
                     .collect::<BTreeMap<_, _>>(),
             ),
             ExpressionKind::PlayerScore(score) => {
-                let score = score.clone().compile(datapack, ctx);
+                let score = score.compile(datapack, ctx);
 
                 ConstantExpressionKind::PlayerScore(score)
             }
             ExpressionKind::Data(target, path) => {
-                let target = target.clone().compile(datapack, ctx);
-                let path = path.clone().compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
+                let path = path.compile(datapack, ctx);
 
                 ConstantExpressionKind::Data(target, path)
             }

@@ -18,8 +18,8 @@ pub enum HighFacing {
 impl HighFacing {
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Facing {
         match self {
-            HighFacing::Position(position) => Facing::Position(position),
-            HighFacing::Entity(selector, anchor) => {
+            Self::Position(position) => Facing::Position(position),
+            Self::Entity(selector, anchor) => {
                 Facing::Entity(selector.compile(datapack, ctx), anchor)
             }
         }

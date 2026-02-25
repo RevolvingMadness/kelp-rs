@@ -20,8 +20,8 @@ pub enum CSTNodeType {
 
 impl CSTNodeType {
     #[must_use]
-    pub fn as_node(&self) -> Option<&CSTNode> {
-        if let CSTNodeType::Node(node) = self {
+    pub const fn as_node(&self) -> Option<&CSTNode> {
+        if let Self::Node(node) = self {
             Some(node)
         } else {
             None
@@ -29,8 +29,8 @@ impl CSTNodeType {
     }
 
     #[must_use]
-    pub fn as_token(&self) -> Option<&CSTToken> {
-        if let CSTNodeType::Token(token) = self {
+    pub const fn as_token(&self) -> Option<&CSTToken> {
+        if let Self::Token(token) = self {
             Some(token)
         } else {
             None
@@ -38,8 +38,8 @@ impl CSTNodeType {
     }
 
     #[must_use]
-    pub fn as_error(&self) -> Option<&CSTError> {
-        if let CSTNodeType::Error(error) = self {
+    pub const fn as_error(&self) -> Option<&CSTError> {
+        if let Self::Error(error) = self {
             Some(error)
         } else {
             None
@@ -47,20 +47,20 @@ impl CSTNodeType {
     }
 
     #[must_use]
-    pub fn kind(&self) -> Option<SyntaxKind> {
+    pub const fn kind(&self) -> Option<SyntaxKind> {
         Some(match self {
-            CSTNodeType::Node(node) => node.kind,
-            CSTNodeType::Token(token) => token.kind,
-            CSTNodeType::Error { .. } => return None,
+            Self::Node(node) => node.kind,
+            Self::Token(token) => token.kind,
+            Self::Error { .. } => return None,
         })
     }
 
     #[must_use]
-    pub fn span(&self) -> Span {
+    pub const fn span(&self) -> Span {
         match self {
-            CSTNodeType::Node(node) => node.span,
-            CSTNodeType::Token(token) => token.span,
-            CSTNodeType::Error(error) => error.span,
+            Self::Node(node) => node.span,
+            Self::Token(token) => token.span,
+            Self::Error(error) => error.span,
         }
     }
 
@@ -69,19 +69,21 @@ impl CSTNodeType {
         self.kind() == Some(kind)
     }
 
-    pub fn children(&self) -> Iter<'_, CSTNodeType> {
+    pub fn children(&self) -> Iter<'_, Self> {
         match self {
-            CSTNodeType::Node(node) => node.children.iter(),
+            Self::Node(node) => node.children.iter(),
             _ => [].iter(),
         }
     }
 
     pub fn children_tokens(&self) -> impl Iterator<Item = &CSTToken> {
-        if let CSTNodeType::Node(node) = self {
-            Some(node.children.iter().filter_map(CSTNodeType::as_token))
+        if let Self::Node(node) = self {
+            #[allow(clippy::iter_on_single_items)]
+            Some(node.children.iter().filter_map(Self::as_token))
                 .into_iter()
                 .flatten()
         } else {
+            #[allow(clippy::iter_on_empty_collections)]
             None.into_iter().flatten()
         }
     }
@@ -89,13 +91,13 @@ impl CSTNodeType {
     pub fn print(&self, text: &str, depth: usize) {
         let indent = "  ".repeat(depth);
         match self {
-            CSTNodeType::Node(node) => {
+            Self::Node(node) => {
                 println!("{}{:?}@{}", indent, node.kind, node.span);
                 for child in &node.children {
                     child.print(text, depth + 1);
                 }
             }
-            CSTNodeType::Token(token) => {
+            Self::Token(token) => {
                 println!(
                     "{}{:?}@{} ({})",
                     indent,
@@ -104,7 +106,7 @@ impl CSTNodeType {
                     token.text(text).escape_default(),
                 );
             }
-            CSTNodeType::Error(error) => {
+            Self::Error(error) => {
                 println!("{}Error@{}({})", indent, error.span, error.message);
             }
         }

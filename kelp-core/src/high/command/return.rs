@@ -16,8 +16,8 @@ impl HighReturnCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighReturnCommand::Value(_) | HighReturnCommand::Fail => Some(()),
-            HighReturnCommand::Run(command) => command.perform_semantic_analysis(ctx, is_lhs),
+            Self::Value(_) | Self::Fail => Some(()),
+            Self::Run(command) => command.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 }

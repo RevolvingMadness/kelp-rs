@@ -31,7 +31,7 @@ impl HighDataTypeKind {
         generic_names: Option<&Vec<String>>,
     ) -> Option<DataTypeKind> {
         Some(match self {
-            HighDataTypeKind::Named(_, name, generic_types) => {
+            Self::Named(_, name, generic_types) => {
                 let generic_types = generic_types
                     .iter()
                     .map(|generic_type| {
@@ -81,8 +81,8 @@ impl HighDataTypeKind {
                     DataTypeDeclarationKind::Builtin(_) => unreachable!(),
                 }
             }
-            HighDataTypeKind::Unit => DataTypeKind::Unit,
-            HighDataTypeKind::Tuple(data_types) => DataTypeKind::Tuple(
+            Self::Unit => DataTypeKind::Unit,
+            Self::Tuple(data_types) => DataTypeKind::Tuple(
                 data_types
                     .iter()
                     .map(|data_type| {
@@ -92,12 +92,12 @@ impl HighDataTypeKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            HighDataTypeKind::Reference(data_type) => DataTypeKind::Reference(Box::new(
+            Self::Reference(data_type) => DataTypeKind::Reference(Box::new(
                 data_type
                     .kind
                     .resolve(supports_variable_type_scope, generic_names)?,
             )),
-            HighDataTypeKind::TypedCompound(compound) => DataTypeKind::TypedCompound(
+            Self::TypedCompound(compound) => DataTypeKind::TypedCompound(
                 compound
                     .iter()
                     .map(|(key, value)| {

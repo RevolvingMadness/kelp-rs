@@ -8,10 +8,9 @@ pub struct SemanticToken {
 }
 
 impl SemanticToken {
-    #[inline]
     #[must_use]
-    pub fn new(span: Span, type_: SemanticTokenType) -> SemanticToken {
-        SemanticToken {
+    pub const fn new(span: Span, type_: SemanticTokenType) -> Self {
+        Self {
             span,
             type_,
             modifiers: Vec::new(),
@@ -48,31 +47,31 @@ pub enum SemanticTokenType {
 
 impl SemanticTokenType {
     #[must_use]
-    pub fn to_index(self) -> u32 {
+    pub const fn to_index(self) -> u32 {
         match self {
-            SemanticTokenType::Namespace => 0,
-            SemanticTokenType::Type => 1,
-            SemanticTokenType::Class => 2,
-            SemanticTokenType::Enum => 3,
-            SemanticTokenType::Interface => 4,
-            SemanticTokenType::Struct => 5,
-            SemanticTokenType::TypeParameter => 6,
-            SemanticTokenType::Parameter => 7,
-            SemanticTokenType::Variable => 8,
-            SemanticTokenType::Property => 9,
-            SemanticTokenType::EnumMember => 10,
-            SemanticTokenType::Event => 11,
-            SemanticTokenType::Function => 12,
-            SemanticTokenType::Method => 13,
-            SemanticTokenType::Macro => 14,
-            SemanticTokenType::Keyword => 15,
-            SemanticTokenType::Modifier => 16,
-            SemanticTokenType::Comment => 17,
-            SemanticTokenType::String => 18,
-            SemanticTokenType::Number => 19,
-            SemanticTokenType::Regexp => 20,
-            SemanticTokenType::Operator => 21,
-            SemanticTokenType::Decorator => 22,
+            Self::Namespace => 0,
+            Self::Type => 1,
+            Self::Class => 2,
+            Self::Enum => 3,
+            Self::Interface => 4,
+            Self::Struct => 5,
+            Self::TypeParameter => 6,
+            Self::Parameter => 7,
+            Self::Variable => 8,
+            Self::Property => 9,
+            Self::EnumMember => 10,
+            Self::Event => 11,
+            Self::Function => 12,
+            Self::Method => 13,
+            Self::Macro => 14,
+            Self::Keyword => 15,
+            Self::Modifier => 16,
+            Self::Comment => 17,
+            Self::String => 18,
+            Self::Number => 19,
+            Self::Regexp => 20,
+            Self::Operator => 21,
+            Self::Decorator => 22,
         }
     }
 }
@@ -82,7 +81,7 @@ pub enum SemanticTokenModifier {}
 
 impl SemanticTokenModifier {
     #[must_use]
-    pub fn to_bit(self) -> u32 {
+    pub const fn to_bit(self) -> u32 {
         match self {}
     }
 }

@@ -128,28 +128,27 @@ pub enum ConstantExpressionKind {
 }
 
 impl ConstantExpressionKind {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> ConstantExpression {
+    pub const fn with_span(self, span: Span) -> ConstantExpression {
         ConstantExpression { span, kind: self }
     }
 
     #[must_use]
-    pub fn distribute_references(self) -> ConstantExpressionKind {
+    pub fn distribute_references(self) -> Self {
         match self {
-            ConstantExpressionKind::Reference(inner) => match inner.kind.distribute_references() {
-                ConstantExpressionKind::Tuple(values) => {
+            Self::Reference(inner) => match inner.kind.distribute_references() {
+                Self::Tuple(values) => {
                     let new_values = values
                         .into_iter()
                         .map(|val| ConstantExpression {
                             span: val.span,
-                            kind: ConstantExpressionKind::Reference(Box::new(val)),
+                            kind: Self::Reference(Box::new(val)),
                         })
                         .collect();
 
-                    ConstantExpressionKind::Tuple(new_values)
+                    Self::Tuple(new_values)
                 }
-                ConstantExpressionKind::Compound(expressions) => {
+                Self::Compound(expressions) => {
                     let new_expressions = expressions
                         .into_iter()
                         .map(|(key, val)| {
@@ -157,17 +156,15 @@ impl ConstantExpressionKind {
                                 key,
                                 ConstantExpression {
                                     span: val.span,
-                                    kind: ConstantExpressionKind::Reference(Box::new(val)),
+                                    kind: Self::Reference(Box::new(val)),
                                 },
                             )
                         })
                         .collect();
 
-                    ConstantExpressionKind::Compound(new_expressions)
+                    Self::Compound(new_expressions)
                 }
-                inner => ConstantExpressionKind::Reference(Box::new(
-                    inner.into_dummy_constant_expression(),
-                )),
+                inner => Self::Reference(Box::new(inner.into_dummy_constant_expression())),
             },
             _ => self,
         }
@@ -178,13 +175,13 @@ impl ConstantExpressionKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: ConstantExpressionKind,
+        value: Self,
     ) {
         match self {
-            ConstantExpressionKind::PlayerScore(score) => {
+            Self::PlayerScore(score) => {
                 value.operate_on_score(datapack, ctx, score, operator);
             }
-            ConstantExpressionKind::Data(ref target, ref path) => {
+            Self::Data(ref target, ref path) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.clone()
@@ -194,21 +191,21 @@ impl ConstantExpressionKind {
 
                 unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
             }
-            ConstantExpressionKind::Dereference(expression) => expression
+            Self::Dereference(expression) => expression
                 .kind
                 .dereference(datapack, ctx)
                 .compile_augmented_assignment(datapack, ctx, operator, value),
-            ConstantExpressionKind::Variable(_)
-            | ConstantExpressionKind::Literal(_)
-            | ConstantExpressionKind::List(_)
-            | ConstantExpressionKind::Compound(_)
-            | ConstantExpressionKind::Condition(_, _)
-            | ConstantExpressionKind::Command(_)
-            | ConstantExpressionKind::Tuple(_)
-            | ConstantExpressionKind::Underscore
-            | ConstantExpressionKind::Unit
-            | ConstantExpressionKind::Reference(_)
-            | ConstantExpressionKind::Struct(_, _, _) => unreachable!("{:?}", self),
+            Self::Variable(_)
+            | Self::Literal(_)
+            | Self::List(_)
+            | Self::Compound(_)
+            | Self::Condition(_, _)
+            | Self::Command(_)
+            | Self::Tuple(_)
+            | Self::Underscore
+            | Self::Unit
+            | Self::Reference(_)
+            | Self::Struct(_, _, _) => unreachable!("{:?}", self),
         }
     }
 
@@ -217,33 +214,25 @@ impl ConstantExpressionKind {
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
     ) -> Option<DataTypeKind> {
         match self {
-            ConstantExpressionKind::Reference(expression) => expression
+            Self::Reference(expression) => expression
                 .kind
                 .infer_data_type(supports_variable_type_scope),
-            ConstantExpressionKind::Variable(name) => {
-                Some(supports_variable_type_scope.get_variable(name)??)
-            }
+            Self::Variable(name) => Some(supports_variable_type_scope.get_variable(name)??),
             _ => unreachable!("Cannot deference type {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn is_lvalue(&self) -> bool {
+    pub const fn is_lvalue(&self) -> bool {
         matches!(
             self,
-            ConstantExpressionKind::PlayerScore(_)
-                | ConstantExpressionKind::Data(_, _)
-                | ConstantExpressionKind::Variable(_)
-                | ConstantExpressionKind::Dereference(_)
+            Self::PlayerScore(_) | Self::Data(_, _) | Self::Variable(_) | Self::Dereference(_)
         )
     }
 
     #[must_use]
-    pub fn can_be_dereferenced(&self) -> bool {
-        matches!(
-            self,
-            ConstantExpressionKind::Reference(_) | ConstantExpressionKind::Variable(_)
-        )
+    pub const fn can_be_dereferenced(&self) -> bool {
+        matches!(self, Self::Reference(_) | Self::Variable(_))
     }
 
     pub fn infer_data_type(
@@ -251,8 +240,8 @@ impl ConstantExpressionKind {
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
     ) -> Option<DataTypeKind> {
         Some(match self {
-            ConstantExpressionKind::Literal(expression) => expression.kind.get_data_type(),
-            ConstantExpressionKind::List(list) => {
+            Self::Literal(expression) => expression.kind.get_data_type(),
+            Self::List(list) => {
                 if let Some(first) = list.first() {
                     DataTypeKind::List(Box::new(
                         first.kind.infer_data_type(supports_variable_type_scope)?,
@@ -261,7 +250,7 @@ impl ConstantExpressionKind {
                     DataTypeKind::List(Box::new(DataTypeKind::SNBT))
                 }
             }
-            ConstantExpressionKind::Compound(compound) => DataTypeKind::TypedCompound(
+            Self::Compound(compound) => DataTypeKind::TypedCompound(
                 compound
                     .clone()
                     .into_iter()
@@ -273,11 +262,11 @@ impl ConstantExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            ConstantExpressionKind::PlayerScore(_) => DataTypeKind::Score,
-            ConstantExpressionKind::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-            ConstantExpressionKind::Condition(_, _) => DataTypeKind::Boolean,
-            ConstantExpressionKind::Command(_) => DataTypeKind::Integer,
-            ConstantExpressionKind::Tuple(expressions) => DataTypeKind::Tuple(
+            Self::PlayerScore(_) => DataTypeKind::Score,
+            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
+            Self::Condition(_, _) => DataTypeKind::Boolean,
+            Self::Command(_) => DataTypeKind::Integer,
+            Self::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
                     .iter()
                     .map(|expression| {
@@ -287,28 +276,25 @@ impl ConstantExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            ConstantExpressionKind::Variable(name) => {
-                supports_variable_type_scope.get_variable(name)??
-            }
-            ConstantExpressionKind::Unit => DataTypeKind::Unit,
-            ConstantExpressionKind::Dereference(expression) => expression
+            Self::Variable(name) => supports_variable_type_scope.get_variable(name)??,
+            Self::Unit => DataTypeKind::Unit,
+            Self::Dereference(expression) => expression
                 .kind
                 .get_dereferenced_type(supports_variable_type_scope)?,
-            ConstantExpressionKind::Reference(expression) => DataTypeKind::Reference(Box::new(
+            Self::Reference(expression) => DataTypeKind::Reference(Box::new(
                 expression
                     .kind
                     .infer_data_type(supports_variable_type_scope)?,
             )),
-            ConstantExpressionKind::Underscore => unreachable!(),
-            ConstantExpressionKind::Struct(name, generics_types, _) => {
+            Self::Underscore => unreachable!(),
+            Self::Struct(name, generics_types, _) => {
                 DataTypeKind::Struct(name.clone(), generics_types.clone(), false)
             }
         })
     }
 
-    #[inline]
     #[must_use]
-    pub fn into_dummy_constant_expression(self) -> ConstantExpression {
+    pub const fn into_dummy_constant_expression(self) -> ConstantExpression {
         ConstantExpression {
             span: Span::dummy(),
             kind: self,
@@ -318,57 +304,53 @@ impl ConstantExpressionKind {
     #[must_use]
     pub fn try_as_i32(&self, force: bool) -> Option<i32> {
         Some(match self {
-            ConstantExpressionKind::Literal(expression) => {
+            Self::Literal(expression) => {
                 return expression.kind.try_as_i32(force);
             }
-            ConstantExpressionKind::List(v) if force => v.len() as i32,
-            ConstantExpressionKind::Compound(compound) if force => compound.len() as i32,
+            Self::List(v) if force => v.len() as i32,
+            Self::Compound(compound) if force => compound.len() as i32,
             _ => return None,
         })
     }
 
     pub fn compile_as_statement(&self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
-            ConstantExpressionKind::List(constant_expressions) => {
+            Self::List(constant_expressions) => {
                 for constant_expression in constant_expressions {
                     constant_expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            ConstantExpressionKind::Tuple(expressions) => {
+            Self::Tuple(expressions) => {
                 for expression in expressions {
                     expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            ConstantExpressionKind::Compound(compound) => {
+            Self::Compound(compound) => {
                 for value in compound.values() {
                     value.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            ConstantExpressionKind::Condition(inverted, condition) => {
+            Self::Condition(inverted, condition) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::If(*inverted, condition.clone())),
                 );
             }
-            ConstantExpressionKind::Command(command) => {
+            Self::Command(command) => {
                 ctx.add_command(datapack, command.clone());
             }
-            ConstantExpressionKind::Literal(_)
-            | ConstantExpressionKind::PlayerScore(_)
-            | ConstantExpressionKind::Data(_, _)
-            | ConstantExpressionKind::Unit => {}
-            ConstantExpressionKind::Reference(expression)
-            | ConstantExpressionKind::Dereference(expression) => {
+            Self::Literal(_) | Self::PlayerScore(_) | Self::Data(_, _) | Self::Unit => {}
+            Self::Reference(expression) | Self::Dereference(expression) => {
                 expression.kind.compile_as_statement(datapack, ctx);
             }
-            ConstantExpressionKind::Variable(name) => datapack
+            Self::Variable(name) => datapack
                 .get_variable(name)
                 .unwrap()
                 .1
                 .kind
                 .compile_as_statement(datapack, ctx),
-            ConstantExpressionKind::Underscore => unreachable!(),
-            ConstantExpressionKind::Struct(_, _, fields) => {
+            Self::Underscore => unreachable!(),
+            Self::Struct(_, _, fields) => {
                 for field in fields.values() {
                     field.kind.compile_as_statement(datapack, ctx);
                 }
@@ -394,7 +376,7 @@ impl ConstantExpressionKind {
         }
 
         match self {
-            ConstantExpressionKind::PlayerScore(player_score) if !force => player_score,
+            Self::PlayerScore(player_score) if !force => player_score,
             _ => {
                 let unique_score = datapack.get_unique_score();
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -409,7 +391,7 @@ impl ConstantExpressionKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
     ) -> (GeneratedDataTarget, NbtPath) {
-        if let ConstantExpressionKind::Data(target, path) = self {
+        if let Self::Data(target, path) = self {
             (target, path)
         } else {
             let (unique_data, path) = datapack.get_unique_data();
@@ -434,35 +416,25 @@ impl ConstantExpressionKind {
     }
 
     #[must_use]
-    pub fn invert(self) -> ConstantExpressionKind {
+    pub fn invert(self) -> Self {
         match self {
-            ConstantExpressionKind::Literal(expression) => {
-                ConstantExpressionKind::Literal(LiteralExpression {
-                    span: expression.span,
-                    kind: expression.kind.invert(),
-                })
-            }
-            ConstantExpressionKind::Condition(inverted, subcommand) => {
-                ConstantExpressionKind::Condition(!inverted, subcommand)
-            }
+            Self::Literal(expression) => Self::Literal(LiteralExpression {
+                span: expression.span,
+                kind: expression.kind.invert(),
+            }),
+            Self::Condition(inverted, subcommand) => Self::Condition(!inverted, subcommand),
             _ => unreachable!("Cannot invert expression {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn negate(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-    ) -> ConstantExpressionKind {
+    pub fn negate(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
         match self {
-            ConstantExpressionKind::Literal(expression) => {
-                ConstantExpressionKind::Literal(LiteralExpression {
-                    span: expression.span,
-                    kind: expression.kind.negate(),
-                })
-            }
-            ConstantExpressionKind::PlayerScore(_) => {
+            Self::Literal(expression) => Self::Literal(LiteralExpression {
+                span: expression.span,
+                kind: expression.kind.negate(),
+            }),
+            Self::PlayerScore(_) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -480,9 +452,9 @@ impl ConstantExpressionKind {
                     )),
                 );
 
-                ConstantExpressionKind::PlayerScore(unique_score)
+                Self::PlayerScore(unique_score)
             }
-            ConstantExpressionKind::Data(_, _) => {
+            Self::Data(_, _) => {
                 let unique_score = self.clone().as_score(datapack, ctx, true);
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -500,15 +472,15 @@ impl ConstantExpressionKind {
                     )),
                 );
 
-                ConstantExpressionKind::PlayerScore(unique_score)
+                Self::PlayerScore(unique_score)
             }
-            // TODO? ConstantExpressionKind::Command
-            ConstantExpressionKind::Dereference(expression) => expression
+            // TODO? Self::Command
+            Self::Dereference(expression) => expression
                 .kind
                 .dereference(datapack, ctx)
                 .negate(datapack, ctx),
-            ConstantExpressionKind::Reference(expression) => expression.kind.negate(datapack, ctx),
-            ConstantExpressionKind::Variable(name) => datapack
+            Self::Reference(expression) => expression.kind.negate(datapack, ctx),
+            Self::Variable(name) => datapack
                 .get_variable(&name)
                 .unwrap()
                 .1
@@ -519,12 +491,12 @@ impl ConstantExpressionKind {
     }
 
     #[must_use]
-    pub fn index(self, index: ConstantExpressionKind) -> ConstantExpressionKind {
+    pub fn index(self, index: Self) -> Self {
         match self {
-            ConstantExpressionKind::Reference(expression) => expression.kind.index(index),
+            Self::Reference(expression) => expression.kind.index(index),
 
-            ConstantExpressionKind::List(mut items) => {
-                if let ConstantExpressionKind::Literal(LiteralExpression {
+            Self::List(mut items) => {
+                if let Self::Literal(LiteralExpression {
                     kind: LiteralExpressionKind::Integer(index),
                     ..
                 }) = index
@@ -538,36 +510,30 @@ impl ConstantExpressionKind {
                     unreachable!("The index expression is not an integer")
                 }
             }
-            ConstantExpressionKind::Data(target, path) => {
-                if let Some(snbt) = index.as_snbt() {
-                    ConstantExpressionKind::Data(
-                        target,
-                        path.with_node(NbtPathNode::Index(Some(snbt))),
-                    )
-                } else {
-                    unreachable!("The index expression is not snbt")
-                }
-            }
+            Self::Data(target, path) => index.as_snbt().map_or_else(
+                || unreachable!("The index expression is not snbt"),
+                |snbt| Self::Data(target, path.with_node(NbtPathNode::Index(Some(snbt)))),
+            ),
             _ => unreachable!("The expression cannot be indexed {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn access_field(self, field: String) -> ConstantExpressionKind {
+    pub fn access_field(self, field: String) -> Self {
         match self {
-            ConstantExpressionKind::Literal(_)
-            | ConstantExpressionKind::List(_)
-            | ConstantExpressionKind::PlayerScore(_)
-            | ConstantExpressionKind::Condition(_, _)
-            | ConstantExpressionKind::Command(_)
-            | ConstantExpressionKind::Unit
-            | ConstantExpressionKind::Variable(_)
-            | ConstantExpressionKind::Dereference(_) => {
+            Self::Literal(_)
+            | Self::List(_)
+            | Self::PlayerScore(_)
+            | Self::Condition(_, _)
+            | Self::Command(_)
+            | Self::Unit
+            | Self::Variable(_)
+            | Self::Dereference(_) => {
                 unreachable!("Expression does not have any fields {:?}", self)
             }
-            ConstantExpressionKind::Underscore => unreachable!(),
-            ConstantExpressionKind::Reference(expression) => expression.kind.access_field(field),
-            ConstantExpressionKind::Compound(compound) => {
+            Self::Underscore => unreachable!(),
+            Self::Reference(expression) => expression.kind.access_field(field),
+            Self::Compound(compound) => {
                 compound
                     .into_iter()
                     .find(|(key, _)| key.snbt_string.1 == *field)
@@ -575,18 +541,17 @@ impl ConstantExpressionKind {
                     .unwrap()
                     .kind
             }
-            ConstantExpressionKind::Data(target, path) => ConstantExpressionKind::Data(
+            Self::Data(target, path) => Self::Data(
                 target,
-                path.with_node(NbtPathNode::Named(SNBTString(false, field.clone()), None)),
+                path.with_node(NbtPathNode::Named(SNBTString(false, field), None)),
             ),
-            ConstantExpressionKind::Tuple(mut expressions) => {
-                if let Ok(index) = field.parse::<i32>() {
-                    expressions.remove(index as usize).kind
-                } else {
+            Self::Tuple(mut expressions) => field.parse::<i32>().map_or_else(
+                |_| {
                     unreachable!("Tuple does not have field {:?}", field);
-                }
-            }
-            ConstantExpressionKind::Struct(_, _, fields) => {
+                },
+                |index| expressions.remove(index as usize).kind,
+            ),
+            Self::Struct(_, _, fields) => {
                 fields
                     .into_iter()
                     .find(|(key, _)| *key == field)
@@ -597,10 +562,9 @@ impl ConstantExpressionKind {
         }
     }
 
-    #[inline]
     #[must_use]
-    pub fn is_data(&self) -> bool {
-        matches!(self, ConstantExpressionKind::Data(_, _))
+    pub const fn is_data(&self) -> bool {
+        matches!(self, Self::Data(_, _))
     }
 
     pub fn as_data_command_modification(
@@ -623,23 +587,21 @@ impl ConstantExpressionKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        other: ConstantExpressionKind,
-    ) -> ConstantExpressionKind {
+        other: Self,
+    ) -> Self {
         match (self, other) {
-            (ConstantExpressionKind::Reference(expression), other) => expression
+            (Self::Reference(expression), other) => expression
                 .kind
                 .perform_arithmetic(datapack, ctx, operator, other),
 
-            (self_, ConstantExpressionKind::Reference(other)) => {
+            (self_, Self::Reference(other)) => {
                 self_.perform_arithmetic(datapack, ctx, operator, other.kind)
             }
 
-            (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
-                ConstantExpressionKind::Literal(LiteralExpression {
-                    span: Span::dummy(),
-                    kind: left.kind.perform_arithmetic(operator, right.kind),
-                })
-            }
+            (Self::Literal(left), Self::Literal(right)) => Self::Literal(LiteralExpression {
+                span: Span::dummy(),
+                kind: left.kind.perform_arithmetic(operator, right.kind),
+            }),
 
             (left_kind, right_kind) => {
                 // TODO maybe better checking?
@@ -650,7 +612,7 @@ impl ConstantExpressionKind {
                 left_kind.assign_to_score(datapack, ctx, unique_score.clone());
                 right_kind.operate_on_score(datapack, ctx, unique_score.clone(), operator);
 
-                ConstantExpressionKind::PlayerScore(unique_score)
+                Self::PlayerScore(unique_score)
             }
         }
     }
@@ -661,24 +623,22 @@ impl ConstantExpressionKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: ComparisonOperator,
-        other: ConstantExpressionKind,
-    ) -> ConstantExpressionKind {
+        other: Self,
+    ) -> Self {
         match (self, other) {
-            (ConstantExpressionKind::Reference(expression), other) => expression
+            (Self::Reference(expression), other) => expression
                 .kind
                 .perform_comparison(datapack, ctx, operator, other),
 
-            (self_, ConstantExpressionKind::Reference(other)) => {
+            (self_, Self::Reference(other)) => {
                 self_.perform_comparison(datapack, ctx, operator, other.kind)
             }
 
-            (ConstantExpressionKind::Literal(left), ConstantExpressionKind::Literal(right)) => {
-                ConstantExpressionKind::Literal(LiteralExpression {
-                    span: Span::dummy(),
-                    kind: left.kind.compare(operator, right.kind).unwrap(),
-                })
-            }
-            (left_kind @ ConstantExpressionKind::Data(_, _), right_kind)
+            (Self::Literal(left), Self::Literal(right)) => Self::Literal(LiteralExpression {
+                span: Span::dummy(),
+                kind: left.kind.compare(operator, right.kind).unwrap(),
+            }),
+            (left_kind @ Self::Data(_, _), right_kind)
                 if operator == ComparisonOperator::EqualTo
                     || operator == ComparisonOperator::NotEqualTo =>
             {
@@ -709,7 +669,7 @@ impl ConstantExpressionKind {
                     )),
                 );
 
-                ConstantExpressionKind::Condition(
+                Self::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
                         unique_score.score,
@@ -718,13 +678,12 @@ impl ConstantExpressionKind {
                     ),
                 )
             }
-            (self_ @ ConstantExpressionKind::Data(_, _), other)
-            | (other, self_ @ ConstantExpressionKind::Data(_, _)) => {
+            (self_ @ Self::Data(_, _), other) | (other, self_ @ Self::Data(_, _)) => {
                 let score = self_.as_score(datapack, ctx, false);
 
                 let other_score = other.as_score(datapack, ctx, false);
 
-                ConstantExpressionKind::Condition(
+                Self::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
                         score.score,
@@ -736,10 +695,10 @@ impl ConstantExpressionKind {
                     ),
                 )
             }
-            (ConstantExpressionKind::PlayerScore(score), other) => {
+            (Self::PlayerScore(score), other) => {
                 let right_score = other.as_score(datapack, ctx, false);
 
-                ConstantExpressionKind::Condition(
+                Self::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
                         score.score,
@@ -751,10 +710,10 @@ impl ConstantExpressionKind {
                     ),
                 )
             }
-            (left_kind, ConstantExpressionKind::PlayerScore(right_score)) => {
+            (left_kind, Self::PlayerScore(right_score)) => {
                 let left_score = left_kind.as_score(datapack, ctx, false);
 
-                ConstantExpressionKind::Condition(
+                Self::Condition(
                     operator.should_execute_if_be_inverted(),
                     ExecuteIfSubcommand::Score(
                         right_score.score,
@@ -776,15 +735,15 @@ impl ConstantExpressionKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: LogicalOperator,
-        other: ConstantExpressionKind,
-    ) -> ConstantExpressionKind {
-        if let ConstantExpressionKind::Reference(self_) = self {
+        other: Self,
+    ) -> Self {
+        if let Self::Reference(self_) = self {
             return self_
                 .kind
                 .perform_logical_operation(datapack, ctx, operator, other);
         }
 
-        if let ConstantExpressionKind::Reference(other) = other {
+        if let Self::Reference(other) = other {
             return self.perform_logical_operation(datapack, ctx, operator, other.kind);
         }
 
@@ -804,7 +763,7 @@ impl ConstantExpressionKind {
                         0,
                     ))),
                 );
-                ConstantExpressionKind::Condition(
+                Self::Condition(
                     self_inverted,
                     self_condition.then(ExecuteSubcommand::If(
                         right_inverted,
@@ -820,7 +779,7 @@ impl ConstantExpressionKind {
                 .resolve(datapack, ctx)
                 .compile_as_statement(datapack, ctx);
 
-                ConstantExpressionKind::PlayerScore(unique_score)
+                Self::PlayerScore(unique_score)
             }
             LogicalOperator::Or => {
                 let unique_function_paths = datapack.get_unique_function_paths();
@@ -881,7 +840,7 @@ impl ConstantExpressionKind {
                     .get_function_mut(&unique_function_paths)
                     .add_commands(function_commands);
 
-                ConstantExpressionKind::PlayerScore(unique_score)
+                Self::PlayerScore(unique_score)
             }
         }
     }
@@ -950,18 +909,14 @@ impl ConstantExpressionKind {
             };
         }
 
-        if let ConstantExpressionKind::PlayerScore(source) = self {
-            source
-                .clone()
-                .operate_on_score(datapack, ctx, target, operator);
+        if let Self::PlayerScore(source) = self {
+            source.operate_on_score(datapack, ctx, target, operator);
         } else {
             let unique_score = datapack.get_unique_score();
 
             self.assign_to_score(datapack, ctx, unique_score.clone());
 
-            unique_score
-                .clone()
-                .operate_on_score(datapack, ctx, target, operator);
+            unique_score.operate_on_score(datapack, ctx, target, operator);
         }
     }
 
@@ -991,10 +946,8 @@ impl ConstantExpressionKind {
         }
 
         match self {
-            ConstantExpressionKind::Literal(expression) => {
-                expression.kind.to_execute_condition(datapack).unwrap()
-            }
-            ConstantExpressionKind::PlayerScore(score) => (
+            Self::Literal(expression) => expression.kind.to_execute_condition(datapack).unwrap(),
+            Self::PlayerScore(score) => (
                 !inverted,
                 ExecuteIfSubcommand::Score(
                     score.score,
@@ -1002,7 +955,7 @@ impl ConstantExpressionKind {
                     None,
                 ),
             ),
-            ConstantExpressionKind::Data(_, _) => {
+            Self::Data(_, _) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -1016,10 +969,8 @@ impl ConstantExpressionKind {
                     ),
                 )
             }
-            ConstantExpressionKind::Condition(inner_inverted, condition) => {
-                (inverted ^ inner_inverted, condition)
-            }
-            ConstantExpressionKind::Command(command) => {
+            Self::Condition(inner_inverted, condition) => (inverted ^ inner_inverted, condition),
+            Self::Command(command) => {
                 let unique_score = datapack.get_unique_score();
 
                 ctx.add_command(
@@ -1042,20 +993,20 @@ impl ConstantExpressionKind {
                     ),
                 )
             }
-            ConstantExpressionKind::Variable(name) => datapack
+            Self::Variable(name) => datapack
                 .get_variable(&name)
                 .unwrap()
                 .1
                 .kind
                 .to_execute_condition(datapack, ctx, inverted),
-            ConstantExpressionKind::List(_)
-            | ConstantExpressionKind::Compound(_)
-            | ConstantExpressionKind::Tuple(_)
-            | ConstantExpressionKind::Unit
-            | ConstantExpressionKind::Reference(_)
-            | ConstantExpressionKind::Dereference(_)
-            | ConstantExpressionKind::Underscore
-            | ConstantExpressionKind::Struct(_, _, _) => {
+            Self::List(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::Unit
+            | Self::Reference(_)
+            | Self::Dereference(_)
+            | Self::Underscore
+            | Self::Struct(_, _, _) => {
                 unreachable!()
             }
         }
@@ -1068,8 +1019,8 @@ impl ConstantExpressionKind {
         force_display: bool,
     ) -> SNBT {
         match self {
-            ConstantExpressionKind::PlayerScore(player_score) => player_score.to_text_component(),
-            ConstantExpressionKind::Data(target, path) => {
+            Self::PlayerScore(player_score) => player_score.to_text_component(),
+            Self::Data(target, path) => {
                 let mut map = BTreeMap::new();
 
                 match target.target {
@@ -1097,16 +1048,14 @@ impl ConstantExpressionKind {
 
                 SNBT::Compound(map)
             }
-            ConstantExpressionKind::Literal(expression) => {
-                expression.kind.as_text_component(force_display)
-            }
-            ConstantExpressionKind::List(constant_expressions) => SNBT::List(
+            Self::Literal(expression) => expression.kind.as_text_component(force_display),
+            Self::List(constant_expressions) => SNBT::List(
                 constant_expressions
                     .into_iter()
                     .map(|expression| expression.kind.as_text_component(datapack, ctx, false))
                     .collect(),
             ),
-            ConstantExpressionKind::Compound(btree_map) => SNBT::Compound(
+            Self::Compound(btree_map) => SNBT::Compound(
                 btree_map
                     .into_iter()
                     .map(|(key, value)| {
@@ -1117,14 +1066,14 @@ impl ConstantExpressionKind {
                     })
                     .collect(),
             ),
-            ConstantExpressionKind::Condition(_, _) | ConstantExpressionKind::Command(_) => {
+            Self::Condition(_, _) | Self::Command(_) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
 
                 unique_score.to_text_component()
             }
-            ConstantExpressionKind::Tuple(expressions) => {
+            Self::Tuple(expressions) => {
                 let mut items = Vec::new();
 
                 items.push(SNBT::string("("));
@@ -1141,21 +1090,18 @@ impl ConstantExpressionKind {
 
                 SNBT::List(items)
             }
-            ConstantExpressionKind::Unit => SNBT::string("()"),
-            ConstantExpressionKind::Reference(expression)
-            | ConstantExpressionKind::Dereference(expression) => {
-                expression
-                    .kind
-                    .as_text_component(datapack, ctx, force_display)
-            }
-            ConstantExpressionKind::Variable(name) => datapack
+            Self::Unit => SNBT::string("()"),
+            Self::Reference(expression) | Self::Dereference(expression) => expression
+                .kind
+                .as_text_component(datapack, ctx, force_display),
+            Self::Variable(name) => datapack
                 .get_variable(&name)
                 .unwrap()
                 .1
                 .kind
                 .as_text_component(datapack, ctx, force_display),
-            ConstantExpressionKind::Underscore => unreachable!(),
-            ConstantExpressionKind::Struct(name, generics, fields) => {
+            Self::Underscore => unreachable!(),
+            Self::Struct(name, generics, fields) => {
                 let mut output = Vec::new();
 
                 output.push(SNBT::string(if generics.is_empty() {
@@ -1209,27 +1155,27 @@ impl ConstantExpressionKind {
         target: GeneratedPlayerScore,
     ) {
         match self {
-            ConstantExpressionKind::Literal(expression) => {
+            Self::Literal(expression) => {
                 expression.kind.assign_to_score(datapack, ctx, target.score);
             }
-            ConstantExpressionKind::List(value) => {
+            Self::List(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
                     PlayersScoreboardCommand::Set(target.score, value.len() as i32),
                 );
             }
-            ConstantExpressionKind::Compound(value) => {
+            Self::Compound(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
                     PlayersScoreboardCommand::Set(target.score, value.len() as i32),
                 );
             }
-            ConstantExpressionKind::PlayerScore(source) => {
-                source.clone().assign_to_score(datapack, ctx, target);
+            Self::PlayerScore(source) => {
+                source.assign_to_score(datapack, ctx, target);
             }
-            ConstantExpressionKind::Data(data_target, path) => {
+            Self::Data(data_target, path) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::Store(
@@ -1237,49 +1183,45 @@ impl ConstantExpressionKind {
                         ExecuteStoreSubcommand::Score(
                             target.score,
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(
-                                    data_target.target.clone(),
-                                    Some(path.clone()),
-                                    None,
-                                ),
+                                DataCommand::Get(data_target.target, Some(path), None),
                             )))),
                         ),
                     )),
                 );
             }
-            ConstantExpressionKind::Condition(inverted, condition) => {
+            Self::Condition(inverted, condition) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Success,
                         ExecuteStoreSubcommand::Score(
                             target.score,
-                            Box::new(ExecuteSubcommand::If(inverted, condition.clone())),
+                            Box::new(ExecuteSubcommand::If(inverted, condition)),
                         ),
                     )),
                 );
             }
-            ConstantExpressionKind::Command(command) => {
+            Self::Command(command) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Result,
                         ExecuteStoreSubcommand::Score(
                             target.score,
-                            Box::new(ExecuteSubcommand::Run(Box::new(command.clone()))),
+                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
                         ),
                     )),
                 );
             }
-            ConstantExpressionKind::Tuple(_)
-            | ConstantExpressionKind::Unit
-            | ConstantExpressionKind::Dereference(_)
-            | ConstantExpressionKind::Underscore
-            | ConstantExpressionKind::Struct(_, _, _) => unreachable!(),
-            ConstantExpressionKind::Reference(expression) => {
+            Self::Tuple(_)
+            | Self::Unit
+            | Self::Dereference(_)
+            | Self::Underscore
+            | Self::Struct(_, _, _) => unreachable!(),
+            Self::Reference(expression) => {
                 expression.kind.assign_to_score(datapack, ctx, target);
             }
-            ConstantExpressionKind::Variable(name) => datapack
+            Self::Variable(name) => datapack
                 .get_variable(&name)
                 .unwrap()
                 .1
@@ -1310,10 +1252,10 @@ impl ConstantExpressionKind {
         }
 
         match self {
-            ConstantExpressionKind::PlayerScore(score) => {
-                score.clone().assign_to_data(datapack, ctx, target, path);
+            Self::PlayerScore(score) => {
+                score.assign_to_data(datapack, ctx, target, path);
             }
-            ConstantExpressionKind::Data(inner_target, inner_path) => {
+            Self::Data(inner_target, inner_path) => {
                 ctx.add_command(
                     datapack,
                     Command::Data(DataCommand::Modify(
@@ -1324,7 +1266,7 @@ impl ConstantExpressionKind {
                     )),
                 );
             }
-            ConstantExpressionKind::List(list) => {
+            Self::List(list) => {
                 let (constants, non_constants) = split_constants_list(list);
 
                 ctx.add_command(
@@ -1347,7 +1289,7 @@ impl ConstantExpressionKind {
                     );
                 }
             }
-            ConstantExpressionKind::Compound(compound) => {
+            Self::Compound(compound) => {
                 let (constants, non_constants) = split_constants_compound(compound);
 
                 ctx.add_command(
@@ -1369,18 +1311,11 @@ impl ConstantExpressionKind {
                     );
                 }
             }
-            ConstantExpressionKind::Unit
-            | ConstantExpressionKind::Literal(_)
-            | ConstantExpressionKind::Underscore
-            | ConstantExpressionKind::Variable(_) => unreachable!(),
-            ConstantExpressionKind::Reference(expression) => {
+            Self::Unit | Self::Literal(_) | Self::Underscore | Self::Variable(_) => unreachable!(),
+            Self::Reference(expression) => {
                 expression.kind.assign_to_data(datapack, ctx, target, path);
             }
-            ConstantExpressionKind::Struct(name, _, fields) => {
-                let mut map = BTreeMap::new();
-
-                map.insert(SNBTString(false, name.clone()), SNBT::string(name));
-
+            Self::Struct(_, _, fields) => {
                 for (key, value) in fields {
                     value.kind.assign_to_data(
                         datapack,
@@ -1391,7 +1326,7 @@ impl ConstantExpressionKind {
                     );
                 }
             }
-            ConstantExpressionKind::Tuple(expressions) => {
+            Self::Tuple(expressions) => {
                 let (constants, non_constants) = split_constants_list(expressions);
 
                 ctx.add_command(
@@ -1414,7 +1349,7 @@ impl ConstantExpressionKind {
                     );
                 }
             }
-            ConstantExpressionKind::Condition(inverted, execute_if_subcommand) => {
+            Self::Condition(inverted, execute_if_subcommand) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::Store(
@@ -1429,7 +1364,7 @@ impl ConstantExpressionKind {
                     )),
                 );
             }
-            ConstantExpressionKind::Command(command) => {
+            Self::Command(command) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::Store(
@@ -1444,7 +1379,7 @@ impl ConstantExpressionKind {
                     )),
                 );
             }
-            ConstantExpressionKind::Dereference(expression) => expression
+            Self::Dereference(expression) => expression
                 .kind
                 .dereference(datapack, ctx)
                 .assign_to_data(datapack, ctx, target, path),
@@ -1453,17 +1388,15 @@ impl ConstantExpressionKind {
 
     pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> SNBT {
         match self {
-            ConstantExpressionKind::Literal(expression) => expression.kind.into_snbt(),
-            ConstantExpressionKind::List(expressions) => SNBT::List(
+            Self::Literal(expression) => expression.kind.into_snbt(),
+            Self::List(expressions) => SNBT::List(
                 expressions
-                    .clone()
                     .into_iter()
                     .map(|expression| expression.kind.as_snbt_macros(ctx))
                     .collect(),
             ),
-            ConstantExpressionKind::Compound(compound) => SNBT::Compound(
+            Self::Compound(compound) => SNBT::Compound(
                 compound
-                    .clone()
                     .into_iter()
                     .map(|(key, value)| (key.snbt_string, value.kind.as_snbt_macros(ctx)))
                     .collect(),
@@ -1474,24 +1407,21 @@ impl ConstantExpressionKind {
 
     pub fn as_snbt(&self) -> Option<SNBT> {
         match self {
-            ConstantExpressionKind::Literal(expression) => {
-                Some(expression.clone().kind.into_snbt())
-            }
+            Self::Literal(expression) => Some(expression.clone().kind.into_snbt()),
 
-            ConstantExpressionKind::List(expressions)
-            | ConstantExpressionKind::Tuple(expressions) => expressions
+            Self::List(expressions) | Self::Tuple(expressions) => expressions
                 .iter()
                 .map(|expr| expr.kind.as_snbt())
                 .collect::<Option<Vec<_>>>()
                 .map(SNBT::List),
 
-            ConstantExpressionKind::Compound(compound) => compound
+            Self::Compound(compound) => compound
                 .iter()
                 .map(|(key, value)| value.kind.as_snbt().map(|v| (key.snbt_string.clone(), v)))
                 .collect::<Option<_>>()
                 .map(SNBT::Compound),
 
-            ConstantExpressionKind::Unit => {
+            Self::Unit => {
                 let mut unit_btreemap = BTreeMap::new();
 
                 unit_btreemap.insert(
@@ -1507,11 +1437,7 @@ impl ConstantExpressionKind {
     }
 
     #[must_use]
-    pub fn cast_to(
-        self,
-        datapack: &mut HighDatapack,
-        data_type: DataTypeKind,
-    ) -> ConstantExpressionKind {
+    pub fn cast_to(self, datapack: &mut HighDatapack, data_type: DataTypeKind) -> Self {
         let self_type = self.infer_data_type(datapack).unwrap();
 
         if self_type.equals(&data_type) {
@@ -1519,14 +1445,12 @@ impl ConstantExpressionKind {
         }
 
         match (self, data_type) {
-            (ConstantExpressionKind::Literal(expression), data_type) => {
-                ConstantExpressionKind::Literal(LiteralExpression {
-                    span: expression.span,
-                    kind: expression.kind.cast_to(data_type),
-                })
-            }
+            (Self::Literal(expression), data_type) => Self::Literal(LiteralExpression {
+                span: expression.span,
+                kind: expression.kind.cast_to(data_type),
+            }),
 
-            (self_ @ ConstantExpressionKind::Data(_, _), DataTypeKind::Data(_)) => self_,
+            (self_ @ Self::Data(_, _), DataTypeKind::Data(_)) => self_,
 
             _ => unreachable!(""),
         }
@@ -1535,11 +1459,11 @@ impl ConstantExpressionKind {
     #[must_use]
     pub fn as_place(self) -> Place {
         match self {
-            ConstantExpressionKind::PlayerScore(score) => Place::Score(score),
-            ConstantExpressionKind::Data(target, path) => Place::Data(target, path),
-            ConstantExpressionKind::Variable(name) => Place::Variable(name),
-            ConstantExpressionKind::Underscore => Place::Underscore,
-            ConstantExpressionKind::Tuple(expressions) => Place::Tuple(
+            Self::PlayerScore(score) => Place::Score(score),
+            Self::Data(target, path) => Place::Data(target, path),
+            Self::Variable(name) => Place::Variable(name),
+            Self::Underscore => Place::Underscore,
+            Self::Tuple(expressions) => Place::Tuple(
                 expressions
                     .into_iter()
                     .map(|expression| expression.kind.as_place())
@@ -1550,36 +1474,32 @@ impl ConstantExpressionKind {
     }
 
     #[must_use]
-    pub fn dereference(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-    ) -> ConstantExpressionKind {
+    pub fn dereference(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
         match self {
-            ConstantExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1.kind,
-            ConstantExpressionKind::Reference(expression) => expression.kind,
-            ConstantExpressionKind::PlayerScore(_) => {
+            Self::Variable(name) => datapack.get_variable(&name).unwrap().1.kind,
+            Self::Reference(expression) => expression.kind,
+            Self::PlayerScore(_) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
 
-                ConstantExpressionKind::PlayerScore(unique_score)
+                Self::PlayerScore(unique_score)
             }
-            ConstantExpressionKind::Data(_, _) => {
+            Self::Data(_, _) => {
                 let (unique_target, unique_path) = datapack.get_unique_data();
 
                 self.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
 
-                ConstantExpressionKind::Data(unique_target, unique_path)
+                Self::Data(unique_target, unique_path)
             }
             _ => unreachable!("This expression cannot be dereferenced {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn resolve(self, datapack: &mut HighDatapack) -> ConstantExpressionKind {
+    pub fn resolve(self, datapack: &mut HighDatapack) -> Self {
         match self {
-            ConstantExpressionKind::Variable(name) => {
+            Self::Variable(name) => {
                 datapack
                     .get_variable(&name)
                     .unwrap_or_else(|| {
@@ -1591,15 +1511,13 @@ impl ConstantExpressionKind {
                     .1
                     .kind
             }
-            ConstantExpressionKind::Reference(expression) => {
-                ConstantExpressionKind::Reference(Box::new(
-                    expression
-                        .kind
-                        .resolve(datapack)
-                        .into_dummy_constant_expression(),
-                ))
-            }
-            ConstantExpressionKind::List(expressions) => ConstantExpressionKind::List(
+            Self::Reference(expression) => Self::Reference(Box::new(
+                expression
+                    .kind
+                    .resolve(datapack)
+                    .into_dummy_constant_expression(),
+            )),
+            Self::List(expressions) => Self::List(
                 expressions
                     .into_iter()
                     .map(|expression| {
@@ -1610,7 +1528,7 @@ impl ConstantExpressionKind {
                     })
                     .collect(),
             ),
-            ConstantExpressionKind::Compound(compound) => ConstantExpressionKind::Compound(
+            Self::Compound(compound) => Self::Compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -1624,7 +1542,7 @@ impl ConstantExpressionKind {
                     })
                     .collect(),
             ),
-            ConstantExpressionKind::Tuple(expressions) => ConstantExpressionKind::Tuple(
+            Self::Tuple(expressions) => Self::Tuple(
                 expressions
                     .into_iter()
                     .map(|expression| {
@@ -1635,14 +1553,12 @@ impl ConstantExpressionKind {
                     })
                     .collect(),
             ),
-            ConstantExpressionKind::Dereference(expression) => {
-                ConstantExpressionKind::Dereference(Box::new(
-                    expression
-                        .kind
-                        .resolve(datapack)
-                        .into_dummy_constant_expression(),
-                ))
-            }
+            Self::Dereference(expression) => Self::Dereference(Box::new(
+                expression
+                    .kind
+                    .resolve(datapack)
+                    .into_dummy_constant_expression(),
+            )),
             _ => self,
         }
     }
@@ -1736,9 +1652,8 @@ impl ConstantExpression {
         }
     }
 
-    #[inline]
     #[must_use]
-    pub fn into_constant_expression(self) -> Expression {
+    pub const fn into_constant_expression(self) -> Expression {
         Expression {
             span: self.span,
             kind: ExpressionKind::Constant(self),

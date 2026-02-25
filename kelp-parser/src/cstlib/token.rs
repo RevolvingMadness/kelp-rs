@@ -9,9 +9,8 @@ pub struct CSTToken {
 }
 
 impl CSTToken {
-    #[inline]
     #[must_use]
-    pub fn as_tuple(self) -> (SyntaxKind, Span) {
+    pub const fn as_tuple(self) -> (SyntaxKind, Span) {
         (self.kind, self.span)
     }
 

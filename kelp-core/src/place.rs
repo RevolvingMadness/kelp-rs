@@ -35,7 +35,7 @@ pub enum Place {
     Score(GeneratedPlayerScore),
     Data(GeneratedDataTarget, NbtPath),
     Variable(String),
-    Tuple(Vec<Place>),
+    Tuple(Vec<Self>),
     Dereference(Box<Expression>),
     Field(Box<ConstantExpressionKind>, SNBTString),
     Underscore,
@@ -49,17 +49,17 @@ impl Place {
         value: ConstantExpressionKind,
     ) {
         match self {
-            Place::Score(score) => {
+            Self::Score(score) => {
                 value.assign_to_score(datapack, ctx, score);
             }
-            Place::Data(target, path) => {
+            Self::Data(target, path) => {
                 value.assign_to_data(datapack, ctx, target, path);
             }
-            Place::Variable(name) => {
+            Self::Variable(name) => {
                 datapack.assign_variable(&name, value.into_dummy_constant_expression());
             }
-            Place::Underscore => {}
-            Place::Tuple(places) => {
+            Self::Underscore => {}
+            Self::Tuple(places) => {
                 if let ConstantExpressionKind::Tuple(values) = value {
                     if places.len() != values.len() {
                         return;
@@ -88,13 +88,13 @@ impl Place {
                     unreachable!()
                 }
             }
-            Place::Dereference(expression) => {
+            Self::Dereference(expression) => {
                 expression
                     .dereference(datapack)
                     .as_place(datapack, ctx)
                     .assign(datapack, ctx, value);
             }
-            Place::Field(expression, field) => {
+            Self::Field(expression, field) => {
                 let field_value = expression.clone().access_field(field.1.clone());
 
                 let is_lvalue = field_value.is_lvalue();
@@ -140,10 +140,10 @@ impl Place {
         value: ConstantExpressionKind,
     ) {
         match self {
-            Place::Score(score) => {
+            Self::Score(score) => {
                 score.assign_augmented(datapack, ctx, operator, value);
             }
-            Place::Data(target, path) => {
+            Self::Data(target, path) => {
                 let unique_score = datapack.get_unique_score();
 
                 ConstantExpressionKind::Data(target.clone(), path.clone()).assign_to_score(
@@ -174,7 +174,7 @@ impl Place {
                     )),
                 );
             }
-            Place::Variable(name) => {
+            Self::Variable(name) => {
                 let (_, variable_value) = datapack.get_variable(&name).unwrap();
 
                 if variable_value.kind.is_lvalue() {
@@ -189,7 +189,7 @@ impl Place {
                     datapack.get_variable_mut(&name).unwrap().kind = new_kind;
                 }
             }
-            Place::Field(expression, field) => {
+            Self::Field(expression, field) => {
                 let field_value = expression.clone().access_field(field.1.clone());
 
                 if field_value.is_lvalue() {
@@ -222,10 +222,10 @@ impl Place {
                     expression.as_place().assign(datapack, ctx, new_container);
                 }
             }
-            Place::Tuple(_) | Place::Underscore => {
+            Self::Tuple(_) | Self::Underscore => {
                 unreachable!()
             }
-            Place::Dereference(expression) => {
+            Self::Dereference(expression) => {
                 expression
                     .dereference(datapack)
                     .as_place(datapack, ctx)
@@ -245,9 +245,8 @@ pub enum PlaceTypeKind {
 }
 
 impl PlaceTypeKind {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> PlaceType {
+    pub const fn with_span(self, span: Span) -> PlaceType {
         PlaceType { span, kind: self }
     }
 }
@@ -320,14 +319,14 @@ impl PlaceType {
                     });
                 }
             }
-            PlaceTypeKind::Data(data_type) => {
+            PlaceTypeKind::Data(data_type) | PlaceTypeKind::Variable(data_type) => {
                 if !data_type.can_perform_augmented_assignment(operator, value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::InvalidAugmentedAssignmentType(
                                 *operator,
-                                data_type.clone(),
+                                data_type,
                                 value_type.clone(),
                             ),
                         ),
@@ -341,20 +340,6 @@ impl PlaceType {
                         SemanticAnalysisError::CannotPerformAugmentedAssignment(data_type),
                     ),
                 });
-            }
-            PlaceTypeKind::Variable(data_type) => {
-                if !data_type.can_perform_augmented_assignment(operator, value_type) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: value.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                                *operator,
-                                data_type,
-                                value_type.clone(),
-                            ),
-                        ),
-                    });
-                }
             }
             PlaceTypeKind::Underscore => {}
         }

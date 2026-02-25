@@ -81,15 +81,14 @@ fn compile_if(
 }
 
 impl StatementKind {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> Statement {
+    pub const fn with_span(self, span: Span) -> Statement {
         Statement { span, kind: self }
     }
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
-            StatementKind::MCFNDeclaration(id, statement) => {
+            Self::MCFNDeclaration(id, statement) => {
                 datapack.within_namespace(id.namespace(), |datapack| {
                     datapack.push_function_to_current_namespace(id.paths.clone());
 
@@ -107,15 +106,16 @@ impl StatementKind {
                     datapack.pop_function_from_current_namespace();
                 });
             }
-            StatementKind::Expression(expression) => {
+            Self::Expression(expression) => {
                 expression
                     .resolve(datapack, ctx)
                     .compile_as_statement(datapack, ctx);
             }
-            StatementKind::VariableDeclaration(data_type, pattern, value) => {
+            Self::VariableDeclaration(data_type, pattern, value) => {
+                #[allow(clippy::map_unwrap_or)]
                 let data_type = data_type
                     .map(|data_type| data_type.kind.resolve(datapack, None).unwrap())
-                    .unwrap_or(value.kind.infer_data_type(datapack).unwrap());
+                    .unwrap_or_else(|| value.kind.infer_data_type(datapack).unwrap());
 
                 let value = value.resolve(datapack, ctx);
 
@@ -126,7 +126,7 @@ impl StatementKind {
                     &pattern,
                 );
             }
-            StatementKind::While(condition, body) => {
+            Self::While(condition, body) => {
                 let mut while_body_ctx = CompileContext::default();
 
                 body.kind.compile(datapack, &mut while_body_ctx);
@@ -158,7 +158,7 @@ impl StatementKind {
 
                 datapack.compile_and_add_to_function(&while_function_paths, &mut while_body_ctx);
             }
-            StatementKind::ForIn(is_reversed, variable_name, collection, body) => {
+            Self::ForIn(is_reversed, variable_name, collection, body) => {
                 let collection_data_type = collection
                     .kind
                     .infer_data_type(datapack)
@@ -222,7 +222,7 @@ impl StatementKind {
                             DataCommandModificationMode::Set,
                             DataCommandModification::String(
                                 unique_data_target.target.clone(),
-                                Some(unique_path.clone()),
+                                Some(unique_path),
                                 Some(i32::from(!is_reversed)),
                                 if is_reversed { Some(-1) } else { None },
                             ),
@@ -326,7 +326,7 @@ impl StatementKind {
                     datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
                 }
             }
-            StatementKind::Block(body) => {
+            Self::Block(body) => {
                 datapack.start_scope();
 
                 for statement in body {
@@ -335,15 +335,14 @@ impl StatementKind {
 
                 datapack.end_scope();
             }
-            StatementKind::Match(_, _) => {
+            Self::Match(_, _) => {
                 todo!()
             }
-            StatementKind::If(condition, body, else_body) => {
+            Self::If(condition, body, else_body) => {
                 let mut if_body_ctx = CompileContext::default();
                 body.kind.compile(datapack, &mut if_body_ctx);
 
                 let (invert, compiled_condition) = condition
-                    .clone()
                     .resolve(datapack, ctx)
                     .to_execute_condition(datapack, ctx, false);
 
@@ -362,7 +361,7 @@ impl StatementKind {
                     compile_if(datapack, ctx, else_body_ctx, !invert, compiled_condition);
                 }
             }
-            StatementKind::AppendData(target, value) => {
+            Self::AppendData(target, value) => {
                 let target = target.resolve(datapack, ctx);
                 let value = value.resolve(datapack, ctx);
 
@@ -380,7 +379,7 @@ impl StatementKind {
                     )),
                 );
             }
-            StatementKind::RemoveData(expression) => {
+            Self::RemoveData(expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
                 let (target, path) = expression.as_data(datapack, ctx);
@@ -390,7 +389,7 @@ impl StatementKind {
                     Command::Data(DataCommand::Remove(target.target, path)),
                 );
             }
-            StatementKind::TypeDeclaration(name, generics, alias) => {
+            Self::TypeDeclaration(name, generics, alias) => {
                 let alias = alias.kind.resolve(datapack, Some(&generics)).unwrap();
 
                 datapack.declare_data_type(
@@ -402,7 +401,7 @@ impl StatementKind {
                     },
                 );
             }
-            StatementKind::StructDeclaration(name, generics, fields) => {
+            Self::StructDeclaration(name, generics, fields) => {
                 let resolved_fields = fields
                     .into_iter()
                     .map(|(key, data_type)| {
@@ -476,10 +475,7 @@ impl Statement {
                     return None;
                 };
 
-                let variable_type = match resolved_explicit_type {
-                    None => value_type.clone(),
-                    Some(data_type) => data_type,
-                };
+                let variable_type = resolved_explicit_type.unwrap_or_else(|| value_type.clone());
 
                 let mut error = false;
 
@@ -704,9 +700,8 @@ impl Statement {
         }
     }
 
-    #[inline]
     #[must_use]
-    pub fn new(span: Span, kind: StatementKind) -> Statement {
-        Statement { span, kind }
+    pub const fn new(span: Span, kind: StatementKind) -> Self {
+        Self { span, kind }
     }
 }

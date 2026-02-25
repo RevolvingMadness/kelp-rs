@@ -20,7 +20,7 @@ impl_has_macro_false!(HighSNBTString);
 
 impl From<String> for HighSNBTString {
     fn from(value: String) -> Self {
-        HighSNBTString {
+        Self {
             span: Span::dummy(),
             snbt_string: SNBTString(false, value),
         }

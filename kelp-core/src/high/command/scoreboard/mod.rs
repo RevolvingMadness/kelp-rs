@@ -26,12 +26,8 @@ impl HighScoreboardCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighScoreboardCommand::Objectives(command) => {
-                command.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighScoreboardCommand::Players(command) => {
-                command.perform_semantic_analysis(ctx, is_lhs)
-            }
+            Self::Objectives(command) => command.perform_semantic_analysis(ctx, is_lhs),
+            Self::Players(command) => command.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 
@@ -41,13 +37,13 @@ impl HighScoreboardCommand {
         ctx: &mut CompileContext,
     ) -> ScoreboardCommand {
         match self {
-            HighScoreboardCommand::Objectives(high_objectives_scoreboard_command) => {
+            Self::Objectives(high_objectives_scoreboard_command) => {
                 let compiled_high_objectives_scoreboard_command =
                     high_objectives_scoreboard_command.compile(datapack, ctx);
 
                 ScoreboardCommand::Objectives(compiled_high_objectives_scoreboard_command)
             }
-            HighScoreboardCommand::Players(high_players_scoreboard_command) => {
+            Self::Players(high_players_scoreboard_command) => {
                 let compiled_high_players_scoreboard_command =
                     high_players_scoreboard_command.compile(datapack, ctx);
 

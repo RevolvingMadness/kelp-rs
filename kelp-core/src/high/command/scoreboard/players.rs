@@ -29,9 +29,8 @@ impl HighScoreboardNumberFormat {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighScoreboardNumberFormat::Blank => Some(()),
-            HighScoreboardNumberFormat::Fixed(expression)
-            | HighScoreboardNumberFormat::Styled(expression) => {
+            Self::Blank => Some(()),
+            Self::Fixed(expression) | Self::Styled(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
             }
         }
@@ -43,11 +42,11 @@ impl HighScoreboardNumberFormat {
         ctx: &mut CompileContext,
     ) -> ScoreboardNumberFormat {
         match self {
-            HighScoreboardNumberFormat::Blank => ScoreboardNumberFormat::Blank,
-            HighScoreboardNumberFormat::Fixed(expression) => {
+            Self::Blank => ScoreboardNumberFormat::Blank,
+            Self::Fixed(expression) => {
                 ScoreboardNumberFormat::Fixed(expression.resolve(datapack, ctx).as_snbt_macros(ctx))
             }
-            HighScoreboardNumberFormat::Styled(expression) => ScoreboardNumberFormat::Styled(
+            Self::Styled(expression) => ScoreboardNumberFormat::Styled(
                 expression.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
         }
@@ -67,7 +66,7 @@ impl HighPlayersDisplayScoreboardCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighPlayersDisplayScoreboardCommand::Name(score, expression) => {
+            Self::Name(score, expression) => {
                 let score_result = score.perform_semantic_analysis(ctx, is_lhs);
                 let expression_result = expression.as_ref().map_or(Some(()), |expression| {
                     expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
@@ -78,7 +77,7 @@ impl HighPlayersDisplayScoreboardCommand {
 
                 Some(())
             }
-            HighPlayersDisplayScoreboardCommand::NumberFormat(score, number_format) => {
+            Self::NumberFormat(score, number_format) => {
                 let score_result = score.perform_semantic_analysis(ctx, is_lhs);
                 let number_format_result =
                     number_format.as_ref().map_or(Some(()), |number_format| {
@@ -99,7 +98,7 @@ impl HighPlayersDisplayScoreboardCommand {
         ctx: &mut CompileContext,
     ) -> PlayersDisplayScoreboardCommand {
         match self {
-            HighPlayersDisplayScoreboardCommand::Name(score, expression) => {
+            Self::Name(score, expression) => {
                 let score = score.compile(datapack, ctx);
 
                 PlayersDisplayScoreboardCommand::Name(
@@ -107,7 +106,7 @@ impl HighPlayersDisplayScoreboardCommand {
                     expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
                 )
             }
-            HighPlayersDisplayScoreboardCommand::NumberFormat(score, number_format) => {
+            Self::NumberFormat(score, number_format) => {
                 let score = score.compile(datapack, ctx);
 
                 PlayersDisplayScoreboardCommand::NumberFormat(
@@ -139,22 +138,16 @@ impl HighPlayersScoreboardCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighPlayersScoreboardCommand::List(selector) => {
-                selector.as_ref().map_or(Some(()), |selector| {
-                    selector.perform_semantic_analysis(ctx, is_lhs)
-                })
-            }
-            HighPlayersScoreboardCommand::Get(score)
-            | HighPlayersScoreboardCommand::Set(score, _)
-            | HighPlayersScoreboardCommand::Add(score, _)
-            | HighPlayersScoreboardCommand::Remove(score, _)
-            | HighPlayersScoreboardCommand::Enable(score) => {
-                score.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighPlayersScoreboardCommand::Reset(selector, _) => {
+            Self::List(selector) => selector.as_ref().map_or(Some(()), |selector| {
                 selector.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighPlayersScoreboardCommand::Operation(left, _, right) => {
+            }),
+            Self::Get(score)
+            | Self::Set(score, _)
+            | Self::Add(score, _)
+            | Self::Remove(score, _)
+            | Self::Enable(score) => score.perform_semantic_analysis(ctx, is_lhs),
+            Self::Reset(selector, _) => selector.perform_semantic_analysis(ctx, is_lhs),
+            Self::Operation(left, _, right) => {
                 let left_result = left.perform_semantic_analysis(ctx, is_lhs);
                 let right_result = right.perform_semantic_analysis(ctx, is_lhs);
 
@@ -163,9 +156,7 @@ impl HighPlayersScoreboardCommand {
 
                 Some(())
             }
-            HighPlayersScoreboardCommand::Display(command) => {
-                command.perform_semantic_analysis(ctx, is_lhs)
-            }
+            Self::Display(command) => command.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 
@@ -175,50 +166,48 @@ impl HighPlayersScoreboardCommand {
         ctx: &mut CompileContext,
     ) -> PlayersScoreboardCommand {
         match self {
-            HighPlayersScoreboardCommand::List(high_entity_selector) => {
+            Self::List(high_entity_selector) => {
                 let compiled_selector =
                     high_entity_selector.map(|selector| selector.compile(datapack, ctx));
 
                 PlayersScoreboardCommand::List(compiled_selector)
             }
-            HighPlayersScoreboardCommand::Get(score) => {
+            Self::Get(score) => {
                 let score = score.compile(datapack, ctx);
 
                 PlayersScoreboardCommand::Get(score.score)
             }
-            HighPlayersScoreboardCommand::Set(score, value) => {
+            Self::Set(score, value) => {
                 let score = score.compile(datapack, ctx);
 
                 PlayersScoreboardCommand::Set(score.score, value)
             }
-            HighPlayersScoreboardCommand::Add(score, value) => {
+            Self::Add(score, value) => {
                 let score = score.compile(datapack, ctx);
 
                 PlayersScoreboardCommand::Add(score.score, value)
             }
-            HighPlayersScoreboardCommand::Remove(score, value) => {
+            Self::Remove(score, value) => {
                 let score = score.compile(datapack, ctx);
 
                 PlayersScoreboardCommand::Remove(score.score, value)
             }
-            HighPlayersScoreboardCommand::Reset(high_entity_selector, objective) => {
-                PlayersScoreboardCommand::Reset(
-                    high_entity_selector.compile(datapack, ctx),
-                    objective,
-                )
-            }
-            HighPlayersScoreboardCommand::Enable(score) => {
+            Self::Reset(high_entity_selector, objective) => PlayersScoreboardCommand::Reset(
+                high_entity_selector.compile(datapack, ctx),
+                objective,
+            ),
+            Self::Enable(score) => {
                 let score = score.compile(datapack, ctx);
 
                 PlayersScoreboardCommand::Enable(score.score)
             }
-            HighPlayersScoreboardCommand::Operation(left_score, operator, right_score) => {
+            Self::Operation(left_score, operator, right_score) => {
                 let left_score = left_score.compile(datapack, ctx);
                 let right_score = right_score.compile(datapack, ctx);
 
                 PlayersScoreboardCommand::Operation(left_score.score, operator, right_score.score)
             }
-            HighPlayersScoreboardCommand::Display(high_players_display_scoreboard_command) => {
+            Self::Display(high_players_display_scoreboard_command) => {
                 let compiled_high_players_display_scoreboard_command =
                     high_players_display_scoreboard_command.compile(datapack, ctx);
 

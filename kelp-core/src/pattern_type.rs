@@ -12,26 +12,26 @@ pub enum PatternType {
     Float,
     Double,
     String,
-    Tuple(Vec<PatternType>),
-    Struct(String, BTreeMap<HighSNBTString, PatternType>),
-    Reference(Box<PatternType>),
-    Compound(BTreeMap<HighSNBTString, PatternType>),
-    Dereference(Box<PatternType>),
+    Tuple(Vec<Self>),
+    Struct(String, BTreeMap<HighSNBTString, Self>),
+    Reference(Box<Self>),
+    Compound(BTreeMap<HighSNBTString, Self>),
+    Dereference(Box<Self>),
     Any,
 }
 
 impl Display for PatternType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PatternType::Boolean => f.write_str("boolean"),
-            PatternType::Byte => f.write_str("byte"),
-            PatternType::Short => f.write_str("short"),
-            PatternType::Integer => f.write_str("integer"),
-            PatternType::Long => f.write_str("long"),
-            PatternType::Float => f.write_str("float"),
-            PatternType::Double => f.write_str("double"),
-            PatternType::String => f.write_str("string"),
-            PatternType::Tuple(pattern_types) => {
+            Self::Boolean => f.write_str("boolean"),
+            Self::Byte => f.write_str("byte"),
+            Self::Short => f.write_str("short"),
+            Self::Integer => f.write_str("integer"),
+            Self::Long => f.write_str("long"),
+            Self::Float => f.write_str("float"),
+            Self::Double => f.write_str("double"),
+            Self::String => f.write_str("string"),
+            Self::Tuple(pattern_types) => {
                 f.write_str("(")?;
 
                 for (i, pattern_type) in pattern_types.iter().enumerate() {
@@ -44,7 +44,7 @@ impl Display for PatternType {
 
                 f.write_str(")")
             }
-            PatternType::Struct(name, fields) => {
+            Self::Struct(name, fields) => {
                 write!(f, "{} {{", name)?;
 
                 if !fields.is_empty() {
@@ -67,8 +67,8 @@ impl Display for PatternType {
 
                 Ok(())
             }
-            PatternType::Reference(pattern) => write!(f, "&{}", pattern),
-            PatternType::Compound(compound) => {
+            Self::Reference(pattern) => write!(f, "&{}", pattern),
+            Self::Compound(compound) => {
                 f.write_str("{")?;
 
                 if !compound.is_empty() {
@@ -89,8 +89,8 @@ impl Display for PatternType {
 
                 f.write_str("}")
             }
-            PatternType::Any => f.write_str("_"),
-            PatternType::Dereference(pattern_type) => write!(f, "&{}", pattern_type),
+            Self::Any => f.write_str("_"),
+            Self::Dereference(pattern_type) => write!(f, "&{}", pattern_type),
         }
     }
 }

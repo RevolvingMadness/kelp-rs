@@ -47,9 +47,7 @@ impl HighEntitySelectorOption {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighEntitySelectorOption::Nbt(_, expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, None)
-            }
+            Self::Nbt(_, expression) => expression.perform_semantic_analysis(ctx, is_lhs, None),
             _ => Some(()),
         }
     }
@@ -60,59 +58,37 @@ impl HighEntitySelectorOption {
         ctx: &mut CompileContext,
     ) -> EntitySelectorOption {
         match self {
-            HighEntitySelectorOption::X(x) => EntitySelectorOption::X(x),
-            HighEntitySelectorOption::Y(y) => EntitySelectorOption::Y(y),
-            HighEntitySelectorOption::Z(z) => EntitySelectorOption::Z(z),
-            HighEntitySelectorOption::Distance(distance) => {
-                EntitySelectorOption::Distance(distance)
-            }
-            HighEntitySelectorOption::DistanceX(distance_x) => {
-                EntitySelectorOption::DistanceX(distance_x)
-            }
-            HighEntitySelectorOption::DistanceY(distance_y) => {
-                EntitySelectorOption::DistanceY(distance_y)
-            }
-            HighEntitySelectorOption::DistanceZ(distance_z) => {
-                EntitySelectorOption::DistanceZ(distance_z)
-            }
-            HighEntitySelectorOption::XRotation(x_rotation) => {
-                EntitySelectorOption::XRotation(x_rotation)
-            }
-            HighEntitySelectorOption::YRotation(y_rotation) => {
-                EntitySelectorOption::YRotation(y_rotation)
-            }
-            HighEntitySelectorOption::Scores(scores) => {
-                EntitySelectorOption::Scores(scores.into_iter().collect())
-            }
-            HighEntitySelectorOption::Tag(inverted, tag) => {
-                EntitySelectorOption::Tag(inverted, tag)
-            }
-            HighEntitySelectorOption::Team(inverted, team) => {
-                EntitySelectorOption::Team(inverted, team)
-            }
-            HighEntitySelectorOption::Name(inverted, name) => {
-                EntitySelectorOption::Name(inverted, name)
-            }
-            HighEntitySelectorOption::Type(inverted, type_) => {
-                EntitySelectorOption::Type(inverted, type_)
-            }
-            HighEntitySelectorOption::Predicate(inverted, predicate) => {
+            Self::X(x) => EntitySelectorOption::X(x),
+            Self::Y(y) => EntitySelectorOption::Y(y),
+            Self::Z(z) => EntitySelectorOption::Z(z),
+            Self::Distance(distance) => EntitySelectorOption::Distance(distance),
+            Self::DistanceX(distance_x) => EntitySelectorOption::DistanceX(distance_x),
+            Self::DistanceY(distance_y) => EntitySelectorOption::DistanceY(distance_y),
+            Self::DistanceZ(distance_z) => EntitySelectorOption::DistanceZ(distance_z),
+            Self::XRotation(x_rotation) => EntitySelectorOption::XRotation(x_rotation),
+            Self::YRotation(y_rotation) => EntitySelectorOption::YRotation(y_rotation),
+            Self::Scores(scores) => EntitySelectorOption::Scores(scores.into_iter().collect()),
+            Self::Tag(inverted, tag) => EntitySelectorOption::Tag(inverted, tag),
+            Self::Team(inverted, team) => EntitySelectorOption::Team(inverted, team),
+            Self::Name(inverted, name) => EntitySelectorOption::Name(inverted, name),
+            Self::Type(inverted, type_) => EntitySelectorOption::Type(inverted, type_),
+            Self::Predicate(inverted, predicate) => {
                 EntitySelectorOption::Predicate(inverted, predicate)
             }
-            HighEntitySelectorOption::Nbt(inverted, expression) => {
+            Self::Nbt(inverted, expression) => {
                 let expression = expression.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                 EntitySelectorOption::Nbt(inverted, expression)
             }
-            HighEntitySelectorOption::Gamemode(inverted, gamemode) => {
+            Self::Gamemode(inverted, gamemode) => {
                 EntitySelectorOption::Gamemode(inverted, gamemode)
             }
-            HighEntitySelectorOption::Level(level) => EntitySelectorOption::Level(level),
-            HighEntitySelectorOption::Advancements(advancements) => {
+            Self::Level(level) => EntitySelectorOption::Level(level),
+            Self::Advancements(advancements) => {
                 EntitySelectorOption::Advancements(advancements.into_iter().collect())
             }
-            HighEntitySelectorOption::Limit(limit) => EntitySelectorOption::Limit(limit),
-            HighEntitySelectorOption::Sort(sort) => EntitySelectorOption::Sort(sort),
+            Self::Limit(limit) => EntitySelectorOption::Limit(limit),
+            Self::Sort(sort) => EntitySelectorOption::Sort(sort),
         }
     }
 }

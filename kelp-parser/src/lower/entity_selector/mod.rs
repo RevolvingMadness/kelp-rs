@@ -157,7 +157,7 @@ impl<'a> CSTEntitySelector<'a> {
     }
 
     #[must_use]
-    pub fn cast(node: &'a CSTNodeType) -> Option<CSTEntitySelector<'a>> {
+    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         match node.kind()? {
             SyntaxKind::VariableEntitySelector => {
                 CSTVariableEntitySelector::cast(node).map(CSTEntitySelector::Variable)

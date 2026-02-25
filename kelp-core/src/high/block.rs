@@ -21,14 +21,12 @@ impl HighBlockState {
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
     ) -> Option<()> {
-        if let Some(data_tags) = &self.data_tags {
+        self.data_tags.as_ref().map_or(Some(()), |data_tags| {
             data_tags
                 .values()
                 .map(|data_tag| data_tag.perform_semantic_analysis(ctx, is_lhs, None))
                 .all_some()
-        } else {
-            Some(())
-        }
+        })
     }
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> BlockState {

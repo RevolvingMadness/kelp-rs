@@ -25,16 +25,15 @@ impl HighScoreboardModification {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighScoreboardModification::DisplayName(expression) => {
+            Self::DisplayName(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
             }
-            HighScoreboardModification::NumberFormat(number_format) => {
+            Self::NumberFormat(number_format) => {
                 number_format.as_ref().map_or(Some(()), |number_format| {
                     number_format.perform_semantic_analysis(ctx, is_lhs)
                 })
             }
-            HighScoreboardModification::DisplayAutoUpdate(_)
-            | HighScoreboardModification::RenderType(_) => Some(()),
+            Self::DisplayAutoUpdate(_) | Self::RenderType(_) => Some(()),
         }
     }
 
@@ -44,22 +43,14 @@ impl HighScoreboardModification {
         ctx: &mut CompileContext,
     ) -> ScoreboardModification {
         match self {
-            HighScoreboardModification::DisplayAutoUpdate(value) => {
-                ScoreboardModification::DisplayAutoUpdate(value)
-            }
-            HighScoreboardModification::DisplayName(expression) => {
-                ScoreboardModification::DisplayName(
-                    expression.resolve(datapack, ctx).as_snbt_macros(ctx),
-                )
-            }
-            HighScoreboardModification::NumberFormat(number_format) => {
-                ScoreboardModification::NumberFormat(
-                    number_format.map(|number_format| number_format.compile(datapack, ctx)),
-                )
-            }
-            HighScoreboardModification::RenderType(render_type) => {
-                ScoreboardModification::RenderType(render_type)
-            }
+            Self::DisplayAutoUpdate(value) => ScoreboardModification::DisplayAutoUpdate(value),
+            Self::DisplayName(expression) => ScoreboardModification::DisplayName(
+                expression.resolve(datapack, ctx).as_snbt_macros(ctx),
+            ),
+            Self::NumberFormat(number_format) => ScoreboardModification::NumberFormat(
+                number_format.map(|number_format| number_format.compile(datapack, ctx)),
+            ),
+            Self::RenderType(render_type) => ScoreboardModification::RenderType(render_type),
         }
     }
 }
@@ -80,17 +71,11 @@ impl HighObjectivesScoreboardCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighObjectivesScoreboardCommand::Add(_, _, expression) => {
-                expression.as_ref().map_or(Some(()), |expression| {
-                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
-                })
-            }
-            HighObjectivesScoreboardCommand::List
-            | HighObjectivesScoreboardCommand::Remove(_)
-            | HighObjectivesScoreboardCommand::SetDisplay(_, _) => Some(()),
-            HighObjectivesScoreboardCommand::Modify(_, modification) => {
-                modification.perform_semantic_analysis(ctx, is_lhs)
-            }
+            Self::Add(_, _, expression) => expression.as_ref().map_or(Some(()), |expression| {
+                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
+            }),
+            Self::List | Self::Remove(_) | Self::SetDisplay(_, _) => Some(()),
+            Self::Modify(_, modification) => modification.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 
@@ -100,21 +85,17 @@ impl HighObjectivesScoreboardCommand {
         ctx: &mut CompileContext,
     ) -> ObjectivesScoreboardCommand {
         match self {
-            HighObjectivesScoreboardCommand::List => ObjectivesScoreboardCommand::List,
-            HighObjectivesScoreboardCommand::Add(objective, display_name, expression) => {
-                ObjectivesScoreboardCommand::Add(
-                    objective,
-                    display_name,
-                    expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
-                )
-            }
-            HighObjectivesScoreboardCommand::Remove(objective) => {
-                ObjectivesScoreboardCommand::Remove(objective)
-            }
-            HighObjectivesScoreboardCommand::SetDisplay(objective, display_name) => {
+            Self::List => ObjectivesScoreboardCommand::List,
+            Self::Add(objective, display_name, expression) => ObjectivesScoreboardCommand::Add(
+                objective,
+                display_name,
+                expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
+            ),
+            Self::Remove(objective) => ObjectivesScoreboardCommand::Remove(objective),
+            Self::SetDisplay(objective, display_name) => {
                 ObjectivesScoreboardCommand::SetDisplay(objective, display_name)
             }
-            HighObjectivesScoreboardCommand::Modify(objective, scoreboard_modification) => {
+            Self::Modify(objective, scoreboard_modification) => {
                 ObjectivesScoreboardCommand::Modify(
                     objective,
                     scoreboard_modification.compile(datapack, ctx),

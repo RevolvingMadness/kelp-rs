@@ -36,95 +36,73 @@ pub mod store;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum HighExecuteSubcommand {
-    Align(BTreeSet<Axis>, Box<HighExecuteSubcommand>),
-    Anchored(EntityAnchor, Box<HighExecuteSubcommand>),
-    As(HighEntitySelector, Box<HighExecuteSubcommand>),
-    At(HighEntitySelector, Box<HighExecuteSubcommand>),
-    Facing(HighFacing, Box<HighExecuteSubcommand>),
-    In(ResourceLocation, Box<HighExecuteSubcommand>),
-    On(Relation, Box<HighExecuteSubcommand>),
-    Positioned(HighPositioned, Box<HighExecuteSubcommand>),
-    Rotated(HighRotated, Box<HighExecuteSubcommand>),
-    Summon(ResourceLocation, Box<HighExecuteSubcommand>),
+    Align(BTreeSet<Axis>, Box<Self>),
+    Anchored(EntityAnchor, Box<Self>),
+    As(HighEntitySelector, Box<Self>),
+    At(HighEntitySelector, Box<Self>),
+    Facing(HighFacing, Box<Self>),
+    In(ResourceLocation, Box<Self>),
+    On(Relation, Box<Self>),
+    Positioned(HighPositioned, Box<Self>),
+    Rotated(HighRotated, Box<Self>),
+    Summon(ResourceLocation, Box<Self>),
     If(bool, HighExecuteIfSubcommand),
     Store(StoreType, HighExecuteStoreSubcommand),
     Run(Vec<HighCommand>),
-    Multiple(Vec<HighExecuteSubcommand>),
+    Multiple(Vec<Self>),
 }
 
 impl HighExecuteSubcommand {
     #[must_use]
-    pub fn then(self, next: HighExecuteSubcommand) -> HighExecuteSubcommand {
+    pub fn then(self, next: Self) -> Self {
         match self {
-            HighExecuteSubcommand::Align(btree_set, high_execute_subcommand) => {
-                HighExecuteSubcommand::Align(
-                    btree_set,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
+            Self::Align(btree_set, high_execute_subcommand) => {
+                Self::Align(btree_set, Box::new(high_execute_subcommand.then(next)))
             }
-            HighExecuteSubcommand::Anchored(entity_anchor, high_execute_subcommand) => {
-                HighExecuteSubcommand::Anchored(
-                    entity_anchor,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
+            Self::Anchored(entity_anchor, high_execute_subcommand) => {
+                Self::Anchored(entity_anchor, Box::new(high_execute_subcommand.then(next)))
             }
-            HighExecuteSubcommand::As(entity_selector, high_execute_subcommand) => {
-                HighExecuteSubcommand::As(
-                    entity_selector,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
+            Self::As(entity_selector, high_execute_subcommand) => Self::As(
+                entity_selector,
+                Box::new(high_execute_subcommand.then(next)),
+            ),
+            Self::At(entity_selector, high_execute_subcommand) => Self::At(
+                entity_selector,
+                Box::new(high_execute_subcommand.then(next)),
+            ),
+            Self::Facing(facing, high_execute_subcommand) => {
+                Self::Facing(facing, Box::new(high_execute_subcommand.then(next)))
             }
-            HighExecuteSubcommand::At(entity_selector, high_execute_subcommand) => {
-                HighExecuteSubcommand::At(
-                    entity_selector,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
+            Self::In(resource_location, high_execute_subcommand) => Self::In(
+                resource_location,
+                Box::new(high_execute_subcommand.then(next)),
+            ),
+            Self::On(relation, high_execute_subcommand) => {
+                Self::On(relation, Box::new(high_execute_subcommand.then(next)))
             }
-            HighExecuteSubcommand::Facing(facing, high_execute_subcommand) => {
-                HighExecuteSubcommand::Facing(facing, Box::new(high_execute_subcommand.then(next)))
+            Self::Positioned(positioned, high_execute_subcommand) => {
+                Self::Positioned(positioned, Box::new(high_execute_subcommand.then(next)))
             }
-            HighExecuteSubcommand::In(resource_location, high_execute_subcommand) => {
-                HighExecuteSubcommand::In(
-                    resource_location,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
+            Self::Rotated(rotated, high_execute_subcommand) => {
+                Self::Rotated(rotated, Box::new(high_execute_subcommand.then(next)))
             }
-            HighExecuteSubcommand::On(relation, high_execute_subcommand) => {
-                HighExecuteSubcommand::On(relation, Box::new(high_execute_subcommand.then(next)))
+            Self::Summon(resource_location, high_execute_subcommand) => Self::Summon(
+                resource_location,
+                Box::new(high_execute_subcommand.then(next)),
+            ),
+            Self::If(inverted, high_execute_if_subcommand) => {
+                Self::If(inverted, high_execute_if_subcommand.then(next))
             }
-            HighExecuteSubcommand::Positioned(positioned, high_execute_subcommand) => {
-                HighExecuteSubcommand::Positioned(
-                    positioned,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
+            Self::Store(store_type, high_execute_store_subcommand) => {
+                Self::Store(store_type, high_execute_store_subcommand.then(next))
             }
-            HighExecuteSubcommand::Rotated(rotated, high_execute_subcommand) => {
-                HighExecuteSubcommand::Rotated(
-                    rotated,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
-            }
-            HighExecuteSubcommand::Summon(resource_location, high_execute_subcommand) => {
-                HighExecuteSubcommand::Summon(
-                    resource_location,
-                    Box::new(high_execute_subcommand.then(next)),
-                )
-            }
-            HighExecuteSubcommand::If(inverted, high_execute_if_subcommand) => {
-                HighExecuteSubcommand::If(inverted, high_execute_if_subcommand.then(next))
-            }
-            HighExecuteSubcommand::Store(store_type, high_execute_store_subcommand) => {
-                HighExecuteSubcommand::Store(store_type, high_execute_store_subcommand.then(next))
-            }
-            HighExecuteSubcommand::Run(_) => next.then(self),
-            HighExecuteSubcommand::Multiple(high_execute_subcommands) => {
-                HighExecuteSubcommand::Multiple(
-                    high_execute_subcommands
-                        .into_iter()
-                        .map(|subcommand| subcommand.then(next.clone()))
-                        .collect(),
-                )
-            }
+            Self::Run(_) => next.then(self),
+            Self::Multiple(high_execute_subcommands) => Self::Multiple(
+                high_execute_subcommands
+                    .into_iter()
+                    .map(|subcommand| subcommand.then(next.clone()))
+                    .collect(),
+            ),
         }
     }
 
@@ -134,8 +112,7 @@ impl HighExecuteSubcommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighExecuteSubcommand::As(selector, next)
-            | HighExecuteSubcommand::At(selector, next) => {
+            Self::As(selector, next) | Self::At(selector, next) => {
                 let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
                 let next_result = next.perform_semantic_analysis(ctx, is_lhs);
 
@@ -144,27 +121,23 @@ impl HighExecuteSubcommand {
 
                 Some(())
             }
-            HighExecuteSubcommand::Positioned(_, next) => {
-                next.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighExecuteSubcommand::Align(_, next)
-            | HighExecuteSubcommand::Anchored(_, next)
-            | HighExecuteSubcommand::Facing(_, next)
-            | HighExecuteSubcommand::In(_, next)
-            | HighExecuteSubcommand::On(_, next)
-            | HighExecuteSubcommand::Rotated(_, next)
-            | HighExecuteSubcommand::Summon(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            HighExecuteSubcommand::If(_, if_subcommand) => {
-                if_subcommand.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighExecuteSubcommand::Store(_, store_subcommand) => {
+            Self::Positioned(_, next)
+            | Self::Align(_, next)
+            | Self::Anchored(_, next)
+            | Self::Facing(_, next)
+            | Self::In(_, next)
+            | Self::On(_, next)
+            | Self::Rotated(_, next)
+            | Self::Summon(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            Self::If(_, if_subcommand) => if_subcommand.perform_semantic_analysis(ctx, is_lhs),
+            Self::Store(_, store_subcommand) => {
                 store_subcommand.perform_semantic_analysis(ctx, is_lhs)
             }
-            HighExecuteSubcommand::Run(commands) => commands
+            Self::Run(commands) => commands
                 .iter()
                 .map(|command| command.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
-            HighExecuteSubcommand::Multiple(subcommands) => subcommands
+            Self::Multiple(subcommands) => subcommands
                 .iter()
                 .map(|subcommand| subcommand.perform_semantic_analysis(ctx, is_lhs))
                 .all_some(),
@@ -177,58 +150,58 @@ impl HighExecuteSubcommand {
         ctx: &mut CompileContext,
     ) -> Option<ExecuteSubcommand> {
         match self {
-            HighExecuteSubcommand::Align(axes, next) => next
+            Self::Align(axes, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteSubcommand::Align(axes, Box::new(next))),
-            HighExecuteSubcommand::Anchored(anchor, next) => next
+            Self::Anchored(anchor, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteSubcommand::Anchored(anchor, Box::new(next))),
-            HighExecuteSubcommand::As(selector, next) => {
+            Self::As(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
 
                 next.compile(datapack, ctx)
                     .map(|next| ExecuteSubcommand::As(selector, Box::new(next)))
             }
-            HighExecuteSubcommand::At(selector, next) => {
+            Self::At(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
 
                 next.compile(datapack, ctx)
                     .map(|next| ExecuteSubcommand::At(selector, Box::new(next)))
             }
-            HighExecuteSubcommand::Facing(facing, next) => {
+            Self::Facing(facing, next) => {
                 let facing = facing.compile(datapack, ctx);
 
                 next.compile(datapack, ctx)
                     .map(|next| ExecuteSubcommand::Facing(facing, Box::new(next)))
             }
-            HighExecuteSubcommand::In(location, next) => next
+            Self::In(location, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteSubcommand::In(location, Box::new(next))),
-            HighExecuteSubcommand::On(relation, next) => next
+            Self::On(relation, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteSubcommand::On(relation, Box::new(next))),
-            HighExecuteSubcommand::Positioned(positioned, next) => {
+            Self::Positioned(positioned, next) => {
                 let positioned = positioned.compile(datapack, ctx);
 
                 next.compile(datapack, ctx)
                     .map(|next| ExecuteSubcommand::Positioned(positioned, Box::new(next)))
             }
-            HighExecuteSubcommand::Rotated(rotated, next) => {
+            Self::Rotated(rotated, next) => {
                 let rotated = rotated.compile(datapack, ctx);
 
                 next.compile(datapack, ctx)
                     .map(|next| ExecuteSubcommand::Rotated(rotated, Box::new(next)))
             }
-            HighExecuteSubcommand::Summon(entity_id, next) => next
+            Self::Summon(entity_id, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteSubcommand::Summon(entity_id, Box::new(next))),
-            HighExecuteSubcommand::If(is_if, next) => next
+            Self::If(is_if, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteSubcommand::If(is_if, next)),
-            HighExecuteSubcommand::Store(store_type, next) => next
+            Self::Store(store_type, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteSubcommand::Store(store_type, next)),
-            HighExecuteSubcommand::Run(commands) => {
+            Self::Run(commands) => {
                 let mut commands = commands
                     .into_iter()
                     .filter_map(|command| command.compile(datapack, ctx))
@@ -240,7 +213,7 @@ impl HighExecuteSubcommand {
 
                 last.map(|next| ExecuteSubcommand::Run(Box::new(next)))
             }
-            HighExecuteSubcommand::Multiple(subcommands) => {
+            Self::Multiple(subcommands) => {
                 let mut subcommands = subcommands
                     .into_iter()
                     .filter_map(|subcommand| subcommand.compile(datapack, ctx))

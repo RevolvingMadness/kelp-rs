@@ -5,7 +5,7 @@ macro_rules! cst_node {
         pub struct $name<'a>(pub &'a $crate::cstlib::CSTNodeType);
 
         impl<'a> $name<'a> {
-            pub fn cast(node: &'a $crate::cstlib::CSTNodeType) -> Option<Self> {
+            pub const fn cast(node: &'a $crate::cstlib::CSTNodeType) -> Option<Self> {
                 if matches!(node.kind(), Some($kind)) {
                     Some(Self(node))
                 } else {
@@ -13,7 +13,7 @@ macro_rules! cst_node {
                 }
             }
 
-            pub fn span(&self) -> kelp_core::span::Span {
+            pub const fn span(&self) -> kelp_core::span::Span {
                 self.0.span()
             }
 

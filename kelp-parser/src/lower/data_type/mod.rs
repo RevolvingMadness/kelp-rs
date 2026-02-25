@@ -34,9 +34,8 @@ pub enum CSTDataTypeKind<'a> {
 }
 
 impl<'a> CSTDataTypeKind<'a> {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> CSTDataType<'a> {
+    pub const fn with_span(self, span: Span) -> CSTDataType<'a> {
         CSTDataType { span, kind: self }
     }
 }

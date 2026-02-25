@@ -15,8 +15,8 @@ pub enum HighRotated {
 impl HighRotated {
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Rotated {
         match self {
-            HighRotated::Rotation(rotation) => Rotated::Rotation(rotation),
-            HighRotated::As(selector) => Rotated::As(selector.compile(datapack, ctx)),
+            Self::Rotation(rotation) => Rotated::Rotation(rotation),
+            Self::As(selector) => Rotated::As(selector.compile(datapack, ctx)),
         }
     }
 }

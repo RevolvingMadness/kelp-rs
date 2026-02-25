@@ -19,9 +19,9 @@ pub enum HighPositioned {
 impl HighPositioned {
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Positioned {
         match self {
-            HighPositioned::Position(position) => Positioned::Position(position),
-            HighPositioned::As(selector) => Positioned::As(selector.compile(datapack, ctx)),
-            HighPositioned::Over(heightmap) => Positioned::Over(heightmap),
+            Self::Position(position) => Positioned::Position(position),
+            Self::As(selector) => Positioned::As(selector.compile(datapack, ctx)),
+            Self::Over(heightmap) => Positioned::Over(heightmap),
         }
     }
 }

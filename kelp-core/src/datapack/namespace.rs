@@ -38,10 +38,9 @@ fn join_non_empty(non_empty: &NonEmpty<String>, separator: &str) -> String {
 }
 
 impl HighNamespace {
-    #[inline]
     #[must_use]
-    pub fn new(name: String) -> HighNamespace {
-        HighNamespace {
+    pub const fn new(name: String) -> Self {
+        Self {
             name,
             functions: BTreeMap::new(),
             function_stack: Vec::new(),
@@ -52,7 +51,7 @@ impl HighNamespace {
 
     pub fn within_function<F>(&mut self, paths: NonEmpty<String>, function: F)
     where
-        F: FnOnce(&mut HighNamespace),
+        F: FnOnce(&mut Self),
     {
         self.function_stack.push(paths);
 

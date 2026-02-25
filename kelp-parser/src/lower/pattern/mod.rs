@@ -30,9 +30,8 @@ pub enum CSTPatternKind<'a> {
 }
 
 impl<'a> CSTPatternKind<'a> {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> CSTPattern<'a> {
+    pub const fn with_span(self, span: Span) -> CSTPattern<'a> {
         CSTPattern { span, kind: self }
     }
 }
@@ -143,7 +142,7 @@ impl<'a> CSTPattern<'a> {
     }
 
     #[must_use]
-    pub fn cast(node: &'a CSTNodeType) -> Option<CSTPattern<'a>> {
+    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         Some(
             (match node.kind()? {
                 SyntaxKind::WildcardPattern => {

@@ -30,9 +30,8 @@ pub enum CSTDataTargetKind<'a> {
 }
 
 impl<'a> CSTDataTargetKind<'a> {
-    #[inline]
     #[must_use]
-    pub fn with_span(self, span: Span) -> CSTDataTarget<'a> {
+    pub const fn with_span(self, span: Span) -> CSTDataTarget<'a> {
         CSTDataTarget { span, kind: self }
     }
 }
@@ -94,7 +93,7 @@ impl<'a> CSTDataTarget<'a> {
     }
 
     #[must_use]
-    pub fn cast(node: &'a CSTNodeType) -> Option<CSTDataTarget<'a>> {
+    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
         Some(
             (match node.kind()? {
                 SyntaxKind::EntityDataTarget => {

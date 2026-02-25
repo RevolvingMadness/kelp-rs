@@ -20,15 +20,15 @@ impl HighScoreComparison {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighScoreComparison::Range(_) => Some(()),
-            HighScoreComparison::Score(_, score) => score.perform_semantic_analysis(ctx, is_lhs),
+            Self::Range(_) => Some(()),
+            Self::Score(_, score) => score.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> ScoreComparison {
         match self {
-            HighScoreComparison::Range(range) => ScoreComparison::Range(range),
-            HighScoreComparison::Score(operator, player_score) => {
+            Self::Range(range) => ScoreComparison::Range(range),
+            Self::Score(operator, player_score) => {
                 ScoreComparison::Score(operator, player_score.compile(datapack, ctx).score)
             }
         }

@@ -37,35 +37,26 @@ pub enum HighExecuteStoreSubcommand {
 
 impl HighExecuteStoreSubcommand {
     #[must_use]
-    pub fn then(self, next: HighExecuteSubcommand) -> HighExecuteStoreSubcommand {
+    pub fn then(self, next: HighExecuteSubcommand) -> Self {
         match self {
-            HighExecuteStoreSubcommand::Data(
-                target,
-                path,
-                numeric_snbt_type,
-                scale,
-                high_execute_subcommand,
-            ) => HighExecuteStoreSubcommand::Data(
-                target,
-                path,
-                numeric_snbt_type,
-                scale,
-                Box::new(high_execute_subcommand.then(next)),
-            ),
-            HighExecuteStoreSubcommand::Bossbar(
-                resource_location,
-                bossbar_store_type,
-                high_execute_subcommand,
-            ) => HighExecuteStoreSubcommand::Bossbar(
-                resource_location,
-                bossbar_store_type,
-                Box::new(high_execute_subcommand.then(next)),
-            ),
-            HighExecuteStoreSubcommand::Score(player_score, high_execute_subcommand) => {
-                HighExecuteStoreSubcommand::Score(
-                    player_score,
+            Self::Data(target, path, numeric_snbt_type, scale, high_execute_subcommand) => {
+                Self::Data(
+                    target,
+                    path,
+                    numeric_snbt_type,
+                    scale,
                     Box::new(high_execute_subcommand.then(next)),
                 )
+            }
+            Self::Bossbar(resource_location, bossbar_store_type, high_execute_subcommand) => {
+                Self::Bossbar(
+                    resource_location,
+                    bossbar_store_type,
+                    Box::new(high_execute_subcommand.then(next)),
+                )
+            }
+            Self::Score(player_score, high_execute_subcommand) => {
+                Self::Score(player_score, Box::new(high_execute_subcommand.then(next)))
             }
         }
     }
@@ -76,7 +67,7 @@ impl HighExecuteStoreSubcommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighExecuteStoreSubcommand::Data(target, path, _, _, next) => {
+            Self::Data(target, path, _, _, next) => {
                 let target = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path = path.perform_semantic_analysis(ctx, is_lhs);
                 let next = next.perform_semantic_analysis(ctx, is_lhs);
@@ -87,10 +78,8 @@ impl HighExecuteStoreSubcommand {
 
                 Some(())
             }
-            HighExecuteStoreSubcommand::Bossbar(_, _, next) => {
-                next.perform_semantic_analysis(ctx, is_lhs)
-            }
-            HighExecuteStoreSubcommand::Score(score, next) => {
+            Self::Bossbar(_, _, next) => next.perform_semantic_analysis(ctx, is_lhs),
+            Self::Score(score, next) => {
                 let score = score.perform_semantic_analysis(ctx, is_lhs);
                 let next = next.perform_semantic_analysis(ctx, is_lhs);
 
@@ -108,7 +97,7 @@ impl HighExecuteStoreSubcommand {
         ctx: &mut CompileContext,
     ) -> Option<ExecuteStoreSubcommand> {
         match self {
-            HighExecuteStoreSubcommand::Data(target, path, numeric_snbt_type, scale, next) => {
+            Self::Data(target, path, numeric_snbt_type, scale, next) => {
                 next.compile(datapack, ctx).map(|next| {
                     let target = target.compile(datapack, ctx);
                     let path = path.compile(datapack, ctx);
@@ -122,10 +111,10 @@ impl HighExecuteStoreSubcommand {
                     )
                 })
             }
-            HighExecuteStoreSubcommand::Bossbar(location, store_type, next) => next
+            Self::Bossbar(location, store_type, next) => next
                 .compile(datapack, ctx)
                 .map(|next| ExecuteStoreSubcommand::Bossbar(location, store_type, Box::new(next))),
-            HighExecuteStoreSubcommand::Score(score, next) => {
+            Self::Score(score, next) => {
                 let score = score.compile(datapack, ctx);
 
                 next.compile(datapack, ctx)

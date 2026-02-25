@@ -24,8 +24,8 @@ pub struct CompileContext {
 impl CompileContext {
     #[inline]
     #[must_use]
-    pub fn create_child_ctx(&mut self) -> CompileContext {
-        CompileContext {
+    pub fn create_child_ctx(&mut self) -> Self {
+        Self {
             macro_data: self.macro_data.clone(),
             macro_counter: self.macro_counter,
             ..Default::default()
@@ -37,9 +37,8 @@ impl CompileContext {
         self.commands.clone()
     }
 
-    #[inline]
     #[must_use]
-    pub fn num_commands(&self) -> usize {
+    pub const fn num_commands(&self) -> usize {
         self.commands.len()
     }
 
@@ -70,7 +69,7 @@ impl CompileContext {
             );
         }
 
-        let mut unique_function_ctx = CompileContext {
+        let mut unique_function_ctx = Self {
             macro_data: Some((target.clone(), path.clone())),
             ..Default::default()
         };
@@ -119,11 +118,11 @@ impl CompileContext {
     }
 
     #[inline]
-    pub fn extend_context(&mut self, other: CompileContext) {
+    pub fn extend_context(&mut self, other: Self) {
         self.commands.extend(other.commands);
     }
 
-    pub fn increment_macro(&mut self) -> usize {
+    pub const fn increment_macro(&mut self) -> usize {
         self.macro_counter += 1;
 
         self.macro_counter - 1

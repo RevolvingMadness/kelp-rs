@@ -48,21 +48,19 @@ impl HighCommand {
         is_lhs: bool,
     ) -> Option<()> {
         match self {
-            HighCommand::Regular(_command) => {
+            Self::Regular(_command) => {
                 // TODO future
 
                 Some(())
             }
-            HighCommand::Data(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            HighCommand::Difficulty(_) => Some(()),
-            HighCommand::Enchant(selector, _, _) => selector.perform_semantic_analysis(ctx, is_lhs),
-            HighCommand::Execute(subcommand) => subcommand.perform_semantic_analysis(ctx, is_lhs),
-            HighCommand::Function(_, arguments) => {
-                arguments.as_ref().map_or(Some(()), |arguments| {
-                    arguments.perform_semantic_analysis(ctx, is_lhs)
-                })
-            }
-            HighCommand::Tellraw(selector, expression) => {
+            Self::Data(command) => command.perform_semantic_analysis(ctx, is_lhs),
+            Self::Difficulty(_) => Some(()),
+            Self::Enchant(selector, _, _) => selector.perform_semantic_analysis(ctx, is_lhs),
+            Self::Execute(subcommand) => subcommand.perform_semantic_analysis(ctx, is_lhs),
+            Self::Function(_, arguments) => arguments.as_ref().map_or(Some(()), |arguments| {
+                arguments.perform_semantic_analysis(ctx, is_lhs)
+            }),
+            Self::Tellraw(selector, expression) => {
                 let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
                 let expression_result =
                     expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT));
@@ -72,39 +70,37 @@ impl HighCommand {
 
                 Some(())
             }
-            HighCommand::Return(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            HighCommand::Scoreboard(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            HighCommand::Summon(_, _, expression) => {
-                expression.as_ref().map_or(Some(()), |expression| {
-                    expression.perform_semantic_analysis(
-                        ctx,
-                        is_lhs,
-                        Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
-                    )
-                })
-            }
+            Self::Return(command) => command.perform_semantic_analysis(ctx, is_lhs),
+            Self::Scoreboard(command) => command.perform_semantic_analysis(ctx, is_lhs),
+            Self::Summon(_, _, expression) => expression.as_ref().map_or(Some(()), |expression| {
+                expression.perform_semantic_analysis(
+                    ctx,
+                    is_lhs,
+                    Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
+                )
+            }),
         }
     }
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Command> {
         match self {
-            HighCommand::Regular(command) => Some(command),
-            HighCommand::Data(data_command) => data_command.compile(datapack, ctx),
-            HighCommand::Difficulty(difficulty) => Some(Command::Difficulty(difficulty)),
-            HighCommand::Enchant(selector, location, level) => Some(Command::Enchant(
+            Self::Regular(command) => Some(command),
+            Self::Data(data_command) => data_command.compile(datapack, ctx),
+            Self::Difficulty(difficulty) => Some(Command::Difficulty(difficulty)),
+            Self::Enchant(selector, location, level) => Some(Command::Enchant(
                 selector.compile(datapack, ctx),
                 location,
                 level,
             )),
-            HighCommand::Execute(execute_subcommand) => execute_subcommand
+            Self::Execute(execute_subcommand) => execute_subcommand
                 .compile(datapack, ctx)
                 .map(Command::Execute),
-            HighCommand::Function(id, arguments) => {
+            Self::Function(id, arguments) => {
                 let compiled_arguments =
                     arguments.map(|arguments| arguments.compile(datapack, ctx));
                 Some(Command::Function(id, compiled_arguments))
             }
-            HighCommand::Tellraw(selector, expression) => {
+            Self::Tellraw(selector, expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
                 Some(Command::Tellraw(
@@ -112,7 +108,7 @@ impl HighCommand {
                     expression.as_text_component(datapack, ctx, false),
                 ))
             }
-            HighCommand::Return(command) => match command {
+            Self::Return(command) => match command {
                 HighReturnCommand::Fail | HighReturnCommand::Value(0) => {
                     Some(Command::Return(ReturnCommand::Fail))
                 }
@@ -125,10 +121,8 @@ impl HighCommand {
                     })
                 }
             },
-            HighCommand::Scoreboard(command) => {
-                Some(Command::Scoreboard(command.compile(datapack, ctx)))
-            }
-            HighCommand::Summon(entity, position, nbt) => Some(Command::Summon(
+            Self::Scoreboard(command) => Some(Command::Scoreboard(command.compile(datapack, ctx))),
+            Self::Summon(entity, position, nbt) => Some(Command::Summon(
                 entity,
                 position,
                 nbt.map(|nbt| nbt.resolve(datapack, ctx).as_snbt_macros(ctx)),

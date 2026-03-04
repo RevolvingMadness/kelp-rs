@@ -95,30 +95,31 @@ impl HighExecuteStoreSubcommand {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-    ) -> Option<ExecuteStoreSubcommand> {
+    ) -> ExecuteStoreSubcommand {
         match self {
             Self::Data(target, path, numeric_snbt_type, scale, next) => {
-                next.compile(datapack, ctx).map(|next| {
-                    let target = target.compile(datapack, ctx);
-                    let path = path.compile(datapack, ctx);
+                let target = target.compile(datapack, ctx);
+                let path = path.compile(datapack, ctx);
+                let next = next.compile(datapack, ctx);
 
-                    ExecuteStoreSubcommand::Data(
-                        target.target,
-                        path,
-                        numeric_snbt_type,
-                        scale,
-                        Box::new(next),
-                    )
-                })
+                ExecuteStoreSubcommand::Data(
+                    target.target,
+                    path,
+                    numeric_snbt_type,
+                    scale,
+                    Box::new(next),
+                )
             }
-            Self::Bossbar(location, store_type, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteStoreSubcommand::Bossbar(location, store_type, Box::new(next))),
+            Self::Bossbar(location, store_type, next) => ExecuteStoreSubcommand::Bossbar(
+                location,
+                store_type,
+                Box::new(next.compile(datapack, ctx)),
+            ),
             Self::Score(score, next) => {
                 let score = score.compile(datapack, ctx);
+                let next = next.compile(datapack, ctx);
 
-                next.compile(datapack, ctx)
-                    .map(|next| ExecuteStoreSubcommand::Score(score.score, Box::new(next)))
+                ExecuteStoreSubcommand::Score(score.score, Box::new(next))
             }
         }
     }

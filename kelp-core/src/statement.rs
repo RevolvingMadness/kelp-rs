@@ -107,9 +107,7 @@ impl StatementKind {
                 });
             }
             Self::Expression(expression) => {
-                expression
-                    .resolve(datapack, ctx)
-                    .compile_as_statement(datapack, ctx);
+                expression.compile_as_statement(datapack, ctx);
             }
             Self::Let(data_type, pattern, value) => {
                 #[allow(clippy::map_unwrap_or)]

@@ -82,51 +82,45 @@ impl HighCommand {
         }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Command> {
+    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Command {
         match self {
-            Self::Regular(command) => Some(command),
+            Self::Regular(command) => command,
             Self::Data(data_command) => data_command.compile(datapack, ctx),
-            Self::Difficulty(difficulty) => Some(Command::Difficulty(difficulty)),
-            Self::Enchant(selector, location, level) => Some(Command::Enchant(
-                selector.compile(datapack, ctx),
-                location,
-                level,
-            )),
-            Self::Execute(execute_subcommand) => execute_subcommand
-                .compile(datapack, ctx)
-                .map(Command::Execute),
+            Self::Difficulty(difficulty) => Command::Difficulty(difficulty),
+            Self::Enchant(selector, location, level) => {
+                Command::Enchant(selector.compile(datapack, ctx), location, level)
+            }
+            Self::Execute(execute_subcommand) => {
+                Command::Execute(execute_subcommand.compile(datapack, ctx))
+            }
             Self::Function(id, arguments) => {
                 let compiled_arguments =
                     arguments.map(|arguments| arguments.compile(datapack, ctx));
-                Some(Command::Function(id, compiled_arguments))
+                Command::Function(id, compiled_arguments)
             }
             Self::Tellraw(selector, expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
-                Some(Command::Tellraw(
+                Command::Tellraw(
                     selector.compile(datapack, ctx),
                     expression.as_text_component(datapack, ctx, false),
-                ))
+                )
             }
             Self::Return(command) => match command {
                 HighReturnCommand::Fail | HighReturnCommand::Value(0) => {
-                    Some(Command::Return(ReturnCommand::Fail))
+                    Command::Return(ReturnCommand::Fail)
                 }
-                HighReturnCommand::Value(value) => {
-                    Some(Command::Return(ReturnCommand::Value(value)))
-                }
+                HighReturnCommand::Value(value) => Command::Return(ReturnCommand::Value(value)),
                 HighReturnCommand::Run(command) => {
-                    command.compile(datapack, ctx).map(|compiled_command| {
-                        Command::Return(ReturnCommand::Run(Box::new(compiled_command)))
-                    })
+                    Command::Return(ReturnCommand::Run(Box::new(command.compile(datapack, ctx))))
                 }
             },
-            Self::Scoreboard(command) => Some(Command::Scoreboard(command.compile(datapack, ctx))),
-            Self::Summon(entity, position, nbt) => Some(Command::Summon(
+            Self::Scoreboard(command) => Command::Scoreboard(command.compile(datapack, ctx)),
+            Self::Summon(entity, position, nbt) => Command::Summon(
                 entity,
                 position,
                 nbt.map(|nbt| nbt.resolve(datapack, ctx).as_snbt_macros(ctx)),
-            )),
+            ),
         }
     }
 }

@@ -1,5 +1,10 @@
 use std::collections::BTreeMap;
 
+use minecraft_command_types::command::{
+    Command,
+    enums::store_type::StoreType,
+    execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
+};
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
@@ -241,6 +246,22 @@ pub struct Expression {
 }
 
 impl Expression {
+    pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
+        #[allow(clippy::single_match_else)]
+        match self.kind {
+            ExpressionKind::Command(command) => {
+                let command = command.compile(datapack, ctx);
+
+                ctx.add_command(datapack, command);
+            }
+            _ => {
+                let self_ = self.resolve(datapack, ctx);
+
+                self_.compile_as_statement(datapack, ctx);
+            }
+        }
+    }
+
     pub fn as_place(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Place {
         match self.kind {
             ExpressionKind::Constant(expression) => expression.kind.as_place(),
@@ -955,16 +976,27 @@ impl Expression {
                 ConstantExpressionKind::Data(target, path)
             }
             ExpressionKind::Condition(inverted, condition) => {
-                // TODO why optional?
-                let condition = condition.compile(datapack, ctx).unwrap();
+                let condition = condition.compile(datapack, ctx);
 
                 ConstantExpressionKind::Condition(inverted, condition)
             }
             ExpressionKind::Command(command) => {
-                // TODO why optional?
-                let command = command.compile(datapack, ctx).unwrap();
+                let command = command.compile(datapack, ctx);
 
-                ConstantExpressionKind::Command(command)
+                let unique_score = datapack.get_unique_score();
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.score.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
+                        ),
+                    )),
+                );
+
+                ConstantExpressionKind::PlayerScore(unique_score)
             }
             ExpressionKind::Index(target, index) => {
                 let target = target.resolve(datapack, ctx);

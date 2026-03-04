@@ -255,57 +255,51 @@ impl HighExecuteIfSubcommand {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-    ) -> Option<ExecuteIfSubcommand> {
+    ) -> ExecuteIfSubcommand {
         match self {
             Self::Biome(coords, biome, next) => {
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
-                Some(ExecuteIfSubcommand::Biome(coords, biome, next))
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                ExecuteIfSubcommand::Biome(coords, biome, next)
             }
             Self::Block(coordinates, state, next) => {
                 let state = state.compile(datapack, ctx);
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
-                Some(ExecuteIfSubcommand::Block(coordinates, state, next))
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                ExecuteIfSubcommand::Block(coordinates, state, next)
             }
             Self::Blocks(start, end, destination, mode, next) => {
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
-                Some(ExecuteIfSubcommand::Blocks(
-                    start,
-                    end,
-                    destination,
-                    mode,
-                    next,
-                ))
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                ExecuteIfSubcommand::Blocks(start, end, destination, mode, next)
             }
             Self::Data(target, path, next) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                Some(ExecuteIfSubcommand::Data(target.target, path, next))
+                ExecuteIfSubcommand::Data(target.target, path, next)
             }
             Self::Dimension(location, next) => {
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
-                Some(ExecuteIfSubcommand::Dimension(location, next))
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                ExecuteIfSubcommand::Dimension(location, next)
             }
             Self::Entity(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
 
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                Some(ExecuteIfSubcommand::Entity(selector, next))
+                ExecuteIfSubcommand::Entity(selector, next)
             }
             Self::Function(location, next) => {
-                let next = next.map(|next| next.compile(datapack, ctx).map(Box::new));
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                if let Some(next) = next.flatten() {
-                    Some(ExecuteIfSubcommand::Function(location, next))
+                if let Some(next) = next {
+                    ExecuteIfSubcommand::Function(location, next)
                 } else {
                     let mut req = datapack.requirements.get();
                     req.always_succeed_predicate = true;
                     datapack.requirements.set(req);
 
-                    Some(ExecuteIfSubcommand::Function(
+                    ExecuteIfSubcommand::Function(
                         location,
                         Box::new(ExecuteSubcommand::If(
                             false,
@@ -314,34 +308,30 @@ impl HighExecuteIfSubcommand {
                                 None,
                             ),
                         )),
-                    ))
+                    )
                 }
             }
             Self::Items(source, name, predicate, next) => {
                 let source = source.compile(datapack, ctx);
                 let predicate = predicate.compile(datapack, ctx);
 
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                Some(ExecuteIfSubcommand::Items(source, name, predicate, next))
+                ExecuteIfSubcommand::Items(source, name, predicate, next)
             }
             Self::Loaded(position, next) => {
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
-                Some(ExecuteIfSubcommand::Loaded(position, next))
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                ExecuteIfSubcommand::Loaded(position, next)
             }
             Self::Predicate(location, next) => {
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
-                Some(ExecuteIfSubcommand::Predicate(location, next))
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                ExecuteIfSubcommand::Predicate(location, next)
             }
             Self::Score(score, comparison, next) => {
                 let score = score.compile(datapack, ctx);
-                let next = next.and_then(|next| next.compile(datapack, ctx).map(Box::new));
+                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                Some(ExecuteIfSubcommand::Score(
-                    score.score,
-                    comparison.compile(datapack, ctx),
-                    next,
-                ))
+                ExecuteIfSubcommand::Score(score.score, comparison.compile(datapack, ctx), next)
             }
         }
     }

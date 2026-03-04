@@ -114,7 +114,6 @@ pub enum ConstantExpressionKind {
     PlayerScore(GeneratedPlayerScore),
     Data(GeneratedDataTarget, NbtPath),
     Condition(bool, ExecuteIfSubcommand),
-    Command(Command),
     Tuple(Vec<ConstantExpression>),
     Dereference(Box<ConstantExpression>),
     Reference(Box<ConstantExpression>),
@@ -200,7 +199,6 @@ impl ConstantExpressionKind {
             | Self::List(_)
             | Self::Compound(_)
             | Self::Condition(_, _)
-            | Self::Command(_)
             | Self::Tuple(_)
             | Self::Underscore
             | Self::Unit
@@ -265,7 +263,6 @@ impl ConstantExpressionKind {
             Self::PlayerScore(_) => DataTypeKind::Score,
             Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             Self::Condition(_, _) => DataTypeKind::Boolean,
-            Self::Command(_) => DataTypeKind::Integer,
             Self::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
                     .iter()
@@ -336,9 +333,6 @@ impl ConstantExpressionKind {
                     Command::Execute(ExecuteSubcommand::If(*inverted, condition.clone())),
                 );
             }
-            Self::Command(command) => {
-                ctx.add_command(datapack, command.clone());
-            }
             Self::Literal(_) | Self::PlayerScore(_) | Self::Data(_, _) | Self::Unit => {}
             Self::Reference(expression) | Self::Dereference(expression) => {
                 expression.kind.compile_as_statement(datapack, ctx);
@@ -376,7 +370,7 @@ impl ConstantExpressionKind {
         }
 
         match self {
-            Self::PlayerScore(player_score) if !force => player_score,
+            Self::PlayerScore(player_score) if !force || player_score.is_generated => player_score,
             _ => {
                 let unique_score = datapack.get_unique_score();
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -525,7 +519,6 @@ impl ConstantExpressionKind {
             | Self::List(_)
             | Self::PlayerScore(_)
             | Self::Condition(_, _)
-            | Self::Command(_)
             | Self::Unit
             | Self::Variable(_)
             | Self::Dereference(_) => {
@@ -776,7 +769,6 @@ impl ConstantExpressionKind {
                 )
                 .into_dummy_constant_expression()
                 .into_constant_expression()
-                .resolve(datapack, ctx)
                 .compile_as_statement(datapack, ctx);
 
                 Self::PlayerScore(unique_score)
@@ -970,29 +962,6 @@ impl ConstantExpressionKind {
                 )
             }
             Self::Condition(inner_inverted, condition) => (inverted ^ inner_inverted, condition),
-            Self::Command(command) => {
-                let unique_score = datapack.get_unique_score();
-
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
-                        ),
-                    )),
-                );
-
-                (
-                    !inverted,
-                    ExecuteIfSubcommand::Score(
-                        unique_score.score,
-                        ScoreComparison::Range(IntegerRange::new_single(0)),
-                        None,
-                    ),
-                )
-            }
             Self::Variable(name) => datapack
                 .get_variable(&name)
                 .unwrap()
@@ -1066,7 +1035,7 @@ impl ConstantExpressionKind {
                     })
                     .collect(),
             ),
-            Self::Condition(_, _) | Self::Command(_) => {
+            Self::Condition(_, _) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -1212,18 +1181,6 @@ impl ConstantExpressionKind {
                         ExecuteStoreSubcommand::Score(
                             target.score,
                             Box::new(ExecuteSubcommand::If(inverted, condition)),
-                        ),
-                    )),
-                );
-            }
-            Self::Command(command) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            target.score,
-                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
                         ),
                     )),
                 );
@@ -1375,21 +1332,6 @@ impl ConstantExpressionKind {
                             NumericSNBTType::Integer,
                             NotNan::new(1.0).unwrap(),
                             Box::new(ExecuteSubcommand::If(inverted, execute_if_subcommand)),
-                        ),
-                    )),
-                );
-            }
-            Self::Command(command) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Data(
-                            target.target,
-                            path,
-                            NumericSNBTType::Integer,
-                            NotNan::new(1.0).unwrap(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
                         ),
                     )),
                 );
@@ -1660,7 +1602,6 @@ impl ConstantExpression {
             | ConstantExpressionKind::List(_)
             | ConstantExpressionKind::Compound(_)
             | ConstantExpressionKind::Condition(_, _)
-            | ConstantExpressionKind::Command(_)
             | ConstantExpressionKind::Tuple(_)
             | ConstantExpressionKind::Underscore
             | ConstantExpressionKind::Struct(_, _, _) => unreachable!(),

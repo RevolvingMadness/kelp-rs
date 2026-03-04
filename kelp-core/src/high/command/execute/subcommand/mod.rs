@@ -148,81 +148,80 @@ impl HighExecuteSubcommand {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-    ) -> Option<ExecuteSubcommand> {
+    ) -> ExecuteSubcommand {
         match self {
-            Self::Align(axes, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteSubcommand::Align(axes, Box::new(next))),
-            Self::Anchored(anchor, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteSubcommand::Anchored(anchor, Box::new(next))),
+            Self::Align(axes, next) => {
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::Align(axes, Box::new(next))
+            }
+            Self::Anchored(anchor, next) => {
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::Anchored(anchor, Box::new(next))
+            }
             Self::As(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
-
-                next.compile(datapack, ctx)
-                    .map(|next| ExecuteSubcommand::As(selector, Box::new(next)))
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::At(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
-
-                next.compile(datapack, ctx)
-                    .map(|next| ExecuteSubcommand::At(selector, Box::new(next)))
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::At(selector, Box::new(next))
             }
             Self::Facing(facing, next) => {
                 let facing = facing.compile(datapack, ctx);
-
-                next.compile(datapack, ctx)
-                    .map(|next| ExecuteSubcommand::Facing(facing, Box::new(next)))
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::Facing(facing, Box::new(next))
             }
-            Self::In(location, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteSubcommand::In(location, Box::new(next))),
-            Self::On(relation, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteSubcommand::On(relation, Box::new(next))),
+            Self::In(location, next) => {
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::In(location, Box::new(next))
+            }
+            Self::On(relation, next) => {
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::On(relation, Box::new(next))
+            }
             Self::Positioned(positioned, next) => {
                 let positioned = positioned.compile(datapack, ctx);
-
-                next.compile(datapack, ctx)
-                    .map(|next| ExecuteSubcommand::Positioned(positioned, Box::new(next)))
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Rotated(rotated, next) => {
                 let rotated = rotated.compile(datapack, ctx);
-
-                next.compile(datapack, ctx)
-                    .map(|next| ExecuteSubcommand::Rotated(rotated, Box::new(next)))
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::Rotated(rotated, Box::new(next))
             }
-            Self::Summon(entity_id, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteSubcommand::Summon(entity_id, Box::new(next))),
-            Self::If(is_if, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteSubcommand::If(is_if, next)),
-            Self::Store(store_type, next) => next
-                .compile(datapack, ctx)
-                .map(|next| ExecuteSubcommand::Store(store_type, next)),
+            Self::Summon(entity_id, next) => {
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::Summon(entity_id, Box::new(next))
+            }
+            Self::If(is_if, next) => {
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::If(is_if, next)
+            }
+            Self::Store(store_type, next) => {
+                let next = next.compile(datapack, ctx);
+                ExecuteSubcommand::Store(store_type, next)
+            }
             Self::Run(commands) => {
                 let mut commands = commands
                     .into_iter()
-                    .filter_map(|command| command.compile(datapack, ctx))
+                    .map(|command| command.compile(datapack, ctx))
                     .collect::<Vec<_>>();
 
-                let last = commands.pop();
-
+                let last = commands.pop().unwrap();
                 ctx.add_commands(datapack, commands);
 
-                last.map(|next| ExecuteSubcommand::Run(Box::new(next)))
+                ExecuteSubcommand::Run(Box::new(last))
             }
             Self::Multiple(subcommands) => {
                 let mut subcommands = subcommands
                     .into_iter()
-                    .filter_map(|subcommand| subcommand.compile(datapack, ctx))
+                    .map(|subcommand| subcommand.compile(datapack, ctx))
                     .collect::<Vec<_>>();
 
-                let last = subcommands.pop();
-
+                let last = subcommands.pop().unwrap();
                 let commands = subcommands.into_iter().map(Command::Execute).collect();
-
                 ctx.add_commands(datapack, commands);
 
                 last

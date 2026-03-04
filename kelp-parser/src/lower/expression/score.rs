@@ -1,57 +1,52 @@
-use kelp_core::span::Span;
-
-use crate::{
-    cst_node, lower::entity_selector::CSTEntitySelector, parser::Parser, syntax::SyntaxKind,
+use kelp_core::{
+    expression::{Expression, ExpressionKind},
+    high::player_score::HighPlayerScore,
 };
 
-cst_node!(CSTScoreExpression, SyntaxKind::ScoreExpression);
+use crate::{
+    cst::CSTScoreExpression,
+    lower::entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    parser::Parser,
+    span::span_of_cst_node,
+    syntax::SyntaxKind,
+};
 
-impl<'a> CSTScoreExpression<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let state = parser.save_state();
+#[must_use]
+pub fn try_parse_score_expression(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
 
-        parser.start_node(SyntaxKind::ScoreExpression);
-        parser.bump_identifier("score");
+    parser.start_node(SyntaxKind::ScoreExpression);
+    parser.bump_identifier("score");
 
-        if !parser.expect_inline_whitespace() || !CSTEntitySelector::try_parse(parser) {
-            parser.restore_state(state);
+    if !parser.expect_inline_whitespace() || !try_parse_entity_selector(parser) {
+        parser.restore_state(state);
 
-            return false;
-        }
-
-        parser.expect_inline_whitespace();
-
-        parser.expect_identifier("Expected scoreboard objective");
-
-        parser.finish_node();
-
-        true
+        return false;
     }
 
-    #[must_use]
-    pub fn selector(&self) -> Option<CSTEntitySelector<'a>> {
-        self.children().find_map(CSTEntitySelector::cast)
-    }
+    parser.expect_inline_whitespace();
 
-    #[must_use]
-    pub fn message_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.span)
-            } else {
-                None
-            }
+    parser.expect_identifier("Expected scoreboard objective");
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_score_expression(node: CSTScoreExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
+
+    let selector = lower_entity_selector(node.entity_selector()?)?;
+    let objective = node.identifier_token()?.to_string();
+
+    Some(
+        ExpressionKind::PlayerScore(HighPlayerScore {
+            is_generated: false,
+            selector,
+            objective,
         })
-    }
-
-    #[must_use]
-    pub fn message<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text(text))
-            } else {
-                None
-            }
-        })
-    }
+        .with_span(span),
+    )
 }

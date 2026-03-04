@@ -1,0 +1,13 @@
+struct Person {
+    name: data<string>,
+    age: score
+}
+
+mcfn namespace:main {
+    let person = Person {
+        name: "Bob" to data,
+        age: 1 to score,
+    }
+
+    tellraw @a ["Person: ", person to data]
+}

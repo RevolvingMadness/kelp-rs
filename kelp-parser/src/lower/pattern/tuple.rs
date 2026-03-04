@@ -1,17 +1,13 @@
-use crate::{
-    cst_node, lower::pattern::CSTPattern, semantic_token::SemanticToken, syntax::SyntaxKind,
-};
+use kelp_core::pattern::{Pattern, PatternKind};
 
-cst_node!(CSTTuplePattern, SyntaxKind::TuplePattern);
+use crate::{cst::CSTTuplePattern, lower::pattern::lower_pattern, span::span_of_cst_node};
 
-impl<'a> CSTTuplePattern<'a> {
-    pub fn patterns(&self) -> impl Iterator<Item = CSTPattern<'a>> {
-        self.children().filter_map(CSTPattern::cast)
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_tuple_pattern(node: CSTTuplePattern) -> Option<Pattern> {
+    let span = span_of_cst_node(&node);
 
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        for pattern in self.patterns() {
-            pattern.collect_semantic_tokens(tokens);
-        }
-    }
+    let patterns = node.patterns().filter_map(lower_pattern).collect();
+
+    Some(PatternKind::Tuple(patterns).with_span(span))
 }

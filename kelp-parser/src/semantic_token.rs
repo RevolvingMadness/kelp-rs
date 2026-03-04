@@ -1,4 +1,10 @@
 use kelp_core::span::Span;
+use rowan::NodeOrToken;
+
+use crate::{
+    span::text_range_to_span,
+    syntax::{SyntaxKind, SyntaxNode},
+};
 
 #[derive(Debug)]
 pub struct SemanticToken {
@@ -84,4 +90,65 @@ impl SemanticTokenModifier {
     pub const fn to_bit(self) -> u32 {
         match self {}
     }
+}
+
+#[must_use]
+pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
+    let mut tokens = Vec::new();
+
+    for node_or_token in node.descendants_with_tokens() {
+        match node_or_token {
+            NodeOrToken::Node(node) => {
+                let semantic_token_type = match node.kind() {
+                    SyntaxKind::ResourceLocation => Some(SemanticTokenType::Function),
+                    SyntaxKind::VariableExpression => Some(SemanticTokenType::Variable),
+                    _ => None,
+                };
+
+                if let Some(semantic_token_type) = semantic_token_type {
+                    tokens.push(SemanticToken::new(
+                        text_range_to_span(node.text_range()),
+                        semantic_token_type,
+                    ));
+                }
+            }
+
+            NodeOrToken::Token(token) => {
+                let semantic_token_type = match token.kind() {
+                    SyntaxKind::ScoreKeyword
+                    | SyntaxKind::EntityKeyword
+                    | SyntaxKind::BlockKeyword
+                    | SyntaxKind::StorageKeyword
+                    | SyntaxKind::TellrawKeyword
+                    | SyntaxKind::FunctionKeyword
+                    | SyntaxKind::IfKeyword
+                    | SyntaxKind::WhileKeyword
+                    | SyntaxKind::TypeKeyword
+                    | SyntaxKind::ElseKeyword
+                    | SyntaxKind::LetKeyword
+                    | SyntaxKind::ToKeyword
+                    | SyntaxKind::AsKeyword
+                    | SyntaxKind::MCFNKeyword
+                    | SyntaxKind::StructKeyword => Some(SemanticTokenType::Keyword),
+                    SyntaxKind::StructName => Some(SemanticTokenType::Struct),
+                    SyntaxKind::StructFieldName
+                    | SyntaxKind::BindingPatternName
+                    | SyntaxKind::NamedNBTPathNodeName => Some(SemanticTokenType::Variable),
+                    SyntaxKind::DataTypeName | SyntaxKind::RuntimeStorageType => {
+                        Some(SemanticTokenType::Class)
+                    }
+                    _ => None,
+                };
+
+                if let Some(semantic_token_type) = semantic_token_type {
+                    tokens.push(SemanticToken::new(
+                        text_range_to_span(token.text_range()),
+                        semantic_token_type,
+                    ));
+                }
+            }
+        }
+    }
+
+    tokens
 }

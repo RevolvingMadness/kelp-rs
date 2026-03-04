@@ -1,225 +1,112 @@
-use kelp_core::{data_type::high::HighDataType, span::Span};
+use kelp_core::data_type::high::HighDataType;
 
 use crate::{
-    cst_node,
-    lower::{data_type::CSTDataType, expression::r#struct::CSTStructExpression},
+    cst::CSTStructDeclarationStatementField,
+    lower::data_type::{generics::try_parse_generic_names, lower_data_type, try_parse_data_type},
     parser::Parser,
     syntax::SyntaxKind,
 };
 
-cst_node!(
-    CSTStructDeclarationField,
-    SyntaxKind::StructDeclarationField
-);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_struct_declaration_statement_field(
+    node: CSTStructDeclarationStatementField,
+) -> Option<(String, HighDataType)> {
+    let name_token = node.name()?;
+    let name = name_token.text().to_owned();
+    let data_type = lower_data_type(node.data_type()?)?;
 
-impl<'a> CSTStructDeclarationField<'a> {
-    #[must_use]
-    pub fn lower(self, text: &str) -> Option<(String, HighDataType)> {
-        let name = self.name(text)?;
-
-        let data_type = self.data_type()?.lower(text)?;
-
-        Some((name.to_string(), data_type))
-    }
-
-    #[must_use]
-    pub fn name_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
-    }
-
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
-        Some(&text[self.name_span()?.into_range()])
-    }
-
-    pub fn data_type(&self) -> Option<CSTDataType<'a>> {
-        self.children().find_map(CSTDataType::cast)
-    }
+    Some((name, data_type))
 }
 
-cst_node!(
-    CSTStructDeclarationStatement,
-    SyntaxKind::StructDeclarationStatement
-);
+pub fn bump_until_next_field_or_end(parser: &mut Parser) {
+    let chars = parser.source[parser.pos..].chars();
+    let mut length = 0;
 
-impl<'a> CSTStructDeclarationStatement<'a> {
-    fn bump_until_next_generic_parameter(parser: &mut Parser) {
-        let chars = parser.source[parser.pos..].chars();
-        let mut length = 0;
-
-        for char in chars {
-            if char == ',' || char == '>' || char.is_alphabetic() {
-                break;
-            }
-
-            length += char.len_utf8();
+    for char in chars {
+        if char == ',' || char == '}' || char.is_alphabetic() {
+            break;
         }
 
-        if length > 0 {
-            parser.add_token(SyntaxKind::Garbage, length);
-        }
-
-        if parser.peek_char() == Some(',') {
-            parser.bump_char();
-        }
+        length += char.len_utf8();
     }
 
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let beginning = parser.save_state();
+    if length > 0 {
+        parser.add_token(SyntaxKind::Garbage, length);
+    }
 
-        parser.start_node(SyntaxKind::StructDeclarationStatement);
-        parser.bump_keyword("struct");
-        parser.expect_inline_whitespace();
+    parser.try_bump_char(',');
+}
 
-        if !parser.expect_identifier("Expected struct name") {
-            parser.restore_state(beginning);
+#[must_use]
+pub fn try_parse_struct_declaration_statement(parser: &mut Parser) -> bool {
+    let beginning = parser.save_state();
 
-            return false;
+    parser.start_node(SyntaxKind::StructDeclarationStatement);
+    parser.bump_str(SyntaxKind::StructKeyword, "struct");
+    parser.expect_inline_whitespace();
+
+    if !parser.expect_identifier_kind(SyntaxKind::StructName, "Expected struct name") {
+        parser.restore_state(beginning);
+
+        return false;
+    }
+
+    parser.skip_whitespace();
+
+    let _ = try_parse_generic_names(parser);
+
+    if !parser.expect_char('{', "Expected '{'") {
+        bump_until_next_field_or_end(parser);
+    }
+
+    loop {
+        parser.skip_whitespace();
+
+        if parser.is_eof() || parser.peek_char() == Some('}') {
+            break;
+        }
+
+        parser.start_node(SyntaxKind::StructDeclarationStatementField);
+
+        if !parser.expect_identifier_kind(SyntaxKind::StructFieldName, "Expected struct field name")
+        {
+            bump_until_next_field_or_end(parser);
+
+            parser.finish_node();
+
+            continue;
         }
 
         parser.skip_whitespace();
 
-        if parser.try_bump_char('<') {
-            loop {
-                parser.skip_whitespace();
+        let parsed_colon = parser.expect_char(':', "Expected ':'");
 
-                if parser.is_eof() || matches!(parser.peek_char(), Some('>' | '{' | '}')) {
-                    break;
-                }
+        parser.skip_whitespace();
 
-                if !parser.expect_identifier("Expected generic parameter") {
-                    Self::bump_until_next_generic_parameter(parser);
-
-                    continue;
-                }
-
-                parser.skip_whitespace();
-
-                if !parser.try_bump_char(',')
-                    && !matches!(parser.peek_char(), Some('>' | '{' | '}' | ','))
-                {
-                    parser.error("Expected ',' or '>'");
-
-                    Self::bump_until_next_generic_parameter(parser);
-                }
+        if !try_parse_data_type(parser) {
+            if parsed_colon {
+                parser.error("Expected data type");
             }
 
-            parser.expect_char('>', "Expected '>'");
-
-            parser.skip_whitespace();
-        }
-
-        if !parser.expect_char('{', "Expected '{'") {
-            CSTStructExpression::bump_until_next_field_or_end(parser);
-        }
-
-        loop {
-            parser.skip_whitespace();
-
-            if parser.is_eof() || parser.peek_char() == Some('}') {
-                break;
-            }
-
-            parser.start_node(SyntaxKind::StructDeclarationField);
-
-            if !parser.expect_identifier("Expected struct field name") {
-                CSTStructExpression::bump_until_next_field_or_end(parser);
-
-                parser.finish_node();
-
-                continue;
-            }
-
-            parser.skip_whitespace();
-
-            let parsed_colon = parser.expect_char(':', "Expected ':'");
-
-            parser.skip_whitespace();
-
-            if !CSTDataType::try_parse(parser) {
-                if parsed_colon {
-                    parser.error("Expected data type");
-                }
-
-                CSTStructExpression::bump_until_next_field_or_end(parser);
-
-                parser.finish_node();
-
-                continue;
-            }
+            bump_until_next_field_or_end(parser);
 
             parser.finish_node();
-            parser.skip_whitespace();
 
-            if !parser.try_bump_char(',') && parser.peek_char() != Some('}') {
-                parser.error("Expected ',' or '}'");
-            }
+            continue;
         }
 
-        parser.expect_char('}', "Expected '}'");
-
         parser.finish_node();
+        parser.skip_whitespace();
 
-        true
+        if !parser.try_bump_char(',') && parser.peek_char() != Some('}') {
+            parser.error("Expected ',' or '}'");
+        }
     }
 
-    #[must_use]
-    pub fn struct_keyword_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Keyword {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
-    }
+    parser.expect_char('}', "Expected '}'");
 
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text(text))
-            } else {
-                None
-            }
-        })
-    }
+    parser.finish_node();
 
-    pub fn generics_span(&self) -> impl Iterator<Item = Span> {
-        self.0
-            .children_tokens()
-            .filter_map(|token| {
-                if token.kind == SyntaxKind::Identifier {
-                    Some(token.span)
-                } else {
-                    None
-                }
-            })
-            .skip(1)
-    }
-
-    pub fn generics<'b>(&self, text: &'b str) -> impl Iterator<Item = &'b str> {
-        self.0
-            .children_tokens()
-            .filter_map(|token| {
-                if token.kind == SyntaxKind::Identifier {
-                    Some(token.text(text))
-                } else {
-                    None
-                }
-            })
-            .skip(1)
-    }
-
-    pub fn fields(&self) -> impl Iterator<Item = CSTStructDeclarationField<'a>> {
-        self.0
-            .children()
-            .filter_map(CSTStructDeclarationField::cast)
-    }
+    true
 }

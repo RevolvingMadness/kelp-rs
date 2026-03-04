@@ -1,71 +1,58 @@
-use kelp_core::span::Span;
+use kelp_core::{
+    expression::{Expression, ExpressionKind},
+    high::snbt_string::HighSNBTString,
+};
+use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
-    cst_node,
-    lower::{data_type::CSTDataType, expression::CSTExpression},
-    parser::Parser,
-    syntax::SyntaxKind,
+    cst::{CSTStructExpression, CSTStructExpressionField},
+    lower::{data_type::generics::lower_generic_data_types, expression::lower_expression},
+    span::{span_of_cst_node, text_range_to_span},
 };
 
-cst_node!(CSTStructExpressionField, SyntaxKind::StructExpressionField);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_struct_expression_field(
+    node: CSTStructExpressionField,
+) -> Option<(HighSNBTString, Expression)> {
+    let name_token = node.name()?;
+    let name_span = name_token.text_range();
+    let name = name_token.text();
 
-impl<'a> CSTStructExpressionField<'a> {
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some((token.span, token.text(text)))
-            } else {
-                None
-            }
-        })
-    }
+    let value = lower_expression(node.value()?)?;
 
-    #[must_use]
-    pub fn value(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+    Some((
+        HighSNBTString {
+            span: text_range_to_span(name_span),
+            snbt_string: SNBTString(false, name.to_owned()),
+        },
+        value,
+    ))
 }
 
-cst_node!(CSTStructExpression, SyntaxKind::StructExpression);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_struct_expression(node: CSTStructExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
 
-impl<'a> CSTStructExpression<'a> {
-    pub fn bump_until_next_field_or_end(parser: &mut Parser) {
-        let chars = parser.source[parser.pos..].chars();
-        let mut length = 0;
+    let name_token = node.name()?;
+    let name_span = name_token.text_range();
+    let name = name_token.text();
 
-        for char in chars {
-            if char == ',' || char == '}' || char.is_alphabetic() {
-                break;
-            }
+    let generic_data_types = node.generic_data_types().and_then(lower_generic_data_types);
 
-            length += char.len_utf8();
-        }
+    let fields = node
+        .fields()
+        .filter_map(lower_struct_expression_field)
+        .collect();
 
-        if length > 0 {
-            parser.add_token(SyntaxKind::Garbage, length);
-        }
-
-        parser.try_bump_char(',');
-    }
-
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some((token.span, token.text(text)))
-            } else {
-                None
-            }
-        })
-    }
-
-    #[must_use]
-    pub fn generics(&self) -> Vec<CSTDataType<'a>> {
-        self.children().filter_map(CSTDataType::cast).collect()
-    }
-
-    pub fn fields(&self) -> impl Iterator<Item = CSTStructExpressionField<'a>> {
-        self.children().filter_map(CSTStructExpressionField::cast)
-    }
+    Some(
+        ExpressionKind::Struct(
+            text_range_to_span(name_span),
+            name.to_owned(),
+            generic_data_types.unwrap_or_default(),
+            fields,
+        )
+        .with_span(span),
+    )
 }

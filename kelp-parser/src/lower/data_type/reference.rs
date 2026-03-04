@@ -1,10 +1,34 @@
-use crate::{cst_node, lower::data_type::CSTDataType, syntax::SyntaxKind};
+use kelp_core::data_type::high::{HighDataType, HighDataTypeKind};
 
-cst_node!(CSTReferenceDataType, SyntaxKind::ReferenceDataType);
+use crate::{
+    cst::CSTReferenceDataType,
+    lower::data_type::{lower_data_type, try_parse_data_type},
+    parser::Parser,
+    span::span_of_cst_node,
+    syntax::SyntaxKind,
+};
 
-impl<'a> CSTReferenceDataType<'a> {
-    #[must_use]
-    pub fn inner(&self) -> Option<CSTDataType<'a>> {
-        self.children().find_map(CSTDataType::cast)
+#[must_use]
+pub fn try_parse_reference_data_type(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+    parser.start_node_at(checkpoint, SyntaxKind::ReferenceDataType);
+
+    parser.bump_char();
+
+    if !try_parse_data_type(parser) {
+        parser.recover_newline("Expected data type after '&'");
     }
+
+    parser.finish_node();
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_reference_data_type(node: CSTReferenceDataType) -> Option<HighDataType> {
+    let span = span_of_cst_node(&node);
+
+    let data_type = lower_data_type(node.data_type()?)?;
+
+    Some(HighDataTypeKind::Reference(Box::new(data_type)).with_span(span))
 }

@@ -1,15 +1,21 @@
 use kelp_core::span::Span;
+use rowan::GreenNodeBuilder;
 
 use crate::{
-    cstlib::{CSTNodeType, error::CSTError, node::CSTNode, token::CSTToken},
-    lower::root::CSTRoot,
-    syntax::SyntaxKind,
+    lower::root::parse_root,
+    syntax::{SyntaxKind, SyntaxNode},
 };
 
 #[derive(Debug)]
+pub struct ParseError {
+    pub span: Span,
+    pub message: String,
+}
+
+#[derive(Debug)]
 pub struct ParseResult {
-    pub root: CSTNodeType,
-    pub errors: Vec<CSTError>,
+    pub root: SyntaxNode,
+    pub errors: Vec<ParseError>,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +62,7 @@ impl<'a> Parser<'a> {
     }
 
     #[must_use]
-    pub fn _peek_whole_value(&self) -> Option<&'a str> {
+    pub fn peek_whole_value(&self) -> Option<&'a str> {
         let s = &self.source[self.pos..];
         let mut len = 0;
         let mut chars = s.chars();
@@ -272,64 +278,36 @@ impl<'a> Parser<'a> {
     }
 
     #[must_use]
-    pub fn build_tree(&'a self) -> CSTNodeType {
-        let mut stack = vec![(None, 0usize, Vec::new())];
-
+    pub fn build_tree(&self) -> (rowan::GreenNode, Vec<ParseError>) {
+        let mut builder = GreenNodeBuilder::new();
+        let mut errors = Vec::new();
         let mut current_offset = 0usize;
 
         for event in &self.events {
             match event {
                 Event::StartNode(kind) => {
-                    stack.push((Some(kind), current_offset, Vec::new()));
-                }
-                Event::Token { kind, text } => {
-                    let start = current_offset;
-                    current_offset += text.len();
-
-                    stack
-                        .last_mut()
-                        .unwrap()
-                        .2
-                        .push(CSTNodeType::Token(CSTToken {
-                            kind: *kind,
-                            span: Span {
-                                start,
-                                end: current_offset,
-                            },
-                        }));
-                }
-                Event::Error { message, len } => {
-                    stack
-                        .last_mut()
-                        .unwrap()
-                        .2
-                        .push(CSTNodeType::Error(CSTError {
-                            message: message.clone(),
-                            span: Span {
-                                start: current_offset,
-                                end: current_offset + len,
-                            },
-                        }));
+                    builder.start_node(rowan::SyntaxKind((*kind) as u16));
                 }
                 Event::FinishNode => {
-                    let (kind, start_offset, children) = stack.pop().unwrap();
-
-                    let node = CSTNodeType::Node(CSTNode {
-                        kind: *kind.unwrap(),
-                        children,
+                    builder.finish_node();
+                }
+                Event::Token { kind, text } => {
+                    builder.token(rowan::SyntaxKind((*kind) as u16), text);
+                    current_offset += text.len();
+                }
+                Event::Error { message, len } => {
+                    errors.push(ParseError {
+                        message: message.clone(),
                         span: Span {
-                            start: start_offset,
-                            end: current_offset,
+                            start: current_offset,
+                            end: current_offset + len,
                         },
                     });
-                    stack.last_mut().unwrap().2.push(node);
                 }
             }
         }
 
-        let (_, _, nodes) = stack.pop().unwrap();
-
-        nodes.into_iter().next().unwrap()
+        (builder.finish(), errors)
     }
 
     #[must_use]
@@ -468,36 +446,19 @@ impl Parser<'_> {
         }
     }
 
-    pub fn expect_newline_whitespace(&mut self, message: &str) -> bool {
-        let start = self.pos;
-        let found_newline = self.skip_whitespace_internal(false);
-        if !found_newline && !self.is_eof() {
-            self.error_with_len(message, self.pos - start);
-            return false;
-        }
-        true
+    #[must_use]
+    pub fn try_parse_newline_whitespace(&mut self) -> bool {
+        self.skip_whitespace_internal(false)
     }
 
     pub fn parse(&mut self) -> ParseResult {
-        CSTRoot::parse(self);
+        parse_root(self);
 
-        let root = self.build_tree();
-        let mut errors = Vec::new();
-        Self::extract_errors(&mut errors, &root);
+        let (green_node, errors) = self.build_tree();
+
+        let root = SyntaxNode::new_root(green_node);
 
         ParseResult { root, errors }
-    }
-
-    fn extract_errors(errors: &mut Vec<CSTError>, node: &CSTNodeType) {
-        match node {
-            CSTNodeType::Node(node) => {
-                for child in &node.children {
-                    Self::extract_errors(errors, child);
-                }
-            }
-            CSTNodeType::Error(error) => errors.push(error.clone()),
-            CSTNodeType::Token(_) => {}
-        }
     }
 
     pub fn bump_until_newline(&mut self) {
@@ -520,10 +481,26 @@ impl Parser<'_> {
     pub fn try_parse_string_or_identifier(&mut self) -> bool {
         if self.peek_char() == Some('"') {
             let text = self.peek_quoted_string().unwrap();
-            self.add_token(SyntaxKind::String, text.len());
+            self.add_token(SyntaxKind::StringLiteral, text.len());
             true
-        } else if let Some(ident) = self.peek_identifier() {
-            self.bump_identifier(ident);
+        } else if let Some(identifier) = self.peek_identifier() {
+            self.bump_identifier(identifier);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn try_parse_string_or_identifier_kind(&mut self, kind: SyntaxKind) -> bool {
+        if self.peek_char() == Some('"') {
+            let text = self.peek_quoted_string().unwrap();
+
+            self.bump_char();
+            self.add_token(kind, text.len() - 2);
+            self.bump_char();
+            true
+        } else if let Some(identifier) = self.peek_identifier() {
+            self.bump_identifier_kind(kind, identifier);
             true
         } else {
             false
@@ -572,15 +549,33 @@ impl Parser<'_> {
         }
     }
 
+    #[inline]
     pub fn expect_identifier(&mut self, message: &str) -> bool {
-        if let Some(text) = self.peek_identifier() {
-            self.add_token(SyntaxKind::Identifier, text.len());
+        self.expect_identifier_kind(SyntaxKind::Identifier, message)
+    }
 
+    pub fn expect_identifier_kind(&mut self, kind: SyntaxKind, message: &str) -> bool {
+        if self.try_bump_identifier_kind(kind) {
             true
         } else {
             self.error(message);
+
             false
         }
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn try_bump_identifier(&mut self) -> bool {
+        self.try_bump_identifier_kind(SyntaxKind::Identifier)
+    }
+
+    pub fn try_bump_identifier_kind(&mut self, kind: SyntaxKind) -> bool {
+        self.peek_identifier().is_some_and(|text| {
+            self.add_token(kind, text.len());
+
+            true
+        })
     }
 
     pub fn try_start_node_bump(&mut self, char: char, node_kind: SyntaxKind) -> bool {
@@ -602,12 +597,6 @@ impl Parser<'_> {
             self.error(message);
             false
         }
-    }
-
-    pub fn start_bump_finish_node(&mut self, kind: SyntaxKind, len: usize) {
-        self.start_node(kind);
-        self.add_token(kind, len);
-        self.finish_node();
     }
 
     pub fn start_node_bump(&mut self, kind: SyntaxKind, len: usize) {
@@ -673,12 +662,21 @@ impl Parser<'_> {
     }
 
     #[inline]
-    pub fn bump_identifier(&mut self, identifier: &str) {
-        self.add_token(SyntaxKind::Identifier, identifier.len());
+    pub fn bump_identifier(&mut self, identifier: &str) -> usize {
+        self.bump_identifier_kind(SyntaxKind::Identifier, identifier);
+
+        self.events.len()
     }
 
-    pub fn bump_keyword(&mut self, keyword: &str) {
-        self.add_token(SyntaxKind::Keyword, keyword.len());
+    #[inline]
+    pub fn bump_identifier_kind(&mut self, kind: SyntaxKind, identifier: &str) -> usize {
+        self.add_token(kind, identifier.len());
+
+        self.events.len()
+    }
+
+    pub fn bump_str(&mut self, kind: SyntaxKind, keyword: &str) {
+        self.add_token(kind, keyword.len());
     }
 
     #[must_use]
@@ -688,5 +686,24 @@ impl Parser<'_> {
 
     pub fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
         self.events.insert(checkpoint, Event::StartNode(kind));
+    }
+
+    pub fn replace_token_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
+        let Some(event) = self.events.get_mut(checkpoint) else {
+            return;
+        };
+
+        let Event::Token {
+            kind: token_kind, ..
+        } = event
+        else {
+            return;
+        };
+
+        *token_kind = kind;
+    }
+
+    pub fn finish_node_at(&mut self, checkpoint: usize) {
+        self.events.insert(checkpoint, Event::FinishNode);
     }
 }

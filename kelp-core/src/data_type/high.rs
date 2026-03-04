@@ -25,6 +25,11 @@ pub enum HighDataTypeKind {
 }
 
 impl HighDataTypeKind {
+    #[must_use]
+    pub const fn with_span(self, span: Span) -> HighDataType {
+        HighDataType { span, kind: self }
+    }
+
     pub fn resolve(
         &self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,

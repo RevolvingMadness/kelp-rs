@@ -6,7 +6,8 @@ use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_core::statement::Statement;
-use kelp_parser::lower::root::CSTRoot;
+use kelp_parser::cst::CSTRoot;
+use kelp_parser::lower::root::lower_root;
 use kelp_parser::parser::{ParseResult, Parser};
 use nonempty::nonempty;
 use std::fs;
@@ -170,9 +171,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let ParseResult { root, errors } = parser.parse();
     let parse_elapsed = start_parse.elapsed();
 
-    root.print(&input_text, 0);
-
-    let root = CSTRoot::cast(&root).unwrap();
+    let root = CSTRoot::cast(root).unwrap();
 
     let error_input_text = format!("{} ", input_text);
 
@@ -193,7 +192,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     }
 
     let lower_start = Instant::now();
-    let statements = root.lower(&input_text);
+    let statements = lower_root(&root);
     let lower_elapsed = lower_start.elapsed();
 
     let mut semantic_analysis_context = SemanticAnalysisContext {
@@ -295,7 +294,9 @@ fn process_success(
         gen_elapsed.green()
     );
 
-    let datapack_dir = dirs::home_dir().unwrap().join(".local/share/PrismLauncher/instances/1.21.11/minecraft/saves/kelp-rs/datapacks/kelp-rs Datapack");
+    let datapack_dir = dirs::home_dir()
+        .unwrap()
+        .join(".local/share/PandoraLauncher/instances/1.21.11/.minecraft/saves/1_21_11/datapacks/kelp-rs Datapack");
 
     let start_io = Instant::now();
     if datapack_dir.exists() {

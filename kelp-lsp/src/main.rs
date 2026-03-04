@@ -1,9 +1,12 @@
 use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
-use kelp_parser::lower::root::CSTRoot;
-use kelp_parser::parser::{ParseResult, Parser};
-use kelp_parser::semantic_token::SemanticToken as KelpSemanticToken;
+use kelp_parser::cst::CSTRoot;
+use kelp_parser::lower::root::lower_root;
+use kelp_parser::parser::{ParseError, ParseResult, Parser};
+use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
+use kelp_parser::syntax::SyntaxNode;
+use rowan::GreenNode;
 use std::collections::BTreeMap;
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::{Error, Result};
@@ -92,7 +95,9 @@ impl LineIndex {
 struct DocumentState {
     text: String,
     line_index: LineIndex,
-    parse_result: ParseResult,
+    green_tree: GreenNode,
+    #[allow(unused)]
+    errors: Vec<ParseError>,
 }
 
 #[derive(Debug)]
@@ -118,65 +123,67 @@ impl Backend {
     }
 
     async fn process_text(&self, uri: &Url, text: String) -> Option<Vec<Diagnostic>> {
-        let mut diagnostics = Vec::new();
-
-        let mut parser = Parser::new(&text);
-        let parse_result = parser.parse();
-
         let line_index = LineIndex::new(&text);
 
-        for error in &parse_result.errors {
-            diagnostics.push(Diagnostic {
-                range: Range {
-                    start: line_index.offset_to_position(error.span.start),
-                    end: line_index.offset_to_position(error.span.end),
-                },
-                severity: Some(DiagnosticSeverity::ERROR),
-                source: Some("kelp-lsp".to_string()),
-                message: error.message.clone(),
-                code_description: None,
-                code: None,
-                related_information: None,
-                tags: None,
-                data: None,
-            });
-        }
+        let (green_tree, errors, diagnostics) = {
+            let mut diagnostics = Vec::new();
 
-        if let Some(root) = CSTRoot::cast(&parse_result.root) {
-            let statements = root.lower(&text);
+            let mut parser = Parser::new(&text);
+            let ParseResult { root, errors } = parser.parse();
 
-            let mut ctx = SemanticAnalysisContext {
-                max_infos: usize::MAX,
-                ..Default::default()
-            };
-
-            ctx.scopes.push_front(Scope::default());
-
-            for statement in statements {
-                statement.perform_semantic_analysis(&mut ctx, false);
-            }
-
-            for info in ctx.infos {
+            for error in &errors {
                 diagnostics.push(Diagnostic {
                     range: Range {
-                        start: line_index.offset_to_position(info.span.start),
-                        end: line_index.offset_to_position(info.span.end),
+                        start: line_index.offset_to_position(error.span.start),
+                        end: line_index.offset_to_position(error.span.end),
                     },
-                    severity: Some(match info.kind {
-                        SemanticAnalysisInfoKind::Error(_) => DiagnosticSeverity::ERROR,
-                    }),
+                    severity: Some(DiagnosticSeverity::ERROR),
                     source: Some("kelp-lsp".to_string()),
-                    message: match &info.kind {
-                        SemanticAnalysisInfoKind::Error(error) => error.to_string(),
-                    },
-                    code_description: None,
-                    code: None,
-                    related_information: None,
-                    tags: None,
-                    data: None,
+                    message: error.message.clone(),
+                    ..Default::default()
                 });
             }
-        }
+
+            let root_syntax = match CSTRoot::cast(root) {
+                Ok(cst_root) => {
+                    let statements = lower_root(&cst_root);
+
+                    let mut ctx = SemanticAnalysisContext {
+                        max_infos: usize::MAX,
+                        ..Default::default()
+                    };
+                    ctx.scopes.push_front(Scope::default());
+
+                    for statement in statements {
+                        statement.perform_semantic_analysis(&mut ctx, false);
+                    }
+
+                    for info in ctx.infos {
+                        diagnostics.push(Diagnostic {
+                            range: Range {
+                                start: line_index.offset_to_position(info.span.start),
+                                end: line_index.offset_to_position(info.span.end),
+                            },
+                            severity: Some(match info.kind {
+                                SemanticAnalysisInfoKind::Error(_) => DiagnosticSeverity::ERROR,
+                            }),
+                            source: Some("kelp-lsp".to_string()),
+                            message: match &info.kind {
+                                SemanticAnalysisInfoKind::Error(error) => error.to_string(),
+                            },
+                            ..Default::default()
+                        });
+                    }
+
+                    cst_root.syntax()
+                }
+                Err(syntax_node) => syntax_node,
+            };
+
+            let extracted_green_tree = root_syntax.green().into_owned();
+
+            (extracted_green_tree, errors, diagnostics)
+        };
 
         let mut map = self.document_map.write().await;
         map.insert(
@@ -184,7 +191,8 @@ impl Backend {
             DocumentState {
                 text,
                 line_index,
-                parse_result,
+                green_tree,
+                errors,
             },
         );
 
@@ -341,11 +349,9 @@ impl LanguageServer for Backend {
             .get(&uri)
             .ok_or_else(|| Error::invalid_params("Document not found"))?;
 
-        let Some(root) = CSTRoot::cast(&state.parse_result.root) else {
-            return Ok(None);
-        };
+        let root_node = SyntaxNode::new_root(state.green_tree.clone());
 
-        let semantic_tokens = root.collect_semantic_tokens();
+        let semantic_tokens = collect_semantic_tokens(&root_node);
 
         let semantic_tokens =
             encode_semantic_tokens(&state.text, &state.line_index, &semantic_tokens);

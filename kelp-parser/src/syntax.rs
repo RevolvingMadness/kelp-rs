@@ -1,11 +1,18 @@
+use rowan::Language;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u16)]
 pub enum SyntaxKind {
     Root,
+
     Identifier,
-    Keyword,
+    StructName,
+    StructFieldName,
+    DataTypeName,
+
     WholeValue,
     FractionalValue,
+
     At,                        // @
     Tilde,                     // ~
     Caret,                     // ^
@@ -56,8 +63,9 @@ pub enum SyntaxKind {
     ExclamationMarkEqual,      // !=
     RightArrowEqual,           // >=
     LeftArrowEqual,            // <=
-    Char,
-    String,
+
+    CharacterLiteral,
+    StringLiteral,
 
     Whitespace,
     Comment,
@@ -70,33 +78,61 @@ pub enum SyntaxKind {
     ResourceLocation,
     ResourceLocationTag,
     ResourceLocationNamespace,
-    ResourceLocationPaths,
+    ResourceLocationPath,
+    ResourceLocationPathSegment,
 
     NBTCompound,
     NBTCompoundEntry,
-    NBTPathNamed,
-    NBTPathIndex,
-    NBTPathRoot,
+    NamedNBTPathNode,
+    NamedNBTPathNodeName,
+    IndexNBTPathNode,
+    CompoundNBTPathNode,
+    NBTPathNode,
     NBTPath,
 
     WildcardPattern,
     TuplePattern,
     BindingPattern,
+    BindingPatternName,
     StructPattern,
     StructPatternField,
+    CompoundPattern,
+    CompoundPatternEntry,
+
+    ScoreKeyword,
+    EntityKeyword,
+    BlockKeyword,
+    StorageKeyword,
+    TellrawKeyword,
+    FunctionKeyword,
+    ReturnKeyword,
+    IfKeyword,
+    WhileKeyword,
+    ElseKeyword,
+    LetKeyword,
+    ToKeyword,
+    AsKeyword,
+    MCFNKeyword,
+    StructKeyword,
+    TypeKeyword,
 
     BlockStatement,
+    ExpressionStatement,
     IfStatement,
     LetStatement,
     MCFNDeclarationStatement,
     StructDeclarationStatement,
-    StructDeclarationField,
+    StructDeclarationStatementField,
     WhileStatement,
+    TypeAliasDeclarationStatement,
+
+    GenericNames,
+    GenericDataTypes,
 
     Range,
     RangeBound,
 
-    EntitySelectorName,
+    NameEntitySelector,
     VariableEntitySelector,
     EntitySelectorVariable,
     VariableEntitySelectorOptions,
@@ -106,6 +142,8 @@ pub enum SyntaxKind {
     BlockDataTarget,
     StorageDataTarget,
     EntityDataTarget,
+
+    RuntimeStorageType,
 
     StructExpression,
     StructExpressionField,
@@ -120,16 +158,19 @@ pub enum SyntaxKind {
     FloatExpression,
     DoubleExpression,
     NumericExpressionSuffix,
-    CharExpression,
+    CharacterExpression,
     StringExpression,
     BooleanExpression,
     IndexExpression,
     ListExpression,
     CompoundExpression,
     CompoundExpressionEntry,
+    CompoundKey,
     DataExpression,
     ScoreExpression,
     TellrawCommandExpression,
+    FunctionCommandExpression,
+    ReturnCommandExpression,
     BinaryExpression,
     UnitExpression,
     TupleExpression,
@@ -141,9 +182,41 @@ pub enum SyntaxKind {
     TupleDataType,
     ReferenceDataType,
     TypedCompoundDataType,
-    TypedCompoundField,
+    TypedCompoundDataTypeField,
+    TypedCompoundDataTypeFieldName,
     NamedDataType,
 
     Error,
     Garbage,
 }
+
+impl From<SyntaxKind> for rowan::SyntaxKind {
+    fn from(kind: SyntaxKind) -> Self {
+        Self(kind as u16)
+    }
+}
+
+impl From<rowan::SyntaxKind> for SyntaxKind {
+    fn from(kind: rowan::SyntaxKind) -> Self {
+        unsafe { std::mem::transmute(kind.0) }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KelpLanguage;
+
+impl Language for KelpLanguage {
+    type Kind = SyntaxKind;
+
+    fn kind_from_raw(raw: rowan::SyntaxKind) -> Self::Kind {
+        raw.into()
+    }
+
+    fn kind_to_raw(kind: Self::Kind) -> rowan::SyntaxKind {
+        kind.into()
+    }
+}
+
+pub type SyntaxNode = rowan::SyntaxNode<KelpLanguage>;
+pub type SyntaxToken = rowan::SyntaxToken<KelpLanguage>;
+pub type SyntaxElement = rowan::SyntaxElement<KelpLanguage>;

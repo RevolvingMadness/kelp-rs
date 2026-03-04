@@ -1,62 +1,46 @@
-use kelp_core::span::Span;
+use kelp_core::statement::{Statement, StatementKind};
 
 use crate::{
-    cst_node,
+    cst::CSTMCFNDeclarationStatement,
     lower::{
-        resource_location::CSTResourceLocation,
-        statement::{CSTStatement, block::CSTBlockStatement},
+        resource_location::{lower_resource_location, try_parse_resource_location},
+        statement::{lower_statement, try_parse_statement},
     },
     parser::Parser,
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
-cst_node!(
-    CSTMCFNDeclarationStatement,
-    SyntaxKind::MCFNDeclarationStatement
-);
+#[must_use]
+pub fn try_parse_mcfn_declaration_statement(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
 
-impl<'a> CSTMCFNDeclarationStatement<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let state = parser.save_state();
+    parser.start_node(SyntaxKind::MCFNDeclarationStatement);
+    parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
+    parser.expect_inline_whitespace();
 
-        parser.start_node(SyntaxKind::MCFNDeclarationStatement);
-        parser.bump_keyword("mcfn");
-        parser.expect_inline_whitespace();
+    if !try_parse_resource_location(parser) {
+        parser.restore_state(state);
 
-        if !CSTResourceLocation::try_parse(parser) {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        parser.skip_inline_whitespace();
-        CSTBlockStatement::try_parse(parser);
-        parser.finish_node();
-
-        true
+        return false;
     }
 
-    #[must_use]
-    pub fn mcfn_keyword_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Keyword {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
+    parser.skip_inline_whitespace();
+    if !try_parse_statement(parser) {
+        parser.error("Expected statement");
     }
+    parser.finish_node();
 
-    #[must_use]
-    pub fn resource_location(&self) -> Option<CSTResourceLocation<'a>> {
-        self.children().find_map(CSTResourceLocation::cast)
-    }
+    true
+}
 
-    #[must_use]
-    pub fn block_statement(&self) -> Option<CSTStatement<'a>> {
-        self.0
-            .children()
-            .find(|node| node.is_kind(SyntaxKind::BlockStatement))
-            .and_then(CSTStatement::cast)
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_mcfn_declaration_statement(node: CSTMCFNDeclarationStatement) -> Option<Statement> {
+    let span = span_of_cst_node(&node);
+
+    let resource_location = lower_resource_location(node.resource_location()?)?;
+    let body = lower_statement(node.statement()?)?;
+
+    Some(StatementKind::MCFNDeclaration(resource_location, Box::new(body)).with_span(span))
 }

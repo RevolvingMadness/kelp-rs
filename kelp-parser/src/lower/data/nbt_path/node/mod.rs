@@ -1,93 +1,79 @@
-use kelp_core::high::{nbt_path::HighNbtPathNode, snbt_string::HighSNBTString};
-use minecraft_command_types::snbt::SNBTString;
-
 use crate::{
-    cstlib::CSTNodeType,
+    cst::CSTNBTPathNode,
     lower::{
-        data::nbt_path::node::{index::CSTNBTPathIndexNode, named::CSTNBTPathNamedNode},
-        expression::compound::CSTCompoundExpression,
+        data::nbt_path::node::{
+            index::try_parse_index_nbt_path_node, named::try_parse_named_nbt_path_node,
+        },
+        expression::{
+            compound::{lower_compound_expression_inner, try_parse_compound_expression},
+            lower_expression,
+        },
     },
     parser::Parser,
-    semantic_token::SemanticToken,
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
+use kelp_core::high::{nbt_path::HighNbtPathNode, snbt_string::HighSNBTString};
+use minecraft_command_types::snbt::SNBTString;
 
 pub mod index;
 pub mod named;
 
-#[derive(Debug)]
-pub enum CSTNBTPathNode<'a> {
-    Named(CSTNBTPathNamedNode<'a>),
-    Index(CSTNBTPathIndexNode<'a>),
+pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
+    let Some(char) = parser.peek_char() else {
+        return false;
+    };
+
+    match char {
+        '{' => {
+            parser.start_node(SyntaxKind::CompoundNBTPathNode);
+
+            if !try_parse_compound_expression(parser) {
+                parser.error("Expected compound");
+            }
+
+            parser.finish_node();
+
+            true
+        }
+        '[' => try_parse_index_nbt_path_node(parser),
+        _ => try_parse_named_nbt_path_node(parser),
+    }
 }
 
-impl<'a> CSTNBTPathNode<'a> {
-    pub fn try_parse_start(parser: &mut Parser) -> bool {
-        let char = parser.peek_char();
+pub fn lower_nbt_path_node(node: CSTNBTPathNode) -> Option<HighNbtPathNode> {
+    match node {
+        CSTNBTPathNode::IndexNBTPathNode(node) => {
+            let index = node.index();
 
-        if char == Some('{') {
-            parser.start_node(SyntaxKind::NBTPathRoot);
-            let ok = CSTCompoundExpression::try_parse(parser);
-            parser.finish_node();
-            return ok;
+            Some(HighNbtPathNode::Index(
+                index.and_then(lower_expression).map(Box::new),
+            ))
         }
+        CSTNBTPathNode::NamedNBTPathNode(node) => {
+            let span = span_of_cst_node(&node);
 
-        if char == Some('[') {
-            return CSTNBTPathIndexNode::try_parse(parser);
+            let name_token = node.name()?;
+            let name = name_token.text();
+
+            let compound = node.compound().and_then(|compound| {
+                let (_, compound) = lower_compound_expression_inner(compound)?;
+
+                Some(compound)
+            });
+
+            Some(HighNbtPathNode::Named(
+                HighSNBTString {
+                    snbt_string: SNBTString(false, name.to_string()),
+                    span,
+                },
+                compound,
+            ))
         }
+        CSTNBTPathNode::CompoundNBTPathNode(node) => {
+            let (_, compound) = lower_compound_expression_inner(node.compound_expression()?)?;
 
-        CSTNBTPathNamedNode::try_parse(parser)
-    }
-
-    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
-        match node.kind()? {
-            SyntaxKind::NBTPathNamed => CSTNBTPathNamedNode::cast(node).map(CSTNBTPathNode::Named),
-            SyntaxKind::NBTPathIndex => CSTNBTPathIndexNode::cast(node).map(CSTNBTPathNode::Index),
-            _ => {
-                #[cfg(debug_assertions)]
-                println!("Failed to cast node {:?} to CSTNBTPathNode", node);
-
-                None
-            }
-        }
-    }
-
-    pub fn lower(self, text: &str) -> Option<HighNbtPathNode> {
-        Some(match self {
-            CSTNBTPathNode::Index(node) => {
-                let index = node.index();
-
-                HighNbtPathNode::Index(
-                    index
-                        .and_then(|expression| expression.lower(text))
-                        .map(Box::new),
-                )
-            }
-            CSTNBTPathNode::Named(node) => {
-                let (span, name) = node.name(text)?;
-                let compound = node
-                    .compound()
-                    .map(|compound_expression| compound_expression.lower(text));
-
-                HighNbtPathNode::Named(
-                    HighSNBTString {
-                        snbt_string: SNBTString(false, name.to_string()),
-                        span,
-                    },
-                    compound,
-                )
-            }
-        })
-    }
-
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        match self {
-            CSTNBTPathNode::Named(node) => {
-                node.collect_semantic_tokens(tokens);
-            }
-            CSTNBTPathNode::Index(node) => {
-                node.collect_semantic_tokens(tokens);
-            }
+            Some(HighNbtPathNode::RootCompound(compound))
         }
     }
 }

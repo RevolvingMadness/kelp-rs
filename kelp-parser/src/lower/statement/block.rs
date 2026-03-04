@@ -1,58 +1,63 @@
-use crate::{cst_node, lower::statement::CSTStatement, parser::Parser, syntax::SyntaxKind};
+use kelp_core::statement::{Statement, StatementKind};
 
-cst_node!(CSTBlockStatement, SyntaxKind::BlockStatement);
+use crate::{
+    cst::CSTBlockStatement,
+    lower::statement::{lower_statement, try_parse_statement},
+    parser::Parser,
+    span::span_of_cst_node,
+    syntax::SyntaxKind,
+};
 
-impl<'a> CSTBlockStatement<'a> {
-    pub fn statements(&self) -> impl Iterator<Item = CSTStatement<'a>> {
-        self.children().filter_map(CSTStatement::cast)
+pub fn try_parse_block_statement(parser: &mut Parser) -> bool {
+    if !parser.expect_no_bump('{', "Expected block statement") {
+        return false;
     }
 
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        if !parser.expect_no_bump('{', "Expected block statement") {
-            return false;
+    parser.start_node(SyntaxKind::BlockStatement);
+    parser.bump_char();
+
+    let mut is_first = true;
+
+    parser.skip_whitespace();
+
+    loop {
+        if parser.is_eof() || parser.peek_char() == Some('}') {
+            break;
         }
 
-        parser.start_node(SyntaxKind::BlockStatement);
-        parser.bump_char();
-
-        let mut is_first = true;
-
-        parser.skip_whitespace();
-
-        while !parser.is_eof() && parser.peek_char() != Some('}') {
-            if !is_first
-                && !parser.expect_newline_whitespace("Expected newline to mark end of statement")
-            {
-                let chars = parser.source[parser.pos..].chars();
-                let mut length = 0;
-
-                for char in chars {
-                    if CSTStatement::is_recovery(char) || char == '}' {
-                        break;
-                    }
-
-                    length += char.len_utf8();
-                }
-
-                parser.add_token(SyntaxKind::Garbage, length);
-            }
-
-            if parser.is_eof() || parser.peek_char() == Some('}') {
-                break;
-            }
-
-            if !CSTStatement::try_parse(parser) {
-                parser.recover_newline("Expected statement");
-            }
+        if !is_first && !parser.try_parse_newline_whitespace() {
+            parser.recover_newline("Expected newline to mark end of statement");
 
             is_first = false;
+
+            continue;
         }
 
-        parser.skip_whitespace();
+        if parser.is_eof() || parser.peek_char() == Some('}') {
+            break;
+        }
 
-        parser.expect_char('}', "Expected '}'");
-        parser.finish_node();
+        if !try_parse_statement(parser) {
+            parser.recover_newline("Expected statement");
+        }
 
-        true
+        is_first = false;
     }
+
+    parser.skip_whitespace();
+
+    parser.expect_char('}', "Expected '}'");
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_block_statement(node: CSTBlockStatement) -> Option<Statement> {
+    let span = span_of_cst_node(&node);
+
+    let statements = node.statements().filter_map(lower_statement).collect();
+
+    Some(StatementKind::Block(statements).with_span(span))
 }

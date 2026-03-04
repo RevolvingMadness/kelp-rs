@@ -1,12 +1,11 @@
-use crate::{cst_node, lower::expression::CSTExpression, syntax::SyntaxKind};
+use kelp_core::expression::Expression;
 
-cst_node!(
-    CSTParenthesizedExpression,
-    SyntaxKind::ParenthesizedExpression
-);
+use crate::{cst::CSTParenthesizedExpression, lower::expression::lower_expression};
 
-impl<'a> CSTParenthesizedExpression<'a> {
-    pub fn expression(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_parenthesized_expression(node: CSTParenthesizedExpression) -> Option<Expression> {
+    let expression = lower_expression(node.expression()?)?;
+
+    Some(expression)
 }

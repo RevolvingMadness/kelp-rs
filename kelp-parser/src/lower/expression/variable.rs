@@ -1,23 +1,19 @@
-use kelp_core::span::Span;
+use kelp_core::expression::{Expression, ExpressionKind, constant::ConstantExpressionKind};
 
-use crate::{cst_node, syntax::SyntaxKind};
+use crate::{cst::CSTVariableExpression, span::span_of_cst_node};
 
-cst_node!(CSTVariableExpression, SyntaxKind::VariableExpression);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_variable_expression(node: CSTVariableExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
 
-impl CSTVariableExpression<'_> {
-    #[must_use]
-    pub fn name_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
-    }
+    let name_token = node.identifier_token()?;
+    let name = name_token.text();
 
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
-        Some(&text[self.name_span()?.into_range()])
-    }
+    Some(
+        ExpressionKind::Constant(
+            ConstantExpressionKind::Variable(name.to_string()).with_span(span),
+        )
+        .with_span(span),
+    )
 }

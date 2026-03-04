@@ -11,3 +11,11 @@ nonempty = { workspace = true }
 serde_json = { workspace = true }
 paste = "1.0.15"
 phf = "0.13.1"
+rowan = "0.16.1"
+
+[build-dependencies]
+prettyplease = "0.2.37"
+proc-macro2 = "1.0.106"
+quote = "1.0.44"
+syn = "2.0.117"
+ungrammar = "1.16.1"

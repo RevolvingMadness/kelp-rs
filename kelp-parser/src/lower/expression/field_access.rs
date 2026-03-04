@@ -1,23 +1,34 @@
-use kelp_core::span::Span;
+use kelp_core::{
+    expression::{Expression, ExpressionKind},
+    high::snbt_string::HighSNBTString,
+};
+use minecraft_command_types::snbt::SNBTString;
 
-use crate::{cst_node, lower::expression::CSTExpression, syntax::SyntaxKind};
+use crate::{
+    cst::CSTFieldAccessExpression,
+    lower::expression::lower_expression,
+    span::{span_of_cst_node, text_range_to_span},
+};
 
-cst_node!(CSTFieldAccessExpression, SyntaxKind::FieldAccessExpression);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_field_access_expression(node: CSTFieldAccessExpression) -> Option<Expression> {
+    let expression = lower_expression(node.expression()?)?;
+    let field_token = node.identifier_token()?;
 
-impl<'a> CSTFieldAccessExpression<'a> {
-    #[must_use]
-    pub fn target(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+    let field_name_span = text_range_to_span(field_token.text_range());
+    let field = field_token.text().to_owned();
 
-    #[must_use]
-    pub fn field<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier || token.kind == SyntaxKind::WholeValue {
-                Some((token.span, token.text(text)))
-            } else {
-                None
-            }
-        })
-    }
+    let span = span_of_cst_node(&node);
+
+    Some(
+        ExpressionKind::FieldAccess(
+            Box::new(expression),
+            HighSNBTString {
+                span: field_name_span,
+                snbt_string: SNBTString(false, field),
+            },
+        )
+        .with_span(span),
+    )
 }

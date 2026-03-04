@@ -1,18 +1,20 @@
+struct Abilities {
+    invulnerable: boolean,
+    mayfly: boolean,
+    instabuild: boolean,
+    walkSpeed: float,
+    mayBuild: boolean,
+    flying: boolean,
+    flySpeed: float
+}
+
+struct Entity {
+    abilities: Abilities,
+}
+
 mcfn namespace:main {
-    type abilities = {
-        invulnerable: boolean,
-        mayfly: boolean,
-        instabuild: boolean,
-        walkSpeed: float,
-        mayBuild: boolean,
-        flying: boolean,
-        flySpeed: float
-    }
-
-    type entity = data<{ abilities: abilities }>
-
-    let {
-        abilities: {
+    let Entity {
+        abilities: Abilities {
             invulnerable: is_invulnerable,
             mayfly: can_fly,
             instabuild: can_instabuild,
@@ -21,7 +23,7 @@ mcfn namespace:main {
             flying: is_flying,
             flySpeed: fly_speed
         }
-    } = &(entity @s {} as entity)
+    } = entity @s {} as data<Entity>
 
     tellraw @a ["is_invulnerable: ", is_invulnerable]
     tellraw @a ["can_fly: ", can_fly]
@@ -31,7 +33,7 @@ mcfn namespace:main {
     tellraw @a ["is_flying: ", is_flying]
     tellraw @a ["fly_speed: ", fly_speed]
 
-    if is_invulnerable {
+    if (is_invulnerable) {
         tellraw @a "You are invulnerable"
     } else {
         tellraw @a "You are not invulnerable"

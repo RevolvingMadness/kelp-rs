@@ -1,57 +1,41 @@
 use kelp_core::statement::Statement;
 
 use crate::{
-    cst_node, lower::statement::CSTStatement, parser::Parser, semantic_token::SemanticToken,
+    cst::CSTRoot,
+    lower::statement::{lower_statement, try_parse_statement},
+    parser::Parser,
     syntax::SyntaxKind,
 };
 
-cst_node!(CSTRoot, SyntaxKind::Root);
+pub fn parse_root(parser: &mut Parser) {
+    parser.start_node(SyntaxKind::Root);
 
-impl<'a> CSTRoot<'a> {
-    pub fn parse(parser: &mut Parser) {
-        parser.start_node(SyntaxKind::Root);
+    parser.skip_whitespace();
 
-        parser.skip_whitespace();
+    let mut is_first = true;
 
-        let mut is_first = true;
+    loop {
+        if parser.is_eof() {
+            break;
+        }
 
-        while !parser.is_eof() {
-            if !is_first {
-                let _ =
-                    parser.expect_newline_whitespace("Expected newline to mark end of statement");
-            }
-
-            let _ = CSTStatement::try_parse(parser);
+        if !is_first && !parser.try_parse_newline_whitespace() {
+            parser.recover_newline("Expected newline to mark end of statement");
 
             is_first = false;
+
+            continue;
         }
 
-        parser.finish_node();
+        let _ = try_parse_statement(parser);
+
+        is_first = false;
     }
 
-    #[must_use]
-    pub fn lower(self, text: &str) -> Vec<Statement> {
-        self.statements()
-            .into_iter()
-            .filter_map(|statement| statement.lower(text))
-            .collect()
-    }
+    parser.finish_node();
+}
 
-    #[must_use]
-    pub fn statements(&self) -> Vec<CSTStatement<'a>> {
-        self.children().filter_map(CSTStatement::cast).collect()
-    }
-
-    #[must_use]
-    pub fn collect_semantic_tokens(&self) -> Vec<SemanticToken> {
-        let mut tokens = Vec::new();
-
-        for statement in self.statements() {
-            statement.collect_semantic_tokens(&mut tokens);
-        }
-
-        tokens.sort_by_key(|t| t.span.start);
-
-        tokens
-    }
+#[must_use]
+pub fn lower_root(root: &CSTRoot) -> Vec<Statement> {
+    root.statements().filter_map(lower_statement).collect()
 }

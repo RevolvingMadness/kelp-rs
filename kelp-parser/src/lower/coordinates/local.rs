@@ -1,58 +1,30 @@
 use ordered_float::NotNan;
 
-use crate::{
-    cst_node,
-    semantic_token::{SemanticToken, SemanticTokenType},
-    syntax::SyntaxKind,
-};
+use crate::{cst::CSTLocalCoordinate, parser::Parser, syntax::SyntaxKind};
 
-cst_node!(CSTLocalCoordinate, SyntaxKind::LocalCoordinate);
+pub fn parse_local_coordinate(parser: &mut Parser) {
+    parser.start_node(SyntaxKind::LocalCoordinate);
 
-impl CSTLocalCoordinate<'_> {
-    #[must_use]
-    pub fn lower(self, text: &str) -> Option<NotNan<f32>> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::FractionalValue {
-                Some(token.text(text).parse().unwrap())
-            } else {
-                None
-            }
-        })
+    if !parser.expect_char('^', "Expected '^'") {
+        parser.bump_char();
     }
 
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        for token in self.0.children_tokens() {
-            match token.kind {
-                SyntaxKind::Caret => {
-                    tokens.push(SemanticToken::new(token.span, SemanticTokenType::Function));
-                }
+    parser.try_parse_fractional_value();
 
-                SyntaxKind::FractionalValue | SyntaxKind::WholeValue => {
-                    tokens.push(SemanticToken::new(token.span, SemanticTokenType::Number));
-                }
-
-                _ => {}
-            }
-        }
-    }
+    parser.finish_node();
 }
 
-cst_node!(CSTLocalCoordinates, SyntaxKind::LocalCoordinates);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_local_coordinate(node: CSTLocalCoordinate) -> Option<Option<NotNan<f32>>> {
+    let value = match node
+        .fractional_value_token()
+        .map(|token| token.text().parse::<NotNan<f32>>().ok())
+    {
+        None => None,
+        Some(None) => return None,
+        Some(Some(value)) => Some(value),
+    };
 
-impl<'a> CSTLocalCoordinates<'a> {
-    pub fn coordinates(
-        self,
-    ) -> (
-        Option<CSTLocalCoordinate<'a>>,
-        Option<CSTLocalCoordinate<'a>>,
-        Option<CSTLocalCoordinate<'a>>,
-    ) {
-        let mut coordinates = self.children().filter_map(CSTLocalCoordinate::cast);
-
-        let x = coordinates.next();
-        let y = coordinates.next();
-        let z = coordinates.next();
-
-        (x, y, z)
-    }
+    Some(value)
 }

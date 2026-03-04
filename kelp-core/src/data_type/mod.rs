@@ -309,27 +309,35 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    fn wrap_data(self) -> Self {
+    fn distribute_data(self) -> Self {
         match self {
-            Self::Reference(data_type) => Self::Reference(Box::new(data_type.wrap_data())),
-            Self::Data(inner) => inner.wrap_data(),
-            Self::List(data_type) => Self::List(Box::new(data_type.wrap_data())),
-            Self::Tuple(data_types) => {
-                Self::Tuple(data_types.into_iter().map(Self::wrap_data).collect())
-            }
-            Self::TypedCompound(compound) => Self::TypedCompound(
-                compound
-                    .into_iter()
-                    .map(|(key, data_type)| (key, data_type.wrap_data()))
-                    .collect(),
-            ),
-            Self::Compound(data_type) => Self::Compound(Box::new(data_type.wrap_data())),
-            Self::Struct(name, generic_types, is_data) => Self::Struct(
-                name,
-                generic_types.into_iter().map(Self::wrap_data).collect(),
-                is_data,
-            ),
-            _ => Self::Data(Box::new(self)),
+            Self::Data(inner) => match inner.distribute_data() {
+                Self::Reference(data_type) => {
+                    Self::Reference(Box::new(data_type.distribute_data()))
+                }
+                Self::List(data_type) => Self::List(Box::new(data_type.distribute_data())),
+                Self::Tuple(data_types) => {
+                    Self::Tuple(data_types.into_iter().map(Self::distribute_data).collect())
+                }
+                Self::TypedCompound(compound) => Self::TypedCompound(
+                    compound
+                        .into_iter()
+                        .map(|(key, data_type)| (key, data_type.distribute_data()))
+                        .collect(),
+                ),
+                Self::Compound(data_type) => Self::Compound(Box::new(data_type.distribute_data())),
+                Self::Struct(name, generic_types, is_data) => Self::Struct(
+                    name,
+                    generic_types
+                        .into_iter()
+                        .map(Self::distribute_data)
+                        .collect(),
+                    is_data,
+                ),
+                Self::Data(inner) => *inner,
+                inner => Self::Data(Box::new(inner)),
+            },
+            _ => self,
         }
     }
 
@@ -372,7 +380,7 @@ impl DataTypeKind {
                 .distribute_references()
                 .perform_tuple_destructure_semantic_analysis(patterns, ctx, value_span, pattern),
             Self::Data(data_type) => data_type
-                .wrap_data()
+                .distribute_data()
                 .destructure_and_perform_semantic_analysis(ctx, value_span, pattern),
             _ => {
                 for pattern in patterns {
@@ -456,7 +464,7 @@ impl DataTypeKind {
                 Some(())
             }
             Self::Data(data_type) => data_type
-                .wrap_data()
+                .distribute_data()
                 .destructure_and_perform_semantic_analysis(ctx, value_span, pattern),
             Self::Reference(_) => self
                 .distribute_references()
@@ -550,7 +558,7 @@ impl DataTypeKind {
                     pattern,
                 ),
             Self::Data(inner) => inner
-                .wrap_data()
+                .distribute_data()
                 .perform_struct_destructure_semantic_analysis(
                     name,
                     field_patterns,
@@ -662,7 +670,7 @@ impl DataTypeKind {
             }
             (Self::Data(inner_type), value @ ConstantExpressionKind::Data(_, _)) => {
                 inner_type
-                    .wrap_data()
+                    .distribute_data()
                     .destructure_tuple(datapack, ctx, patterns, value);
             }
             (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
@@ -796,7 +804,7 @@ impl DataTypeKind {
                 );
             }
             (Self::Data(inner_type), value @ ConstantExpressionKind::Data(_, _)) => {
-                inner_type.wrap_data().destructure_struct(
+                inner_type.distribute_data().destructure_struct(
                     datapack,
                     ctx,
                     name,

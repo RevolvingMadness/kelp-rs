@@ -1,35 +1,41 @@
+use kelp_core::expression::{Expression, ExpressionKind};
+
 use crate::{
-    cst_node,
-    lower::data::{nbt_path::CSTNBTPath, target::CSTDataTarget},
+    cst::CSTDataExpression,
+    lower::data::{
+        nbt_path::{lower_nbt_path, try_parse_nbt_path},
+        target::{lower_data_target, try_parse_data_target},
+    },
     parser::Parser,
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
-cst_node!(CSTDataExpression, SyntaxKind::DataExpression);
+pub fn try_parse_data_expression(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
 
-impl<'a> CSTDataExpression<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.checkpoint();
-
-        if !CSTDataTarget::try_parse(parser) {
-            return false;
-        }
-
-        parser.start_node_at(checkpoint, SyntaxKind::DataExpression);
-
-        parser.expect_inline_whitespace();
-
-        CSTNBTPath::try_parse(parser);
-
-        parser.finish_node();
-
-        true
-    }
-    pub fn data_target(&self) -> Option<CSTDataTarget<'a>> {
-        self.children().find_map(CSTDataTarget::cast)
+    if !try_parse_data_target(parser) {
+        return false;
     }
 
-    pub fn nbt_path(&self) -> Option<CSTNBTPath<'a>> {
-        self.children().find_map(CSTNBTPath::cast)
-    }
+    parser.start_node_at(checkpoint, SyntaxKind::DataExpression);
+
+    parser.expect_inline_whitespace();
+
+    try_parse_nbt_path(parser);
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_data_expression(node: CSTDataExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
+
+    let target = lower_data_target(node.data_target()?)?;
+    let path = lower_nbt_path(node.n_b_t_path()?)?;
+
+    Some(ExpressionKind::Data(target, path).with_span(span))
 }

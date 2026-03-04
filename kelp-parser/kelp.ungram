@@ -1,0 +1,339 @@
+Root =
+  Statement*
+
+// ----- Statement -----
+Statement =
+  BlockStatement
+| ExpressionStatement
+| IfStatement
+| WhileStatement
+| LetStatement
+| MCFNDeclarationStatement
+| StructDeclarationStatement
+| TypeAliasDeclarationStatement
+
+BlockStatement =
+  '{' Statement* '}'
+
+ExpressionStatement =
+  Expression
+
+IfStatement =
+  'if' condition:Expression body:Statement ('else' else_body:Statement)?
+
+WhileStatement =
+  'while' condition:Expression body:Statement
+
+LetStatement =
+  'let' Pattern (':' DataType)? '=' Expression
+
+MCFNDeclarationStatement =
+  'mcfn' ResourceLocation Statement
+
+StructDeclarationStatement =
+  'struct'
+  name:'struct_name'
+  GenericNames?
+  '{'
+  (
+    fields:StructDeclarationStatementField
+    (',' fields:StructDeclarationStatementField)*
+    ','?
+  )?
+  '}'
+
+StructDeclarationStatementField =
+  name:'struct_field_name' ':' DataType
+
+TypeAliasDeclarationStatement =
+  'type' name:'data_type_name' GenericNames? '=' DataType
+
+// ----- Generics -----
+GenericNames =
+  ('<' (generics:'data_type_name' (',' generics:'data_type_name')*)? '>')
+
+GenericDataTypes =
+  ('<' (generics:DataType (',' generics:DataType)*)? '>')
+
+// ----- Expression -----
+Expression =
+  VariableExpression
+| UnaryExpression
+| AssignmentExpression
+| BinaryExpression
+| DataExpression
+| ScoreExpression
+| TellrawCommandExpression
+| ReturnCommandExpression
+| FunctionCommandExpression
+| ByteExpression
+| ShortExpression
+| IntegerExpression
+| LongExpression
+| FloatExpression
+| DoubleExpression
+| UnitExpression
+| ParenthesizedExpression
+| StringExpression
+| CharacterExpression
+| ToCastExpression
+| AsCastExpression
+| TupleExpression
+| ListExpression
+| StructExpression
+| CompoundExpression
+| IndexExpression
+| FieldAccessExpression
+
+VariableExpression =
+  'ident'
+
+UnaryExpression =
+  operator:('!' | '-' | '*' | '&') Expression
+
+AssignmentExpression =
+  target:Expression
+  operator:('=' | '+=' | '-=' | '*=' | '/=' | '%=')
+  value:Expression
+
+BinaryExpression =
+  lhs:Expression
+  operator:(
+    '+'
+  | '-'
+  | '*'
+  | '/'
+  | '%'
+  | '>'
+  | '>='
+  | '<'
+  | '<='
+  | '=='
+  | '!='
+  | '&&'
+  | '||'
+  | '&'
+  | '|'
+  | '<<'
+  | '>>'
+  )
+  rhs:Expression
+
+DataExpression =
+  DataTarget NBTPath?
+
+ScoreExpression =
+  'score' EntitySelector 'ident'
+
+TellrawCommandExpression =
+  'tellraw' EntitySelector Expression
+
+ReturnCommandExpression =
+  'return' 'whole_value'
+
+FunctionCommandExpression =
+  'function' ResourceLocation
+
+// TODO
+ByteExpression =
+  'whole_value'
+
+ShortExpression =
+  'whole_value'
+
+IntegerExpression =
+  'whole_value'
+
+LongExpression =
+  'whole_value'
+
+FloatExpression =
+  'fractional_value'
+
+DoubleExpression =
+  'fractional_value'
+
+UnitExpression =
+  '(' ')'
+
+ParenthesizedExpression =
+  '(' Expression ')'
+
+StringExpression =
+  'string_literal'
+
+CharacterExpression =
+  'character_literal'
+
+ToCastExpression =
+  Expression 'to' 'runtime_storage_type'
+
+AsCastExpression =
+  Expression 'as' DataType
+
+TupleExpression =
+  '(' (expressions:Expression (',' expressions:Expression)*)? ')'
+
+ListExpression =
+  '[' (expressions:Expression (',' expressions:Expression)*)? ']'
+
+StructExpression =
+  name:'struct_name'
+  GenericDataTypes?
+  '{'
+  (fields:StructExpressionField (',' fields:StructExpressionField)* ','?)?
+  '}'
+
+StructExpressionField =
+  name:'struct_field_name' ':' value:Expression
+
+CompoundExpression =
+  '{'
+  (
+    entries:CompoundExpressionEntry
+    (',' entries:CompoundExpressionEntry)*
+    ','?
+  )?
+  '}'
+
+IndexExpression = Expression '[' Expression ']'
+
+FieldAccessExpression = Expression '.' 'ident'
+
+CompoundExpressionEntry =
+  name:'compound_key' ':' value:Expression
+
+// ----- Pattern -----
+Pattern =
+  WildcardPattern
+| TuplePattern
+| BindingPattern
+| StructPattern
+| CompoundPattern
+
+WildcardPattern =
+  '_'
+
+TuplePattern =
+  '(' patterns:Pattern? (',' patterns:Pattern)* ')'
+
+BindingPattern =
+  'binding_pattern_name'
+
+StructPattern =
+  name:'struct_name'
+  '{'
+  (fields:StructPatternField (',' fields:StructPatternField)* ','?)?
+  '}'
+
+StructPatternField =
+  name:'struct_field_name' (':' pattern:Pattern)?
+
+CompoundPattern =
+  '{'
+  (entries:CompoundPatternEntry (',' entries:CompoundPatternEntry)* ','?)?
+  '}'
+
+CompoundPatternEntry =
+  name:'compound_key' (':' pattern:Pattern)?
+
+// ----- Data Type -----
+DataType =
+  ReferenceDataType
+| TupleDataType
+| TypedCompoundDataType
+| UnitDataType
+| NamedDataType
+
+ReferenceDataType =
+  '&' DataType
+
+TupleDataType =
+  '(' DataType? (',' DataType)* ')'
+
+UnitDataType =
+  '(' ')'
+
+TypedCompoundDataType =
+  '{'
+  (
+    fields:TypedCompoundDataTypeField
+    (',' fields:TypedCompoundDataTypeField)*
+    ','?
+  )?
+  '}'
+
+TypedCompoundDataTypeField =
+  name:'typed_compound_data_type_field_name' (':' DataType)?
+
+NamedDataType =
+  'data_type_name' GenericDataTypes?
+
+// ----- NBT Path -----
+NBTPath =
+  NBTPathNode*
+
+NBTPathNode =
+  NamedNBTPathNode | IndexNBTPathNode | CompoundNBTPathNode
+
+NamedNBTPathNode =
+  name:'named_nbt_path_node_name' compound:CompoundExpression?
+
+IndexNBTPathNode =
+  'ident' '[' index:Expression? ']'
+
+CompoundNBTPathNode =
+  CompoundExpression
+
+// ----- Data Target -----
+DataTarget =
+  EntityDataTarget | BlockDataTarget | StorageDataTarget
+
+EntityDataTarget =
+  'entity' EntitySelector
+
+BlockDataTarget =
+  'block' Coordinates
+
+StorageDataTarget =
+  'storage' ResourceLocation
+
+// ----- Entity Selector -----
+EntitySelector =
+  VariableEntitySelector | NameEntitySelector
+
+VariableEntitySelector =
+  '@' 'entity_selector_variable'
+
+NameEntitySelector =
+  'ident'
+
+// ----- Resource Location -----
+ResourceLocation =
+  '#'? (namespace:ResourceLocationNamespace ':')? path:ResourceLocationPath
+
+ResourceLocationNamespace =
+  'ident'
+
+ResourceLocationPath =
+  path_segments:ResourceLocationPathSegment
+  ('/' path_segments:ResourceLocationPathSegment)*
+
+ResourceLocationPathSegment =
+  'ident'
+
+// ----- Coordinates -----
+Coordinates =
+  WorldCoordinates | LocalCoordinates
+
+WorldCoordinates =
+  WorldCoordinate WorldCoordinate WorldCoordinate
+
+WorldCoordinate =
+  ('~' | '^')? 'fractional_value'
+
+LocalCoordinates =
+  LocalCoordinate LocalCoordinate LocalCoordinate
+
+LocalCoordinate =
+  ('~' | '^')? 'fractional_value'

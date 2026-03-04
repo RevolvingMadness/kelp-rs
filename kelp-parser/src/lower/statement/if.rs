@@ -1,99 +1,68 @@
-use kelp_core::span::Span;
+use kelp_core::statement::{Statement, StatementKind};
 
 use crate::{
-    cst_node,
+    cst::CSTIfStatement,
     lower::{
-        expression::CSTExpression,
-        statement::{CSTStatement, block::CSTBlockStatement},
+        expression::{lower_expression, try_parse_expression},
+        statement::{block::try_parse_block_statement, lower_statement},
     },
     parser::Parser,
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
-cst_node!(CSTIfStatement, SyntaxKind::IfStatement);
+pub fn try_parse_if_statement(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
 
-impl<'a> CSTIfStatement<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let state = parser.save_state();
+    parser.start_node(SyntaxKind::IfStatement);
+    parser.bump_str(SyntaxKind::IfKeyword, "if");
+    parser.skip_inline_whitespace();
 
-        parser.start_node(SyntaxKind::IfStatement);
-        parser.bump_keyword("if");
+    if !try_parse_expression(parser) {
+        parser.restore_state(state);
+
+        return false;
+    }
+
+    parser.skip_inline_whitespace();
+
+    if !try_parse_block_statement(parser) {
+        parser.recover_newline("Expected block statement");
+    }
+
+    parser.skip_inline_whitespace();
+
+    if parser.peek_identifier() == Some("else") {
+        parser.bump_str(SyntaxKind::ElseKeyword, "else");
+
         parser.skip_inline_whitespace();
 
-        if !CSTExpression::try_parse(parser) {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        parser.skip_whitespace();
-
-        if !CSTBlockStatement::try_parse(parser) {
-            parser.recover_newline("Expected block statement");
-        }
-
-        parser.skip_whitespace();
-
-        if parser.peek_identifier() == Some("else") {
-            parser.bump_keyword("else");
-
-            parser.skip_whitespace();
-
-            if parser.peek_char() == Some('{') {
-                if !CSTBlockStatement::try_parse(parser) {
-                    parser.recover_newline("Expected block statement");
-                }
-            } else if parser.peek_identifier() == Some("if") {
-                if !CSTIfStatement::try_parse(parser) {
-                    parser.recover_newline("Expected if statement");
-                }
-            } else {
-                parser.recover_newline("Expected block or if statement");
+        if parser.peek_char() == Some('{') {
+            if !try_parse_block_statement(parser) {
+                parser.recover_newline("Expected block statement");
             }
-        }
-
-        parser.finish_node();
-
-        true
-    }
-
-    #[must_use]
-    pub fn if_keyword_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Keyword {
-                Some(token.span)
-            } else {
-                None
+        } else if parser.peek_identifier() == Some("if") {
+            if !try_parse_if_statement(parser) {
+                parser.recover_newline("Expected if statement");
             }
-        })
+        } else {
+            parser.recover_newline("Expected block or if statement");
+        }
     }
 
-    #[must_use]
-    pub fn else_keyword_span(&self) -> Option<Span> {
-        self.0
-            .children_tokens()
-            .filter_map(|token| {
-                if token.kind == SyntaxKind::Keyword {
-                    Some(token.span)
-                } else {
-                    None
-                }
-            })
-            .nth(1)
-    }
+    parser.finish_node();
 
-    #[must_use]
-    pub fn condition(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+    true
+}
 
-    #[must_use]
-    pub fn body(&self) -> Option<CSTStatement<'a>> {
-        self.children().filter_map(CSTStatement::cast).nth(1)
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_if_statement(node: CSTIfStatement) -> Option<Statement> {
+    let span = span_of_cst_node(&node);
 
-    #[must_use]
-    pub fn else_body(&self) -> Option<CSTStatement<'a>> {
-        self.children().filter_map(CSTStatement::cast).nth(2)
-    }
+    let condition = lower_expression(node.condition()?)?;
+    let body = lower_statement(node.body()?)?;
+    let else_body = node.else_body().and_then(lower_statement).map(Box::new);
+
+    Some(StatementKind::If(condition, Box::new(body), else_body).with_span(span))
 }

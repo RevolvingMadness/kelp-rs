@@ -1,20 +1,28 @@
-use kelp_core::{
-    span::Span,
-    statement::{Statement, StatementKind},
-};
+use kelp_core::statement::{Statement, StatementKind};
 
 use crate::{
-    cstlib::CSTNodeType,
+    cst::{CSTExpressionStatement, CSTStatement},
     lower::{
-        expression::CSTExpression,
+        data_type::generics::lower_generic_names,
+        expression::{is_expression_recovery, lower_expression, try_parse_expression},
         statement::{
-            block::CSTBlockStatement, r#if::CSTIfStatement, r#let::CSTLetStatement,
-            mcfn_declaration::CSTMCFNDeclarationStatement,
-            struct_declaration::CSTStructDeclarationStatement, r#while::CSTWhileStatement,
+            block::{lower_block_statement, try_parse_block_statement},
+            r#if::{lower_if_statement, try_parse_if_statement},
+            r#let::{lower_let_statement, try_parse_let_statement},
+            mcfn_declaration::{
+                lower_mcfn_declaration_statement, try_parse_mcfn_declaration_statement,
+            },
+            struct_declaration::{
+                lower_struct_declaration_statement_field, try_parse_struct_declaration_statement,
+            },
+            type_alias_declaration::{
+                lower_type_alias_declaration_statement, try_parse_type_alias_declaration_statement,
+            },
+            r#while::{lower_while_statement, try_parse_while_statement},
         },
     },
     parser::Parser,
-    semantic_token::{SemanticToken, SemanticTokenType},
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -23,308 +31,124 @@ pub mod r#if;
 pub mod r#let;
 pub mod mcfn_declaration;
 pub mod struct_declaration;
+pub mod type_alias_declaration;
 pub mod r#while;
 
-#[derive(Debug)]
-pub enum CSTStatementKind<'a> {
-    Block(CSTBlockStatement<'a>),
-    Expression(CSTExpression<'a>),
-    If(CSTIfStatement<'a>),
-    Let(CSTLetStatement<'a>),
-    MCFNDeclaration(CSTMCFNDeclarationStatement<'a>),
-    StructDeclaration(CSTStructDeclarationStatement<'a>),
-    While(CSTWhileStatement<'a>),
+#[must_use]
+pub fn is_statement_recovery(char: char) -> bool {
+    is_expression_recovery(char) || char == '\n' || char == '{'
 }
 
-impl<'a> CSTStatementKind<'a> {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> CSTStatement<'a> {
-        CSTStatement { span, kind: self }
-    }
-}
+#[must_use]
+pub fn try_parse_statement(parser: &mut Parser) -> bool {
+    let Some(c) = parser.peek_char() else {
+        return false;
+    };
 
-#[derive(Debug)]
-pub struct CSTStatement<'a> {
-    pub span: Span,
-    pub kind: CSTStatementKind<'a>,
-}
-
-impl<'a> CSTStatement<'a> {
-    #[must_use]
-    pub fn is_recovery(char: char) -> bool {
-        CSTExpression::is_recovery(char) || char == '\n' || char == '{'
-    }
-
-    #[must_use]
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let Some(c) = parser.peek_char() else {
-            return false;
-        };
-
-        #[allow(clippy::single_match_else)]
-        match c {
-            '{' => CSTBlockStatement::try_parse(parser),
-            _ => {
-                if let Some(text) = parser.peek_identifier() {
-                    match text {
-                        "if" => {
-                            if CSTIfStatement::try_parse(parser) {
-                                return true;
-                            }
+    #[allow(clippy::single_match_else)]
+    match c {
+        '{' => try_parse_block_statement(parser),
+        _ => {
+            if let Some(text) = parser.peek_identifier() {
+                match text {
+                    "if" => {
+                        if try_parse_if_statement(parser) {
+                            return true;
                         }
-                        "let" => {
-                            if CSTLetStatement::try_parse(parser) {
-                                return true;
-                            }
-                        }
-                        "mcfn" => {
-                            if CSTMCFNDeclarationStatement::try_parse(parser) {
-                                return true;
-                            }
-                        }
-                        "struct" => {
-                            if CSTStructDeclarationStatement::try_parse(parser) {
-                                return true;
-                            }
-                        }
-                        "while" => {
-                            if CSTWhileStatement::try_parse(parser) {
-                                return true;
-                            }
-                        }
-                        _ => {}
                     }
+                    "let" => {
+                        if try_parse_let_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "mcfn" => {
+                        if try_parse_mcfn_declaration_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "struct" => {
+                        if try_parse_struct_declaration_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "while" => {
+                        if try_parse_while_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "type" => {
+                        if try_parse_type_alias_declaration_statement(parser) {
+                            return true;
+                        }
+                    }
+                    _ => {}
                 }
-
-                if !CSTExpression::try_parse(parser) {
-                    let chars = parser.source[parser.pos..].chars();
-                    let mut length = 0;
-
-                    for char in chars {
-                        if CSTStatement::is_recovery(char) {
-                            break;
-                        }
-
-                        length += char.len_utf8();
-                    }
-
-                    if length > 0 {
-                        parser.error_with_len("Expected statement", length);
-
-                        parser.add_token(SyntaxKind::Garbage, length);
-                    }
-                }
-
-                true
             }
+
+            parser.start_node(SyntaxKind::ExpressionStatement);
+            if !try_parse_expression(parser) {
+                let chars = parser.source[parser.pos..].chars();
+                let mut length = 0;
+
+                for char in chars {
+                    if is_statement_recovery(char) {
+                        break;
+                    }
+
+                    length += char.len_utf8();
+                }
+
+                if length > 0 {
+                    parser.error_with_len("Expected statement", length);
+
+                    parser.add_token(SyntaxKind::Garbage, length);
+                }
+            }
+            parser.finish_node();
+
+            true
         }
     }
+}
 
-    #[must_use]
-    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
-        Some(
-            (match node.kind()? {
-                SyntaxKind::BlockStatement => {
-                    CSTStatementKind::Block(CSTBlockStatement::cast(node)?)
-                }
-                SyntaxKind::IfStatement => CSTStatementKind::If(CSTIfStatement::cast(node)?),
-                SyntaxKind::LetStatement => CSTStatementKind::Let(CSTLetStatement::cast(node)?),
-                SyntaxKind::MCFNDeclarationStatement => {
-                    CSTStatementKind::MCFNDeclaration(CSTMCFNDeclarationStatement::cast(node)?)
-                }
-                SyntaxKind::StructDeclarationStatement => {
-                    CSTStatementKind::StructDeclaration(CSTStructDeclarationStatement::cast(node)?)
-                }
-                SyntaxKind::WhileStatement => {
-                    CSTStatementKind::While(CSTWhileStatement::cast(node)?)
-                }
-                _ => {
-                    if let Some(expression) = CSTExpression::cast(node) {
-                        CSTStatementKind::Expression(expression)
-                    } else {
-                        #[cfg(debug_assertions)]
-                        println!("Failed to cast node {:?} to CSTStatement", node);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_expression_statement(node: CSTExpressionStatement) -> Option<Statement> {
+    let expression = lower_expression(node.expression()?)?;
 
-                        return None;
-                    }
-                }
-            })
-            .with_span(node.span()),
-        )
-    }
+    Some(StatementKind::Expression(expression).with_span(span_of_cst_node(&node)))
+}
 
-    pub fn lower(self, text: &str) -> Option<Statement> {
-        Some(
-            (match self.kind {
-                CSTStatementKind::Block(statement) => {
-                    let statements = statement
-                        .statements()
-                        .filter_map(|statement| statement.lower(text))
-                        .collect();
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
+    match node {
+        CSTStatement::BlockStatement(statement) => lower_block_statement(statement),
+        CSTStatement::ExpressionStatement(node) => lower_expression_statement(node),
+        CSTStatement::IfStatement(statement) => lower_if_statement(statement),
+        CSTStatement::LetStatement(statement) => lower_let_statement(statement),
+        CSTStatement::MCFNDeclarationStatement(node) => lower_mcfn_declaration_statement(node),
+        CSTStatement::StructDeclarationStatement(node) => {
+            let span = span_of_cst_node(&node);
 
-                    StatementKind::Block(statements)
-                }
-                CSTStatementKind::Expression(expression) => {
-                    StatementKind::Expression(expression.lower(text)?)
-                }
-                CSTStatementKind::If(statement) => {
-                    let condition = statement.condition()?.lower(text)?;
-                    let body = statement.body()?.lower(text)?;
-                    let else_body = statement
-                        .else_body()
-                        .and_then(|statement| statement.lower(text))
-                        .map(Box::new);
+            let struct_name_token = node.name()?;
+            let struct_name = struct_name_token.text().to_owned();
 
-                    StatementKind::If(condition, Box::new(body), else_body)
-                }
-                CSTStatementKind::Let(statement) => {
-                    let pattern = statement.pattern()?.lower(text)?;
+            let generics = node.generic_names().and_then(lower_generic_names);
 
-                    let data_type = statement
-                        .data_type()
-                        .and_then(|data_type| data_type.lower(text));
+            let fields = node
+                .fields()
+                .filter_map(lower_struct_declaration_statement_field)
+                .collect();
 
-                    let value = statement.value()?.lower(text)?;
-
-                    StatementKind::VariableDeclaration(data_type, pattern, value)
-                }
-                CSTStatementKind::MCFNDeclaration(statement) => {
-                    let resource_location = statement.resource_location()?.lower(text)?;
-
-                    let statement = statement.block_statement()?.lower(text)?;
-
-                    StatementKind::MCFNDeclaration(resource_location, Box::new(statement))
-                }
-                CSTStatementKind::StructDeclaration(statement) => {
-                    let name = statement.name(text)?.to_string();
-
-                    let generics = statement.generics(text).map(ToString::to_string).collect();
-
-                    let fields = statement
-                        .fields()
-                        .filter_map(|struct_declaration_field| struct_declaration_field.lower(text))
-                        .collect();
-
-                    StatementKind::StructDeclaration(name, generics, fields)
-                }
-                CSTStatementKind::While(statement) => {
-                    let condition = statement.condition()?.lower(text)?;
-                    let body = statement.body()?.lower(text)?;
-
-                    StatementKind::While(condition, Box::new(body))
-                }
-            })
-            .with_span(self.span),
-        )
-    }
-
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        match &self.kind {
-            CSTStatementKind::Block(statement) => {
-                for statement in statement.statements() {
-                    statement.collect_semantic_tokens(tokens);
-                }
-            }
-            CSTStatementKind::Expression(statement) => {
-                statement.collect_semantic_tokens(tokens);
-            }
-            CSTStatementKind::If(statement) => {
-                if let Some(if_keyword_span) = statement.if_keyword_span() {
-                    tokens.push(SemanticToken::new(
-                        if_keyword_span,
-                        SemanticTokenType::Keyword,
-                    ));
-                }
-
-                if let Some(condition) = statement.condition() {
-                    condition.collect_semantic_tokens(tokens);
-                }
-
-                if let Some(body) = statement.body() {
-                    body.collect_semantic_tokens(tokens);
-                }
-
-                if let Some(else_keyword_span) = statement.else_keyword_span() {
-                    tokens.push(SemanticToken::new(
-                        else_keyword_span,
-                        SemanticTokenType::Keyword,
-                    ));
-                }
-
-                if let Some(else_body) = statement.else_body() {
-                    else_body.collect_semantic_tokens(tokens);
-                }
-            }
-            CSTStatementKind::Let(statement) => {
-                if let Some(let_keyword_span) = statement.let_keyword_span() {
-                    tokens.push(SemanticToken::new(
-                        let_keyword_span,
-                        SemanticTokenType::Keyword,
-                    ));
-                }
-
-                if let Some(pattern) = statement.pattern() {
-                    pattern.collect_semantic_tokens(tokens);
-                }
-
-                if let Some(value) = statement.value() {
-                    value.collect_semantic_tokens(tokens);
-                }
-            }
-            CSTStatementKind::MCFNDeclaration(statement) => {
-                if let Some(mcfn_keyword_span) = statement.mcfn_keyword_span() {
-                    tokens.push(SemanticToken::new(
-                        mcfn_keyword_span,
-                        SemanticTokenType::Keyword,
-                    ));
-                }
-
-                if let Some(resource_location) = statement.resource_location() {
-                    resource_location.collect_semantic_tokens(tokens);
-                }
-
-                if let Some(block_statement) = statement.block_statement() {
-                    block_statement.collect_semantic_tokens(tokens);
-                }
-            }
-            CSTStatementKind::StructDeclaration(statement) => {
-                if let Some(struct_keyword_span) = statement.struct_keyword_span() {
-                    tokens.push(SemanticToken::new(
-                        struct_keyword_span,
-                        SemanticTokenType::Keyword,
-                    ));
-                }
-
-                for generic_span in statement.generics_span() {
-                    tokens.push(SemanticToken::new(generic_span, SemanticTokenType::Class));
-                }
-
-                for field in statement.fields() {
-                    if let Some(name_span) = field.name_span() {
-                        tokens.push(SemanticToken::new(name_span, SemanticTokenType::Variable));
-                    }
-
-                    if let Some(data_type) = field.data_type() {
-                        data_type.collect_semantic_tokens(tokens);
-                    }
-                }
-            }
-            CSTStatementKind::While(statement) => {
-                if let Some(while_keyword_span) = statement.while_keyword_span() {
-                    tokens.push(SemanticToken::new(
-                        while_keyword_span,
-                        SemanticTokenType::Keyword,
-                    ));
-                }
-
-                if let Some(condition) = statement.condition() {
-                    condition.collect_semantic_tokens(tokens);
-                }
-
-                if let Some(body) = statement.body() {
-                    body.collect_semantic_tokens(tokens);
-                }
-            }
+            Some(
+                StatementKind::StructDeclaration(struct_name, generics.unwrap_or_default(), fields)
+                    .with_span(span),
+            )
+        }
+        CSTStatement::WhileStatement(node) => lower_while_statement(node),
+        CSTStatement::TypeAliasDeclarationStatement(node) => {
+            lower_type_alias_declaration_statement(node)
         }
     }
 }

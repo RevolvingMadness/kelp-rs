@@ -1,24 +1,14 @@
-use crate::{
-    cst_node,
-    semantic_token::{SemanticToken, SemanticTokenType},
-    syntax::SyntaxKind,
-};
+use kelp_core::pattern::{Pattern, PatternKind};
 
-cst_node!(CSTBindingPattern, SyntaxKind::BindingPattern);
+use crate::{cst::CSTBindingPattern, span::span_of_cst_node};
 
-impl CSTBindingPattern<'_> {
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text(text))
-            } else {
-                None
-            }
-        })
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_binding_pattern(node: CSTBindingPattern) -> Option<Pattern> {
+    let span = span_of_cst_node(&node);
 
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        tokens.push(SemanticToken::new(self.span(), SemanticTokenType::Variable));
-    }
+    let name_token = node.binding_pattern_name_token()?;
+    let name = name_token.text();
+
+    Some(PatternKind::Binding(name.to_string()).with_span(span))
 }

@@ -1,81 +1,47 @@
-use kelp_core::span::Span;
+use kelp_core::{
+    high::snbt_string::HighSNBTString,
+    pattern::{Pattern, PatternKind},
+};
+use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
-    cst_node,
-    lower::pattern::CSTPattern,
-    semantic_token::{SemanticToken, SemanticTokenType},
-    syntax::SyntaxKind,
+    cst::{CSTStructPattern, CSTStructPatternField},
+    lower::pattern::lower_pattern,
+    span::{span_of_cst_node, text_range_to_span},
 };
 
-cst_node!(CSTStructPatternField, SyntaxKind::StructPatternField);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_struct_pattern_field(
+    node: CSTStructPatternField,
+) -> Option<(HighSNBTString, Option<Pattern>)> {
+    let field_name_token = node.name()?;
+    let field_name_span = text_range_to_span(field_name_token.text_range());
+    let field_name = field_name_token.text();
 
-impl<'a> CSTStructPatternField<'a> {
-    #[must_use]
-    pub fn name_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
-    }
+    let field_pattern = node.pattern().and_then(lower_pattern);
 
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<(Span, &'b str)> {
-        let name_span = self.name_span()?;
-
-        Some((name_span, &text[name_span.into_range()]))
-    }
-
-    pub fn pattern(&self) -> Option<CSTPattern<'a>> {
-        self.children().find_map(CSTPattern::cast)
-    }
-
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        if let Some(name_span) = self.name_span() {
-            tokens.push(SemanticToken::new(name_span, SemanticTokenType::Variable));
-        }
-
-        if let Some(pattern) = self.pattern() {
-            pattern.collect_semantic_tokens(tokens);
-        }
-    }
+    Some((
+        HighSNBTString {
+            snbt_string: SNBTString(false, field_name.to_owned()),
+            span: field_name_span,
+        },
+        field_pattern,
+    ))
 }
 
-cst_node!(CSTStructPattern, SyntaxKind::StructPattern);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_struct_pattern(node: CSTStructPattern) -> Option<Pattern> {
+    let span = span_of_cst_node(&node);
 
-impl<'a> CSTStructPattern<'a> {
-    #[must_use]
-    pub fn name_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
-    }
+    let name_token = node.name()?;
+    let name = name_token.text();
 
-    #[must_use]
-    pub fn name<'b>(&self, text: &'b str) -> Option<&'b str> {
-        Some(&text[self.name_span()?.into_range()])
-    }
+    let fields = node
+        .fields()
+        .filter_map(lower_struct_pattern_field)
+        .collect();
 
-    pub fn fields(&self) -> Vec<CSTStructPatternField<'a>> {
-        self.0
-            .children()
-            .filter_map(CSTStructPatternField::cast)
-            .collect()
-    }
-
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        if let Some(name_span) = self.name_span() {
-            tokens.push(SemanticToken::new(name_span, SemanticTokenType::Class));
-        }
-
-        for field in self.fields() {
-            field.collect_semantic_tokens(tokens);
-        }
-    }
+    Some(PatternKind::Struct(name.to_owned(), fields).with_span(span))
 }

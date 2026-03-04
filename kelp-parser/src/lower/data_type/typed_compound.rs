@@ -1,28 +1,44 @@
-use crate::{cst_node, cstlib::token::CSTToken, lower::data_type::CSTDataType, syntax::SyntaxKind};
+use crate::{lower::data_type::try_parse_data_type, parser::Parser, syntax::SyntaxKind};
 
-cst_node!(CSTTypedCompoundField, SyntaxKind::TypedCompoundField);
+#[must_use]
+pub fn try_parse_typed_compound_data_type(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+    parser.start_node_at(checkpoint, SyntaxKind::TypedCompoundDataType);
 
-impl<'a> CSTTypedCompoundField<'a> {
-    #[must_use]
-    pub fn name_token(&self) -> Option<&'a CSTToken> {
-        self.0
-            .children_tokens()
-            .find(|t| t.kind == SyntaxKind::Identifier)
+    parser.bump_char();
+    parser.skip_whitespace();
+
+    while parser.peek_char() != Some('}') && parser.peek_char().is_some() {
+        let field_checkpoint = parser.checkpoint();
+        parser.start_node_at(field_checkpoint, SyntaxKind::TypedCompoundDataTypeField);
+
+        if let Some(text) = parser.peek_identifier() {
+            parser.add_token(SyntaxKind::TypedCompoundDataTypeFieldName, text.len());
+        } else {
+            parser.error("Expected field name");
+            parser.finish_node();
+            break;
+        }
+
+        parser.skip_whitespace();
+        parser.expect_char(':', "Expected ':' after field name");
+        parser.skip_whitespace();
+
+        if !try_parse_data_type(parser) {
+            parser.error("Expected data type");
+        }
+
+        parser.skip_whitespace();
+        parser.finish_node();
+
+        if parser.try_bump_char(',') {
+            parser.skip_whitespace();
+        } else {
+            break;
+        }
     }
 
-    #[must_use]
-    pub fn data_type(&self) -> Option<CSTDataType<'a>> {
-        self.children().find_map(CSTDataType::cast)
-    }
-}
-
-cst_node!(CSTTypedCompoundDataType, SyntaxKind::TypedCompoundDataType);
-
-impl<'a> CSTTypedCompoundDataType<'a> {
-    pub fn fields(&self) -> Vec<CSTTypedCompoundField<'a>> {
-        self.0
-            .children()
-            .filter_map(CSTTypedCompoundField::cast)
-            .collect()
-    }
+    parser.expect_char('}', "Expected closing brace '}'");
+    parser.finish_node();
+    true
 }

@@ -1,24 +1,27 @@
-use crate::{cst_node, lower::expression::CSTExpression, syntax::SyntaxKind};
+use kelp_core::{
+    expression::{Expression, ExpressionKind},
+    operator::UnaryOperator,
+};
 
-cst_node!(CSTUnaryExpression, SyntaxKind::UnaryExpression);
+use crate::{
+    cst::CSTUnaryExpression, lower::expression::lower_expression, span::span_of_cst_node,
+    syntax::SyntaxKind,
+};
 
-impl<'a> CSTUnaryExpression<'a> {
-    #[must_use]
-    pub fn operand(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_unary_expression(node: CSTUnaryExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
 
-    #[must_use]
-    pub fn op_kind(&self) -> Option<SyntaxKind> {
-        self.0.children_tokens().find_map(|t| {
-            matches!(
-                t.kind,
-                SyntaxKind::ExclamationMark
-                    | SyntaxKind::Minus
-                    | SyntaxKind::Star
-                    | SyntaxKind::Ampersand
-            )
-            .then_some(t.kind)
-        })
-    }
+    let operator = match node.operator()?.kind() {
+        SyntaxKind::ExclamationMark => UnaryOperator::Invert,
+        SyntaxKind::Minus => UnaryOperator::Negate,
+        SyntaxKind::Star => UnaryOperator::Dereference,
+        SyntaxKind::Ampersand => UnaryOperator::Reference,
+        _ => return None,
+    };
+
+    let operand = lower_expression(node.expression()?)?;
+
+    Some(ExpressionKind::Unary(operator, Box::new(operand)).with_span(span))
 }

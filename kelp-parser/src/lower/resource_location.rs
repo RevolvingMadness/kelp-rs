@@ -2,151 +2,90 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use nonempty::NonEmpty;
 
 use crate::{
-    cst_node,
+    cst::{
+        CSTResourceLocation, CSTResourceLocationNamespace, CSTResourceLocationPath,
+        CSTResourceLocationPathSegment,
+    },
     parser::Parser,
-    semantic_token::{SemanticToken, SemanticTokenType},
     syntax::SyntaxKind,
 };
 
-cst_node!(CSTResourceLocationPaths, SyntaxKind::ResourceLocationPaths);
+fn expect_paths(parser: &mut Parser) {
+    parser.start_node(SyntaxKind::ResourceLocationPath);
 
-impl CSTResourceLocationPaths<'_> {
-    #[must_use]
-    pub fn paths<'b>(&self, text: &'b str) -> Vec<&'b str> {
-        self.0
-            .children_tokens()
-            .filter_map(|token| {
-                if token.kind == SyntaxKind::Identifier {
-                    Some(token.text(text))
-                } else {
-                    None
-                }
-            })
-            .collect()
+    parser.start_node(SyntaxKind::ResourceLocationPathSegment);
+    parser.expect_identifier("Expected at least one resource location path segment");
+    parser.finish_node();
+
+    while parser.try_bump_char('/') {
+        parser.start_node(SyntaxKind::ResourceLocationPathSegment);
+        parser.expect_identifier("Expected resource location path segment after separator");
+        parser.finish_node();
     }
+
+    parser.finish_node();
 }
 
-cst_node!(CSTResourceLocation, SyntaxKind::ResourceLocation);
+#[must_use]
+pub fn try_parse_resource_location(parser: &mut Parser) -> bool {
+    parser.start_node(SyntaxKind::ResourceLocation);
 
-impl CSTResourceLocation<'_> {
-    fn try_parse_paths(parser: &mut Parser) -> bool {
-        let mut result = true;
+    if parser.peek_char() == Some('#') {
+        parser.add_token(SyntaxKind::ResourceLocationTag, 1);
+    }
 
-        parser.start_node(SyntaxKind::ResourceLocationPaths);
-
-        if !parser.expect_identifier("Expected at least one resource location path segment") {
-            result = false;
-        }
-
-        while parser.try_bump_char('/') {
-            parser.expect_identifier("Expected resource location path segment after separator");
-        }
-
+    if let Some(namespace) = parser.peek_identifier()
+        && parser.peek_nth_char(namespace.len()) == Some(':')
+    {
+        parser.start_node(SyntaxKind::ResourceLocationNamespace);
+        parser.bump_identifier(namespace);
         parser.finish_node();
 
-        result
+        parser.bump_char();
     }
 
-    #[must_use]
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        parser.start_node(SyntaxKind::ResourceLocation);
+    expect_paths(parser);
 
-        if parser.peek_char() == Some('#') {
-            parser.start_bump_finish_node(SyntaxKind::ResourceLocationTag, 1);
-        }
+    parser.finish_node();
 
-        if let Some(namespace) = parser.peek_identifier()
-            && parser.peek_nth_char(namespace.len()) == Some(':')
-        {
-            parser.start_node(SyntaxKind::ResourceLocationNamespace);
-            parser.bump_identifier(namespace);
-            parser.finish_node();
+    true
+}
 
-            parser.bump_char();
-        }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_resource_location_namespace(node: CSTResourceLocationNamespace) -> Option<String> {
+    Some(node.identifier_token()?.text().to_string())
+}
 
-        if !CSTResourceLocation::try_parse_paths(parser) {
-            parser.finish_node();
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_resource_location_path_segment(
+    node: CSTResourceLocationPathSegment,
+) -> Option<String> {
+    Some(node.identifier_token()?.text().to_string())
+}
 
-            return false;
-        }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_resource_location_path(node: CSTResourceLocationPath) -> Vec<String> {
+    node.path_segments()
+        .filter_map(lower_resource_location_path_segment)
+        .collect()
+}
 
-        parser.finish_node();
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_resource_location(node: CSTResourceLocation) -> Option<ResourceLocation> {
+    let is_tag = node.pound_token().is_some();
 
-        true
-    }
+    let namespace = match node.namespace().map(lower_resource_location_namespace) {
+        None => None,
+        Some(None) => return None,
+        Some(Some(value)) => Some(value),
+    };
 
-    #[must_use]
-    pub fn lower(self, text: &str) -> Option<ResourceLocation> {
-        let is_tag = self.is_tag();
+    let paths = lower_resource_location_path(node.path()?);
+    let paths = NonEmpty::from_vec(paths)?;
 
-        let namespace = self.namespace(text).map(ToString::to_string);
-
-        let paths = self
-            .paths(text)
-            .into_iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>();
-
-        Some(ResourceLocation::new(
-            is_tag,
-            namespace,
-            NonEmpty::from_vec(paths).unwrap(),
-        ))
-    }
-
-    #[must_use]
-    pub fn is_tag(&self) -> bool {
-        self.0
-            .children_tokens()
-            .any(|token| token.kind == SyntaxKind::ResourceLocationTag)
-    }
-
-    #[must_use]
-    pub fn namespace<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.children().find_map(|node| {
-            if node.kind()? == SyntaxKind::ResourceLocationNamespace {
-                Some(
-                    (node.children_tokens().find_map(|token| {
-                        if token.kind == SyntaxKind::Identifier {
-                            Some(token.text(text))
-                        } else {
-                            None
-                        }
-                    }))
-                    .unwrap(),
-                )
-            } else {
-                None
-            }
-        })
-    }
-
-    #[must_use]
-    pub fn paths<'b>(&self, text: &'b str) -> Vec<&'b str> {
-        self.0
-            .children()
-            .find_map(|node| {
-                if node.kind()? == SyntaxKind::ResourceLocationPaths {
-                    Some(
-                        node.children_tokens()
-                            .filter_map(|token| {
-                                if token.kind == SyntaxKind::Identifier {
-                                    Some(token.text(text))
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect(),
-                    )
-                } else {
-                    None
-                }
-            })
-            .unwrap()
-    }
-
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        tokens.push(SemanticToken::new(self.span(), SemanticTokenType::Function));
-    }
+    Some(ResourceLocation::new(is_tag, namespace, paths))
 }

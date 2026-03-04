@@ -1,9 +1,13 @@
-use crate::{cst_node, lower::expression::CSTExpression, syntax::SyntaxKind};
+use kelp_core::expression::{Expression, ExpressionKind};
 
-cst_node!(CSTTupleExpression, SyntaxKind::TupleExpression);
+use crate::{cst::CSTTupleExpression, lower::expression::lower_expression, span::span_of_cst_node};
 
-impl<'a> CSTTupleExpression<'a> {
-    pub fn expressions(&self) -> Vec<CSTExpression<'a>> {
-        self.children().filter_map(CSTExpression::cast).collect()
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_tuple_expression(node: CSTTupleExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
+
+    let expressions = node.expressions().filter_map(lower_expression).collect();
+
+    Some(ExpressionKind::Tuple(expressions).with_span(span))
 }

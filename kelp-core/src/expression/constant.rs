@@ -1102,48 +1102,63 @@ impl ConstantExpressionKind {
                 .as_text_component(datapack, ctx, force_display),
             Self::Underscore => unreachable!(),
             Self::Struct(name, generics, fields) => {
-                let mut output = Vec::new();
+                if force_display {
+                    let mut output = Vec::new();
 
-                output.push(SNBT::string(if generics.is_empty() {
-                    if fields.is_empty() {
-                        format!("{} {{", name)
+                    output.push(SNBT::string(if generics.is_empty() {
+                        if fields.is_empty() {
+                            format!("{} {{", name)
+                        } else {
+                            format!("{} {{ ", name)
+                        }
                     } else {
-                        format!("{} {{ ", name)
+                        name
+                    }));
+
+                    if !generics.is_empty() {
+                        output.push(SNBT::string("<"));
+
+                        for (i, generic) in generics.into_iter().enumerate() {
+                            if i != 0 {
+                                output.push(SNBT::string(", "));
+                            }
+
+                            output.push(SNBT::string(format!("{}", generic)));
+                        }
+
+                        output.push(SNBT::string(if fields.is_empty() { "> {" } else { "> { " }));
                     }
-                } else {
-                    name
-                }));
 
-                if !generics.is_empty() {
-                    output.push(SNBT::string("<"));
-
-                    for (i, generic) in generics.into_iter().enumerate() {
+                    for (i, (key, value)) in fields.iter().enumerate() {
                         if i != 0 {
                             output.push(SNBT::string(", "));
                         }
 
-                        output.push(SNBT::string(format!("{}", generic)));
+                        output.push(SNBT::string(format!("{}: ", key)));
+                        output.push(value.kind.clone().as_text_component(datapack, ctx, true));
                     }
 
-                    output.push(SNBT::string(if fields.is_empty() { "> {" } else { "> { " }));
-                }
-
-                for (i, (key, value)) in fields.iter().enumerate() {
-                    if i != 0 {
-                        output.push(SNBT::string(", "));
+                    if fields.is_empty() {
+                        output.push(SNBT::string("}"));
+                    } else {
+                        output.push(SNBT::string(" }"));
                     }
 
-                    output.push(SNBT::string(format!("{}: ", key)));
-                    output.push(value.kind.clone().as_text_component(datapack, ctx, true));
-                }
-
-                if fields.is_empty() {
-                    output.push(SNBT::string("}"));
+                    SNBT::List(output)
                 } else {
-                    output.push(SNBT::string(" }"));
-                }
+                    let mut output = BTreeMap::new();
 
-                SNBT::List(output)
+                    for (field_name, field_value) in fields {
+                        output.insert(
+                            SNBTString(false, field_name),
+                            field_value
+                                .kind
+                                .as_text_component(datapack, ctx, force_display),
+                        );
+                    }
+
+                    SNBT::Compound(output)
+                }
             }
         }
     }

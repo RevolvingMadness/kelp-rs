@@ -670,10 +670,7 @@ impl Expression {
                 Some(())
             }
             ExpressionKind::ToCast(expression, runtime_storage) => {
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs, None);
-
-                expression_result?;
-
+                expression.perform_semantic_analysis(ctx, is_lhs, None)?;
                 let expression_type = expression.kind.infer_data_type(ctx)?;
 
                 match runtime_storage {

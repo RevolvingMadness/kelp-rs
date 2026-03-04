@@ -1,79 +1,68 @@
-use kelp_core::span::Span;
+use kelp_core::statement::{Statement, StatementKind};
 
 use crate::{
-    cst_node,
-    lower::{data_type::CSTDataType, expression::CSTExpression, pattern::CSTPattern},
+    cst::CSTLetStatement,
+    lower::{
+        data_type::{lower_data_type, try_parse_data_type},
+        expression::{lower_expression, try_parse_expression},
+        pattern::{lower_pattern, try_parse_pattern},
+    },
     parser::Parser,
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
-cst_node!(CSTLetStatement, SyntaxKind::LetStatement);
+pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
 
-impl<'a> CSTLetStatement<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let state = parser.save_state();
+    parser.start_node(SyntaxKind::LetStatement);
+    parser.bump_str(SyntaxKind::LetKeyword, "let");
+    parser.skip_whitespace();
 
-        parser.start_node(SyntaxKind::LetStatement);
-        parser.bump_keyword("let");
+    if !try_parse_pattern(parser) {
+        parser.restore_state(state);
+
+        return false;
+    }
+
+    parser.skip_whitespace();
+
+    if parser.try_bump_char(':') {
         parser.skip_whitespace();
 
-        if !CSTPattern::try_parse(parser) {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        parser.skip_whitespace();
-
-        if parser.try_bump_char(':') {
-            parser.skip_whitespace();
-
-            if !CSTDataType::try_parse(parser) {
-                parser.error("Expected data type");
-            }
-
-            parser.skip_whitespace();
-        }
-
-        let parsed_equals = parser.try_bump_char('=');
-        if !parsed_equals {
-            parser.error("Expected '='");
+        if !try_parse_data_type(parser) {
+            parser.error("Expected data type");
         }
 
         parser.skip_whitespace();
-
-        if !CSTExpression::try_parse(parser) && parsed_equals {
-            parser.recover_newline("Expected expression");
-        }
-
-        parser.finish_node();
-
-        true
     }
 
-    #[must_use]
-    pub fn let_keyword_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Keyword {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
+    let parsed_equals = parser.try_bump_char('=');
+    if !parsed_equals {
+        parser.error("Expected '='");
     }
 
-    #[must_use]
-    pub fn pattern(&self) -> Option<CSTPattern<'a>> {
-        self.children().find_map(CSTPattern::cast)
+    parser.skip_whitespace();
+
+    if !try_parse_expression(parser) && parsed_equals {
+        parser.recover_newline("Expected expression");
     }
 
-    #[must_use]
-    pub fn data_type(&self) -> Option<CSTDataType<'a>> {
-        self.children().find_map(CSTDataType::cast)
-    }
+    parser.finish_node();
 
-    #[must_use]
-    pub fn value(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_let_statement(node: CSTLetStatement) -> Option<Statement> {
+    let span = span_of_cst_node(&node);
+
+    let pattern = lower_pattern(node.pattern()?)?;
+
+    let data_type = node.data_type().and_then(lower_data_type);
+
+    let value = lower_expression(node.expression()?)?;
+
+    Some(StatementKind::Let(data_type, pattern, value).with_span(span))
 }

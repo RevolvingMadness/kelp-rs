@@ -1,13 +1,9 @@
-use crate::{
-    cst_node,
-    semantic_token::{SemanticToken, SemanticTokenType},
-    syntax::SyntaxKind,
-};
+use kelp_core::pattern::{Pattern, PatternKind};
 
-cst_node!(CSTWildcardPattern, SyntaxKind::WildcardPattern);
+use crate::{cst::CSTWildcardPattern, span::span_of_cst_node};
 
-impl CSTWildcardPattern<'_> {
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        tokens.push(SemanticToken::new(self.span(), SemanticTokenType::Variable));
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_wildcard_pattern(node: CSTWildcardPattern) -> Option<Pattern> {
+    Some(PatternKind::Wildcard.with_span(span_of_cst_node(&node)))
 }

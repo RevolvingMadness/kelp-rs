@@ -1,54 +1,63 @@
-use kelp_core::expression::Expression;
+use kelp_core::expression::{Expression, ExpressionKind};
 
-use crate::{cst_node, lower::expression::CSTExpression, parser::Parser, syntax::SyntaxKind};
+use crate::{
+    cst::CSTListExpression,
+    lower::expression::{lower_expression, try_parse_expression},
+    parser::Parser,
+    span::span_of_cst_node,
+    syntax::SyntaxKind,
+};
 
-cst_node!(CSTListExpression, SyntaxKind::ListExpression);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn try_parse_list_expression(parser: &mut Parser) -> bool {
+    if parser.peek_char() != Some('[') {
+        return false;
+    }
 
-impl<'a> CSTListExpression<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        if parser.peek_char() != Some('[') {
-            return false;
+    parser.start_node(SyntaxKind::ListExpression);
+    parser.bump_char();
+
+    let mut is_first = true;
+
+    loop {
+        parser.skip_whitespace();
+
+        if parser.is_eof() || parser.peek_char() == Some(']') {
+            break;
         }
 
-        parser.start_node(SyntaxKind::ListExpression);
-        parser.bump_char();
-
-        let mut is_first = true;
-        while !parser.is_eof() && parser.peek_char() != Some(']') {
-            if !is_first {
-                if parser.try_bump_char(',') {
-                    parser.skip_whitespace();
-                } else {
-                    parser.error("Expected ',' between array elements");
-                }
+        if !is_first {
+            if parser.try_bump_char(',') {
+                parser.skip_whitespace();
+            } else {
+                parser.error("Expected ',' between array elements");
             }
-
-            if parser.peek_char() == Some(']') {
-                break;
-            }
-
-            if !CSTExpression::try_parse(parser) {
-                parser.error("Expected expression");
-                parser.bump_until_char(&[',', ']']);
-            }
-
-            parser.skip_whitespace();
-            is_first = false;
         }
 
-        parser.expect_char(']', "Expected ']' to terminate array");
-        parser.finish_node();
-        true
+        if parser.peek_char() == Some(']') {
+            break;
+        }
+
+        if !try_parse_expression(parser) {
+            parser.error("Expected expression");
+            parser.bump_until_char(&[',', ']']);
+        }
+
+        is_first = false;
     }
 
-    pub fn expressions(&self) -> impl Iterator<Item = CSTExpression<'a>> {
-        self.children().filter_map(CSTExpression::cast)
-    }
+    parser.expect_char(']', "Expected ']' to terminate array");
+    parser.finish_node();
+    true
+}
 
-    #[must_use]
-    pub fn lower(self, text: &str) -> Vec<Expression> {
-        self.expressions()
-            .filter_map(|expression| expression.lower(text))
-            .collect()
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_list_expression(node: CSTListExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
+
+    let expressions = node.expressions().filter_map(lower_expression).collect();
+
+    Some(ExpressionKind::List(expressions).with_span(span))
 }

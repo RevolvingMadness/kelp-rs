@@ -1,156 +1,88 @@
-use kelp_core::{
-    high::data::{HighDataTarget, HighDataTargetKind},
-    span::Span,
-};
+use kelp_core::high::data::{HighDataTarget, HighDataTargetKind};
 
 use crate::{
-    cstlib::CSTNodeType,
+    cst::CSTDataTarget,
     lower::{
-        coordinates::CSTCoordinates,
-        data::target::{
-            block::CSTBlockDataTarget, entity::CSTEntityDataTarget, storage::CSTStorageDataTarget,
-        },
-        entity_selector::CSTEntitySelector,
-        resource_location::CSTResourceLocation,
+        coordinates::{lower_coordinates, try_parse_coordinates},
+        entity_selector::{lower_entity_selector, try_parse_entity_selector},
+        resource_location::{lower_resource_location, try_parse_resource_location},
     },
     parser::Parser,
-    semantic_token::SemanticToken,
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
-pub mod block;
-pub mod entity;
-pub mod storage;
+pub fn try_parse_data_target(parser: &mut Parser) -> bool {
+    let Some(identifier) = parser.peek_identifier() else {
+        return false;
+    };
 
-#[derive(Debug)]
-pub enum CSTDataTargetKind<'a> {
-    Entity(CSTEntityDataTarget<'a>),
-    Block(CSTBlockDataTarget<'a>),
-    Storage(CSTStorageDataTarget<'a>),
-}
+    let state = parser.save_state();
 
-impl<'a> CSTDataTargetKind<'a> {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> CSTDataTarget<'a> {
-        CSTDataTarget { span, kind: self }
-    }
-}
+    match identifier {
+        "entity" => {
+            parser.start_node(SyntaxKind::EntityDataTarget);
 
-#[derive(Debug)]
-pub struct CSTDataTarget<'a> {
-    pub span: Span,
-    pub kind: CSTDataTargetKind<'a>,
-}
+            parser.bump_identifier_kind(SyntaxKind::EntityKeyword, "entity");
 
-impl<'a> CSTDataTarget<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        let Some(identifier) = parser.peek_identifier() else {
-            return false;
-        };
+            if !parser.expect_inline_whitespace() || !try_parse_entity_selector(parser) {
+                parser.restore_state(state);
 
-        let state = parser.save_state();
-
-        match identifier {
-            "entity" => {
-                parser.start_node(SyntaxKind::EntityDataTarget);
-
-                parser.bump_identifier("entity");
-
-                if !parser.expect_inline_whitespace() || !CSTEntitySelector::try_parse(parser) {
-                    parser.restore_state(state);
-
-                    return false;
-                }
-            }
-            "block" => {
-                parser.start_node(SyntaxKind::BlockDataTarget);
-
-                parser.bump_identifier("block");
-
-                if !parser.expect_inline_whitespace() || !CSTCoordinates::try_parse(parser) {
-                    parser.restore_state(state);
-
-                    return false;
-                }
-            }
-            "storage" => {
-                parser.start_node(SyntaxKind::StorageDataTarget);
-
-                parser.bump_identifier("storage");
-
-                if !parser.expect_inline_whitespace() || !CSTResourceLocation::try_parse(parser) {
-                    parser.restore_state(state);
-
-                    return false;
-                }
-            }
-            _ => return false,
-        }
-
-        parser.finish_node();
-
-        true
-    }
-
-    #[must_use]
-    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
-        Some(
-            (match node.kind()? {
-                SyntaxKind::EntityDataTarget => {
-                    CSTDataTargetKind::Entity(CSTEntityDataTarget::cast(node)?)
-                }
-                SyntaxKind::BlockDataTarget => {
-                    CSTDataTargetKind::Block(CSTBlockDataTarget::cast(node)?)
-                }
-                SyntaxKind::StorageDataTarget => {
-                    CSTDataTargetKind::Storage(CSTStorageDataTarget::cast(node)?)
-                }
-                _ => {
-                    #[cfg(debug_assertions)]
-                    println!("Failed to cast node {:?} to CSTDataTarget", node);
-
-                    return None;
-                }
-            })
-            .with_span(node.span()),
-        )
-    }
-
-    #[must_use]
-    pub fn lower(self, text: &str) -> Option<HighDataTarget> {
-        Some(
-            (match self.kind {
-                CSTDataTargetKind::Entity(target) => {
-                    let selector = target.selector()?.lower(text)?;
-
-                    HighDataTargetKind::Entity(selector)
-                }
-                CSTDataTargetKind::Block(target) => {
-                    let coordinates = target.coordinates()?.lower(text)?;
-
-                    HighDataTargetKind::Block(coordinates)
-                }
-                CSTDataTargetKind::Storage(target) => {
-                    let resource_location = target.resource_location()?.lower(text)?;
-
-                    HighDataTargetKind::Storage(resource_location)
-                }
-            })
-            .with_regular_span(self.span),
-        )
-    }
-
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        match &self.kind {
-            CSTDataTargetKind::Entity(target) => {
-                target.collect_semantic_tokens(tokens);
-            }
-            CSTDataTargetKind::Block(target) => {
-                target.collect_semantic_tokens(tokens);
-            }
-            CSTDataTargetKind::Storage(target) => {
-                target.collect_semantic_tokens(tokens);
+                return false;
             }
         }
+        "block" => {
+            parser.start_node(SyntaxKind::BlockDataTarget);
+
+            parser.bump_identifier_kind(SyntaxKind::BlockKeyword, "block");
+
+            if !parser.expect_inline_whitespace() || !try_parse_coordinates(parser) {
+                parser.restore_state(state);
+
+                return false;
+            }
+        }
+        "storage" => {
+            parser.start_node(SyntaxKind::StorageDataTarget);
+
+            parser.bump_identifier_kind(SyntaxKind::StorageKeyword, "storage");
+
+            if !parser.expect_inline_whitespace() || !try_parse_resource_location(parser) {
+                parser.restore_state(state);
+
+                return false;
+            }
+        }
+        _ => return false,
     }
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+pub fn lower_data_target(node: CSTDataTarget) -> Option<HighDataTarget> {
+    let span = span_of_cst_node(&node);
+
+    Some(
+        (match node {
+            CSTDataTarget::EntityDataTarget(node) => {
+                let selector = lower_entity_selector(node.entity_selector()?)?;
+
+                HighDataTargetKind::Entity(selector)
+            }
+            CSTDataTarget::BlockDataTarget(node) => {
+                let coordinates = lower_coordinates(node.coordinates()?)?;
+
+                HighDataTargetKind::Block(coordinates)
+            }
+            CSTDataTarget::StorageDataTarget(node) => {
+                let resource_location = lower_resource_location(node.resource_location()?)?;
+
+                HighDataTargetKind::Storage(resource_location)
+            }
+        })
+        .with_regular_span(span),
+    )
 }

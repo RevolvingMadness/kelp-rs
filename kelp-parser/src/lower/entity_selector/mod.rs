@@ -1,195 +1,188 @@
-use kelp_core::{high::entity_selector::HighEntitySelector, span::Span};
+use kelp_core::high::entity_selector::HighEntitySelector;
+use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
-    cstlib::CSTNodeType,
-    lower::entity_selector::variable::CSTVariableEntitySelector,
+    cst::{CSTEntitySelector, CSTNameEntitySelector, CSTVariableEntitySelector},
     parser::Parser,
-    semantic_token::{SemanticToken, SemanticTokenType},
     syntax::SyntaxKind,
 };
 
-pub mod variable;
+pub fn try_parse_entity_selector(parser: &mut Parser) -> bool {
+    if parser.try_start_node_bump('@', SyntaxKind::VariableEntitySelector) {
+        if let Some(text) = parser.peek_identifier() {
+            parser.add_token(SyntaxKind::EntitySelectorVariable, text.len());
+        } else {
+            parser.error("Expected entity selector variable");
+        }
 
-pub enum CSTEntitySelector<'a> {
-    Variable(CSTVariableEntitySelector<'a>),
-    Name(Span),
+        if parser.peek_char() == Some('[') {
+            parse_options(parser);
+        }
+
+        parser.finish_node();
+    } else if let Some(name) = parser.peek_identifier() {
+        parser.start_node(SyntaxKind::NameEntitySelector);
+        parser.add_token(SyntaxKind::Identifier, name.len());
+        parser.finish_node();
+    } else {
+        parser.error("Expected entity selector");
+
+        return false;
+    }
+
+    true
 }
 
-impl<'a> CSTEntitySelector<'a> {
-    pub fn try_parse(parser: &mut Parser) -> bool {
-        if parser.try_start_node_bump('@', SyntaxKind::VariableEntitySelector) {
-            if let Some(text) = parser.peek_identifier() {
-                parser.add_token(SyntaxKind::EntitySelectorVariable, text.len());
-            } else {
-                parser.error("Expected entity selector variable");
-            }
+#[must_use]
+fn parse_option(parser: &mut Parser) -> bool {
+    parser.start_node(SyntaxKind::VariableEntitySelectorOption);
 
-            if parser.peek_char() == Some('[') {
-                CSTEntitySelector::parse_options(parser);
-            }
+    let Some(key_name) = parser.peek_identifier() else {
+        parser.error("Expected selector option name");
+        recover_option(parser);
+        parser.finish_node();
 
-            parser.finish_node();
-        } else if let Some(name) = parser.peek_identifier() {
-            parser.add_token(SyntaxKind::EntitySelectorName, name.len());
-        } else {
-            parser.error("Expected entity selector");
+        return false;
+    };
 
-            return false;
-        }
+    let key_string = key_name.to_string();
+    let name_position = parser.pos;
+    parser.bump_identifier(key_name);
+    parser.skip_whitespace();
 
-        true
+    if !parser.expect_char('=', "Expected '=' after option name") {
+        recover_option(parser);
+        parser.finish_node();
     }
 
-    #[must_use]
-    fn parse_option(parser: &mut Parser) -> bool {
-        parser.start_node(SyntaxKind::VariableEntitySelectorOption);
+    parser.skip_whitespace();
 
-        let Some(key_name) = parser.peek_identifier() else {
-            parser.error("Expected selector option name");
-            CSTEntitySelector::recover_option(parser);
-            parser.finish_node();
-
-            return false;
-        };
-
-        let key_string = key_name.to_string();
-        let name_position = parser.pos;
-        parser.bump_identifier(key_name);
+    let is_negated = parser.try_bump_char('!');
+    if is_negated {
         parser.skip_whitespace();
+    }
 
-        if !parser.expect_char('=', "Expected '=' after option name") {
-            CSTEntitySelector::recover_option(parser);
-            parser.finish_node();
+    parser.start_node(SyntaxKind::VariableEntitySelectorOptionValue);
+
+    match key_string.as_str() {
+        "x" | "y" | "z" | "dx" | "dy" | "dz" | "x_rotation" | "y_rotation" => {
+            parser.expect_fractional_value("Expected float value");
         }
 
+        "name" | "tag" | "team" | "type" | "gamemode" | "sort" => {
+            if !parser.try_parse_string_or_identifier() {
+                parser.error("Expected string or identifier");
+                recover_option(parser);
+            }
+        }
+
+        "scores" => {
+            parse_scores_option(parser);
+        }
+
+        "distance" | "level" => {
+            parser.parse_range();
+        }
+
+        _ => {
+            parser.error_with_len_at(
+                name_position,
+                "Unknown entity selector option",
+                key_string.len(),
+            );
+            recover_option(parser);
+        }
+    }
+
+    parser.finish_node();
+    parser.finish_node();
+
+    true
+}
+
+fn parse_scores_option(parser: &mut Parser) {
+    if !parser.expect_char('{', "Expected '{'") {
+        recover_option(parser);
+        return;
+    }
+
+    parser.expect_char('}', "Expected '}'");
+}
+
+#[inline]
+fn recover_option(parser: &mut Parser) {
+    parser.bump_until_char(&[',', ']']);
+}
+
+fn parse_options(parser: &mut Parser) {
+    parser.start_node_bump(SyntaxKind::VariableEntitySelectorOptions, 1);
+    parser.skip_whitespace();
+
+    let mut is_first = true;
+
+    loop {
         parser.skip_whitespace();
 
-        let is_negated = parser.try_bump_char('!');
-        if is_negated {
+        if parser.is_eof() || parser.peek_char() == Some(']') {
+            parser.bump_char();
+
+            break;
+        }
+
+        if !is_first {
+            if !parser.expect_char(',', "Expected ',' or ']'") {
+                recover_option(parser);
+
+                continue;
+            }
+
             parser.skip_whitespace();
         }
 
-        parser.start_node(SyntaxKind::VariableEntitySelectorOptionValue);
-
-        match key_string.as_str() {
-            "x" | "y" | "z" | "dx" | "dy" | "dz" | "x_rotation" | "y_rotation" => {
-                parser.expect_fractional_value("Expected float value");
-            }
-
-            "name" | "tag" | "team" | "type" | "gamemode" | "sort" => {
-                if !parser.try_parse_string_or_identifier() {
-                    parser.error("Expected string or identifier");
-                    CSTEntitySelector::recover_option(parser);
-                }
-            }
-
-            "scores" => {
-                CSTEntitySelector::parse_scores_option(parser);
-            }
-
-            "distance" | "level" => {
-                parser.parse_range();
-            }
-
-            _ => {
-                parser.error_with_len_at(
-                    name_position,
-                    "Unknown entity selector option",
-                    key_string.len(),
-                );
-                CSTEntitySelector::recover_option(parser);
-            }
+        if !parse_option(parser) {
+            recover_option(parser);
         }
 
-        parser.finish_node();
-        parser.finish_node();
-
-        true
+        is_first = false;
     }
 
-    fn parse_scores_option(parser: &mut Parser) {
-        if !parser.expect_char('{', "Expected '{'") {
-            CSTEntitySelector::recover_option(parser);
-            return;
-        }
+    parser.finish_node();
+}
 
-        parser.expect_char('}', "Expected '}'");
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_variable_entity_selector(
+    node: CSTVariableEntitySelector,
+) -> Option<HighEntitySelector> {
+    let variable_token = node.entity_selector_variable_token()?;
+    let variable = variable_token.text();
 
-    #[inline]
-    fn recover_option(parser: &mut Parser) {
-        parser.bump_until_char(&[',', ']']);
-    }
+    let variable = match variable {
+        "a" => EntitySelectorVariable::A,
+        "e" => EntitySelectorVariable::E,
+        "n" => EntitySelectorVariable::N,
+        "p" => EntitySelectorVariable::P,
+        "r" => EntitySelectorVariable::R,
+        "s" => EntitySelectorVariable::S,
+        _ => return None,
+    };
 
-    fn parse_options(parser: &mut Parser) {
-        parser.start_node_bump(SyntaxKind::VariableEntitySelectorOptions, 1);
-        parser.skip_whitespace();
+    Some(HighEntitySelector::Variable(variable, Vec::new()))
+}
 
-        let mut is_first = true;
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_name_entity_selector(node: CSTNameEntitySelector) -> Option<HighEntitySelector> {
+    let name_token = node.identifier_token()?;
+    let name = name_token.text();
 
-        loop {
-            parser.skip_whitespace();
+    Some(HighEntitySelector::Name(name.to_string()))
+}
 
-            if parser.is_eof() || parser.peek_char() == Some(']') {
-                parser.bump_char();
-
-                break;
-            }
-
-            if !is_first {
-                if !parser.expect_char(',', "Expected ',' or ']'") {
-                    Self::recover_option(parser);
-
-                    continue;
-                }
-
-                parser.skip_whitespace();
-            }
-
-            if !Self::parse_option(parser) {
-                Self::recover_option(parser);
-            }
-
-            is_first = false;
-        }
-
-        parser.finish_node();
-    }
-
-    #[must_use]
-    pub fn cast(node: &'a CSTNodeType) -> Option<Self> {
-        match node.kind()? {
-            SyntaxKind::VariableEntitySelector => {
-                CSTVariableEntitySelector::cast(node).map(CSTEntitySelector::Variable)
-            }
-            SyntaxKind::EntitySelectorName => Some(CSTEntitySelector::Name(node.span())),
-            _ => {
-                #[cfg(debug_assertions)]
-                println!("Failed to cast node {:?} to CSTEntitySelector", node);
-
-                None
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn lower(self, text: &str) -> Option<HighEntitySelector> {
-        match self {
-            CSTEntitySelector::Variable(selector) => selector.lower(text),
-            CSTEntitySelector::Name(name_span) => Some(HighEntitySelector::Name(
-                text[name_span.into_range()].to_string(),
-            )),
-        }
-    }
-
-    pub fn collect_semantic_tokens(&self, tokens: &mut Vec<SemanticToken>) {
-        match self {
-            CSTEntitySelector::Variable(selector) => {
-                selector.collect_semantic_tokens(tokens);
-            }
-            CSTEntitySelector::Name(name_span) => {
-                tokens.push(SemanticToken::new(*name_span, SemanticTokenType::Variable));
-            }
-        }
+#[must_use]
+pub fn lower_entity_selector(node: CSTEntitySelector) -> Option<HighEntitySelector> {
+    match node {
+        CSTEntitySelector::VariableEntitySelector(node) => lower_variable_entity_selector(node),
+        CSTEntitySelector::NameEntitySelector(node) => lower_name_entity_selector(node),
     }
 }

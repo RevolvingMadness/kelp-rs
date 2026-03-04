@@ -1,17 +1,18 @@
+use kelp_core::expression::{Expression, ExpressionKind};
+
 use crate::{
-    cst_node,
-    lower::{data_type::CSTDataType, expression::CSTExpression},
-    syntax::SyntaxKind,
+    cst::CSTAsCastExpression,
+    lower::{data_type::lower_data_type, expression::lower_expression},
+    span::span_of_cst_node,
 };
 
-cst_node!(CSTAsCastExpression, SyntaxKind::AsCastExpression);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_as_cast_expression(node: CSTAsCastExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
 
-impl<'a> CSTAsCastExpression<'a> {
-    pub fn expression(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+    let expression = lower_expression(node.expression()?)?;
+    let data_type = lower_data_type(node.data_type()?)?;
 
-    pub fn data_type(&self) -> Option<CSTDataType<'a>> {
-        self.children().find_map(CSTDataType::cast)
-    }
+    Some(ExpressionKind::AsCast(Box::new(expression), data_type).with_span(span))
 }

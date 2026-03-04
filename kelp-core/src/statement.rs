@@ -29,7 +29,7 @@ use nonempty::nonempty;
 pub enum StatementKind {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     Expression(Expression),
-    VariableDeclaration(Option<HighDataType>, Pattern, Expression),
+    Let(Option<HighDataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
@@ -37,7 +37,7 @@ pub enum StatementKind {
     Block(Vec<Statement>),
     AppendData(Expression, Box<Expression>),
     RemoveData(Expression),
-    TypeDeclaration(String, Vec<String>, HighDataType),
+    TypeAliasDeclaration(String, Vec<String>, HighDataType),
     StructDeclaration(String, Vec<String>, BTreeMap<String, HighDataType>),
 }
 
@@ -111,7 +111,7 @@ impl StatementKind {
                     .resolve(datapack, ctx)
                     .compile_as_statement(datapack, ctx);
             }
-            Self::VariableDeclaration(data_type, pattern, value) => {
+            Self::Let(data_type, pattern, value) => {
                 #[allow(clippy::map_unwrap_or)]
                 let data_type = data_type
                     .map(|data_type| data_type.kind.resolve(datapack, None).unwrap())
@@ -389,7 +389,7 @@ impl StatementKind {
                     Command::Data(DataCommand::Remove(target.target, path)),
                 );
             }
-            Self::TypeDeclaration(name, generics, alias) => {
+            Self::TypeAliasDeclaration(name, generics, alias) => {
                 let alias = alias.kind.resolve(datapack, Some(&generics)).unwrap();
 
                 datapack.declare_data_type(
@@ -444,7 +444,7 @@ impl Statement {
             StatementKind::Expression(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
-            StatementKind::VariableDeclaration(explicit_type, pattern, value) => {
+            StatementKind::Let(explicit_type, pattern, value) => {
                 let resolved_explicit_type = explicit_type.as_ref().map(|explicit_data_type| {
                     explicit_data_type
                         .perform_semantic_analysis(None, ctx)
@@ -623,7 +623,7 @@ impl Statement {
                 is_lhs,
                 Some(&DataTypeKind::Data(Box::new(DataTypeKind::SNBT))),
             ),
-            StatementKind::TypeDeclaration(name, generics, alias) => {
+            StatementKind::TypeAliasDeclaration(name, generics, alias) => {
                 if ctx.data_type_is_declared(name) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,

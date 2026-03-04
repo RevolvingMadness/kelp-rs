@@ -1,45 +1,23 @@
-use kelp_core::span::Span;
+use kelp_core::{
+    expression::{Expression, ExpressionKind},
+    runtime_storage_type::RuntimeStorageType,
+};
 
-use crate::{cst_node, lower::expression::CSTExpression, syntax::SyntaxKind};
+use crate::{
+    cst::CSTToCastExpression, lower::expression::lower_expression, span::span_of_cst_node,
+};
 
-cst_node!(CSTToCastExpression, SyntaxKind::ToCastExpression);
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_to_cast_expression(node: CSTToCastExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
 
-impl<'a> CSTToCastExpression<'a> {
-    #[must_use]
-    pub fn expression(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+    let expression = lower_expression(node.expression()?)?;
+    let runtime_storage_type_token = node.runtime_storage_type_token()?;
+    let runtime_storage_type = match runtime_storage_type_token.text() {
+        "data" => RuntimeStorageType::Data,
+        _ => RuntimeStorageType::Score,
+    };
 
-    #[must_use]
-    pub fn to_keyword_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Keyword {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
-    }
-
-    #[must_use]
-    pub fn runtime_storage_type_span(&self) -> Option<Span> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.span)
-            } else {
-                None
-            }
-        })
-    }
-
-    #[must_use]
-    pub fn runtime_storage_type<'b>(&self, text: &'b str) -> Option<&'b str> {
-        self.0.children_tokens().find_map(|token| {
-            if token.kind == SyntaxKind::Identifier {
-                Some(token.text(text))
-            } else {
-                None
-            }
-        })
-    }
+    Some(ExpressionKind::ToCast(Box::new(expression), runtime_storage_type).with_span(span))
 }

@@ -1,13 +1,16 @@
-use crate::{cst_node, lower::expression::CSTExpression, syntax::SyntaxKind};
+use kelp_core::expression::{Expression, ExpressionKind};
 
-cst_node!(CSTIndexExpression, SyntaxKind::IndexExpression);
+use crate::{cst::CSTIndexExpression, lower::expression::lower_expression, span::span_of_cst_node};
 
-impl<'a> CSTIndexExpression<'a> {
-    pub fn target(&self) -> Option<CSTExpression<'a>> {
-        self.children().find_map(CSTExpression::cast)
-    }
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_index_expression(node: CSTIndexExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
 
-    pub fn index(self) -> Option<CSTExpression<'a>> {
-        self.children().filter_map(CSTExpression::cast).nth(1)
-    }
+    let mut expressions = node.expressions();
+
+    let expression = lower_expression(expressions.next()?)?;
+    let index = lower_expression(expressions.next()?)?;
+
+    Some(ExpressionKind::Index(Box::new(expression), Box::new(index)).with_span(span))
 }

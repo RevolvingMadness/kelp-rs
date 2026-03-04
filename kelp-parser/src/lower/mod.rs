@@ -1,5 +1,4 @@
 pub mod coordinates;
-pub mod cst;
 pub mod data;
 pub mod data_type;
 pub mod entity_selector;
@@ -8,3 +7,4 @@ pub mod pattern;
 pub mod resource_location;
 pub mod root;
 pub mod statement;
+pub mod whole_value;

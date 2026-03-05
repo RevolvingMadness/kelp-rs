@@ -479,6 +479,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "typed_compound_data_type_field_name" => "TypedCompoundDataTypeFieldName",
         "compound_key" => "CompoundKey",
         "return" => "ReturnKeyword",
+        "field_name" => "FieldName",
         _ => todo!("{:?}", token),
     }
 }

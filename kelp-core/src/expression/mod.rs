@@ -24,7 +24,7 @@ use crate::{
         snbt_string::HighSNBTString,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
-    place::{Place, PlaceType, PlaceTypeKind},
+    place::{PlaceType, PlaceTypeKind},
     runtime_storage_type::RuntimeStorageType,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -153,7 +153,11 @@ impl ExpressionKind {
                 let left_type = left.kind.infer_data_type(supports_variable_type_scope)?;
                 let right_type = right.kind.infer_data_type(supports_variable_type_scope)?;
 
-                left_type.get_arithmetic_result(*operator, &right_type)?
+                left_type.get_arithmetic_result(
+                    supports_variable_type_scope,
+                    *operator,
+                    &right_type,
+                )?
             }
             Self::Comparison(_, _, _) | Self::Logical(_, _, _) => DataTypeKind::Boolean,
             Self::Assignment(_, _) | Self::AugmentedAssignment(_, _, _) => DataTypeKind::Unit,
@@ -178,7 +182,7 @@ impl ExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            Self::PlayerScore(_) => DataTypeKind::Score,
+            Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
             Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             Self::Condition(_, _) => DataTypeKind::Byte,
             Self::Command(_) => DataTypeKind::Integer,
@@ -194,7 +198,13 @@ impl ExpressionKind {
                 data_type.kind.resolve(supports_variable_type_scope, None)?
             }
             Self::ToCast(expression, storage_type) => match storage_type {
-                RuntimeStorageType::Score => DataTypeKind::Score,
+                RuntimeStorageType::Score => {
+                    let expression_type = expression
+                        .kind
+                        .infer_data_type(supports_variable_type_scope)?;
+
+                    DataTypeKind::Score(Box::new(expression_type.to_score()?))
+                }
                 RuntimeStorageType::Data => {
                     let expression_type = expression
                         .kind
@@ -259,38 +269,6 @@ impl Expression {
 
                 self_.compile_as_statement(datapack, ctx);
             }
-        }
-    }
-
-    pub fn as_place(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Place {
-        match self.kind {
-            ExpressionKind::Constant(expression) => expression.kind.as_place(),
-            ExpressionKind::PlayerScore(score) => {
-                let score = score.compile(datapack, ctx);
-
-                Place::Score(score)
-            }
-            ExpressionKind::Data(target, path) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
-
-                Place::Data(target, path)
-            }
-            ExpressionKind::Tuple(expressions) => Place::Tuple(
-                expressions
-                    .into_iter()
-                    .map(|expression| expression.as_place(datapack, ctx))
-                    .collect(),
-            ),
-            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
-                Place::Dereference(expression)
-            }
-            ExpressionKind::FieldAccess(expression, field) => {
-                let expression = expression.resolve(datapack, ctx);
-
-                Place::Field(Box::new(expression), field.snbt_string)
-            }
-            _ => unreachable!("This expression is not a place {:?}", self),
         }
     }
 
@@ -396,7 +374,7 @@ impl Expression {
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
 
-                let result_type = left_type.get_arithmetic_result(*operator, &right_type);
+                let result_type = left_type.get_arithmetic_result(ctx, *operator, &right_type);
 
                 if result_type.is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
@@ -438,7 +416,9 @@ impl Expression {
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
 
-                if !left_type.can_perform_comparison(*operator, &right_type) {
+                if let Some(value) = left_type.can_perform_comparison(ctx, *operator, &right_type)
+                    && !value
+                {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -456,21 +436,30 @@ impl Expression {
 
                 Some(())
             }
-            ExpressionKind::Logical(left, operator, right) => {
+            ExpressionKind::Logical(left, _, right) => {
                 let left_result = left.perform_semantic_analysis(ctx, is_lhs, None);
                 let right_result = right.perform_semantic_analysis(ctx, is_lhs, None);
 
                 let left_type = left.kind.infer_data_type(ctx)?;
                 let right_type = right.kind.infer_data_type(ctx)?;
 
-                if !left_type.can_perform_logical_comparison(operator, &right_type) {
+                if left_type != DataTypeKind::Boolean {
                     return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
+                        span: left.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotPerformLogicalOperation {
-                                left: left_type,
-                                operator: *operator,
-                                right: right_type,
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: DataTypeKind::Boolean,
+                                actual: left_type,
+                            },
+                        ),
+                    });
+                } else if right_type != DataTypeKind::Boolean {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: right.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: DataTypeKind::Boolean,
+                                actual: right_type,
                             },
                         ),
                     });
@@ -696,11 +685,15 @@ impl Expression {
 
                 match runtime_storage {
                     RuntimeStorageType::Score => {
-                        if !expression_type.is_score_value() {
+                        if let Some(value) = expression_type.is_score_compatible(ctx)
+                            && !value
+                        {
                             return ctx.add_info(SemanticAnalysisInfo {
                                 span: expression.span,
                                 kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::CannotBeAssignedToScore(expression_type),
+                                    SemanticAnalysisError::TypeIsNotScoreCompatible(
+                                        expression_type,
+                                    ),
                                 ),
                             });
                         }
@@ -838,7 +831,17 @@ impl Expression {
                 ExpressionKind::Constant(expression) => {
                     return expression.get_place_type(supports_variable_type_scope);
                 }
-                ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score,
+                ExpressionKind::ToCast(expression, runtime_storage_type) => {
+                    let expression_type = expression
+                        .kind
+                        .infer_data_type(supports_variable_type_scope)?;
+
+                    match runtime_storage_type {
+                        RuntimeStorageType::Score => PlaceTypeKind::score(expression_type),
+                        RuntimeStorageType::Data => PlaceTypeKind::data(expression_type),
+                    }
+                }
+                ExpressionKind::PlayerScore(_) => PlaceTypeKind::score(DataTypeKind::Integer),
                 ExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
                 ExpressionKind::Unary(UnaryOperator::Dereference, _)
                 | ExpressionKind::FieldAccess(_, _) => self
@@ -932,16 +935,18 @@ impl Expression {
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
                 let value = value.resolve(datapack, ctx);
 
-                target
-                    .as_place(datapack, ctx)
-                    .augmented_assign(datapack, ctx, operator, value);
+                let target = target.resolve_partial(datapack, ctx);
+                let target_place = target.as_place();
+                target_place.augmented_assign(datapack, ctx, operator, value);
 
                 ConstantExpressionKind::Unit
             }
             ExpressionKind::Assignment(target, value) => {
                 let value = value.resolve(datapack, ctx);
 
-                target.as_place(datapack, ctx).assign(datapack, ctx, value);
+                let target = target.resolve_partial(datapack, ctx);
+                let target_place = target.as_place();
+                target_place.assign(datapack, ctx, value);
 
                 ConstantExpressionKind::Unit
             }
@@ -1020,9 +1025,7 @@ impl Expression {
 
                 match runtime_storage_type {
                     RuntimeStorageType::Score => {
-                        let score = expression.as_score(datapack, ctx, true);
-
-                        ConstantExpressionKind::PlayerScore(score)
+                        expression.as_score_expression(datapack, ctx, true)
                     }
                     RuntimeStorageType::Data => {
                         let (unique_target, unique_path) = expression.as_data_force(datapack, ctx);

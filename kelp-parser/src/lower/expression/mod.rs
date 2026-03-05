@@ -6,7 +6,7 @@ use ordered_float::NotNan;
 use crate::{
     cst::CSTExpression,
     lower::{
-        data_type::try_parse_data_type,
+        data_type::{generics::try_parse_generic_data_types, try_parse_data_type},
         expression::{
             as_cast::lower_as_cast_expression,
             assignment::lower_assignment_expression,
@@ -350,9 +350,9 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.bump_char();
                 parser.skip_whitespace();
                 if let Some(identifier) = parser.peek_identifier() {
-                    parser.add_token(SyntaxKind::Identifier, identifier.len());
+                    parser.add_token(SyntaxKind::FieldName, identifier.len());
                 } else if let Some(whole_value) = parser.peek_whole_value() {
-                    parser.add_token(SyntaxKind::Identifier, whole_value.len());
+                    parser.add_token(SyntaxKind::FieldName, whole_value.len());
                 } else {
                     parser.error("Expected field name");
                 }
@@ -568,39 +568,11 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 let state = parser.save_state();
 
                 let parsed_struct = (|| {
-                    let mut is_struct_sig = true;
-                    if parser.peek_char() == Some('<') {
-                        parser.bump_char();
-                        parser.skip_whitespace();
-                        if parser.peek_char() != Some('>') {
-                            loop {
-                                parser.skip_whitespace();
-                                if !try_parse_data_type(parser) {
-                                    is_struct_sig = false;
-                                    break;
-                                }
-                                parser.skip_whitespace();
-                                if parser.peek_char() == Some(',') {
-                                    parser.bump_char();
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-                        if is_struct_sig {
-                            parser.skip_whitespace();
-                            if parser.peek_char() == Some('>') {
-                                parser.bump_char();
-                                parser.skip_whitespace();
-                            } else {
-                                is_struct_sig = false;
-                            }
-                        }
-                    } else {
-                        parser.skip_inline_whitespace();
-                    }
+                    let _ = try_parse_generic_data_types(parser);
 
-                    if is_struct_sig && parser.peek_char() == Some('{') {
+                    parser.skip_inline_whitespace();
+
+                    if parser.peek_char() == Some('{') {
                         parser.bump_char();
                         parser.skip_whitespace();
                         while parser.peek_char() != Some('}') {

@@ -68,7 +68,7 @@ impl DataTypeDeclarationKind {
     ) -> Option<bool> {
         Some(matches!(
             self.resolve(supports_variable_type_scope, generic_types)?,
-            DataTypeKind::Struct(_, _, _)
+            DataTypeKind::Struct(_, _)
         ))
     }
 
@@ -117,7 +117,7 @@ impl DataTypeDeclarationKind {
 
                 let resolved_alias = alias.clone().substitute(&substitutions)?;
 
-                if let DataTypeKind::Struct(name, generics, _) = resolved_alias {
+                if let DataTypeKind::Struct(name, generics) = resolved_alias {
                     let declaration = ctx.get_data_type(&name)??;
                     declaration.get_struct_fields(ctx, &generics)
                 } else {
@@ -236,7 +236,7 @@ impl DataTypeDeclarationKind {
 
                 let resolved_alias = alias.substitute(&substitutions)?;
 
-                if let DataTypeKind::Struct(name, generics, _) = resolved_alias {
+                if let DataTypeKind::Struct(name, generics) = resolved_alias {
                     let declaration = supports_variable_type_scope.get_data_type(&name)??;
                     declaration.resolve(supports_variable_type_scope, generics)
                 } else {
@@ -253,7 +253,7 @@ impl DataTypeDeclarationKind {
                     .zip(generic_types.clone())
                     .collect();
 
-                Some(DataTypeKind::Struct(name, generic_types, false).substitute(&substitutions)?)
+                Some(DataTypeKind::Struct(name, generic_types).substitute(&substitutions)?)
             }
             Self::Builtin(data_type) => data_type.to_data_type(&generic_types),
             Self::Generic(_) => unreachable!(),

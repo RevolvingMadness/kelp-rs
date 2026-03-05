@@ -148,6 +148,7 @@ pub enum SyntaxKind {
     StructExpression,
     StructExpressionField,
     FieldAccessExpression,
+    FieldName,
     AssignmentExpression,
     UnaryExpression,
     VariableExpression,

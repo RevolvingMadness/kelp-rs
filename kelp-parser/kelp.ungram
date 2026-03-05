@@ -198,7 +198,7 @@ CompoundExpression =
 
 IndexExpression = Expression '[' Expression ']'
 
-FieldAccessExpression = Expression '.' 'ident'
+FieldAccessExpression = Expression '.' 'field_name'
 
 CompoundExpressionEntry =
   name:'compound_key' ':' value:Expression

@@ -132,6 +132,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::StructKeyword => Some(SemanticTokenType::Keyword),
                     SyntaxKind::StructName => Some(SemanticTokenType::Struct),
                     SyntaxKind::StructFieldName
+                    | SyntaxKind::FieldName
                     | SyntaxKind::BindingPatternName
                     | SyntaxKind::NamedNBTPathNodeName => Some(SemanticTokenType::Variable),
                     SyntaxKind::DataTypeName | SyntaxKind::RuntimeStorageType => {

@@ -54,7 +54,9 @@ pub fn try_parse_struct_declaration_statement(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    let _ = try_parse_generic_names(parser);
+    if try_parse_generic_names(parser) {
+        parser.skip_whitespace();
+    }
 
     if !parser.expect_char('{', "Expected '{'") {
         bump_until_next_field_or_end(parser);

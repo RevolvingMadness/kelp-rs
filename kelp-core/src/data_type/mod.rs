@@ -9,14 +9,14 @@ use strum::{Display, EnumString};
 
 use crate::{
     compile_context::CompileContext,
-    datapack::{DataTypeDeclarationKind, HighDatapack},
+    datapack::HighDatapack,
     expression::{
         Expression, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
         supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::snbt_string::HighSNBTString,
-    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
+    operator::{ArithmeticOperator, ComparisonOperator, UnaryOperator},
     pattern::{Pattern, PatternKind},
     place::PlaceTypeKind,
     semantic_analysis_context::{
@@ -24,7 +24,7 @@ use crate::{
         SemanticAnalysisInfoKind,
     },
     span::Span,
-    trait_ext::OptionUnitIterExt,
+    trait_ext::{OptionBoolIterExt, OptionUnitIterExt},
 };
 
 pub mod high;
@@ -75,15 +75,15 @@ impl BuiltinDataTypeKind {
             Self::Float => DataTypeKind::Float,
             Self::Double => DataTypeKind::Double,
             Self::String => DataTypeKind::String,
-            Self::Score => DataTypeKind::Score,
             Self::SNBT => DataTypeKind::SNBT,
-            Self::List | Self::Compound | Self::Data => {
+            Self::List | Self::Compound | Self::Data | Self::Score => {
                 let resolved_generic_type = Box::new(generic_types.first().unwrap().clone());
 
                 match self {
                     Self::List => DataTypeKind::List(resolved_generic_type),
                     Self::Compound => DataTypeKind::Compound(resolved_generic_type),
                     Self::Data => DataTypeKind::Data(resolved_generic_type),
+                    Self::Score => DataTypeKind::Score(resolved_generic_type),
                     _ => unreachable!(),
                 }
             }
@@ -102,9 +102,8 @@ impl BuiltinDataTypeKind {
             | Self::Double
             | Self::String
             | Self::Unit
-            | Self::Score
             | Self::SNBT => 0,
-            Self::List | Self::Compound | Self::Data => 1,
+            Self::List | Self::Compound | Self::Data | Self::Score => 1,
         }
     }
 }
@@ -120,7 +119,7 @@ pub enum DataTypeKind {
     Double,
     String,
     Unit,
-    Score,
+    Score(Box<Self>),
     List(Box<Self>),
     TypedCompound(BTreeMap<SNBTString, Self>),
     Compound(Box<Self>),
@@ -129,7 +128,7 @@ pub enum DataTypeKind {
     Generic(String),
     Tuple(Vec<Self>),
     SNBT,
-    Struct(String, Vec<Self>, bool),
+    Struct(String, Vec<Self>),
 }
 
 impl Display for DataTypeKind {
@@ -144,7 +143,7 @@ impl Display for DataTypeKind {
             Self::Double => f.write_str("double"),
             Self::String => f.write_str("string"),
             Self::Unit => f.write_str("()"),
-            Self::Score => f.write_str("score"),
+            Self::Score(data_type) => write!(f, "score<{}>", data_type),
             Self::List(data_type) => write!(f, "list<{}>", data_type),
             Self::TypedCompound(compound) => {
                 f.write_str("{")?;
@@ -185,7 +184,7 @@ impl Display for DataTypeKind {
                 f.write_str(")")
             }
             Self::SNBT => f.write_str("snbt"),
-            Self::Struct(name, generics, is_data) => {
+            Self::Struct(name, generics) => {
                 f.write_str(name)?;
 
                 if !generics.is_empty() {
@@ -202,10 +201,6 @@ impl Display for DataTypeKind {
                     f.write_str(">")?;
                 }
 
-                if *is_data {
-                    f.write_str(" (data)")?;
-                }
-
                 Ok(())
             }
         }
@@ -219,7 +214,7 @@ impl DataTypeKind {
             Self::Boolean => Self::Boolean,
             Self::Byte => Self::Byte,
             Self::Short => Self::Short,
-            Self::Integer | Self::Score => Self::Integer,
+            Self::Integer => Self::Integer,
             Self::Long => Self::Long,
             Self::Float => Self::Float,
             Self::Double => Self::Double,
@@ -233,14 +228,42 @@ impl DataTypeKind {
                     .collect(),
             ),
             Self::Compound(data_type) => Self::Compound(Box::new(data_type.to_data())),
-            Self::Data(data_type) | Self::Reference(data_type) => data_type.to_data(),
+            Self::Data(data_type) | Self::Score(data_type) | Self::Reference(data_type) => {
+                data_type.to_data()
+            }
             Self::Generic(_) => unreachable!(),
             Self::Tuple(data_types) => {
                 Self::Tuple(data_types.into_iter().map(Self::to_data).collect())
             }
             Self::SNBT => Self::SNBT,
-            Self::Struct(name, generic_types, _) => Self::Struct(name, generic_types, true),
+            Self::Struct(name, generic_types) => Self::Struct(name, generic_types),
         }
+    }
+
+    #[must_use]
+    pub fn to_score(self) -> Option<Self> {
+        Some(match self {
+            Self::Byte | Self::Short | Self::Integer => Self::Integer,
+            Self::TypedCompound(compound) => Self::TypedCompound(
+                compound
+                    .into_iter()
+                    .map(|(key, value)| value.to_score().map(|value| (key, value)))
+                    .collect::<Option<_>>()?,
+            ),
+            Self::Compound(data_type) => Self::Compound(Box::new(data_type.to_score()?)),
+            Self::Score(data_type) | Self::Reference(data_type) | Self::Data(data_type) => {
+                data_type.to_score()?
+            }
+            Self::Generic(_) => unreachable!(),
+            Self::Struct(name, generic_types) => Self::Struct(
+                name,
+                generic_types
+                    .into_iter()
+                    .map(Self::to_score)
+                    .collect::<Option<_>>()?,
+            ),
+            _ => return None,
+        })
     }
 
     #[must_use]
@@ -263,13 +286,12 @@ impl DataTypeKind {
                     .collect::<Option<_>>()?,
             ),
             Self::Generic(ref name) => substitutions.get(name)?.clone(),
-            Self::Struct(name, generics, is_data) => Self::Struct(
+            Self::Struct(name, generics) => Self::Struct(
                 name,
                 generics
                     .into_iter()
                     .map(|g| g.substitute(substitutions))
                     .collect::<Option<_>>()?,
-                is_data,
             ),
             _ => self,
         })
@@ -289,10 +311,9 @@ impl DataTypeKind {
                 Self::Tuple(data_types) => {
                     Self::Tuple(data_types.into_iter().map(Self::reference).collect())
                 }
-                Self::Struct(name, generic_types, is_data) => Self::Struct(
+                Self::Struct(name, generic_types) => Self::Struct(
                     name,
                     generic_types.into_iter().map(Self::reference).collect(),
-                    is_data,
                 ),
                 Self::TypedCompound(compound) => Self::TypedCompound(
                     compound
@@ -326,16 +347,48 @@ impl DataTypeKind {
                         .collect(),
                 ),
                 Self::Compound(data_type) => Self::Compound(Box::new(data_type.distribute_data())),
-                Self::Struct(name, generic_types, is_data) => Self::Struct(
+                Self::Struct(name, generic_types) => Self::Struct(
                     name,
                     generic_types
                         .into_iter()
                         .map(Self::distribute_data)
                         .collect(),
-                    is_data,
                 ),
                 Self::Data(inner) => *inner,
                 inner => Self::Data(Box::new(inner)),
+            },
+            _ => self,
+        }
+    }
+
+    #[must_use]
+    fn distribute_score(self) -> Self {
+        match self {
+            Self::Score(inner) => match inner.distribute_score() {
+                Self::Reference(data_type) => {
+                    Self::Reference(Box::new(data_type.distribute_score()))
+                }
+                Self::List(data_type) => Self::List(Box::new(data_type.distribute_score())),
+                Self::Tuple(data_types) => {
+                    Self::Tuple(data_types.into_iter().map(Self::distribute_score).collect())
+                }
+                Self::TypedCompound(compound) => Self::TypedCompound(
+                    compound
+                        .into_iter()
+                        .map(|(key, data_type)| (key, data_type.distribute_score()))
+                        .collect(),
+                ),
+                Self::Compound(data_type) => Self::Compound(Box::new(data_type.distribute_score())),
+                Self::Struct(name, generic_types) => Self::Struct(
+                    name,
+                    generic_types
+                        .into_iter()
+                        .map(Self::distribute_score)
+                        .collect(),
+                ),
+                Self::Data(inner) => Self::Data(Box::new(inner.distribute_score())),
+                Self::Score(inner) => *inner,
+                inner => Self::Score(Box::new(inner)),
             },
             _ => self,
         }
@@ -501,7 +554,7 @@ impl DataTypeKind {
         pattern: &Pattern,
     ) -> Option<()> {
         match self {
-            Self::Struct(ref struct_name, ref generics, _) => {
+            Self::Struct(ref struct_name, ref generics) => {
                 if struct_name != name {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: pattern.span,
@@ -559,6 +612,15 @@ impl DataTypeKind {
                 ),
             Self::Data(inner) => inner
                 .distribute_data()
+                .perform_struct_destructure_semantic_analysis(
+                    name,
+                    field_patterns,
+                    ctx,
+                    value_span,
+                    pattern,
+                ),
+            Self::Score(inner) => inner
+                .distribute_score()
                 .perform_struct_destructure_semantic_analysis(
                     name,
                     field_patterns,
@@ -750,10 +812,7 @@ impl DataTypeKind {
         value: ConstantExpressionKind,
     ) {
         match (self, value) {
-            (
-                Self::Struct(s_name, generics, _),
-                ConstantExpressionKind::Struct(v_s_name, _, fields),
-            ) if s_name == name && v_s_name == name => {
+            (Self::Struct(_, generics), ConstantExpressionKind::Struct(_, _, fields)) => {
                 let declaration = datapack.get_data_type(name).unwrap();
                 let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
@@ -768,7 +827,7 @@ impl DataTypeKind {
                     }
                 }
             }
-            (Self::Struct(_, generics, _), ConstantExpressionKind::Data(target, path)) => {
+            (Self::Struct(_, generics), ConstantExpressionKind::Data(target, path)) => {
                 let declaration = datapack.get_data_type(name).unwrap();
                 let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
@@ -794,17 +853,35 @@ impl DataTypeKind {
                     }
                 }
             }
-            (Self::Reference(inner), ConstantExpressionKind::Reference(val)) => {
+            (Self::Reference(inner), value) => {
                 inner.distribute_references().destructure_struct(
                     datapack,
                     ctx,
                     name,
                     field_patterns,
-                    val.kind.distribute_references(),
+                    value,
                 );
             }
-            (Self::Data(inner_type), value @ ConstantExpressionKind::Data(_, _)) => {
+            (self_, ConstantExpressionKind::Reference(value)) => {
+                self_.destructure_struct(
+                    datapack,
+                    ctx,
+                    name,
+                    field_patterns,
+                    value.kind.distribute_references(),
+                );
+            }
+            (Self::Data(inner_type), value) => {
                 inner_type.distribute_data().destructure_struct(
+                    datapack,
+                    ctx,
+                    name,
+                    field_patterns,
+                    value,
+                );
+            }
+            (Self::Score(inner_type), value) => {
+                inner_type.distribute_score().destructure_struct(
                     datapack,
                     ctx,
                     name,
@@ -1002,10 +1079,10 @@ impl DataTypeKind {
         })
     }
 
-    pub fn as_place_type(self) -> Result<PlaceTypeKind, Self> {
+    pub const fn as_place_type(self) -> Result<PlaceTypeKind, Self> {
         Ok(match self {
-            Self::Score => PlaceTypeKind::Score,
-            data_type @ Self::Data(_) => PlaceTypeKind::Data(data_type),
+            self_ @ Self::Score(_) => PlaceTypeKind::Score(self_),
+            self_ @ Self::Data(_) => PlaceTypeKind::Data(self_),
             _ => return Err(self),
         })
     }
@@ -1014,7 +1091,7 @@ impl DataTypeKind {
     pub fn dereference(self) -> Option<Self> {
         Some(match self {
             Self::Reference(data_type) => *data_type,
-            Self::Score | Self::Data(_) => self,
+            Self::Score(_) | Self::Data(_) => self,
 
             _ => return None,
         })
@@ -1022,7 +1099,7 @@ impl DataTypeKind {
 
     #[must_use]
     pub const fn is_lvalue(&self) -> bool {
-        matches!(self, Self::Score | Self::Data(_))
+        matches!(self, Self::Score(_) | Self::Data(_))
     }
 
     #[must_use]
@@ -1069,13 +1146,32 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    pub fn is_score_value(&self) -> bool {
-        match self {
-            Self::Boolean | Self::Byte | Self::Short | Self::Integer | Self::Score => true,
-            Self::Data(data_type) | Self::Reference(data_type) => data_type.is_score_value(),
+    pub fn is_score_compatible(
+        &self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+    ) -> Option<bool> {
+        Some(match self {
+            Self::Boolean | Self::Byte | Self::Short | Self::Integer => true,
+            Self::Data(data_type)
+            | Self::Score(data_type)
+            | Self::Reference(data_type)
+            | Self::Compound(data_type) => {
+                data_type.is_score_compatible(supports_variable_type_scope)?
+            }
             Self::Generic(_) => unreachable!(),
+            Self::Struct(name, generics) => {
+                let declaration = supports_variable_type_scope.get_data_type(name)??;
+
+                let fields =
+                    declaration.get_struct_fields(supports_variable_type_scope, generics)?;
+
+                fields
+                    .values()
+                    .map(|data_type| data_type.is_score_compatible(supports_variable_type_scope))
+                    .all_some_true()?
+            }
             _ => false,
-        }
+        })
     }
 
     #[must_use]
@@ -1091,9 +1187,8 @@ impl DataTypeKind {
             | Self::Float
             | Self::Double
             | Self::String
-            | Self::Score
             | Self::SNBT
-            | Self::Struct(_, _, _) => true,
+            | Self::Struct(_, _) => true,
             Self::Generic(_) => unreachable!(),
             _ => false,
         }
@@ -1102,9 +1197,9 @@ impl DataTypeKind {
     #[must_use]
     pub fn has_fields(&self) -> bool {
         match self {
-            Self::Reference(data_type) => data_type.has_fields(),
+            Self::Reference(data_type) | Self::Score(data_type) => data_type.has_fields(),
 
-            Self::Struct(_, _, _)
+            Self::Struct(_, _)
             | Self::TypedCompound(_)
             | Self::Compound(_)
             | Self::Data(_)
@@ -1120,6 +1215,7 @@ impl DataTypeKind {
     #[allow(clippy::only_used_in_recursion)]
     fn raw_get_arithmetic_result(
         &self,
+        supports_variable_type_score: &impl SupportsVariableTypeScope,
         _operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
@@ -1128,11 +1224,17 @@ impl DataTypeKind {
             (Self::Short, Self::Short) => Self::Short,
             (Self::Integer, Self::Integer) => Self::Integer,
             (Self::Long, Self::Long) => Self::Long,
-            (Self::Score, other) | (other, Self::Score) if other.is_score_value() => Self::Score,
-            (Self::Data(inner_type), other) | (other, Self::Data(inner_type))
-                if other.is_score_value() && inner_type.is_score_value() =>
+            (Self::Score(inner_type), other) | (other, Self::Score(inner_type))
+                if other.is_score_compatible(supports_variable_type_score)?
+                    && inner_type.is_score_compatible(supports_variable_type_score)? =>
             {
-                Self::Score
+                Self::Score(Box::new(Self::Integer))
+            }
+            (Self::Data(inner_type), other) | (other, Self::Data(inner_type))
+                if other.is_score_compatible(supports_variable_type_score)?
+                    && inner_type.is_score_compatible(supports_variable_type_score)? =>
+            {
+                Self::Score(Box::new(Self::Integer))
             }
             _ => return None,
         })
@@ -1141,15 +1243,16 @@ impl DataTypeKind {
     #[must_use]
     pub fn get_arithmetic_result(
         &self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
         operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
         match (self, other) {
             (Self::Reference(self_), other) | (other, Self::Reference(self_)) => {
-                self_.raw_get_arithmetic_result(operator, other)
+                self_.raw_get_arithmetic_result(supports_variable_type_scope, operator, other)
             }
 
-            _ => self.raw_get_arithmetic_result(operator, other),
+            _ => self.raw_get_arithmetic_result(supports_variable_type_scope, operator, other),
         }
     }
 
@@ -1165,8 +1268,9 @@ impl DataTypeKind {
             | (Self::Short, Self::Short)
             | (Self::Integer, Self::Integer)
             | (Self::Long, Self::Long) => true,
-            (Self::Data(inner), other) => inner.can_perform_augmented_assignment(operator, other),
-            (Self::Score, other) | (other, Self::Score) if other.is_score_value() => true,
+            (Self::Data(inner) | Self::Score(inner), other) => {
+                inner.can_perform_augmented_assignment(operator, other)
+            }
             _ => false,
         }
     }
@@ -1179,12 +1283,24 @@ impl DataTypeKind {
         value_type: &Self,
     ) -> Option<()> {
         match (self, value_type) {
-            (Self::Score, value_type) => {
-                if !value_type.is_score_value() {
+            (Self::Score(data_type), value_type) => {
+                if !value_type.is_score_compatible(ctx)? {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedToScore(value_type.clone()),
+                            SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),
+                        ),
+                    });
+                }
+
+                if !value_type.equals(data_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: *data_type.clone(),
+                                actual: value_type.clone(),
+                            },
                         ),
                     });
                 }
@@ -1209,54 +1325,61 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    fn raw_can_perform_comparison(&self, operator: ComparisonOperator, other: &Self) -> bool {
-        match (self, other) {
+    fn raw_can_perform_comparison(
+        &self,
+        supports_variable_type_score: &impl SupportsVariableTypeScope,
+        operator: ComparisonOperator,
+        other: &Self,
+    ) -> Option<bool> {
+        Some(match (self, other) {
             (Self::Byte, Self::Byte)
             | (Self::Short, Self::Short)
             | (Self::Integer, Self::Integer)
             | (Self::Long, Self::Long)
             | (Self::Float, Self::Float)
             | (Self::Double, Self::Double) => true,
-            (Self::Score, other) | (other, Self::Score) if other.is_score_value() => true,
-            (Self::Data(inner_type), other) | (other, Self::Data(inner_type))
-                if operator == ComparisonOperator::EqualTo
-                    || operator == ComparisonOperator::NotEqualTo =>
+            (Self::Score(inner_score_type), other_type)
+            | (other_type, Self::Score(inner_score_type))
+                if inner_score_type.is_score_compatible(supports_variable_type_score)?
+                    && other_type.is_score_compatible(supports_variable_type_score)? =>
             {
-                inner_type.can_perform_comparison(operator, other)
+                inner_score_type.can_perform_comparison(
+                    supports_variable_type_score,
+                    operator,
+                    other_type,
+                )?
             }
             (Self::Data(inner_type), other) | (other, Self::Data(inner_type))
-                if inner_type.is_score_value() && other.is_score_value() =>
+                if (operator == ComparisonOperator::EqualTo
+                    || operator == ComparisonOperator::NotEqualTo)
+                    || (inner_type.is_score_compatible(supports_variable_type_score)?
+                        && other.is_score_compatible(supports_variable_type_score)?) =>
             {
-                inner_type.can_perform_comparison(operator, other)
+                inner_type.can_perform_comparison(supports_variable_type_score, operator, other)?
             }
             _ => false,
-        }
+        })
     }
 
     #[must_use]
-    pub fn can_perform_comparison(&self, operator: ComparisonOperator, other: &Self) -> bool {
+    pub fn can_perform_comparison(
+        &self,
+        supports_variable_type_score: &impl SupportsVariableTypeScope,
+        operator: ComparisonOperator,
+        other: &Self,
+    ) -> Option<bool> {
         if (operator == ComparisonOperator::EqualTo || operator == ComparisonOperator::NotEqualTo)
             && self.equals(other)
         {
-            return true;
+            return Some(true);
         }
 
-        match (self, other) {
-            (Self::Reference(data_type), other) | (other, Self::Reference(data_type)) => {
-                data_type.raw_can_perform_comparison(operator, other)
-            }
+        Some(match (self, other) {
+            (Self::Reference(data_type), other) | (other, Self::Reference(data_type)) => data_type
+                .raw_can_perform_comparison(supports_variable_type_score, operator, other)?,
 
-            _ => self.raw_can_perform_comparison(operator, other),
-        }
-    }
-
-    #[must_use]
-    pub const fn can_perform_logical_comparison(
-        &self,
-        _operator: &LogicalOperator,
-        other: &Self,
-    ) -> bool {
-        matches!((self, other), (Self::Boolean, Self::Boolean))
+            _ => self.raw_can_perform_comparison(supports_variable_type_score, operator, other)?,
+        })
     }
 
     #[must_use]
@@ -1282,19 +1405,13 @@ impl DataTypeKind {
                 self_.get_field_result(supports_variable_type_scope, field)?
             }
 
-            Self::Struct(name, generics, is_data) => {
-                let declaration @ DataTypeDeclarationKind::Struct { .. } =
-                    supports_variable_type_scope.get_data_type(name)??
-                else {
-                    return None;
-                };
+            Self::Struct(name, generics) => {
+                let declaration = supports_variable_type_scope.get_data_type(name)??;
 
                 let fields =
                     declaration.get_struct_fields(supports_variable_type_scope, generics)?;
 
-                let field = fields.get(field).cloned()?;
-
-                if *is_data { field.to_data() } else { field }
+                fields.get(field).cloned()?
             }
 
             Self::TypedCompound(compound) => {
@@ -1302,6 +1419,9 @@ impl DataTypeKind {
             }
             Self::Compound(data_type) => *data_type.clone(),
             Self::Data(data_type) => Self::Data(Box::new(
+                data_type.get_field_result(supports_variable_type_scope, field)?,
+            )),
+            Self::Score(data_type) => Self::Score(Box::new(
                 data_type.get_field_result(supports_variable_type_scope, field)?,
             )),
             Self::Tuple(items) => {
@@ -1318,14 +1438,15 @@ impl DataTypeKind {
 
     #[must_use]
     pub const fn can_be_referenced(&self) -> bool {
-        matches!(self, Self::Data(_) | Self::Score)
+        false
     }
 
     #[must_use]
     pub const fn can_be_dereferenced(&self) -> bool {
-        matches!(self, Self::Reference(_) | Self::Score | Self::Data(_))
+        matches!(self, Self::Reference(_) | Self::Score(_) | Self::Data(_))
     }
 
+    // TODO maybe create a can_be_negated method?
     #[must_use]
     pub fn get_negated_result(&self) -> Option<Self> {
         Some(match self {
@@ -1334,7 +1455,7 @@ impl DataTypeKind {
                 Self::Short => Self::Short,
                 Self::Integer => Self::Integer,
                 Self::Long => Self::Long,
-                Self::Score => Self::Score,
+                Self::Score(ref inner_type) => Self::Score(inner_type.clone()),
                 _ => return None,
             },
 
@@ -1342,7 +1463,7 @@ impl DataTypeKind {
             Self::Short => Self::Short,
             Self::Integer => Self::Integer,
             Self::Long => Self::Long,
-            Self::Score => Self::Score,
+            Self::Score(inner_type) => Self::Score(inner_type.clone()),
             _ => return None,
         })
     }

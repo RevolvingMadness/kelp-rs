@@ -91,7 +91,8 @@ impl Place {
             Self::Dereference(expression) => {
                 expression
                     .dereference(datapack)
-                    .as_place(datapack, ctx)
+                    .resolve_partial(datapack, ctx)
+                    .as_place()
                     .assign(datapack, ctx, value);
             }
             Self::Field(expression, field) => {
@@ -228,7 +229,8 @@ impl Place {
             Self::Dereference(expression) => {
                 expression
                     .dereference(datapack)
-                    .as_place(datapack, ctx)
+                    .resolve_partial(datapack, ctx)
+                    .as_place()
                     .augmented_assign(datapack, ctx, operator, value);
             }
         }
@@ -237,7 +239,7 @@ impl Place {
 
 #[derive(Debug)]
 pub enum PlaceTypeKind {
-    Score,
+    Score(DataTypeKind),
     Data(DataTypeKind),
     Tuple(Vec<PlaceType>, DataTypeKind),
     Variable(DataTypeKind),
@@ -248,6 +250,18 @@ impl PlaceTypeKind {
     #[must_use]
     pub const fn with_span(self, span: Span) -> PlaceType {
         PlaceType { span, kind: self }
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn score(data_type: DataTypeKind) -> Self {
+        Self::Score(DataTypeKind::Score(Box::new(data_type)))
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn data(data_type: DataTypeKind) -> Self {
+        Self::Data(DataTypeKind::Data(Box::new(data_type)))
     }
 }
 
@@ -265,12 +279,26 @@ impl PlaceType {
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match self.kind {
-            PlaceTypeKind::Score => {
-                if !value_type.is_score_value() {
+            PlaceTypeKind::Score(score_type) => {
+                if let Some(result) = value_type.is_score_compatible(ctx)
+                    && !result
+                {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedToScore(value_type.clone()),
+                            SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),
+                        ),
+                    });
+                }
+
+                if !value_type.equals(&score_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: score_type,
+                                actual: value_type.clone(),
+                            },
                         ),
                     });
                 }
@@ -309,17 +337,9 @@ impl PlaceType {
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match self.kind {
-            PlaceTypeKind::Score => {
-                if !value_type.is_score_value() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: value.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedToScore(value_type.clone()),
-                        ),
-                    });
-                }
-            }
-            PlaceTypeKind::Data(data_type) | PlaceTypeKind::Variable(data_type) => {
+            PlaceTypeKind::Data(data_type)
+            | PlaceTypeKind::Score(data_type)
+            | PlaceTypeKind::Variable(data_type) => {
                 if !data_type.can_perform_augmented_assignment(operator, value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,

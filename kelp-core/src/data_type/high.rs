@@ -80,7 +80,7 @@ impl HighDataTypeKind {
                         alias.substitute(&substitutions)?
                     }
                     DataTypeDeclarationKind::Struct { name, .. } => {
-                        DataTypeKind::Struct(name, generic_types, false)
+                        DataTypeKind::Struct(name, generic_types)
                     }
                     DataTypeDeclarationKind::Generic(name) => DataTypeKind::Generic(name),
                     DataTypeDeclarationKind::Builtin(_) => unreachable!(),

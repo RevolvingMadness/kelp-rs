@@ -171,6 +171,9 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let ParseResult { root, errors } = parser.parse();
     let parse_elapsed = start_parse.elapsed();
 
+    #[cfg(debug_assertions)]
+    println!("{:#?}", root);
+
     let root = CSTRoot::cast(root).unwrap();
 
     let error_input_text = format!("{} ", input_text);

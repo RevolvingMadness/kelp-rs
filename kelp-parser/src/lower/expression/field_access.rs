@@ -14,7 +14,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_field_access_expression(node: CSTFieldAccessExpression) -> Option<Expression> {
     let expression = lower_expression(node.expression()?)?;
-    let field_token = node.identifier_token()?;
+    let field_token = node.field_name_token()?;
 
     let field_name_span = text_range_to_span(field_token.text_range());
     let field = field_token.text().to_owned();

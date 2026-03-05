@@ -260,7 +260,7 @@ impl ConstantExpressionKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            Self::PlayerScore(_) => DataTypeKind::Score,
+            Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
             Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             Self::Condition(_, _) => DataTypeKind::Boolean,
             Self::Tuple(expressions) => DataTypeKind::Tuple(
@@ -285,7 +285,7 @@ impl ConstantExpressionKind {
             )),
             Self::Underscore => unreachable!(),
             Self::Struct(name, generics_types, _) => {
-                DataTypeKind::Struct(name.clone(), generics_types.clone(), false)
+                DataTypeKind::Struct(name.clone(), generics_types.clone())
             }
         })
     }
@@ -376,6 +376,37 @@ impl ConstantExpressionKind {
                 self.assign_to_score(datapack, ctx, unique_score.clone());
                 unique_score
             }
+        }
+    }
+
+    #[must_use]
+    pub fn as_score_expression(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        force: bool,
+    ) -> Self {
+        match self {
+            Self::Struct(name, generics, fields) => {
+                let fields = fields
+                    .into_iter()
+                    .map(|(key, value)| {
+                        let unique_score = datapack.get_unique_score();
+
+                        value
+                            .kind
+                            .assign_to_score(datapack, ctx, unique_score.clone());
+
+                        (
+                            key,
+                            Self::PlayerScore(unique_score).into_dummy_constant_expression(),
+                        )
+                    })
+                    .collect();
+
+                Self::Struct(name, generics, fields)
+            }
+            _ => Self::PlayerScore(self.as_score(datapack, ctx, force)),
         }
     }
 
@@ -517,12 +548,16 @@ impl ConstantExpressionKind {
         match self {
             Self::Literal(_)
             | Self::List(_)
-            | Self::PlayerScore(_)
             | Self::Condition(_, _)
             | Self::Unit
             | Self::Variable(_)
             | Self::Dereference(_) => {
                 unreachable!("Expression does not have any fields {:?}", self)
+            }
+            Self::PlayerScore(inner_type) => {
+                println!("{:?}", inner_type);
+
+                todo!()
             }
             Self::Underscore => unreachable!(),
             Self::Reference(expression) => expression.kind.access_field(field),
@@ -1185,11 +1220,12 @@ impl ConstantExpressionKind {
                     )),
                 );
             }
-            Self::Tuple(_)
-            | Self::Unit
-            | Self::Dereference(_)
-            | Self::Underscore
-            | Self::Struct(_, _, _) => unreachable!(),
+            Self::Struct(_, _, fields) => {
+                for value in fields.into_values() {
+                    value.kind.assign_to_score(datapack, ctx, target.clone());
+                }
+            }
+            Self::Tuple(_) | Self::Unit | Self::Dereference(_) | Self::Underscore => unreachable!(),
             Self::Reference(expression) => {
                 expression.kind.assign_to_score(datapack, ctx, target);
             }
@@ -1531,7 +1567,9 @@ impl ConstantExpression {
     pub fn get_place_type(&self, ctx: &impl SupportsVariableTypeScope) -> Option<PlaceType> {
         Some(
             (match &self.kind {
-                ConstantExpressionKind::PlayerScore(_) => PlaceTypeKind::Score,
+                ConstantExpressionKind::PlayerScore(_) => {
+                    PlaceTypeKind::score(DataTypeKind::Integer)
+                }
                 ConstantExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
                 ConstantExpressionKind::Dereference(expression) => {
                     return expression.get_place_type(ctx);

@@ -8,7 +8,7 @@ use crate::{
     data_type::{BuiltinDataTypeKind, DataTypeKind},
     datapack::DataTypeDeclarationKind,
     expression::supports_variable_type_scope::SupportsVariableTypeScope,
-    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
+    operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     span::Span,
 };
@@ -23,11 +23,6 @@ pub enum SemanticAnalysisError {
     CannotPerformComparisonOperation {
         left: DataTypeKind,
         operator: ComparisonOperator,
-        right: DataTypeKind,
-    },
-    CannotPerformLogicalOperation {
-        left: DataTypeKind,
-        operator: LogicalOperator,
         right: DataTypeKind,
     },
     CannotPerformAugmentedAssignment(DataTypeKind),
@@ -55,7 +50,7 @@ pub enum SemanticAnalysisError {
     PatternIsNotIrrefutable,
     UnknownType(String),
     TypeIsNotCondition(DataTypeKind),
-    CannotBeAssignedToScore(DataTypeKind),
+    TypeIsNotScoreCompatible(DataTypeKind),
     CannotBeAssignedToData(DataTypeKind),
     CannotBeIndexed(DataTypeKind),
     IndexOutOfBounds,
@@ -87,11 +82,6 @@ impl Display for SemanticAnalysisError {
                 right,
             } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
             Self::CannotPerformComparisonOperation {
-                left,
-                operator,
-                right,
-            } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
-            Self::CannotPerformLogicalOperation {
                 left,
                 operator,
                 right,
@@ -155,52 +145,52 @@ impl Display for SemanticAnalysisError {
 
                 write!(
                     f,
-                    "Cannot {}-assign type '{}' to type '{}'",
+                    "Cannot {}-assign type `{}` to type `{}`",
                     word, value_type, target_type
                 )
             }
             Self::CannotCastType { from, to } => {
-                write!(f, "Cannot cast type '{}' to '{}'", from, to)
+                write!(f, "Cannot cast type `{}` to `{}`", from, to)
             }
             Self::TypeIsNotCondition(data_type) => {
-                write!(f, "The type '{}' cannot be used in conditions", data_type)
+                write!(f, "The type `{}` cannot be used in conditions", data_type)
             }
-            Self::CannotBeAssignedToScore(data_type) => {
-                write!(f, "The type '{}' cannot be assigned to a score", data_type)
+            Self::TypeIsNotScoreCompatible(data_type) => {
+                write!(f, "The type `{}` is not score compatible", data_type)
             }
             Self::CannotBeAssignedToData(data_type) => {
                 write!(
                     f,
-                    "The type '{}' cannot be assigned to data storage",
+                    "The type `{}` cannot be assigned to data storage",
                     data_type
                 )
             }
             Self::CannotBeIndexed(data_type) => {
-                write!(f, "The type '{}' cannot be indexed", data_type)
+                write!(f, "The type `{}` cannot be indexed", data_type)
             }
             Self::IndexOutOfBounds => {
                 write!(f, "Index out of bounds")
             }
             Self::CannotBeDereferenced(data_type) => {
-                write!(f, "The type '{}' cannot be dereferenced", data_type)
+                write!(f, "The type `{}` cannot be dereferenced", data_type)
             }
             Self::CannotBeReferenced(data_type) => {
-                write!(f, "The type '{}' cannot be referenced", data_type)
+                write!(f, "The type `{}` cannot be referenced", data_type)
             }
             Self::CannotBeAssignedTo => f.write_str("Cannot assign a value to this expression"),
             Self::TypeDoesntHaveFields(data_type) => {
-                write!(f, "The type '{}' does not have any fields", data_type)
+                write!(f, "The type `{}` does not have any fields", data_type)
             }
             Self::CannotNegateType(data_type) => {
-                write!(f, " The type '{}' cannot be negated", data_type)
+                write!(f, " The type `{}` cannot be negated", data_type)
             }
             Self::CannotInvertType(data_type) => {
-                write!(f, " The type '{}' cannot be inverted", data_type)
+                write!(f, " The type `{}` cannot be inverted", data_type)
             }
             Self::TypeDoesntHaveField { data_type, field } => {
                 write!(
                     f,
-                    "The type '{}' does not have a field named '{}'",
+                    "The type `{}` does not have a field named `{}`",
                     data_type, field
                 )
             }
@@ -211,7 +201,7 @@ impl Display for SemanticAnalysisError {
             } => {
                 write!(
                     f,
-                    "The type '{}' takes {} generic argument",
+                    "The type `{}` takes {} generic argument",
                     data_type, expected
                 )?;
 
@@ -232,7 +222,7 @@ impl Display for SemanticAnalysisError {
             Self::UndeclaredVariable(name) => {
                 write!(
                     f,
-                    "The variable '{}' has not been declared in the current scope",
+                    "The variable `{}` has not been declared in the current scope",
                     name
                 )
             }

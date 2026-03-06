@@ -480,6 +480,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "compound_key" => "CompoundKey",
         "return" => "ReturnKeyword",
         "field_name" => "FieldName",
+        "break" => "BreakKeyword",
         _ => todo!("{:?}", token),
     }
 }

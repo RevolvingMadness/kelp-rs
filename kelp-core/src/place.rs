@@ -36,7 +36,7 @@ pub enum Place {
     Data(GeneratedDataTarget, NbtPath),
     Variable(String),
     Tuple(Vec<Self>),
-    Dereference(Box<Expression>),
+    Dereference(Box<ConstantExpression>),
     Field(Box<ConstantExpressionKind>, SNBTString),
     Underscore,
 }
@@ -89,11 +89,7 @@ impl Place {
                 }
             }
             Self::Dereference(expression) => {
-                expression
-                    .dereference(datapack)
-                    .resolve_partial(datapack, ctx)
-                    .as_place()
-                    .assign(datapack, ctx, value);
+                expression.kind.as_place().assign(datapack, ctx, value);
             }
             Self::Field(expression, field) => {
                 let field_value = expression.clone().access_field(field.1.clone());
@@ -228,8 +224,7 @@ impl Place {
             }
             Self::Dereference(expression) => {
                 expression
-                    .dereference(datapack)
-                    .resolve_partial(datapack, ctx)
+                    .kind
                     .as_place()
                     .augmented_assign(datapack, ctx, operator, value);
             }
@@ -250,18 +245,6 @@ impl PlaceTypeKind {
     #[must_use]
     pub const fn with_span(self, span: Span) -> PlaceType {
         PlaceType { span, kind: self }
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn score(data_type: DataTypeKind) -> Self {
-        Self::Score(DataTypeKind::Score(Box::new(data_type)))
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn data(data_type: DataTypeKind) -> Self {
-        Self::Data(DataTypeKind::Data(Box::new(data_type)))
     }
 }
 
@@ -322,7 +305,17 @@ impl PlaceType {
                     .all_some()?;
             }
             PlaceTypeKind::Variable(data_type) => {
-                data_type.perform_assignment_semantic_analysis(ctx, value.span, value_type)?;
+                if !value_type.equals(&data_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: data_type,
+                                actual: value_type.clone(),
+                            },
+                        ),
+                    });
+                }
             }
         }
 

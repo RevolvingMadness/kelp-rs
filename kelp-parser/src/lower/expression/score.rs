@@ -16,7 +16,7 @@ pub fn try_parse_score_expression(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
     parser.start_node(SyntaxKind::ScoreExpression);
-    parser.bump_identifier("score");
+    parser.bump_identifier_kind(SyntaxKind::ScoreKeyword, "score");
 
     if !parser.expect_inline_whitespace() || !try_parse_entity_selector(parser) {
         parser.restore_state(state);

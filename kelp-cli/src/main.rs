@@ -279,7 +279,7 @@ fn process_success(
     }
     let compile_elapsed = start_compile.elapsed();
     println!(
-        "{} Statement compilation finished in {:?}",
+        "{} Code compilation finished in {:?}",
         "Done:".cyan(),
         compile_elapsed.green()
     );
@@ -292,7 +292,7 @@ fn process_success(
     let regular_datapack = datapack.compile();
     let gen_elapsed = start_gen.elapsed();
     println!(
-        "{} Code generation finished in {:?}",
+        "{} Datapack compilation finished in {:?}",
         "Done:".cyan(),
         gen_elapsed.green()
     );
@@ -301,19 +301,17 @@ fn process_success(
         .unwrap()
         .join(".local/share/PandoraLauncher/instances/1.21.11/.minecraft/saves/1_21_11/datapacks/kelp-rs Datapack");
 
-    let start_io = Instant::now();
     if datapack_dir.exists() {
         fs::remove_dir_all(&datapack_dir).unwrap();
     }
     regular_datapack
         .write(datapack_dir.as_path())
         .expect("Failed to write datapack");
-    let io_elapsed = start_io.elapsed();
 
     println!(
         "\n{} Total processing time: {:?}",
         "Finished:".bold().bright_green(),
-        (existing_elapsed + compile_elapsed + gen_elapsed + io_elapsed).green()
+        (existing_elapsed + compile_elapsed + gen_elapsed).green()
     );
 }
 

@@ -837,11 +837,11 @@ impl Expression {
                         .infer_data_type(supports_variable_type_scope)?;
 
                     match runtime_storage_type {
-                        RuntimeStorageType::Score => PlaceTypeKind::score(expression_type),
-                        RuntimeStorageType::Data => PlaceTypeKind::data(expression_type),
+                        RuntimeStorageType::Score => PlaceTypeKind::Score(expression_type),
+                        RuntimeStorageType::Data => PlaceTypeKind::Data(expression_type),
                     }
                 }
-                ExpressionKind::PlayerScore(_) => PlaceTypeKind::score(DataTypeKind::Integer),
+                ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataTypeKind::Integer),
                 ExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
                 ExpressionKind::Unary(UnaryOperator::Dereference, _)
                 | ExpressionKind::FieldAccess(_, _) => self
@@ -883,6 +883,13 @@ impl Expression {
                         .into_dummy_constant_expression(),
                 ))
             }
+            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
+                ConstantExpressionKind::Dereference(Box::new(
+                    expression
+                        .resolve(datapack, ctx)
+                        .into_dummy_constant_expression(),
+                ))
+            }
             _ => self.resolve_partial(datapack, ctx),
         }
     }
@@ -910,9 +917,11 @@ impl Expression {
                         .resolve_partial(datapack, ctx)
                         .into_dummy_constant_expression(),
                 )),
-                UnaryOperator::Dereference => {
-                    expression.resolve(datapack, ctx).dereference(datapack, ctx)
-                }
+                UnaryOperator::Dereference => ConstantExpressionKind::Dereference(Box::new(
+                    expression
+                        .resolve(datapack, ctx)
+                        .into_dummy_constant_expression(),
+                )),
             },
             ExpressionKind::Arithmetic(left, operator, right) => {
                 let left = left.resolve(datapack, ctx);

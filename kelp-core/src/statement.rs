@@ -19,6 +19,7 @@ use minecraft_command_types::command::data::{
     DataCommand, DataCommandModification, DataCommandModificationMode,
 };
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
+use minecraft_command_types::command::r#return::ReturnCommand;
 use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
 use minecraft_command_types::range::IntegerRange;
 use minecraft_command_types::resource_location::ResourceLocation;
@@ -38,12 +39,14 @@ pub enum StatementKind {
     AppendData(Expression, Box<Expression>),
     RemoveData(Expression),
     TypeAliasDeclaration(String, Vec<String>, HighDataType),
+    Break,
     StructDeclaration(String, Vec<String>, BTreeMap<String, HighDataType>),
 }
 
 fn compile_if(
     datapack: &mut HighDatapack,
     caller_ctx: &mut CompileContext,
+    affects_control_flow: bool,
     mut body_ctx: CompileContext,
     inverted: bool,
     condition: ExecuteIfSubcommand,
@@ -62,19 +65,38 @@ fn compile_if(
         }
     } else {
         let body_paths = datapack.get_unique_function_paths();
-
-        caller_ctx.add_command(
-            datapack,
-            Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
-                ExecuteSubcommand::Run(Box::new(Command::Function(
-                    ResourceLocation::new_namespace_paths(
-                        datapack.current_namespace_name(),
-                        body_paths.clone(),
-                    ),
-                    None,
-                ))),
-            )),
+        let body_function_resource_location = ResourceLocation::new_namespace_paths(
+            datapack.current_namespace_name(),
+            body_paths.clone(),
         );
+
+        if affects_control_flow {
+            caller_ctx.add_command(
+                datapack,
+                Command::Execute(ExecuteSubcommand::If(
+                    inverted,
+                    condition.then(ExecuteSubcommand::If(
+                        true,
+                        ExecuteIfSubcommand::Function(
+                            body_function_resource_location,
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
+                                ReturnCommand::Fail,
+                            )))),
+                        ),
+                    )),
+                )),
+            );
+        } else {
+            caller_ctx.add_command(
+                datapack,
+                Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
+                    ExecuteSubcommand::Run(Box::new(Command::Function(
+                        body_function_resource_location,
+                        None,
+                    ))),
+                )),
+            );
+        }
 
         datapack.compile_and_add_to_function(&body_paths, &mut body_ctx);
     }
@@ -337,8 +359,9 @@ impl StatementKind {
                 todo!()
             }
             Self::If(condition, body, else_body) => {
-                let mut if_body_ctx = CompileContext::default();
-                body.kind.compile(datapack, &mut if_body_ctx);
+                let mut body_ctx = CompileContext::default();
+                let body_affects_control_flow = body.kind.affects_control_flow().unwrap();
+                body.kind.compile(datapack, &mut body_ctx);
 
                 let (invert, compiled_condition) = condition
                     .resolve(datapack, ctx)
@@ -347,16 +370,26 @@ impl StatementKind {
                 compile_if(
                     datapack,
                     ctx,
-                    if_body_ctx,
+                    body_affects_control_flow,
+                    body_ctx,
                     invert,
                     compiled_condition.clone(),
                 );
 
                 if let Some(else_body) = else_body {
                     let mut else_body_ctx = ctx.create_child_ctx();
+                    let else_body_affects_control_flow =
+                        else_body.kind.affects_control_flow().unwrap();
                     else_body.kind.compile(datapack, &mut else_body_ctx);
 
-                    compile_if(datapack, ctx, else_body_ctx, !invert, compiled_condition);
+                    compile_if(
+                        datapack,
+                        ctx,
+                        else_body_affects_control_flow,
+                        else_body_ctx,
+                        !invert,
+                        compiled_condition,
+                    );
                 }
             }
             Self::AppendData(target, value) => {
@@ -419,7 +452,38 @@ impl StatementKind {
                     },
                 );
             }
+            Self::Break => {
+                ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
+            }
         }
+    }
+
+    #[must_use]
+    pub fn affects_control_flow(&self) -> Option<bool> {
+        Some(match self {
+            Self::MCFNDeclaration(_, _) => return None,
+            Self::Expression(_)
+            | Self::Let(_, _, _)
+            | Self::AppendData(_, _)
+            | Self::RemoveData(_)
+            | Self::TypeAliasDeclaration(_, _, _)
+            | Self::StructDeclaration(_, _, _) => false,
+            Self::While(_, statement) | Self::ForIn(_, _, _, statement) => {
+                statement.kind.affects_control_flow()?
+            }
+            Self::Match(_, _) => todo!(),
+            Self::If(_, statement, else_statement) => {
+                statement.kind.affects_control_flow()?
+                    || else_statement
+                        .as_ref()
+                        .and_then(|statement| statement.kind.affects_control_flow())
+                        .unwrap_or(false)
+            }
+            Self::Block(statements) => statements
+                .iter()
+                .any(|statement| statement.kind.affects_control_flow().unwrap_or(false)),
+            Self::Break => true,
+        })
     }
 }
 
@@ -652,6 +716,11 @@ impl Statement {
 
                     None
                 }
+            }
+            StatementKind::Break => {
+                // TODO
+
+                Some(())
             }
             StatementKind::StructDeclaration(name, generics, fields) => {
                 if ctx.data_type_is_declared(name) {

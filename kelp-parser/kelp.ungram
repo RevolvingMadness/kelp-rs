@@ -11,6 +11,7 @@ Statement =
 | MCFNDeclarationStatement
 | StructDeclarationStatement
 | TypeAliasDeclarationStatement
+| BreakStatement
 
 BlockStatement =
   '{' Statement* '}'
@@ -47,6 +48,8 @@ StructDeclarationStatementField =
 
 TypeAliasDeclarationStatement =
   'type' name:'data_type_name' GenericNames? '=' DataType
+
+BreakStatement = 'break'
 
 // ----- Generics -----
 GenericNames =

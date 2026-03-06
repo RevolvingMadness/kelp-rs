@@ -1079,10 +1079,10 @@ impl DataTypeKind {
         })
     }
 
-    pub const fn as_place_type(self) -> Result<PlaceTypeKind, Self> {
+    pub fn as_place_type(self) -> Result<PlaceTypeKind, Self> {
         Ok(match self {
-            self_ @ Self::Score(_) => PlaceTypeKind::Score(self_),
-            self_ @ Self::Data(_) => PlaceTypeKind::Data(self_),
+            Self::Score(inner_type) => PlaceTypeKind::Score(*inner_type),
+            Self::Data(inner_type) => PlaceTypeKind::Data(*inner_type),
             _ => return Err(self),
         })
     }
@@ -1273,55 +1273,6 @@ impl DataTypeKind {
             }
             _ => false,
         }
-    }
-
-    #[must_use]
-    pub fn perform_assignment_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        span: Span,
-        value_type: &Self,
-    ) -> Option<()> {
-        match (self, value_type) {
-            (Self::Score(data_type), value_type) => {
-                if !value_type.is_score_compatible(ctx)? {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),
-                        ),
-                    });
-                }
-
-                if !value_type.equals(data_type) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: *data_type.clone(),
-                                actual: value_type.clone(),
-                            },
-                        ),
-                    });
-                }
-            }
-            (Self::Data(_), _) => {}
-            (self_, value_type) => {
-                if !value_type.equals(self) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: self_.clone(),
-                                actual: value_type.clone(),
-                            },
-                        ),
-                    });
-                }
-            }
-        }
-
-        Some(())
     }
 
     #[must_use]

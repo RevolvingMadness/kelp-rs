@@ -1462,6 +1462,7 @@ impl ConstantExpressionKind {
                     .map(|expression| expression.kind.as_place())
                     .collect(),
             ),
+            Self::Dereference(expression) => Place::Dereference(expression),
             _ => unreachable!("This expression is not a place {:?}", self),
         }
     }
@@ -1568,7 +1569,7 @@ impl ConstantExpression {
         Some(
             (match &self.kind {
                 ConstantExpressionKind::PlayerScore(_) => {
-                    PlaceTypeKind::score(DataTypeKind::Integer)
+                    PlaceTypeKind::Score(DataTypeKind::Integer)
                 }
                 ConstantExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
                 ConstantExpressionKind::Dereference(expression) => {

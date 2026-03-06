@@ -7,6 +7,7 @@ use crate::{
         expression::{is_expression_recovery, lower_expression, try_parse_expression},
         statement::{
             block::{lower_block_statement, try_parse_block_statement},
+            r#break::{lower_break_statement, try_parse_break_statement},
             r#if::{lower_if_statement, try_parse_if_statement},
             r#let::{lower_let_statement, try_parse_let_statement},
             mcfn_declaration::{
@@ -27,6 +28,7 @@ use crate::{
 };
 
 pub mod block;
+pub mod r#break;
 pub mod r#if;
 pub mod r#let;
 pub mod mcfn_declaration;
@@ -81,11 +83,17 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                             return true;
                         }
                     }
+                    "break" => {
+                        if try_parse_break_statement(parser) {
+                            return true;
+                        }
+                    }
                     _ => {}
                 }
             }
 
             parser.start_node(SyntaxKind::ExpressionStatement);
+
             if !try_parse_expression(parser) {
                 let chars = parser.source[parser.pos..].chars();
                 let mut length = 0;
@@ -150,5 +158,6 @@ pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
         CSTStatement::TypeAliasDeclarationStatement(node) => {
             lower_type_alias_declaration_statement(node)
         }
+        CSTStatement::BreakStatement(node) => lower_break_statement(node),
     }
 }

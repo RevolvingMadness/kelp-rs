@@ -115,6 +115,7 @@ pub enum SyntaxKind {
     MCFNKeyword,
     StructKeyword,
     TypeKeyword,
+    BreakKeyword,
 
     BlockStatement,
     ExpressionStatement,
@@ -125,6 +126,7 @@ pub enum SyntaxKind {
     StructDeclarationStatementField,
     WhileStatement,
     TypeAliasDeclarationStatement,
+    BreakStatement,
 
     GenericNames,
     GenericDataTypes,

@@ -304,6 +304,15 @@ impl PlaceType {
                         ),
                     });
                 }
+
+                if !data_type.is_runtime() && ctx.loop_depth != 0 {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CompiletimeVariableMutationInRuntimeLoop,
+                        ),
+                    });
+                }
             }
         }
 
@@ -318,9 +327,7 @@ impl PlaceType {
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match self.kind {
-            PlaceTypeKind::Data(data_type)
-            | PlaceTypeKind::Score(data_type)
-            | PlaceTypeKind::Variable(data_type) => {
+            PlaceTypeKind::Data(data_type) | PlaceTypeKind::Score(data_type) => {
                 if !data_type.can_perform_augmented_assignment(operator, value_type) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: value.span,
@@ -330,6 +337,29 @@ impl PlaceType {
                                 data_type,
                                 value_type.clone(),
                             ),
+                        ),
+                    });
+                }
+            }
+            PlaceTypeKind::Variable(data_type) => {
+                if !data_type.can_perform_augmented_assignment(operator, value_type) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: value.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                                *operator,
+                                data_type,
+                                value_type.clone(),
+                            ),
+                        ),
+                    });
+                }
+
+                if !data_type.is_runtime() && ctx.loop_depth != 0 {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CompiletimeVariableMutationInRuntimeLoop,
                         ),
                     });
                 }

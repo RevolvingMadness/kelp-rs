@@ -209,6 +209,16 @@ impl Display for DataTypeKind {
 
 impl DataTypeKind {
     #[must_use]
+    pub fn is_runtime(&self) -> bool {
+        match self {
+            Self::Score(_) | Self::Data(_) => true,
+            Self::Reference(data_type_kind) => data_type_kind.is_runtime(),
+            Self::Generic(_) => unreachable!(),
+            _ => false,
+        }
+    }
+
+    #[must_use]
     pub fn to_data(self) -> Self {
         match self {
             Self::Boolean => Self::Boolean,

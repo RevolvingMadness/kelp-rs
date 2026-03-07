@@ -12,7 +12,7 @@ use crate::semantic_analysis_context::{
     SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
 };
 use crate::span::Span;
-use minecraft_command_types::command::data::DataTarget;
+use minecraft_command_types::command::data::{DataCommand, DataTarget};
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
 use minecraft_command_types::command::scoreboard::{
     ObjectivesScoreboardCommand, PlayersScoreboardCommand, ScoreboardCommand,
@@ -26,8 +26,9 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::SNBTString;
 use nonempty::{NonEmpty, nonempty};
 use serde_json::json;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::mem::take;
 
 pub mod mcfunction;
 pub mod namespace;
@@ -321,7 +322,8 @@ pub struct HighDatapack {
     namespaces: BTreeMap<String, HighNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
-    used_constants: RefCell<HashSet<i32>>,
+    used_constants: HashSet<i32>,
+    used_data: Vec<(DataTarget, NbtPath)>,
 }
 
 impl SupportsVariableTypeScope for HighDatapack {
@@ -350,7 +352,8 @@ impl HighDatapack {
             namespaces: BTreeMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),
-            used_constants: RefCell::new(HashSet::new()),
+            used_constants: HashSet::new(),
+            used_data: Vec::new(),
         }
     }
 
@@ -424,22 +427,28 @@ impl HighDatapack {
         }
     }
 
-    pub fn get_unique_data(&self) -> (GeneratedDataTarget, NbtPath) {
+    pub fn get_unique_data(&mut self) -> (GeneratedDataTarget, NbtPath) {
         let current_namespace_name = self.current_namespace_name();
+
+        let target = DataTarget::Storage(ResourceLocation::new_namespace_path(
+            "__kelp_storages__",
+            format!("__kelp_{}_storage__", current_namespace_name),
+        ));
+
+        let path = NbtPath(nonempty![NbtPathNode::named_string(format!(
+            "__kelp_{}_storage_{}__",
+            current_namespace_name,
+            self.increment_counter()
+        ))]);
+
+        self.used_data.push((target.clone(), path.clone()));
 
         (
             GeneratedDataTarget {
                 is_generated: true,
-                target: DataTarget::Storage(ResourceLocation::new_namespace_path(
-                    "__kelp_storages__",
-                    format!("__kelp_{}_storage__", current_namespace_name),
-                )),
+                target,
             },
-            NbtPath(nonempty![NbtPathNode::named_string(format!(
-                "__kelp_{}_storage_{}__",
-                current_namespace_name,
-                self.increment_counter()
-            ),)]),
+            path,
         )
     }
 
@@ -624,8 +633,8 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_constant_score(&self, constant: i32) -> GeneratedPlayerScore {
-        self.used_constants.borrow_mut().insert(constant);
+    pub fn get_constant_score(&mut self, constant: i32) -> GeneratedPlayerScore {
+        self.used_constants.insert(constant);
 
         GeneratedPlayerScore {
             is_generated: true,
@@ -754,47 +763,50 @@ impl HighDatapack {
             .expect("No current namespace")
     }
 
-    pub fn compile(&mut self) -> Datapack {
+    pub fn compile(mut self) -> Datapack {
         let mut output_datapack = Datapack::new(88, json!(""));
-
         let mut load_function_ctx = CompileContext::default();
-        let mut needs_load_function = false;
 
-        {
-            let used_constants = self.used_constants.borrow().clone();
+        let has_constants = !self.used_constants.is_empty();
 
-            if !used_constants.is_empty() {
-                needs_load_function = true;
+        if has_constants {
+            let constants_objective = self.get_constants_objective();
 
+            load_function_ctx.add_command(
+                &mut self,
+                Command::Scoreboard(ScoreboardCommand::Objectives(
+                    ObjectivesScoreboardCommand::Add(
+                        constants_objective.clone(),
+                        "dummy".to_string(),
+                        None,
+                    ),
+                )),
+            );
+
+            for constant in take(&mut self.used_constants) {
                 load_function_ctx.add_command(
-                    self,
-                    Command::Scoreboard(ScoreboardCommand::Objectives(
-                        ObjectivesScoreboardCommand::Add(
-                            self.get_constants_objective(),
-                            "dummy".to_string(),
-                            None,
+                    &mut self,
+                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
+                        PlayerScore::new(
+                            EntitySelector::Name(format!("__kelp_constant_{}__", constant)),
+                            constants_objective.clone(),
                         ),
-                    )),
+                        constant,
+                    ))),
                 );
-
-                for constant in &used_constants {
-                    load_function_ctx.add_command(
-                        self,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Set(
-                                PlayerScore::new(
-                                    EntitySelector::Name(format!("__kelp_constant_{}__", constant)),
-                                    self.get_constants_objective(),
-                                ),
-                                *constant,
-                            ),
-                        )),
-                    );
-                }
             }
         }
 
-        if needs_load_function {
+        let has_data = !self.used_data.is_empty();
+
+        if has_data {
+            for (target, path) in take(&mut self.used_data) {
+                load_function_ctx
+                    .add_command(&mut self, Command::Data(DataCommand::Remove(target, path)));
+            }
+        }
+
+        if has_constants || has_data {
             let load_function_commands = load_function_ctx.compile();
 
             let kelp_namespace = self.get_namespace_mut("kelp");

@@ -516,11 +516,16 @@ impl ConstantExpressionKind {
     }
 
     #[must_use]
-    pub fn index(self, index: Self) -> Self {
+    pub fn index(
+        mut self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        index: Self,
+    ) -> Self {
         match self {
-            Self::Reference(expression) => expression.kind.index(index),
+            Self::Reference(expression) => expression.kind.index(datapack, ctx, index),
 
-            Self::List(mut items) => {
+            Self::List(ref mut items) => {
                 if let Self::Literal(LiteralExpression {
                     kind: LiteralExpressionKind::Integer(index),
                     ..
@@ -532,12 +537,25 @@ impl ConstantExpressionKind {
                         unreachable!("Index is out of range");
                     }
                 } else {
-                    unreachable!("The index expression is not an integer")
+                    let (unique_data_target, unique_data_path) = datapack.get_unique_data();
+
+                    self.assign_to_data(
+                        datapack,
+                        ctx,
+                        unique_data_target.clone(),
+                        unique_data_path.clone(),
+                    );
+
+                    Self::Data(
+                        unique_data_target,
+                        unique_data_path
+                            .with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
+                    )
                 }
             }
-            Self::Data(target, path) => index.as_snbt().map_or_else(
-                || unreachable!("The index expression is not snbt"),
-                |snbt| Self::Data(target, path.with_node(NbtPathNode::Index(Some(snbt)))),
+            Self::Data(target, path) => Self::Data(
+                target,
+                path.with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
             ),
             _ => unreachable!("The expression cannot be indexed {:?}", self),
         }

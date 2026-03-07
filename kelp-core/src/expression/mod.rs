@@ -1016,7 +1016,7 @@ impl Expression {
                 let target = target.resolve(datapack, ctx);
                 let index = index.resolve(datapack, ctx);
 
-                target.index(index)
+                target.index(datapack, ctx, index)
             }
             ExpressionKind::FieldAccess(target, field) => {
                 let target = target.resolve(datapack, ctx);

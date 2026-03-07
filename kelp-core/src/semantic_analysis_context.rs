@@ -42,7 +42,7 @@ pub enum SemanticAnalysisError {
         from: DataTypeKind,
         to: DataTypeKind,
     },
-    CompiletimeVariableMutationInRuntimeLoop,
+    CompiletimeValueMutationInRuntimeLoop,
     TypeIsNotStruct(String),
     MissingKey(String),
     UnexpectedKey(String),
@@ -94,11 +94,8 @@ impl Display for SemanticAnalysisError {
                 "Cannot perform augmented assignment on type '{}'",
                 data_type
             ),
-            Self::CompiletimeVariableMutationInRuntimeLoop => {
-                write!(
-                    f,
-                    "Cannot mutate a variable which has a compile-time value in a loop that is ran at runtime"
-                )
+            Self::CompiletimeValueMutationInRuntimeLoop => {
+                write!(f, "Cannot mutate a compile-time value in a runtime loop")
             }
             Self::MismatchedTypes { expected, actual } => {
                 write!(f, "Expected type '{}' but got '{}'", expected, actual)

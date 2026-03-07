@@ -849,17 +849,16 @@ impl Expression {
                     .infer_data_type(supports_variable_type_scope)?
                     .as_place_type()
                     .ok()?,
-                ExpressionKind::AsCast(expression, data_type) => {
+                ExpressionKind::Index(target, _) => {
+                    let target_place_type = target.get_place_type(supports_variable_type_scope)?;
+                    let target_data_type =
+                        target.kind.infer_data_type(supports_variable_type_scope)?;
+
+                    PlaceTypeKind::Index(Box::new(target_place_type), target_data_type)
+                }
+                ExpressionKind::AsCast(_, data_type) => {
                     let resolved_data_type =
                         data_type.kind.resolve(supports_variable_type_scope, None)?;
-
-                    if !expression
-                        .kind
-                        .infer_data_type(supports_variable_type_scope)?
-                        .can_cast_to(&resolved_data_type)
-                    {
-                        return None;
-                    }
 
                     resolved_data_type.as_place_type().ok()?
                 }
@@ -890,6 +889,18 @@ impl Expression {
                         .into_dummy_constant_expression(),
                 ))
             }
+            ExpressionKind::Index(target, index) => ConstantExpressionKind::Index(
+                Box::new(
+                    target
+                        .resolve(datapack, ctx)
+                        .into_dummy_constant_expression(),
+                ),
+                Box::new(
+                    index
+                        .resolve(datapack, ctx)
+                        .into_dummy_constant_expression(),
+                ),
+            ),
             _ => self.resolve_partial(datapack, ctx),
         }
     }
@@ -951,7 +962,9 @@ impl Expression {
                 ConstantExpressionKind::Unit
             }
             ExpressionKind::Assignment(target, value) => {
-                let value = value.resolve(datapack, ctx);
+                let value = value
+                    .resolve(datapack, ctx)
+                    .into_dummy_constant_expression();
 
                 let target = target.resolve_partial(datapack, ctx);
                 let target_place = target.as_place();
@@ -1013,10 +1026,14 @@ impl Expression {
                 ConstantExpressionKind::PlayerScore(unique_score)
             }
             ExpressionKind::Index(target, index) => {
-                let target = target.resolve(datapack, ctx);
-                let index = index.resolve(datapack, ctx);
+                let target = target
+                    .resolve_partial(datapack, ctx)
+                    .into_dummy_constant_expression();
+                let index = index
+                    .resolve(datapack, ctx)
+                    .into_dummy_constant_expression();
 
-                target.index(datapack, ctx, index)
+                ConstantExpressionKind::Index(Box::new(target), Box::new(index))
             }
             ExpressionKind::FieldAccess(target, field) => {
                 let target = target.resolve(datapack, ctx);

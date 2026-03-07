@@ -6,7 +6,6 @@ use minecraft_command_types::{
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     nbt_path::NbtPath,
-    snbt::SNBTString,
 };
 use ordered_float::NotNan;
 
@@ -17,6 +16,7 @@ use crate::{
     expression::{
         Expression, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
+        supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::{data::GeneratedDataTarget, player_score::GeneratedPlayerScore},
     operator::ArithmeticOperator,
@@ -35,7 +35,7 @@ pub enum Place {
     Variable(String),
     Tuple(Vec<Self>),
     Dereference(Box<ConstantExpression>),
-    Field(Box<ConstantExpression>, SNBTString),
+    Field(Box<ConstantExpression>, String),
     Index(Box<ConstantExpression>, Box<ConstantExpression>),
     Underscore,
 }
@@ -90,12 +90,8 @@ impl Place {
             Self::Dereference(expression) => {
                 expression.kind.as_place().assign(datapack, ctx, value);
             }
-            Self::Field(expression, field) => {
-                expression
-                    .kind
-                    .access_field(field.1)
-                    .as_place()
-                    .assign(datapack, ctx, value);
+            Self::Field(mut target, field) => {
+                target.kind.assign_field(datapack, ctx, &field, value);
             }
             Self::Index(mut target, index) => {
                 target.kind.assign_index(datapack, ctx, index.kind, value);
@@ -160,12 +156,23 @@ impl Place {
                     datapack.get_variable_mut(&name).unwrap().kind = new_kind;
                 }
             }
-            Self::Field(expression, field) => {
-                expression
-                    .kind
-                    .access_field(field.1)
-                    .as_place()
-                    .augmented_assign(datapack, ctx, operator, value);
+            Self::Field(mut target, field) => {
+                let current_value = target.kind.clone().access_field(datapack, &field);
+
+                if current_value.is_lvalue() {
+                    current_value
+                        .as_place()
+                        .augmented_assign(datapack, ctx, operator, value);
+                } else {
+                    let new_value =
+                        current_value.perform_arithmetic(datapack, ctx, operator, value);
+                    target.kind.assign_field(
+                        datapack,
+                        ctx,
+                        &field,
+                        new_value.into_dummy_constant_expression(),
+                    );
+                }
             }
             Self::Index(mut target, index) => {
                 let current_value = target.kind.clone().index(datapack, ctx, index.kind.clone());
@@ -205,6 +212,7 @@ pub enum PlaceTypeKind {
     Tuple(Vec<PlaceType>, DataTypeKind),
     Variable(DataTypeKind),
     Index(Box<PlaceType>, DataTypeKind),
+    FieldAccess(Box<PlaceType>, DataTypeKind, String),
     Underscore,
 }
 
@@ -223,15 +231,46 @@ pub struct PlaceType {
 
 impl PlaceType {
     #[must_use]
-    pub fn get_index_result(&self) -> Option<DataTypeKind> {
+    pub fn get_index_result(
+        &self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+    ) -> Option<DataTypeKind> {
         match &self.kind {
             PlaceTypeKind::Data(data_type_kind) | PlaceTypeKind::Variable(data_type_kind) => {
                 data_type_kind.get_index_result()
             }
-            PlaceTypeKind::Index(place_type, _) => place_type.get_index_result(),
+            PlaceTypeKind::Index(place_type, _) => place_type
+                .get_index_result(supports_variable_type_scope)?
+                .get_index_result(),
+            PlaceTypeKind::FieldAccess(place_type, _, field) => place_type
+                .get_field_result(supports_variable_type_scope, field)?
+                .get_index_result(),
             PlaceTypeKind::Score(_) | PlaceTypeKind::Tuple(_, _) | PlaceTypeKind::Underscore => {
                 None
             }
+        }
+    }
+
+    #[must_use]
+    pub fn get_field_result(
+        &self,
+        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+        field: &str,
+    ) -> Option<DataTypeKind> {
+        match &self.kind {
+            PlaceTypeKind::Data(data_type_kind) | PlaceTypeKind::Variable(data_type_kind) => {
+                data_type_kind.get_field_result(supports_variable_type_scope, field)
+            }
+            PlaceTypeKind::Index(place_type, _) => place_type
+                .get_index_result(supports_variable_type_scope)?
+                .get_field_result(supports_variable_type_scope, field),
+            PlaceTypeKind::FieldAccess(place_type, _, inner_field) => place_type
+                .get_field_result(supports_variable_type_scope, inner_field)?
+                .get_field_result(supports_variable_type_scope, field),
+            PlaceTypeKind::Score(data_type) | PlaceTypeKind::Tuple(_, data_type) => {
+                data_type.get_field_result(supports_variable_type_scope, field)
+            }
+            PlaceTypeKind::Underscore => None,
         }
     }
 
@@ -295,11 +334,33 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Index(target, target_data_type) => {
-                if target.get_index_result().is_none() {
+                if target.get_index_result(ctx).is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::CannotBeIndexed(value_type.clone()),
+                        ),
+                    });
+                }
+
+                if !target_data_type.is_runtime() && ctx.loop_depth != 0 {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: target.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                        ),
+                    });
+                }
+            }
+            PlaceTypeKind::FieldAccess(target, target_data_type, field) => {
+                if target.get_field_result(ctx, &field).is_none() {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeDoesntHaveField {
+                                data_type: value_type.clone(),
+                                field,
+                            },
                         ),
                     });
                 }
@@ -371,12 +432,40 @@ impl PlaceType {
                     ),
                 });
             }
-            PlaceTypeKind::Index(target, _) => {
-                if target.get_index_result().is_none() {
+            PlaceTypeKind::Index(target, target_data_type) => {
+                if target.get_index_result(ctx).is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::CannotBeIndexed(value_type.clone()),
+                        ),
+                    });
+                }
+
+                if !target_data_type.is_runtime() && ctx.loop_depth != 0 {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: target.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                        ),
+                    });
+                }
+            }
+            PlaceTypeKind::FieldAccess(target, target_data_type, field) => {
+                if target.get_field_result(ctx, &field).is_none() {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CannotBeIndexed(value_type.clone()),
+                        ),
+                    });
+                }
+
+                if !target_data_type.is_runtime() && ctx.loop_depth != 0 {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: target.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
                         ),
                     });
                 }

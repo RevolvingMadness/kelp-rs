@@ -1363,7 +1363,7 @@ impl DataTypeKind {
     pub fn get_field_result(
         &self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
-        field: &String,
+        field: &str,
     ) -> Option<Self> {
         Some(match self {
             Self::Reference(self_) => {

@@ -119,6 +119,7 @@ pub enum ConstantExpressionKind {
     Reference(Box<ConstantExpression>),
     Variable(String),
     Index(Box<ConstantExpression>, Box<ConstantExpression>),
+    FieldAccess(Box<ConstantExpression>, String),
     Unit,
     Struct(
         String,
@@ -205,7 +206,8 @@ impl ConstantExpressionKind {
             | Self::Unit
             | Self::Reference(_)
             | Self::Struct(_, _, _)
-            | Self::Index(_, _) => unreachable!("{:?}", self),
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _) => unreachable!("{:?}", self),
         }
     }
 
@@ -294,6 +296,11 @@ impl ConstantExpressionKind {
 
                 target_kind.get_index_result()?
             }
+            Self::FieldAccess(target, field) => {
+                let target_kind = target.kind.infer_data_type(supports_variable_type_scope)?;
+
+                target_kind.get_field_result(supports_variable_type_scope, field)?
+            }
         })
     }
 
@@ -344,7 +351,8 @@ impl ConstantExpressionKind {
             | Self::PlayerScore(_)
             | Self::Data(_, _)
             | Self::Unit
-            | Self::Index(_, _) => {}
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _) => {}
             Self::Reference(expression) | Self::Dereference(expression) => {
                 expression.kind.compile_as_statement(datapack, ctx);
             }
@@ -568,6 +576,12 @@ impl ConstantExpressionKind {
                 target,
                 path.with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
             ),
+            Self::Variable(name) => datapack
+                .get_variable(&name)
+                .unwrap()
+                .1
+                .kind
+                .index(datapack, ctx, index),
             _ => unreachable!("The expression cannot be indexed {:?}", self),
         }
     }
@@ -622,36 +636,57 @@ impl ConstantExpressionKind {
                     datapack.assign_variable(name, variable_value);
                 }
             }
+            Self::Index(target, index) => {
+                let resolved = target.kind.clone().resolve(datapack);
+
+                resolved
+                    .index(datapack, ctx, index.kind.clone())
+                    .assign_index(datapack, ctx, index.kind.clone(), value);
+            }
             _ => unreachable!("The expression cannot be indexed {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn access_field(self, field: String) -> Self {
+    pub fn access_field(self, datapack: &mut HighDatapack, field: &str) -> Self {
         match self {
             Self::Literal(_)
             | Self::List(_)
             | Self::Condition(_, _)
             | Self::Unit
-            | Self::Variable(_)
             | Self::Dereference(_)
             | Self::PlayerScore(_)
-            | Self::Index(_, _) => {
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _) => {
                 unreachable!("Expression does not have any fields {:?}", self)
             }
+            Self::Variable(name) => datapack
+                .get_variable(&name)
+                .unwrap()
+                .1
+                .kind
+                .access_field(datapack, field),
             Self::Underscore => unreachable!(),
-            Self::Reference(expression) => expression.kind.access_field(field),
+            Self::Reference(expression) => expression.kind.access_field(datapack, field),
             Self::Compound(compound) => {
                 compound
                     .into_iter()
-                    .find(|(key, _)| key.snbt_string.1 == *field)
-                    .map(|(_, value)| value)
+                    .find_map(|(actual_field, value)| {
+                        if actual_field.snbt_string.1 == field {
+                            Some(value)
+                        } else {
+                            None
+                        }
+                    })
                     .unwrap()
                     .kind
             }
             Self::Data(target, path) => Self::Data(
                 target,
-                path.with_node(NbtPathNode::Named(SNBTString(false, field), None)),
+                path.with_node(NbtPathNode::Named(
+                    SNBTString(false, field.to_owned()),
+                    None,
+                )),
             ),
             Self::Tuple(mut expressions) => field.parse::<i32>().map_or_else(
                 |_| {
@@ -667,6 +702,66 @@ impl ConstantExpressionKind {
                     .1
                     .kind
             }
+        }
+    }
+
+    pub fn assign_field(
+        &mut self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        field: &str,
+        value: ConstantExpression,
+    ) {
+        match self {
+            Self::Compound(compound) => {
+                *compound
+                    .iter_mut()
+                    .find_map(|(actual_field, value)| {
+                        if actual_field.snbt_string.1 == field {
+                            Some(value)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap() = value;
+            }
+            Self::Data(target, path) => {
+                value.kind.assign_to_data(
+                    datapack,
+                    ctx,
+                    target.clone(),
+                    path.clone().with_node(NbtPathNode::Named(
+                        SNBTString(false, field.to_owned()),
+                        None,
+                    )),
+                );
+            }
+            Self::Tuple(expressions) => {
+                let field = field.parse::<i32>().unwrap();
+
+                *expressions.get_mut(field as usize).unwrap() = value;
+            }
+            Self::Variable(name) => {
+                let mut variable_value = datapack.get_variable(name).unwrap().1;
+
+                let is_lvalue = variable_value.kind.is_lvalue();
+
+                variable_value
+                    .kind
+                    .assign_field(datapack, ctx, field, value);
+
+                if !is_lvalue {
+                    datapack.assign_variable(name, variable_value);
+                }
+            }
+            Self::FieldAccess(expression, inner_field) => {
+                let resolved = expression.kind.clone().resolve(datapack);
+
+                resolved
+                    .access_field(datapack, inner_field)
+                    .assign_field(datapack, ctx, field, value);
+            }
+            _ => unreachable!("{:?}", self),
         }
     }
 
@@ -1091,7 +1186,8 @@ impl ConstantExpressionKind {
             | Self::Dereference(_)
             | Self::Underscore
             | Self::Struct(_, _, _)
-            | Self::Index(_, _) => {
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _) => {
                 unreachable!()
             }
         }
@@ -1104,6 +1200,15 @@ impl ConstantExpressionKind {
         force_display: bool,
     ) -> SNBT {
         match self {
+            Self::Index(_, _)
+            | Self::FieldAccess(_, _)
+            | Self::Variable(_)
+            | Self::Underscore
+            | Self::Reference(_)
+            | Self::Dereference(_) => {
+                unreachable!("{:?}", self)
+            }
+
             Self::PlayerScore(player_score) => player_score.to_text_component(),
             Self::Data(target, path) => {
                 let mut map = BTreeMap::new();
@@ -1176,16 +1281,6 @@ impl ConstantExpressionKind {
                 SNBT::List(items)
             }
             Self::Unit => SNBT::string("()"),
-            Self::Reference(expression) | Self::Dereference(expression) => expression
-                .kind
-                .as_text_component(datapack, ctx, force_display),
-            Self::Variable(name) => datapack
-                .get_variable(&name)
-                .unwrap()
-                .1
-                .kind
-                .as_text_component(datapack, ctx, force_display),
-            Self::Underscore => unreachable!(),
             Self::Struct(name, generics, fields) => {
                 if force_display {
                     let mut output = Vec::new();
@@ -1245,10 +1340,6 @@ impl ConstantExpressionKind {
                     SNBT::Compound(output)
                 }
             }
-            Self::Index(target, index) => target
-                .kind
-                .index(datapack, ctx, index.kind)
-                .as_text_component(datapack, ctx, force_display),
         }
     }
 
@@ -1310,20 +1401,16 @@ impl ConstantExpressionKind {
                     value.kind.assign_to_score(datapack, ctx, target.clone());
                 }
             }
-            Self::Tuple(_) | Self::Unit | Self::Dereference(_) | Self::Underscore => unreachable!(),
+            Self::Tuple(_)
+            | Self::Unit
+            | Self::Dereference(_)
+            | Self::Underscore
+            | Self::Variable(_)
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _) => unreachable!(),
             Self::Reference(expression) => {
                 expression.kind.assign_to_score(datapack, ctx, target);
             }
-            Self::Variable(name) => datapack
-                .get_variable(&name)
-                .unwrap()
-                .1
-                .kind
-                .assign_to_score(datapack, ctx, target),
-            Self::Index(index_target, index) => index_target
-                .kind
-                .index(datapack, ctx, index.kind)
-                .assign_to_score(datapack, ctx, target),
         }
     }
 
@@ -1408,7 +1495,12 @@ impl ConstantExpressionKind {
                     );
                 }
             }
-            Self::Unit | Self::Literal(_) | Self::Underscore | Self::Variable(_) => unreachable!(),
+            Self::Unit
+            | Self::Literal(_)
+            | Self::Underscore
+            | Self::Variable(_)
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _) => unreachable!(),
             Self::Reference(expression) => {
                 expression.kind.assign_to_data(datapack, ctx, target, path);
             }
@@ -1464,10 +1556,6 @@ impl ConstantExpressionKind {
             Self::Dereference(expression) => expression
                 .kind
                 .dereference(datapack, ctx)
-                .assign_to_data(datapack, ctx, target, path),
-            Self::Index(index_target, index) => index_target
-                .kind
-                .index(datapack, ctx, index.kind)
                 .assign_to_data(datapack, ctx, target, path),
         }
     }
@@ -1557,6 +1645,7 @@ impl ConstantExpressionKind {
             ),
             Self::Dereference(expression) => Place::Dereference(expression),
             Self::Index(target, index) => Place::Index(target, index),
+            Self::FieldAccess(target, field) => Place::Field(target, field),
             _ => unreachable!("This expression is not a place {:?}", self),
         }
     }
@@ -1738,7 +1827,8 @@ impl ConstantExpression {
             | ConstantExpressionKind::Tuple(_)
             | ConstantExpressionKind::Underscore
             | ConstantExpressionKind::Struct(_, _, _)
-            | ConstantExpressionKind::Index(_, _) => unreachable!(),
+            | ConstantExpressionKind::Index(_, _)
+            | ConstantExpressionKind::FieldAccess(_, _) => unreachable!(),
         }
     }
 

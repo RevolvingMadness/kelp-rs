@@ -609,6 +609,7 @@ impl Expression {
                     });
                 }
 
+                // TODO: Improve this.
                 if target.kind.is_index_out_of_bounds(index) == Some(true) {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: index.span,
@@ -843,8 +844,7 @@ impl Expression {
                 }
                 ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataTypeKind::Integer),
                 ExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
-                ExpressionKind::Unary(UnaryOperator::Dereference, _)
-                | ExpressionKind::FieldAccess(_, _) => self
+                ExpressionKind::Unary(UnaryOperator::Dereference, _) => self
                     .kind
                     .infer_data_type(supports_variable_type_scope)?
                     .as_place_type()
@@ -855,6 +855,17 @@ impl Expression {
                         target.kind.infer_data_type(supports_variable_type_scope)?;
 
                     PlaceTypeKind::Index(Box::new(target_place_type), target_data_type)
+                }
+                ExpressionKind::FieldAccess(target, field) => {
+                    let target_place_type = target.get_place_type(supports_variable_type_scope)?;
+                    let target_data_type =
+                        target.kind.infer_data_type(supports_variable_type_scope)?;
+
+                    PlaceTypeKind::FieldAccess(
+                        Box::new(target_place_type),
+                        target_data_type,
+                        field.snbt_string.1.clone(),
+                    )
                 }
                 ExpressionKind::AsCast(_, data_type) => {
                     let resolved_data_type =
@@ -889,18 +900,17 @@ impl Expression {
                         .into_dummy_constant_expression(),
                 ))
             }
-            ExpressionKind::Index(target, index) => ConstantExpressionKind::Index(
-                Box::new(
-                    target
-                        .resolve(datapack, ctx)
-                        .into_dummy_constant_expression(),
-                ),
-                Box::new(
-                    index
-                        .resolve(datapack, ctx)
-                        .into_dummy_constant_expression(),
-                ),
-            ),
+            ExpressionKind::Index(target, index) => {
+                let target = target.resolve(datapack, ctx);
+                let index = index.resolve(datapack, ctx);
+
+                target.index(datapack, ctx, index)
+            }
+            ExpressionKind::FieldAccess(target, field) => {
+                let target = target.resolve(datapack, ctx);
+
+                target.access_field(datapack, &field.snbt_string.1)
+            }
             _ => self.resolve_partial(datapack, ctx),
         }
     }
@@ -1036,9 +1046,11 @@ impl Expression {
                 ConstantExpressionKind::Index(Box::new(target), Box::new(index))
             }
             ExpressionKind::FieldAccess(target, field) => {
-                let target = target.resolve(datapack, ctx);
+                let target = target
+                    .resolve_partial(datapack, ctx)
+                    .into_dummy_constant_expression();
 
-                target.access_field(field.snbt_string.1)
+                ConstantExpressionKind::FieldAccess(Box::new(target), field.snbt_string.1)
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.resolve(datapack, ctx);

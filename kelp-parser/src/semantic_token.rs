@@ -133,7 +133,8 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::StructKeyword
                     | SyntaxKind::BreakKeyword
                     | SyntaxKind::ContinueKeyword
-                    | SyntaxKind::AppendKeyword => Some(SemanticTokenType::Keyword),
+                    | SyntaxKind::AppendKeyword
+                    | SyntaxKind::RemoveKeyword => Some(SemanticTokenType::Keyword),
                     SyntaxKind::StructName => Some(SemanticTokenType::Struct),
                     SyntaxKind::StructFieldName
                     | SyntaxKind::FieldName

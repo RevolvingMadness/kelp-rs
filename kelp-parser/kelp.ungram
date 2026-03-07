@@ -15,6 +15,7 @@ Statement =
 | BreakStatement
 | ContinueStatement
 | AppendStatement
+| RemoveStatement
 
 BlockStatement =
   '{' Statement* '}'
@@ -60,6 +61,8 @@ BreakStatement = 'break'
 ContinueStatement = 'continue'
 
 AppendStatement = 'append' target:Expression value:Expression
+
+RemoveStatement = 'remove' target:Expression
 
 // ----- Generics -----
 GenericNames =

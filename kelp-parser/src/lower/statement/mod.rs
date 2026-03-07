@@ -16,6 +16,7 @@ use crate::{
             mcfn_declaration::{
                 lower_mcfn_declaration_statement, try_parse_mcfn_declaration_statement,
             },
+            remove::{lower_remove_statement, try_parse_remove_statement},
             struct_declaration::{
                 lower_struct_declaration_statement_field, try_parse_struct_declaration_statement,
             },
@@ -38,6 +39,7 @@ pub mod r#if;
 pub mod r#let;
 pub mod r#loop;
 pub mod mcfn_declaration;
+pub mod remove;
 pub mod struct_declaration;
 pub mod type_alias_declaration;
 pub mod r#while;
@@ -106,6 +108,11 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                     }
                     "append" => {
                         if try_parse_append_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "remove" => {
+                        if try_parse_remove_statement(parser) {
                             return true;
                         }
                     }
@@ -183,5 +190,6 @@ pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
         CSTStatement::BreakStatement(node) => lower_break_statement(node),
         CSTStatement::ContinueStatement(node) => lower_continue_statement(node),
         CSTStatement::AppendStatement(node) => lower_append_statement(node),
+        CSTStatement::RemoveStatement(node) => lower_remove_statement(node),
     }
 }

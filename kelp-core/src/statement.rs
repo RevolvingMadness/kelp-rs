@@ -42,7 +42,7 @@ pub enum StatementKind {
     ForIn(bool, String, Expression, Box<Statement>),
     Block(Vec<Statement>),
     Append(Expression, Box<Expression>),
-    RemoveData(Expression),
+    Remove(Expression),
     TypeAliasDeclaration(String, Vec<String>, HighDataType),
     Break,
     Continue,
@@ -521,7 +521,7 @@ impl StatementKind {
                     )),
                 );
             }
-            Self::RemoveData(expression) => {
+            Self::Remove(expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
                 let (target, path) = expression.as_data(datapack, ctx);
@@ -597,7 +597,7 @@ impl StatementKind {
             | Self::Expression(_)
             | Self::Let(_, _, _)
             | Self::Append(_, _)
-            | Self::RemoveData(_)
+            | Self::Remove(_)
             | Self::TypeAliasDeclaration(_, _, _)
             | Self::StructDeclaration(_, _, _) => None,
             Self::While(_, statement) | Self::Loop(statement) | Self::ForIn(_, _, _, statement) => {
@@ -835,7 +835,7 @@ impl Statement {
 
                 Some(())
             }
-            StatementKind::RemoveData(target) => target.perform_semantic_analysis(
+            StatementKind::Remove(target) => target.perform_semantic_analysis(
                 ctx,
                 is_lhs,
                 Some(&DataTypeKind::Data(Box::new(DataTypeKind::SNBT))),

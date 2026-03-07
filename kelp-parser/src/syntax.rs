@@ -119,7 +119,7 @@ pub enum SyntaxKind {
     BreakKeyword,
     ContinueKeyword,
     AppendKeyword,
-    PrependKeyword,
+    RemoveKeyword,
     TrueKeyword,
     FalseKeyword,
 
@@ -136,7 +136,7 @@ pub enum SyntaxKind {
     BreakStatement,
     ContinueStatement,
     AppendStatement,
-    PrependStatement,
+    RemoveStatement,
 
     GenericNames,
     GenericDataTypes,

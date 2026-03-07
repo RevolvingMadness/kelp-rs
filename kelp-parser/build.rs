@@ -486,7 +486,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "false" => "FalseKeyword",
         "loop" => "LoopKeyword",
         "append" => "AppendKeyword",
-        "prepend" => "PrependKeyword",
+        "remove" => "RemoveKeyword",
         _ => todo!("{:?}", token),
     }
 }

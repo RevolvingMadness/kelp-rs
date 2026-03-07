@@ -12,6 +12,7 @@ Statement =
 | StructDeclarationStatement
 | TypeAliasDeclarationStatement
 | BreakStatement
+| ContinueStatement
 
 BlockStatement =
   '{' Statement* '}'
@@ -50,6 +51,8 @@ TypeAliasDeclarationStatement =
   'type' name:'data_type_name' GenericNames? '=' DataType
 
 BreakStatement = 'break'
+
+ContinueStatement = 'continue'
 
 // ----- Generics -----
 GenericNames =

@@ -11,6 +11,7 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     span::Span,
+    statement::ControlFlowKind,
 };
 
 #[derive(Debug, Clone)]
@@ -71,6 +72,7 @@ pub enum SemanticAnalysisError {
     },
     UndeclaredVariable(String),
     MacroConflict,
+    ControlFlowNotInLoop(ControlFlowKind),
 }
 
 impl Display for SemanticAnalysisError {
@@ -229,6 +231,14 @@ impl Display for SemanticAnalysisError {
             Self::MacroConflict => {
                 f.write_str("This string conflicts with the compiler-generated command macros")
             }
+            Self::ControlFlowNotInLoop(control_flow) => {
+                let word = match control_flow {
+                    ControlFlowKind::Break => "break",
+                    ControlFlowKind::Continue => "continue",
+                };
+
+                write!(f, "Cannot `{}` outside of a loop", word)
+            }
         }
     }
 }
@@ -293,6 +303,7 @@ pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
     pub max_infos: usize,
     pub scopes: Scopes,
+    pub loop_depth: u32,
 }
 
 impl SemanticAnalysisContext {

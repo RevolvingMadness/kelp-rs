@@ -1268,7 +1268,8 @@ impl DataTypeKind {
             | (Self::Short, Self::Short)
             | (Self::Integer, Self::Integer)
             | (Self::Long, Self::Long) => true,
-            (Self::Data(inner) | Self::Score(inner), other) => {
+            (Self::Data(inner) | Self::Score(inner), other)
+            | (other, Self::Data(inner) | Self::Score(inner)) => {
                 inner.can_perform_augmented_assignment(operator, other)
             }
             _ => false,

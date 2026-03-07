@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, mem::take};
 
 use minecraft_command_types::{
-    command::{Command, function::FunctionCommandArguments},
+    command::{Command, execute::ExecuteIfSubcommand, function::FunctionCommandArguments},
     has_macro::HasMacro,
     nbt_path::{NbtPath, NbtPathNode},
     resource_location::ResourceLocation,
@@ -13,11 +13,18 @@ use crate::{
     high::data::GeneratedDataTarget,
 };
 
+#[derive(Debug, Clone)]
+pub struct LoopInfo {
+    pub resource_location: ResourceLocation,
+    pub condition: (bool, ExecuteIfSubcommand),
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct CompileContext {
     pub commands: Vec<Command>,
     pub macro_arguments: BTreeMap<usize, ConstantExpressionKind>,
     pub macro_data: Option<(GeneratedDataTarget, NbtPath)>,
+    pub loop_info: Option<LoopInfo>,
     macro_counter: usize,
 }
 
@@ -28,6 +35,7 @@ impl CompileContext {
         Self {
             macro_data: self.macro_data.clone(),
             macro_counter: self.macro_counter,
+            loop_info: self.loop_info.clone(),
             ..Default::default()
         }
     }

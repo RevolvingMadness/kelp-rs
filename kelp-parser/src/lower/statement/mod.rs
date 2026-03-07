@@ -8,6 +8,7 @@ use crate::{
         statement::{
             block::{lower_block_statement, try_parse_block_statement},
             r#break::{lower_break_statement, try_parse_break_statement},
+            r#continue::{lower_continue_statement, try_parse_continue_statement},
             r#if::{lower_if_statement, try_parse_if_statement},
             r#let::{lower_let_statement, try_parse_let_statement},
             mcfn_declaration::{
@@ -29,6 +30,7 @@ use crate::{
 
 pub mod block;
 pub mod r#break;
+pub mod r#continue;
 pub mod r#if;
 pub mod r#let;
 pub mod mcfn_declaration;
@@ -85,6 +87,11 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                     }
                     "break" => {
                         if try_parse_break_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "continue" => {
+                        if try_parse_continue_statement(parser) {
                             return true;
                         }
                     }
@@ -159,5 +166,6 @@ pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
             lower_type_alias_declaration_statement(node)
         }
         CSTStatement::BreakStatement(node) => lower_break_statement(node),
+        CSTStatement::ContinueStatement(node) => lower_continue_statement(node),
     }
 }

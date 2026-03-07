@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::compile_context::LoopInfo;
 use crate::datapack::DataTypeDeclarationKind;
 use crate::span::Span;
 use crate::trait_ext::OptionUnitIterExt;
@@ -18,7 +19,10 @@ use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{
     DataCommand, DataCommandModification, DataCommandModificationMode,
 };
-use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
+use minecraft_command_types::command::enums::store_type::StoreType;
+use minecraft_command_types::command::execute::{
+    ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
+};
 use minecraft_command_types::command::r#return::ReturnCommand;
 use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
 use minecraft_command_types::range::IntegerRange;
@@ -40,26 +44,45 @@ pub enum StatementKind {
     RemoveData(Expression),
     TypeAliasDeclaration(String, Vec<String>, HighDataType),
     Break,
+    Continue,
     StructDeclaration(String, Vec<String>, BTreeMap<String, HighDataType>),
 }
 
 fn compile_if(
     datapack: &mut HighDatapack,
     caller_ctx: &mut CompileContext,
-    affects_control_flow: bool,
+    control_flow: Option<ControlFlow>,
     mut body_ctx: CompileContext,
     inverted: bool,
     condition: ExecuteIfSubcommand,
 ) {
-    let should_inine = body_ctx.num_commands() <= 5;
+    let should_inine = (body_ctx.num_commands() + 1) <= 5;
 
     if should_inine {
+        let unique_score = datapack.get_unique_score();
+        caller_ctx.add_command(
+            datapack,
+            Command::Execute(ExecuteSubcommand::Store(
+                StoreType::Result,
+                ExecuteStoreSubcommand::Score(
+                    unique_score.score.clone(),
+                    Box::new(ExecuteSubcommand::If(inverted, condition)),
+                ),
+            )),
+        );
         for command in body_ctx.commands {
             caller_ctx.add_command(
                 datapack,
                 Command::Execute(
-                    ExecuteSubcommand::If(inverted, condition.clone())
-                        .then(ExecuteSubcommand::Run(Box::new(command))),
+                    ExecuteSubcommand::If(
+                        true,
+                        ExecuteIfSubcommand::Score(
+                            unique_score.score.clone(),
+                            ScoreComparison::Range(IntegerRange::new_single(0)),
+                            None,
+                        ),
+                    )
+                    .then(ExecuteSubcommand::Run(Box::new(command))),
                 ),
             );
         }
@@ -70,36 +93,53 @@ fn compile_if(
             body_paths.clone(),
         );
 
-        if affects_control_flow {
-            caller_ctx.add_command(
-                datapack,
-                Command::Execute(ExecuteSubcommand::If(
-                    inverted,
-                    condition.then(ExecuteSubcommand::If(
-                        true,
-                        ExecuteIfSubcommand::Function(
+        match control_flow {
+            Some(control_flow) => match control_flow.kind {
+                ControlFlowKind::Break | ControlFlowKind::Continue => {
+                    caller_ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::If(
+                            inverted,
+                            condition.then(ExecuteSubcommand::If(
+                                true,
+                                ExecuteIfSubcommand::Function(
+                                    body_function_resource_location,
+                                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
+                                        ReturnCommand::Fail,
+                                    )))),
+                                ),
+                            )),
+                        )),
+                    );
+                }
+            },
+            None => {
+                caller_ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
+                        ExecuteSubcommand::Run(Box::new(Command::Function(
                             body_function_resource_location,
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
-                                ReturnCommand::Fail,
-                            )))),
-                        ),
+                            None,
+                        ))),
                     )),
-                )),
-            );
-        } else {
-            caller_ctx.add_command(
-                datapack,
-                Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
-                    ExecuteSubcommand::Run(Box::new(Command::Function(
-                        body_function_resource_location,
-                        None,
-                    ))),
-                )),
-            );
+                );
+            }
         }
 
         datapack.compile_and_add_to_function(&body_paths, &mut body_ctx);
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ControlFlow {
+    pub kind: ControlFlowKind,
+    pub loop_info: LoopInfo,
+}
+
+#[derive(Debug, Clone)]
+pub enum ControlFlowKind {
+    Break,
+    Continue,
 }
 
 impl StatementKind {
@@ -147,31 +187,36 @@ impl StatementKind {
                 );
             }
             Self::While(condition, body) => {
-                let mut while_body_ctx = CompileContext::default();
+                let while_function_paths = datapack.get_unique_function_paths();
+                let while_function_resource_location = ResourceLocation::new_namespace_paths(
+                    datapack.current_namespace_name(),
+                    while_function_paths.clone(),
+                );
 
-                body.kind.compile(datapack, &mut while_body_ctx);
-
-                let mut condition_ctx = CompileContext::default();
+                let mut condition_ctx = ctx.create_child_ctx();
                 let (should_be_inverted, condition) = condition
                     .resolve(datapack, &mut condition_ctx)
                     .to_execute_condition(datapack, &mut condition_ctx, false);
 
-                let while_function_paths = datapack.get_unique_function_paths();
-
-                let current_namespace_name = datapack.current_namespace_name().to_string();
-
                 condition_ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::If(should_be_inverted, condition).then(
-                        ExecuteSubcommand::Run(Box::new(Command::Function(
-                            ResourceLocation::new_namespace_paths(
-                                current_namespace_name,
-                                while_function_paths.clone(),
-                            ),
-                            None,
-                        ))),
-                    )),
+                    Command::Execute(
+                        ExecuteSubcommand::If(should_be_inverted, condition.clone()).then(
+                            ExecuteSubcommand::Run(Box::new(Command::Function(
+                                while_function_resource_location.clone(),
+                                None,
+                            ))),
+                        ),
+                    ),
                 );
+
+                let mut while_body_ctx = ctx.create_child_ctx();
+                while_body_ctx.loop_info = Some(LoopInfo {
+                    resource_location: while_function_resource_location,
+                    condition: (should_be_inverted, condition),
+                });
+
+                body.kind.compile(datapack, &mut while_body_ctx);
 
                 while_body_ctx.extend_context(condition_ctx.clone());
                 ctx.extend_context(condition_ctx);
@@ -359,8 +404,8 @@ impl StatementKind {
                 todo!()
             }
             Self::If(condition, body, else_body) => {
-                let mut body_ctx = CompileContext::default();
-                let body_affects_control_flow = body.kind.affects_control_flow().unwrap();
+                let mut body_ctx = ctx.create_child_ctx();
+                let control_flow = body.kind.get_control_flow(ctx);
                 body.kind.compile(datapack, &mut body_ctx);
 
                 let (invert, compiled_condition) = condition
@@ -370,7 +415,7 @@ impl StatementKind {
                 compile_if(
                     datapack,
                     ctx,
-                    body_affects_control_flow,
+                    control_flow,
                     body_ctx,
                     invert,
                     compiled_condition.clone(),
@@ -378,14 +423,13 @@ impl StatementKind {
 
                 if let Some(else_body) = else_body {
                     let mut else_body_ctx = ctx.create_child_ctx();
-                    let else_body_affects_control_flow =
-                        else_body.kind.affects_control_flow().unwrap();
+                    let else_control_flow = else_body.kind.get_control_flow(ctx);
                     else_body.kind.compile(datapack, &mut else_body_ctx);
 
                     compile_if(
                         datapack,
                         ctx,
-                        else_body_affects_control_flow,
+                        else_control_flow,
                         else_body_ctx,
                         !invert,
                         compiled_condition,
@@ -455,34 +499,64 @@ impl StatementKind {
             Self::Break => {
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
             }
+            Self::Continue => {
+                let LoopInfo {
+                    resource_location,
+                    condition: (should_invert, condition),
+                } = ctx.loop_info.as_ref().unwrap().clone();
+
+                ctx.add_command(
+                    datapack,
+                    Command::Return(ReturnCommand::Run(Box::new(Command::Execute(
+                        ExecuteSubcommand::If(
+                            should_invert,
+                            condition.then(ExecuteSubcommand::Run(Box::new(Command::Function(
+                                resource_location,
+                                None,
+                            )))),
+                        ),
+                    )))),
+                );
+            }
         }
     }
 
     #[must_use]
-    pub fn affects_control_flow(&self) -> Option<bool> {
-        Some(match self {
-            Self::MCFNDeclaration(_, _) => return None,
-            Self::Expression(_)
+    pub fn get_control_flow_kind(&self) -> Option<ControlFlowKind> {
+        match self {
+            Self::MCFNDeclaration(_, _)
+            | Self::Expression(_)
             | Self::Let(_, _, _)
             | Self::AppendData(_, _)
             | Self::RemoveData(_)
             | Self::TypeAliasDeclaration(_, _, _)
-            | Self::StructDeclaration(_, _, _) => false,
+            | Self::StructDeclaration(_, _, _) => None,
             Self::While(_, statement) | Self::ForIn(_, _, _, statement) => {
-                statement.kind.affects_control_flow()?
+                statement.kind.get_control_flow_kind()
             }
             Self::Match(_, _) => todo!(),
             Self::If(_, statement, else_statement) => {
-                statement.kind.affects_control_flow()?
-                    || else_statement
+                statement.kind.get_control_flow_kind().or_else(|| {
+                    else_statement
                         .as_ref()
-                        .and_then(|statement| statement.kind.affects_control_flow())
-                        .unwrap_or(false)
+                        .and_then(|statement| statement.kind.get_control_flow_kind())
+                })
             }
             Self::Block(statements) => statements
                 .iter()
-                .any(|statement| statement.kind.affects_control_flow().unwrap_or(false)),
-            Self::Break => true,
+                .find_map(|statement| statement.kind.get_control_flow_kind()),
+            Self::Break => Some(ControlFlowKind::Break),
+            Self::Continue => Some(ControlFlowKind::Continue),
+        }
+    }
+
+    #[must_use]
+    pub fn get_control_flow(&self, ctx: &mut CompileContext) -> Option<ControlFlow> {
+        let loop_info = ctx.loop_info.as_ref().unwrap().clone();
+
+        Some(ControlFlow {
+            kind: self.get_control_flow_kind()?,
+            loop_info,
         })
     }
 }
@@ -577,25 +651,28 @@ impl Statement {
 
                 Some(())
             }
-            StatementKind::While(expression, statement) => {
-                let expression_result =
-                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::Boolean));
-                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
+            StatementKind::While(condition, body) => {
+                let condition_result =
+                    condition.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::Boolean));
 
-                expression_result?;
+                ctx.loop_depth += 1;
+                let body_result = body.perform_semantic_analysis(ctx, is_lhs);
+                ctx.loop_depth -= 1;
 
-                let expression_type = expression.kind.infer_data_type(ctx)?;
+                condition_result?;
+
+                let expression_type = condition.kind.infer_data_type(ctx)?;
 
                 if !expression_type.is_condition() {
                     return ctx.add_info(SemanticAnalysisInfo {
-                        span: expression.span,
+                        span: condition.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::TypeIsNotCondition(expression_type),
                         ),
                     });
                 }
 
-                statement_result?;
+                body_result?;
 
                 Some(())
             }
@@ -718,9 +795,28 @@ impl Statement {
                 }
             }
             StatementKind::Break => {
-                // TODO
-
-                Some(())
+                if ctx.loop_depth == 0 {
+                    ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Break),
+                        ),
+                    })
+                } else {
+                    Some(())
+                }
+            }
+            StatementKind::Continue => {
+                if ctx.loop_depth == 0 {
+                    ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Continue),
+                        ),
+                    })
+                } else {
+                    Some(())
+                }
             }
             StatementKind::StructDeclaration(name, generics, fields) => {
                 if ctx.data_type_is_declared(name) {

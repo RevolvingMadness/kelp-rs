@@ -116,6 +116,7 @@ pub enum SyntaxKind {
     StructKeyword,
     TypeKeyword,
     BreakKeyword,
+    ContinueKeyword,
 
     BlockStatement,
     ExpressionStatement,
@@ -127,6 +128,7 @@ pub enum SyntaxKind {
     WhileStatement,
     TypeAliasDeclarationStatement,
     BreakStatement,
+    ContinueStatement,
 
     GenericNames,
     GenericDataTypes,

@@ -262,7 +262,7 @@ impl PlaceType {
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match self.kind {
-            PlaceTypeKind::Score(score_type) => {
+            PlaceTypeKind::Score(_) => {
                 if let Some(result) = value_type.is_score_compatible(ctx)
                     && !result
                 {
@@ -270,18 +270,6 @@ impl PlaceType {
                         span: value.span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),
-                        ),
-                    });
-                }
-
-                if !value_type.equals(&score_type) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: value.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: score_type,
-                                actual: value_type.clone(),
-                            },
                         ),
                     });
                 }

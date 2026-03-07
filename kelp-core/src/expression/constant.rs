@@ -551,13 +551,9 @@ impl ConstantExpressionKind {
             | Self::Condition(_, _)
             | Self::Unit
             | Self::Variable(_)
-            | Self::Dereference(_) => {
+            | Self::Dereference(_)
+            | Self::PlayerScore(_) => {
                 unreachable!("Expression does not have any fields {:?}", self)
-            }
-            Self::PlayerScore(inner_type) => {
-                println!("{:?}", inner_type);
-
-                todo!()
             }
             Self::Underscore => unreachable!(),
             Self::Reference(expression) => expression.kind.access_field(field),

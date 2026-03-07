@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::compile_context::LoopInfo;
+use crate::compile_context::{LoopInfo, LoopType};
 use crate::datapack::DataTypeDeclarationKind;
 use crate::span::Span;
 use crate::trait_ext::OptionUnitIterExt;
@@ -36,6 +36,7 @@ pub enum StatementKind {
     Expression(Expression),
     Let(Option<HighDataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
+    Loop(Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
     ForIn(bool, String, Expression, Box<Statement>),
@@ -197,7 +198,7 @@ impl StatementKind {
                 let mut while_body_ctx = ctx.create_child_ctx();
                 while_body_ctx.loop_info = Some(LoopInfo {
                     resource_location: while_function_resource_location,
-                    condition: (should_be_inverted, condition),
+                    type_: LoopType::While(should_be_inverted, condition),
                 });
 
                 body.kind.compile(datapack, &mut while_body_ctx);
@@ -206,6 +207,29 @@ impl StatementKind {
                 ctx.extend_context(condition_ctx);
 
                 datapack.compile_and_add_to_function(&while_function_paths, &mut while_body_ctx);
+            }
+            Self::Loop(body) => {
+                let loop_function_paths = datapack.get_unique_function_paths();
+                let loop_function_resource_location = ResourceLocation::new_namespace_paths(
+                    datapack.current_namespace_name(),
+                    loop_function_paths.clone(),
+                );
+
+                let iteration_command =
+                    Command::Function(loop_function_resource_location.clone(), None);
+
+                let mut loop_body_ctx = ctx.create_child_ctx();
+                loop_body_ctx.loop_info = Some(LoopInfo {
+                    resource_location: loop_function_resource_location,
+                    type_: LoopType::Loop,
+                });
+
+                body.kind.compile(datapack, &mut loop_body_ctx);
+
+                loop_body_ctx.add_command(datapack, iteration_command.clone());
+                ctx.add_command(datapack, iteration_command);
+
+                datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
             }
             Self::ForIn(is_reversed, variable_name, collection, body) => {
                 let collection_data_type = collection
@@ -544,21 +568,23 @@ impl StatementKind {
             }
             Self::Continue => {
                 let LoopInfo {
-                    resource_location,
-                    condition: (should_invert, condition),
+                    resource_location: loop_resource_location,
+                    type_: loop_type,
                 } = ctx.loop_info.as_ref().unwrap().clone();
+
+                let iteration_command = Command::Function(loop_resource_location, None);
+
+                let command = match loop_type {
+                    LoopType::While(invert, condition) => Command::Execute(ExecuteSubcommand::If(
+                        invert,
+                        condition.then(ExecuteSubcommand::Run(Box::new(iteration_command))),
+                    )),
+                    LoopType::Loop => iteration_command,
+                };
 
                 ctx.add_command(
                     datapack,
-                    Command::Return(ReturnCommand::Run(Box::new(Command::Execute(
-                        ExecuteSubcommand::If(
-                            should_invert,
-                            condition.then(ExecuteSubcommand::Run(Box::new(Command::Function(
-                                resource_location,
-                                None,
-                            )))),
-                        ),
-                    )))),
+                    Command::Return(ReturnCommand::Run(Box::new(command))),
                 );
             }
         }
@@ -574,7 +600,7 @@ impl StatementKind {
             | Self::RemoveData(_)
             | Self::TypeAliasDeclaration(_, _, _)
             | Self::StructDeclaration(_, _, _) => None,
-            Self::While(_, statement) | Self::ForIn(_, _, _, statement) => {
+            Self::While(_, statement) | Self::Loop(statement) | Self::ForIn(_, _, _, statement) => {
                 statement.kind.get_control_flow_kind()
             }
             Self::Match(_, _) => todo!(),
@@ -714,6 +740,15 @@ impl Statement {
                         ),
                     });
                 }
+
+                body_result?;
+
+                Some(())
+            }
+            StatementKind::Loop(body) => {
+                ctx.loop_depth += 1;
+                let body_result = body.perform_semantic_analysis(ctx, is_lhs);
+                ctx.loop_depth -= 1;
 
                 body_result?;
 

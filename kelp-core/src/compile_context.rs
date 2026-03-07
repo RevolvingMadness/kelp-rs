@@ -14,9 +14,15 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+pub enum LoopType {
+    While(bool, ExecuteIfSubcommand),
+    Loop,
+}
+
+#[derive(Debug, Clone)]
 pub struct LoopInfo {
     pub resource_location: ResourceLocation,
-    pub condition: (bool, ExecuteIfSubcommand),
+    pub type_: LoopType,
 }
 
 #[derive(Debug, Default, Clone)]

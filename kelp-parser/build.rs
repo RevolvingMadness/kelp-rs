@@ -484,6 +484,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "continue" => "ContinueKeyword",
         "true" => "TrueKeyword",
         "false" => "FalseKeyword",
+        "loop" => "LoopKeyword",
         _ => todo!("{:?}", token),
     }
 }

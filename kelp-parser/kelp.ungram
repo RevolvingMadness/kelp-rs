@@ -7,6 +7,7 @@ Statement =
 | ExpressionStatement
 | IfStatement
 | WhileStatement
+| LoopStatement
 | LetStatement
 | MCFNDeclarationStatement
 | StructDeclarationStatement
@@ -25,6 +26,9 @@ IfStatement =
 
 WhileStatement =
   'while' condition:Expression body:Statement
+
+LoopStatement =
+  'loop' body:Statement
 
 LetStatement =
   'let' Pattern (':' DataType)? '=' Expression

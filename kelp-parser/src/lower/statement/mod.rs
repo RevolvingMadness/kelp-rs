@@ -11,6 +11,7 @@ use crate::{
             r#continue::{lower_continue_statement, try_parse_continue_statement},
             r#if::{lower_if_statement, try_parse_if_statement},
             r#let::{lower_let_statement, try_parse_let_statement},
+            r#loop::{lower_loop_statement, try_parse_loop_statement},
             mcfn_declaration::{
                 lower_mcfn_declaration_statement, try_parse_mcfn_declaration_statement,
             },
@@ -33,6 +34,7 @@ pub mod r#break;
 pub mod r#continue;
 pub mod r#if;
 pub mod r#let;
+pub mod r#loop;
 pub mod mcfn_declaration;
 pub mod struct_declaration;
 pub mod type_alias_declaration;
@@ -77,6 +79,11 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                     }
                     "while" => {
                         if try_parse_while_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "loop" => {
+                        if try_parse_loop_statement(parser) {
                             return true;
                         }
                     }
@@ -162,6 +169,7 @@ pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
             )
         }
         CSTStatement::WhileStatement(node) => lower_while_statement(node),
+        CSTStatement::LoopStatement(node) => lower_loop_statement(node),
         CSTStatement::TypeAliasDeclarationStatement(node) => {
             lower_type_alias_declaration_statement(node)
         }

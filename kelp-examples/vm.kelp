@@ -1,0 +1,190 @@
+let op_push = 1
+let op_load = 2
+let op_store = 3
+
+let op_add = 4
+let op_sub = 5
+let op_mul = 6
+let op_div = 7
+
+let op_dup = 8
+let op_pop = 9
+
+let op_jump = 10
+let op_jump_if_zero = 11
+
+let op_halt = 255
+
+struct Instruction {
+    opcode: integer,
+    arg: integer
+}
+
+struct VM {
+    stack: list<integer>,
+    locals: list<integer>,
+    ip: integer,
+    program: list<Instruction>,
+}
+
+let vm = storage namespace:vm vm as data<VM>
+
+let vm_run_output = 0 to score
+
+mcfn vm:run {
+    loop {
+        let instruction = *vm.program[vm.ip]
+        vm.ip += 1
+
+        if instruction.opcode == (op_push) {
+            tellraw @a ["push ", instruction.arg]
+
+            append vm.stack instruction.arg
+        } else if instruction.opcode == (op_load) {
+            tellraw @a ["load ", instruction.arg]
+
+            let value = vm.locals[instruction.arg]
+
+            append vm.stack value
+        } else if instruction.opcode == (op_store) {
+            tellraw @a ["store ", instruction.arg]
+
+            let value = vm.stack[-1]
+
+            vm.locals[instruction.arg] = value
+
+            remove vm.stack[-1]
+        } else if instruction.opcode == (op_add) {
+            tellraw @a ["add"]
+
+            let b = vm.stack[-1]
+            let a = vm.stack[-2]
+
+            let result = a + b
+
+            remove vm.stack[-1]
+            remove vm.stack[-1]
+
+            append vm.stack result
+        } else if instruction.opcode == (op_sub) {
+            tellraw @a ["sub"]
+
+            let b = vm.stack[-1]
+            let a = vm.stack[-2]
+
+            let result = a - b
+
+            remove vm.stack[-1]
+            remove vm.stack[-1]
+
+            append vm.stack result
+        } else if instruction.opcode == (op_mul) {
+            tellraw @a ["mul"]
+
+            let b = vm.stack[-1]
+            let a = vm.stack[-2]
+
+            let result = a * b
+
+            remove vm.stack[-1]
+            remove vm.stack[-1]
+
+            append vm.stack result
+        } else if instruction.opcode == (op_div) {
+            tellraw @a ["div"]
+
+            let b = vm.stack[-1]
+            let a = vm.stack[-2]
+
+            let result = a / b
+
+            remove vm.stack[-1]
+            remove vm.stack[-1]
+
+            append vm.stack result
+        } else if instruction.opcode == (op_dup) {
+            tellraw @a ["dup"]
+
+            append vm.stack vm.stack[-1]
+        } else if instruction.opcode == (op_pop) {
+            tellraw @a ["pop"]
+
+            remove vm.stack[-1]
+        } else if instruction.opcode == (op_jump) {
+            tellraw @a ["jump ", instruction.arg]
+
+            vm.ip = instruction.arg
+        } else if instruction.opcode == (op_jump_if_zero) {
+            tellraw @a ["jump if zero ", instruction.arg]
+
+            let value = vm.stack[-1]
+
+            if value == 0 {
+                vm.ip = instruction.arg
+            }
+
+            remove vm.stack[-1]
+        } else if instruction.opcode == (op_halt) {
+            tellraw @a ["halt"]
+
+            *vm_run_output = vm.stack[-1]
+            remove vm.stack[-1]
+            break
+        } else {
+            tellraw @a ["Unknown opcode: ", instruction.opcode]
+            break
+        }
+    }
+}
+
+mcfn namespace:main {
+    let n = 10
+
+    let program = [
+        // 0
+        Instruction { opcode: op_push, arg: n },
+        Instruction { opcode: op_store, arg: 0 },
+        Instruction { opcode: op_push, arg: 0 },
+        Instruction { opcode: op_store, arg: 1 }, // a
+        Instruction { opcode: op_push, arg: 1 },
+        Instruction { opcode: op_store, arg: 2 }, // b
+        Instruction { opcode: op_push, arg: 0 },
+        Instruction { opcode: op_store, arg: 3 }, // i
+        // ---- loop_start (8) ----
+        Instruction { opcode: op_load, arg: 3 },          // 8
+        Instruction { opcode: op_load, arg: 0 },          // 9
+        Instruction { opcode: op_sub, arg: 0 },           // 10
+        Instruction { opcode: op_jump_if_zero, arg: 25 }, // 11 -> end
+        // tmp = a + b
+        Instruction { opcode: op_load, arg: 1 },  // 12
+        Instruction { opcode: op_load, arg: 2 },  // 13
+        Instruction { opcode: op_add, arg: 0 },   // 14
+        Instruction { opcode: op_store, arg: 4 }, // 15
+        // a = b
+        Instruction { opcode: op_load, arg: 2 },  // 16
+        Instruction { opcode: op_store, arg: 1 }, // 17
+        // b = tmp
+        Instruction { opcode: op_load, arg: 4 },  // 18
+        Instruction { opcode: op_store, arg: 2 }, // 19
+        // i = i + 1
+        Instruction { opcode: op_load, arg: 3 },  // 20
+        Instruction { opcode: op_push, arg: 1 },  // 21
+        Instruction { opcode: op_add, arg: 0 },   // 22
+        Instruction { opcode: op_store, arg: 3 }, // 23
+        Instruction { opcode: op_jump, arg: 8 },  // 24
+        // ---- end ----
+        Instruction { opcode: op_load, arg: 1 }, // 25
+        Instruction { opcode: op_halt, arg: 0 }, // 26
+    ]
+
+    *vm = VM {
+        stack: [],
+        locals: [0, 0, 0, 0, 0],
+        ip: 0,
+        program: program,
+    }
+
+    function vm:run
+
+    tellraw @a ["fib(10) = ", vm_run_output]
+}

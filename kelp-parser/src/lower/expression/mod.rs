@@ -374,7 +374,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                     parser.finish_node();
                 } else if id == "as" {
                     parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
-                    parser.bump_identifier("as");
+                    parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
                     parser.expect_inline_whitespace();
                     if !try_parse_data_type(parser) {
                         parser.error("Expected data type");

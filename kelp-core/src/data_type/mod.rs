@@ -244,6 +244,7 @@ impl DataTypeKind {
     pub fn to_score(self) -> Option<Self> {
         Some(match self {
             Self::Byte | Self::Short | Self::Integer => Self::Integer,
+            Self::Boolean => Self::Boolean,
             Self::TypedCompound(compound) => Self::TypedCompound(
                 compound
                     .into_iter()
@@ -1135,9 +1136,11 @@ impl DataTypeKind {
     #[must_use]
     pub fn is_condition(&self) -> bool {
         match self {
-            Self::Boolean | Self::Data(_) => true,
+            Self::Boolean => true,
 
-            Self::Reference(data_type) => data_type.is_condition(),
+            Self::Data(data_type) | Self::Score(data_type) | Self::Reference(data_type) => {
+                data_type.is_condition()
+            }
 
             Self::Generic(_) => unreachable!(),
 

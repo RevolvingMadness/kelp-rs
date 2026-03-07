@@ -72,6 +72,7 @@ Expression =
 | TellrawCommandExpression
 | ReturnCommandExpression
 | FunctionCommandExpression
+| BooleanExpression
 | ByteExpression
 | ShortExpression
 | IntegerExpression
@@ -140,7 +141,9 @@ ReturnCommandExpression =
 FunctionCommandExpression =
   'function' ResourceLocation
 
-// TODO
+BooleanExpression =
+  'true' | 'false'
+
 ByteExpression =
   'whole_value'
 

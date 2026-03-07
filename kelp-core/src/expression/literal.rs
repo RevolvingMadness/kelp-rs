@@ -167,10 +167,10 @@ impl LiteralExpressionKind {
     ) -> Option<(bool, ExecuteIfSubcommand)> {
         Some(match self {
             Self::Boolean(value) => (
-                false,
+                *value,
                 ExecuteIfSubcommand::Score(
                     datapack.get_constant_score(1).score,
-                    ScoreComparison::Range(IntegerRange::new_single(i32::from(*value))),
+                    ScoreComparison::Range(IntegerRange::new_single(0)),
                     None,
                 ),
             ),

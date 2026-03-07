@@ -117,6 +117,8 @@ pub enum SyntaxKind {
     TypeKeyword,
     BreakKeyword,
     ContinueKeyword,
+    TrueKeyword,
+    FalseKeyword,
 
     BlockStatement,
     ExpressionStatement,

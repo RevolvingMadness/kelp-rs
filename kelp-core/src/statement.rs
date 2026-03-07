@@ -56,34 +56,18 @@ fn compile_if(
     inverted: bool,
     condition: ExecuteIfSubcommand,
 ) {
-    let should_inine = (body_ctx.num_commands() + 1) <= 5;
+    let should_inine = body_ctx.num_commands() <= 5;
 
     if should_inine {
-        let unique_score = datapack.get_unique_score();
-        caller_ctx.add_command(
-            datapack,
-            Command::Execute(ExecuteSubcommand::Store(
-                StoreType::Result,
-                ExecuteStoreSubcommand::Score(
-                    unique_score.score.clone(),
-                    Box::new(ExecuteSubcommand::If(inverted, condition)),
-                ),
-            )),
-        );
         for command in body_ctx.commands {
             caller_ctx.add_command(
                 datapack,
-                Command::Execute(
-                    ExecuteSubcommand::If(
-                        true,
-                        ExecuteIfSubcommand::Score(
-                            unique_score.score.clone(),
-                            ScoreComparison::Range(IntegerRange::new_single(0)),
-                            None,
-                        ),
-                    )
-                    .then(ExecuteSubcommand::Run(Box::new(command))),
-                ),
+                Command::Execute(ExecuteSubcommand::If(
+                    inverted,
+                    condition
+                        .clone()
+                        .then(ExecuteSubcommand::Run(Box::new(command))),
+                )),
             );
         }
     } else {
@@ -408,23 +392,52 @@ impl StatementKind {
                 let control_flow = body.kind.get_control_flow(ctx);
                 body.kind.compile(datapack, &mut body_ctx);
 
-                let (invert, compiled_condition) = condition
+                let (invert, condition) = condition
                     .resolve(datapack, ctx)
                     .to_execute_condition(datapack, ctx, false);
-
-                compile_if(
-                    datapack,
-                    ctx,
-                    control_flow,
-                    body_ctx,
-                    invert,
-                    compiled_condition.clone(),
-                );
 
                 if let Some(else_body) = else_body {
                     let mut else_body_ctx = ctx.create_child_ctx();
                     let else_control_flow = else_body.kind.get_control_flow(ctx);
                     else_body.kind.compile(datapack, &mut else_body_ctx);
+
+                    let should_add_condition =
+                        body_ctx.num_commands() > 1 || else_body_ctx.num_commands() > 1;
+
+                    let (invert, condition) = if should_add_condition {
+                        let unique_score = datapack.get_unique_score();
+
+                        ctx.add_command(
+                            datapack,
+                            Command::Execute(ExecuteSubcommand::Store(
+                                StoreType::Result,
+                                ExecuteStoreSubcommand::Score(
+                                    unique_score.score.clone(),
+                                    Box::new(ExecuteSubcommand::If(invert, condition)),
+                                ),
+                            )),
+                        );
+
+                        (
+                            true,
+                            ExecuteIfSubcommand::Score(
+                                unique_score.score,
+                                ScoreComparison::Range(IntegerRange::new_single(0)),
+                                None,
+                            ),
+                        )
+                    } else {
+                        (invert, condition)
+                    };
+
+                    compile_if(
+                        datapack,
+                        ctx,
+                        control_flow,
+                        body_ctx,
+                        invert,
+                        condition.clone(),
+                    );
 
                     compile_if(
                         datapack,
@@ -432,8 +445,38 @@ impl StatementKind {
                         else_control_flow,
                         else_body_ctx,
                         !invert,
-                        compiled_condition,
+                        condition,
                     );
+                } else {
+                    let should_add_condition = body_ctx.num_commands() > 1;
+
+                    let (invert, condition) = if should_add_condition {
+                        let unique_score = datapack.get_unique_score();
+
+                        ctx.add_command(
+                            datapack,
+                            Command::Execute(ExecuteSubcommand::Store(
+                                StoreType::Result,
+                                ExecuteStoreSubcommand::Score(
+                                    unique_score.score.clone(),
+                                    Box::new(ExecuteSubcommand::If(invert, condition)),
+                                ),
+                            )),
+                        );
+
+                        (
+                            true,
+                            ExecuteIfSubcommand::Score(
+                                unique_score.score,
+                                ScoreComparison::Range(IntegerRange::new_single(0)),
+                                None,
+                            ),
+                        )
+                    } else {
+                        (invert, condition)
+                    };
+
+                    compile_if(datapack, ctx, control_flow, body_ctx, invert, condition);
                 }
             }
             Self::AppendData(target, value) => {
@@ -552,7 +595,7 @@ impl StatementKind {
 
     #[must_use]
     pub fn get_control_flow(&self, ctx: &mut CompileContext) -> Option<ControlFlow> {
-        let loop_info = ctx.loop_info.as_ref().unwrap().clone();
+        let loop_info = ctx.loop_info.as_ref()?.clone();
 
         Some(ControlFlow {
             kind: self.get_control_flow_kind()?,

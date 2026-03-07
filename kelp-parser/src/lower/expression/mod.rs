@@ -4,7 +4,7 @@ use kelp_core::expression::{
 use ordered_float::NotNan;
 
 use crate::{
-    cst::CSTExpression,
+    cst::{CSTBooleanExpression, CSTExpression},
     lower::{
         data_type::{generics::try_parse_generic_data_types, try_parse_data_type},
         expression::{
@@ -509,9 +509,16 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             true
         }
         _ => parser.peek_identifier().is_some_and(|text| match text {
-            "true" | "false" => {
+            "true" => {
                 parser.start_node(SyntaxKind::BooleanExpression);
-                parser.bump_identifier(text);
+                parser.bump_identifier_kind(SyntaxKind::TrueKeyword, "true");
+                parser.finish_node();
+
+                true
+            }
+            "false" => {
+                parser.start_node(SyntaxKind::BooleanExpression);
+                parser.bump_identifier_kind(SyntaxKind::FalseKeyword, "false");
                 parser.finish_node();
 
                 true
@@ -655,10 +662,28 @@ macro_rules! lower_numerical_expression {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::unnecessary_wraps)]
+fn lower_boolean_expression(node: CSTBooleanExpression) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
+
+    Some(
+        ExpressionKind::Constant(
+            ConstantExpressionKind::Literal(
+                LiteralExpressionKind::Boolean(node.true_keyword_token().is_some()).with_span(span),
+            )
+            .with_span(span),
+        )
+        .with_span(span),
+    )
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
 pub fn lower_expression(node: CSTExpression) -> Option<Expression> {
     match node {
         CSTExpression::UnaryExpression(node) => lower_unary_expression(node),
         CSTExpression::VariableExpression(node) => lower_variable_expression(node),
+        CSTExpression::BooleanExpression(node) => lower_boolean_expression(node),
         CSTExpression::ByteExpression(node) => {
             lower_numerical_expression!(node, whole_value_token, i8, Byte)
         }

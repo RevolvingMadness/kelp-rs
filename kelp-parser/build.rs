@@ -482,6 +482,8 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "field_name" => "FieldName",
         "break" => "BreakKeyword",
         "continue" => "ContinueKeyword",
+        "true" => "TrueKeyword",
+        "false" => "FalseKeyword",
         _ => todo!("{:?}", token),
     }
 }

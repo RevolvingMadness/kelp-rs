@@ -887,18 +887,10 @@ impl Expression {
         match self.kind {
             ExpressionKind::Constant(expression) => expression.kind.resolve(datapack),
             ExpressionKind::Unary(UnaryOperator::Reference, expression) => {
-                ConstantExpressionKind::Reference(Box::new(
-                    expression
-                        .resolve(datapack, ctx)
-                        .into_dummy_constant_expression(),
-                ))
+                expression.resolve(datapack, ctx)
             }
             ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
-                ConstantExpressionKind::Dereference(Box::new(
-                    expression
-                        .resolve(datapack, ctx)
-                        .into_dummy_constant_expression(),
-                ))
+                expression.resolve(datapack, ctx).dereference(datapack, ctx)
             }
             ExpressionKind::Index(target, index) => {
                 let target = target.resolve(datapack, ctx);
@@ -909,7 +901,7 @@ impl Expression {
             ExpressionKind::FieldAccess(target, field) => {
                 let target = target.resolve(datapack, ctx);
 
-                target.access_field(datapack, &field.snbt_string.1)
+                target.access_field(datapack, ctx, &field.snbt_string.1)
             }
             _ => self.resolve_partial(datapack, ctx),
         }

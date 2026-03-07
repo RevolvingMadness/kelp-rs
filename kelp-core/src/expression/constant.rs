@@ -643,31 +643,49 @@ impl ConstantExpressionKind {
                     .index(datapack, ctx, index.kind.clone())
                     .assign_index(datapack, ctx, index.kind.clone(), value);
             }
+            Self::FieldAccess(target, field) => {
+                let resolved = target.kind.clone().resolve(datapack);
+
+                resolved
+                    .access_field(datapack, ctx, field)
+                    .assign_index(datapack, ctx, index, value);
+            }
             _ => unreachable!("The expression cannot be indexed {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn access_field(self, datapack: &mut HighDatapack, field: &str) -> Self {
+    pub fn access_field(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        field: &str,
+    ) -> Self {
         match self {
             Self::Literal(_)
             | Self::List(_)
             | Self::Condition(_, _)
             | Self::Unit
             | Self::Dereference(_)
-            | Self::PlayerScore(_)
-            | Self::Index(_, _)
-            | Self::FieldAccess(_, _) => {
+            | Self::PlayerScore(_) => {
                 unreachable!("Expression does not have any fields {:?}", self)
             }
+            Self::Index(target, index) => target
+                .kind
+                .index(datapack, ctx, index.kind)
+                .access_field(datapack, ctx, field),
+            Self::FieldAccess(target, inner_field) => target
+                .kind
+                .access_field(datapack, ctx, &inner_field)
+                .access_field(datapack, ctx, field),
             Self::Variable(name) => datapack
                 .get_variable(&name)
                 .unwrap()
                 .1
                 .kind
-                .access_field(datapack, field),
+                .access_field(datapack, ctx, field),
             Self::Underscore => unreachable!(),
-            Self::Reference(expression) => expression.kind.access_field(datapack, field),
+            Self::Reference(expression) => expression.kind.access_field(datapack, ctx, field),
             Self::Compound(compound) => {
                 compound
                     .into_iter()
@@ -758,7 +776,7 @@ impl ConstantExpressionKind {
                 let resolved = expression.kind.clone().resolve(datapack);
 
                 resolved
-                    .access_field(datapack, inner_field)
+                    .access_field(datapack, ctx, inner_field)
                     .assign_field(datapack, ctx, field, value);
             }
             _ => unreachable!("{:?}", self),

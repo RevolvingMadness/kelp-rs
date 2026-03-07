@@ -111,6 +111,8 @@ fn compile_if(
             }
         }
 
+        body_ctx.add_command(datapack, Command::Return(ReturnCommand::Value(1)));
+
         datapack.compile_and_add_to_function(&body_paths, &mut body_ctx);
     }
 }

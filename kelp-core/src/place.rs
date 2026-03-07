@@ -157,7 +157,7 @@ impl Place {
                 }
             }
             Self::Field(mut target, field) => {
-                let current_value = target.kind.clone().access_field(datapack, &field);
+                let current_value = target.kind.clone().access_field(datapack, ctx, &field);
 
                 if current_value.is_lvalue() {
                     current_value

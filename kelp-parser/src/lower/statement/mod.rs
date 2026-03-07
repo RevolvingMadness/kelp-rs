@@ -6,6 +6,7 @@ use crate::{
         data_type::generics::lower_generic_names,
         expression::{is_expression_recovery, lower_expression, try_parse_expression},
         statement::{
+            append::{lower_append_statement, try_parse_append_statement},
             block::{lower_block_statement, try_parse_block_statement},
             r#break::{lower_break_statement, try_parse_break_statement},
             r#continue::{lower_continue_statement, try_parse_continue_statement},
@@ -29,6 +30,7 @@ use crate::{
     syntax::SyntaxKind,
 };
 
+pub mod append;
 pub mod block;
 pub mod r#break;
 pub mod r#continue;
@@ -99,6 +101,11 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                     }
                     "continue" => {
                         if try_parse_continue_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "append" => {
+                        if try_parse_append_statement(parser) {
                             return true;
                         }
                     }
@@ -175,5 +182,6 @@ pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
         }
         CSTStatement::BreakStatement(node) => lower_break_statement(node),
         CSTStatement::ContinueStatement(node) => lower_continue_statement(node),
+        CSTStatement::AppendStatement(node) => lower_append_statement(node),
     }
 }

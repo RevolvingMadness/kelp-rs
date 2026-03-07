@@ -41,7 +41,7 @@ pub enum StatementKind {
     If(Expression, Box<Statement>, Option<Box<Statement>>),
     ForIn(bool, String, Expression, Box<Statement>),
     Block(Vec<Statement>),
-    AppendData(Expression, Box<Expression>),
+    Append(Expression, Box<Expression>),
     RemoveData(Expression),
     TypeAliasDeclaration(String, Vec<String>, HighDataType),
     Break,
@@ -503,7 +503,7 @@ impl StatementKind {
                     compile_if(datapack, ctx, control_flow, body_ctx, invert, condition);
                 }
             }
-            Self::AppendData(target, value) => {
+            Self::Append(target, value) => {
                 let target = target.resolve(datapack, ctx);
                 let value = value.resolve(datapack, ctx);
 
@@ -596,7 +596,7 @@ impl StatementKind {
             Self::MCFNDeclaration(_, _)
             | Self::Expression(_)
             | Self::Let(_, _, _)
-            | Self::AppendData(_, _)
+            | Self::Append(_, _)
             | Self::RemoveData(_)
             | Self::TypeAliasDeclaration(_, _, _)
             | Self::StructDeclaration(_, _, _) => None,
@@ -820,7 +820,7 @@ impl Statement {
 
                 result
             }
-            StatementKind::AppendData(target, value) => {
+            StatementKind::Append(target, value) => {
                 let target_result = target.perform_semantic_analysis(
                     ctx,
                     is_lhs,

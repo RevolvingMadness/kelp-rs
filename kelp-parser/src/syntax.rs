@@ -118,6 +118,8 @@ pub enum SyntaxKind {
     TypeKeyword,
     BreakKeyword,
     ContinueKeyword,
+    AppendKeyword,
+    PrependKeyword,
     TrueKeyword,
     FalseKeyword,
 
@@ -133,6 +135,8 @@ pub enum SyntaxKind {
     TypeAliasDeclarationStatement,
     BreakStatement,
     ContinueStatement,
+    AppendStatement,
+    PrependStatement,
 
     GenericNames,
     GenericDataTypes,

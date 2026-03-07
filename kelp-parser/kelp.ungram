@@ -14,6 +14,7 @@ Statement =
 | TypeAliasDeclarationStatement
 | BreakStatement
 | ContinueStatement
+| AppendStatement
 
 BlockStatement =
   '{' Statement* '}'
@@ -57,6 +58,8 @@ TypeAliasDeclarationStatement =
 BreakStatement = 'break'
 
 ContinueStatement = 'continue'
+
+AppendStatement = 'append' target:Expression value:Expression
 
 // ----- Generics -----
 GenericNames =

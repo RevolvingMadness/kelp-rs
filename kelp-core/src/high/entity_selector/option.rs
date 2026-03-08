@@ -76,7 +76,7 @@ impl HighEntitySelectorOption {
                 EntitySelectorOption::Predicate(inverted, predicate)
             }
             Self::Nbt(inverted, expression) => {
-                let expression = expression.resolve(datapack, ctx).as_snbt_macros(ctx);
+                let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                 EntitySelectorOption::Nbt(inverted, expression)
             }

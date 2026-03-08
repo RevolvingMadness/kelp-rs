@@ -45,7 +45,7 @@ impl HighScoreboardModification {
         match self {
             Self::DisplayAutoUpdate(value) => ScoreboardModification::DisplayAutoUpdate(value),
             Self::DisplayName(expression) => ScoreboardModification::DisplayName(
-                expression.resolve(datapack, ctx).as_snbt_macros(ctx),
+                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
             Self::NumberFormat(number_format) => ScoreboardModification::NumberFormat(
                 number_format.map(|number_format| number_format.compile(datapack, ctx)),
@@ -89,7 +89,7 @@ impl HighObjectivesScoreboardCommand {
             Self::Add(objective, display_name, expression) => ObjectivesScoreboardCommand::Add(
                 objective,
                 display_name,
-                expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
+                expression.map(|e| e.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
             Self::Remove(objective) => ObjectivesScoreboardCommand::Remove(objective),
             Self::SetDisplay(objective, display_name) => {

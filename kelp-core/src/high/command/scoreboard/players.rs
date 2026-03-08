@@ -43,11 +43,11 @@ impl HighScoreboardNumberFormat {
     ) -> ScoreboardNumberFormat {
         match self {
             Self::Blank => ScoreboardNumberFormat::Blank,
-            Self::Fixed(expression) => {
-                ScoreboardNumberFormat::Fixed(expression.resolve(datapack, ctx).as_snbt_macros(ctx))
-            }
+            Self::Fixed(expression) => ScoreboardNumberFormat::Fixed(
+                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
+            ),
             Self::Styled(expression) => ScoreboardNumberFormat::Styled(
-                expression.resolve(datapack, ctx).as_snbt_macros(ctx),
+                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
         }
     }
@@ -103,7 +103,7 @@ impl HighPlayersDisplayScoreboardCommand {
 
                 PlayersDisplayScoreboardCommand::Name(
                     score.score,
-                    expression.map(|e| e.resolve(datapack, ctx).as_snbt_macros(ctx)),
+                    expression.map(|e| e.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
                 )
             }
             Self::NumberFormat(score, number_format) => {

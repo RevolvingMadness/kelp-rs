@@ -37,7 +37,7 @@ impl HighBlockState {
                 value
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.resolve(datapack, ctx).as_snbt_macros(ctx);
+                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                         (key.snbt_string, value)
                     })

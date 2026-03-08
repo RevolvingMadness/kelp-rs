@@ -137,9 +137,7 @@ impl StatementKind {
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
             Self::Expression(expression) => {
-                let expression = expression.resolve(datapack, ctx);
-
-                expression.compile_as_statement(datapack, ctx);
+                expression.kind.compile_as_statement(datapack, ctx);
             }
             Self::Let(data_type, pattern, value) => {
                 #[allow(clippy::map_unwrap_or)]
@@ -147,7 +145,7 @@ impl StatementKind {
                     .map(|data_type| data_type.kind.resolve(datapack, None).unwrap())
                     .unwrap_or_else(|| value.kind.infer_data_type(datapack).unwrap());
 
-                let value = value.resolve(datapack, ctx);
+                let value = value.kind.resolve(datapack, ctx);
 
                 data_type.destructure(datapack, ctx, value, &pattern);
             }
@@ -160,6 +158,7 @@ impl StatementKind {
 
                 let mut condition_ctx = ctx.create_child_ctx();
                 let (should_be_inverted, condition) = condition
+                    .kind
                     .resolve(datapack, &mut condition_ctx)
                     .to_execute_condition(datapack, &mut condition_ctx, false)
                     .unwrap();
@@ -220,7 +219,7 @@ impl StatementKind {
                     .get_iterable_type()
                     .unwrap_or_else(|| panic!("Expression {:?} is not iterable", collection));
 
-                let collection = collection.resolve(datapack, ctx);
+                let collection = collection.kind.resolve(datapack, ctx);
 
                 if collection_data_type.equals(&DataTypeKind::String) {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
@@ -396,6 +395,7 @@ impl StatementKind {
                 body.kind.compile(datapack, &mut body_ctx);
 
                 let (invert, condition) = condition
+                    .kind
                     .resolve(datapack, ctx)
                     .to_execute_condition(datapack, ctx, false)
                     .unwrap();
@@ -484,8 +484,8 @@ impl StatementKind {
                 }
             }
             Self::Append(target, value) => {
-                let target = target.resolve(datapack, ctx);
-                let value = value.resolve(datapack, ctx);
+                let target = target.kind.resolve(datapack, ctx);
+                let value = value.kind.resolve(datapack, ctx);
 
                 let (target, path) = target.as_data(datapack, ctx, false);
 
@@ -502,7 +502,7 @@ impl StatementKind {
                 );
             }
             Self::Remove(expression) => {
-                let expression = expression.resolve(datapack, ctx);
+                let expression = expression.kind.resolve(datapack, ctx);
 
                 let (target, path) = expression.as_data(datapack, ctx, false);
 

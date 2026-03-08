@@ -784,14 +784,6 @@ impl DataTypeKind {
                     data_type.destructure(datapack, ctx, expression, pattern);
                 }
             }
-            // (Self::Reference(self_), ResolvedExpression::Reference(value)) => {
-            //     self_.distribute_references().destructure_tuple(
-            //         datapack,
-            //         ctx,
-            //         patterns,
-            //         value.kind.distribute_references(),
-            //     );
-            // }
             (Self::Data(inner_type), value @ ResolvedExpression::Data(_)) => {
                 inner_type
                     .distribute_data()
@@ -854,14 +846,6 @@ impl DataTypeKind {
                     }
                 }
             }
-            // (Self::Reference(self_), ResolvedExpression::Reference(value)) => {
-            //     self_.distribute_references().destructure_compound(
-            //         datapack,
-            //         ctx,
-            //         patterns,
-            //         value.kind.distribute_references(),
-            //     );
-            // }
             (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
         }
     }
@@ -927,15 +911,6 @@ impl DataTypeKind {
                     value,
                 );
             }
-            // (self_, ResolvedExpression::Reference(value)) => {
-            //     self_.destructure_struct(
-            //         datapack,
-            //         ctx,
-            //         name,
-            //         field_patterns,
-            //         value.kind.distribute_references(),
-            //     );
-            // }
             (Self::Data(inner_type), value) => {
                 inner_type.distribute_data().destructure_struct(
                     datapack,
@@ -1176,15 +1151,17 @@ impl DataTypeKind {
     #[must_use]
     pub fn can_cast_to(&self, data_type: &Self) -> bool {
         match (self, data_type) {
-            (Self::Score(self_type), Self::Score(data_type))
-            | (Self::Data(self_type), Self::Data(data_type)) => self_type == data_type,
+            (Self::Score(self_type), Self::Score(data_type)) => self_type == data_type,
+            (Self::Data(self_type), Self::Data(_)) => **self_type == Self::SNBT,
 
-            (Self::InferredInteger, Self::Byte | Self::Short | Self::Integer | Self::Long)
+            (Self::SNBT, _)
+            | (Self::InferredInteger, Self::Byte | Self::Short | Self::Integer | Self::Long)
             | (Self::InferredFloat, Self::Float | Self::Double)
             | (
                 Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
                 Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
             ) => true,
+
             _ => false,
         }
     }

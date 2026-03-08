@@ -35,11 +35,12 @@ impl HighItemTest {
             Self::Component(location) => ItemTest::Component(location),
             Self::ComponentMatches(location, value) => ItemTest::ComponentMatches(
                 location,
-                value.resolve(datapack, ctx).as_snbt_macros(ctx),
+                value.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
-            Self::Predicate(location, value) => {
-                ItemTest::Predicate(location, value.resolve(datapack, ctx).as_snbt_macros(ctx))
-            }
+            Self::Predicate(location, value) => ItemTest::Predicate(
+                location,
+                value.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
+            ),
         }
     }
 }

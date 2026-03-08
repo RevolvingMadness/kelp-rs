@@ -99,7 +99,7 @@ impl HighCommand {
                 Command::Function(id, compiled_arguments)
             }
             Self::Tellraw(selector, expression) => {
-                let expression = expression.resolve(datapack, ctx);
+                let expression = expression.kind.resolve(datapack, ctx);
 
                 Command::Tellraw(
                     selector.compile(datapack, ctx),
@@ -119,7 +119,7 @@ impl HighCommand {
             Self::Summon(entity, position, nbt) => Command::Summon(
                 entity,
                 position,
-                nbt.map(|nbt| nbt.resolve(datapack, ctx).as_snbt_macros(ctx)),
+                nbt.map(|nbt| nbt.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
         }
     }

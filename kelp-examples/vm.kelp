@@ -1,20 +1,3 @@
-let op_push = 1
-let op_load = 2
-let op_store = 3
-
-let op_add = 4
-let op_sub = 5
-let op_mul = 6
-let op_div = 7
-
-let op_dup = 8
-let op_pop = 9
-
-let op_jump = 10
-let op_jump_if_zero = 11
-
-let op_halt = 255
-
 struct Instruction {
     opcode: integer,
     arg: integer
@@ -27,11 +10,27 @@ struct VM {
     program: list<Instruction>,
 }
 
-let vm = storage namespace:vm vm as data<VM>
-
-let vm_run_output = 0 to score
-
 mcfn vm:run {
+    let op_push = 1
+    let op_load = 2
+    let op_store = 3
+
+    let op_add = 4
+    let op_sub = 5
+    let op_mul = 6
+    let op_div = 7
+
+    let op_dup = 8
+    let op_pop = 9
+
+    let op_jump = 10
+    let op_jump_if_zero = 11
+
+    let op_halt = 255
+
+    let vm = storage vm:vm vm as data<VM>
+    let vm_run_output = score output vm
+
     loop {
         let instruction = *vm.program[vm.ip]
         vm.ip += 1
@@ -138,6 +137,26 @@ mcfn vm:run {
 }
 
 mcfn namespace:main {
+    let op_push = 1
+    let op_load = 2
+    let op_store = 3
+
+    let op_add = 4
+    let op_sub = 5
+    let op_mul = 6
+    let op_div = 7
+
+    let op_dup = 8
+    let op_pop = 9
+
+    let op_jump = 10
+    let op_jump_if_zero = 11
+
+    let op_halt = 255
+
+    let vm = storage vm:vm vm as data<VM>
+    let vm_run_output = score output vm
+
     let n = 10
 
     let program = [

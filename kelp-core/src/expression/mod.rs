@@ -110,7 +110,7 @@ impl ExpressionKind {
             Self::Unary(operator, expression) => match operator {
                 UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => None,
                 UnaryOperator::Dereference => {
-                    let expression = expression.resolve(datapack, ctx);
+                    let expression = expression.kind.resolve(datapack, ctx);
 
                     Some(Place::Dereference(Box::new(expression)))
                 }
@@ -127,13 +127,13 @@ impl ExpressionKind {
                 Some(Place::Data(target, path))
             }
             Self::Index(target, index) => {
-                let target = target.resolve(datapack, ctx);
-                let index = index.resolve(datapack, ctx);
+                let target = target.kind.resolve(datapack, ctx);
+                let index = index.kind.resolve(datapack, ctx);
 
                 Some(Place::Index(Box::new(target), Box::new(index)))
             }
             Self::FieldAccess(target, field) => {
-                let target = target.resolve(datapack, ctx);
+                let target = target.kind.resolve(datapack, ctx);
 
                 Some(Place::Field(Box::new(target), field.snbt_string.1))
             }
@@ -237,7 +237,7 @@ impl ExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
-            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::Inferred)),
+            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             Self::Index(target, _) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
@@ -297,6 +297,242 @@ impl ExpressionKind {
                 declaration.resolve(supports_variable_type_scope, resolved_generics)?
             }
         })
+    }
+
+    pub fn resolve(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> ResolvedExpression {
+        match self {
+            Self::Unary(unary_operator, expression) => match unary_operator {
+                UnaryOperator::Negate => {
+                    let expression = expression.kind.resolve(datapack, ctx);
+
+                    expression.negate(datapack, ctx)
+                }
+                UnaryOperator::Invert => {
+                    let expression = expression.kind.resolve(datapack, ctx);
+
+                    expression.invert()
+                }
+                UnaryOperator::Reference => expression.kind.resolve(datapack, ctx),
+                UnaryOperator::Dereference => expression
+                    .kind
+                    .resolve(datapack, ctx)
+                    .dereference(datapack, ctx)
+                    .unwrap(),
+            },
+            Self::Arithmetic(left, operator, right) => {
+                let left = left.kind.resolve(datapack, ctx);
+                let right = right.kind.resolve(datapack, ctx);
+
+                left.perform_arithmetic(datapack, ctx, operator, right)
+            }
+            Self::Comparison(left, operator, right) => {
+                let left = left.kind.resolve(datapack, ctx);
+                let right = right.kind.resolve(datapack, ctx);
+
+                left.perform_comparison(datapack, ctx, operator, right)
+            }
+            Self::Logical(left, operator, right) => {
+                let left = left.kind.resolve(datapack, ctx);
+                let right = right.kind.resolve(datapack, ctx);
+
+                left.perform_logical_operation(datapack, ctx, operator, right)
+            }
+            Self::AugmentedAssignment(target, operator, value) => {
+                let value = value.kind.resolve(datapack, ctx);
+
+                let target_place = target.kind.as_place(datapack, ctx).unwrap();
+                target_place.augmented_assign(datapack, ctx, operator, value);
+
+                ResolvedExpression::Unit
+            }
+            Self::Assignment(target, value) => {
+                let value = value.kind.resolve(datapack, ctx);
+
+                let target_place = target.kind.as_place(datapack, ctx).unwrap();
+                target_place.assign(datapack, ctx, value);
+
+                ResolvedExpression::Unit
+            }
+            Self::List(expressions) => ResolvedExpression::List(
+                expressions
+                    .into_iter()
+                    .map(|expr| expr.kind.resolve(datapack, ctx))
+                    .collect::<Vec<_>>(),
+            ),
+            Self::Compound(compound) => ResolvedExpression::Compound(
+                compound
+                    .into_iter()
+                    .map(|(key, value)| (key, value.kind.resolve(datapack, ctx)))
+                    .collect::<BTreeMap<_, _>>(),
+            ),
+            Self::PlayerScore(score) => {
+                let score = score.compile(datapack, ctx);
+
+                ResolvedExpression::PlayerScore(score)
+            }
+            Self::Data(target, path) => {
+                let target = target.compile(datapack, ctx);
+                let path = path.compile(datapack, ctx);
+
+                ResolvedExpression::Data(Box::new((target, path)))
+            }
+            Self::Condition(inverted, condition) => {
+                let condition = condition.compile(datapack, ctx);
+
+                ResolvedExpression::Condition(inverted, Box::new(condition))
+            }
+            Self::Command(command) => {
+                let command = command.compile(datapack, ctx);
+
+                let unique_score = datapack.get_unique_score();
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.score.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
+                        ),
+                    )),
+                );
+
+                ResolvedExpression::PlayerScore(unique_score)
+            }
+            Self::Index(target, index) => {
+                let target = target.kind.resolve(datapack, ctx);
+                let index = index.kind.resolve(datapack, ctx);
+
+                target.index(datapack, ctx, index).unwrap()
+            }
+            Self::FieldAccess(target, field) => {
+                let target = target.kind.resolve(datapack, ctx);
+
+                target.access_field(&field.snbt_string.1).unwrap()
+            }
+            Self::AsCast(expression, data_type) => {
+                let expression = expression.kind.resolve(datapack, ctx);
+                let data_type = data_type.kind.resolve(datapack, None).unwrap();
+
+                expression.cast_to(data_type)
+            }
+            Self::ToCast(expression, runtime_storage_type) => {
+                let expression = expression.kind.resolve(datapack, ctx);
+
+                match runtime_storage_type {
+                    RuntimeStorageType::Score => {
+                        ResolvedExpression::PlayerScore(expression.as_score(datapack, ctx, true))
+                    }
+                    RuntimeStorageType::Data => {
+                        let (unique_target, unique_path) = expression.as_data(datapack, ctx, true);
+
+                        ResolvedExpression::Data(Box::new((unique_target, unique_path)))
+                    }
+                }
+            }
+            Self::Tuple(expressions) => ResolvedExpression::Tuple(
+                expressions
+                    .into_iter()
+                    .map(|expression| expression.kind.resolve(datapack, ctx))
+                    .collect(),
+            ),
+            Self::Struct(_, name, generics, fields) => ResolvedExpression::Struct(
+                name,
+                generics
+                    .into_iter()
+                    .map(|generic| generic.kind.resolve(datapack, None).unwrap())
+                    .collect(),
+                fields
+                    .into_iter()
+                    .map(|(key, field)| (key.snbt_string.1, field.kind.resolve(datapack, ctx)))
+                    .collect(),
+            ),
+            Self::Boolean(value) => ResolvedExpression::Boolean(value),
+            Self::Byte(value) => ResolvedExpression::Byte(value),
+            Self::Short(value) => ResolvedExpression::Short(value),
+            Self::Integer(value) => ResolvedExpression::Integer(value),
+            Self::Long(value) => ResolvedExpression::Long(value),
+            Self::Float(value) => ResolvedExpression::Float(value),
+            Self::Double(value) => ResolvedExpression::Double(value),
+            Self::String(value) => ResolvedExpression::String(value),
+            Self::Underscore => ResolvedExpression::Underscore,
+            Self::Unit => ResolvedExpression::Unit,
+            Self::Variable(name) => datapack.get_variable(&name).unwrap().1,
+        }
+    }
+
+    pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
+        match self {
+            Self::Assignment(target, value) => {
+                let value = value.kind.resolve(datapack, ctx);
+
+                let target_place = target.kind.as_place(datapack, ctx).unwrap();
+
+                target_place.assign(datapack, ctx, value);
+            }
+            Self::AugmentedAssignment(target, operator, value) => {
+                let value = value.kind.resolve(datapack, ctx);
+
+                let target_place = target.kind.as_place(datapack, ctx).unwrap();
+
+                target_place.augmented_assign(datapack, ctx, operator, value);
+            }
+            Self::List(list) => {
+                for element in list {
+                    element.kind.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Compound(compound) => {
+                for value in compound.into_values() {
+                    value.kind.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Condition(_, condition) => {
+                let condition = condition.compile(datapack, ctx);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(false, condition)),
+                );
+            }
+            Self::Command(command) => {
+                let command = command.compile(datapack, ctx);
+
+                ctx.add_command(datapack, command);
+            }
+            Self::AsCast(expression, _) | Self::ToCast(expression, _) => {
+                expression.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::Tuple(tuple) => {
+                for element in tuple {
+                    element.kind.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Underscore => unreachable!(),
+            Self::Boolean(_)
+            | Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_)
+            | Self::Unit
+            | Self::Unary(_, _)
+            | Self::Arithmetic(_, _, _)
+            | Self::Comparison(_, _, _)
+            | Self::Logical(_, _, _)
+            | Self::PlayerScore(_)
+            | Self::Data(_, _)
+            | Self::Index(_, _)
+            | Self::FieldAccess(_, _)
+            | Self::Variable(_) => {}
+            Self::Struct(_, _, _, _) => todo!(),
+        }
     }
 
     #[must_use]
@@ -855,7 +1091,7 @@ impl Expression {
                 Some(PlaceTypeKind::Score(DataTypeKind::Integer).with_span(self.span))
             }
             ExpressionKind::Data(_, _) => {
-                Some(PlaceTypeKind::Data(DataTypeKind::Inferred).with_span(self.span))
+                Some(PlaceTypeKind::Data(DataTypeKind::SNBT).with_span(self.span))
             }
             ExpressionKind::Boolean(_)
             | ExpressionKind::Byte(_)
@@ -975,171 +1211,6 @@ impl Expression {
 
                 Some(PlaceTypeKind::Variable(variable_type).with_span(self.span))
             }
-        }
-    }
-
-    pub fn resolve(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-    ) -> ResolvedExpression {
-        match self.kind {
-            ExpressionKind::Unary(unary_operator, expression) => match unary_operator {
-                UnaryOperator::Negate => {
-                    let expression = expression.resolve(datapack, ctx);
-
-                    expression.negate(datapack, ctx)
-                }
-                UnaryOperator::Invert => {
-                    let expression = expression.resolve(datapack, ctx);
-
-                    expression.invert()
-                }
-                UnaryOperator::Reference => expression.resolve(datapack, ctx),
-                UnaryOperator::Dereference => expression
-                    .resolve(datapack, ctx)
-                    .dereference(datapack, ctx)
-                    .unwrap(),
-            },
-            ExpressionKind::Arithmetic(left, operator, right) => {
-                let left = left.resolve(datapack, ctx);
-                let right = right.resolve(datapack, ctx);
-
-                left.perform_arithmetic(datapack, ctx, operator, right)
-            }
-            ExpressionKind::Comparison(left, operator, right) => {
-                let left = left.resolve(datapack, ctx);
-                let right = right.resolve(datapack, ctx);
-
-                left.perform_comparison(datapack, ctx, operator, right)
-            }
-            ExpressionKind::Logical(left, operator, right) => {
-                let left = left.resolve(datapack, ctx);
-                let right = right.resolve(datapack, ctx);
-
-                left.perform_logical_operation(datapack, ctx, operator, right)
-            }
-            ExpressionKind::AugmentedAssignment(target, operator, value) => {
-                let value = value.resolve(datapack, ctx);
-
-                let target_place = target.kind.as_place(datapack, ctx).unwrap();
-                target_place.augmented_assign(datapack, ctx, operator, value);
-
-                ResolvedExpression::Unit
-            }
-            ExpressionKind::Assignment(target, value) => {
-                let value = value.resolve(datapack, ctx);
-
-                let target_place = target.kind.as_place(datapack, ctx).unwrap();
-                target_place.assign(datapack, ctx, value);
-
-                ResolvedExpression::Unit
-            }
-            ExpressionKind::List(expressions) => ResolvedExpression::List(
-                expressions
-                    .into_iter()
-                    .map(|expr| expr.resolve(datapack, ctx))
-                    .collect::<Vec<_>>(),
-            ),
-            ExpressionKind::Compound(compound) => ResolvedExpression::Compound(
-                compound
-                    .into_iter()
-                    .map(|(key, value)| (key, value.resolve(datapack, ctx)))
-                    .collect::<BTreeMap<_, _>>(),
-            ),
-            ExpressionKind::PlayerScore(score) => {
-                let score = score.compile(datapack, ctx);
-
-                ResolvedExpression::PlayerScore(score)
-            }
-            ExpressionKind::Data(target, path) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
-
-                ResolvedExpression::Data(Box::new((target, path)))
-            }
-            ExpressionKind::Condition(inverted, condition) => {
-                let condition = condition.compile(datapack, ctx);
-
-                ResolvedExpression::Condition(inverted, Box::new(condition))
-            }
-            ExpressionKind::Command(command) => {
-                let command = command.compile(datapack, ctx);
-
-                let unique_score = datapack.get_unique_score();
-
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
-                        ),
-                    )),
-                );
-
-                ResolvedExpression::PlayerScore(unique_score)
-            }
-            ExpressionKind::Index(target, index) => {
-                let target = target.resolve(datapack, ctx);
-                let index = index.resolve(datapack, ctx);
-
-                target.index(datapack, ctx, index).unwrap()
-            }
-            ExpressionKind::FieldAccess(target, field) => {
-                let target = target.resolve(datapack, ctx);
-
-                target.access_field(&field.snbt_string.1).unwrap()
-            }
-            ExpressionKind::AsCast(expression, data_type) => {
-                let expression = expression.resolve(datapack, ctx);
-                let data_type = data_type.kind.resolve(datapack, None).unwrap();
-
-                expression.cast_to(data_type)
-            }
-            ExpressionKind::ToCast(expression, runtime_storage_type) => {
-                let expression = expression.resolve(datapack, ctx);
-
-                match runtime_storage_type {
-                    RuntimeStorageType::Score => {
-                        ResolvedExpression::PlayerScore(expression.as_score(datapack, ctx, true))
-                    }
-                    RuntimeStorageType::Data => {
-                        let (unique_target, unique_path) = expression.as_data(datapack, ctx, true);
-
-                        ResolvedExpression::Data(Box::new((unique_target, unique_path)))
-                    }
-                }
-            }
-            ExpressionKind::Tuple(expressions) => ResolvedExpression::Tuple(
-                expressions
-                    .into_iter()
-                    .map(|expression| expression.resolve(datapack, ctx))
-                    .collect(),
-            ),
-            ExpressionKind::Struct(_, name, generics, fields) => ResolvedExpression::Struct(
-                name,
-                generics
-                    .into_iter()
-                    .map(|generic| generic.kind.resolve(datapack, None).unwrap())
-                    .collect(),
-                fields
-                    .into_iter()
-                    .map(|(key, field)| (key.snbt_string.1, field.resolve(datapack, ctx)))
-                    .collect(),
-            ),
-            ExpressionKind::Boolean(value) => ResolvedExpression::Boolean(value),
-            ExpressionKind::Byte(value) => ResolvedExpression::Byte(value),
-            ExpressionKind::Short(value) => ResolvedExpression::Short(value),
-            ExpressionKind::Integer(value) => ResolvedExpression::Integer(value),
-            ExpressionKind::Long(value) => ResolvedExpression::Long(value),
-            ExpressionKind::Float(value) => ResolvedExpression::Float(value),
-            ExpressionKind::Double(value) => ResolvedExpression::Double(value),
-            ExpressionKind::String(value) => ResolvedExpression::String(value),
-            ExpressionKind::Underscore => ResolvedExpression::Underscore,
-            ExpressionKind::Unit => ResolvedExpression::Unit,
-            ExpressionKind::Variable(name) => datapack.get_variable(&name).unwrap().1,
         }
     }
 }

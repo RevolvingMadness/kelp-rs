@@ -80,7 +80,7 @@ impl HighDataCommandModification {
                 DataCommandModification::String(target.target, path, start, end)
             }
             Self::Value(expression) => {
-                let expression = expression.resolve(datapack, ctx);
+                let expression = expression.kind.resolve(datapack, ctx);
 
                 let expression_snbt = expression.as_snbt_macros(ctx);
 
@@ -171,7 +171,7 @@ impl HighDataCommand {
             }
             Self::Merge(target, expression) => {
                 let target = target.compile(datapack, ctx);
-                let expression = expression.resolve(datapack, ctx);
+                let expression = expression.kind.resolve(datapack, ctx);
 
                 let snbt = expression.as_snbt_macros(ctx);
 

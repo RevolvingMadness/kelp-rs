@@ -262,11 +262,10 @@ impl ResolvedExpression {
     #[must_use]
     pub fn can_into_snbt(&self) -> bool {
         match self {
-            Self::Underscore
-            | Self::Struct(_, _, _)
-            | Self::PlayerScore(_)
-            | Self::Data(_)
-            | Self::Condition(_, _) => false,
+            Self::Underscore | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
+                false
+            }
+            Self::Struct(_, _, field_values) => field_values.values().all(Self::can_into_snbt),
             Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
             Self::Compound(compound) => compound.values().all(Self::can_into_snbt),
             _ => true,
@@ -275,11 +274,22 @@ impl ResolvedExpression {
 
     pub fn try_into_snbt(self) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::Underscore
-            | Self::Struct(_, _, _)
-            | Self::PlayerScore(_)
-            | Self::Data(_)
-            | Self::Condition(_, _) => return Err(self),
+            Self::Underscore | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
+                return Err(self);
+            }
+            Self::Struct(name, generic_data_types, field_values) => {
+                if !field_values.values().all(Self::can_into_snbt) {
+                    return Err(Self::Struct(name, generic_data_types, field_values));
+                }
+
+                let mut compound = BTreeMap::new();
+
+                for (key, value) in field_values {
+                    compound.insert(SNBTString(false, key), value.try_into_snbt().unwrap());
+                }
+
+                SNBT::Compound(compound)
+            }
             Self::Boolean(boolean) => SNBT::Byte(i8::from(boolean)),
             Self::Byte(byte) => SNBT::Byte(byte),
             Self::Short(short) => SNBT::Short(short),

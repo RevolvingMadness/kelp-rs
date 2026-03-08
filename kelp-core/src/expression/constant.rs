@@ -187,13 +187,10 @@ impl ResolvedExpression {
                 ctx.add_command(
                     datapack,
                     Command::Data(DataCommand::Modify(
-                        target.target,
-                        path,
+                        unique_target.target.clone(),
+                        unique_path.clone(),
                         DataCommandModificationMode::Set,
-                        DataCommandModification::From(
-                            unique_target.target.clone(),
-                            Some(unique_path.clone()),
-                        ),
+                        DataCommandModification::From(target.target, Some(path)),
                     )),
                 );
 
@@ -262,6 +259,20 @@ impl ResolvedExpression {
         }
     }
 
+    #[must_use]
+    pub fn can_into_snbt(&self) -> bool {
+        match self {
+            Self::Underscore
+            | Self::Struct(_, _, _)
+            | Self::PlayerScore(_)
+            | Self::Data(_)
+            | Self::Condition(_, _) => false,
+            Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
+            Self::Compound(compound) => compound.values().all(Self::can_into_snbt),
+            _ => true,
+        }
+    }
+
     pub fn try_into_snbt(self) -> Result<SNBT, Self> {
         Ok(match self {
             Self::Underscore
@@ -278,26 +289,38 @@ impl ResolvedExpression {
             Self::Double(double) => SNBT::Double(double),
             Self::String(string) => SNBT::String(string.snbt_string),
             Self::List(list) => {
+                if !list.iter().all(Self::can_into_snbt) {
+                    return Err(Self::List(list));
+                }
+
                 let list = list
                     .into_iter()
-                    .map(Self::try_into_snbt)
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .map(|element| element.try_into_snbt().unwrap())
+                    .collect();
 
                 SNBT::List(list)
             }
             Self::Compound(compound) => {
+                if !compound.values().all(Self::can_into_snbt) {
+                    return Err(Self::Compound(compound));
+                }
+
                 let compound = compound
                     .into_iter()
-                    .map(|(key, value)| value.try_into_snbt().map(|v| (key.snbt_string.clone(), v)))
-                    .collect::<Result<_, _>>()?;
+                    .map(|(key, value)| (key.snbt_string, value.try_into_snbt().unwrap()))
+                    .collect();
 
                 SNBT::Compound(compound)
             }
             Self::Tuple(tuple) => {
+                if !tuple.iter().all(Self::can_into_snbt) {
+                    return Err(Self::Tuple(tuple));
+                }
+
                 let tuple = tuple
                     .into_iter()
-                    .map(Self::try_into_snbt)
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .map(|element| element.try_into_snbt().unwrap())
+                    .collect();
 
                 SNBT::List(tuple)
             }
@@ -634,7 +657,9 @@ impl ResolvedExpression {
                 | Self::Long(_)
                 | Self::Float(_)
                 | Self::Double(_)
-                | Self::String(_) => unreachable!("Checked by ResolvedExpression::try_into_snbt"),
+                | Self::String(_) => {
+                    unreachable!("Checked by ResolvedExpression::try_into_snbt")
+                }
             },
         }
     }

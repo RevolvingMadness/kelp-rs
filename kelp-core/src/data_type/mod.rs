@@ -216,9 +216,14 @@ impl Display for DataTypeKind {
 impl DataTypeKind {
     #[must_use]
     pub const fn is_integer_like(&self) -> bool {
+        self.is_restrictied_integer_like() || matches!(self, Self::Long)
+    }
+
+    #[must_use]
+    pub const fn is_restrictied_integer_like(&self) -> bool {
         matches!(
             self,
-            Self::Byte | Self::Short | Self::Integer | Self::Long | Self::InferredInteger
+            Self::Byte | Self::Short | Self::Integer | Self::InferredInteger
         )
     }
 
@@ -1285,11 +1290,16 @@ impl DataTypeKind {
     ) -> Option<Self> {
         if self.is_integer_like() && other.is_integer_like() {
             return Some(match (self, other) {
-                (Self::Long, _) | (_, Self::Long) => Self::Long,
-                (Self::Integer, _) | (_, Self::Integer) => Self::Integer,
-                (Self::Short, _) | (_, Self::Short) => Self::Short,
                 (Self::Byte, _) | (_, Self::Byte) => Self::Byte,
-                _ => Self::InferredInteger,
+                (Self::Short, _) | (_, Self::Short) => Self::Short,
+                (Self::Integer, _) | (_, Self::Integer) => Self::Integer,
+                (Self::Long, _) | (_, Self::Long) => Self::Long,
+                (Self::InferredInteger, other) | (other, Self::InferredInteger)
+                    if other.is_restrictied_integer_like() =>
+                {
+                    other.clone()
+                }
+                _ => return None,
             });
         }
 

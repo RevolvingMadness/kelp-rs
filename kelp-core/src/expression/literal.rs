@@ -478,7 +478,7 @@ impl LiteralExpressionKind {
                 _ => unreachable!(),
             }),
 
-            _ => unreachable!(),
+            (left, right) => unreachable!("{:?} {:?}", left, right),
         }
     }
 }

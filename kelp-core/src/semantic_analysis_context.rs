@@ -91,47 +91,47 @@ impl Display for SemanticAnalysisError {
             } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
             Self::CannotPerformAugmentedAssignment(data_type) => write!(
                 f,
-                "Cannot perform augmented assignment on type '{}'",
+                "Cannot perform augmented assignment on type `{}`",
                 data_type
             ),
             Self::CompiletimeValueMutationInRuntimeLoop => {
                 write!(f, "Cannot mutate a compile-time value in a runtime loop")
             }
             Self::MismatchedTypes { expected, actual } => {
-                write!(f, "Expected type '{}' but got '{}'", expected, actual)
+                write!(f, "Expected type `{}` but got `{}`", expected, actual)
             }
             Self::MismatchedPatternTypes { expected, actual } => {
-                write!(f, "Expected type '{}' but got '{}'", expected, actual)
+                write!(f, "Expected type `{}` but got `{}`", expected, actual)
             }
             Self::UnderscoreExpression => f.write_str(
                 "The underscore expression can only be used on the left hand side of assignments",
             ),
             Self::PatternIsNotIrrefutable => f.write_str("This pattern is not irrefutable"),
             Self::UnknownType(name) => {
-                write!(f, "Unknown type '{}'", name)
+                write!(f, "Unknown type `{}`", name)
             }
             Self::TypeIsNotStruct(name) => {
-                write!(f, "The type '{}' is not a struct", name)
+                write!(f, "The type `{}` is not a struct", name)
             }
             Self::CannotIterateType(data_type) => {
-                write!(f, "Cannot iterate over type '{}'", data_type)
+                write!(f, "Cannot iterate over type `{}`", data_type)
             }
             Self::MissingKey(key) => {
-                write!(f, "Missing key '{}'", key)
+                write!(f, "Missing key `{}`", key)
             }
             Self::UnexpectedKey(key) => {
-                write!(f, "Unexpected key '{}'", key)
+                write!(f, "Unexpected key `{}`", key)
             }
             Self::MissingField(field) => {
-                write!(f, "Missing field '{}'", field)
+                write!(f, "Missing field `{}`", field)
             }
             Self::UnexpectedField(field) => {
-                write!(f, "Unexpected field '{}'", field)
+                write!(f, "Unexpected field `{}`", field)
             }
             Self::TypeIsAlreadyDefined(name) => {
                 write!(
                     f,
-                    "The type '{}' has already been declared in this scope",
+                    "The type `{}` has already been declared in this scope",
                     name
                 )
             }

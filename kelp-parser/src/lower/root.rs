@@ -1,8 +1,8 @@
-use kelp_core::statement::Statement;
+use kelp_core::item::Item;
 
 use crate::{
     cst::CSTRoot,
-    lower::statement::{lower_statement, try_parse_statement},
+    lower::{item::lower_item, statement::item::try_parse_item},
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -20,14 +20,14 @@ pub fn parse_root(parser: &mut Parser) {
         }
 
         if !is_first && !parser.try_parse_newline_whitespace() {
-            parser.recover_newline("Expected newline to mark end of statement");
+            parser.recover_newline("Expected newline to mark end of item");
 
             is_first = false;
 
             continue;
         }
 
-        let _ = try_parse_statement(parser);
+        let _ = try_parse_item(parser);
 
         is_first = false;
     }
@@ -36,6 +36,6 @@ pub fn parse_root(parser: &mut Parser) {
 }
 
 #[must_use]
-pub fn lower_root(root: &CSTRoot) -> Vec<Statement> {
-    root.statements().filter_map(lower_statement).collect()
+pub fn lower_root(root: &CSTRoot) -> Vec<Item> {
+    root.items().filter_map(lower_item).collect()
 }

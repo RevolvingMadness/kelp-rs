@@ -1,7 +1,7 @@
 use kelp_core::data_type::high::HighDataType;
 
 use crate::{
-    cst::CSTStructDeclarationStatementField,
+    cst::CSTStructDeclarationItemField,
     lower::data_type::{generics::try_parse_generic_names, lower_data_type, try_parse_data_type},
     parser::Parser,
     syntax::SyntaxKind,
@@ -9,8 +9,8 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_declaration_statement_field(
-    node: CSTStructDeclarationStatementField,
+pub fn lower_struct_declaration_item_field(
+    node: CSTStructDeclarationItemField,
 ) -> Option<(String, HighDataType)> {
     let name_token = node.name()?;
     let name = name_token.text().to_owned();
@@ -39,10 +39,10 @@ pub fn bump_until_next_field_or_end(parser: &mut Parser) {
 }
 
 #[must_use]
-pub fn try_parse_struct_declaration_statement(parser: &mut Parser) -> bool {
+pub fn try_parse_struct_declaration_item(parser: &mut Parser) -> bool {
     let beginning = parser.save_state();
 
-    parser.start_node(SyntaxKind::StructDeclarationStatement);
+    parser.start_node(SyntaxKind::StructDeclarationItem);
     parser.bump_str(SyntaxKind::StructKeyword, "struct");
     parser.expect_inline_whitespace();
 
@@ -69,7 +69,7 @@ pub fn try_parse_struct_declaration_statement(parser: &mut Parser) -> bool {
             break;
         }
 
-        parser.start_node(SyntaxKind::StructDeclarationStatementField);
+        parser.start_node(SyntaxKind::StructDeclarationItemField);
 
         if !parser.expect_identifier_kind(SyntaxKind::StructFieldName, "Expected struct field name")
         {

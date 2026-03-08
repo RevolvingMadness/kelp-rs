@@ -129,6 +129,7 @@ pub enum DataTypeKind {
     Tuple(Vec<Self>),
     SNBT,
     Struct(String, Vec<Self>),
+    Unknown,
 }
 
 impl Display for DataTypeKind {
@@ -203,6 +204,7 @@ impl Display for DataTypeKind {
 
                 Ok(())
             }
+            Self::Unknown => f.write_str("_"),
         }
     }
 }
@@ -247,6 +249,7 @@ impl DataTypeKind {
             }
             Self::SNBT => Self::SNBT,
             Self::Struct(name, generic_types) => Self::Struct(name, generic_types),
+            Self::Unknown => Self::Unknown,
         }
     }
 

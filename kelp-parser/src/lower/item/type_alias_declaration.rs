@@ -1,7 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::item::{Item, ItemKind};
 
 use crate::{
-    cst::CSTTypeAliasDeclarationStatement,
+    cst::CSTTypeAliasDeclarationItem,
     lower::data_type::{
         generics::{lower_generic_names, try_parse_generic_names},
         lower_data_type, try_parse_data_type,
@@ -12,10 +12,10 @@ use crate::{
 };
 
 #[must_use]
-pub fn try_parse_type_alias_declaration_statement(parser: &mut Parser) -> bool {
+pub fn try_parse_type_alias_declaration_item(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::TypeAliasDeclarationStatement);
+    parser.start_node(SyntaxKind::TypeAliasDeclarationItem);
     parser.bump_str(SyntaxKind::TypeKeyword, "type");
     parser.skip_inline_whitespace();
 
@@ -46,9 +46,7 @@ pub fn try_parse_type_alias_declaration_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_type_alias_declaration_statement(
-    node: CSTTypeAliasDeclarationStatement,
-) -> Option<Statement> {
+pub fn lower_type_alias_declaration_item(node: CSTTypeAliasDeclarationItem) -> Option<Item> {
     let span = span_of_cst_node(&node);
 
     let name_token = node.name()?;
@@ -57,7 +55,7 @@ pub fn lower_type_alias_declaration_statement(
     let data_type = lower_data_type(node.data_type()?)?;
 
     Some(
-        StatementKind::TypeAliasDeclaration(
+        ItemKind::TypeAliasDeclaration(
             name.to_owned(),
             generic_names.unwrap_or_default(),
             data_type,

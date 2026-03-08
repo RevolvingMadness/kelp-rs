@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
-use crate::datapack::DataTypeDeclarationKind;
+use crate::item::Item;
 use crate::span::Span;
 use crate::trait_ext::OptionUnitIterExt;
 use crate::{
@@ -32,7 +32,6 @@ use nonempty::nonempty;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
-    MCFNDeclaration(ResourceLocation, Box<Statement>),
     Expression(Expression),
     Let(Option<HighDataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
@@ -43,10 +42,9 @@ pub enum StatementKind {
     Block(Vec<Statement>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
-    TypeAliasDeclaration(String, Vec<String>, HighDataType),
+    Item(Box<Item>),
     Break,
     Continue,
-    StructDeclaration(String, Vec<String>, BTreeMap<String, HighDataType>),
 }
 
 fn compile_if(
@@ -137,24 +135,6 @@ impl StatementKind {
 
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
-            Self::MCFNDeclaration(id, statement) => {
-                datapack.within_namespace(id.namespace(), |datapack| {
-                    datapack.push_function_to_current_namespace(id.paths.clone());
-
-                    let mut function_ctx = CompileContext::default();
-
-                    statement.kind.compile(datapack, &mut function_ctx);
-
-                    let function_commands = function_ctx.compile();
-
-                    datapack
-                        .current_namespace_mut()
-                        .current_function_mut()
-                        .add_commands(function_commands);
-
-                    datapack.pop_function_from_current_namespace();
-                });
-            }
             Self::Expression(expression) => {
                 expression.compile_as_statement(datapack, ctx);
             }
@@ -533,38 +513,6 @@ impl StatementKind {
                     Command::Data(DataCommand::Remove(target.target, path)),
                 );
             }
-            Self::TypeAliasDeclaration(name, generics, alias) => {
-                let alias = alias.kind.resolve(datapack, Some(&generics)).unwrap();
-
-                datapack.declare_data_type(
-                    name.clone(),
-                    DataTypeDeclarationKind::Alias {
-                        name,
-                        generics,
-                        alias,
-                    },
-                );
-            }
-            Self::StructDeclaration(name, generics, fields) => {
-                let resolved_fields = fields
-                    .into_iter()
-                    .map(|(key, data_type)| {
-                        (
-                            key,
-                            data_type.kind.resolve(datapack, Some(&generics)).unwrap(),
-                        )
-                    })
-                    .collect();
-
-                datapack.declare_data_type(
-                    name.clone(),
-                    DataTypeDeclarationKind::Struct {
-                        name,
-                        generics,
-                        fields: resolved_fields,
-                    },
-                );
-            }
             Self::Break => {
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
             }
@@ -589,19 +537,18 @@ impl StatementKind {
                     Command::Return(ReturnCommand::Run(Box::new(command))),
                 );
             }
+            Self::Item(item) => item.kind.compile(datapack, ctx),
         }
     }
 
     #[must_use]
     pub fn get_control_flow_kind(&self) -> Option<ControlFlowKind> {
         match self {
-            Self::MCFNDeclaration(_, _)
-            | Self::Expression(_)
+            Self::Expression(_)
             | Self::Let(_, _, _)
             | Self::Append(_, _)
             | Self::Remove(_)
-            | Self::TypeAliasDeclaration(_, _, _)
-            | Self::StructDeclaration(_, _, _) => None,
+            | Self::Item(_) => None,
             Self::While(_, statement) | Self::Loop(statement) | Self::ForIn(_, _, _, statement) => {
                 statement.kind.get_control_flow_kind()
             }
@@ -645,9 +592,6 @@ impl Statement {
         is_lhs: bool,
     ) -> Option<()> {
         match &self.kind {
-            StatementKind::MCFNDeclaration(_, statement) => {
-                statement.perform_semantic_analysis(ctx, is_lhs)
-            }
             StatementKind::Expression(expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
@@ -842,38 +786,6 @@ impl Statement {
                 is_lhs,
                 Some(&DataTypeKind::Data(Box::new(DataTypeKind::SNBT))),
             ),
-            StatementKind::TypeAliasDeclaration(name, generics, alias) => {
-                if ctx.data_type_is_declared(name) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsAlreadyDefined(name.clone()),
-                        ),
-                    });
-                }
-
-                if alias
-                    .perform_semantic_analysis(Some(generics), ctx)
-                    .is_some()
-                {
-                    let alias = alias.kind.resolve(ctx, Some(generics)).unwrap();
-
-                    ctx.declare_data_type(
-                        name.clone(),
-                        Some(DataTypeDeclarationKind::Alias {
-                            name: name.clone(),
-                            generics: generics.clone(),
-                            alias,
-                        }),
-                    );
-
-                    Some(())
-                } else {
-                    ctx.declare_data_type(name.clone(), None);
-
-                    None
-                }
-            }
             StatementKind::Break => {
                 if ctx.loop_depth == 0 {
                     ctx.add_info(SemanticAnalysisInfo {
@@ -898,48 +810,7 @@ impl Statement {
                     Some(())
                 }
             }
-            StatementKind::StructDeclaration(name, generics, fields) => {
-                if ctx.data_type_is_declared(name) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsAlreadyDefined(name.clone()),
-                        ),
-                    });
-                }
-
-                if fields
-                    .values()
-                    .map(|field| field.perform_semantic_analysis(Some(generics), ctx))
-                    .all_some()
-                    .is_none()
-                {
-                    ctx.declare_data_type(name.clone(), None);
-
-                    return None;
-                }
-
-                let resolved_fields = fields
-                    .iter()
-                    .map(|(key, field)| {
-                        field
-                            .kind
-                            .resolve(ctx, Some(generics))
-                            .map(|data_type| (key.clone(), data_type))
-                    })
-                    .collect::<Option<BTreeMap<_, _>>>()?;
-
-                ctx.declare_data_type(
-                    name.clone(),
-                    Some(DataTypeDeclarationKind::Struct {
-                        name: name.clone(),
-                        generics: generics.clone(),
-                        fields: resolved_fields,
-                    }),
-                );
-
-                Some(())
-            }
+            StatementKind::Item(item) => item.perform_semantic_analysis(ctx, is_lhs),
         }
     }
 

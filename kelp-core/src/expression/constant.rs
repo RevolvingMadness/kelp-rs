@@ -287,7 +287,7 @@ impl ConstantExpressionKind {
                     .kind
                     .infer_data_type(supports_variable_type_scope)?,
             )),
-            Self::Underscore => unreachable!(),
+            Self::Underscore => return None,
             Self::Struct(name, generics_types, _) => {
                 DataTypeKind::Struct(name.clone(), generics_types.clone())
             }
@@ -1796,7 +1796,7 @@ impl ConstantExpression {
             ConstantExpressionKind::Literal(expression) => {
                 expression.kind.perform_semantic_analysis(ctx, is_lhs)
             }
-            ConstantExpressionKind::Unit => Some(()),
+            ConstantExpressionKind::Unit | ConstantExpressionKind::Underscore => Some(()),
             ConstantExpressionKind::Reference(expression) => {
                 let data_type = expression.kind.infer_data_type(ctx)?;
 
@@ -1843,7 +1843,6 @@ impl ConstantExpression {
             | ConstantExpressionKind::Compound(_)
             | ConstantExpressionKind::Condition(_, _)
             | ConstantExpressionKind::Tuple(_)
-            | ConstantExpressionKind::Underscore
             | ConstantExpressionKind::Struct(_, _, _)
             | ConstantExpressionKind::Index(_, _)
             | ConstantExpressionKind::FieldAccess(_, _) => unreachable!(),

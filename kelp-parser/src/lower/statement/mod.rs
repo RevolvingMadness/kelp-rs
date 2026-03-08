@@ -3,7 +3,6 @@ use kelp_core::statement::{Statement, StatementKind};
 use crate::{
     cst::{CSTExpressionStatement, CSTStatement},
     lower::{
-        data_type::generics::lower_generic_names,
         expression::{is_expression_recovery, lower_expression, try_parse_expression},
         statement::{
             append::{lower_append_statement, try_parse_append_statement},
@@ -11,18 +10,10 @@ use crate::{
             r#break::{lower_break_statement, try_parse_break_statement},
             r#continue::{lower_continue_statement, try_parse_continue_statement},
             r#if::{lower_if_statement, try_parse_if_statement},
+            item::lower_item_statement,
             r#let::{lower_let_statement, try_parse_let_statement},
             r#loop::{lower_loop_statement, try_parse_loop_statement},
-            mcfn_declaration::{
-                lower_mcfn_declaration_statement, try_parse_mcfn_declaration_statement,
-            },
             remove::{lower_remove_statement, try_parse_remove_statement},
-            struct_declaration::{
-                lower_struct_declaration_statement_field, try_parse_struct_declaration_statement,
-            },
-            type_alias_declaration::{
-                lower_type_alias_declaration_statement, try_parse_type_alias_declaration_statement,
-            },
             r#while::{lower_while_statement, try_parse_while_statement},
         },
     },
@@ -36,12 +27,10 @@ pub mod block;
 pub mod r#break;
 pub mod r#continue;
 pub mod r#if;
+pub mod item;
 pub mod r#let;
 pub mod r#loop;
-pub mod mcfn_declaration;
 pub mod remove;
-pub mod struct_declaration;
-pub mod type_alias_declaration;
 pub mod r#while;
 
 #[must_use]
@@ -71,16 +60,6 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                             return true;
                         }
                     }
-                    "mcfn" => {
-                        if try_parse_mcfn_declaration_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "struct" => {
-                        if try_parse_struct_declaration_statement(parser) {
-                            return true;
-                        }
-                    }
                     "while" => {
                         if try_parse_while_statement(parser) {
                             return true;
@@ -88,11 +67,6 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                     }
                     "loop" => {
                         if try_parse_loop_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "type" => {
-                        if try_parse_type_alias_declaration_statement(parser) {
                             return true;
                         }
                     }
@@ -163,33 +137,12 @@ pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
         CSTStatement::ExpressionStatement(node) => lower_expression_statement(node),
         CSTStatement::IfStatement(statement) => lower_if_statement(statement),
         CSTStatement::LetStatement(statement) => lower_let_statement(statement),
-        CSTStatement::MCFNDeclarationStatement(node) => lower_mcfn_declaration_statement(node),
-        CSTStatement::StructDeclarationStatement(node) => {
-            let span = span_of_cst_node(&node);
-
-            let struct_name_token = node.name()?;
-            let struct_name = struct_name_token.text().to_owned();
-
-            let generics = node.generic_names().and_then(lower_generic_names);
-
-            let fields = node
-                .fields()
-                .filter_map(lower_struct_declaration_statement_field)
-                .collect();
-
-            Some(
-                StatementKind::StructDeclaration(struct_name, generics.unwrap_or_default(), fields)
-                    .with_span(span),
-            )
-        }
         CSTStatement::WhileStatement(node) => lower_while_statement(node),
         CSTStatement::LoopStatement(node) => lower_loop_statement(node),
-        CSTStatement::TypeAliasDeclarationStatement(node) => {
-            lower_type_alias_declaration_statement(node)
-        }
         CSTStatement::BreakStatement(node) => lower_break_statement(node),
         CSTStatement::ContinueStatement(node) => lower_continue_statement(node),
         CSTStatement::AppendStatement(node) => lower_append_statement(node),
         CSTStatement::RemoveStatement(node) => lower_remove_statement(node),
+        CSTStatement::ItemStatement(node) => lower_item_statement(node),
     }
 }

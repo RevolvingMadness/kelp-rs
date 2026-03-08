@@ -31,10 +31,11 @@ use crate::{
             to_cast::lower_to_cast_expression,
             tuple::lower_tuple_expression,
             unary::lower_unary_expression,
+            underscore::lower_underscore_expression,
             unit::lower_unit_expression,
             variable::lower_variable_expression,
         },
-        statement::struct_declaration::bump_until_next_field_or_end,
+        item::struct_declaration::bump_until_next_field_or_end,
     },
     parser::Parser,
     span::span_of_cst_node,
@@ -58,6 +59,7 @@ pub mod r#struct;
 pub mod to_cast;
 pub mod tuple;
 pub mod unary;
+pub mod underscore;
 pub mod unit;
 pub mod variable;
 
@@ -569,6 +571,14 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 true
             }
             _ => {
+                if text == "_" {
+                    parser.start_node(SyntaxKind::UnderscoreExpression);
+                    parser.bump_identifier("_");
+                    parser.finish_node();
+
+                    return true;
+                }
+
                 let checkpoint = parser.checkpoint();
                 parser.bump_identifier(text);
 
@@ -683,6 +693,7 @@ pub fn lower_expression(node: CSTExpression) -> Option<Expression> {
     match node {
         CSTExpression::UnaryExpression(node) => lower_unary_expression(node),
         CSTExpression::VariableExpression(node) => lower_variable_expression(node),
+        CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node),
         CSTExpression::BooleanExpression(node) => lower_boolean_expression(node),
         CSTExpression::ByteExpression(node) => {
             lower_numerical_expression!(node, whole_value_token, i8, Byte)

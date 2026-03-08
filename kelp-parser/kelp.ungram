@@ -1,5 +1,32 @@
 Root =
-  Statement*
+  Item*
+
+// ----- Item -----
+Item =
+  MCFNDeclarationItem
+| StructDeclarationItem
+| TypeAliasDeclarationItem
+
+MCFNDeclarationItem =
+  'mcfn' ResourceLocation Statement
+
+StructDeclarationItem =
+  'struct'
+  name:'struct_name'
+  GenericNames?
+  '{'
+  (
+    fields:StructDeclarationItemField
+    (',' fields:StructDeclarationItemField)*
+    ','?
+  )?
+  '}'
+
+StructDeclarationItemField =
+  name:'struct_field_name' ':' DataType
+
+TypeAliasDeclarationItem =
+  'type' name:'data_type_name' GenericNames? '=' DataType
 
 // ----- Statement -----
 Statement =
@@ -9,13 +36,11 @@ Statement =
 | WhileStatement
 | LoopStatement
 | LetStatement
-| MCFNDeclarationStatement
-| StructDeclarationStatement
-| TypeAliasDeclarationStatement
 | BreakStatement
 | ContinueStatement
 | AppendStatement
 | RemoveStatement
+| ItemStatement
 
 BlockStatement =
   '{' Statement* '}'
@@ -35,27 +60,6 @@ LoopStatement =
 LetStatement =
   'let' Pattern (':' DataType)? '=' Expression
 
-MCFNDeclarationStatement =
-  'mcfn' ResourceLocation Statement
-
-StructDeclarationStatement =
-  'struct'
-  name:'struct_name'
-  GenericNames?
-  '{'
-  (
-    fields:StructDeclarationStatementField
-    (',' fields:StructDeclarationStatementField)*
-    ','?
-  )?
-  '}'
-
-StructDeclarationStatementField =
-  name:'struct_field_name' ':' DataType
-
-TypeAliasDeclarationStatement =
-  'type' name:'data_type_name' GenericNames? '=' DataType
-
 BreakStatement = 'break'
 
 ContinueStatement = 'continue'
@@ -63,6 +67,8 @@ ContinueStatement = 'continue'
 AppendStatement = 'append' target:Expression value:Expression
 
 RemoveStatement = 'remove' target:Expression
+
+ItemStatement = Item
 
 // ----- Generics -----
 GenericNames =
@@ -74,6 +80,7 @@ GenericDataTypes =
 // ----- Expression -----
 Expression =
   VariableExpression
+| UnderscoreExpression
 | UnaryExpression
 | AssignmentExpression
 | BinaryExpression
@@ -102,8 +109,9 @@ Expression =
 | IndexExpression
 | FieldAccessExpression
 
-VariableExpression =
-  'ident'
+VariableExpression = 'ident'
+
+UnderscoreExpression = '_'
 
 UnaryExpression =
   operator:('!' | '-' | '*' | '&') Expression

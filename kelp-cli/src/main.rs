@@ -2,10 +2,10 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::HighDatapack;
+use kelp_core::item::Item;
 use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
-use kelp_core::statement::Statement;
 use kelp_parser::cst::CSTRoot;
 use kelp_parser::lower::root::lower_root;
 use kelp_parser::parser::{ParseResult, Parser};
@@ -195,7 +195,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     }
 
     let lower_start = Instant::now();
-    let statements = lower_root(&root);
+    let items = lower_root(&root);
     let lower_elapsed = lower_start.elapsed();
 
     let mut semantic_analysis_context = SemanticAnalysisContext {
@@ -207,7 +207,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         .push_front(Scope::default());
 
     let start_semantic = Instant::now();
-    for statement in &statements {
+    for statement in &items {
         statement.perform_semantic_analysis(&mut semantic_analysis_context, false);
     }
     let semantic_elapsed = start_semantic.elapsed();
@@ -252,7 +252,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     if semantic_analysis_succeeded && parse_succeeded {
         process_success(
             part_1_elapsed,
-            statements,
+            items,
             &target_path_str,
             &input_text,
             &project_name,
@@ -262,7 +262,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
 fn process_success(
     existing_elapsed: Duration,
-    statements: Vec<Statement>,
+    items: Vec<Item>,
     _file_name: &str,
     _source_text: &str,
     project_name: &str,
@@ -274,8 +274,8 @@ fn process_success(
 
     let mut ctx = CompileContext::default();
     let start_compile = Instant::now();
-    for statement in statements {
-        statement.kind.compile(&mut datapack, &mut ctx);
+    for item in items {
+        item.kind.compile(&mut datapack, &mut ctx);
     }
     let compile_elapsed = start_compile.elapsed();
     println!(

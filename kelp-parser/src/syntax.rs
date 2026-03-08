@@ -201,6 +201,7 @@ pub enum SyntaxKind {
     TypedCompoundDataTypeField,
     TypedCompoundDataTypeFieldName,
     NamedDataType,
+    InferredDataType,
 
     Error,
     Garbage,

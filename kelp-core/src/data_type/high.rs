@@ -22,6 +22,7 @@ pub enum HighDataTypeKind {
     Reference(Box<HighDataType>),
     Tuple(Vec<HighDataType>),
     Unit,
+    Inferred,
 }
 
 impl HighDataTypeKind {
@@ -113,6 +114,7 @@ impl HighDataTypeKind {
                     })
                     .collect::<Option<_>>()?,
             ),
+            Self::Inferred => DataTypeKind::Inferred,
         })
     }
 }
@@ -205,7 +207,7 @@ impl HighDataType {
                     }
                 }
             }
-            HighDataTypeKind::Unit => {}
+            HighDataTypeKind::Unit | HighDataTypeKind::Inferred => {}
             HighDataTypeKind::Tuple(data_types) => data_types
                 .iter()
                 .map(|data_type| data_type.perform_semantic_analysis(context_generics, ctx))

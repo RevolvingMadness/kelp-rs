@@ -16,7 +16,6 @@ use crate::{
     expression::{
         Expression, ExpressionKind,
         constant::{ConstantExpression, ConstantExpressionKind},
-        supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::{data::GeneratedDataTarget, player_score::GeneratedPlayerScore},
     operator::ArithmeticOperator,
@@ -66,17 +65,17 @@ impl Place {
 
                     let safe_values: Vec<ConstantExpression> = values
                         .into_iter()
-                        .map(|v| match v.kind {
+                        .map(|value| match value.kind {
                             ConstantExpressionKind::PlayerScore(_) => {
-                                let unique = v.kind.as_score(datapack, ctx, true);
+                                let unique = value.kind.as_score(datapack, ctx, true);
                                 ConstantExpressionKind::PlayerScore(unique)
                                     .into_dummy_constant_expression()
                             }
                             ConstantExpressionKind::Data(_, _) => {
-                                let (t, p) = v.kind.as_data_force(datapack, ctx);
+                                let (t, p) = value.kind.as_data_force(datapack, ctx);
                                 ConstantExpressionKind::Data(t, p).into_dummy_constant_expression()
                             }
-                            _ => v,
+                            _ => value,
                         })
                         .collect();
 
@@ -84,7 +83,7 @@ impl Place {
                         place.assign(datapack, ctx, value);
                     }
                 } else {
-                    unreachable!()
+                    unreachable!("{:?}", value.kind)
                 }
             }
             Self::Dereference(expression) => {
@@ -230,50 +229,6 @@ pub struct PlaceType {
 }
 
 impl PlaceType {
-    #[must_use]
-    pub fn get_index_result(
-        &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
-    ) -> Option<DataTypeKind> {
-        match &self.kind {
-            PlaceTypeKind::Data(data_type_kind) | PlaceTypeKind::Variable(data_type_kind) => {
-                data_type_kind.get_index_result()
-            }
-            PlaceTypeKind::Index(place_type, _) => place_type
-                .get_index_result(supports_variable_type_scope)?
-                .get_index_result(),
-            PlaceTypeKind::FieldAccess(place_type, _, field) => place_type
-                .get_field_result(supports_variable_type_scope, field)?
-                .get_index_result(),
-            PlaceTypeKind::Score(_) | PlaceTypeKind::Tuple(_, _) | PlaceTypeKind::Underscore => {
-                None
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn get_field_result(
-        &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
-        field: &str,
-    ) -> Option<DataTypeKind> {
-        match &self.kind {
-            PlaceTypeKind::Data(data_type_kind) | PlaceTypeKind::Variable(data_type_kind) => {
-                data_type_kind.get_field_result(supports_variable_type_scope, field)
-            }
-            PlaceTypeKind::Index(place_type, _) => place_type
-                .get_index_result(supports_variable_type_scope)?
-                .get_field_result(supports_variable_type_scope, field),
-            PlaceTypeKind::FieldAccess(place_type, _, inner_field) => place_type
-                .get_field_result(supports_variable_type_scope, inner_field)?
-                .get_field_result(supports_variable_type_scope, field),
-            PlaceTypeKind::Score(data_type) | PlaceTypeKind::Tuple(_, data_type) => {
-                data_type.get_field_result(supports_variable_type_scope, field)
-            }
-            PlaceTypeKind::Underscore => None,
-        }
-    }
-
     pub fn perform_assignment_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -334,7 +289,7 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Index(target, target_data_type) => {
-                if target.get_index_result(ctx).is_none() {
+                if target_data_type.get_index_result().is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -353,7 +308,7 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::FieldAccess(target, target_data_type, field) => {
-                if target.get_field_result(ctx, &field).is_none() {
+                if target_data_type.get_field_result(ctx, &field).is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -433,7 +388,7 @@ impl PlaceType {
                 });
             }
             PlaceTypeKind::Index(target, target_data_type) => {
-                if target.get_index_result(ctx).is_none() {
+                if target_data_type.get_index_result().is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(
@@ -452,7 +407,7 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::FieldAccess(target, target_data_type, field) => {
-                if target.get_field_result(ctx, &field).is_none() {
+                if target_data_type.get_field_result(ctx, &field).is_none() {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: self.span,
                         kind: SemanticAnalysisInfoKind::Error(

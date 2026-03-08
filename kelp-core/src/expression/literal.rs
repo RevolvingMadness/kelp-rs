@@ -60,9 +60,9 @@ impl LiteralExpressionKind {
             Self::Boolean(_) => DataTypeKind::Boolean,
             Self::Byte(_) => DataTypeKind::Byte,
             Self::Short(_) => DataTypeKind::Short,
-            Self::Integer(_) => DataTypeKind::Integer,
+            Self::Integer(_) => DataTypeKind::InferredInteger,
             Self::Long(_) => DataTypeKind::Long,
-            Self::Float(_) => DataTypeKind::Float,
+            Self::Float(_) => DataTypeKind::InferredFloat,
             Self::Double(_) => DataTypeKind::Double,
             Self::String(_) => DataTypeKind::String,
         }

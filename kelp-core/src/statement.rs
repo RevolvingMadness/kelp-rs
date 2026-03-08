@@ -596,49 +596,43 @@ impl Statement {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)
             }
             StatementKind::Let(explicit_type, pattern, value) => {
-                let resolved_explicit_type = explicit_type.as_ref().map(|explicit_data_type| {
-                    explicit_data_type
-                        .perform_semantic_analysis(None, ctx)
-                        .and_then(|()| explicit_data_type.kind.resolve(ctx, None))
-                });
-
-                let resolved_explicit_type = match resolved_explicit_type {
-                    None => None,
-                    Some(Some(data_type)) => Some(data_type),
-                    Some(None) => {
-                        let _ = value.perform_semantic_analysis(ctx, is_lhs, None);
+                let variable_type = if let Some(explicit_type) = explicit_type {
+                    if explicit_type.perform_semantic_analysis(None, ctx).is_none() {
+                        let value_result = value.perform_semantic_analysis(ctx, is_lhs, None);
 
                         pattern.kind.destructure_unknown(ctx);
 
+                        value_result?;
+
                         return None;
                     }
-                };
 
-                let Some(value_type) = value.kind.infer_data_type(ctx) else {
-                    let _ = value.perform_semantic_analysis(
-                        ctx,
-                        is_lhs,
-                        resolved_explicit_type.as_ref(),
-                    );
+                    let explicit_type = explicit_type.kind.resolve(ctx, None).unwrap();
+
+                    let value_result =
+                        value.perform_semantic_analysis(ctx, is_lhs, Some(&explicit_type));
 
                     pattern.kind.destructure_unknown(ctx);
 
-                    return None;
-                };
+                    value_result?;
 
-                let variable_type = resolved_explicit_type.unwrap_or_else(|| value_type.clone());
+                    let value_type = value.kind.infer_data_type(ctx);
+
+                    explicit_type.try_infer(value_type)
+                } else {
+                    let value_result = value.perform_semantic_analysis(ctx, is_lhs, None);
+
+                    pattern.kind.destructure_unknown(ctx);
+
+                    value_result?;
+
+                    value.kind.infer_data_type(ctx)?
+                };
 
                 let mut error = false;
 
                 if value
                     .perform_semantic_analysis(ctx, is_lhs, Some(&variable_type))
-                    .is_none()
-                {
-                    error = true;
-                }
-
-                if variable_type
-                    .perform_equality_semantic_analysis(ctx, &value_type, value)
                     .is_none()
                 {
                     error = true;

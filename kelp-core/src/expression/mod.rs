@@ -165,7 +165,7 @@ impl ExpressionKind {
                 let data_type = if let Some(first) = list.first() {
                     first.kind.infer_data_type(supports_variable_type_scope)?
                 } else {
-                    DataTypeKind::SNBT
+                    DataTypeKind::Inferred
                 };
 
                 DataTypeKind::List(Box::new(data_type))
@@ -183,7 +183,7 @@ impl ExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
-            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
+            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::Inferred)),
             Self::Condition(_, _) => DataTypeKind::Byte,
             Self::Command(_) => DataTypeKind::Integer,
             Self::Index(target, _) => target
@@ -194,8 +194,15 @@ impl ExpressionKind {
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
                 .get_field_result(supports_variable_type_scope, &field.snbt_string.1)?,
-            Self::AsCast(_, data_type) => {
-                data_type.kind.resolve(supports_variable_type_scope, None)?
+            Self::AsCast(expression, data_type) => {
+                let expression_type = expression
+                    .kind
+                    .infer_data_type(supports_variable_type_scope);
+
+                data_type
+                    .kind
+                    .resolve(supports_variable_type_scope, None)?
+                    .try_infer(expression_type)
             }
             Self::ToCast(expression, storage_type) => match storage_type {
                 RuntimeStorageType::Score => {
@@ -500,8 +507,6 @@ impl Expression {
             ExpressionKind::Assignment(target, value) => {
                 target.perform_semantic_analysis(ctx, true, None)?;
 
-                let target_type = target.kind.infer_data_type(ctx)?;
-
                 let Some(place) = target.get_place_type(ctx) else {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: target.span,
@@ -511,8 +516,7 @@ impl Expression {
                     });
                 };
 
-                let value_result = value.perform_semantic_analysis(ctx, false, Some(&target_type));
-                value_result?;
+                value.perform_semantic_analysis(ctx, false, None)?;
 
                 let value_data_type = value.kind.infer_data_type(ctx)?;
 
@@ -832,16 +836,6 @@ impl Expression {
                 ExpressionKind::Constant(expression) => {
                     return expression.get_place_type(supports_variable_type_scope);
                 }
-                ExpressionKind::ToCast(expression, runtime_storage_type) => {
-                    let expression_type = expression
-                        .kind
-                        .infer_data_type(supports_variable_type_scope)?;
-
-                    match runtime_storage_type {
-                        RuntimeStorageType::Score => PlaceTypeKind::Score(expression_type),
-                        RuntimeStorageType::Data => PlaceTypeKind::Data(expression_type),
-                    }
-                }
                 ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataTypeKind::Integer),
                 ExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
                 ExpressionKind::Unary(UnaryOperator::Dereference, _) => self
@@ -866,12 +860,6 @@ impl Expression {
                         target_data_type,
                         field.snbt_string.1.clone(),
                     )
-                }
-                ExpressionKind::AsCast(_, data_type) => {
-                    let resolved_data_type =
-                        data_type.kind.resolve(supports_variable_type_scope, None)?;
-
-                    resolved_data_type.as_place_type().ok()?
                 }
                 _ => return None,
             })

@@ -271,6 +271,7 @@ DataType =
 | TypedCompoundDataType
 | UnitDataType
 | NamedDataType
+| InferredDataType
 
 ReferenceDataType =
   '&' DataType
@@ -295,6 +296,8 @@ TypedCompoundDataTypeField =
 
 NamedDataType =
   'data_type_name' GenericDataTypes?
+
+InferredDataType = '_'
 
 // ----- NBT Path -----
 NBTPath =

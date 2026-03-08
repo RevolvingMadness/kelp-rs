@@ -287,7 +287,7 @@ impl ConstantExpressionKind {
                     .kind
                     .infer_data_type(supports_variable_type_scope)?,
             )),
-            Self::Underscore => return None,
+            Self::Underscore => DataTypeKind::Inferred,
             Self::Struct(name, generics_types, _) => {
                 DataTypeKind::Struct(name.clone(), generics_types.clone())
             }

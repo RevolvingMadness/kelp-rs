@@ -129,7 +129,9 @@ pub enum DataTypeKind {
     Tuple(Vec<Self>),
     SNBT,
     Struct(String, Vec<Self>),
-    Unknown,
+    Inferred,
+    InferredInteger,
+    InferredFloat,
 }
 
 impl Display for DataTypeKind {
@@ -204,12 +206,57 @@ impl Display for DataTypeKind {
 
                 Ok(())
             }
-            Self::Unknown => f.write_str("_"),
+            Self::Inferred => f.write_str("_"),
+            Self::InferredInteger => f.write_str("{integer}"),
+            Self::InferredFloat => f.write_str("{float}"),
         }
     }
 }
 
 impl DataTypeKind {
+    #[must_use]
+    pub const fn is_integer_like(&self) -> bool {
+        matches!(
+            self,
+            Self::Byte | Self::Short | Self::Integer | Self::Long | Self::InferredInteger
+        )
+    }
+
+    #[must_use]
+    pub const fn is_float_like(&self) -> bool {
+        matches!(self, Self::Float | Self::Double | Self::InferredFloat)
+    }
+
+    #[must_use]
+    pub const fn is_numeric(&self) -> bool {
+        self.is_integer_like() || self.is_float_like()
+    }
+
+    #[must_use]
+    pub fn try_infer(self, other: Option<Self>) -> Self {
+        let Some(other) = other else {
+            return self;
+        };
+
+        match (self, other) {
+            (Self::Inferred, other) | (other, Self::Inferred) => other,
+
+            (Self::InferredInteger, other) | (other, Self::InferredInteger)
+                if other.is_integer_like() =>
+            {
+                other
+            }
+
+            (Self::InferredFloat, other) | (other, Self::InferredFloat)
+                if other.is_float_like() =>
+            {
+                other
+            }
+
+            (self_, _) => self_,
+        }
+    }
+
     #[must_use]
     pub fn is_runtime(&self) -> bool {
         match self {
@@ -226,9 +273,9 @@ impl DataTypeKind {
             Self::Boolean => Self::Boolean,
             Self::Byte => Self::Byte,
             Self::Short => Self::Short,
-            Self::Integer => Self::Integer,
+            Self::Integer | Self::InferredInteger => Self::Integer,
             Self::Long => Self::Long,
-            Self::Float => Self::Float,
+            Self::Float | Self::InferredFloat => Self::Float,
             Self::Double => Self::Double,
             Self::String => Self::String,
             Self::Unit => Self::Unit,
@@ -249,7 +296,7 @@ impl DataTypeKind {
             }
             Self::SNBT => Self::SNBT,
             Self::Struct(name, generic_types) => Self::Struct(name, generic_types),
-            Self::Unknown => Self::Unknown,
+            Self::Inferred => Self::Inferred,
         }
     }
 
@@ -1167,23 +1214,23 @@ impl DataTypeKind {
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
     ) -> Option<bool> {
         Some(match self {
-            Self::Boolean | Self::Byte | Self::Short | Self::Integer => true,
+            Self::Boolean => true,
+            t if t.is_integer_like() => true,
+
             Self::Data(data_type)
             | Self::Score(data_type)
             | Self::Reference(data_type)
             | Self::Compound(data_type) => {
                 data_type.is_score_compatible(supports_variable_type_scope)?
             }
-            Self::Generic(_) => unreachable!(),
+
             Self::Struct(name, generics) => {
                 let declaration = supports_variable_type_scope.get_data_type(name)??;
-
                 let fields =
                     declaration.get_struct_fields(supports_variable_type_scope, generics)?;
-
                 fields
                     .values()
-                    .map(|data_type| data_type.is_score_compatible(supports_variable_type_scope))
+                    .map(|dt| dt.is_score_compatible(supports_variable_type_scope))
                     .all_some_true()?
             }
             _ => false,
@@ -1199,8 +1246,10 @@ impl DataTypeKind {
             | Self::Byte
             | Self::Short
             | Self::Integer
+            | Self::InferredInteger
             | Self::Long
             | Self::Float
+            | Self::InferredFloat
             | Self::Double
             | Self::String
             | Self::SNBT
@@ -1228,32 +1277,37 @@ impl DataTypeKind {
         }
     }
 
-    #[allow(clippy::only_used_in_recursion)]
     fn raw_get_arithmetic_result(
         &self,
         supports_variable_type_score: &impl SupportsVariableTypeScope,
         _operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
-        Some(match (self, other) {
-            (Self::Byte, Self::Byte) => Self::Byte,
-            (Self::Short, Self::Short) => Self::Short,
-            (Self::Integer, Self::Integer) => Self::Integer,
-            (Self::Long, Self::Long) => Self::Long,
-            (Self::Score(inner_type), other) | (other, Self::Score(inner_type))
+        if self.is_integer_like() && other.is_integer_like() {
+            return Some(match (self, other) {
+                (Self::Long, _) | (_, Self::Long) => Self::Long,
+                (Self::Integer, _) | (_, Self::Integer) => Self::Integer,
+                (Self::Short, _) | (_, Self::Short) => Self::Short,
+                (Self::Byte, _) | (_, Self::Byte) => Self::Byte,
+                _ => Self::InferredInteger,
+            });
+        }
+
+        match (self, other) {
+            (Self::Score(inner), other) | (other, Self::Score(inner))
                 if other.is_score_compatible(supports_variable_type_score)?
-                    && inner_type.is_score_compatible(supports_variable_type_score)? =>
+                    && inner.is_score_compatible(supports_variable_type_score)? =>
             {
-                Self::Score(Box::new(Self::Integer))
+                Some(Self::Score(Box::new(Self::Integer)))
             }
-            (Self::Data(inner_type), other) | (other, Self::Data(inner_type))
+            (Self::Data(inner), other) | (other, Self::Data(inner))
                 if other.is_score_compatible(supports_variable_type_score)?
-                    && inner_type.is_score_compatible(supports_variable_type_score)? =>
+                    && inner.is_score_compatible(supports_variable_type_score)? =>
             {
-                Self::Score(Box::new(Self::Integer))
+                Some(Self::Score(Box::new(Self::Integer)))
             }
-            _ => return None,
-        })
+            _ => None,
+        }
     }
 
     #[must_use]
@@ -1280,10 +1334,10 @@ impl DataTypeKind {
     ) -> bool {
         match (self, other) {
             (_, other) if *operator == ArithmeticOperator::Swap && !other.is_lvalue() => false,
-            (Self::Byte, Self::Byte)
-            | (Self::Short, Self::Short)
-            | (Self::Integer, Self::Integer)
-            | (Self::Long, Self::Long) => true,
+            (Self::Byte | Self::InferredInteger, Self::Byte | Self::InferredInteger)
+            | (Self::Short | Self::InferredInteger, Self::Short | Self::InferredInteger)
+            | (Self::Integer | Self::InferredInteger, Self::Integer | Self::InferredInteger)
+            | (Self::Long | Self::InferredInteger, Self::Long | Self::InferredInteger) => true,
             (Self::Data(inner) | Self::Score(inner), other)
             | (other, Self::Data(inner) | Self::Score(inner)) => {
                 inner.can_perform_augmented_assignment(operator, other)
@@ -1299,34 +1353,27 @@ impl DataTypeKind {
         operator: ComparisonOperator,
         other: &Self,
     ) -> Option<bool> {
-        Some(match (self, other) {
-            (Self::Byte, Self::Byte)
-            | (Self::Short, Self::Short)
-            | (Self::Integer, Self::Integer)
-            | (Self::Long, Self::Long)
-            | (Self::Float, Self::Float)
-            | (Self::Double, Self::Double) => true,
-            (Self::Score(inner_score_type), other_type)
-            | (other_type, Self::Score(inner_score_type))
-                if inner_score_type.is_score_compatible(supports_variable_type_score)?
+        if self.is_numeric() && other.is_numeric() {
+            return Some(true);
+        }
+
+        match (self, other) {
+            (Self::Score(inner), other_type) | (other_type, Self::Score(inner))
+                if inner.is_score_compatible(supports_variable_type_score)?
                     && other_type.is_score_compatible(supports_variable_type_score)? =>
             {
-                inner_score_type.can_perform_comparison(
-                    supports_variable_type_score,
-                    operator,
-                    other_type,
-                )?
+                inner.can_perform_comparison(supports_variable_type_score, operator, other_type)
             }
-            (Self::Data(inner_type), other) | (other, Self::Data(inner_type))
+            (Self::Data(inner), other) | (other, Self::Data(inner))
                 if (operator == ComparisonOperator::EqualTo
                     || operator == ComparisonOperator::NotEqualTo)
-                    || (inner_type.is_score_compatible(supports_variable_type_score)?
+                    || (inner.is_score_compatible(supports_variable_type_score)?
                         && other.is_score_compatible(supports_variable_type_score)?) =>
             {
-                inner_type.can_perform_comparison(supports_variable_type_score, operator, other)?
+                inner.can_perform_comparison(supports_variable_type_score, operator, other)
             }
-            _ => false,
-        })
+            _ => Some(false),
+        }
     }
 
     #[must_use]
@@ -1453,30 +1500,41 @@ impl DataTypeKind {
     #[must_use]
     pub fn equals(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::SNBT, _) | (_, Self::SNBT) => true,
-            (Self::List(self_type), Self::List(other_type))
-            | (Self::Compound(self_type), Self::Compound(other_type)) => {
-                self_type.equals(other_type)
+            (Self::Inferred, _) | (_, Self::Inferred) => true,
+
+            (Self::InferredInteger, rhs) | (rhs, Self::InferredInteger)
+                if rhs.is_integer_like() =>
+            {
+                true
             }
-            (Self::Tuple(self_elements), Self::Tuple(other_elements)) => {
-                self_elements.len() == other_elements.len()
-                    && self_elements
+
+            (Self::InferredFloat, rhs) | (rhs, Self::InferredFloat) if rhs.is_float_like() => true,
+
+            (Self::List(data_types), Self::List(other_data_types))
+            | (Self::Compound(data_types), Self::Compound(other_data_types))
+            | (Self::Data(data_types), Self::Data(other_data_types)) => {
+                data_types.equals(other_data_types)
+            }
+
+            (Self::Tuple(data_types), Self::Tuple(other_data_types)) => {
+                data_types.len() == other_data_types.len()
+                    && data_types
                         .iter()
-                        .zip(other_elements)
+                        .zip(other_data_types)
                         .all(|(s, o)| s.equals(o))
             }
-            (Self::TypedCompound(self_compound), Self::TypedCompound(other_compound)) => {
-                other_compound.iter().all(|(key, other_type)| {
-                    self_compound
-                        .get(key)
-                        .is_some_and(|self_type| self_type.equals(other_type))
+
+            (Self::TypedCompound(data_types), Self::TypedCompound(other_data_types)) => {
+                other_data_types.iter().all(|(key, data_type)| {
+                    data_types.get(key).is_some_and(|sv| sv.equals(data_type))
                 })
             }
-            (Self::Compound(compound_data_type), Self::TypedCompound(data_types))
-            | (Self::TypedCompound(data_types), Self::Compound(compound_data_type)) => data_types
-                .values()
-                .all(|data_type| data_type.equals(compound_data_type)),
-            (Self::Data(self_data), Self::Data(other_data)) => self_data.equals(other_data),
+
+            (Self::Compound(inner), Self::TypedCompound(map))
+            | (Self::TypedCompound(map), Self::Compound(inner)) => {
+                map.values().all(|v| v.equals(inner))
+            }
+
             _ => self == other,
         }
     }

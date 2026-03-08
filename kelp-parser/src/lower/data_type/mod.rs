@@ -7,6 +7,7 @@ use minecraft_command_types::snbt::SNBTString;
 use crate::{
     cst::{CSTDataType, CSTTypedCompoundDataTypeField},
     lower::data_type::{
+        inferred::lower_inferred_data_type,
         named::{lower_named_data_type, try_parse_named_data_type},
         reference::{lower_reference_data_type, try_parse_reference_data_type},
         typed_compound::try_parse_typed_compound_data_type,
@@ -17,6 +18,7 @@ use crate::{
 };
 
 pub mod generics;
+pub mod inferred;
 pub mod named;
 pub mod reference;
 pub mod typed_compound;
@@ -27,13 +29,17 @@ pub fn try_parse_data_type(parser: &mut Parser) -> bool {
         Some('&') => try_parse_reference_data_type(parser),
         Some('(') => try_parse_tuple_or_unit_data_type(parser),
         Some('{') => try_parse_typed_compound_data_type(parser),
-        _ => {
-            if parser.peek_identifier().is_some() {
-                try_parse_named_data_type(parser)
+        _ => parser.peek_identifier().is_some_and(|identifier| {
+            if identifier == "_" {
+                parser.start_node(SyntaxKind::InferredDataType);
+                parser.bump_char();
+                parser.finish_node();
+
+                true
             } else {
-                false
+                try_parse_named_data_type(parser)
             }
-        }
+        }),
     }
 }
 
@@ -111,5 +117,6 @@ pub fn lower_data_type(node: CSTDataType) -> Option<HighDataType> {
             Some(HighDataTypeKind::TypedCompound(fields).with_span(span))
         }
         CSTDataType::NamedDataType(node) => lower_named_data_type(node),
+        CSTDataType::InferredDataType(node) => lower_inferred_data_type(node),
     }
 }

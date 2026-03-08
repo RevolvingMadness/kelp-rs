@@ -10,6 +10,7 @@ use minecraft_command_types::{
         },
         execute::{
             ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
+            ScoreComparisonOperator,
         },
         r#return::ReturnCommand,
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
@@ -97,6 +98,19 @@ pub fn split_constants_compound(
     }
 
     (constants, non_constants)
+}
+
+fn integer_range_from_comparison_operator(
+    operator: &ScoreComparisonOperator,
+    value: i32,
+) -> IntegerRange {
+    match operator {
+        ScoreComparisonOperator::LessThan => IntegerRange::new_max(value - 1),
+        ScoreComparisonOperator::LessThanOrEqualTo => IntegerRange::new_max(value),
+        ScoreComparisonOperator::EqualTo => IntegerRange::new_single(value),
+        ScoreComparisonOperator::GreaterThan => IntegerRange::new_min(value + 1),
+        ScoreComparisonOperator::GreaterThanOrEqualTo => IntegerRange::new_min(value),
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -1010,6 +1024,20 @@ impl ResolvedExpression {
                 )
             }
             (Self::PlayerScore(score), other) => {
+                if let Some(value) = other.try_as_i32(false) {
+                    return Self::Condition(
+                        operator.should_execute_if_be_inverted(),
+                        Box::new(ExecuteIfSubcommand::Score(
+                            score.score,
+                            ScoreComparison::Range(integer_range_from_comparison_operator(
+                                &operator.into_score_comparison_operator(),
+                                value,
+                            )),
+                            None,
+                        )),
+                    );
+                }
+
                 let right_score = other.as_score(datapack, ctx, false);
 
                 Self::Condition(

@@ -11,8 +11,7 @@ use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
     expression::{
-        Expression, ExpressionKind,
-        constant::{ConstantExpression, ConstantExpressionKind},
+        Expression, ExpressionKind, constant::ResolvedExpression,
         supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::snbt_string::HighSNBTString,
@@ -762,41 +761,38 @@ impl DataTypeKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         patterns: &[Pattern],
-        value: ConstantExpressionKind,
+        value: ResolvedExpression,
     ) {
         match (self, value) {
-            (Self::Tuple(data_types), ConstantExpressionKind::Tuple(expressions)) => {
+            (Self::Tuple(data_types), ResolvedExpression::Tuple(expressions)) => {
                 for ((pattern, expression), data_type) in
                     patterns.iter().zip(expressions).zip(data_types)
                 {
                     data_type.destructure(datapack, ctx, expression, pattern);
                 }
             }
-            (Self::Tuple(data_types), ConstantExpressionKind::Data(target, path)) => {
+            (Self::Tuple(data_types), ResolvedExpression::Data(target_path)) => {
+                let (target, path) = *target_path;
+
                 for (i, (pattern, data_type)) in patterns.iter().zip(data_types).enumerate() {
-                    let expression = ConstantExpressionKind::Data(
+                    let expression = ResolvedExpression::Data(Box::new((
                         target.clone(),
                         path.clone()
                             .with_node(NbtPathNode::Index(Some(SNBT::Integer(i as i32)))),
-                    );
+                    )));
 
-                    data_type.destructure(
-                        datapack,
-                        ctx,
-                        expression.into_dummy_constant_expression(),
-                        pattern,
-                    );
+                    data_type.destructure(datapack, ctx, expression, pattern);
                 }
             }
-            (Self::Reference(self_), ConstantExpressionKind::Reference(value)) => {
-                self_.distribute_references().destructure_tuple(
-                    datapack,
-                    ctx,
-                    patterns,
-                    value.kind.distribute_references(),
-                );
-            }
-            (Self::Data(inner_type), value @ ConstantExpressionKind::Data(_, _)) => {
+            // (Self::Reference(self_), ResolvedExpression::Reference(value)) => {
+            //     self_.distribute_references().destructure_tuple(
+            //         datapack,
+            //         ctx,
+            //         patterns,
+            //         value.kind.distribute_references(),
+            //     );
+            // }
+            (Self::Data(inner_type), value @ ResolvedExpression::Data(_)) => {
                 inner_type
                     .distribute_data()
                     .destructure_tuple(datapack, ctx, patterns, value);
@@ -810,10 +806,10 @@ impl DataTypeKind {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
-        value: ConstantExpressionKind,
+        value: ResolvedExpression,
     ) {
         match (self, value) {
-            (Self::TypedCompound(data_types), ConstantExpressionKind::Compound(expressions)) => {
+            (Self::TypedCompound(data_types), ResolvedExpression::Compound(expressions)) => {
                 for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
                     let expression = expression.clone();
                     let data_type = data_types.get(&key.snbt_string).unwrap().clone();
@@ -825,7 +821,7 @@ impl DataTypeKind {
                     }
                 }
             }
-            (Self::Compound(data_type), ConstantExpressionKind::Compound(expressions)) => {
+            (Self::Compound(data_type), ResolvedExpression::Compound(expressions)) => {
                 for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
                     let expression = expression.clone();
                     let data_type = *data_type.clone();
@@ -837,17 +833,18 @@ impl DataTypeKind {
                     }
                 }
             }
-            (Self::Data(data_type), value @ ConstantExpressionKind::Data(_, _)) => {
+            (Self::Data(data_type), value @ ResolvedExpression::Data(_)) => {
                 data_type.destructure_compound(datapack, ctx, patterns, value);
             }
-            (Self::TypedCompound(data_types), ConstantExpressionKind::Data(target, path)) => {
+            (Self::TypedCompound(data_types), ResolvedExpression::Data(target_path)) => {
+                let (target, path) = *target_path;
+
                 for (key, pattern) in patterns {
-                    let expression = ConstantExpressionKind::Data(
+                    let expression = ResolvedExpression::Data(Box::new((
                         target.clone(),
                         path.clone()
                             .with_node(NbtPathNode::Named(key.snbt_string.clone(), None)),
-                    )
-                    .into_dummy_constant_expression();
+                    )));
                     let data_type = data_types.get(&key.snbt_string).unwrap().clone();
 
                     if let Some(pattern) = pattern {
@@ -857,14 +854,14 @@ impl DataTypeKind {
                     }
                 }
             }
-            (Self::Reference(self_), ConstantExpressionKind::Reference(value)) => {
-                self_.distribute_references().destructure_compound(
-                    datapack,
-                    ctx,
-                    patterns,
-                    value.kind.distribute_references(),
-                );
-            }
+            // (Self::Reference(self_), ResolvedExpression::Reference(value)) => {
+            //     self_.distribute_references().destructure_compound(
+            //         datapack,
+            //         ctx,
+            //         patterns,
+            //         value.kind.distribute_references(),
+            //     );
+            // }
             (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
         }
     }
@@ -875,10 +872,10 @@ impl DataTypeKind {
         ctx: &mut CompileContext,
         name: &str,
         field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
-        value: ConstantExpressionKind,
+        value: ResolvedExpression,
     ) {
         match (self, value) {
-            (Self::Struct(_, generics), ConstantExpressionKind::Struct(_, _, fields)) => {
+            (Self::Struct(_, generics), ResolvedExpression::Struct(_, _, fields)) => {
                 let declaration = datapack.get_data_type(name).unwrap();
                 let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
@@ -893,7 +890,9 @@ impl DataTypeKind {
                     }
                 }
             }
-            (Self::Struct(_, generics), ConstantExpressionKind::Data(target, path)) => {
+            (Self::Struct(_, generics), ResolvedExpression::Data(target_path)) => {
+                let (target, path) = *target_path;
+
                 let declaration = datapack.get_data_type(name).unwrap();
                 let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
@@ -901,8 +900,8 @@ impl DataTypeKind {
                     let field_path = path
                         .clone()
                         .with_node(NbtPathNode::Named(key.snbt_string.clone(), None));
-                    let field_value = ConstantExpressionKind::Data(target.clone(), field_path)
-                        .into_dummy_constant_expression();
+                    let field_value =
+                        ResolvedExpression::Data(Box::new((target.clone(), field_path)));
 
                     let data_type = field_types.get(&key.snbt_string.1).unwrap().clone();
 
@@ -928,15 +927,15 @@ impl DataTypeKind {
                     value,
                 );
             }
-            (self_, ConstantExpressionKind::Reference(value)) => {
-                self_.destructure_struct(
-                    datapack,
-                    ctx,
-                    name,
-                    field_patterns,
-                    value.kind.distribute_references(),
-                );
-            }
+            // (self_, ResolvedExpression::Reference(value)) => {
+            //     self_.destructure_struct(
+            //         datapack,
+            //         ctx,
+            //         name,
+            //         field_patterns,
+            //         value.kind.distribute_references(),
+            //     );
+            // }
             (Self::Data(inner_type), value) => {
                 inner_type.distribute_data().destructure_struct(
                     datapack,
@@ -963,7 +962,7 @@ impl DataTypeKind {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        value: ConstantExpression,
+        value: ResolvedExpression,
         pattern: &Pattern,
     ) {
         match &pattern.kind {
@@ -972,23 +971,20 @@ impl DataTypeKind {
                 datapack.declare_variable(name.clone(), self, value);
             }
             PatternKind::Tuple(patterns) => {
-                self.destructure_tuple(datapack, ctx, patterns, value.kind);
+                self.destructure_tuple(datapack, ctx, patterns, value);
             }
             PatternKind::Compound(patterns) => {
-                self.destructure_compound(datapack, ctx, patterns, value.kind);
+                self.destructure_compound(datapack, ctx, patterns, value);
             }
             PatternKind::Dereference(pattern) => {
-                let value = value
-                    .kind
-                    .dereference(datapack, ctx)
-                    .into_dummy_constant_expression();
+                let value = value.dereference(datapack, ctx).unwrap();
 
                 self.dereference()
                     .unwrap()
                     .destructure(datapack, ctx, value, pattern);
             }
             PatternKind::Struct(name, field_patterns) => {
-                self.destructure_struct(datapack, ctx, name, field_patterns, value.kind);
+                self.destructure_struct(datapack, ctx, name, field_patterns, value);
             }
         }
     }
@@ -1153,6 +1149,15 @@ impl DataTypeKind {
         })
     }
 
+    pub fn as_dereferenced_place_type(self) -> Result<PlaceTypeKind, Self> {
+        Ok(match self {
+            Self::Reference(data_type) => data_type.as_place_type()?,
+            Self::Score(inner_type) => PlaceTypeKind::Score(*inner_type),
+            Self::Data(inner_type) => PlaceTypeKind::Data(*inner_type),
+            _ => return Err(self),
+        })
+    }
+
     #[must_use]
     pub fn dereference(self) -> Option<Self> {
         Some(match self {
@@ -1170,32 +1175,18 @@ impl DataTypeKind {
 
     #[must_use]
     pub fn can_cast_to(&self, data_type: &Self) -> bool {
-        if self.equals(data_type) {
-            return true;
-        }
+        match (self, data_type) {
+            (Self::Score(self_type), Self::Score(data_type))
+            | (Self::Data(self_type), Self::Data(data_type)) => self_type == data_type,
 
-        matches!(
-            (self, data_type),
-            (
-                Self::Byte | Self::Integer | Self::Long | Self::Float | Self::Double,
-                Self::Short
-            ) | (
-                Self::Byte | Self::Short | Self::Long | Self::Float | Self::Double,
-                Self::Integer
-            ) | (
-                Self::Byte | Self::Short | Self::Integer | Self::Float | Self::Double,
-                Self::Long
-            ) | (
-                Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Double,
-                Self::Float
-            ) | (
-                Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float,
-                Self::Double
-            ) | (
-                Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
-                Self::Byte
-            )
-        )
+            (Self::InferredInteger, Self::Byte | Self::Short | Self::Integer | Self::Long)
+            | (Self::InferredFloat, Self::Float | Self::Double)
+            | (
+                Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
+                Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
+            ) => true,
+            _ => false,
+        }
     }
 
     #[must_use]

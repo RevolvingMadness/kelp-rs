@@ -13,10 +13,7 @@ use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
-    expression::{
-        Expression, ExpressionKind,
-        constant::{ConstantExpression, ConstantExpressionKind},
-    },
+    expression::{Expression, ExpressionKind, constant::ResolvedExpression},
     high::{data::GeneratedDataTarget, player_score::GeneratedPlayerScore},
     operator::ArithmeticOperator,
     semantic_analysis_context::{
@@ -33,9 +30,9 @@ pub enum Place {
     Data(GeneratedDataTarget, NbtPath),
     Variable(String),
     Tuple(Vec<Self>),
-    Dereference(Box<ConstantExpression>),
-    Field(Box<ConstantExpression>, String),
-    Index(Box<ConstantExpression>, Box<ConstantExpression>),
+    Dereference(Box<ResolvedExpression>),
+    Field(Box<ResolvedExpression>, String),
+    Index(Box<ResolvedExpression>, Box<ResolvedExpression>),
     Underscore,
 }
 
@@ -44,36 +41,36 @@ impl Place {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        value: ConstantExpression,
+        value: ResolvedExpression,
     ) {
         match self {
             Self::Score(score) => {
-                value.kind.assign_to_score(datapack, ctx, score);
+                value.assign_to_score(datapack, ctx, score);
             }
             Self::Data(target, path) => {
-                value.kind.assign_to_data(datapack, ctx, target, path);
+                value.assign_to_data(datapack, ctx, target, path);
             }
             Self::Variable(name) => {
                 datapack.assign_variable(&name, value);
             }
             Self::Underscore => {}
             Self::Tuple(places) => {
-                if let ConstantExpressionKind::Tuple(values) = value.kind {
+                if let ResolvedExpression::Tuple(values) = value {
                     if places.len() != values.len() {
                         return;
                     }
 
-                    let safe_values: Vec<ConstantExpression> = values
+                    let safe_values: Vec<ResolvedExpression> = values
                         .into_iter()
-                        .map(|value| match value.kind {
-                            ConstantExpressionKind::PlayerScore(_) => {
-                                let unique = value.kind.as_score(datapack, ctx, true);
-                                ConstantExpressionKind::PlayerScore(unique)
-                                    .into_dummy_constant_expression()
+                        .map(|value| match value {
+                            ResolvedExpression::PlayerScore(_) => {
+                                let unique = value.as_score(datapack, ctx, true);
+                                ResolvedExpression::PlayerScore(unique)
                             }
-                            ConstantExpressionKind::Data(_, _) => {
-                                let (t, p) = value.kind.as_data_force(datapack, ctx);
-                                ConstantExpressionKind::Data(t, p).into_dummy_constant_expression()
+                            ResolvedExpression::Data(_) => {
+                                let (target, path) = value.as_data(datapack, ctx, true);
+
+                                ResolvedExpression::Data(Box::new((target, path)))
                             }
                             _ => value,
                         })
@@ -83,17 +80,17 @@ impl Place {
                         place.assign(datapack, ctx, value);
                     }
                 } else {
-                    unreachable!("{:?}", value.kind)
+                    unreachable!("{:?}", value)
                 }
             }
             Self::Dereference(expression) => {
-                expression.kind.as_place().assign(datapack, ctx, value);
+                expression.as_place().assign(datapack, ctx, value);
             }
             Self::Field(mut target, field) => {
-                target.kind.assign_field(datapack, ctx, &field, value);
+                target.assign_field(datapack, ctx, &field, value);
             }
             Self::Index(mut target, index) => {
-                target.kind.assign_index(datapack, ctx, index.kind, value);
+                target.assign_index(datapack, ctx, *index, value);
             }
         }
     }
@@ -103,7 +100,7 @@ impl Place {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: ConstantExpressionKind,
+        value: ResolvedExpression,
     ) {
         match self {
             Self::Score(score) => {
@@ -112,7 +109,7 @@ impl Place {
             Self::Data(target, path) => {
                 let unique_score = datapack.get_unique_score();
 
-                ConstantExpressionKind::Data(target.clone(), path.clone()).assign_to_score(
+                ResolvedExpression::Data(Box::new((target.clone(), path.clone()))).assign_to_score(
                     datapack,
                     ctx,
                     unique_score.clone(),
@@ -143,20 +140,17 @@ impl Place {
             Self::Variable(name) => {
                 let (_, variable_value) = datapack.get_variable(&name).unwrap();
 
-                if variable_value.kind.is_lvalue() {
-                    variable_value
-                        .kind
-                        .compile_augmented_assignment(datapack, ctx, operator, value);
+                if variable_value.is_lvalue() {
+                    variable_value.compile_augmented_assignment(datapack, ctx, operator, value);
                 } else {
-                    let new_kind = variable_value
-                        .kind
-                        .perform_arithmetic(datapack, ctx, operator, value);
+                    let new_value =
+                        variable_value.perform_arithmetic(datapack, ctx, operator, value);
 
-                    datapack.get_variable_mut(&name).unwrap().kind = new_kind;
+                    *datapack.get_variable_mut(&name).unwrap() = new_value;
                 }
             }
             Self::Field(mut target, field) => {
-                let current_value = target.kind.clone().access_field(datapack, ctx, &field);
+                let current_value = target.clone().access_field(&field).unwrap();
 
                 if current_value.is_lvalue() {
                     current_value
@@ -165,16 +159,12 @@ impl Place {
                 } else {
                     let new_value =
                         current_value.perform_arithmetic(datapack, ctx, operator, value);
-                    target.kind.assign_field(
-                        datapack,
-                        ctx,
-                        &field,
-                        new_value.into_dummy_constant_expression(),
-                    );
+
+                    target.assign_field(datapack, ctx, &field, new_value);
                 }
             }
             Self::Index(mut target, index) => {
-                let current_value = target.kind.clone().index(datapack, ctx, index.kind.clone());
+                let current_value = target.clone().index(datapack, ctx, *index.clone()).unwrap();
 
                 if current_value.is_lvalue() {
                     current_value
@@ -183,22 +173,17 @@ impl Place {
                 } else {
                     let new_value =
                         current_value.perform_arithmetic(datapack, ctx, operator, value);
-                    target.kind.assign_index(
-                        datapack,
-                        ctx,
-                        index.kind,
-                        new_value.into_dummy_constant_expression(),
-                    );
+
+                    target.assign_index(datapack, ctx, *index, new_value);
                 }
-            }
-            Self::Tuple(_) | Self::Underscore => {
-                unreachable!()
             }
             Self::Dereference(expression) => {
                 expression
-                    .kind
                     .as_place()
                     .augmented_assign(datapack, ctx, operator, value);
+            }
+            Self::Tuple(_) | Self::Underscore => {
+                unreachable!()
             }
         }
     }

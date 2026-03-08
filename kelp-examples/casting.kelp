@@ -1,0 +1,58 @@
+mcfn namespace:main {
+    1 as byte as byte
+    1 as byte as short
+    1 as byte as integer
+    1 as byte as long
+    1 as byte as float
+    1 as byte as double
+    
+    1 as short as byte
+    1 as short as short
+    1 as short as integer
+    1 as short as long
+    1 as short as float
+    1 as short as double
+
+    1 as integer as byte
+    1 as integer as short
+    1 as integer as integer
+    1 as integer as long
+    1 as integer as float
+    1 as integer as double
+
+    1 as long as byte
+    1 as long as short
+    1 as long as integer
+    1 as long as long
+    1 as long as float
+    1 as long as double
+
+    1 as float as byte
+    1.0 as float as byte
+    1 as float as short
+    1.0 as float as short
+    1 as float as integer
+    1.0 as float as integer
+    1 as float as long
+    1.0 as float as long
+    1 as float as float
+    1.0 as float as float
+    1 as float as double
+    1.0 as float as double
+
+    1 as double as byte
+    1.0 as double as byte
+    1 as double as short
+    1.0 as double as short
+    1 as double as integer
+    1.0 as double as integer
+    1 as double as long
+    1.0 as double as long
+    1 as double as float
+    1.0 as double as float
+    1 as double as double
+    1.0 as double as double
+
+    1 to score as score<integer>
+    1 to data as data<integer>
+}

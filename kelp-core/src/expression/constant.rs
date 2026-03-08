@@ -26,25 +26,13 @@ use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
-    expression::{
-        Expression, ExpressionKind,
-        literal::{LiteralExpression, LiteralExpressionKind},
-        supports_variable_type_scope::SupportsVariableTypeScope,
-        utils::push_scoreboard_players,
-    },
+    expression::utils::push_scoreboard_players,
     high::{
         data::GeneratedDataTarget, player_score::GeneratedPlayerScore, snbt_string::HighSNBTString,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
-    place::{Place, PlaceType, PlaceTypeKind},
-    semantic_analysis_context::{
-        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
-    span::Span,
+    place::Place,
 };
-
-pub type ConstantExpressionCompoundKind = BTreeMap<HighSNBTString, ConstantExpression>;
 
 pub fn compile_shift_operation(
     datapack: &mut HighDatapack,
@@ -69,17 +57,20 @@ pub fn compile_shift_operation(
 
 #[must_use]
 pub fn split_constants_list(
-    list: Vec<ConstantExpression>,
-) -> (Vec<SNBT>, Vec<(usize, ConstantExpression)>) {
+    list: Vec<ResolvedExpression>,
+) -> (Vec<SNBT>, Vec<(usize, ResolvedExpression)>) {
     let mut constants = Vec::new();
     let mut non_constants = Vec::new();
 
     for (i, expression) in list.into_iter().enumerate() {
-        if let Some(snbt) = expression.kind.as_snbt() {
-            constants.push(snbt);
-        } else {
-            non_constants.push((i, expression));
-            constants.push(SNBT::Compound(BTreeMap::new()));
+        match expression.try_into_snbt() {
+            Ok(snbt) => {
+                constants.push(snbt);
+            }
+            Err(expression) => {
+                non_constants.push((i, expression));
+                constants.push(SNBT::Compound(BTreeMap::new()));
+            }
         }
     }
 
@@ -88,17 +79,20 @@ pub fn split_constants_list(
 
 #[must_use]
 pub fn split_constants_compound(
-    compound: ConstantExpressionCompoundKind,
-) -> (SNBTCompound, ConstantExpressionCompoundKind) {
+    compound: BTreeMap<HighSNBTString, ResolvedExpression>,
+) -> (SNBTCompound, BTreeMap<HighSNBTString, ResolvedExpression>) {
     let mut constants = BTreeMap::new();
     let mut non_constants = BTreeMap::new();
 
     for (key, expression) in compound {
-        if let Some(snbt) = expression.kind.as_snbt() {
-            constants.insert(key.snbt_string, snbt);
-        } else {
-            constants.insert(key.snbt_string.clone(), SNBT::Compound(BTreeMap::new()));
-            non_constants.insert(key, expression);
+        match expression.try_into_snbt() {
+            Ok(snbt) => {
+                constants.insert(key.snbt_string, snbt);
+            }
+            Err(expression) => {
+                constants.insert(key.snbt_string.clone(), SNBT::Compound(BTreeMap::new()));
+                non_constants.insert(key, expression);
+            }
         }
     }
 
@@ -106,267 +100,370 @@ pub fn split_constants_compound(
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum ConstantExpressionKind {
-    Literal(LiteralExpression),
+pub enum ResolvedExpression {
+    Boolean(bool),
+    Byte(i8),
+    Short(i16),
+    Integer(i32),
+    Long(i64),
+    Float(NotNan<f32>),
+    Double(NotNan<f64>),
+    String(HighSNBTString),
     Underscore,
-    List(Vec<ConstantExpression>),
-    Compound(ConstantExpressionCompoundKind),
-    PlayerScore(GeneratedPlayerScore),
-    Data(GeneratedDataTarget, NbtPath),
-    Condition(bool, ExecuteIfSubcommand),
-    Tuple(Vec<ConstantExpression>),
-    Dereference(Box<ConstantExpression>),
-    Reference(Box<ConstantExpression>),
-    Variable(String),
-    Index(Box<ConstantExpression>, Box<ConstantExpression>),
-    FieldAccess(Box<ConstantExpression>, String),
+    List(Vec<Self>),
+    Compound(BTreeMap<HighSNBTString, Self>),
+    Tuple(Vec<Self>),
+    Struct(String, Vec<DataTypeKind>, BTreeMap<String, Self>),
     Unit,
-    Struct(
-        String,
-        Vec<DataTypeKind>,
-        BTreeMap<String, ConstantExpression>,
-    ),
+
+    PlayerScore(GeneratedPlayerScore),
+    Data(Box<(GeneratedDataTarget, NbtPath)>),
+    Condition(bool, Box<ExecuteIfSubcommand>),
 }
 
-impl ConstantExpressionKind {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> ConstantExpression {
-        ConstantExpression { span, kind: self }
-    }
-
-    #[must_use]
-    pub fn distribute_references(self) -> Self {
-        match self {
-            Self::Reference(inner) => match inner.kind.distribute_references() {
-                Self::Tuple(values) => {
-                    let new_values = values
-                        .into_iter()
-                        .map(|val| ConstantExpression {
-                            span: val.span,
-                            kind: Self::Reference(Box::new(val)),
-                        })
-                        .collect();
-
-                    Self::Tuple(new_values)
-                }
-                Self::Compound(expressions) => {
-                    let new_expressions = expressions
-                        .into_iter()
-                        .map(|(key, val)| {
-                            (
-                                key,
-                                ConstantExpression {
-                                    span: val.span,
-                                    kind: Self::Reference(Box::new(val)),
-                                },
-                            )
-                        })
-                        .collect();
-
-                    Self::Compound(new_expressions)
-                }
-                inner => Self::Reference(Box::new(inner.into_dummy_constant_expression())),
-            },
-            _ => self,
-        }
-    }
-
-    pub fn compile_augmented_assignment(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        operator: ArithmeticOperator,
-        value: Self,
-    ) {
-        match self {
-            Self::PlayerScore(score) => {
-                value.operate_on_score(datapack, ctx, score, operator);
-            }
-            Self::Data(ref target, ref path) => {
-                let unique_score = datapack.get_unique_score();
-
-                self.clone()
-                    .assign_to_score(datapack, ctx, unique_score.clone());
-
-                value.operate_on_score(datapack, ctx, unique_score.clone(), operator);
-
-                unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
-            }
-            Self::Dereference(expression) => expression
-                .kind
-                .dereference(datapack, ctx)
-                .compile_augmented_assignment(datapack, ctx, operator, value),
-            Self::Variable(_)
-            | Self::Literal(_)
-            | Self::List(_)
-            | Self::Compound(_)
-            | Self::Condition(_, _)
-            | Self::Tuple(_)
-            | Self::Underscore
-            | Self::Unit
-            | Self::Reference(_)
-            | Self::Struct(_, _, _)
-            | Self::Index(_, _)
-            | Self::FieldAccess(_, _) => unreachable!("{:?}", self),
-        }
-    }
-
-    pub fn get_dereferenced_type(
-        &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
-    ) -> Option<DataTypeKind> {
-        match self {
-            Self::Reference(expression) => expression
-                .kind
-                .infer_data_type(supports_variable_type_scope),
-            Self::Variable(name) => Some(supports_variable_type_scope.get_variable(name)??),
-            _ => unreachable!("Cannot deference type {:?}", self),
-        }
-    }
-
-    #[must_use]
-    pub const fn is_lvalue(&self) -> bool {
-        matches!(
-            self,
-            Self::PlayerScore(_) | Self::Data(_, _) | Self::Variable(_) | Self::Dereference(_)
-        )
-    }
-
-    #[must_use]
-    pub const fn can_be_dereferenced(&self) -> bool {
-        matches!(self, Self::Reference(_) | Self::Variable(_))
-    }
-
-    pub fn infer_data_type(
-        &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
-    ) -> Option<DataTypeKind> {
-        Some(match self {
-            Self::Literal(expression) => expression.kind.get_data_type(),
-            Self::List(list) => {
-                if let Some(first) = list.first() {
-                    DataTypeKind::List(Box::new(
-                        first.kind.infer_data_type(supports_variable_type_scope)?,
-                    ))
-                } else {
-                    DataTypeKind::List(Box::new(DataTypeKind::SNBT))
-                }
-            }
-            Self::Compound(compound) => DataTypeKind::TypedCompound(
-                compound
-                    .clone()
-                    .into_iter()
-                    .map(|(key, value)| {
-                        value
-                            .kind
-                            .infer_data_type(supports_variable_type_scope)
-                            .map(|data_type| (key.snbt_string, data_type))
-                    })
-                    .collect::<Option<_>>()?,
-            ),
-            Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
-            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-            Self::Condition(_, _) => DataTypeKind::Boolean,
-            Self::Tuple(expressions) => DataTypeKind::Tuple(
-                expressions
-                    .iter()
-                    .map(|expression| {
-                        expression
-                            .kind
-                            .infer_data_type(supports_variable_type_scope)
-                    })
-                    .collect::<Option<_>>()?,
-            ),
-            Self::Variable(name) => supports_variable_type_scope.get_variable(name)??,
-            Self::Unit => DataTypeKind::Unit,
-            Self::Dereference(expression) => expression
-                .kind
-                .get_dereferenced_type(supports_variable_type_scope)?,
-            Self::Reference(expression) => DataTypeKind::Reference(Box::new(
-                expression
-                    .kind
-                    .infer_data_type(supports_variable_type_scope)?,
-            )),
-            Self::Underscore => DataTypeKind::Inferred,
-            Self::Struct(name, generics_types, _) => {
-                DataTypeKind::Struct(name.clone(), generics_types.clone())
-            }
-            Self::Index(target, _) => {
-                let target_kind = target.kind.infer_data_type(supports_variable_type_scope)?;
-
-                target_kind.get_index_result()?
-            }
-            Self::FieldAccess(target, field) => {
-                let target_kind = target.kind.infer_data_type(supports_variable_type_scope)?;
-
-                target_kind.get_field_result(supports_variable_type_scope, field)?
-            }
-        })
-    }
-
-    #[must_use]
-    pub const fn into_dummy_constant_expression(self) -> ConstantExpression {
-        ConstantExpression {
-            span: Span::dummy(),
-            kind: self,
-        }
-    }
-
-    #[must_use]
-    pub fn try_as_i32(&self, force: bool) -> Option<i32> {
-        Some(match self {
-            Self::Literal(expression) => {
-                return expression.kind.try_as_i32(force);
-            }
-            Self::List(v) if force => v.len() as i32,
-            Self::Compound(compound) if force => compound.len() as i32,
-            _ => return None,
-        })
-    }
-
+impl ResolvedExpression {
     pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
-            Self::List(constant_expressions) => {
-                for constant_expression in constant_expressions {
-                    constant_expression.kind.compile_as_statement(datapack, ctx);
-                }
-            }
-            Self::Tuple(expressions) => {
-                for expression in expressions {
-                    expression.kind.compile_as_statement(datapack, ctx);
+            Self::List(list) => {
+                for element in list {
+                    element.compile_as_statement(datapack, ctx);
                 }
             }
             Self::Compound(compound) => {
                 for value in compound.into_values() {
-                    value.kind.compile_as_statement(datapack, ctx);
+                    value.compile_as_statement(datapack, ctx);
                 }
+            }
+            Self::Tuple(tuple) => {
+                for element in tuple {
+                    element.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Struct(_, _, field_values) => {
+                for value in field_values.into_values() {
+                    value.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Condition(inverted, execute_if_subcommand) => {
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(inverted, *execute_if_subcommand)),
+                );
+            }
+            Self::Boolean(_)
+            | Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_)
+            | Self::Underscore
+            | Self::Unit
+            | Self::PlayerScore(_)
+            | Self::Data(_) => {}
+        }
+    }
+
+    #[must_use]
+    pub fn dereference(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+    ) -> Option<Self> {
+        match self {
+            Self::PlayerScore(score) => {
+                let unique_score = datapack.get_unique_score();
+
+                score.assign_to_score(datapack, ctx, unique_score.clone());
+
+                Some(Self::PlayerScore(unique_score))
+            }
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                let (unique_target, unique_path) = datapack.get_unique_data();
+
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Modify(
+                        target.target,
+                        path,
+                        DataCommandModificationMode::Set,
+                        DataCommandModification::From(
+                            unique_target.target.clone(),
+                            Some(unique_path.clone()),
+                        ),
+                    )),
+                );
+
+                Some(Self::Data(Box::new((unique_target, unique_path))))
+            }
+            Self::Underscore
+            | Self::List(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::Struct(_, _, _)
+            | Self::Unit
+            | Self::Condition(_, _)
+            | Self::Boolean(_)
+            | Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn access_field(self, field: &str) -> Option<Self> {
+        match self {
+            Self::List(_)
+            | Self::Condition(_, _)
+            | Self::Unit
+            | Self::PlayerScore(_)
+            | Self::Underscore
+            | Self::Boolean(_)
+            | Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_) => None,
+            Self::Compound(compound) => compound.into_iter().find_map(|(actual_field, value)| {
+                if actual_field.snbt_string.1 == field {
+                    Some(value)
+                } else {
+                    None
+                }
+            }),
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                Some(Self::Data(Box::new((
+                    target,
+                    path.with_node(NbtPathNode::Named(
+                        SNBTString(false, field.to_owned()),
+                        None,
+                    )),
+                ))))
+            }
+            Self::Tuple(mut expressions) => {
+                let index = field.parse::<i32>().ok()?;
+
+                Some(expressions.remove(index as usize))
+            }
+            Self::Struct(_, _, fields) => fields
+                .into_iter()
+                .find_map(|(key, value)| if key == field { Some(value) } else { None }),
+        }
+    }
+
+    pub fn try_into_snbt(self) -> Result<SNBT, Self> {
+        Ok(match self {
+            Self::Underscore
+            | Self::Struct(_, _, _)
+            | Self::PlayerScore(_)
+            | Self::Data(_)
+            | Self::Condition(_, _) => return Err(self),
+            Self::Boolean(boolean) => SNBT::Byte(i8::from(boolean)),
+            Self::Byte(byte) => SNBT::Byte(byte),
+            Self::Short(short) => SNBT::Short(short),
+            Self::Integer(integer) => SNBT::Integer(integer),
+            Self::Long(long) => SNBT::Long(long),
+            Self::Float(float) => SNBT::Float(float),
+            Self::Double(double) => SNBT::Double(double),
+            Self::String(string) => SNBT::String(string.snbt_string),
+            Self::List(list) => {
+                let list = list
+                    .into_iter()
+                    .map(Self::try_into_snbt)
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                SNBT::List(list)
+            }
+            Self::Compound(compound) => {
+                let compound = compound
+                    .into_iter()
+                    .map(|(key, value)| value.try_into_snbt().map(|v| (key.snbt_string.clone(), v)))
+                    .collect::<Result<_, _>>()?;
+
+                SNBT::Compound(compound)
+            }
+            Self::Tuple(tuple) => {
+                let tuple = tuple
+                    .into_iter()
+                    .map(Self::try_into_snbt)
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                SNBT::List(tuple)
+            }
+            Self::Unit => {
+                let mut compound = BTreeMap::new();
+
+                compound.insert(
+                    SNBTString(false, "__kelp_rs_unit__".to_string()),
+                    SNBT::Byte(1),
+                );
+
+                SNBT::Compound(compound)
+            }
+        })
+    }
+
+    pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> SNBT {
+        match self {
+            Self::Boolean(_)
+            | Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_)
+            | Self::Unit => self.try_into_snbt().unwrap(),
+
+            Self::List(list) => SNBT::List(
+                list.into_iter()
+                    .map(|element| element.as_snbt_macros(ctx))
+                    .collect(),
+            ),
+            Self::Tuple(tuple) => SNBT::List(
+                tuple
+                    .into_iter()
+                    .map(|element| element.as_snbt_macros(ctx))
+                    .collect(),
+            ),
+            Self::Compound(compound) => SNBT::Compound(
+                compound
+                    .into_iter()
+                    .map(|(key, value)| (key.snbt_string, value.as_snbt_macros(ctx)))
+                    .collect(),
+            ),
+            Self::Struct(_, _, _)
+            | Self::PlayerScore(_)
+            | Self::Data(_)
+            | Self::Condition(_, _) => ctx.get_macro_snbt(self),
+            Self::Underscore => unreachable!(),
+        }
+    }
+
+    pub fn assign_to_score(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        target: GeneratedPlayerScore,
+    ) {
+        match self {
+            Self::Boolean(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                );
+            }
+            Self::Byte(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                );
+            }
+            Self::Short(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                );
+            }
+            Self::Integer(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value),
+                );
+            }
+            Self::Long(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value as i32),
+                );
+            }
+            Self::Float(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
+                );
+            }
+            Self::Double(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
+                );
+            }
+            Self::String(HighSNBTString {
+                snbt_string: SNBTString(_, value),
+                ..
+            }) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                );
+            }
+            Self::List(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                );
+            }
+            Self::Compound(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                );
+            }
+            Self::PlayerScore(source) => {
+                source.assign_to_score(datapack, ctx, target);
+            }
+            Self::Data(data_target_path) => {
+                let (data_target, path) = *data_target_path;
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Score(
+                            target.score,
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
+                                DataCommand::Get(data_target.target, Some(path), None),
+                            )))),
+                        ),
+                    )),
+                );
             }
             Self::Condition(inverted, condition) => {
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::If(inverted, condition)),
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Success,
+                        ExecuteStoreSubcommand::Score(
+                            target.score,
+                            Box::new(ExecuteSubcommand::If(inverted, *condition)),
+                        ),
+                    )),
                 );
             }
-            Self::Literal(_)
-            | Self::PlayerScore(_)
-            | Self::Data(_, _)
-            | Self::Unit
-            | Self::Index(_, _)
-            | Self::FieldAccess(_, _) => {}
-            Self::Reference(expression) | Self::Dereference(expression) => {
-                expression.kind.compile_as_statement(datapack, ctx);
-            }
-            Self::Variable(name) => datapack
-                .get_variable(&name)
-                .unwrap()
-                .1
-                .kind
-                .compile_as_statement(datapack, ctx),
-            Self::Underscore => unreachable!(),
-            Self::Struct(_, _, fields) => {
-                for field in fields.into_values() {
-                    field.kind.compile_as_statement(datapack, ctx);
-                }
+            Self::Struct(_, _, _) | Self::Tuple(_) | Self::Unit | Self::Underscore => {
+                unreachable!()
             }
         }
     }
@@ -398,34 +495,147 @@ impl ConstantExpressionKind {
         }
     }
 
-    #[must_use]
-    pub fn as_score_expression(
+    pub fn assign_to_data(
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        force: bool,
-    ) -> Self {
-        match self {
-            Self::Struct(name, generics, fields) => {
-                let fields = fields
-                    .into_iter()
-                    .map(|(key, value)| {
-                        let unique_score = datapack.get_unique_score();
-
-                        value
-                            .kind
-                            .assign_to_score(datapack, ctx, unique_score.clone());
-
-                        (
-                            key,
-                            Self::PlayerScore(unique_score).into_dummy_constant_expression(),
-                        )
-                    })
-                    .collect();
-
-                Self::Struct(name, generics, fields)
+        target: GeneratedDataTarget,
+        path: NbtPath,
+    ) {
+        match self.try_into_snbt() {
+            Ok(snbt) => {
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Modify(
+                        target.target,
+                        path,
+                        DataCommandModificationMode::Set,
+                        DataCommandModification::Value(snbt),
+                    )),
+                );
             }
-            _ => Self::PlayerScore(self.as_score(datapack, ctx, force)),
+            Err(self_) => match self_ {
+                Self::PlayerScore(score) => {
+                    score.assign_to_data(datapack, ctx, target, path);
+                }
+                Self::Data(inner_target_inner_path) => {
+                    let (inner_target, inner_path) = *inner_target_inner_path;
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target,
+                            path,
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::From(inner_target.target, Some(inner_path)),
+                        )),
+                    );
+                }
+                Self::List(list) => {
+                    let (constants, non_constants) = split_constants_list(list);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target.clone(),
+                            path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::Value(SNBT::List(constants)),
+                        )),
+                    );
+
+                    for (index, non_constant) in non_constants {
+                        non_constant.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone()
+                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                        );
+                    }
+                }
+                Self::Compound(compound) => {
+                    let (constants, non_constants) = split_constants_compound(compound);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target.clone(),
+                            path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::Value(SNBT::Compound(constants)),
+                        )),
+                    );
+
+                    for (key, non_constant) in non_constants {
+                        non_constant.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone().with_node(NbtPathNode::named(key.snbt_string)),
+                        );
+                    }
+                }
+                Self::Underscore => unreachable!(),
+                Self::Struct(_, _, fields) => {
+                    for (key, value) in fields {
+                        value.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone()
+                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                        );
+                    }
+                }
+                Self::Tuple(expressions) => {
+                    let (constants, non_constants) = split_constants_list(expressions);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target.clone(),
+                            path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::Value(SNBT::List(constants)),
+                        )),
+                    );
+
+                    for (index, non_constant) in non_constants {
+                        non_constant.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone()
+                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                        );
+                    }
+                }
+                Self::Condition(inverted, condition) => {
+                    ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::Store(
+                            StoreType::Result,
+                            ExecuteStoreSubcommand::Data(
+                                target.target,
+                                path,
+                                NumericSNBTType::Integer,
+                                NotNan::new(1.0).unwrap(),
+                                Box::new(ExecuteSubcommand::If(inverted, *condition)),
+                            ),
+                        )),
+                    );
+                }
+                Self::Unit
+                | Self::Boolean(_)
+                | Self::Byte(_)
+                | Self::Short(_)
+                | Self::Integer(_)
+                | Self::Long(_)
+                | Self::Float(_)
+                | Self::Double(_)
+                | Self::String(_) => unreachable!("Checked by ResolvedExpression::try_into_snbt"),
+            },
         }
     }
 
@@ -434,9 +644,10 @@ impl ConstantExpressionKind {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
+        force: bool,
     ) -> (GeneratedDataTarget, NbtPath) {
-        if let Self::Data(target, path) = self {
-            (target, path)
+        if !force && let Self::Data(target_path) = self {
+            *target_path
         } else {
             let (unique_data, path) = datapack.get_unique_data();
 
@@ -447,622 +658,38 @@ impl ConstantExpressionKind {
     }
 
     #[must_use]
-    pub fn as_data_force(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-    ) -> (GeneratedDataTarget, NbtPath) {
-        let (unique_data, path) = datapack.get_unique_data();
-
-        self.assign_to_data(datapack, ctx, unique_data.clone(), path.clone());
-
-        (unique_data, path)
-    }
-
-    #[must_use]
-    pub fn invert(self) -> Self {
-        match self {
-            Self::Literal(expression) => Self::Literal(LiteralExpression {
-                span: expression.span,
-                kind: expression.kind.invert(),
-            }),
-            Self::Condition(inverted, subcommand) => Self::Condition(!inverted, subcommand),
-            _ => unreachable!("Cannot invert expression {:?}", self),
-        }
-    }
-
-    #[must_use]
-    pub fn negate(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
-        match self {
-            Self::Literal(expression) => Self::Literal(LiteralExpression {
-                span: expression.span,
-                kind: expression.kind.negate(),
-            }),
-            Self::PlayerScore(_) => {
-                let unique_score = datapack.get_unique_score();
-
-                self.assign_to_score(datapack, ctx, unique_score.clone());
-
-                let constant_score = datapack.get_constant_score(-1);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            unique_score.score.clone(),
-                            ScoreOperationOperator::Multiply,
-                            constant_score.score,
-                        ),
-                    )),
-                );
-
-                Self::PlayerScore(unique_score)
-            }
-            Self::Data(_, _) => {
-                let unique_score = self.clone().as_score(datapack, ctx, true);
-
-                self.assign_to_score(datapack, ctx, unique_score.clone());
-
-                let constant_score = datapack.get_constant_score(-1);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            unique_score.score.clone(),
-                            ScoreOperationOperator::Multiply,
-                            constant_score.score,
-                        ),
-                    )),
-                );
-
-                Self::PlayerScore(unique_score)
-            }
-            // TODO? Self::Command
-            Self::Dereference(expression) => expression
-                .kind
-                .dereference(datapack, ctx)
-                .negate(datapack, ctx),
-            Self::Reference(expression) => expression.kind.negate(datapack, ctx),
-            Self::Variable(name) => datapack
-                .get_variable(&name)
-                .unwrap()
-                .1
-                .kind
-                .negate(datapack, ctx),
-            _ => unreachable!("Cannot negate expression {:?}", self),
-        }
-    }
-
-    #[must_use]
-    pub fn index(
-        mut self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        index: Self,
-    ) -> Self {
-        match self {
-            Self::Reference(expression) => expression.kind.index(datapack, ctx, index),
-
-            Self::List(ref mut items) => {
-                if let Self::Literal(LiteralExpression {
-                    kind: LiteralExpressionKind::Integer(index),
-                    ..
-                }) = index
-                {
-                    if index >= 0 && (index as usize) < items.len() {
-                        items.swap_remove(index as usize).kind
-                    } else {
-                        unreachable!("Index is out of range");
-                    }
-                } else {
-                    let (unique_data_target, unique_data_path) = datapack.get_unique_data();
-
-                    self.assign_to_data(
-                        datapack,
-                        ctx,
-                        unique_data_target.clone(),
-                        unique_data_path.clone(),
-                    );
-
-                    Self::Data(
-                        unique_data_target,
-                        unique_data_path
-                            .with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
-                    )
-                }
-            }
-            Self::Data(target, path) => Self::Data(
-                target,
-                path.with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
-            ),
-            Self::Variable(name) => datapack
-                .get_variable(&name)
-                .unwrap()
-                .1
-                .kind
-                .index(datapack, ctx, index),
-            _ => unreachable!("The expression cannot be indexed {:?}", self),
-        }
-    }
-
-    pub fn assign_index(
-        &mut self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        index: Self,
-        value: ConstantExpression,
-    ) {
-        match self {
-            Self::Reference(expression) => {
-                expression.kind.assign_index(datapack, ctx, index, value);
-            }
-
-            Self::List(items) => {
-                let Self::Literal(LiteralExpression {
-                    kind: LiteralExpressionKind::Integer(index),
-                    ..
-                }) = index
-                else {
-                    unreachable!();
-                };
-
-                if index >= 0 && (index as usize) < items.len() {
-                    *items.get_mut(index as usize).unwrap() = value;
-                } else {
-                    unreachable!("Index is out of range");
-                }
-            }
-            Self::Data(target, path) => {
-                let index = index.as_snbt_macros(ctx);
-
-                value.kind.assign_to_data(
-                    datapack,
-                    ctx,
-                    target.clone(),
-                    path.clone().with_node(NbtPathNode::Index(Some(index))),
-                );
-            }
-            Self::Variable(name) => {
-                let mut variable_value = datapack.get_variable(name).unwrap().1;
-
-                let is_lvalue = variable_value.kind.is_lvalue();
-
-                variable_value
-                    .kind
-                    .assign_index(datapack, ctx, index, value);
-
-                if !is_lvalue {
-                    datapack.assign_variable(name, variable_value);
-                }
-            }
-            Self::Index(target, index) => {
-                let resolved = target.kind.clone().resolve(datapack);
-
-                resolved
-                    .index(datapack, ctx, index.kind.clone())
-                    .assign_index(datapack, ctx, index.kind.clone(), value);
-            }
-            Self::FieldAccess(target, field) => {
-                let resolved = target.kind.clone().resolve(datapack);
-
-                resolved
-                    .access_field(datapack, ctx, field)
-                    .assign_index(datapack, ctx, index, value);
-            }
-            _ => unreachable!("The expression cannot be indexed {:?}", self),
-        }
-    }
-
-    #[must_use]
-    pub fn access_field(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        field: &str,
-    ) -> Self {
-        match self {
-            Self::Literal(_)
-            | Self::List(_)
-            | Self::Condition(_, _)
-            | Self::Unit
-            | Self::Dereference(_)
-            | Self::PlayerScore(_) => {
-                unreachable!("Expression does not have any fields {:?}", self)
-            }
-            Self::Index(target, index) => target
-                .kind
-                .index(datapack, ctx, index.kind)
-                .access_field(datapack, ctx, field),
-            Self::FieldAccess(target, inner_field) => target
-                .kind
-                .access_field(datapack, ctx, &inner_field)
-                .access_field(datapack, ctx, field),
-            Self::Variable(name) => datapack
-                .get_variable(&name)
-                .unwrap()
-                .1
-                .kind
-                .access_field(datapack, ctx, field),
-            Self::Underscore => unreachable!(),
-            Self::Reference(expression) => expression.kind.access_field(datapack, ctx, field),
-            Self::Compound(compound) => {
-                compound
-                    .into_iter()
-                    .find_map(|(actual_field, value)| {
-                        if actual_field.snbt_string.1 == field {
-                            Some(value)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap()
-                    .kind
-            }
-            Self::Data(target, path) => Self::Data(
-                target,
-                path.with_node(NbtPathNode::Named(
-                    SNBTString(false, field.to_owned()),
-                    None,
-                )),
-            ),
-            Self::Tuple(mut expressions) => field.parse::<i32>().map_or_else(
-                |_| {
-                    unreachable!("Tuple does not have field {:?}", field);
-                },
-                |index| expressions.remove(index as usize).kind,
-            ),
-            Self::Struct(_, _, fields) => {
-                fields
-                    .into_iter()
-                    .find(|(key, _)| *key == field)
-                    .unwrap()
-                    .1
-                    .kind
-            }
-        }
-    }
-
-    pub fn assign_field(
-        &mut self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        field: &str,
-        value: ConstantExpression,
-    ) {
-        match self {
-            Self::Compound(compound) => {
-                *compound
-                    .iter_mut()
-                    .find_map(|(actual_field, value)| {
-                        if actual_field.snbt_string.1 == field {
-                            Some(value)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap() = value;
-            }
-            Self::Data(target, path) => {
-                value.kind.assign_to_data(
-                    datapack,
-                    ctx,
-                    target.clone(),
-                    path.clone().with_node(NbtPathNode::Named(
-                        SNBTString(false, field.to_owned()),
-                        None,
-                    )),
-                );
-            }
-            Self::Tuple(expressions) => {
-                let field = field.parse::<i32>().unwrap();
-
-                *expressions.get_mut(field as usize).unwrap() = value;
-            }
-            Self::Variable(name) => {
-                let mut variable_value = datapack.get_variable(name).unwrap().1;
-
-                let is_lvalue = variable_value.kind.is_lvalue();
-
-                variable_value
-                    .kind
-                    .assign_field(datapack, ctx, field, value);
-
-                if !is_lvalue {
-                    datapack.assign_variable(name, variable_value);
-                }
-            }
-            Self::FieldAccess(expression, inner_field) => {
-                let resolved = expression.kind.clone().resolve(datapack);
-
-                resolved
-                    .access_field(datapack, ctx, inner_field)
-                    .assign_field(datapack, ctx, field, value);
-            }
-            _ => unreachable!("{:?}", self),
-        }
-    }
-
-    #[must_use]
-    pub const fn is_data(&self) -> bool {
-        matches!(self, Self::Data(_, _))
-    }
-
     pub fn as_data_command_modification(
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
     ) -> DataCommandModification {
-        if let Some(snbt) = self.as_snbt() {
-            return DataCommandModification::Value(snbt);
-        }
+        match self.try_into_snbt() {
+            Ok(snbt) => DataCommandModification::Value(snbt),
+            Err(self_) => {
+                let (target, path) = self_.as_data(datapack, ctx, false);
 
-        let (target, path) = self.as_data(datapack, ctx);
-
-        DataCommandModification::From(target.target, Some(path))
-    }
-
-    #[must_use]
-    pub fn perform_arithmetic(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        operator: ArithmeticOperator,
-        other: Self,
-    ) -> Self {
-        match (self, other) {
-            (Self::Reference(expression), other) => expression
-                .kind
-                .perform_arithmetic(datapack, ctx, operator, other),
-
-            (self_, Self::Reference(other)) => {
-                self_.perform_arithmetic(datapack, ctx, operator, other.kind)
-            }
-
-            (Self::Literal(left), Self::Literal(right)) => Self::Literal(LiteralExpression {
-                span: Span::dummy(),
-                kind: left.kind.perform_arithmetic(operator, right.kind),
-            }),
-
-            (left_kind, right_kind) => {
-                // TODO maybe better checking?
-                // TODO assign into score
-
-                let unique_score = datapack.get_unique_score();
-
-                left_kind.assign_to_score(datapack, ctx, unique_score.clone());
-                right_kind.operate_on_score(datapack, ctx, unique_score.clone(), operator);
-
-                Self::PlayerScore(unique_score)
+                DataCommandModification::From(target.target, Some(path))
             }
         }
     }
 
     #[must_use]
-    pub fn perform_comparison(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        operator: ComparisonOperator,
-        other: Self,
-    ) -> Self {
-        match (self, other) {
-            (Self::Reference(expression), other) => expression
-                .kind
-                .perform_comparison(datapack, ctx, operator, other),
-
-            (self_, Self::Reference(other)) => {
-                self_.perform_comparison(datapack, ctx, operator, other.kind)
-            }
-
-            (Self::Literal(left), Self::Literal(right)) => Self::Literal(LiteralExpression {
-                span: Span::dummy(),
-                kind: left.kind.compare(operator, right.kind).unwrap(),
-            }),
-            (left_kind @ Self::Data(_, _), right_kind)
-                if operator == ComparisonOperator::EqualTo
-                    || operator == ComparisonOperator::NotEqualTo =>
-            {
-                let unique_score = datapack.get_unique_score();
-
-                let (unique_target, unique_path) = datapack.get_unique_data();
-
-                left_kind.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
-
-                let data_command_modification =
-                    right_kind.as_data_command_modification(datapack, ctx);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Modify(
-                                    unique_target.target,
-                                    unique_path,
-                                    DataCommandModificationMode::Set,
-                                    data_command_modification,
-                                ),
-                            )))),
-                        ),
-                    )),
-                );
-
-                Self::Condition(
-                    operator.should_execute_if_be_inverted(),
-                    ExecuteIfSubcommand::Score(
-                        unique_score.score,
-                        ScoreComparison::Range(IntegerRange::new_single(0)),
-                        None,
-                    ),
-                )
-            }
-            (self_ @ Self::Data(_, _), other) | (other, self_ @ Self::Data(_, _)) => {
-                let score = self_.as_score(datapack, ctx, false);
-
-                let other_score = other.as_score(datapack, ctx, false);
-
-                Self::Condition(
-                    operator.should_execute_if_be_inverted(),
-                    ExecuteIfSubcommand::Score(
-                        score.score,
-                        ScoreComparison::Score(
-                            operator.into_score_comparison_operator(),
-                            other_score.score,
-                        ),
-                        None,
-                    ),
-                )
-            }
-            (Self::PlayerScore(score), other) => {
-                let right_score = other.as_score(datapack, ctx, false);
-
-                Self::Condition(
-                    operator.should_execute_if_be_inverted(),
-                    ExecuteIfSubcommand::Score(
-                        score.score,
-                        ScoreComparison::Score(
-                            operator.into_score_comparison_operator(),
-                            right_score.score,
-                        ),
-                        None,
-                    ),
-                )
-            }
-            (left_kind, Self::PlayerScore(right_score)) => {
-                let left_score = left_kind.as_score(datapack, ctx, false);
-
-                Self::Condition(
-                    operator.should_execute_if_be_inverted(),
-                    ExecuteIfSubcommand::Score(
-                        right_score.score,
-                        ScoreComparison::Score(
-                            operator.into_score_comparison_operator(),
-                            left_score.score,
-                        ),
-                        None,
-                    ),
-                )
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    #[must_use]
-    pub fn perform_logical_operation(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        operator: LogicalOperator,
-        other: Self,
-    ) -> Self {
-        if let Self::Reference(self_) = self {
-            return self_
-                .kind
-                .perform_logical_operation(datapack, ctx, operator, other);
-        }
-
-        if let Self::Reference(other) = other {
-            return self.perform_logical_operation(datapack, ctx, operator, other.kind);
-        }
-
-        match operator {
-            LogicalOperator::And => {
-                let unique_score = datapack.get_unique_score();
-
-                let (self_inverted, self_condition) =
-                    self.to_execute_condition(datapack, ctx, false);
-                let (right_inverted, right_condition) =
-                    other.to_execute_condition(datapack, ctx, false);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-                        unique_score.score.clone(),
-                        0,
-                    ))),
-                );
-                Self::Condition(
-                    self_inverted,
-                    self_condition.then(ExecuteSubcommand::If(
-                        right_inverted,
-                        right_condition.then(ExecuteSubcommand::Run(Box::new(
-                            Command::Scoreboard(ScoreboardCommand::Players(
-                                PlayersScoreboardCommand::Set(unique_score.score.clone(), 1),
-                            )),
-                        ))),
-                    )),
-                )
-                .into_dummy_constant_expression()
-                .into_constant_expression()
-                .compile_as_statement(datapack, ctx);
-
-                Self::PlayerScore(unique_score)
-            }
-            LogicalOperator::Or => {
-                let unique_function_paths = datapack.get_unique_function_paths();
-
-                let unique_score = datapack.get_unique_score();
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-                        unique_score.score.clone(),
-                        0,
-                    ))),
-                );
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
-                                ResourceLocation::new_namespace_paths(
-                                    datapack.current_namespace_name(),
-                                    unique_function_paths.clone(),
-                                ),
-                                None,
-                            )))),
-                        ),
-                    )),
-                );
-
-                let mut function_ctx = CompileContext::default();
-
-                let return_one_subcommand =
-                    ExecuteSubcommand::Run(Box::new(Command::Return(ReturnCommand::Value(1))));
-
-                let (self_inverted, left_condition) =
-                    self.to_execute_condition(datapack, &mut function_ctx, false);
-                function_ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::If(
-                        self_inverted,
-                        left_condition.then(return_one_subcommand.clone()),
-                    )),
-                );
-                let (other_inverted, other_condition) =
-                    other.to_execute_condition(datapack, &mut function_ctx, false);
-                function_ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::If(
-                        other_inverted,
-                        other_condition.then(return_one_subcommand),
-                    )),
-                );
-                function_ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
-
-                let function_commands = function_ctx.compile();
-
-                datapack
-                    .get_function_mut(&unique_function_paths)
-                    .add_commands(function_commands);
-
-                Self::PlayerScore(unique_score)
-            }
-        }
+    pub fn try_as_i32(&self, force: bool) -> Option<i32> {
+        Some(match self {
+            Self::Byte(v) => i32::from(*v),
+            Self::Short(v) => i32::from(*v),
+            Self::Integer(v) => *v,
+            Self::Long(v) => *v as i32,
+            Self::Float(v) if force => v.into_inner() as i32,
+            Self::Double(v) if force => v.into_inner() as i32,
+            Self::String(HighSNBTString {
+                snbt_string: SNBTString(_, v),
+                ..
+            }) if force => v.len() as i32,
+            Self::List(v) if force => v.len() as i32,
+            Self::Compound(compound) if force => compound.len() as i32,
+            _ => return None,
+        })
     }
 
     pub fn operate_on_score(
@@ -1129,8 +756,8 @@ impl ConstantExpressionKind {
             };
         }
 
-        if let Self::PlayerScore(source) = self {
-            source.operate_on_score(datapack, ctx, target, operator);
+        if let Self::PlayerScore(self_) = self {
+            self_.operate_on_score(datapack, ctx, target, operator);
         } else {
             let unique_score = datapack.get_unique_score();
 
@@ -1140,12 +767,326 @@ impl ConstantExpressionKind {
         }
     }
 
+    #[must_use]
+    pub fn perform_arithmetic(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
+        other: Self,
+    ) -> Self {
+        match (self, other) {
+            (Self::Byte(left), Self::Byte(right)) => Self::Byte(match operator {
+                ArithmeticOperator::Add => left.wrapping_add(right),
+                ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                ArithmeticOperator::Modulo => left % right,
+                ArithmeticOperator::And => left & right,
+                ArithmeticOperator::Or => left | right,
+                ArithmeticOperator::LeftShift => left << right,
+                ArithmeticOperator::RightShift => left >> right,
+                ArithmeticOperator::Swap => unreachable!(),
+            }),
+
+            (Self::Short(left), Self::Short(right)) => Self::Short(match operator {
+                ArithmeticOperator::Add => left.wrapping_add(right),
+                ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                ArithmeticOperator::Modulo => left % right,
+                ArithmeticOperator::And => left & right,
+                ArithmeticOperator::Or => left | right,
+                ArithmeticOperator::LeftShift => left << right,
+                ArithmeticOperator::RightShift => left >> right,
+                ArithmeticOperator::Swap => unreachable!(),
+            }),
+
+            (Self::Integer(left), Self::Integer(right)) => Self::Integer(match operator {
+                ArithmeticOperator::Add => left.wrapping_add(right),
+                ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                ArithmeticOperator::Modulo => left % right,
+                ArithmeticOperator::And => left & right,
+                ArithmeticOperator::Or => left | right,
+                ArithmeticOperator::LeftShift => left << right,
+                ArithmeticOperator::RightShift => left >> right,
+                ArithmeticOperator::Swap => unreachable!(),
+            }),
+
+            (Self::Long(left), Self::Long(right)) => Self::Long(match operator {
+                ArithmeticOperator::Add => left.wrapping_add(right),
+                ArithmeticOperator::Subtract => left.wrapping_sub(right),
+                ArithmeticOperator::Multiply => left.wrapping_mul(right),
+                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
+                ArithmeticOperator::Modulo => left % right,
+                ArithmeticOperator::And => left & right,
+                ArithmeticOperator::Or => left | right,
+                ArithmeticOperator::LeftShift => left << right,
+                ArithmeticOperator::RightShift => left >> right,
+                ArithmeticOperator::Swap => unreachable!(),
+            }),
+
+            (Self::Float(left), Self::Float(right)) => Self::Float(match operator {
+                ArithmeticOperator::Add => left + right,
+                ArithmeticOperator::Subtract => left - right,
+                ArithmeticOperator::Multiply => left * right,
+                ArithmeticOperator::FloorDivide => left / right,
+                ArithmeticOperator::Modulo => left % right,
+                _ => unreachable!(),
+            }),
+
+            (Self::Double(left), Self::Double(right)) => Self::Double(match operator {
+                ArithmeticOperator::Add => left + right,
+                ArithmeticOperator::Subtract => left - right,
+                ArithmeticOperator::Multiply => left * right,
+                ArithmeticOperator::FloorDivide => left / right,
+                ArithmeticOperator::Modulo => left % right,
+                _ => unreachable!(),
+            }),
+
+            (left_kind, right_kind) => {
+                // TODO maybe better checking?
+                // TODO assign into score
+
+                let unique_score = datapack.get_unique_score();
+
+                left_kind.assign_to_score(datapack, ctx, unique_score.clone());
+                right_kind.operate_on_score(datapack, ctx, unique_score.clone(), operator);
+
+                Self::PlayerScore(unique_score)
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn perform_comparison(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ComparisonOperator,
+        other: Self,
+    ) -> Self {
+        match (self, other) {
+            (Self::Byte(left), Self::Byte(right)) => Self::Boolean(match operator {
+                ComparisonOperator::LessThan => left < right,
+                ComparisonOperator::LessThanOrEqualTo => left <= right,
+                ComparisonOperator::GreaterThan => left > right,
+                ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                ComparisonOperator::EqualTo => left == right,
+                ComparisonOperator::NotEqualTo => left != right,
+            }),
+            (Self::Short(left), Self::Short(right)) => Self::Boolean(match operator {
+                ComparisonOperator::LessThan => left < right,
+                ComparisonOperator::LessThanOrEqualTo => left <= right,
+                ComparisonOperator::GreaterThan => left > right,
+                ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                ComparisonOperator::EqualTo => left == right,
+                ComparisonOperator::NotEqualTo => left != right,
+            }),
+            (Self::Integer(left), Self::Integer(right)) => Self::Boolean(match operator {
+                ComparisonOperator::LessThan => left < right,
+                ComparisonOperator::LessThanOrEqualTo => left <= right,
+                ComparisonOperator::GreaterThan => left > right,
+                ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                ComparisonOperator::EqualTo => left == right,
+                ComparisonOperator::NotEqualTo => left != right,
+            }),
+            (Self::Long(left), Self::Long(right)) => Self::Boolean(match operator {
+                ComparisonOperator::LessThan => left < right,
+                ComparisonOperator::LessThanOrEqualTo => left <= right,
+                ComparisonOperator::GreaterThan => left > right,
+                ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                ComparisonOperator::EqualTo => left == right,
+                ComparisonOperator::NotEqualTo => left != right,
+            }),
+            (Self::Float(left), Self::Float(right)) => Self::Boolean(match operator {
+                ComparisonOperator::LessThan => left < right,
+                ComparisonOperator::LessThanOrEqualTo => left <= right,
+                ComparisonOperator::GreaterThan => left > right,
+                ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                ComparisonOperator::EqualTo => left == right,
+                ComparisonOperator::NotEqualTo => left != right,
+            }),
+            (Self::Double(left), Self::Double(right)) => Self::Boolean(match operator {
+                ComparisonOperator::LessThan => left < right,
+                ComparisonOperator::LessThanOrEqualTo => left <= right,
+                ComparisonOperator::GreaterThan => left > right,
+                ComparisonOperator::GreaterThanOrEqualTo => left >= right,
+                ComparisonOperator::EqualTo => left == right,
+                ComparisonOperator::NotEqualTo => left != right,
+            }),
+            (left_kind @ Self::Data(_), right_kind)
+                if operator == ComparisonOperator::EqualTo
+                    || operator == ComparisonOperator::NotEqualTo =>
+            {
+                let unique_score = datapack.get_unique_score();
+
+                let (unique_target, unique_path) = datapack.get_unique_data();
+
+                left_kind.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
+
+                let data_command_modification =
+                    right_kind.as_data_command_modification(datapack, ctx);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Success,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.score.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
+                                DataCommand::Modify(
+                                    unique_target.target,
+                                    unique_path,
+                                    DataCommandModificationMode::Set,
+                                    data_command_modification,
+                                ),
+                            )))),
+                        ),
+                    )),
+                );
+
+                Self::Condition(
+                    operator.should_execute_if_be_inverted(),
+                    Box::new(ExecuteIfSubcommand::Score(
+                        unique_score.score,
+                        ScoreComparison::Range(IntegerRange::new_single(0)),
+                        None,
+                    )),
+                )
+            }
+            (self_ @ Self::Data(_), other) | (other, self_ @ Self::Data(_)) => {
+                let score = self_.as_score(datapack, ctx, false);
+
+                let other_score = other.as_score(datapack, ctx, false);
+
+                Self::Condition(
+                    operator.should_execute_if_be_inverted(),
+                    Box::new(ExecuteIfSubcommand::Score(
+                        score.score,
+                        ScoreComparison::Score(
+                            operator.into_score_comparison_operator(),
+                            other_score.score,
+                        ),
+                        None,
+                    )),
+                )
+            }
+            (Self::PlayerScore(score), other) => {
+                let right_score = other.as_score(datapack, ctx, false);
+
+                Self::Condition(
+                    operator.should_execute_if_be_inverted(),
+                    Box::new(ExecuteIfSubcommand::Score(
+                        score.score,
+                        ScoreComparison::Score(
+                            operator.into_score_comparison_operator(),
+                            right_score.score,
+                        ),
+                        None,
+                    )),
+                )
+            }
+            (left_kind, Self::PlayerScore(right_score)) => {
+                let left_score = left_kind.as_score(datapack, ctx, false);
+
+                Self::Condition(
+                    operator.should_execute_if_be_inverted(),
+                    Box::new(ExecuteIfSubcommand::Score(
+                        right_score.score,
+                        ScoreComparison::Score(
+                            operator.into_score_comparison_operator(),
+                            left_score.score,
+                        ),
+                        None,
+                    )),
+                )
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[must_use]
+    pub fn cast_to(self, data_type: DataTypeKind) -> Self {
+        match (self, data_type) {
+            (Self::Byte(value), DataTypeKind::Short) => Self::Short(i16::from(value)),
+            (Self::Byte(value), DataTypeKind::Integer) => Self::Integer(i32::from(value)),
+            (Self::Byte(value), DataTypeKind::Long) => Self::Long(i64::from(value)),
+            (Self::Byte(value), DataTypeKind::Float) => {
+                Self::Float(NotNan::new(f32::from(value)).unwrap())
+            }
+            (Self::Byte(value), DataTypeKind::Double) => {
+                Self::Double(NotNan::new(f64::from(value)).unwrap())
+            }
+
+            (Self::Short(value), DataTypeKind::Byte) => Self::Byte(value as i8),
+            (Self::Short(value), DataTypeKind::Integer) => Self::Integer(i32::from(value)),
+            (Self::Short(value), DataTypeKind::Long) => Self::Long(i64::from(value)),
+            (Self::Short(value), DataTypeKind::Float) => {
+                Self::Float(NotNan::new(f32::from(value)).unwrap())
+            }
+            (Self::Short(value), DataTypeKind::Double) => {
+                Self::Double(NotNan::new(f64::from(value)).unwrap())
+            }
+
+            (Self::Integer(value), DataTypeKind::Byte) => Self::Byte(value as i8),
+            (Self::Integer(value), DataTypeKind::Short) => Self::Short(value as i16),
+            (Self::Integer(value), DataTypeKind::Long) => Self::Long(i64::from(value)),
+            (Self::Integer(value), DataTypeKind::Float) => {
+                Self::Float(NotNan::new(value as f32).unwrap())
+            }
+            (Self::Integer(value), DataTypeKind::Double) => {
+                Self::Double(NotNan::new(f64::from(value)).unwrap())
+            }
+
+            (Self::Long(value), DataTypeKind::Byte) => Self::Byte(value as i8),
+            (Self::Long(value), DataTypeKind::Short) => Self::Short(value as i16),
+            (Self::Long(value), DataTypeKind::Integer) => Self::Integer(value as i32),
+            (Self::Long(value), DataTypeKind::Float) => {
+                Self::Float(NotNan::new(value as f32).unwrap())
+            }
+            (Self::Long(value), DataTypeKind::Double) => {
+                Self::Double(NotNan::new(value as f64).unwrap())
+            }
+
+            (Self::Float(value), DataTypeKind::Byte) => Self::Byte(value.into_inner() as i8),
+            (Self::Float(value), DataTypeKind::Short) => Self::Short(value.into_inner() as i16),
+            (Self::Float(value), DataTypeKind::Integer) => Self::Integer(value.into_inner() as i32),
+            (Self::Float(value), DataTypeKind::Long) => Self::Long(value.into_inner() as i64),
+            (Self::Float(value), DataTypeKind::Double) => Self::Double(value.into()),
+
+            (Self::Double(value), DataTypeKind::Byte) => Self::Byte(value.into_inner() as i8),
+            (Self::Double(value), DataTypeKind::Short) => Self::Short(value.into_inner() as i16),
+            (Self::Double(value), DataTypeKind::Integer) => {
+                Self::Integer(value.into_inner() as i32)
+            }
+            (Self::Double(value), DataTypeKind::Long) => Self::Long(value.into_inner() as i64),
+            (Self::Double(value), DataTypeKind::Float) => {
+                Self::Float(unsafe { NotNan::new_unchecked(value.into_inner() as f32) })
+            }
+
+            (self_ @ Self::Boolean(_), DataTypeKind::Boolean)
+            | (self_ @ Self::Byte(_), DataTypeKind::Byte)
+            | (self_ @ Self::Short(_), DataTypeKind::Short)
+            | (self_ @ Self::Integer(_), DataTypeKind::Integer)
+            | (self_ @ Self::Long(_), DataTypeKind::Long)
+            | (self_ @ Self::Float(_), DataTypeKind::Float)
+            | (self_ @ Self::Double(_), DataTypeKind::Double)
+            | (self_ @ Self::Data(_), DataTypeKind::Data(_))
+            | (self_ @ Self::PlayerScore(_), DataTypeKind::Score(_)) => self_,
+
+            _ => unreachable!(""),
+        }
+    }
+
     pub fn to_execute_condition(
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         inverted: bool,
-    ) -> (bool, ExecuteIfSubcommand) {
+    ) -> Option<(bool, ExecuteIfSubcommand)> {
         if let Some(value) = self.try_as_i32(true) {
             let unique_score = datapack.get_unique_score();
 
@@ -1155,62 +1096,44 @@ impl ConstantExpressionKind {
                 PlayersScoreboardCommand::Set(unique_score.score.clone(), value),
             );
 
-            return (
-                !inverted,
-                ExecuteIfSubcommand::Score(
-                    unique_score.score,
-                    ScoreComparison::Range(IntegerRange::new_single(0)),
-                    None,
-                ),
-            );
+            return Some(unique_score.to_execute_condition(inverted));
         }
 
-        match self {
-            Self::Literal(expression) => expression.kind.to_execute_condition(datapack).unwrap(),
-            Self::PlayerScore(score) => (
-                !inverted,
+        Some(match self {
+            Self::Boolean(value) => (
+                value,
                 ExecuteIfSubcommand::Score(
-                    score.score,
+                    datapack.get_constant_score(1).score,
                     ScoreComparison::Range(IntegerRange::new_single(0)),
                     None,
                 ),
             ),
-            Self::Data(_, _) => {
+            Self::PlayerScore(score) => score.to_execute_condition(inverted),
+            Self::Data(_) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
 
-                (
-                    !inverted,
-                    ExecuteIfSubcommand::Score(
-                        unique_score.score,
-                        ScoreComparison::Range(IntegerRange::new_single(0)),
-                        None,
-                    ),
-                )
+                unique_score.to_execute_condition(inverted)
             }
-            Self::Condition(inner_inverted, condition) => (inverted ^ inner_inverted, condition),
-            Self::Variable(name) => datapack
-                .get_variable(&name)
-                .unwrap()
-                .1
-                .kind
-                .to_execute_condition(datapack, ctx, inverted),
-            Self::List(_)
+            Self::Condition(inner_inverted, condition) => (inverted ^ inner_inverted, *condition),
+            Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_)
+            | Self::Underscore
+            | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Unit
-            | Self::Reference(_)
-            | Self::Dereference(_)
-            | Self::Underscore
             | Self::Struct(_, _, _)
-            | Self::Index(_, _)
-            | Self::FieldAccess(_, _) => {
-                unreachable!()
-            }
-        }
+            | Self::Unit => return None,
+        })
     }
 
+    #[must_use]
     pub fn as_text_component(
         self,
         datapack: &mut HighDatapack,
@@ -1218,17 +1141,10 @@ impl ConstantExpressionKind {
         force_display: bool,
     ) -> SNBT {
         match self {
-            Self::Index(_, _)
-            | Self::FieldAccess(_, _)
-            | Self::Variable(_)
-            | Self::Underscore
-            | Self::Reference(_)
-            | Self::Dereference(_) => {
-                unreachable!("{:?}", self)
-            }
-
             Self::PlayerScore(player_score) => player_score.to_text_component(),
-            Self::Data(target, path) => {
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
                 let mut map = BTreeMap::new();
 
                 match target.target {
@@ -1256,20 +1172,74 @@ impl ConstantExpressionKind {
 
                 SNBT::Compound(map)
             }
-            Self::Literal(expression) => expression.kind.as_text_component(force_display),
-            Self::List(constant_expressions) => SNBT::List(
-                constant_expressions
-                    .into_iter()
-                    .map(|expression| expression.kind.as_text_component(datapack, ctx, false))
+            Self::Boolean(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Byte(i8::from(value))
+                }
+            }
+            Self::Byte(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Byte(value)
+                }
+            }
+            Self::Short(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Short(value)
+                }
+            }
+            Self::Integer(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Integer(value)
+                }
+            }
+            Self::Long(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Long(value)
+                }
+            }
+            Self::Float(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Float(value)
+                }
+            }
+            Self::Double(value) => {
+                if force_display {
+                    SNBT::string(value)
+                } else {
+                    SNBT::Double(value)
+                }
+            }
+            Self::String(string) => {
+                if force_display {
+                    SNBT::string(format!("\"{}\"", string.snbt_string.1))
+                } else {
+                    SNBT::String(string.snbt_string)
+                }
+            }
+            Self::List(list) => SNBT::List(
+                list.into_iter()
+                    .map(|element| element.as_text_component(datapack, ctx, false))
                     .collect(),
             ),
-            Self::Compound(btree_map) => SNBT::Compound(
-                btree_map
+            Self::Compound(compound) => SNBT::Compound(
+                compound
                     .into_iter()
                     .map(|(key, value)| {
                         (
                             key.snbt_string,
-                            value.kind.as_text_component(datapack, ctx, false),
+                            value.as_text_component(datapack, ctx, false),
                         )
                     })
                     .collect(),
@@ -1281,22 +1251,22 @@ impl ConstantExpressionKind {
 
                 unique_score.to_text_component()
             }
-            Self::Tuple(expressions) => {
-                let mut items = Vec::new();
+            Self::Tuple(tuple) => {
+                let mut list = Vec::new();
 
-                items.push(SNBT::string("("));
+                list.push(SNBT::string("("));
 
-                for (i, expression) in expressions.into_iter().enumerate() {
+                for (i, element) in tuple.into_iter().enumerate() {
                     if i != 0 {
-                        items.push(SNBT::string(", "));
+                        list.push(SNBT::string(", "));
                     }
 
-                    items.push(expression.kind.as_text_component(datapack, ctx, true));
+                    list.push(element.as_text_component(datapack, ctx, true));
                 }
 
-                items.push(SNBT::string(")"));
+                list.push(SNBT::string(")"));
 
-                SNBT::List(items)
+                SNBT::List(list)
             }
             Self::Unit => SNBT::string("()"),
             Self::Struct(name, generics, fields) => {
@@ -1333,7 +1303,7 @@ impl ConstantExpressionKind {
                         }
 
                         output.push(SNBT::string(format!("{}: ", key)));
-                        output.push(value.kind.clone().as_text_component(datapack, ctx, true));
+                        output.push(value.clone().as_text_component(datapack, ctx, true));
                     }
 
                     if fields.is_empty() {
@@ -1349,302 +1319,14 @@ impl ConstantExpressionKind {
                     for (field_name, field_value) in fields {
                         output.insert(
                             SNBTString(false, field_name),
-                            field_value
-                                .kind
-                                .as_text_component(datapack, ctx, force_display),
+                            field_value.as_text_component(datapack, ctx, force_display),
                         );
                     }
 
                     SNBT::Compound(output)
                 }
             }
-        }
-    }
-
-    pub fn assign_to_score(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: GeneratedPlayerScore,
-    ) {
-        match self {
-            Self::Literal(expression) => {
-                expression.kind.assign_to_score(datapack, ctx, target.score);
-            }
-            Self::List(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
-                );
-            }
-            Self::Compound(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
-                );
-            }
-            Self::PlayerScore(source) => {
-                source.assign_to_score(datapack, ctx, target);
-            }
-            Self::Data(data_target, path) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            target.score,
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(data_target.target, Some(path), None),
-                            )))),
-                        ),
-                    )),
-                );
-            }
-            Self::Condition(inverted, condition) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            target.score,
-                            Box::new(ExecuteSubcommand::If(inverted, condition)),
-                        ),
-                    )),
-                );
-            }
-            Self::Struct(_, _, fields) => {
-                for value in fields.into_values() {
-                    value.kind.assign_to_score(datapack, ctx, target.clone());
-                }
-            }
-            Self::Tuple(_)
-            | Self::Unit
-            | Self::Dereference(_)
-            | Self::Underscore
-            | Self::Variable(_)
-            | Self::Index(_, _)
-            | Self::FieldAccess(_, _) => unreachable!(),
-            Self::Reference(expression) => {
-                expression.kind.assign_to_score(datapack, ctx, target);
-            }
-        }
-    }
-
-    pub fn assign_to_data(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        target: GeneratedDataTarget,
-        path: NbtPath,
-    ) {
-        if let Some(value) = self.as_snbt() {
-            ctx.add_command(
-                datapack,
-                Command::Data(DataCommand::Modify(
-                    target.target,
-                    path,
-                    DataCommandModificationMode::Set,
-                    DataCommandModification::Value(value),
-                )),
-            );
-
-            return;
-        }
-
-        match self {
-            Self::PlayerScore(score) => {
-                score.assign_to_data(datapack, ctx, target, path);
-            }
-            Self::Data(inner_target, inner_path) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        target.target,
-                        path,
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::From(inner_target.target, Some(inner_path)),
-                    )),
-                );
-            }
-            Self::List(list) => {
-                let (constants, non_constants) = split_constants_list(list);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        target.target.clone(),
-                        path.clone(),
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::Value(SNBT::List(constants)),
-                    )),
-                );
-
-                for (index, non_constant) in non_constants {
-                    non_constant.kind.assign_to_data(
-                        datapack,
-                        ctx,
-                        target.clone(),
-                        path.clone()
-                            .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
-                    );
-                }
-            }
-            Self::Compound(compound) => {
-                let (constants, non_constants) = split_constants_compound(compound);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        target.target.clone(),
-                        path.clone(),
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::Value(SNBT::Compound(constants)),
-                    )),
-                );
-
-                for (key, non_constant) in non_constants {
-                    non_constant.kind.assign_to_data(
-                        datapack,
-                        ctx,
-                        target.clone(),
-                        path.clone().with_node(NbtPathNode::named(key.snbt_string)),
-                    );
-                }
-            }
-            Self::Unit
-            | Self::Literal(_)
-            | Self::Underscore
-            | Self::Variable(_)
-            | Self::Index(_, _)
-            | Self::FieldAccess(_, _) => unreachable!(),
-            Self::Reference(expression) => {
-                expression.kind.assign_to_data(datapack, ctx, target, path);
-            }
-            Self::Struct(_, _, fields) => {
-                for (key, value) in fields {
-                    value.kind.assign_to_data(
-                        datapack,
-                        ctx,
-                        target.clone(),
-                        path.clone()
-                            .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
-                    );
-                }
-            }
-            Self::Tuple(expressions) => {
-                let (constants, non_constants) = split_constants_list(expressions);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        target.target.clone(),
-                        path.clone(),
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::Value(SNBT::List(constants)),
-                    )),
-                );
-
-                for (index, non_constant) in non_constants {
-                    non_constant.kind.assign_to_data(
-                        datapack,
-                        ctx,
-                        target.clone(),
-                        path.clone()
-                            .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
-                    );
-                }
-            }
-            Self::Condition(inverted, execute_if_subcommand) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Data(
-                            target.target,
-                            path,
-                            NumericSNBTType::Integer,
-                            NotNan::new(1.0).unwrap(),
-                            Box::new(ExecuteSubcommand::If(inverted, execute_if_subcommand)),
-                        ),
-                    )),
-                );
-            }
-            Self::Dereference(expression) => expression
-                .kind
-                .dereference(datapack, ctx)
-                .assign_to_data(datapack, ctx, target, path),
-        }
-    }
-
-    pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> SNBT {
-        match self {
-            Self::Literal(expression) => expression.kind.into_snbt(),
-            Self::List(expressions) => SNBT::List(
-                expressions
-                    .into_iter()
-                    .map(|expression| expression.kind.as_snbt_macros(ctx))
-                    .collect(),
-            ),
-            Self::Compound(compound) => SNBT::Compound(
-                compound
-                    .into_iter()
-                    .map(|(key, value)| (key.snbt_string, value.kind.as_snbt_macros(ctx)))
-                    .collect(),
-            ),
-            _ => ctx.get_macro_snbt(self),
-        }
-    }
-
-    pub fn as_snbt(&self) -> Option<SNBT> {
-        match self {
-            Self::Literal(expression) => Some(expression.clone().kind.into_snbt()),
-
-            Self::List(expressions) | Self::Tuple(expressions) => expressions
-                .iter()
-                .map(|expr| expr.kind.as_snbt())
-                .collect::<Option<Vec<_>>>()
-                .map(SNBT::List),
-
-            Self::Compound(compound) => compound
-                .iter()
-                .map(|(key, value)| value.kind.as_snbt().map(|v| (key.snbt_string.clone(), v)))
-                .collect::<Option<_>>()
-                .map(SNBT::Compound),
-
-            Self::Unit => {
-                let mut unit_btreemap = BTreeMap::new();
-
-                unit_btreemap.insert(
-                    SNBTString(false, "__kelp_rs_unit__".to_string()),
-                    SNBT::Byte(1),
-                );
-
-                Some(SNBT::Compound(unit_btreemap))
-            }
-
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub fn cast_to(self, datapack: &mut HighDatapack, data_type: DataTypeKind) -> Self {
-        let self_type = self.infer_data_type(datapack).unwrap();
-
-        if self_type.equals(&data_type) {
-            return self;
-        }
-
-        match (self, data_type) {
-            (Self::Literal(expression), data_type) => Self::Literal(LiteralExpression {
-                span: expression.span,
-                kind: expression.kind.cast_to(data_type),
-            }),
-
-            (self_ @ Self::Data(_, _), DataTypeKind::Data(_)) => self_,
-
-            _ => unreachable!(""),
+            Self::Underscore => SNBT::string("_"),
         }
     }
 
@@ -1652,208 +1334,370 @@ impl ConstantExpressionKind {
     pub fn as_place(self) -> Place {
         match self {
             Self::PlayerScore(score) => Place::Score(score),
-            Self::Data(target, path) => Place::Data(target, path),
-            Self::Variable(name) => Place::Variable(name),
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                Place::Data(target, path)
+            }
             Self::Underscore => Place::Underscore,
-            Self::Tuple(expressions) => Place::Tuple(
-                expressions
-                    .into_iter()
-                    .map(|expression| expression.kind.as_place())
-                    .collect(),
-            ),
-            Self::Dereference(expression) => Place::Dereference(expression),
-            Self::Index(target, index) => Place::Index(target, index),
-            Self::FieldAccess(target, field) => Place::Field(target, field),
+            Self::Tuple(expressions) => {
+                Place::Tuple(expressions.into_iter().map(Self::as_place).collect())
+            }
             _ => unreachable!("This expression is not a place {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn dereference(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
+    pub const fn is_lvalue(&self) -> bool {
         match self {
-            Self::Variable(name) => datapack.get_variable(&name).unwrap().1.kind,
-            Self::Reference(expression) => expression.kind,
+            Self::PlayerScore(_) | Self::Data(_) => true,
+            Self::Boolean(_)
+            | Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_)
+            | Self::Underscore
+            | Self::List(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::Struct(_, _, _)
+            | Self::Unit
+            | Self::Condition(_, _) => false,
+        }
+    }
+
+    pub fn compile_augmented_assignment(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
+        value: Self,
+    ) {
+        match self {
+            Self::PlayerScore(score) => {
+                value.operate_on_score(datapack, ctx, score, operator);
+            }
+            Self::Data(ref target_path) => {
+                let (target, path) = &**target_path;
+
+                let unique_score = datapack.get_unique_score();
+
+                self.clone()
+                    .assign_to_score(datapack, ctx, unique_score.clone());
+
+                value.operate_on_score(datapack, ctx, unique_score.clone(), operator);
+
+                unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
+            }
+            Self::Boolean(_)
+            | Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_)
+            | Self::String(_)
+            | Self::Underscore
+            | Self::List(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::Struct(_, _, _)
+            | Self::Unit
+            | Self::Condition(_, _) => unreachable!(),
+        }
+    }
+
+    #[must_use]
+    pub fn invert(self) -> Self {
+        match self {
+            Self::Boolean(value) => Self::Boolean(!value),
+            Self::Condition(inverted, subcommand) => Self::Condition(!inverted, subcommand),
+            _ => unreachable!("Cannot invert expression {:?}", self),
+        }
+    }
+
+    #[must_use]
+    pub fn negate(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
+        match self {
+            Self::Byte(value) => Self::Byte(-value),
+            Self::Short(value) => Self::Short(-value),
+            Self::Integer(value) => Self::Integer(-value),
+            Self::Long(value) => Self::Long(-value),
+            Self::Float(value) => Self::Float(-value),
+            Self::Double(value) => Self::Double(-value),
             Self::PlayerScore(_) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
 
+                let constant_score = datapack.get_constant_score(-1);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            unique_score.score.clone(),
+                            ScoreOperationOperator::Multiply,
+                            constant_score.score,
+                        ),
+                    )),
+                );
+
                 Self::PlayerScore(unique_score)
             }
-            Self::Data(_, _) => {
-                let (unique_target, unique_path) = datapack.get_unique_data();
+            Self::Data(_) => {
+                let unique_score = self.clone().as_score(datapack, ctx, true);
 
-                self.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
+                self.assign_to_score(datapack, ctx, unique_score.clone());
 
-                Self::Data(unique_target, unique_path)
+                let constant_score = datapack.get_constant_score(-1);
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(
+                        PlayersScoreboardCommand::Operation(
+                            unique_score.score.clone(),
+                            ScoreOperationOperator::Multiply,
+                            constant_score.score,
+                        ),
+                    )),
+                );
+
+                Self::PlayerScore(unique_score)
             }
-            _ => unreachable!("This expression cannot be dereferenced {:?}", self),
+            _ => unreachable!("Cannot negate expression {:?}", self),
         }
     }
 
     #[must_use]
-    pub fn resolve(self, datapack: &mut HighDatapack) -> Self {
-        match self {
-            Self::Variable(name) => {
+    pub fn perform_logical_operation(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        operator: LogicalOperator,
+        other: Self,
+    ) -> Self {
+        match operator {
+            LogicalOperator::And => {
+                let unique_score = datapack.get_unique_score();
+
+                let (self_inverted, self_condition) =
+                    self.to_execute_condition(datapack, ctx, false).unwrap();
+                let (right_inverted, right_condition) =
+                    other.to_execute_condition(datapack, ctx, false).unwrap();
+
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
+                        unique_score.score.clone(),
+                        0,
+                    ))),
+                );
+
+                Self::Condition(
+                    self_inverted,
+                    Box::new(self_condition.then(ExecuteSubcommand::If(
+                        right_inverted,
+                        right_condition.then(ExecuteSubcommand::Run(Box::new(
+                            Command::Scoreboard(ScoreboardCommand::Players(
+                                PlayersScoreboardCommand::Set(unique_score.score.clone(), 1),
+                            )),
+                        ))),
+                    ))),
+                )
+                .compile_as_statement(datapack, ctx);
+
+                Self::PlayerScore(unique_score)
+            }
+            LogicalOperator::Or => {
+                let unique_function_paths = datapack.get_unique_function_paths();
+
+                let unique_score = datapack.get_unique_score();
+                ctx.add_command(
+                    datapack,
+                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
+                        unique_score.score.clone(),
+                        0,
+                    ))),
+                );
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Success,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.score.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
+                                ResourceLocation::new_namespace_paths(
+                                    datapack.current_namespace_name(),
+                                    unique_function_paths.clone(),
+                                ),
+                                None,
+                            )))),
+                        ),
+                    )),
+                );
+
+                let mut function_ctx = CompileContext::default();
+
+                let return_one_subcommand =
+                    ExecuteSubcommand::Run(Box::new(Command::Return(ReturnCommand::Value(1))));
+
+                let (self_inverted, left_condition) = self
+                    .to_execute_condition(datapack, &mut function_ctx, false)
+                    .unwrap();
+
+                function_ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(
+                        self_inverted,
+                        left_condition.then(return_one_subcommand.clone()),
+                    )),
+                );
+                let (other_inverted, other_condition) = other
+                    .to_execute_condition(datapack, &mut function_ctx, false)
+                    .unwrap();
+
+                function_ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(
+                        other_inverted,
+                        other_condition.then(return_one_subcommand),
+                    )),
+                );
+                function_ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
+
+                let function_commands = function_ctx.compile();
+
                 datapack
-                    .get_variable(&name)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Variable '{}' has not been declared in the current scope ",
-                            name
-                        )
-                    })
-                    .1
-                    .kind
+                    .get_function_mut(&unique_function_paths)
+                    .add_commands(function_commands);
+
+                Self::PlayerScore(unique_score)
             }
-            Self::Reference(expression) => Self::Reference(Box::new(
-                expression
-                    .kind
-                    .resolve(datapack)
-                    .into_dummy_constant_expression(),
-            )),
-            Self::List(expressions) => Self::List(
-                expressions
-                    .into_iter()
-                    .map(|expression| {
-                        expression
-                            .kind
-                            .resolve(datapack)
-                            .into_dummy_constant_expression()
-                    })
-                    .collect(),
-            ),
-            Self::Compound(compound) => Self::Compound(
-                compound
-                    .into_iter()
-                    .map(|(key, value)| {
-                        (
-                            key,
-                            value
-                                .kind
-                                .resolve(datapack)
-                                .into_dummy_constant_expression(),
-                        )
-                    })
-                    .collect(),
-            ),
-            Self::Tuple(expressions) => Self::Tuple(
-                expressions
-                    .into_iter()
-                    .map(|expression| {
-                        expression
-                            .kind
-                            .resolve(datapack)
-                            .into_dummy_constant_expression()
-                    })
-                    .collect(),
-            ),
-            Self::Dereference(expression) => Self::Dereference(Box::new(
-                expression
-                    .kind
-                    .resolve(datapack)
-                    .into_dummy_constant_expression(),
-            )),
-            _ => self,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct ConstantExpression {
-    pub span: Span,
-    pub kind: ConstantExpressionKind,
-}
-
-impl ConstantExpression {
-    pub fn get_place_type(&self, ctx: &impl SupportsVariableTypeScope) -> Option<PlaceType> {
-        Some(
-            (match &self.kind {
-                ConstantExpressionKind::PlayerScore(_) => {
-                    PlaceTypeKind::Score(DataTypeKind::Integer)
-                }
-                ConstantExpressionKind::Data(_, _) => PlaceTypeKind::Data(DataTypeKind::SNBT),
-                ConstantExpressionKind::Dereference(expression) => {
-                    return expression.get_place_type(ctx);
-                }
-                ConstantExpressionKind::Variable(name) => {
-                    PlaceTypeKind::Variable(ctx.get_variable(name)??)
-                }
-                ConstantExpressionKind::Underscore => PlaceTypeKind::Underscore,
-                _ => return None,
-            })
-            .with_span(self.span),
-        )
-    }
-
-    #[must_use]
-    pub fn perform_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
-    ) -> Option<()> {
-        match &self.kind {
-            ConstantExpressionKind::Literal(expression) => {
-                expression.kind.perform_semantic_analysis(ctx, is_lhs)
-            }
-            ConstantExpressionKind::Unit | ConstantExpressionKind::Underscore => Some(()),
-            ConstantExpressionKind::Reference(expression) => {
-                let data_type = expression.kind.infer_data_type(ctx)?;
-
-                if !expression.kind.is_lvalue() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: expression.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeReferenced(data_type),
-                        ),
-                    });
-                }
-
-                Some(())
-            }
-            ConstantExpressionKind::Dereference(expression) => {
-                let data_type = expression.kind.infer_data_type(ctx)?;
-
-                if !expression.kind.can_be_dereferenced() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: expression.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeDereferenced(data_type),
-                        ),
-                    });
-                }
-
-                Some(())
-            }
-            ConstantExpressionKind::Variable(name) => {
-                if !ctx.variable_is_declared(name) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::UndeclaredVariable(name.clone()),
-                        ),
-                    });
-                }
-
-                Some(())
-            }
-            ConstantExpressionKind::PlayerScore(_)
-            | ConstantExpressionKind::Data(_, _)
-            | ConstantExpressionKind::List(_)
-            | ConstantExpressionKind::Compound(_)
-            | ConstantExpressionKind::Condition(_, _)
-            | ConstantExpressionKind::Tuple(_)
-            | ConstantExpressionKind::Struct(_, _, _)
-            | ConstantExpressionKind::Index(_, _)
-            | ConstantExpressionKind::FieldAccess(_, _) => unreachable!(),
         }
     }
 
     #[must_use]
-    pub const fn into_constant_expression(self) -> Expression {
-        Expression {
-            span: self.span,
-            kind: ExpressionKind::Constant(self),
+    pub fn index(
+        mut self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        index: Self,
+    ) -> Option<Self> {
+        Some(match self {
+            Self::List(ref mut items) => {
+                if let Self::Integer(index) = index {
+                    if index >= 0 && (index as usize) < items.len() {
+                        items.swap_remove(index as usize)
+                    } else {
+                        return None;
+                    }
+                } else {
+                    let (unique_data_target, unique_data_path) = datapack.get_unique_data();
+
+                    self.assign_to_data(
+                        datapack,
+                        ctx,
+                        unique_data_target.clone(),
+                        unique_data_path.clone(),
+                    );
+
+                    Self::Data(Box::new((
+                        unique_data_target,
+                        unique_data_path
+                            .with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
+                    )))
+                }
+            }
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                Self::Data(Box::new((
+                    target,
+                    path.with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
+                )))
+            }
+            _ => return None,
+        })
+    }
+
+    pub fn assign_field(
+        &mut self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        field: &str,
+        value: Self,
+    ) {
+        match self {
+            Self::Compound(compound) => {
+                *compound
+                    .iter_mut()
+                    .find_map(|(actual_field, value)| {
+                        if actual_field.snbt_string.1 == field {
+                            Some(value)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap() = value;
+            }
+            Self::Data(target_path) => {
+                let (target, path) = &mut **target_path;
+
+                value.assign_to_data(
+                    datapack,
+                    ctx,
+                    target.clone(),
+                    path.clone().with_node(NbtPathNode::Named(
+                        SNBTString(false, field.to_owned()),
+                        None,
+                    )),
+                );
+            }
+            Self::Tuple(expressions) => {
+                let field = field.parse::<i32>().unwrap();
+
+                *expressions.get_mut(field as usize).unwrap() = value;
+            }
+            _ => unreachable!("{:?}", self),
+        }
+    }
+
+    pub fn assign_index(
+        &mut self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        index: Self,
+        value: Self,
+    ) {
+        match self {
+            Self::List(items) => {
+                let Self::Integer(index) = index else {
+                    unreachable!();
+                };
+
+                if index >= 0 && (index as usize) < items.len() {
+                    *items.get_mut(index as usize).unwrap() = value;
+                } else {
+                    unreachable!("Index is out of range");
+                }
+            }
+            Self::Data(target_path) => {
+                let (target, path) = &mut **target_path;
+
+                let index = index.as_snbt_macros(ctx);
+
+                value.assign_to_data(
+                    datapack,
+                    ctx,
+                    target.clone(),
+                    path.clone().with_node(NbtPathNode::Index(Some(index))),
+                );
+            }
+            _ => unreachable!("The expression cannot be indexed {:?}", self),
         }
     }
 }

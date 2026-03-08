@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
+use crate::expression::constant::ResolvedExpression;
 use crate::item::Item;
 use crate::span::Span;
 use crate::trait_ext::OptionUnitIterExt;
@@ -8,7 +9,7 @@ use crate::{
     compile_context::CompileContext,
     data_type::{DataTypeKind, high::HighDataType},
     datapack::HighDatapack,
-    expression::{Expression, constant::ConstantExpressionKind},
+    expression::Expression,
     pattern::Pattern,
     semantic_analysis_context::{
         Scope, SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -136,6 +137,8 @@ impl StatementKind {
     pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
             Self::Expression(expression) => {
+                let expression = expression.resolve(datapack, ctx);
+
                 expression.compile_as_statement(datapack, ctx);
             }
             Self::Let(data_type, pattern, value) => {
@@ -146,12 +149,7 @@ impl StatementKind {
 
                 let value = value.resolve(datapack, ctx);
 
-                data_type.destructure(
-                    datapack,
-                    ctx,
-                    value.into_dummy_constant_expression(),
-                    &pattern,
-                );
+                data_type.destructure(datapack, ctx, value, &pattern);
             }
             Self::While(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -163,7 +161,8 @@ impl StatementKind {
                 let mut condition_ctx = ctx.create_child_ctx();
                 let (should_be_inverted, condition) = condition
                     .resolve(datapack, &mut condition_ctx)
-                    .to_execute_condition(datapack, &mut condition_ctx, false);
+                    .to_execute_condition(datapack, &mut condition_ctx, false)
+                    .unwrap();
 
                 condition_ctx.add_command(
                     datapack,
@@ -240,11 +239,10 @@ impl StatementKind {
                     datapack.declare_variable(
                         variable_name,
                         DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-                        ConstantExpressionKind::Data(
+                        ResolvedExpression::Data(Box::new((
                             unique_data_target_2.clone(),
                             unique_path_2.clone(),
-                        )
-                        .into_dummy_constant_expression(),
+                        ))),
                     );
                     for_body_ctx.add_command(
                         datapack,
@@ -332,11 +330,10 @@ impl StatementKind {
                     datapack.declare_variable(
                         variable_name,
                         DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-                        ConstantExpressionKind::Data(
+                        ResolvedExpression::Data(Box::new((
                             unique_data_target.clone(),
                             unique_path.clone(),
-                        )
-                        .into_dummy_constant_expression(),
+                        ))),
                     );
                     body.kind.compile(datapack, &mut for_body_ctx);
                     datapack.end_scope();
@@ -400,7 +397,8 @@ impl StatementKind {
 
                 let (invert, condition) = condition
                     .resolve(datapack, ctx)
-                    .to_execute_condition(datapack, ctx, false);
+                    .to_execute_condition(datapack, ctx, false)
+                    .unwrap();
 
                 if let Some(else_body) = else_body {
                     let mut else_body_ctx = ctx.create_child_ctx();
@@ -489,7 +487,7 @@ impl StatementKind {
                 let target = target.resolve(datapack, ctx);
                 let value = value.resolve(datapack, ctx);
 
-                let (target, path) = target.as_data(datapack, ctx);
+                let (target, path) = target.as_data(datapack, ctx, false);
 
                 let modification = value.as_data_command_modification(datapack, ctx);
 
@@ -506,7 +504,7 @@ impl StatementKind {
             Self::Remove(expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
-                let (target, path) = expression.as_data(datapack, ctx);
+                let (target, path) = expression.as_data(datapack, ctx, false);
 
                 ctx.add_command(
                     datapack,

@@ -7,10 +7,13 @@ use minecraft_command_types::{
             numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
             store_type::StoreType,
         },
-        execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
+        execute::{
+            ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
+        },
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     nbt_path::NbtPath,
+    range::IntegerRange,
     snbt::{SNBT, SNBTString},
 };
 use minecraft_command_types_derive::HasMacro;
@@ -19,7 +22,7 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
-    expression::constant::ConstantExpressionKind,
+    expression::constant::ResolvedExpression,
     high::{data::GeneratedDataTarget, entity_selector::HighEntitySelector},
     operator::ArithmeticOperator,
     semantic_analysis_context::SemanticAnalysisContext,
@@ -35,6 +38,18 @@ pub struct GeneratedPlayerScore {
 }
 
 impl GeneratedPlayerScore {
+    #[must_use]
+    pub fn to_execute_condition(self, inverted: bool) -> (bool, ExecuteIfSubcommand) {
+        (
+            !inverted,
+            ExecuteIfSubcommand::Score(
+                self.score,
+                ScoreComparison::Range(IntegerRange::new_single(0)),
+                None,
+            ),
+        )
+    }
+
     #[inline]
     #[must_use]
     pub fn operation(self, operator: ScoreOperationOperator, other: Self) -> Command {
@@ -176,7 +191,7 @@ impl GeneratedPlayerScore {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: ConstantExpressionKind,
+        value: ResolvedExpression,
     ) {
         match operator {
             ArithmeticOperator::Add => {

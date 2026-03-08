@@ -2,9 +2,8 @@ use crate::compile_context::CompileContext;
 use crate::data_type::{BuiltinDataTypeKind, DataTypeKind};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::HighNamespace;
-use crate::expression::{
-    constant::ConstantExpression, supports_variable_type_scope::SupportsVariableTypeScope,
-};
+use crate::expression::constant::ResolvedExpression;
+use crate::expression::supports_variable_type_scope::SupportsVariableTypeScope;
 use crate::high::data::{GeneratedDataTarget, HighDataTarget, HighDataTargetKind};
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use crate::high::player_score::GeneratedPlayerScore;
@@ -264,14 +263,14 @@ impl DataTypeDeclarationKind {
 
 #[derive(Default)]
 pub struct Scope {
-    pub variables: BTreeMap<String, (DataTypeKind, ConstantExpression)>,
+    pub variables: BTreeMap<String, (DataTypeKind, ResolvedExpression)>,
     pub types: BTreeMap<String, DataTypeDeclarationKind>,
 }
 
 impl Scope {
     #[inline]
     #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<&(DataTypeKind, ConstantExpression)> {
+    pub fn get_variable(&self, name: &str) -> Option<&(DataTypeKind, ResolvedExpression)> {
         self.variables.get(name)
     }
 
@@ -280,7 +279,7 @@ impl Scope {
     pub fn get_variable_mut(
         &mut self,
         name: &str,
-    ) -> Option<&mut (DataTypeKind, ConstantExpression)> {
+    ) -> Option<&mut (DataTypeKind, ResolvedExpression)> {
         self.variables.get_mut(name)
     }
 
@@ -295,7 +294,7 @@ impl Scope {
         &mut self,
         name: String,
         data_type: DataTypeKind,
-        value: ConstantExpression,
+        value: ResolvedExpression,
     ) {
         self.variables.insert(name, (data_type, value));
     }
@@ -535,7 +534,7 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, ConstantExpression)> {
+    pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, ResolvedExpression)> {
         for scope in &self.scopes {
             if let Some(value) = scope.get_variable(name) {
                 return Some(value.clone());
@@ -545,7 +544,7 @@ impl HighDatapack {
         None
     }
 
-    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut ConstantExpression> {
+    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut ResolvedExpression> {
         for scope in &mut self.scopes {
             if let Some((_, value)) = scope.get_variable_mut(name) {
                 return Some(value);
@@ -578,7 +577,7 @@ impl HighDatapack {
         &mut self,
         name: String,
         data_type: DataTypeKind,
-        value: ConstantExpression,
+        value: ResolvedExpression,
     ) {
         self.scopes
             .front_mut()
@@ -593,7 +592,7 @@ impl HighDatapack {
             .declare_data_type(name, kind);
     }
 
-    pub fn assign_variable(&mut self, name: &str, value: ConstantExpression) {
+    pub fn assign_variable(&mut self, name: &str, value: ResolvedExpression) {
         for scope in self.scopes.iter_mut().rev() {
             if let Some((_, existing_value)) = scope.get_variable_mut(name) {
                 *existing_value = value;

@@ -1,8 +1,5 @@
 use kelp_core::{
-    expression::{
-        Expression, ExpressionKind, constant::ConstantExpressionKind,
-        literal::LiteralExpressionKind,
-    },
+    expression::{Expression, ExpressionKind},
     high::snbt_string::HighSNBTString,
 };
 use minecraft_command_types::snbt::SNBTString;
@@ -18,16 +15,10 @@ pub fn lower_string_expression(node: CSTStringExpression) -> Option<Expression> 
     let text = text_token.text().trim_matches('"');
 
     Some(
-        ExpressionKind::Constant(
-            ConstantExpressionKind::Literal(
-                LiteralExpressionKind::String(HighSNBTString {
-                    span,
-                    snbt_string: SNBTString(false, text.to_string()),
-                })
-                .with_span(span),
-            )
-            .with_span(span),
-        )
+        ExpressionKind::String(HighSNBTString {
+            span,
+            snbt_string: SNBTString(false, text.to_string()),
+        })
         .with_span(span),
     )
 }

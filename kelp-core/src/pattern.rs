@@ -48,7 +48,7 @@ impl PatternKind {
     #[must_use]
     pub fn get_type(&self) -> PatternType {
         match self {
-            Self::Literal(expression) => expression.kind.get_pattern_type(),
+            Self::Literal(expression) => expression.get_pattern_type(),
             Self::Wildcard | Self::Binding(_) => PatternType::Any,
             Self::Tuple(patterns) => PatternType::Tuple(
                 patterns

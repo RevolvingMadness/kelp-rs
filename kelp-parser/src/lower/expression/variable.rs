@@ -1,4 +1,4 @@
-use kelp_core::expression::{Expression, ExpressionKind, constant::ConstantExpressionKind};
+use kelp_core::expression::{Expression, ExpressionKind};
 
 use crate::{cst::CSTVariableExpression, span::span_of_cst_node};
 
@@ -10,10 +10,5 @@ pub fn lower_variable_expression(node: CSTVariableExpression) -> Option<Expressi
     let name_token = node.identifier_token()?;
     let name = name_token.text();
 
-    Some(
-        ExpressionKind::Constant(
-            ConstantExpressionKind::Variable(name.to_string()).with_span(span),
-        )
-        .with_span(span),
-    )
+    Some(ExpressionKind::Variable(name.to_string()).with_span(span))
 }

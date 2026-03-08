@@ -1,6 +1,4 @@
-use kelp_core::expression::{
-    Expression, ExpressionKind, constant::ConstantExpressionKind, literal::LiteralExpressionKind,
-};
+use kelp_core::expression::{Expression, ExpressionKind};
 use ordered_float::NotNan;
 
 use crate::{
@@ -658,15 +656,7 @@ macro_rules! lower_numerical_expression {
         let value_text = value_token.text();
         let value = value_text.parse::<$type_name>().ok()?;
 
-        Some(
-            ExpressionKind::Constant(
-                ConstantExpressionKind::Literal(
-                    LiteralExpressionKind::$enum_name(value).with_span(span),
-                )
-                .with_span(span),
-            )
-            .with_span(span),
-        )
+        Some(ExpressionKind::$enum_name(value).with_span(span))
     }};
 }
 
@@ -676,15 +666,7 @@ macro_rules! lower_numerical_expression {
 fn lower_boolean_expression(node: CSTBooleanExpression) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    Some(
-        ExpressionKind::Constant(
-            ConstantExpressionKind::Literal(
-                LiteralExpressionKind::Boolean(node.true_keyword_token().is_some()).with_span(span),
-            )
-            .with_span(span),
-        )
-        .with_span(span),
-    )
+    Some(ExpressionKind::Boolean(node.true_keyword_token().is_some()).with_span(span))
 }
 
 #[must_use]

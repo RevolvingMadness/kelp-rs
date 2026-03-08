@@ -1,4 +1,4 @@
-use kelp_core::expression::{Expression, ExpressionKind, constant::ConstantExpressionKind};
+use kelp_core::expression::{Expression, ExpressionKind};
 
 use crate::{cst::CSTUnitExpression, span::span_of_cst_node};
 
@@ -7,5 +7,5 @@ use crate::{cst::CSTUnitExpression, span::span_of_cst_node};
 pub fn lower_unit_expression(node: CSTUnitExpression) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    Some(ExpressionKind::Constant(ConstantExpressionKind::Unit.with_span(span)).with_span(span))
+    Some(ExpressionKind::Unit.with_span(span))
 }

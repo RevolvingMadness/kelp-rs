@@ -303,7 +303,7 @@ impl DataTypeKind {
     #[must_use]
     pub fn to_score(self) -> Option<Self> {
         Some(match self {
-            Self::Byte | Self::Short | Self::Integer => Self::Integer,
+            Self::Byte | Self::Short | Self::Integer | Self::InferredInteger => Self::Integer,
             Self::Boolean => Self::Boolean,
             Self::TypedCompound(compound) => Self::TypedCompound(
                 compound

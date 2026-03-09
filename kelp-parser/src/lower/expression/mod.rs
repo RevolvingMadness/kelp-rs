@@ -74,7 +74,7 @@ pub fn try_parse_expression(parser: &mut Parser) -> bool {
 
 pub fn try_parse_assignment(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
-    if !try_parse_logical_or(parser) {
+    if !try_parse_to_cast(parser) {
         return false;
     }
 
@@ -111,6 +111,32 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
         }
 
         parser.finish_node();
+    }
+    true
+}
+
+pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+
+    if !try_parse_logical_or(parser) {
+        return false;
+    }
+
+    loop {
+        parser.skip_inline_whitespace();
+
+        if parser.peek_identifier() == Some("to") {
+            parser.start_node_at(checkpoint, SyntaxKind::ToCastExpression);
+            parser.bump_str(SyntaxKind::ToKeyword, "to");
+            parser.expect_inline_whitespace();
+            parser.expect_identifier_kind(
+                SyntaxKind::RuntimeStorageType,
+                "Expected runtime storage type",
+            );
+            parser.finish_node();
+            continue;
+        }
+        break;
     }
     true
 }
@@ -361,25 +387,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.finish_node();
             }
             _ => {
-                let Some(id) = parser.peek_identifier() else {
-                    break;
-                };
-
-                if id == "to" {
-                    parser.start_node_at(checkpoint, SyntaxKind::ToCastExpression);
-                    parser.bump_str(SyntaxKind::ToKeyword, "to");
-                    parser.expect_inline_whitespace();
-                    parser.expect_identifier_kind(
-                        SyntaxKind::RuntimeStorageType,
-                        "Expected runtime storage type",
-                    );
-                    parser.skip_inline_whitespace();
-                    if parser.try_bump_char('*') {
-                        parser.skip_inline_whitespace();
-                        parser.expect_fractional_value("Expected scale");
-                    }
-                    parser.finish_node();
-                } else if id == "as" {
+                if parser.peek_identifier() == Some("as") {
                     parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
                     parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
                     parser.expect_inline_whitespace();

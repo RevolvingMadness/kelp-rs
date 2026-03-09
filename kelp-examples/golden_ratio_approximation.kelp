@@ -29,7 +29,7 @@ mcfn namespace:golden_ratio_approximation {
     function namespace:fibonacci
     let fib_2 = *fibonacci_output * 100000
 
-    *output = (fib_2 / fib_1) to data * 0.00001
+    *output = (fib_2 / fib_1) * 0.00001
 }
 
 mcfn namespace:main {

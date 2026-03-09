@@ -227,6 +227,11 @@ impl DataTypeKind {
     }
 
     #[must_use]
+    pub const fn is_restrictied_float_like(&self) -> bool {
+        matches!(self, Self::Float | Self::InferredFloat)
+    }
+
+    #[must_use]
     pub const fn is_float_like(&self) -> bool {
         matches!(self, Self::Float | Self::Double | Self::InferredFloat)
     }
@@ -1265,17 +1270,29 @@ impl DataTypeKind {
     ) -> Option<Self> {
         if self.is_numeric() && other.is_numeric() {
             return Some(match (self, other) {
-                (Self::Byte, _) | (_, Self::Byte) => Self::Byte,
-                (Self::Short, _) | (_, Self::Short) => Self::Short,
-                (Self::Integer, _) | (_, Self::Integer) => Self::Integer,
-                (Self::Long, _) | (_, Self::Long) => Self::Long,
-                (Self::Float, _) | (_, Self::Float) => Self::Float,
-                (Self::Double, _) | (_, Self::Double) => Self::Double,
-                (Self::InferredInteger, other) | (other, Self::InferredInteger)
-                    if other.is_restrictied_integer_like() =>
-                {
-                    other.clone()
+                (Self::InferredInteger, other) | (other, Self::InferredInteger) => {
+                    if matches!(other, Self::InferredFloat) {
+                        Self::Float
+                    } else {
+                        other.clone()
+                    }
                 }
+
+                (Self::InferredFloat, other) | (other, Self::InferredFloat) => {
+                    if matches!(other, Self::Double) {
+                        Self::Double
+                    } else {
+                        Self::Float
+                    }
+                }
+
+                (Self::Double, _) | (_, Self::Double) => Self::Double,
+                (Self::Float, _) | (_, Self::Float) => Self::Float,
+                (Self::Long, _) | (_, Self::Long) => Self::Long,
+                (Self::Integer, _) | (_, Self::Integer) => Self::Integer,
+                (Self::Short, _) | (_, Self::Short) => Self::Short,
+                (Self::Byte, _) | (_, Self::Byte) => Self::Byte,
+
                 _ => return None,
             });
         }

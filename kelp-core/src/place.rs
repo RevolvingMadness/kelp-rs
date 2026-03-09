@@ -37,7 +37,7 @@ pub enum Place {
 }
 
 impl Place {
-    pub fn assign(
+    pub fn assign_resolved(
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
@@ -56,28 +56,103 @@ impl Place {
             Self::Underscore => {}
             Self::Tuple(places) => {
                 if let ResolvedExpression::Tuple(values) = value {
-                    if places.len() != values.len() {
-                        return;
+                    for (place, value) in places.into_iter().zip(values) {
+                        place.assign_resolved(datapack, ctx, value);
                     }
+                } else {
+                    unreachable!("{:?}", value)
+                }
+            }
+            Self::Dereference(expression) => {
+                expression.as_place().assign_resolved(datapack, ctx, value);
+            }
+            Self::Field(mut target, field) => {
+                target.assign_field(datapack, ctx, &field, value);
+            }
+            Self::Index(mut target, index) => {
+                target.assign_index(datapack, ctx, *index, value);
+            }
+        }
+    }
+
+    pub fn assign(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        value: ExpressionKind,
+    ) {
+        match self {
+            Self::Score(score) => {
+                let (scale, value) = value.extract_scale();
+                let value = value.resolve(datapack, ctx);
+
+                if let Some(scale) = scale {
+                    value.assign_to_score_scale(datapack, ctx, score, scale);
+                } else {
+                    value.assign_to_score(datapack, ctx, score);
+                }
+            }
+            Self::Data(target, path) => {
+                let (scale, value) = value.extract_scale();
+                let value = value.resolve(datapack, ctx);
+
+                if let Some(scale) = scale {
+                    value.assign_to_data_scale(datapack, ctx, target, path, scale);
+                } else {
+                    value.assign_to_data(datapack, ctx, target, path);
+                }
+            }
+            Self::Variable(name) => {
+                let value = value.resolve(datapack, ctx);
+
+                datapack.assign_variable(&name, value);
+            }
+            Self::Underscore => {
+                value.resolve(datapack, ctx);
+            }
+            Self::Tuple(places) => {
+                if let ExpressionKind::Tuple(values) = value {
+                    assert!(places.len() == values.len());
 
                     let safe_values: Vec<ResolvedExpression> = values
                         .into_iter()
-                        .map(|value| match value {
-                            ResolvedExpression::PlayerScore(_) => {
-                                let unique = value.as_score(datapack, ctx, true);
-                                ResolvedExpression::PlayerScore(unique)
-                            }
-                            ResolvedExpression::Data(_) => {
-                                let (target, path) = value.as_data(datapack, ctx, true);
+                        .map(|value| {
+                            let (scale, value) = value.kind.extract_scale();
+                            let value = value.resolve(datapack, ctx);
 
-                                ResolvedExpression::Data(Box::new((target, path)))
+                            match (scale, value) {
+                                (Some(scale), value) => {
+                                    let unique_score = datapack.get_unique_score();
+
+                                    value.assign_to_score_scale(
+                                        datapack,
+                                        ctx,
+                                        unique_score.clone(),
+                                        scale,
+                                    );
+
+                                    ResolvedExpression::PlayerScore(unique_score)
+                                }
+                                (None, ResolvedExpression::PlayerScore(score)) => {
+                                    ResolvedExpression::PlayerScore(
+                                        score.as_unique_score(datapack, ctx),
+                                    )
+                                }
+                                (None, ResolvedExpression::Data(target_path)) => {
+                                    let (target, path) = *target_path;
+
+                                    let (unique_target, unique_path) =
+                                        target.as_unique_data(datapack, ctx, path);
+
+                                    ResolvedExpression::Data(Box::new((unique_target, unique_path)))
+                                }
+                                (None, value) => value,
                             }
-                            _ => value,
                         })
                         .collect();
 
-                    for (place, value) in places.into_iter().zip(safe_values) {
-                        place.assign(datapack, ctx, value);
+                    for (place, safe_value) in places.into_iter().zip(safe_values) {
+                        place.assign_resolved(datapack, ctx, safe_value);
                     }
                 } else {
                     unreachable!("{:?}", value)
@@ -87,9 +162,13 @@ impl Place {
                 expression.as_place().assign(datapack, ctx, value);
             }
             Self::Field(mut target, field) => {
+                let value = value.resolve(datapack, ctx);
+
                 target.assign_field(datapack, ctx, &field, value);
             }
             Self::Index(mut target, index) => {
+                let value = value.resolve(datapack, ctx);
+
                 target.assign_index(datapack, ctx, *index, value);
             }
         }

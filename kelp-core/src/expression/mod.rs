@@ -63,13 +63,13 @@ pub enum ExpressionKind {
     List(Vec<Expression>),
     Compound(ExpressionCompoundKind),
     PlayerScore(HighPlayerScore),
-    Data(HighDataTarget, HighNbtPath),
-    Condition(bool, HighExecuteIfSubcommand),
+    Data(Box<(HighDataTarget, HighNbtPath)>),
+    Condition(bool, Box<HighExecuteIfSubcommand>),
     Command(Box<HighCommand>),
     Index(Box<Expression>, Box<Expression>),
     FieldAccess(Box<Expression>, HighSNBTString),
     AsCast(Box<Expression>, HighDataType),
-    ToCast(Box<Expression>, RuntimeStorageType, Option<NotNan<f32>>),
+    ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Variable(String),
     Struct(
@@ -122,7 +122,9 @@ impl ExpressionKind {
 
                 Some(Place::Score(score))
             }
-            Self::Data(target, path) => {
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
@@ -167,7 +169,7 @@ impl ExpressionKind {
             | Self::Condition(_, _)
             | Self::Command(_)
             | Self::AsCast(_, _)
-            | Self::ToCast(_, _, _)
+            | Self::ToCast(_, _)
             | Self::Struct(_, _, _, _) => None,
         }
     }
@@ -243,7 +245,7 @@ impl ExpressionKind {
                     .collect::<Option<_>>()?,
             ),
             Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
-            Self::Data(_, _) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
+            Self::Data(_) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
             Self::Index(target, _) => target
                 .kind
                 .infer_data_type(supports_variable_type_scope)?
@@ -262,22 +264,26 @@ impl ExpressionKind {
                     .resolve(supports_variable_type_scope, None)?
                     .try_infer(expression_type)
             }
-            Self::ToCast(expression, storage_type, _) => match storage_type {
-                RuntimeStorageType::Score => {
-                    let expression_type = expression
-                        .kind
-                        .infer_data_type(supports_variable_type_scope)?;
+            Self::ToCast(expression, storage_type) => {
+                let expression = expression.try_extract_scale();
 
-                    DataTypeKind::Score(Box::new(expression_type.to_score()?))
-                }
-                RuntimeStorageType::Data => {
-                    let expression_type = expression
-                        .kind
-                        .infer_data_type(supports_variable_type_scope)?;
+                match storage_type {
+                    RuntimeStorageType::Score => {
+                        let expression_type = expression
+                            .kind
+                            .infer_data_type(supports_variable_type_scope)?;
 
-                    DataTypeKind::Data(Box::new(expression_type.to_data()))
+                        DataTypeKind::Score(Box::new(expression_type.to_score()?))
+                    }
+                    RuntimeStorageType::Data => {
+                        let expression_type = expression
+                            .kind
+                            .infer_data_type(supports_variable_type_scope)?;
+
+                        DataTypeKind::Data(Box::new(expression_type.to_data()))
+                    }
                 }
-            },
+            }
             Self::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
                     .iter()
@@ -356,10 +362,9 @@ impl ExpressionKind {
                 ResolvedExpression::Unit
             }
             Self::Assignment(target, value) => {
-                let value = value.kind.resolve(datapack, ctx);
-
                 let target_place = target.kind.as_place(datapack, ctx).unwrap();
-                target_place.assign(datapack, ctx, value);
+
+                target_place.assign(datapack, ctx, value.kind);
 
                 ResolvedExpression::Unit
             }
@@ -380,7 +385,9 @@ impl ExpressionKind {
 
                 ResolvedExpression::PlayerScore(score)
             }
-            Self::Data(target, path) => {
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
@@ -426,8 +433,9 @@ impl ExpressionKind {
 
                 expression.cast_to(data_type)
             }
-            Self::ToCast(expression, runtime_storage_type, scale) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+            Self::ToCast(expression, runtime_storage_type) => {
+                let (scale, expression) = expression.kind.extract_scale();
+                let expression = expression.resolve(datapack, ctx);
 
                 match runtime_storage_type {
                     RuntimeStorageType::Score => {
@@ -484,11 +492,9 @@ impl ExpressionKind {
     pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
             Self::Assignment(target, value) => {
-                let value = value.kind.resolve(datapack, ctx);
-
                 let target_place = target.kind.as_place(datapack, ctx).unwrap();
 
-                target_place.assign(datapack, ctx, value);
+                target_place.assign(datapack, ctx, value.kind);
             }
             Self::AugmentedAssignment(target, operator, value) => {
                 let value = value.kind.resolve(datapack, ctx);
@@ -520,7 +526,7 @@ impl ExpressionKind {
 
                 ctx.add_command(datapack, command);
             }
-            Self::AsCast(expression, _) | Self::ToCast(expression, _, _) => {
+            Self::AsCast(expression, _) | Self::ToCast(expression, _) => {
                 expression.kind.compile_as_statement(datapack, ctx);
             }
             Self::Tuple(tuple) => {
@@ -550,10 +556,61 @@ impl ExpressionKind {
             | Self::Comparison(_, _, _)
             | Self::Logical(_, _, _)
             | Self::PlayerScore(_)
-            | Self::Data(_, _)
+            | Self::Data(_)
             | Self::Index(_, _)
             | Self::FieldAccess(_, _)
             | Self::Variable(_) => {}
+        }
+    }
+
+    pub fn try_as_f32(self) -> Result<NotNan<f32>, Self> {
+        Ok(match self {
+            Self::Byte(value) => NotNan::new(f32::from(value)).unwrap(),
+            Self::Short(value) => NotNan::new(f32::from(value)).unwrap(),
+            Self::Integer(value) | Self::InferredInteger(value) => {
+                NotNan::new(value as f32).unwrap()
+            }
+            Self::Long(value) => NotNan::new(value as f32).unwrap(),
+            Self::Float(value) | Self::InferredFloat(value) => value,
+            Self::Double(value) => NotNan::new(value.into_inner() as f32).unwrap(),
+            _ => return Err(self),
+        })
+    }
+
+    #[must_use]
+    pub const fn is_f32_compatible(&self) -> bool {
+        matches!(
+            self,
+            Self::Byte(_)
+                | Self::Short(_)
+                | Self::Integer(_)
+                | Self::InferredInteger(_)
+                | Self::Long(_)
+                | Self::Float(_)
+                | Self::InferredFloat(_)
+                | Self::Double(_)
+        )
+    }
+
+    #[must_use]
+    pub fn extract_scale(self) -> (Option<NotNan<f32>>, Self) {
+        if let Self::Arithmetic(left, ArithmeticOperator::Multiply, right) = self {
+            match right.kind.try_as_f32() {
+                Ok(scale) => (Some(scale), left.kind),
+                Err(right_kind) => match left.kind.try_as_f32() {
+                    Ok(scale) => (Some(scale), right_kind),
+                    Err(left_kind) => (
+                        None,
+                        Self::Arithmetic(
+                            Box::new(left_kind.with_span(left.span)),
+                            ArithmeticOperator::Multiply,
+                            Box::new(right_kind.with_span(right.span)),
+                        ),
+                    ),
+                },
+            }
+        } else {
+            (None, self)
         }
     }
 
@@ -573,6 +630,21 @@ pub struct Expression {
 }
 
 impl Expression {
+    #[must_use]
+    pub fn try_extract_scale(&self) -> &Self {
+        if let ExpressionKind::Arithmetic(left, ArithmeticOperator::Multiply, right) = &self.kind {
+            if left.kind.is_f32_compatible() {
+                right
+            } else if right.kind.is_f32_compatible() {
+                left
+            } else {
+                self
+            }
+        } else {
+            self
+        }
+    }
+
     #[must_use]
     pub fn perform_semantic_analysis(
         &self,
@@ -844,7 +916,9 @@ impl Expression {
                     .all_some()
             }
             ExpressionKind::PlayerScore(score) => score.perform_semantic_analysis(ctx, is_lhs),
-            ExpressionKind::Data(target, path) => {
+            ExpressionKind::Data(target_path) => {
+                let (target, path) = &**target_path;
+
                 let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
                 let path_result = path.perform_semantic_analysis(ctx, is_lhs);
 
@@ -945,7 +1019,8 @@ impl Expression {
 
                 Some(())
             }
-            ExpressionKind::ToCast(expression, runtime_storage, _) => {
+            ExpressionKind::ToCast(expression, runtime_storage) => {
+                let expression = expression.try_extract_scale();
                 expression.perform_semantic_analysis(ctx, is_lhs, None)?;
 
                 let expression_type = expression.kind.infer_data_type(ctx)?;
@@ -1115,7 +1190,7 @@ impl Expression {
             ExpressionKind::PlayerScore(_) => {
                 Some(PlaceTypeKind::Score(DataTypeKind::Integer).with_span(self.span))
             }
-            ExpressionKind::Data(_, _) => {
+            ExpressionKind::Data(_) => {
                 Some(PlaceTypeKind::Data(DataTypeKind::SNBT).with_span(self.span))
             }
             ExpressionKind::Boolean(_)
@@ -1142,7 +1217,7 @@ impl Expression {
             | ExpressionKind::Index(_, _)
             | ExpressionKind::FieldAccess(_, _)
             | ExpressionKind::AsCast(_, _)
-            | ExpressionKind::ToCast(_, _, _)
+            | ExpressionKind::ToCast(_, _)
             | ExpressionKind::Tuple(_)
             | ExpressionKind::Struct(_, _, _, _) => None,
             ExpressionKind::Unary(operator, expression) => match operator {
@@ -1178,7 +1253,7 @@ impl Expression {
             ExpressionKind::PlayerScore(_) => {
                 Some(PlaceTypeKind::Score(DataTypeKind::Integer).with_span(self.span))
             }
-            ExpressionKind::Data(_, _) => {
+            ExpressionKind::Data(_) => {
                 Some(PlaceTypeKind::Data(DataTypeKind::SNBT).with_span(self.span))
             }
             ExpressionKind::Unary(operator, expression) => match operator {
@@ -1231,7 +1306,7 @@ impl Expression {
             | ExpressionKind::Condition(_, _)
             | ExpressionKind::Command(_)
             | ExpressionKind::AsCast(_, _)
-            | ExpressionKind::ToCast(_, _, _)
+            | ExpressionKind::ToCast(_, _)
             | ExpressionKind::Struct(_, _, _, _)
             | ExpressionKind::Unit => None,
             ExpressionKind::Underscore => Some(PlaceTypeKind::Underscore.with_span(self.span)),

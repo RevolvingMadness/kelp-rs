@@ -39,6 +39,15 @@ pub struct GeneratedPlayerScore {
 
 impl GeneratedPlayerScore {
     #[must_use]
+    pub fn as_unique_score(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
+        let unique_score = datapack.get_unique_score();
+
+        self.assign_to_score(datapack, ctx, unique_score.clone());
+
+        unique_score
+    }
+
+    #[must_use]
     pub fn to_execute_condition(self, inverted: bool) -> (bool, ExecuteIfSubcommand) {
         (
             !inverted,

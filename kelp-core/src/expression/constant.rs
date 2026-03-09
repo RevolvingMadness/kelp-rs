@@ -113,6 +113,43 @@ fn integer_range_from_comparison_operator(
     }
 }
 
+macro_rules! compute_int {
+    ($l:expr, $r:expr, $op:expr, $t:ty) => {
+        match $op {
+            ArithmeticOperator::Add => $l.wrapping_add($r),
+            ArithmeticOperator::Subtract => $l.wrapping_sub($r),
+            ArithmeticOperator::Multiply => $l.wrapping_mul($r),
+            ArithmeticOperator::FloorDivide => $l.wrapping_div($r),
+            ArithmeticOperator::Modulo => $l % $r,
+            ArithmeticOperator::And => $l & $r,
+            ArithmeticOperator::Or => $l | $r,
+            ArithmeticOperator::LeftShift => $l << $r,
+            ArithmeticOperator::RightShift => $l >> $r,
+            ArithmeticOperator::Swap => unreachable!(),
+        }
+    };
+}
+
+macro_rules! compute_float {
+    ($l:expr, $r:expr, $op:expr) => {
+        NotNan::new(match $op {
+            ArithmeticOperator::Add => $l + $r,
+            ArithmeticOperator::Subtract => $l - $r,
+            ArithmeticOperator::Multiply => $l * $r,
+            ArithmeticOperator::FloorDivide => $l / $r,
+            ArithmeticOperator::Swap => unreachable!(),
+            ArithmeticOperator::Modulo
+            | ArithmeticOperator::And
+            | ArithmeticOperator::Or
+            | ArithmeticOperator::LeftShift
+            | ArithmeticOperator::RightShift => {
+                unreachable!("Floats do not support bitwise operations")
+            }
+        })
+        .unwrap()
+    };
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum ResolvedExpression {
     Boolean(bool),
@@ -958,23 +995,25 @@ impl ResolvedExpression {
                     );
 
                     for (key, non_constant) in non_constants {
-                        non_constant.assign_to_data(
+                        non_constant.assign_to_data_scale(
                             datapack,
                             ctx,
                             target.clone(),
                             path.clone().with_node(NbtPathNode::named(key.snbt_string)),
+                            scale,
                         );
                     }
                 }
                 Self::Underscore => unreachable!(),
                 Self::Struct(_, _, fields) => {
                     for (key, value) in fields {
-                        value.assign_to_data(
+                        value.assign_to_data_scale(
                             datapack,
                             ctx,
                             target.clone(),
                             path.clone()
                                 .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                            scale,
                         );
                     }
                 }
@@ -992,12 +1031,13 @@ impl ResolvedExpression {
                     );
 
                     for (index, non_constant) in non_constants {
-                        non_constant.assign_to_data(
+                        non_constant.assign_to_data_scale(
                             datapack,
                             ctx,
                             target.clone(),
                             path.clone()
                                 .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                            scale,
                         );
                     }
                 }
@@ -1010,7 +1050,7 @@ impl ResolvedExpression {
                                 target.target,
                                 path,
                                 NumericSNBTType::Integer,
-                                NotNan::new(1.0).unwrap(),
+                                scale,
                                 Box::new(ExecuteSubcommand::If(inverted, *condition)),
                             ),
                         )),
@@ -1182,75 +1222,87 @@ impl ResolvedExpression {
         other: Self,
     ) -> Self {
         match (self, other) {
-            (Self::Byte(left), Self::Byte(right)) => Self::Byte(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            }),
+            (Self::Byte(left), Self::Byte(right)) => {
+                Self::Byte(compute_int!(left, right, operator, i8))
+            }
+            (Self::Short(left), Self::Short(right)) => {
+                Self::Short(compute_int!(left, right, operator, i16))
+            }
+            (Self::Integer(left), Self::Integer(right)) => {
+                Self::Integer(compute_int!(left, right, operator, i32))
+            }
+            (Self::Long(left), Self::Long(right)) => {
+                Self::Long(compute_int!(left, right, operator, i64))
+            }
+            (Self::Float(left), Self::Float(right)) => Self::Float(compute_float!(
+                left.into_inner(),
+                right.into_inner(),
+                operator
+            )),
+            (Self::Double(left), Self::Double(right)) => Self::Double(compute_float!(
+                left.into_inner(),
+                right.into_inner(),
+                operator
+            )),
 
-            (Self::Short(left), Self::Short(right)) => Self::Short(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            }),
+            (Self::Integer(l), Self::Byte(r)) => Self::Byte(compute_int!(l as i8, r, operator, i8)),
+            (Self::Byte(l), Self::Integer(r)) => Self::Byte(compute_int!(l, r as i8, operator, i8)),
 
-            (Self::Integer(left), Self::Integer(right)) => Self::Integer(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            }),
+            (Self::Integer(l), Self::Short(r)) => {
+                Self::Short(compute_int!(l as i16, r, operator, i16))
+            }
+            (Self::Short(l), Self::Integer(r)) => {
+                Self::Short(compute_int!(l, r as i16, operator, i16))
+            }
 
-            (Self::Long(left), Self::Long(right)) => Self::Long(match operator {
-                ArithmeticOperator::Add => left.wrapping_add(right),
-                ArithmeticOperator::Subtract => left.wrapping_sub(right),
-                ArithmeticOperator::Multiply => left.wrapping_mul(right),
-                ArithmeticOperator::FloorDivide => left.wrapping_div(right),
-                ArithmeticOperator::Modulo => left % right,
-                ArithmeticOperator::And => left & right,
-                ArithmeticOperator::Or => left | right,
-                ArithmeticOperator::LeftShift => left << right,
-                ArithmeticOperator::RightShift => left >> right,
-                ArithmeticOperator::Swap => unreachable!(),
-            }),
+            (Self::Integer(l), Self::Long(r)) => {
+                Self::Long(compute_int!(i64::from(l), r, operator, i64))
+            }
+            (Self::Long(l), Self::Integer(r)) => {
+                Self::Long(compute_int!(l, i64::from(r), operator, i64))
+            }
 
-            (Self::Float(left), Self::Float(right)) => Self::Float(match operator {
-                ArithmeticOperator::Add => left + right,
-                ArithmeticOperator::Subtract => left - right,
-                ArithmeticOperator::Multiply => left * right,
-                ArithmeticOperator::FloorDivide => left / right,
-                ArithmeticOperator::Modulo => left % right,
-                _ => unreachable!(),
-            }),
+            (Self::Integer(l), Self::Float(r)) => {
+                Self::Float(compute_float!(l as f32, r.into_inner(), operator))
+            }
+            (Self::Float(l), Self::Integer(r)) => {
+                Self::Float(compute_float!(l, r as f32, operator))
+            }
 
-            (Self::Double(left), Self::Double(right)) => Self::Double(match operator {
-                ArithmeticOperator::Add => left + right,
-                ArithmeticOperator::Subtract => left - right,
-                ArithmeticOperator::Multiply => left * right,
-                ArithmeticOperator::FloorDivide => left / right,
-                ArithmeticOperator::Modulo => left % right,
-                _ => unreachable!(),
-            }),
+            (Self::Integer(l), Self::Double(r)) => {
+                Self::Double(compute_float!(f64::from(l), r.into_inner(), operator))
+            }
+            (Self::Double(l), Self::Integer(r)) => {
+                Self::Double(compute_float!(l, f64::from(r), operator))
+            }
+
+            (Self::Float(l), Self::Byte(r)) => {
+                Self::Float(compute_float!(l, f32::from(r), operator))
+            }
+            (Self::Byte(l), Self::Float(r)) => {
+                Self::Float(compute_float!(f32::from(l), r.into_inner(), operator))
+            }
+
+            (Self::Float(l), Self::Short(r)) => {
+                Self::Float(compute_float!(l, f32::from(r), operator))
+            }
+            (Self::Short(l), Self::Float(r)) => {
+                Self::Float(compute_float!(f32::from(l), r.into_inner(), operator))
+            }
+
+            (Self::Float(l), Self::Long(r)) => Self::Float(compute_float!(l, r as f32, operator)),
+            (Self::Long(l), Self::Float(r)) => {
+                Self::Float(compute_float!(l as f32, r.into_inner(), operator))
+            }
+
+            (Self::Float(l), Self::Double(r)) => Self::Float(compute_float!(
+                l.into_inner(),
+                r.into_inner() as f32,
+                operator
+            )),
+            (Self::Double(l), Self::Float(r)) => {
+                Self::Double(compute_float!(l, f64::from(r.into_inner()), operator))
+            }
 
             (left_kind, right_kind) => {
                 // TODO maybe better checking?

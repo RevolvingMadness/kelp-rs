@@ -371,6 +371,11 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                         SyntaxKind::RuntimeStorageType,
                         "Expected runtime storage type",
                     );
+                    parser.skip_inline_whitespace();
+                    if parser.try_bump_char('*') {
+                        parser.skip_inline_whitespace();
+                        parser.expect_fractional_value("Expected scale");
+                    }
                     parser.finish_node();
                 } else if id == "as" {
                     parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);

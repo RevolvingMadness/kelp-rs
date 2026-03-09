@@ -112,6 +112,33 @@ impl GeneratedPlayerScore {
         );
     }
 
+    pub fn assign_to_score_scale(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        target: Self,
+        scale: NotNan<f32>,
+    ) {
+        let unique_score = datapack.get_unique_score();
+
+        self.assign_to_score(datapack, ctx, unique_score.clone());
+
+        let scale_score = datapack.get_constant_score(scale.into_inner() as i32);
+
+        ctx.add_command(
+            datapack,
+            Command::Scoreboard(ScoreboardCommand::Players(
+                PlayersScoreboardCommand::Operation(
+                    unique_score.score.clone(),
+                    ScoreOperationOperator::Multiply,
+                    scale_score.score,
+                ),
+            )),
+        );
+
+        unique_score.assign_to_score(datapack, ctx, target);
+    }
+
     pub fn operate_on_score(
         self,
         datapack: &mut HighDatapack,
@@ -178,6 +205,32 @@ impl GeneratedPlayerScore {
                     path,
                     NumericSNBTType::Integer,
                     NotNan::new(1.0).unwrap(),
+                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(
+                        ScoreboardCommand::Players(PlayersScoreboardCommand::Get(self.score)),
+                    )))),
+                ),
+            )),
+        );
+    }
+
+    #[inline]
+    pub fn assign_to_data_scale(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        target: GeneratedDataTarget,
+        path: NbtPath,
+        scale: NotNan<f32>,
+    ) {
+        ctx.add_command(
+            datapack,
+            Command::Execute(ExecuteSubcommand::Store(
+                StoreType::Result,
+                ExecuteStoreSubcommand::Data(
+                    target.target,
+                    path,
+                    NumericSNBTType::Float,
+                    scale,
                     Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(
                         ScoreboardCommand::Players(PlayersScoreboardCommand::Get(self.score)),
                     )))),

@@ -361,6 +361,40 @@ impl ResolvedExpression {
         })
     }
 
+    pub fn try_into_snbt_scale(self, scale: NotNan<f32>) -> Result<SNBT, Self> {
+        Ok(match self {
+            Self::Underscore
+            | Self::PlayerScore(_)
+            | Self::Data(_)
+            | Self::Condition(_, _)
+            | Self::Struct(_, _, _)
+            | Self::Boolean(_)
+            | Self::String(_)
+            | Self::List(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::Unit => {
+                return Err(self);
+            }
+            Self::Byte(byte) => {
+                SNBT::Float(NotNan::new(f32::from(byte) * scale.into_inner()).unwrap())
+            }
+            Self::Short(short) => {
+                SNBT::Float(NotNan::new(f32::from(short) * scale.into_inner()).unwrap())
+            }
+            Self::Integer(integer) => {
+                SNBT::Float(NotNan::new(integer as f32 * scale.into_inner()).unwrap())
+            }
+            Self::Long(long) => SNBT::Float(NotNan::new(long as f32 * scale.into_inner()).unwrap()),
+            Self::Float(float) => {
+                SNBT::Float(NotNan::new(float.into_inner() * scale.into_inner()).unwrap())
+            }
+            Self::Double(double) => SNBT::Double(
+                NotNan::new(f64::from(double.into_inner() as f32 * scale.into_inner())).unwrap(),
+            ),
+        })
+    }
+
     pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> SNBT {
         match self {
             Self::Boolean(_)
@@ -515,6 +549,107 @@ impl ResolvedExpression {
         }
     }
 
+    pub fn assign_to_score_scale(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        target: GeneratedPlayerScore,
+        scale: NotNan<f32>,
+    ) {
+        match self {
+            Self::Byte(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (f32::from(value) * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Short(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (f32::from(value) * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Integer(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value as f32 * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Long(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value as f32 * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Float(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value.into_inner() * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Double(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value.into_inner() * f64::from(scale.into_inner())) as i32,
+                    ),
+                );
+            }
+            Self::PlayerScore(source) => {
+                source.assign_to_score_scale(datapack, ctx, target, scale);
+            }
+            Self::Data(data_target_path) => {
+                let (data_target, path) = *data_target_path;
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Score(
+                            target.score,
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
+                                DataCommand::Get(data_target.target, Some(path), Some(scale)),
+                            )))),
+                        ),
+                    )),
+                );
+            }
+            Self::Condition(_, _)
+            | Self::Boolean(_)
+            | Self::Struct(_, _, _)
+            | Self::Tuple(_)
+            | Self::Unit
+            | Self::Underscore
+            | Self::String(_)
+            | Self::List(_)
+            | Self::Compound(_) => {
+                unreachable!("{:?}", self)
+            }
+        }
+    }
+
     #[must_use]
     pub fn as_score(
         self,
@@ -522,14 +657,8 @@ impl ResolvedExpression {
         ctx: &mut CompileContext,
         force: bool,
     ) -> GeneratedPlayerScore {
-        if let Some(value) = self.try_as_i32(force) {
-            return if force {
-                let unique_score = datapack.get_unique_score();
-                self.assign_to_score(datapack, ctx, unique_score.clone());
-                unique_score
-            } else {
-                datapack.get_constant_score(value)
-            };
+        if !force && let Some(value) = self.try_as_i32(force) {
+            return datapack.get_constant_score(value);
         }
 
         match self {
@@ -540,6 +669,73 @@ impl ResolvedExpression {
                 unique_score
             }
         }
+    }
+
+    #[must_use]
+    pub fn to_score(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
+        match self {
+            Self::Struct(name, generic_data_types, field_values) => {
+                let mut new_field_values = BTreeMap::new();
+
+                for (key, value) in field_values {
+                    let value_score = value.as_score(datapack, ctx, true);
+
+                    new_field_values.insert(key, Self::PlayerScore(value_score));
+                }
+
+                Self::Struct(name, generic_data_types, new_field_values)
+            }
+            Self::PlayerScore(player_score) if player_score.is_generated => {
+                Self::PlayerScore(player_score)
+            }
+            _ => {
+                let unique_score = datapack.get_unique_score();
+                self.assign_to_score(datapack, ctx, unique_score.clone());
+                Self::PlayerScore(unique_score)
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn to_score_scale(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        scale: NotNan<f32>,
+    ) -> Self {
+        #[allow(clippy::single_match_else)]
+        match self {
+            Self::Struct(name, generic_data_types, field_values) => {
+                let mut new_field_values = BTreeMap::new();
+
+                for (key, value) in field_values {
+                    let value_score = value.as_score_scale(datapack, ctx, scale);
+
+                    new_field_values.insert(key, Self::PlayerScore(value_score));
+                }
+
+                Self::Struct(name, generic_data_types, new_field_values)
+            }
+            _ => {
+                let unique_score = datapack.get_unique_score();
+                self.assign_to_score_scale(datapack, ctx, unique_score.clone(), scale);
+                Self::PlayerScore(unique_score)
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn as_score_scale(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        scale: NotNan<f32>,
+    ) -> GeneratedPlayerScore {
+        let unique_score = datapack.get_unique_score();
+
+        self.assign_to_score_scale(datapack, ctx, unique_score.clone(), scale);
+
+        unique_score
     }
 
     pub fn assign_to_data(
@@ -688,6 +884,153 @@ impl ResolvedExpression {
         }
     }
 
+    pub fn assign_to_data_scale(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        target: GeneratedDataTarget,
+        path: NbtPath,
+        scale: NotNan<f32>,
+    ) {
+        match self.try_into_snbt_scale(scale) {
+            Ok(snbt) => {
+                ctx.add_command(
+                    datapack,
+                    Command::Data(DataCommand::Modify(
+                        target.target,
+                        path,
+                        DataCommandModificationMode::Set,
+                        DataCommandModification::Value(snbt),
+                    )),
+                );
+            }
+            Err(self_) => match self_ {
+                Self::PlayerScore(score) => {
+                    score.assign_to_data_scale(datapack, ctx, target, path, scale);
+                }
+                Self::Data(inner_target_inner_path) => {
+                    let (inner_target, inner_path) = *inner_target_inner_path;
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target,
+                            path,
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::From(inner_target.target, Some(inner_path)),
+                        )),
+                    );
+                }
+                Self::List(list) => {
+                    let (constants, non_constants) = split_constants_list(list);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target.clone(),
+                            path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::Value(SNBT::List(constants)),
+                        )),
+                    );
+
+                    for (index, non_constant) in non_constants {
+                        non_constant.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone()
+                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                        );
+                    }
+                }
+                Self::Compound(compound) => {
+                    let (constants, non_constants) = split_constants_compound(compound);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target.clone(),
+                            path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::Value(SNBT::Compound(constants)),
+                        )),
+                    );
+
+                    for (key, non_constant) in non_constants {
+                        non_constant.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone().with_node(NbtPathNode::named(key.snbt_string)),
+                        );
+                    }
+                }
+                Self::Underscore => unreachable!(),
+                Self::Struct(_, _, fields) => {
+                    for (key, value) in fields {
+                        value.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone()
+                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                        );
+                    }
+                }
+                Self::Tuple(expressions) => {
+                    let (constants, non_constants) = split_constants_list(expressions);
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            target.target.clone(),
+                            path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::Value(SNBT::List(constants)),
+                        )),
+                    );
+
+                    for (index, non_constant) in non_constants {
+                        non_constant.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone()
+                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                        );
+                    }
+                }
+                Self::Condition(inverted, condition) => {
+                    ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::Store(
+                            StoreType::Result,
+                            ExecuteStoreSubcommand::Data(
+                                target.target,
+                                path,
+                                NumericSNBTType::Integer,
+                                NotNan::new(1.0).unwrap(),
+                                Box::new(ExecuteSubcommand::If(inverted, *condition)),
+                            ),
+                        )),
+                    );
+                }
+                Self::Unit
+                | Self::Boolean(_)
+                | Self::Byte(_)
+                | Self::Short(_)
+                | Self::Integer(_)
+                | Self::Long(_)
+                | Self::Float(_)
+                | Self::Double(_)
+                | Self::String(_) => {
+                    unreachable!("Checked by ResolvedExpression::try_into_snbt")
+                }
+            },
+        }
+    }
+
     #[must_use]
     pub fn as_data(
         self,
@@ -704,6 +1047,20 @@ impl ResolvedExpression {
 
             (unique_data, path)
         }
+    }
+
+    #[must_use]
+    pub fn as_data_scale(
+        self,
+        datapack: &mut HighDatapack,
+        ctx: &mut CompileContext,
+        scale: NotNan<f32>,
+    ) -> (GeneratedDataTarget, NbtPath) {
+        let (unique_data, path) = datapack.get_unique_data();
+
+        self.assign_to_data_scale(datapack, ctx, unique_data.clone(), path.clone(), scale);
+
+        (unique_data, path)
     }
 
     #[must_use]

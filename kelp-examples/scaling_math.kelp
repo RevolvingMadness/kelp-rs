@@ -1,0 +1,18 @@
+mcfn namespace:main {
+    let a = 5.6 to score * 1000
+    let b = 3.4 to score * 1000
+
+    let sum = a + b
+    tellraw @a ["Sum score: ", sum]
+
+    let sum_data = sum to data * 0.001
+
+    tellraw @a ["Sum data: ", sum_data]
+
+    let difference = a - b
+    tellraw @a ["Difference score: ", difference]
+
+    let difference_data = difference to data * 0.001
+
+    tellraw @a ["Difference data: ", difference_data]
+}

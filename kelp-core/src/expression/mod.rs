@@ -67,7 +67,7 @@ pub enum ExpressionKind {
     Index(Box<Expression>, Box<Expression>),
     FieldAccess(Box<Expression>, HighSNBTString),
     AsCast(Box<Expression>, HighDataType),
-    ToCast(Box<Expression>, RuntimeStorageType),
+    ToCast(Box<Expression>, RuntimeStorageType, Option<NotNan<f32>>),
     Tuple(Vec<Expression>),
     Variable(String),
     Struct(
@@ -163,7 +163,7 @@ impl ExpressionKind {
             | Self::Condition(_, _)
             | Self::Command(_)
             | Self::AsCast(_, _)
-            | Self::ToCast(_, _)
+            | Self::ToCast(_, _, _)
             | Self::Struct(_, _, _, _) => None,
         }
     }
@@ -256,7 +256,7 @@ impl ExpressionKind {
                     .resolve(supports_variable_type_scope, None)?
                     .try_infer(expression_type)
             }
-            Self::ToCast(expression, storage_type) => match storage_type {
+            Self::ToCast(expression, storage_type, _) => match storage_type {
                 RuntimeStorageType::Score => {
                     let expression_type = expression
                         .kind
@@ -420,15 +420,23 @@ impl ExpressionKind {
 
                 expression.cast_to(data_type)
             }
-            Self::ToCast(expression, runtime_storage_type) => {
+            Self::ToCast(expression, runtime_storage_type, scale) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
                 match runtime_storage_type {
                     RuntimeStorageType::Score => {
-                        ResolvedExpression::PlayerScore(expression.as_score(datapack, ctx, true))
+                        if let Some(scale) = scale {
+                            expression.to_score_scale(datapack, ctx, scale)
+                        } else {
+                            expression.to_score(datapack, ctx)
+                        }
                     }
                     RuntimeStorageType::Data => {
-                        let (unique_target, unique_path) = expression.as_data(datapack, ctx, true);
+                        let (unique_target, unique_path) = if let Some(scale) = scale {
+                            expression.as_data_scale(datapack, ctx, scale)
+                        } else {
+                            expression.as_data(datapack, ctx, true)
+                        };
 
                         ResolvedExpression::Data(Box::new((unique_target, unique_path)))
                     }
@@ -504,7 +512,7 @@ impl ExpressionKind {
 
                 ctx.add_command(datapack, command);
             }
-            Self::AsCast(expression, _) | Self::ToCast(expression, _) => {
+            Self::AsCast(expression, _) | Self::ToCast(expression, _, _) => {
                 expression.kind.compile_as_statement(datapack, ctx);
             }
             Self::Tuple(tuple) => {
@@ -923,8 +931,9 @@ impl Expression {
 
                 Some(())
             }
-            ExpressionKind::ToCast(expression, runtime_storage) => {
+            ExpressionKind::ToCast(expression, runtime_storage, _) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)?;
+
                 let expression_type = expression.kind.infer_data_type(ctx)?;
 
                 match runtime_storage {
@@ -1115,7 +1124,7 @@ impl Expression {
             | ExpressionKind::Index(_, _)
             | ExpressionKind::FieldAccess(_, _)
             | ExpressionKind::AsCast(_, _)
-            | ExpressionKind::ToCast(_, _)
+            | ExpressionKind::ToCast(_, _, _)
             | ExpressionKind::Tuple(_)
             | ExpressionKind::Struct(_, _, _, _) => None,
             ExpressionKind::Unary(operator, expression) => match operator {
@@ -1202,7 +1211,7 @@ impl Expression {
             | ExpressionKind::Condition(_, _)
             | ExpressionKind::Command(_)
             | ExpressionKind::AsCast(_, _)
-            | ExpressionKind::ToCast(_, _)
+            | ExpressionKind::ToCast(_, _, _)
             | ExpressionKind::Struct(_, _, _, _)
             | ExpressionKind::Unit => None,
             ExpressionKind::Underscore => Some(PlaceTypeKind::Underscore.with_span(self.span)),

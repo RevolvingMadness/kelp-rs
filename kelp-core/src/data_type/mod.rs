@@ -307,7 +307,14 @@ impl DataTypeKind {
     #[must_use]
     pub fn to_score(self) -> Option<Self> {
         Some(match self {
-            Self::Byte | Self::Short | Self::Integer | Self::InferredInteger => Self::Integer,
+            Self::InferredInteger
+            | Self::Byte
+            | Self::Short
+            | Self::Integer
+            | Self::Long
+            | Self::InferredFloat
+            | Self::Float
+            | Self::Double => Self::Integer,
             Self::Boolean => Self::Boolean,
             Self::TypedCompound(compound) => Self::TypedCompound(
                 compound
@@ -1188,7 +1195,7 @@ impl DataTypeKind {
     ) -> Option<bool> {
         Some(match self {
             Self::Boolean => true,
-            t if t.is_integer_like() => true,
+            t if t.is_numeric() => true,
 
             Self::Data(data_type)
             | Self::Score(data_type)
@@ -1256,12 +1263,14 @@ impl DataTypeKind {
         _operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
-        if self.is_integer_like() && other.is_integer_like() {
+        if self.is_numeric() && other.is_numeric() {
             return Some(match (self, other) {
                 (Self::Byte, _) | (_, Self::Byte) => Self::Byte,
                 (Self::Short, _) | (_, Self::Short) => Self::Short,
                 (Self::Integer, _) | (_, Self::Integer) => Self::Integer,
                 (Self::Long, _) | (_, Self::Long) => Self::Long,
+                (Self::Float, _) | (_, Self::Float) => Self::Float,
+                (Self::Double, _) | (_, Self::Double) => Self::Double,
                 (Self::InferredInteger, other) | (other, Self::InferredInteger)
                     if other.is_restrictied_integer_like() =>
                 {

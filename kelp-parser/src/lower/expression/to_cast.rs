@@ -18,6 +18,9 @@ pub fn lower_to_cast_expression(node: CSTToCastExpression) -> Option<Expression>
         "data" => RuntimeStorageType::Data,
         _ => RuntimeStorageType::Score,
     };
+    let scale = node
+        .fractional_value_token()
+        .and_then(|token| token.text().parse().ok());
 
-    Some(ExpressionKind::ToCast(Box::new(expression), runtime_storage_type).with_span(span))
+    Some(ExpressionKind::ToCast(Box::new(expression), runtime_storage_type, scale).with_span(span))
 }

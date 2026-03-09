@@ -1,0 +1,9 @@
+mcfn namespace:main {
+    let data_value = 3.141 to data
+    let score_value = data_value to score * 1000
+    let data_value2 = score_value to data * 0.001
+
+    tellraw @a data_value // 3.141
+    tellraw @a score_value // 5
+    tellraw @a data_value2 // 3.141
+}

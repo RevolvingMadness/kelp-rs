@@ -193,7 +193,7 @@ CharacterExpression =
   'character_literal'
 
 ToCastExpression =
-  Expression 'to' 'runtime_storage_type'
+  Expression 'to' 'runtime_storage_type' 'fractional_value'?
 
 AsCastExpression =
   Expression 'as' DataType

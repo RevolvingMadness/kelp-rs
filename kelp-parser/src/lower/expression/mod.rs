@@ -1,13 +1,14 @@
-use kelp_core::expression::{Expression, ExpressionKind};
+use kelp_core::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
-    cst::{CSTBooleanExpression, CSTExpression},
+    cst::CSTExpression,
     lower::{
         data_type::{generics::try_parse_generic_data_types, try_parse_data_type},
         expression::{
             as_cast::lower_as_cast_expression,
             assignment::lower_assignment_expression,
             binary::lower_binary_expression,
+            boolean::lower_boolean_expression,
             character::lower_character_expression,
             command::{
                 function::{
@@ -36,13 +37,13 @@ use crate::{
         item::struct_declaration::bump_until_next_field_or_end,
     },
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
 pub mod as_cast;
 pub mod assignment;
 pub mod binary;
+pub mod boolean;
 pub mod character;
 pub mod command;
 pub mod compound;
@@ -634,40 +635,38 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-#[allow(clippy::unnecessary_wraps)]
-fn lower_boolean_expression(node: CSTBooleanExpression) -> Option<Expression> {
-    let span = span_of_cst_node(&node);
-
-    Some(ExpressionKind::Boolean(node.true_keyword_token().is_some()).with_span(span))
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_expression(node: CSTExpression) -> Option<Expression> {
+pub fn lower_expression(
+    node: CSTExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     match node {
-        CSTExpression::UnaryExpression(node) => lower_unary_expression(node),
-        CSTExpression::VariableExpression(node) => lower_variable_expression(node),
-        CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node),
-        CSTExpression::BooleanExpression(node) => lower_boolean_expression(node),
-        CSTExpression::NumericExpression(node) => lower_numeric_expression(node),
-        CSTExpression::CharacterExpression(node) => lower_character_expression(node),
-        CSTExpression::StringExpression(node) => lower_string_expression(node),
-        CSTExpression::AssignmentExpression(node) => lower_assignment_expression(node),
-        CSTExpression::BinaryExpression(node) => lower_binary_expression(node),
-        CSTExpression::DataExpression(node) => lower_data_expression(node),
-        CSTExpression::ScoreExpression(node) => lower_score_expression(node),
-        CSTExpression::TellrawCommandExpression(node) => lower_tellraw_command_expression(node),
-        CSTExpression::FunctionCommandExpression(node) => lower_function_command_expression(node),
-        CSTExpression::ReturnCommandExpression(node) => lower_return_command_expression(node),
-        CSTExpression::UnitExpression(node) => lower_unit_expression(node),
-        CSTExpression::CompoundExpression(node) => lower_compound_expression(node),
-        CSTExpression::ListExpression(node) => lower_list_expression(node),
-        CSTExpression::TupleExpression(node) => lower_tuple_expression(node),
-        CSTExpression::ParenthesizedExpression(node) => lower_parenthesized_expression(node),
-        CSTExpression::AsCastExpression(node) => lower_as_cast_expression(node),
-        CSTExpression::ToCastExpression(node) => lower_to_cast_expression(node),
-        CSTExpression::StructExpression(node) => lower_struct_expression(node),
-        CSTExpression::IndexExpression(node) => lower_index_expression(node),
-        CSTExpression::FieldAccessExpression(node) => lower_field_access_expression(node),
+        CSTExpression::UnaryExpression(node) => lower_unary_expression(node, ctx),
+        CSTExpression::VariableExpression(node) => lower_variable_expression(node, ctx),
+        CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node, ctx),
+        CSTExpression::BooleanExpression(node) => lower_boolean_expression(node, ctx),
+        CSTExpression::NumericExpression(node) => lower_numeric_expression(node, ctx),
+        CSTExpression::CharacterExpression(node) => lower_character_expression(node, ctx),
+        CSTExpression::StringExpression(node) => lower_string_expression(node, ctx),
+        CSTExpression::AssignmentExpression(node) => lower_assignment_expression(node, ctx),
+        CSTExpression::BinaryExpression(node) => lower_binary_expression(node, ctx),
+        CSTExpression::DataExpression(node) => lower_data_expression(node, ctx),
+        CSTExpression::ScoreExpression(node) => lower_score_expression(node, ctx),
+        CSTExpression::TellrawCommandExpression(node) => {
+            lower_tellraw_command_expression(node, ctx)
+        }
+        CSTExpression::FunctionCommandExpression(node) => {
+            lower_function_command_expression(node, ctx)
+        }
+        CSTExpression::ReturnCommandExpression(node) => lower_return_command_expression(node, ctx),
+        CSTExpression::UnitExpression(node) => lower_unit_expression(node, ctx),
+        CSTExpression::CompoundExpression(node) => lower_compound_expression(node, ctx),
+        CSTExpression::ListExpression(node) => lower_list_expression(node, ctx),
+        CSTExpression::TupleExpression(node) => lower_tuple_expression(node, ctx),
+        CSTExpression::ParenthesizedExpression(node) => lower_parenthesized_expression(node, ctx),
+        CSTExpression::AsCastExpression(node) => lower_as_cast_expression(node, ctx),
+        CSTExpression::ToCastExpression(node) => lower_to_cast_expression(node, ctx),
+        CSTExpression::StructExpression(node) => lower_struct_expression(node, ctx),
+        CSTExpression::IndexExpression(node) => lower_index_expression(node, ctx),
+        CSTExpression::FieldAccessExpression(node) => lower_field_access_expression(node, ctx),
     }
 }

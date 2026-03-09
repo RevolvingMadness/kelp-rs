@@ -1,6 +1,7 @@
 use kelp_core::{
     expression::{Expression, ExpressionKind},
     high::command::{HighCommand, r#return::HighReturnCommand},
+    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 use crate::{
@@ -27,7 +28,10 @@ pub fn try_parse_return_command_expression(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_return_command_expression(node: CSTReturnCommandExpression) -> Option<Expression> {
+pub fn lower_return_command_expression(
+    node: CSTReturnCommandExpression,
+    _ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
     let value_token = node.whole_value_token()?;

@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTLoopStatement,
@@ -29,10 +32,13 @@ pub fn try_parse_loop_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_loop_statement(node: CSTLoopStatement) -> Option<Statement> {
+pub fn lower_loop_statement(
+    node: CSTLoopStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let body = lower_statement(node.body()?)?;
+    let body = lower_statement(node.body()?, ctx)?;
 
     Some(StatementKind::Loop(Box::new(body)).with_span(span))
 }

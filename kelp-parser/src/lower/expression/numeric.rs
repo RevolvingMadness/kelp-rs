@@ -1,6 +1,16 @@
-use kelp_core::expression::{Expression, ExpressionKind};
+use std::num::IntErrorKind;
 
-use crate::{cst::CSTNumericExpression, span::span_of_cst_node};
+use kelp_core::{
+    data_type::DataTypeKind,
+    expression::{Expression, ExpressionKind},
+    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+};
+use ordered_float::NotNan;
+
+use crate::{
+    cst::CSTNumericExpression,
+    span::{span_of_cst_node, text_range_to_span},
+};
 
 #[derive(Clone)]
 enum NumericKind {
@@ -14,7 +24,10 @@ enum NumericKind {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_numeric_expression(node: CSTNumericExpression) -> Option<Expression> {
+pub fn lower_numeric_expression(
+    node: CSTNumericExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
     let value_token = node.fractional_value_token()?;
@@ -39,42 +52,117 @@ pub fn lower_numeric_expression(node: CSTNumericExpression) -> Option<Expression
     Some(
         (match suffix {
             Some(NumericKind::Byte) => {
-                let value = value_text.parse().ok()?;
+                let value = match value_text.parse::<i8>() {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return match error.kind() {
+                            IntErrorKind::PosOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Byte),
+                            ),
+                            IntErrorKind::NegOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Byte),
+                            ),
+                            _ => unreachable!(),
+                        };
+                    }
+                };
 
                 ExpressionKind::Byte(value)
             }
             Some(NumericKind::Short) => {
-                let value = value_text.parse().ok()?;
+                let value = match value_text.parse::<i16>() {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return match error.kind() {
+                            IntErrorKind::PosOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Short),
+                            ),
+                            IntErrorKind::NegOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Short),
+                            ),
+                            _ => unreachable!(),
+                        };
+                    }
+                };
 
                 ExpressionKind::Short(value)
             }
             Some(NumericKind::Integer) => {
-                let value = value_text.parse().ok()?;
+                let value = match value_text.parse::<i32>() {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return match error.kind() {
+                            IntErrorKind::PosOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Integer),
+                            ),
+                            IntErrorKind::NegOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Integer),
+                            ),
+                            _ => unreachable!(),
+                        };
+                    }
+                };
 
                 ExpressionKind::Integer(value)
             }
             Some(NumericKind::Long) => {
-                let value = value_text.parse().ok()?;
+                let value = match value_text.parse::<i64>() {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return match error.kind() {
+                            IntErrorKind::PosOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Long),
+                            ),
+                            IntErrorKind::NegOverflow => ctx.add_error(
+                                text_range_to_span(value_token.text_range()),
+                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Long),
+                            ),
+                            _ => unreachable!(),
+                        };
+                    }
+                };
 
                 ExpressionKind::Long(value)
             }
             Some(NumericKind::Float) => {
-                let value = value_text.parse().ok()?;
+                let value = value_text.parse().unwrap();
 
-                ExpressionKind::Float(value)
+                ExpressionKind::Float(NotNan::new(value).unwrap())
             }
             Some(NumericKind::Double) => {
-                let value = value_text.parse().ok()?;
+                let value = value_text.parse().unwrap();
 
                 ExpressionKind::Double(value)
             }
             None => {
                 if value_text.contains('.') {
-                    let value = value_text.parse().ok()?;
+                    let value = value_text.parse().unwrap();
 
                     ExpressionKind::InferredFloat(value)
                 } else {
-                    let value = value_text.parse().ok()?;
+                    let value = match value_text.parse::<i32>() {
+                        Ok(value) => value,
+                        Err(error) => {
+                            return match error.kind() {
+                                IntErrorKind::PosOverflow => ctx.add_error(
+                                    text_range_to_span(value_token.text_range()),
+                                    SemanticAnalysisError::ValueTooLarge(DataTypeKind::Integer),
+                                ),
+                                IntErrorKind::NegOverflow => ctx.add_error(
+                                    text_range_to_span(value_token.text_range()),
+                                    SemanticAnalysisError::ValueTooSmall(DataTypeKind::Integer),
+                                ),
+                                _ => unreachable!(),
+                            };
+                        }
+                    };
 
                     ExpressionKind::InferredInteger(value)
                 }

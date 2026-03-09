@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTAppendStatement,
@@ -37,11 +40,14 @@ pub fn try_parse_append_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_append_statement(node: CSTAppendStatement) -> Option<Statement> {
+pub fn lower_append_statement(
+    node: CSTAppendStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let target = lower_expression(node.target()?)?;
-    let value = lower_expression(node.value()?)?;
+    let target = lower_expression(node.target()?, ctx)?;
+    let value = lower_expression(node.value()?, ctx)?;
 
     Some(StatementKind::Append(target, Box::new(value)).with_span(span))
 }

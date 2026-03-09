@@ -1,6 +1,7 @@
 use kelp_core::{
     expression::{Expression, ExpressionKind},
     operator::UnaryOperator,
+    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 use crate::{
@@ -10,7 +11,10 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_unary_expression(node: CSTUnaryExpression) -> Option<Expression> {
+pub fn lower_unary_expression(
+    node: CSTUnaryExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
     let operator = match node.operator()?.kind() {
@@ -21,7 +25,7 @@ pub fn lower_unary_expression(node: CSTUnaryExpression) -> Option<Expression> {
         _ => return None,
     };
 
-    let operand = lower_expression(node.expression()?)?;
+    let operand = lower_expression(node.expression()?, ctx)?;
 
     Some(ExpressionKind::Unary(operator, Box::new(operand)).with_span(span))
 }

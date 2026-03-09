@@ -1,4 +1,7 @@
-use kelp_core::item::{Item, ItemKind};
+use kelp_core::{
+    item::{Item, ItemKind},
+    semantic_analysis_context::SemanticAnalysisContext,
+};
 
 use crate::{
     cst::CSTItem,
@@ -19,9 +22,9 @@ pub mod type_alias_declaration;
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_item(node: CSTItem) -> Option<Item> {
+pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
     match node {
-        CSTItem::MCFNDeclarationItem(node) => lower_mcfn_declaration_item(node),
+        CSTItem::MCFNDeclarationItem(node) => lower_mcfn_declaration_item(node, ctx),
         CSTItem::StructDeclarationItem(node) => {
             let span = span_of_cst_node(&node);
 

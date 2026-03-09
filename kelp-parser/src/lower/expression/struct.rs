@@ -1,6 +1,7 @@
 use kelp_core::{
     expression::{Expression, ExpressionKind},
     high::snbt_string::HighSNBTString,
+    semantic_analysis_context::SemanticAnalysisContext,
 };
 use minecraft_command_types::snbt::SNBTString;
 
@@ -14,12 +15,13 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_expression_field(
     node: CSTStructExpressionField,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<(HighSNBTString, Expression)> {
     let name_token = node.name()?;
     let name_span = name_token.text_range();
     let name = name_token.text();
 
-    let value = lower_expression(node.value()?)?;
+    let value = lower_expression(node.value()?, ctx)?;
 
     Some((
         HighSNBTString {
@@ -32,7 +34,10 @@ pub fn lower_struct_expression_field(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_expression(node: CSTStructExpression) -> Option<Expression> {
+pub fn lower_struct_expression(
+    node: CSTStructExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
     let name_token = node.name()?;
@@ -43,7 +48,9 @@ pub fn lower_struct_expression(node: CSTStructExpression) -> Option<Expression> 
 
     let fields = node
         .fields()
-        .filter_map(lower_struct_expression_field)
+        .filter_map(|struct_expression_field| {
+            lower_struct_expression_field(struct_expression_field, ctx)
+        })
         .collect();
 
     Some(

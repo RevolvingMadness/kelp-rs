@@ -1,4 +1,7 @@
-use kelp_core::item::{Item, ItemKind};
+use kelp_core::{
+    item::{Item, ItemKind},
+    semantic_analysis_context::SemanticAnalysisContext,
+};
 
 use crate::{
     cst::CSTMCFNDeclarationItem,
@@ -36,11 +39,14 @@ pub fn try_parse_mcfn_declaration_item(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_mcfn_declaration_item(node: CSTMCFNDeclarationItem) -> Option<Item> {
+pub fn lower_mcfn_declaration_item(
+    node: CSTMCFNDeclarationItem,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Item> {
     let span = span_of_cst_node(&node);
 
     let resource_location = lower_resource_location(node.resource_location()?)?;
-    let body = lower_statement(node.statement()?)?;
+    let body = lower_statement(node.statement()?, ctx)?;
 
     Some(ItemKind::MCFNDeclaration(resource_location, Box::new(body)).with_span(span))
 }

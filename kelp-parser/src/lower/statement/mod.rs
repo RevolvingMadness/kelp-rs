@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::{CSTExpressionStatement, CSTStatement},
@@ -123,26 +126,29 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_expression_statement(node: CSTExpressionStatement) -> Option<Statement> {
-    let expression = lower_expression(node.expression()?)?;
+pub fn lower_expression_statement(
+    node: CSTExpressionStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
+    let expression = lower_expression(node.expression()?, ctx)?;
 
     Some(StatementKind::Expression(expression).with_span(span_of_cst_node(&node)))
 }
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_statement(node: CSTStatement) -> Option<Statement> {
+pub fn lower_statement(node: CSTStatement, ctx: &mut SemanticAnalysisContext) -> Option<Statement> {
     match node {
-        CSTStatement::BlockStatement(statement) => lower_block_statement(statement),
-        CSTStatement::ExpressionStatement(node) => lower_expression_statement(node),
-        CSTStatement::IfStatement(statement) => lower_if_statement(statement),
-        CSTStatement::LetStatement(statement) => lower_let_statement(statement),
-        CSTStatement::WhileStatement(node) => lower_while_statement(node),
-        CSTStatement::LoopStatement(node) => lower_loop_statement(node),
-        CSTStatement::BreakStatement(node) => lower_break_statement(node),
-        CSTStatement::ContinueStatement(node) => lower_continue_statement(node),
-        CSTStatement::AppendStatement(node) => lower_append_statement(node),
-        CSTStatement::RemoveStatement(node) => lower_remove_statement(node),
-        CSTStatement::ItemStatement(node) => lower_item_statement(node),
+        CSTStatement::BlockStatement(statement) => lower_block_statement(statement, ctx),
+        CSTStatement::ExpressionStatement(node) => lower_expression_statement(node, ctx),
+        CSTStatement::IfStatement(statement) => lower_if_statement(statement, ctx),
+        CSTStatement::LetStatement(statement) => lower_let_statement(statement, ctx),
+        CSTStatement::WhileStatement(node) => lower_while_statement(node, ctx),
+        CSTStatement::LoopStatement(node) => lower_loop_statement(node, ctx),
+        CSTStatement::BreakStatement(node) => lower_break_statement(node, ctx),
+        CSTStatement::ContinueStatement(node) => lower_continue_statement(node, ctx),
+        CSTStatement::AppendStatement(node) => lower_append_statement(node, ctx),
+        CSTStatement::RemoveStatement(node) => lower_remove_statement(node, ctx),
+        CSTStatement::ItemStatement(node) => lower_item_statement(node, ctx),
     }
 }

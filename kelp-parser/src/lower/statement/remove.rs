@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTRemoveStatement,
@@ -31,10 +34,13 @@ pub fn try_parse_remove_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_remove_statement(node: CSTRemoveStatement) -> Option<Statement> {
+pub fn lower_remove_statement(
+    node: CSTRemoveStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let target = lower_expression(node.target()?)?;
+    let target = lower_expression(node.target()?, ctx)?;
 
     Some(StatementKind::Remove(target).with_span(span))
 }

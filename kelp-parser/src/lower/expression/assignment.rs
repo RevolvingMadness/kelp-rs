@@ -1,6 +1,7 @@
 use kelp_core::{
     expression::{Expression, ExpressionKind},
     operator::ArithmeticOperator,
+    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 use crate::{
@@ -10,11 +11,14 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_assignment_expression(node: CSTAssignmentExpression) -> Option<Expression> {
+pub fn lower_assignment_expression(
+    node: CSTAssignmentExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let target = lower_expression(node.target()?)?;
-    let value = lower_expression(node.value()?)?;
+    let target = lower_expression(node.target()?, ctx)?;
+    let value = lower_expression(node.value()?, ctx)?;
     let operator = node.operator()?;
 
     let operator = match operator.kind() {

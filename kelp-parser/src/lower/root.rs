@@ -1,4 +1,4 @@
-use kelp_core::item::Item;
+use kelp_core::{item::Item, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTRoot,
@@ -36,6 +36,8 @@ pub fn parse_root(parser: &mut Parser) {
 }
 
 #[must_use]
-pub fn lower_root(root: &CSTRoot) -> Vec<Item> {
-    root.items().filter_map(lower_item).collect()
+pub fn lower_root(root: &CSTRoot, ctx: &mut SemanticAnalysisContext) -> Vec<Item> {
+    root.items()
+        .filter_map(|item| lower_item(item, ctx))
+        .collect()
 }

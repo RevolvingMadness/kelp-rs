@@ -42,6 +42,8 @@ pub enum SemanticAnalysisError {
         from: DataTypeKind,
         to: DataTypeKind,
     },
+    ValueTooLarge(DataTypeKind),
+    ValueTooSmall(DataTypeKind),
     CompiletimeValueMutationInRuntimeLoop,
     TypeIsNotStruct(String),
     MissingKey(String),
@@ -79,6 +81,20 @@ pub enum SemanticAnalysisError {
 impl Display for SemanticAnalysisError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::ValueTooLarge(data_type) => {
+                write!(
+                    f,
+                    "This value is too big to fit in the type `{}`",
+                    data_type
+                )
+            }
+            Self::ValueTooSmall(data_type) => {
+                write!(
+                    f,
+                    "This value is too small to fit in the type `{}`",
+                    data_type
+                )
+            }
             Self::CannotPerformArithmeticOperation {
                 left,
                 operator,
@@ -329,7 +345,6 @@ impl SemanticAnalysisContext {
         })
     }
 
-    #[inline]
     pub fn add_info<T>(&mut self, info: SemanticAnalysisInfo) -> Option<T> {
         if self.infos.len() >= self.max_infos {
             return None;
@@ -338,6 +353,14 @@ impl SemanticAnalysisContext {
         self.infos.push(info);
 
         None
+    }
+
+    #[inline]
+    pub fn add_error<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
+        self.add_info(SemanticAnalysisInfo {
+            span,
+            kind: SemanticAnalysisInfoKind::Error(error),
+        })
     }
 
     pub fn declare_variable(&mut self, name: &str, data_type: Option<DataTypeKind>) {

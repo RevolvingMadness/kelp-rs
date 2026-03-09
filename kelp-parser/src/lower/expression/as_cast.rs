@@ -1,4 +1,7 @@
-use kelp_core::expression::{Expression, ExpressionKind};
+use kelp_core::{
+    expression::{Expression, ExpressionKind},
+    semantic_analysis_context::SemanticAnalysisContext,
+};
 
 use crate::{
     cst::CSTAsCastExpression,
@@ -8,10 +11,13 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_as_cast_expression(node: CSTAsCastExpression) -> Option<Expression> {
+pub fn lower_as_cast_expression(
+    node: CSTAsCastExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let expression = lower_expression(node.expression()?)?;
+    let expression = lower_expression(node.expression()?, ctx)?;
     let data_type = lower_data_type(node.data_type()?)?;
 
     Some(ExpressionKind::AsCast(Box::new(expression), data_type).with_span(span))

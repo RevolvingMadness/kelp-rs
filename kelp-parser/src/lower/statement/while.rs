@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTWhileStatement,
@@ -38,11 +41,14 @@ pub fn try_parse_while_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_while_statement(node: CSTWhileStatement) -> Option<Statement> {
+pub fn lower_while_statement(
+    node: CSTWhileStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let condition = lower_expression(node.condition()?)?;
-    let body = lower_statement(node.body()?)?;
+    let condition = lower_expression(node.condition()?, ctx)?;
+    let body = lower_statement(node.body()?, ctx)?;
 
     Some(StatementKind::While(condition, Box::new(body)).with_span(span))
 }

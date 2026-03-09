@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use kelp_core::{
     expression::{Expression, ExpressionKind},
     high::snbt_string::HighSNBTString,
+    semantic_analysis_context::SemanticAnalysisContext,
     span::Span,
 };
 use minecraft_command_types::snbt::SNBTString;
@@ -103,6 +104,7 @@ fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_compound_expression_inner(
     node: CSTCompoundExpression,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<(Span, BTreeMap<HighSNBTString, Expression>)> {
     let mut compound = BTreeMap::new();
 
@@ -114,7 +116,7 @@ pub fn lower_compound_expression_inner(
         let Some(value) = entry.value() else {
             continue;
         };
-        let Some(value) = lower_expression(value) else {
+        let Some(value) = lower_expression(value, ctx) else {
             continue;
         };
 
@@ -135,8 +137,11 @@ pub fn lower_compound_expression_inner(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_compound_expression(node: CSTCompoundExpression) -> Option<Expression> {
-    let (span, compound) = lower_compound_expression_inner(node)?;
+pub fn lower_compound_expression(
+    node: CSTCompoundExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
+    let (span, compound) = lower_compound_expression_inner(node, ctx)?;
 
     Some(ExpressionKind::Compound(compound).with_span(span))
 }

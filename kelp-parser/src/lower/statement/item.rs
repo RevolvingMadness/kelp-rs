@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTItemStatement,
@@ -42,10 +45,13 @@ pub fn try_parse_item_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_item_statement(node: CSTItemStatement) -> Option<Statement> {
+pub fn lower_item_statement(
+    node: CSTItemStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let item = lower_item(node.item()?)?;
+    let item = lower_item(node.item()?, ctx)?;
 
     Some(StatementKind::Item(Box::new(item)).with_span(span))
 }

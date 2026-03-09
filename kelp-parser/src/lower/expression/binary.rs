@@ -1,6 +1,7 @@
 use kelp_core::{
     expression::{Expression, ExpressionKind},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
+    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 use crate::{
@@ -10,11 +11,14 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_binary_expression(node: CSTBinaryExpression) -> Option<Expression> {
+pub fn lower_binary_expression(
+    node: CSTBinaryExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let left = lower_expression(node.lhs()?)?;
-    let right = lower_expression(node.rhs()?)?;
+    let left = lower_expression(node.lhs()?, ctx)?;
+    let right = lower_expression(node.rhs()?, ctx)?;
     let operator = node.operator()?;
 
     Some(

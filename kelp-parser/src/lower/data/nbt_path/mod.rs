@@ -1,4 +1,4 @@
-use kelp_core::high::nbt_path::HighNbtPath;
+use kelp_core::{high::nbt_path::HighNbtPath, semantic_analysis_context::SemanticAnalysisContext};
 use nonempty::NonEmpty;
 
 use crate::{
@@ -50,10 +50,10 @@ pub fn try_parse_nbt_path(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_nbt_path(node: CSTNBTPath) -> Option<HighNbtPath> {
+pub fn lower_nbt_path(node: CSTNBTPath, ctx: &mut SemanticAnalysisContext) -> Option<HighNbtPath> {
     let nodes = node
         .n_b_t_path_nodes()
-        .filter_map(lower_nbt_path_node)
+        .filter_map(|nbt_path_node| lower_nbt_path_node(nbt_path_node, ctx))
         .collect();
 
     Some(HighNbtPath(NonEmpty::from_vec(nodes)?))

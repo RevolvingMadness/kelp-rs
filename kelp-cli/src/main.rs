@@ -194,14 +194,15 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
             .unwrap();
     }
 
-    let lower_start = Instant::now();
-    let items = lower_root(&root);
-    let lower_elapsed = lower_start.elapsed();
-
     let mut semantic_analysis_context = SemanticAnalysisContext {
         max_infos: 10,
         ..Default::default()
     };
+
+    let lower_start = Instant::now();
+    let items = lower_root(&root, &mut semantic_analysis_context);
+    let lower_elapsed = lower_start.elapsed();
+
     semantic_analysis_context
         .scopes
         .push_front(Scope::default());

@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTLetStatement,
@@ -55,14 +58,17 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_let_statement(node: CSTLetStatement) -> Option<Statement> {
+pub fn lower_let_statement(
+    node: CSTLetStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?)?;
 
     let data_type = node.data_type().and_then(lower_data_type);
 
-    let value = lower_expression(node.expression()?)?;
+    let value = lower_expression(node.expression()?, ctx)?;
 
     Some(StatementKind::Let(data_type, pattern, value).with_span(span))
 }

@@ -1,4 +1,7 @@
-use kelp_core::expression::{Expression, ExpressionKind};
+use kelp_core::{
+    expression::{Expression, ExpressionKind},
+    semantic_analysis_context::SemanticAnalysisContext,
+};
 
 use crate::{
     cst::CSTListExpression,
@@ -54,10 +57,16 @@ pub fn try_parse_list_expression(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_list_expression(node: CSTListExpression) -> Option<Expression> {
+pub fn lower_list_expression(
+    node: CSTListExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let expressions = node.expressions().filter_map(lower_expression).collect();
+    let expressions = node
+        .expressions()
+        .filter_map(|expression| lower_expression(expression, ctx))
+        .collect();
 
     Some(ExpressionKind::List(expressions).with_span(span))
 }

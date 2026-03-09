@@ -1,4 +1,7 @@
-use kelp_core::statement::{Statement, StatementKind};
+use kelp_core::{
+    semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTBlockStatement,
@@ -54,10 +57,16 @@ pub fn try_parse_block_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_block_statement(node: CSTBlockStatement) -> Option<Statement> {
+pub fn lower_block_statement(
+    node: CSTBlockStatement,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let statements = node.statements().filter_map(lower_statement).collect();
+    let statements = node
+        .statements()
+        .filter_map(|statment| lower_statement(statment, ctx))
+        .collect();
 
     Some(StatementKind::Block(statements).with_span(span))
 }

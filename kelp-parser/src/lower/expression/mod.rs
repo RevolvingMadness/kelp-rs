@@ -1,5 +1,4 @@
 use kelp_core::expression::{Expression, ExpressionKind};
-use ordered_float::NotNan;
 
 use crate::{
     cst::{CSTBooleanExpression, CSTExpression},
@@ -22,6 +21,7 @@ use crate::{
             field_access::lower_field_access_expression,
             index::lower_index_expression,
             list::{lower_list_expression, try_parse_list_expression},
+            numeric::lower_numeric_expression,
             parenthesized::lower_parenthesized_expression,
             score::{lower_score_expression, try_parse_score_expression},
             string::lower_string_expression,
@@ -50,6 +50,7 @@ pub mod data;
 pub mod field_access;
 pub mod index;
 pub mod list;
+pub mod numeric;
 pub mod parenthesized;
 pub mod score;
 pub mod string;
@@ -476,36 +477,14 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             true
         }),
         Some(char) if char.is_ascii_digit() => {
-            let (is_value_fractional, text) = parser.peek_fractional_value().unwrap();
+            parser.start_node(SyntaxKind::NumericExpression);
 
-            let (has_suffix, is_suffix_fractional, kind) = match parser.peek_nth_char(text.len()) {
-                Some('b' | 'B') => (true, false, (SyntaxKind::ByteExpression)),
-                Some('s' | 'S') => (true, false, (SyntaxKind::ShortExpression)),
-                Some('i' | 'I') => (true, false, (SyntaxKind::IntegerExpression)),
-                Some('l' | 'L') => (true, false, (SyntaxKind::LongExpression)),
-                Some('f' | 'F') => (true, true, (SyntaxKind::FloatExpression)),
-                Some('d' | 'D') => (true, true, (SyntaxKind::DoubleExpression)),
-                _ => (
-                    false,
-                    false,
-                    if is_value_fractional {
-                        SyntaxKind::FloatExpression
-                    } else {
-                        SyntaxKind::IntegerExpression
-                    },
-                ),
-            };
+            parser.expect_fractional_value("Expected numerical value");
 
-            let inner_kind = if is_value_fractional || is_suffix_fractional {
-                SyntaxKind::FractionalValue
-            } else {
-                SyntaxKind::WholeValue
-            };
-
-            parser.start_node(kind);
-            parser.add_token(inner_kind, text.len());
-
-            if has_suffix {
+            if parser
+                .peek_char()
+                .is_some_and(|char| char.is_ascii_alphabetic())
+            {
                 parser.bump_char_kind(SyntaxKind::NumericExpressionSuffix);
             }
 
@@ -653,18 +632,6 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
     }
 }
 
-macro_rules! lower_numerical_expression {
-    ($node: expr, $get_token_method_name: ident, $type_name: ty, $enum_name: ident) => {{
-        let span = span_of_cst_node(&$node);
-
-        let value_token = $node.$get_token_method_name()?;
-        let value_text = value_token.text();
-        let value = value_text.parse::<$type_name>().ok()?;
-
-        Some(ExpressionKind::$enum_name(value).with_span(span))
-    }};
-}
-
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 #[allow(clippy::unnecessary_wraps)]
@@ -682,24 +649,7 @@ pub fn lower_expression(node: CSTExpression) -> Option<Expression> {
         CSTExpression::VariableExpression(node) => lower_variable_expression(node),
         CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node),
         CSTExpression::BooleanExpression(node) => lower_boolean_expression(node),
-        CSTExpression::ByteExpression(node) => {
-            lower_numerical_expression!(node, whole_value_token, i8, Byte)
-        }
-        CSTExpression::ShortExpression(node) => {
-            lower_numerical_expression!(node, whole_value_token, i16, Short)
-        }
-        CSTExpression::IntegerExpression(node) => {
-            lower_numerical_expression!(node, whole_value_token, i32, Integer)
-        }
-        CSTExpression::LongExpression(node) => {
-            lower_numerical_expression!(node, whole_value_token, i64, Long)
-        }
-        CSTExpression::FloatExpression(node) => {
-            lower_numerical_expression!(node, fractional_value_token, NotNan<f32>, Float)
-        }
-        CSTExpression::DoubleExpression(node) => {
-            lower_numerical_expression!(node, fractional_value_token, NotNan<f64>, Double)
-        }
+        CSTExpression::NumericExpression(node) => lower_numeric_expression(node),
         CSTExpression::CharacterExpression(node) => lower_character_expression(node),
         CSTExpression::StringExpression(node) => lower_string_expression(node),
         CSTExpression::AssignmentExpression(node) => lower_assignment_expression(node),

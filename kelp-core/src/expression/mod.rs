@@ -46,8 +46,10 @@ pub enum ExpressionKind {
     Byte(i8),
     Short(i16),
     Integer(i32),
+    InferredInteger(i32),
     Long(i64),
     Float(NotNan<f32>),
+    InferredFloat(NotNan<f32>),
     Double(NotNan<f64>),
     String(HighSNBTString),
     Underscore,
@@ -148,8 +150,10 @@ impl ExpressionKind {
             | Self::Byte(_)
             | Self::Short(_)
             | Self::Integer(_)
+            | Self::InferredInteger(_)
             | Self::Long(_)
             | Self::Float(_)
+            | Self::InferredFloat(_)
             | Self::Double(_)
             | Self::String(_)
             | Self::Unit
@@ -181,8 +185,10 @@ impl ExpressionKind {
             Self::Byte(_) => DataTypeKind::Byte,
             Self::Short(_) => DataTypeKind::Short,
             Self::Integer(_) | Self::Command(_) => DataTypeKind::Integer,
+            Self::InferredInteger(_) => DataTypeKind::InferredInteger,
             Self::Long(_) => DataTypeKind::Long,
             Self::Float(_) => DataTypeKind::Float,
+            Self::InferredFloat(_) => DataTypeKind::InferredFloat,
             Self::Double(_) => DataTypeKind::Double,
             Self::String(_) => DataTypeKind::String,
             Self::Unit | Self::Assignment(_, _) | Self::AugmentedAssignment(_, _, _) => {
@@ -462,9 +468,11 @@ impl ExpressionKind {
             Self::Boolean(value) => ResolvedExpression::Boolean(value),
             Self::Byte(value) => ResolvedExpression::Byte(value),
             Self::Short(value) => ResolvedExpression::Short(value),
-            Self::Integer(value) => ResolvedExpression::Integer(value),
+            Self::Integer(value) | Self::InferredInteger(value) => {
+                ResolvedExpression::Integer(value)
+            }
             Self::Long(value) => ResolvedExpression::Long(value),
-            Self::Float(value) => ResolvedExpression::Float(value),
+            Self::Float(value) | Self::InferredFloat(value) => ResolvedExpression::Float(value),
             Self::Double(value) => ResolvedExpression::Double(value),
             Self::String(value) => ResolvedExpression::String(value),
             Self::Underscore => ResolvedExpression::Underscore,
@@ -520,13 +528,20 @@ impl ExpressionKind {
                     element.kind.compile_as_statement(datapack, ctx);
                 }
             }
+            Self::Struct(_, _, _, field_values) => {
+                for value in field_values.into_values() {
+                    value.kind.compile_as_statement(datapack, ctx);
+                }
+            }
             Self::Underscore => unreachable!(),
             Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
             | Self::Integer(_)
+            | Self::InferredInteger(_)
             | Self::Long(_)
             | Self::Float(_)
+            | Self::InferredFloat(_)
             | Self::Double(_)
             | Self::String(_)
             | Self::Unit
@@ -539,7 +554,6 @@ impl ExpressionKind {
             | Self::Index(_, _)
             | Self::FieldAccess(_, _)
             | Self::Variable(_) => {}
-            Self::Struct(_, _, _, _) => todo!(),
         }
     }
 
@@ -1081,8 +1095,10 @@ impl Expression {
             | ExpressionKind::Byte(_)
             | ExpressionKind::Short(_)
             | ExpressionKind::Integer(_)
+            | ExpressionKind::InferredInteger(_)
             | ExpressionKind::Long(_)
             | ExpressionKind::Float(_)
+            | ExpressionKind::InferredFloat(_)
             | ExpressionKind::Double(_)
             | ExpressionKind::String(_)
             | ExpressionKind::Underscore
@@ -1106,8 +1122,10 @@ impl Expression {
             | ExpressionKind::Byte(_)
             | ExpressionKind::Short(_)
             | ExpressionKind::Integer(_)
+            | ExpressionKind::InferredInteger(_)
             | ExpressionKind::Long(_)
             | ExpressionKind::Float(_)
+            | ExpressionKind::InferredFloat(_)
             | ExpressionKind::Double(_)
             | ExpressionKind::String(_)
             | ExpressionKind::Underscore
@@ -1197,8 +1215,10 @@ impl Expression {
             | ExpressionKind::Byte(_)
             | ExpressionKind::Short(_)
             | ExpressionKind::Integer(_)
+            | ExpressionKind::InferredInteger(_)
             | ExpressionKind::Long(_)
             | ExpressionKind::Float(_)
+            | ExpressionKind::InferredFloat(_)
             | ExpressionKind::Double(_)
             | ExpressionKind::String(_)
             | ExpressionKind::Arithmetic(_, _, _)

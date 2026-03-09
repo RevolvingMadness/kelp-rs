@@ -487,6 +487,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "loop" => "LoopKeyword",
         "append" => "AppendKeyword",
         "remove" => "RemoveKeyword",
+        "numerical_suffix" => "NumericExpressionSuffix",
         _ => todo!("{:?}", token),
     }
 }

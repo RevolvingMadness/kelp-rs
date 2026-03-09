@@ -90,12 +90,7 @@ Expression =
 | ReturnCommandExpression
 | FunctionCommandExpression
 | BooleanExpression
-| ByteExpression
-| ShortExpression
-| IntegerExpression
-| LongExpression
-| FloatExpression
-| DoubleExpression
+| NumericExpression
 | UnitExpression
 | ParenthesizedExpression
 | StringExpression
@@ -162,23 +157,8 @@ FunctionCommandExpression =
 BooleanExpression =
   'true' | 'false'
 
-ByteExpression =
-  'whole_value'
-
-ShortExpression =
-  'whole_value'
-
-IntegerExpression =
-  'whole_value'
-
-LongExpression =
-  'whole_value'
-
-FloatExpression =
-  'fractional_value'
-
-DoubleExpression =
-  'fractional_value'
+NumericExpression =
+  'fractional_value' 'numerical_suffix'
 
 UnitExpression =
   '(' ')'

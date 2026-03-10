@@ -78,6 +78,7 @@ pub enum ExpressionKind {
         Vec<HighDataType>,
         BTreeMap<HighSNBTString, Expression>,
     ),
+    Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -108,6 +109,8 @@ impl ExpressionKind {
 
     pub fn as_place(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Place> {
         match self {
+            Self::Invalid => unreachable!(),
+
             Self::Underscore => Some(Place::Underscore),
             Self::Unary(operator, expression) => match operator {
                 UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => None,
@@ -179,6 +182,8 @@ impl ExpressionKind {
         supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
     ) -> Option<DataTypeKind> {
         Some(match self {
+            Self::Invalid => return None,
+
             Self::Underscore => DataTypeKind::Inferred,
             Self::Boolean(_)
             | Self::Comparison(_, _, _)
@@ -317,6 +322,8 @@ impl ExpressionKind {
         ctx: &mut CompileContext,
     ) -> ResolvedExpression {
         match self {
+            Self::Invalid => unreachable!(),
+
             Self::Unary(unary_operator, expression) => match unary_operator {
                 UnaryOperator::Negate => {
                     let expression = expression.kind.resolve(datapack, ctx);
@@ -539,7 +546,7 @@ impl ExpressionKind {
                     value.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Underscore => unreachable!(),
+            Self::Invalid | Self::Underscore => unreachable!(),
             Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
@@ -653,6 +660,8 @@ impl Expression {
         expected_type: Option<&DataTypeKind>,
     ) -> Option<()> {
         match &self.kind {
+            ExpressionKind::Invalid => None,
+
             ExpressionKind::Unary(operator, expression) => {
                 expression.perform_semantic_analysis(ctx, is_lhs, None)?;
 
@@ -1193,7 +1202,8 @@ impl Expression {
             ExpressionKind::Data(_) => {
                 Some(PlaceTypeKind::Data(DataTypeKind::SNBT).with_span(self.span))
             }
-            ExpressionKind::Boolean(_)
+            ExpressionKind::Invalid
+            | ExpressionKind::Boolean(_)
             | ExpressionKind::Byte(_)
             | ExpressionKind::Short(_)
             | ExpressionKind::Integer(_)
@@ -1286,7 +1296,8 @@ impl Expression {
                     .with_span(self.span),
                 )
             }
-            ExpressionKind::Boolean(_)
+            ExpressionKind::Invalid
+            | ExpressionKind::Boolean(_)
             | ExpressionKind::Byte(_)
             | ExpressionKind::Short(_)
             | ExpressionKind::Integer(_)

@@ -51,110 +51,94 @@ pub fn lower_numeric_expression(
 
     Some(
         (match suffix {
-            Some(NumericKind::Byte) => {
-                let value = match value_text.parse::<i8>() {
-                    Ok(value) => value,
-                    Err(error) => match error.kind() {
-                        IntErrorKind::PosOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Byte),
-                            );
+            Some(NumericKind::Byte) => match value_text.parse::<i8>() {
+                Ok(value) => ExpressionKind::Byte(value),
+                Err(error) => match error.kind() {
+                    IntErrorKind::PosOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooLarge(DataTypeKind::Byte),
+                        );
 
-                            i8::MAX
-                        }
-                        IntErrorKind::NegOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Byte),
-                            );
+                        ExpressionKind::Invalid
+                    }
+                    IntErrorKind::NegOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooSmall(DataTypeKind::Byte),
+                        );
 
-                            i8::MIN
-                        }
-                        _ => unreachable!(),
-                    },
-                };
+                        ExpressionKind::Invalid
+                    }
+                    _ => unreachable!(),
+                },
+            },
+            Some(NumericKind::Short) => match value_text.parse::<i16>() {
+                Ok(value) => ExpressionKind::Short(value),
+                Err(error) => match error.kind() {
+                    IntErrorKind::PosOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooLarge(DataTypeKind::Short),
+                        );
 
-                ExpressionKind::Byte(value)
-            }
-            Some(NumericKind::Short) => {
-                let value = match value_text.parse::<i16>() {
-                    Ok(value) => value,
-                    Err(error) => match error.kind() {
-                        IntErrorKind::PosOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Short),
-                            );
+                        ExpressionKind::Invalid
+                    }
+                    IntErrorKind::NegOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooSmall(DataTypeKind::Short),
+                        );
 
-                            i16::MAX
-                        }
-                        IntErrorKind::NegOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Short),
-                            );
+                        ExpressionKind::Invalid
+                    }
+                    _ => unreachable!(),
+                },
+            },
+            Some(NumericKind::Integer) => match value_text.parse::<i32>() {
+                Ok(value) => ExpressionKind::Integer(value),
+                Err(error) => match error.kind() {
+                    IntErrorKind::PosOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooLarge(DataTypeKind::Integer),
+                        );
 
-                            i16::MIN
-                        }
-                        _ => unreachable!(),
-                    },
-                };
+                        ExpressionKind::Invalid
+                    }
+                    IntErrorKind::NegOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooSmall(DataTypeKind::Integer),
+                        );
 
-                ExpressionKind::Short(value)
-            }
-            Some(NumericKind::Integer) => {
-                let value = match value_text.parse::<i32>() {
-                    Ok(value) => value,
-                    Err(error) => match error.kind() {
-                        IntErrorKind::PosOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Integer),
-                            );
+                        ExpressionKind::Invalid
+                    }
+                    _ => unreachable!(),
+                },
+            },
+            Some(NumericKind::Long) => match value_text.parse::<i64>() {
+                Ok(value) => ExpressionKind::Long(value),
+                Err(error) => match error.kind() {
+                    IntErrorKind::PosOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooLarge(DataTypeKind::Long),
+                        );
 
-                            i32::MAX
-                        }
-                        IntErrorKind::NegOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Integer),
-                            );
+                        ExpressionKind::Invalid
+                    }
+                    IntErrorKind::NegOverflow => {
+                        ctx.add_error(
+                            text_range_to_span(value_token.text_range()),
+                            SemanticAnalysisError::ValueTooSmall(DataTypeKind::Long),
+                        );
 
-                            i32::MIN
-                        }
-                        _ => unreachable!(),
-                    },
-                };
-
-                ExpressionKind::Integer(value)
-            }
-            Some(NumericKind::Long) => {
-                let value = match value_text.parse::<i64>() {
-                    Ok(value) => value,
-                    Err(error) => match error.kind() {
-                        IntErrorKind::PosOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooLarge(DataTypeKind::Long),
-                            );
-
-                            i64::MAX
-                        }
-                        IntErrorKind::NegOverflow => {
-                            ctx.add_error(
-                                text_range_to_span(value_token.text_range()),
-                                SemanticAnalysisError::ValueTooSmall(DataTypeKind::Long),
-                            );
-
-                            i64::MIN
-                        }
-                        _ => unreachable!(),
-                    },
-                };
-
-                ExpressionKind::Long(value)
-            }
+                        ExpressionKind::Invalid
+                    }
+                    _ => unreachable!(),
+                },
+            },
             Some(NumericKind::Float) => {
                 let value = value_text.parse().unwrap();
 
@@ -171,8 +155,8 @@ pub fn lower_numeric_expression(
 
                     ExpressionKind::InferredFloat(value)
                 } else {
-                    let value = match value_text.parse::<i32>() {
-                        Ok(value) => value,
+                    match value_text.parse::<i32>() {
+                        Ok(value) => ExpressionKind::InferredInteger(value),
                         Err(error) => match error.kind() {
                             IntErrorKind::PosOverflow => {
                                 ctx.add_error(
@@ -180,7 +164,7 @@ pub fn lower_numeric_expression(
                                     SemanticAnalysisError::ValueTooLarge(DataTypeKind::Integer),
                                 );
 
-                                i32::MAX
+                                ExpressionKind::Invalid
                             }
                             IntErrorKind::NegOverflow => {
                                 ctx.add_error(
@@ -188,13 +172,11 @@ pub fn lower_numeric_expression(
                                     SemanticAnalysisError::ValueTooSmall(DataTypeKind::Integer),
                                 );
 
-                                i32::MIN
+                                ExpressionKind::Invalid
                             }
                             _ => unreachable!(),
                         },
-                    };
-
-                    ExpressionKind::InferredInteger(value)
+                    }
                 }
             }
         })

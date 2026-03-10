@@ -100,12 +100,12 @@ impl Display for SemanticAnalysisError {
                 left,
                 operator,
                 right,
-            } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
+            } => write!(f, "Cannot perform: `{}` {} `{}`", left, operator, right),
             Self::CannotPerformComparisonOperation {
                 left,
                 operator,
                 right,
-            } => write!(f, "Cannot perform: {} {} {}", left, operator, right),
+            } => write!(f, "Cannot perform: `{}` {} `{}`", left, operator, right),
             Self::CannotPerformAugmentedAssignment(data_type) => write!(
                 f,
                 "Cannot perform augmented assignment on type `{}`",

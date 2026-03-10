@@ -42,6 +42,7 @@ pub enum SemanticAnalysisError {
         from: DataTypeKind,
         to: DataTypeKind,
     },
+    UnknownRuntimeStorageType,
     ValueTooLarge(DataTypeKind),
     ValueTooSmall(DataTypeKind),
     CompiletimeValueMutationInRuntimeLoop,
@@ -119,6 +120,7 @@ impl Display for SemanticAnalysisError {
             Self::MismatchedPatternTypes { expected, actual } => {
                 write!(f, "Expected type `{}` but got `{}`", expected, actual)
             }
+            Self::UnknownRuntimeStorageType => f.write_str("Unknown runtime storage type"),
             Self::UnderscoreExpression => f.write_str(
                 "The underscore expression can only be used on the left hand side of assignments",
             ),

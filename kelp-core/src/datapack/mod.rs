@@ -17,8 +17,10 @@ use minecraft_command_types::command::scoreboard::{
     ObjectivesScoreboardCommand, PlayersScoreboardCommand, ScoreboardCommand,
 };
 use minecraft_command_types::command::{Command, PlayerScore};
-use minecraft_command_types::datapack::Datapack;
+use minecraft_command_types::datapack::pack::Pack;
+use minecraft_command_types::datapack::pack::format::Format;
 use minecraft_command_types::datapack::tag::{Tag, TagType, TagValue};
+use minecraft_command_types::datapack::{Datapack, PackMCMeta};
 use minecraft_command_types::entity_selector::EntitySelector;
 use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
@@ -315,6 +317,7 @@ pub type Scopes = VecDeque<Scope>;
 
 pub struct HighDatapack {
     pub name: String,
+    pub description: Option<String>,
     pub requirements: Cell<HighDatapackRequirements>,
     pub settings: HighDatapackSettings,
     pub scopes: Scopes,
@@ -339,12 +342,14 @@ impl SupportsVariableTypeScope for HighDatapack {
 }
 
 impl HighDatapack {
-    pub fn new(name: impl Into<String>) -> Self {
+    #[must_use]
+    pub fn new(name: String, description: Option<String>) -> Self {
         let mut scopes = Scopes::new();
         scopes.push_front(Scope::default());
 
         Self {
-            name: name.into(),
+            name,
+            description,
             requirements: Cell::new(HighDatapackRequirements::default()),
             settings: HighDatapackSettings::default(),
             scopes,
@@ -763,7 +768,19 @@ impl HighDatapack {
     }
 
     pub fn compile(mut self) -> Datapack {
-        let mut output_datapack = Datapack::new(88, json!(""));
+        let mut output_datapack = Datapack::new_pack(PackMCMeta {
+            pack: Pack {
+                description: json!(self.description.clone().unwrap_or_default()),
+                pack_format: Some(88),
+                min_format: Some(Format::Array(88, 0)),
+                max_format: None,
+                supported_formats: None,
+            },
+            features: None,
+            filter: None,
+            overlays: None,
+            language: None,
+        });
         let mut load_function_ctx = CompileContext::default();
 
         let has_constants = !self.used_constants.is_empty();

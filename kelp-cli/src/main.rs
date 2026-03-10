@@ -10,7 +10,8 @@ use kelp_parser::cst::CSTRoot;
 use kelp_parser::lower::root::lower_root;
 use kelp_parser::parser::{ParseResult, Parser};
 use nonempty::nonempty;
-use std::fs;
+use serde::Deserialize;
+use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use yansi::Paint;
@@ -112,60 +113,76 @@ fn handle_new(input: &str) {
     );
 }
 
+#[derive(Deserialize)]
+struct Project {
+    name: String,
+    #[allow(unused)]
+    id: Option<String>,
+    description: Option<String>,
+    #[allow(unused)]
+    version: String,
+}
+
+#[derive(Deserialize)]
+struct KelpToml {
+    project: Project,
+}
+
 fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let root = project_path.unwrap_or_else(|| std::env::current_dir().unwrap());
-    let kelp_toml = root.join("Kelp.toml");
-    let main_kelp = root.join("src/main.kelp");
+    let kelp_toml_path_buf = root.join("Kelp.toml");
+    let kelp_toml_path = kelp_toml_path_buf.to_string_lossy();
+    let main_kelp_path_buf = root.join("src/main.kelp");
+    let main_kelp_path = main_kelp_path_buf.to_string_lossy();
 
-    let (target_path, project_name) = {
-        if kelp_toml.exists() {
-            if !main_kelp.exists() {
-                eprintln!(
-                    "{} Kelp.toml found, but {} is missing.",
-                    "Error:".red(),
-                    main_kelp.display()
-                );
-                return;
-            }
+    let Ok(kelp_toml) = fs::read_to_string(&kelp_toml_path_buf) else {
+        eprintln!(
+            "{} No Kelp.toml found at {}.",
+            "Error:".red(),
+            kelp_toml_path
+        );
 
-            let name = fs::read_to_string(&kelp_toml)
-                .ok()
-                .and_then(|content| {
-                    content
-                        .lines()
-                        .find(|l| l.starts_with("name ="))
-                        .and_then(|l| l.split('"').nth(1))
-                        .map(ToString::to_string)
-                })
-                .unwrap_or_else(|| "Kelp Project".to_string());
+        return;
+    };
 
-            (main_kelp, name)
-        } else {
+    if !main_kelp_path_buf.exists() {
+        eprintln!(
+            "{} Kelp.toml found, but {} is missing.",
+            "Error:".red(),
+            main_kelp_path
+        );
+
+        return;
+    }
+
+    let kelp_toml = match toml::from_str::<KelpToml>(&kelp_toml) {
+        Ok(kelp_toml) => kelp_toml,
+        Err(error) => {
             eprintln!(
-                "{} No Kelp.toml found at {}.",
+                "{} Failed to parse {}: {}",
                 "Error:".red(),
-                root.display()
+                kelp_toml_path,
+                error.message()
             );
+
             return;
         }
     };
 
-    let input_text = match fs::read_to_string(&target_path) {
-        Ok(content) => content,
-        Err(e) => {
+    let main_kelp = match fs::read_to_string(&main_kelp_path_buf) {
+        Ok(contents) => contents,
+        Err(error) => {
             eprintln!(
                 "{} Could not read {}: {}",
                 "Error:".red(),
-                target_path.display(),
-                e
+                main_kelp_path,
+                error
             );
             return;
         }
     };
 
-    let target_path_str = target_path.to_string_lossy();
-
-    let mut parser = Parser::new(&input_text);
+    let mut parser = Parser::new(&main_kelp);
 
     let start_parse = Instant::now();
     let ParseResult { root, errors } = parser.parse();
@@ -176,12 +193,12 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     let root = CSTRoot::cast(root).unwrap();
 
-    let error_input_text = format!("{} ", input_text);
+    let error_input_text = format!("{} ", main_kelp);
 
     let parse_succeeded = errors.is_empty();
 
     for error in errors {
-        let span = (target_path_str.as_ref(), error.span.into_range());
+        let span = (main_kelp_path.as_ref(), error.span.into_range());
 
         Report::build(ReportKind::Error, span.clone())
             .with_label(
@@ -190,7 +207,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
                     .with_color(Color::Red),
             )
             .finish()
-            .print((target_path_str.as_ref(), Source::from(&error_input_text)))
+            .print((main_kelp_path.as_ref(), Source::from(&error_input_text)))
             .unwrap();
     }
 
@@ -216,7 +233,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     for info in semantic_analysis_context.infos {
         match info.kind {
             SemanticAnalysisInfoKind::Error(error) => {
-                let span = (&target_path_str, info.span.into_range());
+                let span = (&main_kelp_path, info.span.into_range());
                 Report::build(ReportKind::Error, span.clone())
                     .with_label(
                         Label::new(span)
@@ -224,7 +241,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
                             .with_color(Color::Red),
                     )
                     .finish()
-                    .print((&target_path_str, Source::from(&input_text)))
+                    .print((&main_kelp_path, Source::from(&main_kelp)))
                     .unwrap();
             }
         }
@@ -253,9 +270,9 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         process_success(
             part_1_elapsed,
             items,
-            &target_path_str,
-            &input_text,
-            &project_name,
+            &main_kelp_path,
+            &main_kelp,
+            kelp_toml,
         );
     }
 }
@@ -265,9 +282,13 @@ fn process_success(
     items: Vec<Item>,
     _file_name: &str,
     _source_text: &str,
-    project_name: &str,
+    kelp_toml: KelpToml,
 ) {
-    let mut datapack = HighDatapack::new(project_name);
+    // let project_id = kelp_toml.project.id();
+    let project_name = kelp_toml.project.name;
+    let project_description = kelp_toml.project.description;
+
+    let mut datapack = HighDatapack::new(project_name.clone(), project_description);
     datapack.settings.num_match_cases_to_split = 5;
     datapack.push_namespace("main");
     datapack.push_function_to_current_namespace(nonempty!["main".to_string()]);
@@ -299,7 +320,8 @@ fn process_success(
 
     let datapack_dir = dirs::home_dir()
         .unwrap()
-        .join(".local/share/PandoraLauncher/instances/1.21.11/.minecraft/saves/1_21_11/datapacks/kelp-rs Datapack");
+        .join(".local/share/PandoraLauncher/instances/1.21.11/.minecraft/saves/1_21_11/datapacks/")
+        .join(project_name);
 
     if datapack_dir.exists() {
         fs::remove_dir_all(&datapack_dir).unwrap();

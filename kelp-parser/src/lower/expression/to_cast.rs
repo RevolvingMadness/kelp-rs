@@ -24,10 +24,12 @@ pub fn lower_to_cast_expression(
         "data" => RuntimeStorageType::Data,
         "score" => RuntimeStorageType::Score,
         _ => {
-            return ctx.add_error(
+            ctx.add_error(
                 text_range_to_span(runtime_storage_type_token.text_range()),
                 SemanticAnalysisError::UnknownRuntimeStorageType,
             );
+
+            RuntimeStorageType::Score
         }
     };
 

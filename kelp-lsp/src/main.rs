@@ -146,19 +146,21 @@ impl Backend {
 
             let root_syntax = match CSTRoot::cast(root) {
                 Ok(cst_root) => {
-                    let statements = lower_root(&cst_root);
-
-                    let mut ctx = SemanticAnalysisContext {
+                    let mut semantic_analysis_context = SemanticAnalysisContext {
                         max_infos: usize::MAX,
                         ..Default::default()
                     };
-                    ctx.scopes.push_front(Scope::default());
+                    semantic_analysis_context
+                        .scopes
+                        .push_front(Scope::default());
+
+                    let statements = lower_root(&cst_root, &mut semantic_analysis_context);
 
                     for statement in statements {
-                        statement.perform_semantic_analysis(&mut ctx, false);
+                        statement.perform_semantic_analysis(&mut semantic_analysis_context, false);
                     }
 
-                    for info in ctx.infos {
+                    for info in semantic_analysis_context.infos {
                         diagnostics.push(Diagnostic {
                             range: Range {
                                 start: line_index.offset_to_position(info.span.start),

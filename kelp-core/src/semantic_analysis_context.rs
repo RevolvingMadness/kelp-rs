@@ -357,12 +357,11 @@ impl SemanticAnalysisContext {
         None
     }
 
-    #[inline]
-    pub fn add_error<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
-        self.add_info(SemanticAnalysisInfo {
+    pub fn add_error(&mut self, span: Span, error: SemanticAnalysisError) {
+        self.add_info::<()>(SemanticAnalysisInfo {
             span,
             kind: SemanticAnalysisInfoKind::Error(error),
-        })
+        });
     }
 
     pub fn declare_variable(&mut self, name: &str, data_type: Option<DataTypeKind>) {

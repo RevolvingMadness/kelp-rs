@@ -54,19 +54,25 @@ pub fn lower_numeric_expression(
             Some(NumericKind::Byte) => {
                 let value = match value_text.parse::<i8>() {
                     Ok(value) => value,
-                    Err(error) => {
-                        return match error.kind() {
-                            IntErrorKind::PosOverflow => ctx.add_error(
+                    Err(error) => match error.kind() {
+                        IntErrorKind::PosOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooLarge(DataTypeKind::Byte),
-                            ),
-                            IntErrorKind::NegOverflow => ctx.add_error(
+                            );
+
+                            i8::MAX
+                        }
+                        IntErrorKind::NegOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooSmall(DataTypeKind::Byte),
-                            ),
-                            _ => unreachable!(),
-                        };
-                    }
+                            );
+
+                            i8::MIN
+                        }
+                        _ => unreachable!(),
+                    },
                 };
 
                 ExpressionKind::Byte(value)
@@ -74,19 +80,25 @@ pub fn lower_numeric_expression(
             Some(NumericKind::Short) => {
                 let value = match value_text.parse::<i16>() {
                     Ok(value) => value,
-                    Err(error) => {
-                        return match error.kind() {
-                            IntErrorKind::PosOverflow => ctx.add_error(
+                    Err(error) => match error.kind() {
+                        IntErrorKind::PosOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooLarge(DataTypeKind::Short),
-                            ),
-                            IntErrorKind::NegOverflow => ctx.add_error(
+                            );
+
+                            i16::MAX
+                        }
+                        IntErrorKind::NegOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooSmall(DataTypeKind::Short),
-                            ),
-                            _ => unreachable!(),
-                        };
-                    }
+                            );
+
+                            i16::MIN
+                        }
+                        _ => unreachable!(),
+                    },
                 };
 
                 ExpressionKind::Short(value)
@@ -94,19 +106,25 @@ pub fn lower_numeric_expression(
             Some(NumericKind::Integer) => {
                 let value = match value_text.parse::<i32>() {
                     Ok(value) => value,
-                    Err(error) => {
-                        return match error.kind() {
-                            IntErrorKind::PosOverflow => ctx.add_error(
+                    Err(error) => match error.kind() {
+                        IntErrorKind::PosOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooLarge(DataTypeKind::Integer),
-                            ),
-                            IntErrorKind::NegOverflow => ctx.add_error(
+                            );
+
+                            i32::MAX
+                        }
+                        IntErrorKind::NegOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooSmall(DataTypeKind::Integer),
-                            ),
-                            _ => unreachable!(),
-                        };
-                    }
+                            );
+
+                            i32::MIN
+                        }
+                        _ => unreachable!(),
+                    },
                 };
 
                 ExpressionKind::Integer(value)
@@ -114,19 +132,25 @@ pub fn lower_numeric_expression(
             Some(NumericKind::Long) => {
                 let value = match value_text.parse::<i64>() {
                     Ok(value) => value,
-                    Err(error) => {
-                        return match error.kind() {
-                            IntErrorKind::PosOverflow => ctx.add_error(
+                    Err(error) => match error.kind() {
+                        IntErrorKind::PosOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooLarge(DataTypeKind::Long),
-                            ),
-                            IntErrorKind::NegOverflow => ctx.add_error(
+                            );
+
+                            i64::MAX
+                        }
+                        IntErrorKind::NegOverflow => {
+                            ctx.add_error(
                                 text_range_to_span(value_token.text_range()),
                                 SemanticAnalysisError::ValueTooSmall(DataTypeKind::Long),
-                            ),
-                            _ => unreachable!(),
-                        };
-                    }
+                            );
+
+                            i64::MIN
+                        }
+                        _ => unreachable!(),
+                    },
                 };
 
                 ExpressionKind::Long(value)
@@ -149,19 +173,25 @@ pub fn lower_numeric_expression(
                 } else {
                     let value = match value_text.parse::<i32>() {
                         Ok(value) => value,
-                        Err(error) => {
-                            return match error.kind() {
-                                IntErrorKind::PosOverflow => ctx.add_error(
+                        Err(error) => match error.kind() {
+                            IntErrorKind::PosOverflow => {
+                                ctx.add_error(
                                     text_range_to_span(value_token.text_range()),
                                     SemanticAnalysisError::ValueTooLarge(DataTypeKind::Integer),
-                                ),
-                                IntErrorKind::NegOverflow => ctx.add_error(
+                                );
+
+                                i32::MAX
+                            }
+                            IntErrorKind::NegOverflow => {
+                                ctx.add_error(
                                     text_range_to_span(value_token.text_range()),
                                     SemanticAnalysisError::ValueTooSmall(DataTypeKind::Integer),
-                                ),
-                                _ => unreachable!(),
-                            };
-                        }
+                                );
+
+                                i32::MIN
+                            }
+                            _ => unreachable!(),
+                        },
                     };
 
                     ExpressionKind::InferredInteger(value)

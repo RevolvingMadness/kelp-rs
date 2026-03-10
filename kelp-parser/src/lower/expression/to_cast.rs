@@ -29,7 +29,7 @@ pub fn lower_to_cast_expression(
                 SemanticAnalysisError::UnknownRuntimeStorageType,
             );
 
-            RuntimeStorageType::Score
+            return Some(ExpressionKind::Invalid.with_span(span));
         }
     };
 

@@ -1163,14 +1163,19 @@ impl DataTypeKind {
     #[must_use]
     pub fn can_cast_to(&self, data_type: &Self) -> bool {
         match (self, data_type) {
-            (Self::Score(self_type), Self::Score(data_type)) => self_type == data_type,
-            (Self::Data(self_type), Self::Data(_)) => **self_type == Self::SNBT,
+            (Self::Score(self_type), Self::Score(data_type))
+            | (Self::Data(self_type), Self::Data(data_type)) => self_type == data_type,
 
             (Self::SNBT, _)
-            | (Self::InferredInteger, Self::Byte | Self::Short | Self::Integer | Self::Long)
-            | (Self::InferredFloat, Self::Float | Self::Double)
             | (
-                Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
+                Self::InferredInteger
+                | Self::InferredFloat
+                | Self::Byte
+                | Self::Short
+                | Self::Integer
+                | Self::Long
+                | Self::Float
+                | Self::Double,
                 Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
             ) => true,
 
@@ -1472,7 +1477,7 @@ impl DataTypeKind {
             Self::Reference(self_) => match **self_ {
                 Self::Byte => Self::Byte,
                 Self::Short => Self::Short,
-                Self::Integer => Self::Integer,
+                Self::Integer | Self::InferredInteger => Self::Integer,
                 Self::Long => Self::Long,
                 Self::Score(ref inner_type) => Self::Score(inner_type.clone()),
                 _ => return None,
@@ -1480,7 +1485,7 @@ impl DataTypeKind {
 
             Self::Byte => Self::Byte,
             Self::Short => Self::Short,
-            Self::Integer => Self::Integer,
+            Self::Integer | Self::InferredInteger => Self::Integer,
             Self::Long => Self::Long,
             Self::Score(inner_type) => Self::Score(inner_type.clone()),
             _ => return None,

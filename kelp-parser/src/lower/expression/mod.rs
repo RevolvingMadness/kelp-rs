@@ -136,6 +136,18 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
             parser.finish_node();
             continue;
         }
+
+        if parser.peek_identifier() == Some("as") {
+            parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
+            parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
+            parser.expect_inline_whitespace();
+            if !try_parse_data_type(parser) {
+                parser.error("Expected data type");
+            }
+            parser.finish_node();
+            continue;
+        }
+
         break;
     }
     true

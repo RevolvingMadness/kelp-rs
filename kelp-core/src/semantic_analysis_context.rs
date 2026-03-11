@@ -436,10 +436,6 @@ impl SupportsVariableTypeScope for SemanticAnalysisContext {
         self.get_variable(name)
     }
 
-    fn add_info(&mut self, semantic_analysis_info: SemanticAnalysisInfo) {
-        self.add_info::<()>(semantic_analysis_info);
-    }
-
     fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
         self.get_data_type(name)
     }

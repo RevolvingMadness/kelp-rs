@@ -334,8 +334,6 @@ impl SupportsVariableTypeScope for HighDatapack {
             .map(|(data_type, _)| Some(data_type))
     }
 
-    fn add_info(&mut self, _: SemanticAnalysisInfo) {}
-
     fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
         self.get_data_type(name).map(Some)
     }

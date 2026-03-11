@@ -147,7 +147,7 @@ impl StatementKind {
 
                 let value = value.kind.resolve(datapack, ctx);
 
-                data_type.destructure(datapack, ctx, value, &pattern);
+                pattern.kind.destructure(datapack, ctx, data_type, value);
             }
             Self::While(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();

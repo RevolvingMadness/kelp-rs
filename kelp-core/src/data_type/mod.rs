@@ -1,18 +1,12 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use minecraft_command_types::{
-    nbt_path::NbtPathNode,
-    snbt::{SNBT, SNBTString},
-};
+use minecraft_command_types::snbt::SNBTString;
 use minecraft_command_types_derive::HasMacro;
 use strum::{Display, EnumString};
 
 use crate::{
-    compile_context::CompileContext,
-    datapack::HighDatapack,
     expression::{
-        Expression, ExpressionKind, constant::ResolvedExpression,
-        supports_variable_type_scope::SupportsVariableTypeScope,
+        Expression, ExpressionKind, supports_variable_type_scope::SupportsVariableTypeScope,
     },
     high::snbt_string::HighSNBTString,
     operator::{ArithmeticOperator, ComparisonOperator, UnaryOperator},
@@ -381,7 +375,7 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    fn distribute_references(self) -> Self {
+    pub fn distribute_references(self) -> Self {
         match self {
             Self::Reference(inner) => match inner.distribute_references() {
                 Self::List(data_type) => Self::List(Box::new(data_type.reference())),
@@ -407,7 +401,7 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    fn distribute_data(self) -> Self {
+    pub fn distribute_data(self) -> Self {
         match self {
             Self::Data(inner) => match inner.distribute_data() {
                 Self::Reference(data_type) => {
@@ -439,7 +433,7 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    fn distribute_score(self) -> Self {
+    pub fn distribute_score(self) -> Self {
         match self {
             Self::Score(inner) => match inner.distribute_score() {
                 Self::Reference(data_type) => {
@@ -764,214 +758,6 @@ impl DataTypeKind {
                 }
 
                 self.destructure_and_perform_semantic_analysis(ctx, value_span, inner_pattern)
-            }
-        }
-    }
-
-    pub fn destructure_tuple(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        patterns: &[Pattern],
-        value: ResolvedExpression,
-    ) {
-        match (self, value) {
-            (Self::Tuple(data_types), ResolvedExpression::Tuple(expressions)) => {
-                for ((pattern, expression), data_type) in
-                    patterns.iter().zip(expressions).zip(data_types)
-                {
-                    data_type.destructure(datapack, ctx, expression, pattern);
-                }
-            }
-            (Self::Tuple(data_types), ResolvedExpression::Data(target_path)) => {
-                let (target, path) = *target_path;
-
-                for (i, (pattern, data_type)) in patterns.iter().zip(data_types).enumerate() {
-                    let expression = ResolvedExpression::Data(Box::new((
-                        target.clone(),
-                        path.clone()
-                            .with_node(NbtPathNode::Index(Some(SNBT::Integer(i as i32)))),
-                    )));
-
-                    data_type.destructure(datapack, ctx, expression, pattern);
-                }
-            }
-            (Self::Data(inner_type), value @ ResolvedExpression::Data(_)) => {
-                inner_type
-                    .distribute_data()
-                    .destructure_tuple(datapack, ctx, patterns, value);
-            }
-            (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
-        }
-    }
-
-    pub fn destructure_compound(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
-        value: ResolvedExpression,
-    ) {
-        match (self, value) {
-            (Self::TypedCompound(data_types), ResolvedExpression::Compound(expressions)) => {
-                for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
-                    let expression = expression.clone();
-                    let data_type = data_types.get(&key.snbt_string).unwrap().clone();
-
-                    if let Some(pattern) = pattern {
-                        data_type.destructure(datapack, ctx, expression, pattern);
-                    } else {
-                        datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
-                    }
-                }
-            }
-            (Self::Compound(data_type), ResolvedExpression::Compound(expressions)) => {
-                for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
-                    let expression = expression.clone();
-                    let data_type = *data_type.clone();
-
-                    if let Some(pattern) = pattern {
-                        data_type.destructure(datapack, ctx, expression, pattern);
-                    } else {
-                        datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
-                    }
-                }
-            }
-            (Self::Data(data_type), value @ ResolvedExpression::Data(_)) => {
-                data_type.destructure_compound(datapack, ctx, patterns, value);
-            }
-            (Self::TypedCompound(data_types), ResolvedExpression::Data(target_path)) => {
-                let (target, path) = *target_path;
-
-                for (key, pattern) in patterns {
-                    let expression = ResolvedExpression::Data(Box::new((
-                        target.clone(),
-                        path.clone()
-                            .with_node(NbtPathNode::Named(key.snbt_string.clone(), None)),
-                    )));
-                    let data_type = data_types.get(&key.snbt_string).unwrap().clone();
-
-                    if let Some(pattern) = pattern {
-                        data_type.destructure(datapack, ctx, expression, pattern);
-                    } else {
-                        datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
-                    }
-                }
-            }
-            (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
-        }
-    }
-
-    pub fn destructure_struct(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        name: &str,
-        field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
-        value: ResolvedExpression,
-    ) {
-        match (self, value) {
-            (Self::Struct(_, generics), ResolvedExpression::Struct(_, _, fields)) => {
-                let declaration = datapack.get_data_type(name).unwrap();
-                let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
-
-                for (key, pattern_opt) in field_patterns {
-                    let expression = fields.get(&key.snbt_string.1).unwrap().clone();
-                    let data_type = field_types.get(&key.snbt_string.1).unwrap().clone();
-
-                    if let Some(pattern) = pattern_opt {
-                        data_type.destructure(datapack, ctx, expression, pattern);
-                    } else {
-                        datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
-                    }
-                }
-            }
-            (Self::Struct(_, generics), ResolvedExpression::Data(target_path)) => {
-                let (target, path) = *target_path;
-
-                let declaration = datapack.get_data_type(name).unwrap();
-                let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
-
-                for (key, pattern_opt) in field_patterns {
-                    let field_path = path
-                        .clone()
-                        .with_node(NbtPathNode::Named(key.snbt_string.clone(), None));
-                    let field_value =
-                        ResolvedExpression::Data(Box::new((target.clone(), field_path)));
-
-                    let data_type = field_types.get(&key.snbt_string.1).unwrap().clone();
-
-                    let data_wrapped_type = Self::Data(Box::new(data_type));
-
-                    if let Some(pattern) = pattern_opt {
-                        data_wrapped_type.destructure(datapack, ctx, field_value, pattern);
-                    } else {
-                        datapack.declare_variable(
-                            key.snbt_string.1.clone(),
-                            data_wrapped_type,
-                            field_value,
-                        );
-                    }
-                }
-            }
-            (Self::Reference(inner), value) => {
-                inner.distribute_references().destructure_struct(
-                    datapack,
-                    ctx,
-                    name,
-                    field_patterns,
-                    value,
-                );
-            }
-            (Self::Data(inner_type), value) => {
-                inner_type.distribute_data().destructure_struct(
-                    datapack,
-                    ctx,
-                    name,
-                    field_patterns,
-                    value,
-                );
-            }
-            (Self::Score(inner_type), value) => {
-                inner_type.distribute_score().destructure_struct(
-                    datapack,
-                    ctx,
-                    name,
-                    field_patterns,
-                    value,
-                );
-            }
-            (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
-        }
-    }
-
-    pub fn destructure(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-        value: ResolvedExpression,
-        pattern: &Pattern,
-    ) {
-        match &pattern.kind {
-            PatternKind::Literal(_) | PatternKind::Wildcard => {}
-            PatternKind::Binding(name) => {
-                datapack.declare_variable(name.clone(), self, value);
-            }
-            PatternKind::Tuple(patterns) => {
-                self.destructure_tuple(datapack, ctx, patterns, value);
-            }
-            PatternKind::Compound(patterns) => {
-                self.destructure_compound(datapack, ctx, patterns, value);
-            }
-            PatternKind::Dereference(pattern) => {
-                let value = value.dereference(datapack, ctx).unwrap();
-
-                self.dereference()
-                    .unwrap()
-                    .destructure(datapack, ctx, value, pattern);
-            }
-            PatternKind::Struct(name, field_patterns) => {
-                self.destructure_struct(datapack, ctx, name, field_patterns, value);
             }
         }
     }

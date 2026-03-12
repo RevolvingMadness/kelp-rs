@@ -1,8 +1,9 @@
 use std::{
     collections::{BTreeMap, VecDeque},
-    fmt::Display,
     str::FromStr,
 };
+
+use thiserror::Error;
 
 use crate::{
     data_type::{BuiltinDataTypeKind, DataTypeKind},
@@ -14,255 +15,140 @@ use crate::{
     statement::ControlFlowKind,
 };
 
-#[derive(Debug, Clone)]
+const fn format_arithmetic_operator(op: ArithmeticOperator) -> &'static str {
+    match op {
+        ArithmeticOperator::Add => "add",
+        ArithmeticOperator::Subtract => "subtract",
+        ArithmeticOperator::Multiply => "multiply",
+        ArithmeticOperator::FloorDivide => "divide",
+        ArithmeticOperator::Modulo => "modulo",
+        ArithmeticOperator::And => "and",
+        ArithmeticOperator::Or => "or",
+        ArithmeticOperator::LeftShift => "left-shift",
+        ArithmeticOperator::RightShift => "right-shift",
+        ArithmeticOperator::Swap => "swap",
+    }
+}
+
+const fn format_control_flow_kind(kind: ControlFlowKind) -> &'static str {
+    match kind {
+        ControlFlowKind::Break => "break",
+        ControlFlowKind::Continue => "continue",
+    }
+}
+
+#[derive(Debug, Clone, Error)]
 pub enum SemanticAnalysisError {
+    #[error("Cannot perform: `{}` {} `{}`", left, operator, right)]
     CannotPerformArithmeticOperation {
         left: DataTypeKind,
         operator: ArithmeticOperator,
         right: DataTypeKind,
     },
+    #[error("Cannot perform: `{}` {} `{}`", left, operator, right)]
     CannotPerformComparisonOperation {
         left: DataTypeKind,
         operator: ComparisonOperator,
         right: DataTypeKind,
     },
+    #[error("Cannot perform augmented assignment on type `{}`", .0)]
     CannotPerformAugmentedAssignment(DataTypeKind),
+    #[error("Expected type `{}` but got `{}`", expected, actual)]
     MismatchedPatternTypes {
         expected: DataTypeKind,
         actual: PatternType,
     },
+    #[error("The underscore expression can only be used on the left hand side of assignments")]
     UnderscoreExpression,
+    #[error("Cannot iterate over type `{}`", .0)]
     CannotIterateType(DataTypeKind),
+    #[error("Expected type `{}` but got `{}`", expected, actual)]
     MismatchedTypes {
         expected: DataTypeKind,
         actual: DataTypeKind,
     },
+    #[error(
+        "Cannot {}-assign type `{}` to type `{}`",
+        format_arithmetic_operator(*.0),
+        .2,
+        .0
+    )]
     InvalidAugmentedAssignmentType(ArithmeticOperator, DataTypeKind, DataTypeKind),
+    #[error("Cannot cast type `{}` to `{}`", from, to)]
     CannotCastType {
         from: DataTypeKind,
         to: DataTypeKind,
     },
+    #[error("Unknown runtime storage type")]
     UnknownRuntimeStorageType,
+    #[error("This value is too big to fit in the type `{}`", .0)]
     ValueTooLarge(DataTypeKind),
+    #[error("This value is too small to fit in the type `{}`", .0)]
     ValueTooSmall(DataTypeKind),
+    #[error("Cannot mutate a compile-time value in a runtime loop")]
     CompiletimeValueMutationInRuntimeLoop,
+    #[error("The type `{}` is not a struct", .0)]
     TypeIsNotStruct(String),
+    #[error("Missing key `{}`", .0)]
     MissingKey(String),
+    #[error("Unexpected key `{}`", .0)]
     UnexpectedKey(String),
+    #[error("Missing field `{}`", .0)]
     MissingField(String),
+    #[error("Unexpected field `{}`", .0)]
     UnexpectedField(String),
+    #[error("The type `{}` has already been declared in this scope", .0)]
     TypeIsAlreadyDefined(String),
+    #[error("This pattern is not irrefutable")]
     PatternIsNotIrrefutable,
+    #[error("Unknown type `{}`", .0)]
     UnknownType(String),
+    #[error("The type `{}` cannot be used in conditions", .0)]
     TypeIsNotCondition(DataTypeKind),
+    #[error("The type `{}` is not score compatible", .0)]
     TypeIsNotScoreCompatible(DataTypeKind),
+    #[error("The type `{}` cannot be assigned to data storage", .0)]
     CannotBeAssignedToData(DataTypeKind),
+    #[error("The type `{}` cannot be indexed", .0)]
     CannotBeIndexed(DataTypeKind),
+    #[error("Index out of bounds")]
     IndexOutOfBounds,
+    #[error("The type `{}` cannot be dereferenced", .0)]
     CannotBeDereferenced(DataTypeKind),
+    #[error("The type `{}` cannot be referenced", .0)]
     CannotBeReferenced(DataTypeKind),
+    #[error("Cannot assign a value to this expression")]
     CannotBeAssignedTo,
+    #[error("The type `{}` does not have any fields", .0)]
     TypeDoesntHaveFields(DataTypeKind),
+    #[error("The type `{}` cannot be negated", .0)]
     CannotNegateType(DataTypeKind),
+    #[error("The type `{}` cannot be inverted", .0)]
     CannotInvertType(DataTypeKind),
+    #[error("The type `{}` does not have a field named `{}`", data_type, field)]
     TypeDoesntHaveField {
         data_type: DataTypeKind,
         field: String,
     },
+    #[error(
+        "The type `{}` takes {} generic argument{} but {} {} given",
+        data_type_kind,
+        expected,
+        if *.expected == 1 { "" } else { "s" },
+        actual,
+        if *.actual == 1 { "was" } else { "were" }
+    )]
     InvalidGenerics {
         data_type_kind: String,
         expected: usize,
         actual: usize,
     },
+    #[error("The variable `{}` has not been declared in the current scope", .0)]
     UndeclaredVariable(String),
+    #[error("This string conflicts with the compiler-generated command macros")]
     MacroConflict,
+    #[error("Cannot `{}` outside of a loop", format_control_flow_kind(*.0))]
     ControlFlowNotInLoop(ControlFlowKind),
-}
-
-impl Display for SemanticAnalysisError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ValueTooLarge(data_type) => {
-                write!(
-                    f,
-                    "This value is too big to fit in the type `{}`",
-                    data_type
-                )
-            }
-            Self::ValueTooSmall(data_type) => {
-                write!(
-                    f,
-                    "This value is too small to fit in the type `{}`",
-                    data_type
-                )
-            }
-            Self::CannotPerformArithmeticOperation {
-                left,
-                operator,
-                right,
-            } => write!(f, "Cannot perform: `{}` {} `{}`", left, operator, right),
-            Self::CannotPerformComparisonOperation {
-                left,
-                operator,
-                right,
-            } => write!(f, "Cannot perform: `{}` {} `{}`", left, operator, right),
-            Self::CannotPerformAugmentedAssignment(data_type) => write!(
-                f,
-                "Cannot perform augmented assignment on type `{}`",
-                data_type
-            ),
-            Self::CompiletimeValueMutationInRuntimeLoop => {
-                write!(f, "Cannot mutate a compile-time value in a runtime loop")
-            }
-            Self::MismatchedTypes { expected, actual } => {
-                write!(f, "Expected type `{}` but got `{}`", expected, actual)
-            }
-            Self::MismatchedPatternTypes { expected, actual } => {
-                write!(f, "Expected type `{}` but got `{}`", expected, actual)
-            }
-            Self::UnknownRuntimeStorageType => f.write_str("Unknown runtime storage type"),
-            Self::UnderscoreExpression => f.write_str(
-                "The underscore expression can only be used on the left hand side of assignments",
-            ),
-            Self::PatternIsNotIrrefutable => f.write_str("This pattern is not irrefutable"),
-            Self::UnknownType(name) => {
-                write!(f, "Unknown type `{}`", name)
-            }
-            Self::TypeIsNotStruct(name) => {
-                write!(f, "The type `{}` is not a struct", name)
-            }
-            Self::CannotIterateType(data_type) => {
-                write!(f, "Cannot iterate over type `{}`", data_type)
-            }
-            Self::MissingKey(key) => {
-                write!(f, "Missing key `{}`", key)
-            }
-            Self::UnexpectedKey(key) => {
-                write!(f, "Unexpected key `{}`", key)
-            }
-            Self::MissingField(field) => {
-                write!(f, "Missing field `{}`", field)
-            }
-            Self::UnexpectedField(field) => {
-                write!(f, "Unexpected field `{}`", field)
-            }
-            Self::TypeIsAlreadyDefined(name) => {
-                write!(
-                    f,
-                    "The type `{}` has already been declared in this scope",
-                    name
-                )
-            }
-            Self::InvalidAugmentedAssignmentType(operator, target_type, value_type) => {
-                let word = match operator {
-                    ArithmeticOperator::Add => "add",
-                    ArithmeticOperator::Subtract => "subtract",
-                    ArithmeticOperator::Multiply => "multiply",
-                    ArithmeticOperator::FloorDivide => "divide",
-                    ArithmeticOperator::Modulo => "modulo",
-                    ArithmeticOperator::And => "and",
-                    ArithmeticOperator::Or => "or",
-                    ArithmeticOperator::LeftShift => "left-shift",
-                    ArithmeticOperator::RightShift => "right-shift",
-                    ArithmeticOperator::Swap => "swap",
-                };
-
-                write!(
-                    f,
-                    "Cannot {}-assign type `{}` to type `{}`",
-                    word, value_type, target_type
-                )
-            }
-            Self::CannotCastType { from, to } => {
-                write!(f, "Cannot cast type `{}` to `{}`", from, to)
-            }
-            Self::TypeIsNotCondition(data_type) => {
-                write!(f, "The type `{}` cannot be used in conditions", data_type)
-            }
-            Self::TypeIsNotScoreCompatible(data_type) => {
-                write!(f, "The type `{}` is not score compatible", data_type)
-            }
-            Self::CannotBeAssignedToData(data_type) => {
-                write!(
-                    f,
-                    "The type `{}` cannot be assigned to data storage",
-                    data_type
-                )
-            }
-            Self::CannotBeIndexed(data_type) => {
-                write!(f, "The type `{}` cannot be indexed", data_type)
-            }
-            Self::IndexOutOfBounds => {
-                write!(f, "Index out of bounds")
-            }
-            Self::CannotBeDereferenced(data_type) => {
-                write!(f, "The type `{}` cannot be dereferenced", data_type)
-            }
-            Self::CannotBeReferenced(data_type) => {
-                write!(f, "The type `{}` cannot be referenced", data_type)
-            }
-            Self::CannotBeAssignedTo => f.write_str("Cannot assign a value to this expression"),
-            Self::TypeDoesntHaveFields(data_type) => {
-                write!(f, "The type `{}` does not have any fields", data_type)
-            }
-            Self::CannotNegateType(data_type) => {
-                write!(f, " The type `{}` cannot be negated", data_type)
-            }
-            Self::CannotInvertType(data_type) => {
-                write!(f, " The type `{}` cannot be inverted", data_type)
-            }
-            Self::TypeDoesntHaveField { data_type, field } => {
-                write!(
-                    f,
-                    "The type `{}` does not have a field named `{}`",
-                    data_type, field
-                )
-            }
-            Self::InvalidGenerics {
-                data_type_kind: data_type,
-                expected,
-                actual,
-            } => {
-                write!(
-                    f,
-                    "The type `{}` takes {} generic argument",
-                    data_type, expected
-                )?;
-
-                if *expected != 1 {
-                    f.write_str("s")?;
-                }
-
-                write!(f, " but {} ", actual)?;
-
-                if *actual == 1 {
-                    f.write_str("was")?;
-                } else {
-                    f.write_str("were")?;
-                }
-
-                f.write_str(" given")
-            }
-            Self::UndeclaredVariable(name) => {
-                write!(
-                    f,
-                    "The variable `{}` has not been declared in the current scope",
-                    name
-                )
-            }
-            Self::MacroConflict => {
-                f.write_str("This string conflicts with the compiler-generated command macros")
-            }
-            Self::ControlFlowNotInLoop(control_flow) => {
-                let word = match control_flow {
-                    ControlFlowKind::Break => "break",
-                    ControlFlowKind::Continue => "continue",
-                };
-
-                write!(f, "Cannot `{}` outside of a loop", word)
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

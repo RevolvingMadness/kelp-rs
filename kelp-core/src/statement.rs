@@ -122,7 +122,7 @@ pub struct ControlFlow {
     pub loop_info: LoopInfo,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ControlFlowKind {
     Break,
     Continue,

@@ -502,6 +502,7 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
+ "thiserror",
 ]
 
 [[package]]

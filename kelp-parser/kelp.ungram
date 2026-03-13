@@ -86,9 +86,7 @@ Expression =
 | BinaryExpression
 | DataExpression
 | ScoreExpression
-| TellrawCommandExpression
-| ReturnCommandExpression
-| FunctionCommandExpression
+| CommandExpression
 | BooleanExpression
 | NumericExpression
 | UnitExpression
@@ -145,15 +143,6 @@ DataExpression =
 ScoreExpression =
   'score' EntitySelector 'ident'
 
-TellrawCommandExpression =
-  'tellraw' EntitySelector Expression
-
-ReturnCommandExpression =
-  'return' 'whole_value'
-
-FunctionCommandExpression =
-  'function' ResourceLocation
-
 BooleanExpression =
   'true' | 'false'
 
@@ -209,6 +198,22 @@ FieldAccessExpression = Expression '.' 'field_name'
 
 CompoundExpressionEntry =
   name:'compound_key' ':' value:Expression
+
+// ----- Command Expression -----
+
+CommandExpression = 
+  TellrawCommandExpression
+| ReturnCommandExpression
+| FunctionCommandExpression
+
+TellrawCommandExpression =
+  'tellraw' EntitySelector Expression
+
+ReturnCommandExpression =
+  'return' 'whole_value'
+
+FunctionCommandExpression =
+  'function' ResourceLocation
 
 // ----- Pattern -----
 Pattern =

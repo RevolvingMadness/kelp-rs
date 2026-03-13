@@ -10,13 +10,7 @@ use crate::{
             binary::lower_binary_expression,
             boolean::lower_boolean_expression,
             character::lower_character_expression,
-            command::{
-                function::{
-                    lower_function_command_expression, try_parse_function_command_expression,
-                },
-                r#return::{lower_return_command_expression, try_parse_return_command_expression},
-                tellraw::{lower_tellraw_command_expression, try_parse_tellraw_command_expression},
-            },
+            command::{lower_command_expression, try_parse_command_expression},
             compound::{lower_compound_expression, try_parse_compound_expression},
             data::{lower_data_expression, try_parse_data_expression},
             field_access::lower_field_access_expression,
@@ -528,33 +522,6 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                 true
             }
-            "tellraw" => {
-                if !try_parse_tellraw_command_expression(parser) {
-                    parser.start_node(SyntaxKind::VariableExpression);
-                    parser.bump_identifier("tellraw");
-                    parser.finish_node();
-                }
-
-                true
-            }
-            "function" => {
-                if !try_parse_function_command_expression(parser) {
-                    parser.start_node(SyntaxKind::VariableExpression);
-                    parser.bump_identifier("function");
-                    parser.finish_node();
-                }
-
-                true
-            }
-            "return" => {
-                if !try_parse_return_command_expression(parser) {
-                    parser.start_node(SyntaxKind::VariableExpression);
-                    parser.bump_identifier("return");
-                    parser.finish_node();
-                }
-
-                true
-            }
             "score" => {
                 if !try_parse_score_expression(parser) {
                     parser.start_node(SyntaxKind::VariableExpression);
@@ -574,6 +541,10 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 true
             }
             _ => {
+                if try_parse_command_expression(parser, text) {
+                    return true;
+                }
+
                 if text == "_" {
                     parser.start_node(SyntaxKind::UnderscoreExpression);
                     parser.bump_identifier("_");
@@ -671,13 +642,7 @@ pub fn lower_expression(
         CSTExpression::BinaryExpression(node) => lower_binary_expression(node, ctx),
         CSTExpression::DataExpression(node) => lower_data_expression(node, ctx),
         CSTExpression::ScoreExpression(node) => lower_score_expression(node, ctx),
-        CSTExpression::TellrawCommandExpression(node) => {
-            lower_tellraw_command_expression(node, ctx)
-        }
-        CSTExpression::FunctionCommandExpression(node) => {
-            lower_function_command_expression(node, ctx)
-        }
-        CSTExpression::ReturnCommandExpression(node) => lower_return_command_expression(node, ctx),
+        CSTExpression::CommandExpression(node) => lower_command_expression(node, ctx),
         CSTExpression::UnitExpression(node) => lower_unit_expression(node, ctx),
         CSTExpression::CompoundExpression(node) => lower_compound_expression(node, ctx),
         CSTExpression::ListExpression(node) => lower_list_expression(node, ctx),

@@ -159,6 +159,10 @@ pub enum SyntaxKind {
 
     RuntimeStorageType,
 
+    TellrawCommandExpression,
+    FunctionCommandExpression,
+    ReturnCommandExpression,
+
     StructExpression,
     StructExpressionField,
     FieldAccessExpression,
@@ -179,9 +183,7 @@ pub enum SyntaxKind {
     CompoundKey,
     DataExpression,
     ScoreExpression,
-    TellrawCommandExpression,
-    FunctionCommandExpression,
-    ReturnCommandExpression,
+    CommandExpression,
     BinaryExpression,
     UnitExpression,
     TupleExpression,

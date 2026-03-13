@@ -140,12 +140,12 @@ impl StatementKind {
                 expression.kind.compile_as_statement(datapack, ctx);
             }
             Self::Let(data_type, pattern, value) => {
+                let value = value.kind.resolve(datapack, ctx);
+
                 #[allow(clippy::map_unwrap_or)]
                 let data_type = data_type
                     .map(|data_type| data_type.kind.resolve(datapack, None).unwrap())
-                    .unwrap_or_else(|| value.kind.infer_data_type(datapack).unwrap());
-
-                let value = value.kind.resolve(datapack, ctx);
+                    .unwrap_or_else(|| value.get_data_type());
 
                 pattern.kind.destructure(datapack, ctx, data_type, value);
             }
@@ -212,14 +212,9 @@ impl StatementKind {
                 datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
             }
             Self::ForIn(is_reversed, variable_name, collection, body) => {
-                let collection_data_type = collection
-                    .kind
-                    .infer_data_type(datapack)
-                    .unwrap()
-                    .get_iterable_type()
-                    .unwrap_or_else(|| panic!("Expression {:?} is not iterable", collection));
-
                 let collection = collection.kind.resolve(datapack, ctx);
+
+                let collection_data_type = collection.get_data_type().get_iterable_type().unwrap();
 
                 if collection_data_type.equals(&DataTypeKind::String) {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
@@ -747,14 +742,14 @@ impl Statement {
                 Some(())
             }
             StatementKind::Block(statements) => {
-                ctx.scopes.push_front(Scope::default());
+                ctx.scopes.push(Scope::default());
 
                 let result = statements
                     .iter()
                     .map(|statement| statement.perform_semantic_analysis(ctx, is_lhs))
                     .all_some();
 
-                ctx.scopes.pop_front();
+                ctx.scopes.pop();
 
                 result
             }

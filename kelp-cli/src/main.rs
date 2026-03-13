@@ -215,9 +215,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         max_infos: 10,
         ..Default::default()
     };
-    semantic_analysis_context
-        .scopes
-        .push_front(Scope::default());
+    semantic_analysis_context.scopes.push(Scope::default());
 
     let lower_start = Instant::now();
     let items = lower_root(&root, &mut semantic_analysis_context);

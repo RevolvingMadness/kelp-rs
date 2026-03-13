@@ -173,6 +173,46 @@ pub enum ResolvedExpression {
 }
 
 impl ResolvedExpression {
+    pub fn get_data_type(&self) -> DataTypeKind {
+        match self {
+            Self::Boolean(_) | Self::Condition(_, _) => DataTypeKind::Boolean,
+            Self::Byte(_) => DataTypeKind::Byte,
+            Self::Short(_) => DataTypeKind::Short,
+            Self::Integer(_) => DataTypeKind::Integer,
+            Self::Long(_) => DataTypeKind::Long,
+            Self::Float(_) => DataTypeKind::Float,
+            Self::Double(_) => DataTypeKind::Double,
+            Self::String(_) => DataTypeKind::String,
+            Self::Underscore => DataTypeKind::Inferred,
+            Self::List(expressions) => {
+                let element_type = expressions
+                    .first()
+                    .map_or(DataTypeKind::Inferred, |expression| {
+                        expression.get_data_type()
+                    });
+
+                DataTypeKind::List(Box::new(element_type))
+            }
+            Self::Compound(compound) => DataTypeKind::TypedCompound(
+                compound
+                    .iter()
+                    .map(|(key, value)| (key.snbt_string.clone(), value.get_data_type()))
+                    .collect(),
+            ),
+            Self::Tuple(expressions) => {
+                let expression_types = expressions.iter().map(Self::get_data_type).collect();
+
+                DataTypeKind::Tuple(expression_types)
+            }
+            Self::Struct(name, generic_data_types, _) => {
+                DataTypeKind::Struct(name.clone(), generic_data_types.clone())
+            }
+            Self::Unit => DataTypeKind::Unit,
+            Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
+            Self::Data(_) => DataTypeKind::Data(Box::new(DataTypeKind::Inferred)),
+        }
+    }
+
     pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
         match self {
             Self::List(list) => {
@@ -190,8 +230,8 @@ impl ResolvedExpression {
                     element.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Struct(_, _, field_values) => {
-                for value in field_values.into_values() {
+            Self::Struct(_, _, field_expressions) => {
+                for value in field_expressions.into_values() {
                     value.compile_as_statement(datapack, ctx);
                 }
             }
@@ -316,7 +356,9 @@ impl ResolvedExpression {
             Self::Underscore | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
                 false
             }
-            Self::Struct(_, _, field_values) => field_values.values().all(Self::can_into_snbt),
+            Self::Struct(_, _, field_expressions) => {
+                field_expressions.values().all(Self::can_into_snbt)
+            }
             Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
             Self::Compound(compound) => compound.values().all(Self::can_into_snbt),
             _ => true,
@@ -328,14 +370,14 @@ impl ResolvedExpression {
             Self::Underscore | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
                 return Err(self);
             }
-            Self::Struct(name, generic_data_types, field_values) => {
-                if !field_values.values().all(Self::can_into_snbt) {
-                    return Err(Self::Struct(name, generic_data_types, field_values));
+            Self::Struct(name, generic_data_types, field_expressions) => {
+                if !field_expressions.values().all(Self::can_into_snbt) {
+                    return Err(Self::Struct(name, generic_data_types, field_expressions));
                 }
 
                 let mut compound = BTreeMap::new();
 
-                for (key, value) in field_values {
+                for (key, value) in field_expressions {
                     compound.insert(SNBTString(false, key), value.try_into_snbt().unwrap());
                 }
 
@@ -711,16 +753,16 @@ impl ResolvedExpression {
     #[must_use]
     pub fn to_score(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
         match self {
-            Self::Struct(name, generic_data_types, field_values) => {
-                let mut new_field_values = BTreeMap::new();
+            Self::Struct(name, generic_data_types, field_expressions) => {
+                let mut new_field_expressions = BTreeMap::new();
 
-                for (key, value) in field_values {
+                for (key, value) in field_expressions {
                     let value_score = value.as_score(datapack, ctx, true);
 
-                    new_field_values.insert(key, Self::PlayerScore(value_score));
+                    new_field_expressions.insert(key, Self::PlayerScore(value_score));
                 }
 
-                Self::Struct(name, generic_data_types, new_field_values)
+                Self::Struct(name, generic_data_types, new_field_expressions)
             }
             Self::PlayerScore(player_score) if player_score.is_generated => {
                 Self::PlayerScore(player_score)
@@ -742,16 +784,16 @@ impl ResolvedExpression {
     ) -> Self {
         #[allow(clippy::single_match_else)]
         match self {
-            Self::Struct(name, generic_data_types, field_values) => {
-                let mut new_field_values = BTreeMap::new();
+            Self::Struct(name, generic_data_types, field_expressions) => {
+                let mut new_field_expressions = BTreeMap::new();
 
-                for (key, value) in field_values {
+                for (key, value) in field_expressions {
                     let value_score = value.as_score_scale(datapack, ctx, scale);
 
-                    new_field_values.insert(key, Self::PlayerScore(value_score));
+                    new_field_expressions.insert(key, Self::PlayerScore(value_score));
                 }
 
-                Self::Struct(name, generic_data_types, new_field_values)
+                Self::Struct(name, generic_data_types, new_field_expressions)
             }
             _ => {
                 let unique_score = datapack.get_unique_score();

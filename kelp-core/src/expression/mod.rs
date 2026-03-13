@@ -12,9 +12,7 @@ use crate::{
     compile_context::CompileContext,
     data_type::{DataTypeKind, high::HighDataType},
     datapack::HighDatapack,
-    expression::{
-        constant::ResolvedExpression, supports_variable_type_scope::SupportsVariableTypeScope,
-    },
+    expression::constant::ResolvedExpression,
     high::{
         command::{HighCommand, execute::subcommand::r#if::HighExecuteIfSubcommand},
         data::HighDataTarget,
@@ -177,10 +175,8 @@ impl ExpressionKind {
         }
     }
 
-    pub fn infer_data_type(
-        &self,
-        supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
-    ) -> Option<DataTypeKind> {
+    #[must_use]
+    pub fn infer_data_type(&self, ctx: &SemanticAnalysisContext) -> Option<DataTypeKind> {
         Some(match self {
             Self::Invalid => return None,
 
@@ -202,36 +198,29 @@ impl ExpressionKind {
                 DataTypeKind::Unit
             }
             Self::Unary(operator, expression) => {
-                let expression_type = expression
-                    .kind
-                    .infer_data_type(supports_variable_type_scope)?;
+                let expression_type = expression.kind.infer_data_type(ctx)?;
 
                 match operator {
                     UnaryOperator::Negate => expression_type.get_negated_result()?,
                     UnaryOperator::Reference => DataTypeKind::Reference(Box::new(expression_type)),
-                    UnaryOperator::Dereference => expression
-                        .kind
-                        .infer_data_type(supports_variable_type_scope)?
-                        .dereference()?,
+                    UnaryOperator::Dereference => {
+                        expression.kind.infer_data_type(ctx)?.dereference()?
+                    }
                     UnaryOperator::Invert => expression_type.get_inverted_result()?,
                 }
             }
-            Self::Variable(name) => supports_variable_type_scope.get_variable(name)??,
+            Self::Variable(name) => ctx.get_variable(name)??,
             Self::Arithmetic(left, operator, right) => {
-                let left_type = left.kind.infer_data_type(supports_variable_type_scope)?;
-                let right_type = right.kind.infer_data_type(supports_variable_type_scope)?;
+                let left_type = left.kind.infer_data_type(ctx)?;
+                let right_type = right.kind.infer_data_type(ctx)?;
 
-                left_type.get_arithmetic_result(
-                    supports_variable_type_scope,
-                    *operator,
-                    &right_type,
-                )?
+                left_type.get_arithmetic_result(ctx, *operator, &right_type)?
             }
             Self::List(list) => {
                 let element_type = list.first().map_or(DataTypeKind::Inferred, |first| {
                     first
                         .kind
-                        .infer_data_type(supports_variable_type_scope)
+                        .infer_data_type(ctx)
                         .unwrap_or(DataTypeKind::Inferred)
                 });
 
@@ -244,29 +233,24 @@ impl ExpressionKind {
                     .map(|(key, value)| {
                         value
                             .kind
-                            .infer_data_type(supports_variable_type_scope)
+                            .infer_data_type(ctx)
                             .map(|data_type| (key.snbt_string, data_type))
                     })
                     .collect::<Option<_>>()?,
             ),
             Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
             Self::Data(_) => DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-            Self::Index(target, _) => target
-                .kind
-                .infer_data_type(supports_variable_type_scope)?
-                .get_index_result()?,
+            Self::Index(target, _) => target.kind.infer_data_type(ctx)?.get_index_result()?,
             Self::FieldAccess(target, field) => target
                 .kind
-                .infer_data_type(supports_variable_type_scope)?
-                .get_field_result(supports_variable_type_scope, &field.snbt_string.1)?,
+                .infer_data_type(ctx)?
+                .get_field_result(ctx, &field.snbt_string.1)?,
             Self::AsCast(expression, data_type) => {
-                let expression_type = expression
-                    .kind
-                    .infer_data_type(supports_variable_type_scope);
+                let expression_type = expression.kind.infer_data_type(ctx);
 
                 data_type
                     .kind
-                    .resolve(supports_variable_type_scope, None)?
+                    .resolve(ctx, None)?
                     .try_infer(expression_type)
             }
             Self::ToCast(expression, storage_type) => {
@@ -274,16 +258,12 @@ impl ExpressionKind {
 
                 match storage_type {
                     RuntimeStorageType::Score => {
-                        let expression_type = expression
-                            .kind
-                            .infer_data_type(supports_variable_type_scope)?;
+                        let expression_type = expression.kind.infer_data_type(ctx)?;
 
                         DataTypeKind::Score(Box::new(expression_type.to_score()?))
                     }
                     RuntimeStorageType::Data => {
-                        let expression_type = expression
-                            .kind
-                            .infer_data_type(supports_variable_type_scope)?;
+                        let expression_type = expression.kind.infer_data_type(ctx)?;
 
                         DataTypeKind::Data(Box::new(expression_type.to_data()))
                     }
@@ -292,26 +272,18 @@ impl ExpressionKind {
             Self::Tuple(expressions) => DataTypeKind::Tuple(
                 expressions
                     .iter()
-                    .map(|expression| {
-                        expression
-                            .kind
-                            .infer_data_type(supports_variable_type_scope)
-                    })
+                    .map(|expression| expression.kind.infer_data_type(ctx))
                     .collect::<Option<_>>()?,
             ),
             Self::Struct(_, name, generic_types, _) => {
-                let declaration = supports_variable_type_scope.get_data_type(name)??;
+                let declaration = ctx.get_data_type(name)??;
 
                 let resolved_generics = generic_types
                     .iter()
-                    .map(|generic_type| {
-                        generic_type
-                            .kind
-                            .resolve(supports_variable_type_scope, None)
-                    })
+                    .map(|generic_type| generic_type.kind.resolve(ctx, None))
                     .collect::<Option<Vec<_>>>()?;
 
-                declaration.resolve(supports_variable_type_scope, resolved_generics)?
+                declaration.resolve(ctx, resolved_generics)?
             }
         })
     }
@@ -541,8 +513,8 @@ impl ExpressionKind {
                     element.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Struct(_, _, _, field_values) => {
-                for value in field_values.into_values() {
+            Self::Struct(_, _, _, field_expressions) => {
+                for value in field_expressions.into_values() {
                     value.kind.compile_as_statement(datapack, ctx);
                 }
             }
@@ -1191,10 +1163,7 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn get_dereferenced_place_type(
-        &self,
-        supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
-    ) -> Option<PlaceType> {
+    pub fn get_dereferenced_place_type(&self, ctx: &SemanticAnalysisContext) -> Option<PlaceType> {
         match &self.kind {
             ExpressionKind::PlayerScore(_) => {
                 Some(PlaceTypeKind::Score(DataTypeKind::Integer).with_span(self.span))
@@ -1231,13 +1200,12 @@ impl Expression {
             | ExpressionKind::Tuple(_)
             | ExpressionKind::Struct(_, _, _, _) => None,
             ExpressionKind::Unary(operator, expression) => match operator {
-                UnaryOperator::Reference => expression.get_place_type(supports_variable_type_scope),
+                UnaryOperator::Reference => expression.get_place_type(ctx),
                 UnaryOperator::Dereference => todo!(),
                 UnaryOperator::Negate | UnaryOperator::Invert => None,
             },
             ExpressionKind::Variable(name) => Some(
-                supports_variable_type_scope
-                    .get_variable(name)??
+                ctx.get_variable(name)??
                     .as_dereferenced_place_type()
                     .ok()?
                     .with_span(self.span),
@@ -1245,18 +1213,16 @@ impl Expression {
         }
     }
 
-    pub fn get_place_type(
-        &self,
-        supports_variable_type_scope: &mut impl SupportsVariableTypeScope,
-    ) -> Option<PlaceType> {
+    #[must_use]
+    pub fn get_place_type(&self, ctx: &SemanticAnalysisContext) -> Option<PlaceType> {
         match &self.kind {
             ExpressionKind::Tuple(expressions) => Some(
                 PlaceTypeKind::Tuple(
                     expressions
                         .iter()
-                        .map(|expression| expression.get_place_type(supports_variable_type_scope))
+                        .map(|expression| expression.get_place_type(ctx))
                         .collect::<Option<_>>()?,
-                    self.kind.infer_data_type(supports_variable_type_scope)?,
+                    self.kind.infer_data_type(ctx)?,
                 )
                 .with_span(self.span),
             ),
@@ -1269,14 +1235,12 @@ impl Expression {
             ExpressionKind::Unary(operator, expression) => match operator {
                 UnaryOperator::Negate => todo!(),
                 UnaryOperator::Reference => todo!(),
-                UnaryOperator::Dereference => {
-                    expression.get_dereferenced_place_type(supports_variable_type_scope)
-                }
+                UnaryOperator::Dereference => expression.get_dereferenced_place_type(ctx),
                 UnaryOperator::Invert => todo!(),
             },
             ExpressionKind::Index(target, _) => {
-                let target_place_type = target.get_place_type(supports_variable_type_scope)?;
-                let target_data_type = target.kind.infer_data_type(supports_variable_type_scope)?;
+                let target_place_type = target.get_place_type(ctx)?;
+                let target_data_type = target.kind.infer_data_type(ctx)?;
 
                 Some(
                     PlaceTypeKind::Index(Box::new(target_place_type), target_data_type)
@@ -1284,8 +1248,8 @@ impl Expression {
                 )
             }
             ExpressionKind::FieldAccess(target, field) => {
-                let target_place_type = target.get_place_type(supports_variable_type_scope)?;
-                let target_data_type = target.kind.infer_data_type(supports_variable_type_scope)?;
+                let target_place_type = target.get_place_type(ctx)?;
+                let target_data_type = target.kind.infer_data_type(ctx)?;
 
                 Some(
                     PlaceTypeKind::FieldAccess(
@@ -1322,7 +1286,7 @@ impl Expression {
             | ExpressionKind::Unit => None,
             ExpressionKind::Underscore => Some(PlaceTypeKind::Underscore.with_span(self.span)),
             ExpressionKind::Variable(name) => {
-                let variable_type = supports_variable_type_scope.get_variable(name)??;
+                let variable_type = ctx.get_variable(name)??;
 
                 Some(PlaceTypeKind::Variable(variable_type).with_span(self.span))
             }

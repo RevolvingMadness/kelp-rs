@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, VecDeque},
-    str::FromStr,
-};
+use std::{collections::BTreeMap, str::FromStr};
 
 use thiserror::Error;
 
@@ -166,45 +163,44 @@ pub struct SemanticAnalysisInfo {
 #[derive(Debug, Default, Clone)]
 pub struct Scope {
     pub variables: BTreeMap<String, Option<DataTypeKind>>,
-    pub variable_types: BTreeMap<String, Option<DataTypeKind>>,
-    pub types: BTreeMap<String, Option<DataTypeDeclarationKind>>,
+    pub data_types: BTreeMap<String, Option<DataTypeDeclarationKind>>,
 }
 
 impl Scope {
     pub fn declare_variable(&mut self, name: String, value: Option<DataTypeKind>) {
-        self.variable_types.insert(name, value);
+        self.variables.insert(name, value);
     }
 
     #[inline]
     #[must_use]
     pub fn variable_is_declared(&self, name: &str) -> bool {
-        self.variable_types.contains_key(name)
+        self.variables.contains_key(name)
     }
 
     #[inline]
     #[must_use]
     pub fn get_variable(&self, name: &str) -> Option<&Option<DataTypeKind>> {
-        self.variable_types.get(name)
+        self.variables.get(name)
     }
 
     pub fn declare_data_type(&mut self, name: String, kind: Option<DataTypeDeclarationKind>) {
-        self.types.insert(name, kind);
+        self.data_types.insert(name, kind);
     }
 
     #[inline]
     #[must_use]
     pub fn data_type_is_declared(&self, name: &str) -> bool {
-        self.types.contains_key(name)
+        self.data_types.contains_key(name)
     }
 
     #[inline]
     #[must_use]
     pub fn get_data_type(&self, name: &str) -> Option<&Option<DataTypeDeclarationKind>> {
-        self.types.get(name)
+        self.data_types.get(name)
     }
 }
 
-pub type Scopes = VecDeque<Scope>;
+pub type Scopes = Vec<Scope>;
 
 #[derive(Debug, Default, Clone)]
 pub struct SemanticAnalysisContext {
@@ -252,7 +248,7 @@ impl SemanticAnalysisContext {
 
     pub fn declare_variable(&mut self, name: &str, data_type: Option<DataTypeKind>) {
         self.scopes
-            .front_mut()
+            .last_mut()
             .expect("No scopes")
             .declare_variable(name.to_string(), data_type);
     }
@@ -269,7 +265,7 @@ impl SemanticAnalysisContext {
 
     pub fn declare_data_type(&mut self, name: String, kind: Option<DataTypeDeclarationKind>) {
         self.scopes
-            .front_mut()
+            .last_mut()
             .expect("No scopes")
             .declare_data_type(name, kind);
     }

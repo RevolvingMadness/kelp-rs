@@ -150,9 +150,7 @@ impl Backend {
                         max_infos: usize::MAX,
                         ..Default::default()
                     };
-                    semantic_analysis_context
-                        .scopes
-                        .push_front(Scope::default());
+                    semantic_analysis_context.scopes.push(Scope::default());
 
                     let statements = lower_root(&cst_root, &mut semantic_analysis_context);
 

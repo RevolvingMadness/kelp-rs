@@ -488,6 +488,10 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "append" => "AppendKeyword",
         "remove" => "RemoveKeyword",
         "numerical_suffix" => "NumericExpressionSuffix",
+        "stopwatch" => "StopwatchKeyword",
+        "create" => "CreateKeyword",
+        "query" => "QueryKeyword",
+        "restart" => "RestartKeyword",
         _ => todo!("{:?}", token),
     }
 }

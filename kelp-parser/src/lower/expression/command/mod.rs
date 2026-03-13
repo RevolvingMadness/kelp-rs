@@ -5,6 +5,7 @@ use crate::{
     lower::expression::command::{
         function::{lower_function_command_expression, try_parse_function_command_expression},
         r#return::{lower_return_command_expression, try_parse_return_command_expression},
+        stopwatch::{lower_stopwatch_command_expression, try_parse_stopwatch_command_expression},
         tellraw::{lower_tellraw_command_expression, try_parse_tellraw_command_expression},
     },
     parser::Parser,
@@ -13,6 +14,7 @@ use crate::{
 
 pub mod function;
 pub mod r#return;
+pub mod stopwatch;
 pub mod tellraw;
 
 pub fn try_parse_command_expression(parser: &mut Parser, name: &str) -> bool {
@@ -20,6 +22,7 @@ pub fn try_parse_command_expression(parser: &mut Parser, name: &str) -> bool {
         "tellraw" => try_parse_tellraw_command_expression(parser),
         "function" => try_parse_function_command_expression(parser),
         "return" => try_parse_return_command_expression(parser),
+        "stopwatch" => try_parse_stopwatch_command_expression(parser),
         _ => return false,
     };
 
@@ -45,6 +48,9 @@ pub fn lower_command_expression(
         }
         CSTCommandExpression::FunctionCommandExpression(node) => {
             lower_function_command_expression(node, ctx)
+        }
+        CSTCommandExpression::StopwatchCommandExpression(node) => {
+            lower_stopwatch_command_expression(node, ctx)
         }
     }
 }

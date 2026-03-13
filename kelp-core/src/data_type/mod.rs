@@ -950,7 +950,9 @@ impl DataTypeKind {
     pub fn can_cast_to(&self, data_type: &Self) -> bool {
         match (self, data_type) {
             (Self::Score(self_type), Self::Score(data_type))
-            | (Self::Data(self_type), Self::Data(data_type)) => self_type == data_type,
+            | (Self::Data(self_type), Self::Data(data_type)) => {
+                **self_type == Self::SNBT || self_type == data_type
+            }
 
             (Self::SNBT, _)
             | (

@@ -1,5 +1,8 @@
 use minecraft_command_types::{
-    command::{Command, enums::difficulty::Difficulty, r#return::ReturnCommand},
+    command::{
+        Command, enums::difficulty::Difficulty, r#return::ReturnCommand,
+        stopwatch::StopwatchCommand,
+    },
     coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
@@ -38,6 +41,7 @@ pub enum HighCommand {
     Tellraw(HighEntitySelector, Expression),
     Return(HighReturnCommand),
     Scoreboard(HighScoreboardCommand),
+    Stopwatch(StopwatchCommand),
     Summon(ResourceLocation, Option<Coordinates>, Option<Expression>),
 }
 
@@ -54,7 +58,7 @@ impl HighCommand {
                 Some(())
             }
             Self::Data(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            Self::Difficulty(_) => Some(()),
+            Self::Difficulty(_) | Self::Stopwatch(_) => Some(()),
             Self::Enchant(selector, _, _) => selector.perform_semantic_analysis(ctx, is_lhs),
             Self::Execute(subcommand) => subcommand.perform_semantic_analysis(ctx, is_lhs),
             Self::Function(_, arguments) => arguments.as_ref().map_or(Some(()), |arguments| {
@@ -116,6 +120,7 @@ impl HighCommand {
                 }
             },
             Self::Scoreboard(command) => Command::Scoreboard(command.compile(datapack, ctx)),
+            Self::Stopwatch(command) => Command::Stopwatch(command),
             Self::Summon(entity, position, nbt) => Command::Summon(
                 entity,
                 position,

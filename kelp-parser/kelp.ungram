@@ -205,6 +205,7 @@ CommandExpression =
   TellrawCommandExpression
 | ReturnCommandExpression
 | FunctionCommandExpression
+| StopwatchCommandExpression
 
 TellrawCommandExpression =
   'tellraw' EntitySelector Expression
@@ -214,6 +215,22 @@ ReturnCommandExpression =
 
 FunctionCommandExpression =
   'function' ResourceLocation
+
+StopwatchCommandExpression = 'stopwatch' StopwatchCommandExpressionOptions
+
+StopwatchCommandExpressionOptions =
+  StopwatchCommandExpressionCreate
+| StopwatchCommandExpressionQuery
+| StopwatchCommandExpressionRemove
+| StopwatchCommandExpressionRestart
+
+StopwatchCommandExpressionCreate = 'create' ResourceLocation
+
+StopwatchCommandExpressionQuery = 'query' ResourceLocation 'fractional_value'?
+
+StopwatchCommandExpressionRemove = 'remove' ResourceLocation
+
+StopwatchCommandExpressionRestart = 'restart' ResourceLocation
 
 // ----- Pattern -----
 Pattern =

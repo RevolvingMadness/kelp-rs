@@ -15,10 +15,10 @@ use crate::{
     datapack::HighDatapack,
     high::{
         data::GeneratedDataTarget,
-        expression::{Expression, ExpressionKind},
+        expression::{Expression as HighExpression, ExpressionKind},
         player_score::GeneratedPlayerScore,
     },
-    low::expression::ResolvedExpression,
+    low::expression::Expression,
     operator::ArithmeticOperator,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -34,9 +34,9 @@ pub enum Place {
     Data(GeneratedDataTarget, NbtPath),
     Variable(String),
     Tuple(Vec<Self>),
-    Dereference(Box<ResolvedExpression>),
-    Field(Box<ResolvedExpression>, String),
-    Index(Box<ResolvedExpression>, Box<ResolvedExpression>),
+    Dereference(Box<Expression>),
+    Field(Box<Expression>, String),
+    Index(Box<Expression>, Box<Expression>),
     Underscore,
 }
 
@@ -45,7 +45,7 @@ impl Place {
         self,
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         match self {
             Self::Score(score) => {
@@ -59,7 +59,7 @@ impl Place {
             }
             Self::Underscore => {}
             Self::Tuple(places) => {
-                if let ResolvedExpression::Tuple(values) = value {
+                if let Expression::Tuple(values) = value {
                     for (place, value) in places.into_iter().zip(values) {
                         place.assign_resolved(datapack, ctx, value);
                     }
@@ -118,7 +118,7 @@ impl Place {
                 if let ExpressionKind::Tuple(values) = value {
                     assert!(places.len() == values.len());
 
-                    let safe_values: Vec<ResolvedExpression> = values
+                    let safe_values: Vec<Expression> = values
                         .into_iter()
                         .map(|value| {
                             let (scale, value) = value.kind.extract_scale();
@@ -135,20 +135,18 @@ impl Place {
                                         scale,
                                     );
 
-                                    ResolvedExpression::PlayerScore(unique_score)
+                                    Expression::PlayerScore(unique_score)
                                 }
-                                (None, ResolvedExpression::PlayerScore(score)) => {
-                                    ResolvedExpression::PlayerScore(
-                                        score.as_unique_score(datapack, ctx),
-                                    )
+                                (None, Expression::PlayerScore(score)) => {
+                                    Expression::PlayerScore(score.as_unique_score(datapack, ctx))
                                 }
-                                (None, ResolvedExpression::Data(target_path)) => {
+                                (None, Expression::Data(target_path)) => {
                                     let (target, path) = *target_path;
 
                                     let (unique_target, unique_path) =
                                         target.as_unique_data(datapack, ctx, path);
 
-                                    ResolvedExpression::Data(Box::new((unique_target, unique_path)))
+                                    Expression::Data(Box::new((unique_target, unique_path)))
                                 }
                                 (None, value) => value,
                             }
@@ -183,7 +181,7 @@ impl Place {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         match self {
             Self::Score(score) => {
@@ -192,7 +190,7 @@ impl Place {
             Self::Data(target, path) => {
                 let unique_score = datapack.get_unique_score();
 
-                ResolvedExpression::Data(Box::new((target.clone(), path.clone()))).assign_to_score(
+                Expression::Data(Box::new((target.clone(), path.clone()))).assign_to_score(
                     datapack,
                     ctx,
                     unique_score.clone(),
@@ -300,7 +298,7 @@ impl PlaceType {
     pub fn perform_assignment_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        value: Expression,
+        value: HighExpression,
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match self.kind {
@@ -406,7 +404,7 @@ impl PlaceType {
         self,
         ctx: &mut SemanticAnalysisContext,
         operator: &ArithmeticOperator,
-        value: &Expression,
+        value: &HighExpression,
         value_type: &DataTypeKind,
     ) -> Option<()> {
         match self.kind {

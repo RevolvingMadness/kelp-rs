@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::item::Item;
-use crate::low::expression::ResolvedExpression;
+use crate::low::expression::Expression as LowExpression;
 use crate::span::Span;
 use crate::trait_ext::OptionUnitIterExt;
 use crate::{
@@ -233,7 +233,7 @@ impl StatementKind {
                     datapack.declare_variable(
                         variable_name,
                         DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-                        ResolvedExpression::Data(Box::new((
+                        LowExpression::Data(Box::new((
                             unique_data_target_2.clone(),
                             unique_path_2.clone(),
                         ))),
@@ -324,7 +324,7 @@ impl StatementKind {
                     datapack.declare_variable(
                         variable_name,
                         DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
-                        ResolvedExpression::Data(Box::new((
+                        LowExpression::Data(Box::new((
                             unique_data_target.clone(),
                             unique_path.clone(),
                         ))),

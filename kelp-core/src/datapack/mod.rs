@@ -6,7 +6,7 @@ use crate::high::data::{GeneratedDataTarget, HighDataTarget, HighDataTargetKind}
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use crate::high::player_score::GeneratedPlayerScore;
 use crate::high::supports_variable_type_scope::SupportsVariableTypeScope;
-use crate::low::expression::ResolvedExpression;
+use crate::low::expression::Expression;
 use crate::semantic_analysis_context::{
     SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
 };
@@ -265,14 +265,14 @@ impl DataTypeDeclarationKind {
 
 #[derive(Default)]
 pub struct Scope {
-    pub variables: BTreeMap<String, (DataTypeKind, ResolvedExpression)>,
+    pub variables: BTreeMap<String, (DataTypeKind, Expression)>,
     pub types: BTreeMap<String, DataTypeDeclarationKind>,
 }
 
 impl Scope {
     #[inline]
     #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<&(DataTypeKind, ResolvedExpression)> {
+    pub fn get_variable(&self, name: &str) -> Option<&(DataTypeKind, Expression)> {
         self.variables.get(name)
     }
 
@@ -281,7 +281,7 @@ impl Scope {
     pub fn get_variable_mut(
         &mut self,
         name: &str,
-    ) -> Option<&mut (DataTypeKind, ResolvedExpression)> {
+    ) -> Option<&mut (DataTypeKind, Expression)> {
         self.variables.get_mut(name)
     }
 
@@ -296,7 +296,7 @@ impl Scope {
         &mut self,
         name: String,
         data_type: DataTypeKind,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         self.variables.insert(name, (data_type, value));
     }
@@ -537,7 +537,7 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, ResolvedExpression)> {
+    pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, Expression)> {
         for scope in &self.scopes {
             if let Some(value) = scope.get_variable(name) {
                 return Some(value.clone());
@@ -547,7 +547,7 @@ impl HighDatapack {
         None
     }
 
-    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut ResolvedExpression> {
+    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut Expression> {
         for scope in &mut self.scopes {
             if let Some((_, value)) = scope.get_variable_mut(name) {
                 return Some(value);
@@ -580,7 +580,7 @@ impl HighDatapack {
         &mut self,
         name: String,
         data_type: DataTypeKind,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         self.scopes
             .front_mut()
@@ -595,7 +595,7 @@ impl HighDatapack {
             .declare_data_type(name, kind);
     }
 
-    pub fn assign_variable(&mut self, name: &str, value: ResolvedExpression) {
+    pub fn assign_variable(&mut self, name: &str, value: Expression) {
         for scope in self.scopes.iter_mut().rev() {
             if let Some((_, existing_value)) = scope.get_variable_mut(name) {
                 *existing_value = value;

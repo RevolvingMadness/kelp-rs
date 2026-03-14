@@ -9,7 +9,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    datapack::HighDatapack, high::data::GeneratedDataTarget, low::expression::ResolvedExpression,
+    datapack::HighDatapack, high::data::GeneratedDataTarget, low::expression::Expression,
 };
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ pub struct LoopInfo {
 #[derive(Debug, Default, Clone)]
 pub struct CompileContext {
     pub commands: Vec<Command>,
-    pub macro_arguments: BTreeMap<usize, ResolvedExpression>,
+    pub macro_arguments: BTreeMap<usize, Expression>,
     pub macro_data: Option<(GeneratedDataTarget, NbtPath)>,
     pub loop_info: Option<LoopInfo>,
     macro_counter: usize,
@@ -114,7 +114,7 @@ impl CompileContext {
         }
     }
 
-    pub fn get_macro_string(&mut self, expression: ResolvedExpression) -> String {
+    pub fn get_macro_string(&mut self, expression: Expression) -> String {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);
@@ -122,7 +122,7 @@ impl CompileContext {
         format!("$({})", id)
     }
 
-    pub fn get_macro_snbt(&mut self, expression: ResolvedExpression) -> SNBT {
+    pub fn get_macro_snbt(&mut self, expression: Expression) -> SNBT {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);

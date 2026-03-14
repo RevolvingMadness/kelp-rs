@@ -19,7 +19,7 @@ use crate::{
         player_score::HighPlayerScore,
         snbt_string::HighSNBTString,
     },
-    low::expression::ResolvedExpression,
+    low::expression::Expression as LowExpression,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     place::{Place, PlaceType, PlaceTypeKind},
     runtime_storage_type::RuntimeStorageType,
@@ -283,11 +283,7 @@ impl ExpressionKind {
         })
     }
 
-    pub fn resolve(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-    ) -> ResolvedExpression {
+    pub fn resolve(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> LowExpression {
         match self {
             Self::Invalid => unreachable!(),
 
@@ -333,22 +329,22 @@ impl ExpressionKind {
                 let target_place = target.kind.as_place(datapack, ctx).unwrap();
                 target_place.augmented_assign(datapack, ctx, operator, value);
 
-                ResolvedExpression::Unit
+                LowExpression::Unit
             }
             Self::Assignment(target, value) => {
                 let target_place = target.kind.as_place(datapack, ctx).unwrap();
 
                 target_place.assign(datapack, ctx, value.kind);
 
-                ResolvedExpression::Unit
+                LowExpression::Unit
             }
-            Self::List(expressions) => ResolvedExpression::List(
+            Self::List(expressions) => LowExpression::List(
                 expressions
                     .into_iter()
                     .map(|expr| expr.kind.resolve(datapack, ctx))
                     .collect::<Vec<_>>(),
             ),
-            Self::Compound(compound) => ResolvedExpression::Compound(
+            Self::Compound(compound) => LowExpression::Compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| (key, value.kind.resolve(datapack, ctx)))
@@ -357,7 +353,7 @@ impl ExpressionKind {
             Self::PlayerScore(score) => {
                 let score = score.compile(datapack, ctx);
 
-                ResolvedExpression::PlayerScore(score)
+                LowExpression::PlayerScore(score)
             }
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -365,12 +361,12 @@ impl ExpressionKind {
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
-                ResolvedExpression::Data(Box::new((target, path)))
+                LowExpression::Data(Box::new((target, path)))
             }
             Self::Condition(inverted, condition) => {
                 let condition = condition.compile(datapack, ctx);
 
-                ResolvedExpression::Condition(inverted, Box::new(condition))
+                LowExpression::Condition(inverted, Box::new(condition))
             }
             Self::Command(command) => {
                 let command = command.compile(datapack, ctx);
@@ -388,7 +384,7 @@ impl ExpressionKind {
                     )),
                 );
 
-                ResolvedExpression::PlayerScore(unique_score)
+                LowExpression::PlayerScore(unique_score)
             }
             Self::Index(target, index) => {
                 let target = target.kind.resolve(datapack, ctx);
@@ -426,17 +422,17 @@ impl ExpressionKind {
                             expression.as_data(datapack, ctx, true)
                         };
 
-                        ResolvedExpression::Data(Box::new((unique_target, unique_path)))
+                        LowExpression::Data(Box::new((unique_target, unique_path)))
                     }
                 }
             }
-            Self::Tuple(expressions) => ResolvedExpression::Tuple(
+            Self::Tuple(expressions) => LowExpression::Tuple(
                 expressions
                     .into_iter()
                     .map(|expression| expression.kind.resolve(datapack, ctx))
                     .collect(),
             ),
-            Self::Struct(_, name, generics, fields) => ResolvedExpression::Struct(
+            Self::Struct(_, name, generics, fields) => LowExpression::Struct(
                 name,
                 generics
                     .into_iter()
@@ -447,18 +443,16 @@ impl ExpressionKind {
                     .map(|(key, field)| (key.snbt_string.1, field.kind.resolve(datapack, ctx)))
                     .collect(),
             ),
-            Self::Boolean(value) => ResolvedExpression::Boolean(value),
-            Self::Byte(value) => ResolvedExpression::Byte(value),
-            Self::Short(value) => ResolvedExpression::Short(value),
-            Self::Integer(value) | Self::InferredInteger(value) => {
-                ResolvedExpression::Integer(value)
-            }
-            Self::Long(value) => ResolvedExpression::Long(value),
-            Self::Float(value) | Self::InferredFloat(value) => ResolvedExpression::Float(value),
-            Self::Double(value) => ResolvedExpression::Double(value),
-            Self::String(value) => ResolvedExpression::String(value),
-            Self::Underscore => ResolvedExpression::Underscore,
-            Self::Unit => ResolvedExpression::Unit,
+            Self::Boolean(value) => LowExpression::Boolean(value),
+            Self::Byte(value) => LowExpression::Byte(value),
+            Self::Short(value) => LowExpression::Short(value),
+            Self::Integer(value) | Self::InferredInteger(value) => LowExpression::Integer(value),
+            Self::Long(value) => LowExpression::Long(value),
+            Self::Float(value) | Self::InferredFloat(value) => LowExpression::Float(value),
+            Self::Double(value) => LowExpression::Double(value),
+            Self::String(value) => LowExpression::String(value),
+            Self::Underscore => LowExpression::Underscore,
+            Self::Unit => LowExpression::Unit,
             Self::Variable(name) => datapack.get_variable(&name).unwrap().1,
         }
     }

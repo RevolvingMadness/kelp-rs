@@ -60,9 +60,7 @@ pub fn compile_shift_operation(
 }
 
 #[must_use]
-pub fn split_constants_list(
-    list: Vec<ResolvedExpression>,
-) -> (Vec<SNBT>, Vec<(usize, ResolvedExpression)>) {
+pub fn split_constants_list(list: Vec<Expression>) -> (Vec<SNBT>, Vec<(usize, Expression)>) {
     let mut constants = Vec::new();
     let mut non_constants = Vec::new();
 
@@ -83,8 +81,8 @@ pub fn split_constants_list(
 
 #[must_use]
 pub fn split_constants_compound(
-    compound: BTreeMap<HighSNBTString, ResolvedExpression>,
-) -> (SNBTCompound, BTreeMap<HighSNBTString, ResolvedExpression>) {
+    compound: BTreeMap<HighSNBTString, Expression>,
+) -> (SNBTCompound, BTreeMap<HighSNBTString, Expression>) {
     let mut constants = BTreeMap::new();
     let mut non_constants = BTreeMap::new();
 
@@ -154,7 +152,7 @@ macro_rules! compute_float {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum ResolvedExpression {
+pub enum Expression {
     Boolean(bool),
     Byte(i8),
     Short(i16),
@@ -175,7 +173,7 @@ pub enum ResolvedExpression {
     Condition(bool, Box<ExecuteIfSubcommand>),
 }
 
-impl ResolvedExpression {
+impl Expression {
     pub fn get_data_type(&self) -> DataTypeKind {
         match self {
             Self::Boolean(_) | Self::Condition(_, _) => DataTypeKind::Boolean,

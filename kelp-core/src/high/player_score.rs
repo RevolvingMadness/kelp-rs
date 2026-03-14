@@ -23,7 +23,7 @@ use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
     high::{data::GeneratedDataTarget, entity_selector::HighEntitySelector},
-    low::expression::ResolvedExpression,
+    low::expression::Expression,
     operator::ArithmeticOperator,
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::{
@@ -253,7 +253,7 @@ impl GeneratedPlayerScore {
         datapack: &mut HighDatapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         match operator {
             ArithmeticOperator::Add => {

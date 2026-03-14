@@ -22,8 +22,8 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
-    expression::constant::ResolvedExpression,
     high::{data::GeneratedDataTarget, entity_selector::HighEntitySelector},
+    low::expression::ResolvedExpression,
     operator::ArithmeticOperator,
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::{

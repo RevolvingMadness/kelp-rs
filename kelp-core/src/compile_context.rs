@@ -9,8 +9,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    datapack::HighDatapack, expression::constant::ResolvedExpression,
-    high::data::GeneratedDataTarget,
+    datapack::HighDatapack, high::data::GeneratedDataTarget, low::expression::ResolvedExpression,
 };
 
 #[derive(Debug, Clone)]

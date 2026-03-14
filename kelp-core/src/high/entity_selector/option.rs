@@ -10,7 +10,7 @@ use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack, expression::Expression,
+    compile_context::CompileContext, datapack::HighDatapack, high::expression::Expression,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 

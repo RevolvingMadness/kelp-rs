@@ -5,7 +5,7 @@ use nonempty::NonEmpty;
 use crate::{
     compile_context::CompileContext,
     datapack::HighDatapack,
-    expression::{Expression, ExpressionCompoundKind},
+    high::expression::{Expression, ExpressionCompoundKind},
     high::snbt_string::HighSNBTString,
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::OptionUnitIterExt,

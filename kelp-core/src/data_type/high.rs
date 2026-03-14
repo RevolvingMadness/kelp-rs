@@ -5,8 +5,7 @@ use minecraft_command_types::impl_has_macro_false;
 use crate::{
     data_type::{BuiltinDataTypeKind, DataTypeKind},
     datapack::DataTypeDeclarationKind,
-    expression::supports_variable_type_scope::SupportsVariableTypeScope,
-    high::snbt_string::HighSNBTString,
+    high::{snbt_string::HighSNBTString, supports_variable_type_scope::SupportsVariableTypeScope},
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,

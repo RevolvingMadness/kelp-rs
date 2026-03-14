@@ -13,8 +13,12 @@ use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
-    expression::{Expression, ExpressionKind, constant::ResolvedExpression},
-    high::{data::GeneratedDataTarget, player_score::GeneratedPlayerScore},
+    high::{
+        data::GeneratedDataTarget,
+        expression::{Expression, ExpressionKind},
+        player_score::GeneratedPlayerScore,
+    },
+    low::expression::ResolvedExpression,
     operator::ArithmeticOperator,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,

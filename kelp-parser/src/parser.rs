@@ -2,7 +2,7 @@ use kelp_core::span::Span;
 use rowan::GreenNodeBuilder;
 
 use crate::{
-    lower::root::parse_root,
+    root::parse_root,
     syntax::{SyntaxKind, SyntaxNode},
 };
 

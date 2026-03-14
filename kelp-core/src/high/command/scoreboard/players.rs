@@ -10,7 +10,7 @@ use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
-    expression::Expression,
+    high::expression::Expression,
     high::{entity_selector::HighEntitySelector, player_score::HighPlayerScore},
     semantic_analysis_context::SemanticAnalysisContext,
 };

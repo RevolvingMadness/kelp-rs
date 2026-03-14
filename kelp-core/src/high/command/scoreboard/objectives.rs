@@ -5,8 +5,10 @@ use minecraft_command_types::command::{
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, data_type::DataTypeKind, datapack::HighDatapack,
-    expression::Expression, high::command::scoreboard::players::HighScoreboardNumberFormat,
+    compile_context::CompileContext,
+    data_type::DataTypeKind,
+    datapack::HighDatapack,
+    high::{command::scoreboard::players::HighScoreboardNumberFormat, expression::Expression},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 

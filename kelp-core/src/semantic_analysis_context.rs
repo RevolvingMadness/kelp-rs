@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{
     data_type::{BuiltinDataTypeKind, DataTypeKind},
     datapack::DataTypeDeclarationKind,
-    expression::supports_variable_type_scope::SupportsVariableTypeScope,
+    high::supports_variable_type_scope::SupportsVariableTypeScope,
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     span::Span,

@@ -2,7 +2,7 @@ use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_parser::cst::CSTRoot;
-use kelp_parser::lower::root::lower_root;
+use kelp_parser::root::lower_root;
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
 use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
 use kelp_parser::syntax::SyntaxNode;

@@ -2,11 +2,11 @@ use crate::compile_context::CompileContext;
 use crate::data_type::{BuiltinDataTypeKind, DataTypeKind};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::HighNamespace;
-use crate::expression::constant::ResolvedExpression;
-use crate::expression::supports_variable_type_scope::SupportsVariableTypeScope;
 use crate::high::data::{GeneratedDataTarget, HighDataTarget, HighDataTargetKind};
 use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use crate::high::player_score::GeneratedPlayerScore;
+use crate::high::supports_variable_type_scope::SupportsVariableTypeScope;
+use crate::low::expression::ResolvedExpression;
 use crate::semantic_analysis_context::{
     SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo, SemanticAnalysisInfoKind,
 };

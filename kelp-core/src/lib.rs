@@ -1,9 +1,10 @@
 pub mod compile_context;
 pub mod data_type;
 pub mod datapack;
-pub mod expression;
 pub mod high;
 pub mod item;
+pub mod low;
+pub mod middle;
 pub mod operator;
 pub mod pattern;
 pub mod pattern_type;

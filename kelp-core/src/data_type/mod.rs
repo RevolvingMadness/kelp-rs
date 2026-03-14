@@ -5,10 +5,11 @@ use minecraft_command_types_derive::HasMacro;
 use strum::{Display, EnumString};
 
 use crate::{
-    expression::{
-        Expression, ExpressionKind, supports_variable_type_scope::SupportsVariableTypeScope,
+    high::{
+        expression::{Expression, ExpressionKind},
+        snbt_string::HighSNBTString,
+        supports_variable_type_scope::SupportsVariableTypeScope,
     },
-    high::snbt_string::HighSNBTString,
     operator::{ArithmeticOperator, ComparisonOperator, UnaryOperator},
     pattern::{Pattern, PatternKind},
     place::PlaceTypeKind,

@@ -6,8 +6,8 @@ use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
-    expression::{constant::ResolvedExpression, literal::LiteralExpression},
     high::snbt_string::HighSNBTString,
+    low::expression::{ResolvedExpression, literal::LiteralExpression},
     pattern_type::PatternType,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,

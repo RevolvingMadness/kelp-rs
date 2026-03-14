@@ -12,7 +12,6 @@ use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
-    expression::Expression,
     high::{
         command::{
             data::HighDataCommand, execute::subcommand::HighExecuteSubcommand,
@@ -20,6 +19,7 @@ use crate::{
             scoreboard::HighScoreboardCommand,
         },
         entity_selector::HighEntitySelector,
+        expression::Expression,
     },
     semantic_analysis_context::SemanticAnalysisContext,
 };

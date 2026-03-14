@@ -5,7 +5,7 @@ use minecraft_command_types::{
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack, expression::Expression,
+    compile_context::CompileContext, datapack::HighDatapack, high::expression::Expression,
     semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
 };
 

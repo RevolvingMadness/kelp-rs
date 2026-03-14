@@ -5,7 +5,7 @@ use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
     datapack::HighDatapack,
-    expression::ExpressionCompoundKind,
+    high::expression::ExpressionCompoundKind,
     high::{data::HighDataTarget, nbt_path::HighNbtPath},
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::OptionUnitIterExt,

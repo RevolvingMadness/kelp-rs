@@ -4,8 +4,9 @@ use minecraft_command_types::{block::BlockState, resource_location::ResourceLoca
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack, expression::ExpressionCompoundKind,
-    semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
+    compile_context::CompileContext, datapack::HighDatapack,
+    high::expression::ExpressionCompoundKind, semantic_analysis_context::SemanticAnalysisContext,
+    trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]

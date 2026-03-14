@@ -7,8 +7,8 @@ use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_parser::cst::CSTRoot;
-use kelp_parser::lower::root::lower_root;
 use kelp_parser::parser::{ParseResult, Parser};
+use kelp_parser::root::lower_root;
 use nonempty::nonempty;
 use serde::Deserialize;
 use std::fs::{self};

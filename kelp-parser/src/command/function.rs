@@ -3,7 +3,7 @@ use crate::expression::expression;
 use crate::required_inline_whitespace;
 use crate::resource_location::parse_resource_location;
 use kelp_core::{
-    expression::ExpressionKind, high::command::function::HighFunctionCommandArguments,
+    high::expression::ExpressionKind, high::command::function::HighFunctionCommandArguments,
 };
 use parser_rs::{combinators::suggest_literal, fn_parser::FnParser, stream::Stream};
 

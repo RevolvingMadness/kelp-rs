@@ -17,7 +17,7 @@ use nonempty::{NonEmpty, nonempty};
 use crate::datapack::mcfunction::MCFunction;
 
 #[derive(Debug)]
-pub struct HighNamespace {
+pub struct DatapackNamespace {
     pub name: String,
     uses_scores_objective: Cell<bool>,
     functions: BTreeMap<NonEmpty<String>, MCFunction>,
@@ -37,7 +37,7 @@ fn join_non_empty(non_empty: &NonEmpty<String>, separator: &str) -> String {
     out
 }
 
-impl HighNamespace {
+impl DatapackNamespace {
     #[must_use]
     pub const fn new(name: String) -> Self {
         Self {

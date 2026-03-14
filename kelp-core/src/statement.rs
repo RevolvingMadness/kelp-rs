@@ -7,8 +7,8 @@ use crate::span::Span;
 use crate::trait_ext::OptionUnitIterExt;
 use crate::{
     compile_context::CompileContext,
-    data_type::{DataTypeKind, high::HighDataType},
-    datapack::HighDatapack,
+    data_type::{DataTypeKind, high::DataType},
+    datapack::Datapack,
     high::expression::Expression,
     pattern::Pattern,
     semantic_analysis_context::{
@@ -34,7 +34,7 @@ use nonempty::nonempty;
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
     Expression(Expression),
-    Let(Option<HighDataType>, Pattern, Expression),
+    Let(Option<DataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
     Loop(Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
@@ -49,7 +49,7 @@ pub enum StatementKind {
 }
 
 fn compile_if(
-    datapack: &mut HighDatapack,
+    datapack: &mut Datapack,
     caller_ctx: &mut CompileContext,
     control_flow: Option<ControlFlow>,
     mut body_ctx: CompileContext,
@@ -134,7 +134,7 @@ impl StatementKind {
         Statement { span, kind: self }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::Expression(expression) => {
                 expression.kind.compile_as_statement(datapack, ctx);

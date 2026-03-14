@@ -1,7 +1,7 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
-use kelp_core::datapack::HighDatapack;
+use kelp_core::datapack::Datapack;
 use kelp_core::item::Item;
 use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
@@ -286,7 +286,7 @@ fn process_success(
     let project_name = kelp_toml.project.name;
     let project_description = kelp_toml.project.description;
 
-    let mut datapack = HighDatapack::new(project_name.clone(), project_description);
+    let mut datapack = Datapack::new(project_name.clone(), project_description);
     datapack.settings.num_match_cases_to_split = 5;
     datapack.push_namespace("main");
     datapack.push_function_to_current_namespace(nonempty!["main".to_string()]);

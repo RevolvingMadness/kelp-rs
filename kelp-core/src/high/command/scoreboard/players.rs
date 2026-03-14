@@ -1,7 +1,9 @@
 use minecraft_command_types::command::{
     enums::score_operation_operator::ScoreOperationOperator,
     scoreboard::{
-        PlayersDisplayScoreboardCommand, PlayersScoreboardCommand, ScoreboardNumberFormat,
+        PlayersDisplayScoreboardCommand as LowPlayersDisplayScoreboardCommand,
+        PlayersScoreboardCommand as LowPlayersScoreboardCommand,
+        ScoreboardNumberFormat as LowScoreboardNumberFormat,
     },
 };
 use minecraft_command_types_derive::HasMacro;
@@ -9,20 +11,20 @@ use minecraft_command_types_derive::HasMacro;
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::expression::Expression,
-    high::{entity_selector::HighEntitySelector, player_score::HighPlayerScore},
+    high::{entity_selector::EntitySelector, player_score::PlayerScore},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighScoreboardNumberFormat {
+pub enum ScoreboardNumberFormat {
     Blank,
     Fixed(Expression),
     Styled(Expression),
 }
 
-impl HighScoreboardNumberFormat {
+impl ScoreboardNumberFormat {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -38,15 +40,15 @@ impl HighScoreboardNumberFormat {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ScoreboardNumberFormat {
+    ) -> LowScoreboardNumberFormat {
         match self {
-            Self::Blank => ScoreboardNumberFormat::Blank,
-            Self::Fixed(expression) => ScoreboardNumberFormat::Fixed(
+            Self::Blank => LowScoreboardNumberFormat::Blank,
+            Self::Fixed(expression) => LowScoreboardNumberFormat::Fixed(
                 expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
-            Self::Styled(expression) => ScoreboardNumberFormat::Styled(
+            Self::Styled(expression) => LowScoreboardNumberFormat::Styled(
                 expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
         }
@@ -54,12 +56,12 @@ impl HighScoreboardNumberFormat {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighPlayersDisplayScoreboardCommand {
-    Name(HighPlayerScore, Option<Expression>),
-    NumberFormat(HighPlayerScore, Option<HighScoreboardNumberFormat>),
+pub enum PlayersDisplayScoreboardCommand {
+    Name(PlayerScore, Option<Expression>),
+    NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
 }
 
-impl HighPlayersDisplayScoreboardCommand {
+impl PlayersDisplayScoreboardCommand {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -94,14 +96,14 @@ impl HighPlayersDisplayScoreboardCommand {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> PlayersDisplayScoreboardCommand {
+    ) -> LowPlayersDisplayScoreboardCommand {
         match self {
             Self::Name(score, expression) => {
                 let score = score.compile(datapack, ctx);
 
-                PlayersDisplayScoreboardCommand::Name(
+                LowPlayersDisplayScoreboardCommand::Name(
                     score.score,
                     expression.map(|e| e.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
                 )
@@ -109,7 +111,7 @@ impl HighPlayersDisplayScoreboardCommand {
             Self::NumberFormat(score, number_format) => {
                 let score = score.compile(datapack, ctx);
 
-                PlayersDisplayScoreboardCommand::NumberFormat(
+                LowPlayersDisplayScoreboardCommand::NumberFormat(
                     score.score,
                     number_format.map(|number_format| number_format.compile(datapack, ctx)),
                 )
@@ -119,19 +121,19 @@ impl HighPlayersDisplayScoreboardCommand {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighPlayersScoreboardCommand {
-    List(Option<HighEntitySelector>),
-    Get(HighPlayerScore),
-    Set(HighPlayerScore, i32),
-    Add(HighPlayerScore, i32),
-    Remove(HighPlayerScore, i32),
-    Reset(HighEntitySelector, Option<String>),
-    Enable(HighPlayerScore),
-    Operation(HighPlayerScore, ScoreOperationOperator, HighPlayerScore),
-    Display(Box<HighPlayersDisplayScoreboardCommand>),
+pub enum PlayersScoreboardCommand {
+    List(Option<EntitySelector>),
+    Get(PlayerScore),
+    Set(PlayerScore, i32),
+    Add(PlayerScore, i32),
+    Remove(PlayerScore, i32),
+    Reset(EntitySelector, Option<String>),
+    Enable(PlayerScore),
+    Operation(PlayerScore, ScoreOperationOperator, PlayerScore),
+    Display(Box<PlayersDisplayScoreboardCommand>),
 }
 
-impl HighPlayersScoreboardCommand {
+impl PlayersScoreboardCommand {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -162,56 +164,62 @@ impl HighPlayersScoreboardCommand {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> PlayersScoreboardCommand {
+    ) -> LowPlayersScoreboardCommand {
         match self {
             Self::List(high_entity_selector) => {
                 let compiled_selector =
                     high_entity_selector.map(|selector| selector.compile(datapack, ctx));
 
-                PlayersScoreboardCommand::List(compiled_selector)
+                LowPlayersScoreboardCommand::List(compiled_selector)
             }
             Self::Get(score) => {
                 let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Get(score.score)
+                LowPlayersScoreboardCommand::Get(score.score)
             }
             Self::Set(score, value) => {
                 let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Set(score.score, value)
+                LowPlayersScoreboardCommand::Set(score.score, value)
             }
             Self::Add(score, value) => {
                 let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Add(score.score, value)
+                LowPlayersScoreboardCommand::Add(score.score, value)
             }
             Self::Remove(score, value) => {
                 let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Remove(score.score, value)
+                LowPlayersScoreboardCommand::Remove(score.score, value)
             }
-            Self::Reset(high_entity_selector, objective) => PlayersScoreboardCommand::Reset(
+            Self::Reset(high_entity_selector, objective) => LowPlayersScoreboardCommand::Reset(
                 high_entity_selector.compile(datapack, ctx),
                 objective,
             ),
             Self::Enable(score) => {
                 let score = score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Enable(score.score)
+                LowPlayersScoreboardCommand::Enable(score.score)
             }
             Self::Operation(left_score, operator, right_score) => {
                 let left_score = left_score.compile(datapack, ctx);
                 let right_score = right_score.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Operation(left_score.score, operator, right_score.score)
+                LowPlayersScoreboardCommand::Operation(
+                    left_score.score,
+                    operator,
+                    right_score.score,
+                )
             }
             Self::Display(high_players_display_scoreboard_command) => {
                 let compiled_high_players_display_scoreboard_command =
                     high_players_display_scoreboard_command.compile(datapack, ctx);
 
-                PlayersScoreboardCommand::Display(compiled_high_players_display_scoreboard_command)
+                LowPlayersScoreboardCommand::Display(
+                    compiled_high_players_display_scoreboard_command,
+                )
             }
         }
     }

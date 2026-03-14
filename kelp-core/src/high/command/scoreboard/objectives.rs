@@ -1,26 +1,29 @@
 use minecraft_command_types::command::{
     enums::scoreboard_render_type::ScoreboardRenderType,
-    scoreboard::{ObjectivesScoreboardCommand, ScoreboardModification},
+    scoreboard::{
+        ObjectivesScoreboardCommand as LowObjectivesScoreboardCommand,
+        ScoreboardModification as LowScoreboardModification,
+    },
 };
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
-    high::{command::scoreboard::players::HighScoreboardNumberFormat, expression::Expression},
+    datapack::Datapack,
+    high::{command::scoreboard::players::ScoreboardNumberFormat, expression::Expression},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighScoreboardModification {
+pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
     DisplayName(Expression),
-    NumberFormat(Option<HighScoreboardNumberFormat>),
+    NumberFormat(Option<ScoreboardNumberFormat>),
     RenderType(ScoreboardRenderType),
 }
 
-impl HighScoreboardModification {
+impl ScoreboardModification {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -41,32 +44,32 @@ impl HighScoreboardModification {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ScoreboardModification {
+    ) -> LowScoreboardModification {
         match self {
-            Self::DisplayAutoUpdate(value) => ScoreboardModification::DisplayAutoUpdate(value),
-            Self::DisplayName(expression) => ScoreboardModification::DisplayName(
+            Self::DisplayAutoUpdate(value) => LowScoreboardModification::DisplayAutoUpdate(value),
+            Self::DisplayName(expression) => LowScoreboardModification::DisplayName(
                 expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
-            Self::NumberFormat(number_format) => ScoreboardModification::NumberFormat(
+            Self::NumberFormat(number_format) => LowScoreboardModification::NumberFormat(
                 number_format.map(|number_format| number_format.compile(datapack, ctx)),
             ),
-            Self::RenderType(render_type) => ScoreboardModification::RenderType(render_type),
+            Self::RenderType(render_type) => LowScoreboardModification::RenderType(render_type),
         }
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighObjectivesScoreboardCommand {
+pub enum ObjectivesScoreboardCommand {
     List,
     Add(String, String, Option<Expression>),
     Remove(String),
     SetDisplay(String, Option<String>),
-    Modify(String, HighScoreboardModification),
+    Modify(String, ScoreboardModification),
 }
 
-impl HighObjectivesScoreboardCommand {
+impl ObjectivesScoreboardCommand {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -83,22 +86,22 @@ impl HighObjectivesScoreboardCommand {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ObjectivesScoreboardCommand {
+    ) -> LowObjectivesScoreboardCommand {
         match self {
-            Self::List => ObjectivesScoreboardCommand::List,
-            Self::Add(objective, display_name, expression) => ObjectivesScoreboardCommand::Add(
+            Self::List => LowObjectivesScoreboardCommand::List,
+            Self::Add(objective, display_name, expression) => LowObjectivesScoreboardCommand::Add(
                 objective,
                 display_name,
                 expression.map(|e| e.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
-            Self::Remove(objective) => ObjectivesScoreboardCommand::Remove(objective),
+            Self::Remove(objective) => LowObjectivesScoreboardCommand::Remove(objective),
             Self::SetDisplay(objective, display_name) => {
-                ObjectivesScoreboardCommand::SetDisplay(objective, display_name)
+                LowObjectivesScoreboardCommand::SetDisplay(objective, display_name)
             }
             Self::Modify(objective, scoreboard_modification) => {
-                ObjectivesScoreboardCommand::Modify(
+                LowObjectivesScoreboardCommand::Modify(
                     objective,
                     scoreboard_modification.compile(datapack, ctx),
                 )

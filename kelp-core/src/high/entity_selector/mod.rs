@@ -1,21 +1,23 @@
-use minecraft_command_types::entity_selector::{EntitySelector, EntitySelectorVariable};
+use minecraft_command_types::entity_selector::{
+    EntitySelector as LowEntitySelector, EntitySelectorVariable,
+};
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack,
-    high::entity_selector::option::HighEntitySelectorOption,
+    compile_context::CompileContext, datapack::Datapack,
+    high::entity_selector::option::EntitySelectorOption,
     semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
 };
 
 pub mod option;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighEntitySelector {
-    Variable(EntitySelectorVariable, Vec<HighEntitySelectorOption>),
+pub enum EntitySelector {
+    Variable(EntitySelectorVariable, Vec<EntitySelectorOption>),
     Name(String),
 }
 
-impl HighEntitySelector {
+impl EntitySelector {
     #[must_use]
     pub fn perform_semantic_analysis(
         &self,
@@ -31,16 +33,16 @@ impl HighEntitySelector {
         }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> EntitySelector {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowEntitySelector {
         match self {
-            Self::Variable(variable, options) => EntitySelector::Variable(
+            Self::Variable(variable, options) => LowEntitySelector::Variable(
                 variable,
                 options
                     .into_iter()
                     .map(|option| option.compile(datapack, ctx))
                     .collect(),
             ),
-            Self::Name(name) => EntitySelector::Name(name),
+            Self::Name(name) => LowEntitySelector::Name(name),
         }
     }
 }

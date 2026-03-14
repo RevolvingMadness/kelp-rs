@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use crate::high::snbt_string::HighSNBTString;
+use crate::high::snbt_string::SNBTString;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PatternType {
@@ -13,9 +13,9 @@ pub enum PatternType {
     Double,
     String,
     Tuple(Vec<Self>),
-    Struct(String, BTreeMap<HighSNBTString, Self>),
+    Struct(String, BTreeMap<SNBTString, Self>),
     Reference(Box<Self>),
-    Compound(BTreeMap<HighSNBTString, Self>),
+    Compound(BTreeMap<SNBTString, Self>),
     Dereference(Box<Self>),
     Any,
 }

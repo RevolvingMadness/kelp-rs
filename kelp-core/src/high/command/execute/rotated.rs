@@ -1,22 +1,21 @@
-use minecraft_command_types::{command::execute::Rotated, rotation::Rotation};
+use minecraft_command_types::{command::execute::Rotated as LowRotated, rotation::Rotation};
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack,
-    high::entity_selector::HighEntitySelector,
+    compile_context::CompileContext, datapack::Datapack, high::entity_selector::EntitySelector,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighRotated {
+pub enum Rotated {
     Rotation(Rotation),
-    As(HighEntitySelector),
+    As(EntitySelector),
 }
 
-impl HighRotated {
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Rotated {
+impl Rotated {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowRotated {
         match self {
-            Self::Rotation(rotation) => Rotated::Rotation(rotation),
-            Self::As(selector) => Rotated::As(selector.compile(datapack, ctx)),
+            Self::Rotation(rotation) => LowRotated::Rotation(rotation),
+            Self::As(selector) => LowRotated::As(selector.compile(datapack, ctx)),
         }
     }
 }

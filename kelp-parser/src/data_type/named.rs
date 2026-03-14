@@ -1,4 +1,4 @@
-use kelp_core::data_type::high::{HighDataType, HighDataTypeKind};
+use kelp_core::data_type::high::{DataType, DataTypeKind};
 
 use crate::{
     cst::CSTNamedDataType,
@@ -24,7 +24,7 @@ pub fn try_parse_named_data_type(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_named_data_type(node: CSTNamedDataType) -> Option<HighDataType> {
+pub fn lower_named_data_type(node: CSTNamedDataType) -> Option<DataType> {
     let span = span_of_cst_node(&node);
 
     let name_token = node.data_type_name_token()?;
@@ -34,7 +34,7 @@ pub fn lower_named_data_type(node: CSTNamedDataType) -> Option<HighDataType> {
     let generics = node.generic_data_types().and_then(lower_generic_data_types);
 
     Some(
-        HighDataTypeKind::Named(name_span, name.to_string(), generics.unwrap_or_default())
+        DataTypeKind::Named(name_span, name.to_string(), generics.unwrap_or_default())
             .with_span(span),
     )
 }

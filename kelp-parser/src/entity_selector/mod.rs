@@ -1,4 +1,4 @@
-use kelp_core::high::entity_selector::HighEntitySelector;
+use kelp_core::high::entity_selector::EntitySelector;
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
@@ -153,7 +153,7 @@ fn parse_options(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_variable_entity_selector(
     node: CSTVariableEntitySelector,
-) -> Option<HighEntitySelector> {
+) -> Option<EntitySelector> {
     let variable_token = node.entity_selector_variable_token()?;
     let variable = variable_token.text();
 
@@ -167,20 +167,20 @@ pub fn lower_variable_entity_selector(
         _ => return None,
     };
 
-    Some(HighEntitySelector::Variable(variable, Vec::new()))
+    Some(EntitySelector::Variable(variable, Vec::new()))
 }
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_name_entity_selector(node: CSTNameEntitySelector) -> Option<HighEntitySelector> {
+pub fn lower_name_entity_selector(node: CSTNameEntitySelector) -> Option<EntitySelector> {
     let name_token = node.identifier_token()?;
     let name = name_token.text();
 
-    Some(HighEntitySelector::Name(name.to_string()))
+    Some(EntitySelector::Name(name.to_string()))
 }
 
 #[must_use]
-pub fn lower_entity_selector(node: CSTEntitySelector) -> Option<HighEntitySelector> {
+pub fn lower_entity_selector(node: CSTEntitySelector) -> Option<EntitySelector> {
     match node {
         CSTEntitySelector::VariableEntitySelector(node) => lower_variable_entity_selector(node),
         CSTEntitySelector::NameEntitySelector(node) => lower_name_entity_selector(node),

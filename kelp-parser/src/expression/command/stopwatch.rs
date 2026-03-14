@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::command::HighCommand,
+    high::command::Command,
     high::expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
@@ -186,5 +186,5 @@ pub fn lower_stopwatch_command_expression(
     let command =
         lower_stopwatch_command_expression_options(node.stopwatch_command_expression_options()?)?;
 
-    Some(ExpressionKind::Command(Box::new(HighCommand::Stopwatch(command))).with_span(span))
+    Some(ExpressionKind::Command(Box::new(Command::Stopwatch(command))).with_span(span))
 }

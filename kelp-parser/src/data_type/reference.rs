@@ -1,4 +1,4 @@
-use kelp_core::data_type::high::{HighDataType, HighDataTypeKind};
+use kelp_core::data_type::high::{DataType, DataTypeKind};
 
 use crate::{
     cst::CSTReferenceDataType,
@@ -25,10 +25,10 @@ pub fn try_parse_reference_data_type(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_reference_data_type(node: CSTReferenceDataType) -> Option<HighDataType> {
+pub fn lower_reference_data_type(node: CSTReferenceDataType) -> Option<DataType> {
     let span = span_of_cst_node(&node);
 
     let data_type = lower_data_type(node.data_type()?)?;
 
-    Some(HighDataTypeKind::Reference(Box::new(data_type)).with_span(span))
+    Some(DataTypeKind::Reference(Box::new(data_type)).with_span(span))
 }

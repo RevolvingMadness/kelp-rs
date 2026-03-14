@@ -1,27 +1,26 @@
 use minecraft_command_types::{
-    command::{enums::heightmap::Heightmap, execute::Positioned},
+    command::{enums::heightmap::Heightmap, execute::Positioned as LowPositioned},
     coordinate::Coordinates,
 };
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack,
-    high::entity_selector::HighEntitySelector,
+    compile_context::CompileContext, datapack::Datapack, high::entity_selector::EntitySelector,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighPositioned {
+pub enum Positioned {
     Position(Coordinates),
-    As(HighEntitySelector),
+    As(EntitySelector),
     Over(Heightmap),
 }
 
-impl HighPositioned {
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Positioned {
+impl Positioned {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowPositioned {
         match self {
-            Self::Position(position) => Positioned::Position(position),
-            Self::As(selector) => Positioned::As(selector.compile(datapack, ctx)),
-            Self::Over(heightmap) => Positioned::Over(heightmap),
+            Self::Position(position) => LowPositioned::Position(position),
+            Self::As(selector) => LowPositioned::As(selector.compile(datapack, ctx)),
+            Self::Over(heightmap) => LowPositioned::Over(heightmap),
         }
     }
 }

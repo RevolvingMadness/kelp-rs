@@ -1,11 +1,11 @@
-use minecraft_command_types::command::scoreboard::ScoreboardCommand;
+use minecraft_command_types::command::scoreboard::ScoreboardCommand as LowScoreboardCommand;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::command::scoreboard::{
-        objectives::HighObjectivesScoreboardCommand, players::HighPlayersScoreboardCommand,
+        objectives::ObjectivesScoreboardCommand, players::PlayersScoreboardCommand,
     },
     semantic_analysis_context::SemanticAnalysisContext,
 };
@@ -14,12 +14,12 @@ pub mod objectives;
 pub mod players;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighScoreboardCommand {
-    Objectives(Box<HighObjectivesScoreboardCommand>),
-    Players(HighPlayersScoreboardCommand),
+pub enum ScoreboardCommand {
+    Objectives(Box<ObjectivesScoreboardCommand>),
+    Players(PlayersScoreboardCommand),
 }
 
-impl HighScoreboardCommand {
+impl ScoreboardCommand {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -33,21 +33,21 @@ impl HighScoreboardCommand {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ScoreboardCommand {
+    ) -> LowScoreboardCommand {
         match self {
             Self::Objectives(high_objectives_scoreboard_command) => {
                 let compiled_high_objectives_scoreboard_command =
                     high_objectives_scoreboard_command.compile(datapack, ctx);
 
-                ScoreboardCommand::Objectives(compiled_high_objectives_scoreboard_command)
+                LowScoreboardCommand::Objectives(compiled_high_objectives_scoreboard_command)
             }
             Self::Players(high_players_scoreboard_command) => {
                 let compiled_high_players_scoreboard_command =
                     high_players_scoreboard_command.compile(datapack, ctx);
 
-                ScoreboardCommand::Players(compiled_high_players_scoreboard_command)
+                LowScoreboardCommand::Players(compiled_high_players_scoreboard_command)
             }
         }
     }

@@ -1,8 +1,8 @@
 use kelp_core::{
-    data_type::high::{HighDataType, HighDataTypeKind},
-    high::snbt_string::HighSNBTString,
+    data_type::high::{DataType, DataTypeKind},
+    high::snbt_string::SNBTString,
 };
-use minecraft_command_types::snbt::SNBTString;
+use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::{CSTDataType, CSTTypedCompoundDataTypeField},
@@ -81,23 +81,23 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_typed_compound_data_type_field(
     node: CSTTypedCompoundDataTypeField,
-) -> Option<(HighSNBTString, HighDataType)> {
+) -> Option<(SNBTString, DataType)> {
     let name_token = node.name()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
     let data_type = lower_data_type(node.data_type()?)?;
 
     Some((
-        HighSNBTString {
+        SNBTString {
             span: name_span,
-            snbt_string: SNBTString(false, name.to_owned()),
+            snbt_string: LowSNBTString(false, name.to_owned()),
         },
         data_type,
     ))
 }
 
 #[must_use]
-pub fn lower_data_type(node: CSTDataType) -> Option<HighDataType> {
+pub fn lower_data_type(node: CSTDataType) -> Option<DataType> {
     let span = span_of_cst_node(&node);
 
     match node {
@@ -105,16 +105,16 @@ pub fn lower_data_type(node: CSTDataType) -> Option<HighDataType> {
         CSTDataType::TupleDataType(node) => {
             let data_types = node.data_types().filter_map(lower_data_type).collect();
 
-            Some(HighDataTypeKind::Tuple(data_types).with_span(span))
+            Some(DataTypeKind::Tuple(data_types).with_span(span))
         }
-        CSTDataType::UnitDataType(_) => Some(HighDataTypeKind::Unit.with_span(span)),
+        CSTDataType::UnitDataType(_) => Some(DataTypeKind::Unit.with_span(span)),
         CSTDataType::TypedCompoundDataType(data_type) => {
             let fields = data_type
                 .fields()
                 .filter_map(lower_typed_compound_data_type_field)
                 .collect();
 
-            Some(HighDataTypeKind::TypedCompound(fields).with_span(span))
+            Some(DataTypeKind::TypedCompound(fields).with_span(span))
         }
         CSTDataType::NamedDataType(node) => lower_named_data_type(node),
         CSTDataType::InferredDataType(node) => lower_inferred_data_type(node),

@@ -1,4 +1,4 @@
-use kelp_core::high::data::{HighDataTarget, HighDataTargetKind};
+use kelp_core::high::data::{DataTarget, DataTargetKind};
 
 use crate::{
     coordinates::{lower_coordinates, try_parse_coordinates},
@@ -60,7 +60,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_data_target(node: CSTDataTarget) -> Option<HighDataTarget> {
+pub fn lower_data_target(node: CSTDataTarget) -> Option<DataTarget> {
     let span = span_of_cst_node(&node);
 
     Some(
@@ -68,17 +68,17 @@ pub fn lower_data_target(node: CSTDataTarget) -> Option<HighDataTarget> {
             CSTDataTarget::EntityDataTarget(node) => {
                 let selector = lower_entity_selector(node.entity_selector()?)?;
 
-                HighDataTargetKind::Entity(selector)
+                DataTargetKind::Entity(selector)
             }
             CSTDataTarget::BlockDataTarget(node) => {
                 let coordinates = lower_coordinates(node.coordinates()?)?;
 
-                HighDataTargetKind::Block(coordinates)
+                DataTargetKind::Block(coordinates)
             }
             CSTDataTarget::StorageDataTarget(node) => {
                 let resource_location = lower_resource_location(node.resource_location()?)?;
 
-                HighDataTargetKind::Storage(resource_location)
+                DataTargetKind::Storage(resource_location)
             }
         })
         .with_regular_span(span),

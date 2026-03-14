@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::command::HighCommand,
+    high::command::Command,
     high::expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
@@ -51,5 +51,5 @@ pub fn lower_tellraw_command_expression(
     let selector = lower_entity_selector(node.entity_selector()?)?;
     let value = lower_expression(node.expression()?, ctx)?;
 
-    Some(ExpressionKind::Command(Box::new(HighCommand::Tellraw(selector, value))).with_span(span))
+    Some(ExpressionKind::Command(Box::new(Command::Tellraw(selector, value))).with_span(span))
 }

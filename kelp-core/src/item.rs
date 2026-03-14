@@ -4,8 +4,8 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     compile_context::CompileContext,
-    data_type::high::HighDataType,
-    datapack::{DataTypeDeclarationKind, HighDatapack},
+    data_type::high::DataType,
+    datapack::{DataTypeDeclarationKind, Datapack},
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
@@ -18,8 +18,8 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum ItemKind {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
-    TypeAliasDeclaration(String, Vec<String>, HighDataType),
-    StructDeclaration(String, Vec<String>, BTreeMap<String, HighDataType>),
+    TypeAliasDeclaration(String, Vec<String>, DataType),
+    StructDeclaration(String, Vec<String>, BTreeMap<String, DataType>),
 }
 
 impl ItemKind {
@@ -28,7 +28,7 @@ impl ItemKind {
         Item { span, kind: self }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, _ctx: &mut CompileContext) {
+    pub fn compile(self, datapack: &mut Datapack, _ctx: &mut CompileContext) {
         match self {
             Self::MCFNDeclaration(id, statement) => {
                 datapack.within_namespace(id.namespace(), |datapack| {

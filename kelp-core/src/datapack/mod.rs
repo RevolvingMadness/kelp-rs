@@ -1,9 +1,9 @@
 use crate::compile_context::CompileContext;
 use crate::data_type::{BuiltinDataTypeKind, DataTypeKind};
 use crate::datapack::mcfunction::MCFunction;
-use crate::datapack::namespace::HighNamespace;
-use crate::high::data::{GeneratedDataTarget, HighDataTarget, HighDataTargetKind};
-use crate::high::nbt_path::{HighNbtPath, HighNbtPathNode};
+use crate::datapack::namespace::DatapackNamespace;
+use crate::high::data::{DataTarget as HighDataTarget, DataTargetKind, GeneratedDataTarget};
+use crate::high::nbt_path::{NbtPath, NbtPathNode};
 use crate::high::player_score::GeneratedPlayerScore;
 use crate::high::supports_variable_type_scope::SupportsVariableTypeScope;
 use crate::low::expression::Expression;
@@ -20,9 +20,9 @@ use minecraft_command_types::command::{Command, PlayerScore};
 use minecraft_command_types::datapack::pack::Pack;
 use minecraft_command_types::datapack::pack::format::Format;
 use minecraft_command_types::datapack::tag::{Tag, TagType, TagValue};
-use minecraft_command_types::datapack::{Datapack, PackMCMeta};
+use minecraft_command_types::datapack::{Datapack as LowDatapack, PackMCMeta};
 use minecraft_command_types::entity_selector::EntitySelector;
-use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
+use minecraft_command_types::nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::SNBTString;
 use nonempty::{NonEmpty, nonempty};
@@ -35,14 +35,14 @@ pub mod mcfunction;
 pub mod namespace;
 
 #[derive(Default, Clone, Copy)]
-pub struct HighDatapackRequirements {
+pub struct DatapackRequirements {
     pub always_succeed_predicate: bool,
     pub bitwise_left_shift_function: bool,
     pub bitwise_right_shift_function: bool,
 }
 
 #[derive(Default, Clone, Copy)]
-pub struct HighDatapackSettings {
+pub struct DatapackSettings {
     pub num_match_cases_to_split: usize,
 }
 
@@ -278,10 +278,7 @@ impl Scope {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_mut(
-        &mut self,
-        name: &str,
-    ) -> Option<&mut (DataTypeKind, Expression)> {
+    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut (DataTypeKind, Expression)> {
         self.variables.get_mut(name)
     }
 
@@ -292,12 +289,7 @@ impl Scope {
     }
 
     #[inline]
-    pub fn declare_variable(
-        &mut self,
-        name: String,
-        data_type: DataTypeKind,
-        value: Expression,
-    ) {
+    pub fn declare_variable(&mut self, name: String, data_type: DataTypeKind, value: Expression) {
         self.variables.insert(name, (data_type, value));
     }
 
@@ -315,20 +307,20 @@ impl Scope {
 
 pub type Scopes = VecDeque<Scope>;
 
-pub struct HighDatapack {
+pub struct Datapack {
     pub name: String,
     pub description: Option<String>,
-    pub requirements: Cell<HighDatapackRequirements>,
-    pub settings: HighDatapackSettings,
+    pub requirements: Cell<DatapackRequirements>,
+    pub settings: DatapackSettings,
     pub scopes: Scopes,
-    namespaces: BTreeMap<String, HighNamespace>,
+    namespaces: BTreeMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
     used_constants: HashSet<i32>,
-    used_data: Vec<(DataTarget, NbtPath)>,
+    used_data: Vec<(DataTarget, LowNbtPath)>,
 }
 
-impl SupportsVariableTypeScope for HighDatapack {
+impl SupportsVariableTypeScope for Datapack {
     fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
         self.get_variable(name)
             .map(|(data_type, _)| Some(data_type))
@@ -339,7 +331,7 @@ impl SupportsVariableTypeScope for HighDatapack {
     }
 }
 
-impl HighDatapack {
+impl Datapack {
     #[must_use]
     pub fn new(name: String, description: Option<String>) -> Self {
         let mut scopes = Scopes::new();
@@ -348,8 +340,8 @@ impl HighDatapack {
         Self {
             name,
             description,
-            requirements: Cell::new(HighDatapackRequirements::default()),
-            settings: HighDatapackSettings::default(),
+            requirements: Cell::new(DatapackRequirements::default()),
+            settings: DatapackSettings::default(),
             scopes,
             namespaces: BTreeMap::new(),
             namespace_stack: Vec::new(),
@@ -387,7 +379,7 @@ impl HighDatapack {
     fn add_default_namespace_if_missing(&mut self, name: &str) {
         if !self.namespaces.contains_key(name) {
             self.namespaces
-                .insert(name.to_string(), HighNamespace::new(name.to_string()));
+                .insert(name.to_string(), DatapackNamespace::new(name.to_string()));
         }
     }
 
@@ -429,7 +421,7 @@ impl HighDatapack {
         }
     }
 
-    pub fn get_unique_data(&mut self) -> (GeneratedDataTarget, NbtPath) {
+    pub fn get_unique_data(&mut self) -> (GeneratedDataTarget, LowNbtPath) {
         let current_namespace_name = self.current_namespace_name();
 
         let target = DataTarget::Storage(ResourceLocation::new_namespace_path(
@@ -437,7 +429,7 @@ impl HighDatapack {
             format!("__kelp_{}_storage__", current_namespace_name),
         ));
 
-        let path = NbtPath(nonempty![NbtPathNode::named_string(format!(
+        let path = LowNbtPath(nonempty![LowNbtPathNode::named_string(format!(
             "__kelp_{}_storage_{}__",
             current_namespace_name,
             self.increment_counter()
@@ -454,7 +446,7 @@ impl HighDatapack {
         )
     }
 
-    pub fn get_unique_data_named(&self) -> (GeneratedDataTarget, NbtPath, String) {
+    pub fn get_unique_data_named(&self) -> (GeneratedDataTarget, LowNbtPath, String) {
         let current_namespace_name = self.current_namespace_name();
         let name = format!(
             "__kelp_{}_storage_{}__",
@@ -470,12 +462,12 @@ impl HighDatapack {
                     format!("__kelp_{}_storage__", current_namespace_name),
                 )),
             },
-            NbtPath(nonempty![NbtPathNode::named_string(name.clone())]),
+            LowNbtPath(nonempty![LowNbtPathNode::named_string(name.clone())]),
             name,
         )
     }
 
-    pub fn get_unique_data_both(&self) -> (HighDataTarget, DataTarget, NbtPath, String) {
+    pub fn get_unique_data_both(&self) -> (HighDataTarget, DataTarget, LowNbtPath, String) {
         let current_namespace_name = self.current_namespace_name();
         let name = format!(
             "__kelp_{}_storage_{}__",
@@ -488,14 +480,14 @@ impl HighDatapack {
         );
 
         (
-            HighDataTargetKind::Storage(storage_location.clone()).with_generated_span(),
+            DataTargetKind::Storage(storage_location.clone()).with_generated_span(),
             DataTarget::Storage(storage_location),
-            NbtPath(nonempty![NbtPathNode::named_string(name.clone())]),
+            LowNbtPath(nonempty![LowNbtPathNode::named_string(name.clone())]),
             name,
         )
     }
 
-    pub fn get_unique_data_with_path_name(&self) -> (DataTarget, NbtPath, SNBTString) {
+    pub fn get_unique_data_with_path_name(&self) -> (DataTarget, LowNbtPath, SNBTString) {
         let current_namespace_name = self.current_namespace_name();
         let name = format!(
             "__kelp_{}_storage_{}__",
@@ -508,24 +500,24 @@ impl HighDatapack {
                 "__kelp_storages__",
                 format!("__kelp_{}_storage__", current_namespace_name),
             )),
-            NbtPath(nonempty![NbtPathNode::named_string(name.clone())]),
+            LowNbtPath(nonempty![LowNbtPathNode::named_string(name.clone())]),
             SNBTString(false, name),
         )
     }
 
-    pub fn get_high_unique_data(&self) -> (HighDataTarget, HighNbtPath) {
+    pub fn get_high_unique_data(&self) -> (HighDataTarget, NbtPath) {
         let current_namespace_name = self.current_namespace_name();
 
         (
             HighDataTarget {
                 is_generated: true,
                 span: Span::dummy(),
-                kind: HighDataTargetKind::Storage(ResourceLocation::new_namespace_path(
+                kind: DataTargetKind::Storage(ResourceLocation::new_namespace_path(
                     "__kelp_storages__",
                     format!("__kelp_{}_storage__", current_namespace_name),
                 )),
             },
-            HighNbtPath(nonempty![HighNbtPathNode::Named(
+            NbtPath(nonempty![NbtPathNode::Named(
                 format!(
                     "__kelp_{}_storage_{}__",
                     current_namespace_name,
@@ -576,12 +568,7 @@ impl HighDatapack {
             .contains_variable(name)
     }
 
-    pub fn declare_variable(
-        &mut self,
-        name: String,
-        data_type: DataTypeKind,
-        value: Expression,
-    ) {
+    pub fn declare_variable(&mut self, name: String, data_type: DataTypeKind, value: Expression) {
         self.scopes
             .front_mut()
             .expect("No scopes")
@@ -619,7 +606,7 @@ impl HighDatapack {
         ))
     }
 
-    pub fn get_variable_data(&self, name: &str) -> (DataTarget, NbtPath) {
+    pub fn get_variable_data(&self, name: &str) -> (DataTarget, LowNbtPath) {
         let current_namespace_name = self.current_namespace_name();
 
         (
@@ -627,7 +614,7 @@ impl HighDatapack {
                 "kelp",
                 format!("__{}_variables__", current_namespace_name),
             )),
-            NbtPath(nonempty![NbtPathNode::named_string(format!(
+            LowNbtPath(nonempty![LowNbtPathNode::named_string(format!(
                 "__variable_{}_{}__",
                 name,
                 self.scopes.len(),
@@ -671,14 +658,14 @@ impl HighDatapack {
     }
 
     #[inline]
-    pub fn get_namespace_mut(&mut self, name: &str) -> &mut HighNamespace {
+    pub fn get_namespace_mut(&mut self, name: &str) -> &mut DatapackNamespace {
         self.add_default_namespace_if_missing(name);
 
         self.namespaces.get_mut(name).unwrap()
     }
 
     #[inline]
-    pub fn get_namespace(&mut self, name: &str) -> &HighNamespace {
+    pub fn get_namespace(&mut self, name: &str) -> &DatapackNamespace {
         self.add_default_namespace_if_missing(name);
 
         self.namespaces.get(name).unwrap()
@@ -750,7 +737,7 @@ impl HighDatapack {
     }
 
     #[inline]
-    pub fn current_namespace_mut(&mut self) -> &mut HighNamespace {
+    pub fn current_namespace_mut(&mut self) -> &mut DatapackNamespace {
         let name = self.current_namespace_name().to_string();
 
         self.namespaces
@@ -759,14 +746,14 @@ impl HighDatapack {
     }
 
     #[inline]
-    pub fn current_namespace(&self) -> &HighNamespace {
+    pub fn current_namespace(&self) -> &DatapackNamespace {
         self.namespaces
             .get(self.current_namespace_name())
             .expect("No current namespace")
     }
 
-    pub fn compile(mut self) -> Datapack {
-        let mut output_datapack = Datapack::new_pack(PackMCMeta {
+    pub fn compile(mut self) -> LowDatapack {
+        let mut output_datapack = LowDatapack::new_pack(PackMCMeta {
             pack: Pack {
                 description: json!(self.description.clone().unwrap_or_default()),
                 pack_format: Some(88),

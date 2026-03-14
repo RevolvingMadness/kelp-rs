@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use minecraft_command_types::{
     command::{
-        Command, PlayerScore,
+        Command, PlayerScore as LowPlayerScore,
         enums::{
             numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
             store_type::StoreType,
@@ -21,8 +21,8 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
-    datapack::HighDatapack,
-    high::{data::GeneratedDataTarget, entity_selector::HighEntitySelector},
+    datapack::Datapack,
+    high::{data::GeneratedDataTarget, entity_selector::EntitySelector},
     low::expression::Expression,
     operator::ArithmeticOperator,
     semantic_analysis_context::SemanticAnalysisContext,
@@ -34,12 +34,12 @@ use crate::{
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct GeneratedPlayerScore {
     pub is_generated: bool,
-    pub score: PlayerScore,
+    pub score: LowPlayerScore,
 }
 
 impl GeneratedPlayerScore {
     #[must_use]
-    pub fn as_unique_score(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
+    pub fn as_unique_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         let unique_score = datapack.get_unique_score();
 
         self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -105,7 +105,7 @@ impl GeneratedPlayerScore {
     #[inline]
     pub fn assign_to_score(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: Self,
     ) {
@@ -123,7 +123,7 @@ impl GeneratedPlayerScore {
 
     pub fn assign_to_score_scale(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: Self,
         scale: NotNan<f32>,
@@ -150,7 +150,7 @@ impl GeneratedPlayerScore {
 
     pub fn operate_on_score(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: Self,
         operator: ArithmeticOperator,
@@ -200,7 +200,7 @@ impl GeneratedPlayerScore {
     #[inline]
     pub fn assign_to_data(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: GeneratedDataTarget,
         path: NbtPath,
@@ -225,7 +225,7 @@ impl GeneratedPlayerScore {
     #[inline]
     pub fn assign_to_data_scale(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: GeneratedDataTarget,
         path: NbtPath,
@@ -250,7 +250,7 @@ impl GeneratedPlayerScore {
 
     pub fn assign_augmented(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
         value: Expression,
@@ -395,15 +395,15 @@ impl GeneratedPlayerScore {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct HighPlayerScore {
+pub struct PlayerScore {
     pub is_generated: bool,
-    pub selector: HighEntitySelector,
+    pub selector: EntitySelector,
     pub objective: String,
 }
 
-impl HighPlayerScore {
+impl PlayerScore {
     #[must_use]
-    pub const fn new(selector: HighEntitySelector, objective: String) -> Self {
+    pub const fn new(selector: EntitySelector, objective: String) -> Self {
         Self {
             is_generated: false,
             selector,
@@ -422,12 +422,12 @@ impl HighPlayerScore {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> GeneratedPlayerScore {
         GeneratedPlayerScore {
             is_generated: false,
-            score: PlayerScore::new(self.selector.compile(datapack, ctx), self.objective),
+            score: LowPlayerScore::new(self.selector.compile(datapack, ctx), self.objective),
         }
     }
 }

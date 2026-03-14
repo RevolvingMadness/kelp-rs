@@ -1,24 +1,26 @@
-use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode, SNBTCompound};
+use minecraft_command_types::nbt_path::{
+    NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode, SNBTCompound,
+};
 use minecraft_command_types_derive::HasMacro;
 use nonempty::NonEmpty;
 
 use crate::{
     compile_context::CompileContext,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::expression::{Expression, ExpressionCompoundKind},
-    high::snbt_string::HighSNBTString,
+    high::snbt_string::SNBTString,
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighNbtPathNode {
+pub enum NbtPathNode {
     RootCompound(ExpressionCompoundKind),
-    Named(HighSNBTString, Option<ExpressionCompoundKind>),
+    Named(SNBTString, Option<ExpressionCompoundKind>),
     Index(Option<Box<Expression>>),
 }
 
-impl HighNbtPathNode {
+impl NbtPathNode {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -65,9 +67,9 @@ impl HighNbtPathNode {
         }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> NbtPathNode {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPathNode {
         match self {
-            Self::RootCompound(compound) => NbtPathNode::RootCompound(
+            Self::RootCompound(compound) => LowNbtPathNode::RootCompound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -77,7 +79,7 @@ impl HighNbtPathNode {
                     })
                     .collect(),
             ),
-            Self::Named(name, expression) => NbtPathNode::Named(
+            Self::Named(name, expression) => LowNbtPathNode::Named(
                 name.snbt_string,
                 expression.map(|expression| {
                     expression
@@ -90,7 +92,7 @@ impl HighNbtPathNode {
                         .collect::<SNBTCompound>()
                 }),
             ),
-            Self::Index(expression) => NbtPathNode::Index(
+            Self::Index(expression) => LowNbtPathNode::Index(
                 expression
                     .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
@@ -99,9 +101,9 @@ impl HighNbtPathNode {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct HighNbtPath(pub NonEmpty<HighNbtPathNode>);
+pub struct NbtPath(pub NonEmpty<NbtPathNode>);
 
-impl HighNbtPath {
+impl NbtPath {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -113,12 +115,12 @@ impl HighNbtPath {
             .all_some()
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> NbtPath {
-        NbtPath(self.0.map(|node| node.compile(datapack, ctx)))
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPath {
+        LowNbtPath(self.0.map(|node| node.compile(datapack, ctx)))
     }
 
     #[must_use]
-    pub fn with_node(mut self, node: HighNbtPathNode) -> Self {
+    pub fn with_node(mut self, node: NbtPathNode) -> Self {
         self.0.push(node);
 
         self

@@ -9,7 +9,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    datapack::HighDatapack, high::data::GeneratedDataTarget, low::expression::Expression,
+    datapack::Datapack, high::data::GeneratedDataTarget, low::expression::Expression,
 };
 
 #[derive(Debug, Clone)]
@@ -55,7 +55,7 @@ impl CompileContext {
         self.commands.len()
     }
 
-    pub fn add_command(&mut self, datapack: &mut HighDatapack, command: Command) {
+    pub fn add_command(&mut self, datapack: &mut Datapack, command: Command) {
         if !command.has_macro() {
             self.commands.push(command);
 
@@ -108,7 +108,7 @@ impl CompileContext {
         ));
     }
 
-    pub fn add_commands(&mut self, datapack: &mut HighDatapack, commands: Vec<Command>) {
+    pub fn add_commands(&mut self, datapack: &mut Datapack, commands: Vec<Command>) {
         for command in commands {
             self.add_command(datapack, command);
         }

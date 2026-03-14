@@ -1,13 +1,13 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use minecraft_command_types::snbt::SNBTString;
+use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 use minecraft_command_types_derive::HasMacro;
 use strum::{Display, EnumString};
 
 use crate::{
     high::{
         expression::{Expression, ExpressionKind},
-        snbt_string::HighSNBTString,
+        snbt_string::SNBTString,
         supports_variable_type_scope::SupportsVariableTypeScope,
     },
     operator::{ArithmeticOperator, ComparisonOperator, UnaryOperator},
@@ -115,7 +115,7 @@ pub enum DataTypeKind {
     Unit,
     Score(Box<Self>),
     List(Box<Self>),
-    TypedCompound(BTreeMap<SNBTString, Self>),
+    TypedCompound(BTreeMap<LowSNBTString, Self>),
     Compound(Box<Self>),
     Data(Box<Self>),
     Reference(Box<Self>),
@@ -528,7 +528,7 @@ impl DataTypeKind {
     #[must_use]
     pub fn perform_compound_destructure_semantic_analysis(
         self,
-        patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
+        patterns: &BTreeMap<SNBTString, Option<Pattern>>,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         pattern: &Pattern,
@@ -620,7 +620,7 @@ impl DataTypeKind {
     pub fn perform_struct_destructure_semantic_analysis(
         self,
         name: &str,
-        field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
+        field_patterns: &BTreeMap<SNBTString, Option<Pattern>>,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         pattern: &Pattern,

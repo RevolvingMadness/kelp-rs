@@ -18,7 +18,7 @@ use minecraft_command_types::{
     nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
     resource_location::ResourceLocation,
-    snbt::{SNBT, SNBTString},
+    snbt::{SNBT, SNBTString as LowSNBTString},
 };
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
@@ -29,9 +29,9 @@ pub mod utils;
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::{
-        data::GeneratedDataTarget, player_score::GeneratedPlayerScore, snbt_string::HighSNBTString,
+        data::GeneratedDataTarget, player_score::GeneratedPlayerScore, snbt_string::SNBTString,
     },
     low::expression::utils::push_scoreboard_players,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
@@ -39,7 +39,7 @@ use crate::{
 };
 
 pub fn compile_shift_operation(
-    datapack: &mut HighDatapack,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     target: &GeneratedPlayerScore,
     amount: i32,
@@ -81,8 +81,8 @@ pub fn split_constants_list(list: Vec<Expression>) -> (Vec<SNBT>, Vec<(usize, Ex
 
 #[must_use]
 pub fn split_constants_compound(
-    compound: BTreeMap<HighSNBTString, Expression>,
-) -> (SNBTCompound, BTreeMap<HighSNBTString, Expression>) {
+    compound: BTreeMap<SNBTString, Expression>,
+) -> (SNBTCompound, BTreeMap<SNBTString, Expression>) {
     let mut constants = BTreeMap::new();
     let mut non_constants = BTreeMap::new();
 
@@ -160,10 +160,10 @@ pub enum Expression {
     Long(i64),
     Float(NotNan<f32>),
     Double(NotNan<f64>),
-    String(HighSNBTString),
+    String(SNBTString),
     Underscore,
     List(Vec<Self>),
-    Compound(BTreeMap<HighSNBTString, Self>),
+    Compound(BTreeMap<SNBTString, Self>),
     Tuple(Vec<Self>),
     Struct(String, Vec<DataTypeKind>, BTreeMap<String, Self>),
     Unit,
@@ -214,7 +214,7 @@ impl Expression {
         }
     }
 
-    pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::List(list) => {
                 for element in list {
@@ -260,7 +260,7 @@ impl Expression {
     #[must_use]
     pub fn dereference(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> Option<Self> {
         match self {
@@ -335,7 +335,7 @@ impl Expression {
                 Some(Self::Data(Box::new((
                     target,
                     path.with_node(NbtPathNode::Named(
-                        SNBTString(false, field.to_owned()),
+                        LowSNBTString(false, field.to_owned()),
                         None,
                     )),
                 ))))
@@ -379,7 +379,7 @@ impl Expression {
                 let mut compound = BTreeMap::new();
 
                 for (key, value) in field_expressions {
-                    compound.insert(SNBTString(false, key), value.try_into_snbt().unwrap());
+                    compound.insert(LowSNBTString(false, key), value.try_into_snbt().unwrap());
                 }
 
                 SNBT::Compound(compound)
@@ -432,7 +432,7 @@ impl Expression {
                 let mut compound = BTreeMap::new();
 
                 compound.insert(
-                    SNBTString(false, "__kelp_rs_unit__".to_string()),
+                    LowSNBTString(false, "__kelp_rs_unit__".to_string()),
                     SNBT::Byte(1),
                 );
 
@@ -514,7 +514,7 @@ impl Expression {
 
     pub fn assign_to_score(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: GeneratedPlayerScore,
     ) {
@@ -568,8 +568,8 @@ impl Expression {
                     PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
                 );
             }
-            Self::String(HighSNBTString {
-                snbt_string: SNBTString(_, value),
+            Self::String(SNBTString {
+                snbt_string: LowSNBTString(_, value),
                 ..
             }) => {
                 push_scoreboard_players(
@@ -631,7 +631,7 @@ impl Expression {
 
     pub fn assign_to_score_scale(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: GeneratedPlayerScore,
         scale: NotNan<f32>,
@@ -733,7 +733,7 @@ impl Expression {
     #[must_use]
     pub fn as_score(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         force: bool,
     ) -> GeneratedPlayerScore {
@@ -752,7 +752,7 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn to_score(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
+    pub fn to_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         match self {
             Self::Struct(name, generic_data_types, field_expressions) => {
                 let mut new_field_expressions = BTreeMap::new();
@@ -779,7 +779,7 @@ impl Expression {
     #[must_use]
     pub fn to_score_scale(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         scale: NotNan<f32>,
     ) -> Self {
@@ -807,7 +807,7 @@ impl Expression {
     #[must_use]
     pub fn as_score_scale(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         scale: NotNan<f32>,
     ) -> GeneratedPlayerScore {
@@ -820,7 +820,7 @@ impl Expression {
 
     pub fn assign_to_data(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: GeneratedDataTarget,
         path: NbtPath,
@@ -907,7 +907,7 @@ impl Expression {
                             ctx,
                             target.clone(),
                             path.clone()
-                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                                .with_node(NbtPathNode::Named(LowSNBTString(false, key), None)),
                         );
                     }
                 }
@@ -966,7 +966,7 @@ impl Expression {
 
     pub fn assign_to_data_scale(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: GeneratedDataTarget,
         path: NbtPath,
@@ -1055,7 +1055,7 @@ impl Expression {
                             ctx,
                             target.clone(),
                             path.clone()
-                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                                .with_node(NbtPathNode::Named(LowSNBTString(false, key), None)),
                             scale,
                         );
                     }
@@ -1117,7 +1117,7 @@ impl Expression {
     #[must_use]
     pub fn as_data(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         force: bool,
     ) -> (GeneratedDataTarget, NbtPath) {
@@ -1135,7 +1135,7 @@ impl Expression {
     #[must_use]
     pub fn as_data_scale(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         scale: NotNan<f32>,
     ) -> (GeneratedDataTarget, NbtPath) {
@@ -1149,7 +1149,7 @@ impl Expression {
     #[must_use]
     pub fn as_data_command_modification(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> DataCommandModification {
         match self.try_into_snbt() {
@@ -1171,8 +1171,8 @@ impl Expression {
             Self::Long(v) => *v as i32,
             Self::Float(v) if force => v.into_inner() as i32,
             Self::Double(v) if force => v.into_inner() as i32,
-            Self::String(HighSNBTString {
-                snbt_string: SNBTString(_, v),
+            Self::String(SNBTString {
+                snbt_string: LowSNBTString(_, v),
                 ..
             }) if force => v.len() as i32,
             Self::List(v) if force => v.len() as i32,
@@ -1183,7 +1183,7 @@ impl Expression {
 
     pub fn operate_on_score(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         target: GeneratedPlayerScore,
         operator: ArithmeticOperator,
@@ -1259,7 +1259,7 @@ impl Expression {
     #[must_use]
     pub fn perform_arithmetic(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
         other: Self,
@@ -1364,7 +1364,7 @@ impl Expression {
     #[must_use]
     pub fn perform_comparison(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ComparisonOperator,
         other: Self,
@@ -1598,7 +1598,7 @@ impl Expression {
 
     pub fn to_execute_condition(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         inverted: bool,
     ) -> Option<(bool, ExecuteIfSubcommand)> {
@@ -1651,7 +1651,7 @@ impl Expression {
     #[must_use]
     pub fn as_text_component(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         force_display: bool,
     ) -> SNBT {
@@ -1665,25 +1665,28 @@ impl Expression {
                 match target.target {
                     DataTarget::Block(coordinates) => {
                         map.insert(
-                            SNBTString(false, "block".to_string()),
+                            LowSNBTString(false, "block".to_string()),
                             SNBT::string(coordinates),
                         );
                     }
                     DataTarget::Entity(entity_selector) => {
                         map.insert(
-                            SNBTString(false, "entity".to_string()),
+                            LowSNBTString(false, "entity".to_string()),
                             SNBT::string(entity_selector),
                         );
                     }
                     DataTarget::Storage(resource_location) => {
                         map.insert(
-                            SNBTString(false, "storage".to_string()),
+                            LowSNBTString(false, "storage".to_string()),
                             SNBT::string(resource_location),
                         );
                     }
                 }
 
-                map.insert(SNBTString(false, "nbt".to_string()), path.to_snbt_string());
+                map.insert(
+                    LowSNBTString(false, "nbt".to_string()),
+                    path.to_snbt_string(),
+                );
 
                 SNBT::Compound(map)
             }
@@ -1833,7 +1836,7 @@ impl Expression {
 
                     for (field_name, field_value) in fields {
                         output.insert(
-                            SNBTString(false, field_name),
+                            LowSNBTString(false, field_name),
                             field_value.as_text_component(datapack, ctx, force_display),
                         );
                     }
@@ -1886,7 +1889,7 @@ impl Expression {
 
     pub fn compile_augmented_assignment(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
         value: Self,
@@ -1935,7 +1938,7 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn negate(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Self {
+    pub fn negate(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         match self {
             Self::Byte(value) => Self::Byte(-value),
             Self::Short(value) => Self::Short(-value),
@@ -1990,7 +1993,7 @@ impl Expression {
     #[must_use]
     pub fn perform_logical_operation(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: LogicalOperator,
         other: Self,
@@ -2098,7 +2101,7 @@ impl Expression {
     #[must_use]
     pub fn index(
         mut self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         index: Self,
     ) -> Option<Self> {
@@ -2141,7 +2144,7 @@ impl Expression {
 
     pub fn assign_field(
         &mut self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         field: &str,
         value: Self,
@@ -2167,7 +2170,7 @@ impl Expression {
                     ctx,
                     target.clone(),
                     path.clone().with_node(NbtPathNode::Named(
-                        SNBTString(false, field.to_owned()),
+                        LowSNBTString(false, field.to_owned()),
                         None,
                     )),
                 );
@@ -2183,7 +2186,7 @@ impl Expression {
 
     pub fn assign_index(
         &mut self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         index: Self,
         value: Self,

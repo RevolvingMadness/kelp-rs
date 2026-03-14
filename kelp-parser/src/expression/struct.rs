@@ -1,9 +1,9 @@
 use kelp_core::{
     high::expression::{Expression, ExpressionKind},
-    high::snbt_string::HighSNBTString,
+    high::snbt_string::SNBTString,
     semantic_analysis_context::SemanticAnalysisContext,
 };
-use minecraft_command_types::snbt::SNBTString;
+use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::{CSTStructExpression, CSTStructExpressionField},
@@ -17,7 +17,7 @@ use crate::{
 pub fn lower_struct_expression_field(
     node: CSTStructExpressionField,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<(HighSNBTString, Expression)> {
+) -> Option<(SNBTString, Expression)> {
     let name_token = node.name()?;
     let name_span = name_token.text_range();
     let name = name_token.text();
@@ -25,9 +25,9 @@ pub fn lower_struct_expression_field(
     let value = lower_expression(node.value()?, ctx)?;
 
     Some((
-        HighSNBTString {
+        SNBTString {
             span: text_range_to_span(name_span),
-            snbt_string: SNBTString(false, name.to_owned()),
+            snbt_string: LowSNBTString(false, name.to_owned()),
         },
         value,
     ))

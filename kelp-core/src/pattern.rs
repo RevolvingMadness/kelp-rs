@@ -5,8 +5,8 @@ use minecraft_command_types::{nbt_path::NbtPathNode, snbt::SNBT};
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
-    high::snbt_string::HighSNBTString,
+    datapack::Datapack,
+    high::snbt_string::SNBTString,
     low::expression::{Expression, literal::LiteralExpression},
     pattern_type::PatternType,
     semantic_analysis_context::{
@@ -18,7 +18,7 @@ use crate::{
 
 fn destructure_tuple(
     patterns: &[Pattern],
-    datapack: &mut HighDatapack,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: DataTypeKind,
     value: Expression,
@@ -56,8 +56,8 @@ fn destructure_tuple(
 }
 
 fn destructure_compound(
-    patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
-    datapack: &mut HighDatapack,
+    patterns: &BTreeMap<SNBTString, Option<Pattern>>,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: DataTypeKind,
     value: Expression,
@@ -119,8 +119,8 @@ fn destructure_compound(
 }
 
 fn destructure_struct(
-    field_patterns: &BTreeMap<HighSNBTString, Option<Pattern>>,
-    datapack: &mut HighDatapack,
+    field_patterns: &BTreeMap<SNBTString, Option<Pattern>>,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     name: &str,
     data_type: DataTypeKind,
@@ -215,9 +215,9 @@ pub enum PatternKind {
     Binding(String),
 
     Tuple(Vec<Pattern>),
-    Struct(String, BTreeMap<HighSNBTString, Option<Pattern>>),
+    Struct(String, BTreeMap<SNBTString, Option<Pattern>>),
 
-    Compound(BTreeMap<HighSNBTString, Option<Pattern>>),
+    Compound(BTreeMap<SNBTString, Option<Pattern>>),
 
     Dereference(Box<Pattern>),
 }
@@ -322,7 +322,7 @@ impl PatternKind {
 
     pub fn destructure(
         &self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         data_type: DataTypeKind,
         value: Expression,

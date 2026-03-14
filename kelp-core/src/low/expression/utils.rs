@@ -3,10 +3,10 @@ use minecraft_command_types::command::{
     scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
 };
 
-use crate::{compile_context::CompileContext, datapack::HighDatapack};
+use crate::{compile_context::CompileContext, datapack::Datapack};
 
 pub fn push_scoreboard_players(
-    datapack: &mut HighDatapack,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     command: PlayersScoreboardCommand,
 ) {

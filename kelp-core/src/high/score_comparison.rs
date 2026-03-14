@@ -1,19 +1,21 @@
-use minecraft_command_types::command::execute::{ScoreComparison, ScoreComparisonOperator};
+use minecraft_command_types::command::execute::{
+    ScoreComparison as LowScoreComparison, ScoreComparisonOperator,
+};
 use minecraft_command_types::range::IntegerRange;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::compile_context::CompileContext;
-use crate::datapack::HighDatapack;
-use crate::high::player_score::HighPlayerScore;
+use crate::datapack::Datapack;
+use crate::high::player_score::PlayerScore;
 use crate::semantic_analysis_context::SemanticAnalysisContext;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighScoreComparison {
+pub enum ScoreComparison {
     Range(IntegerRange),
-    Score(ScoreComparisonOperator, HighPlayerScore),
+    Score(ScoreComparisonOperator, PlayerScore),
 }
 
-impl HighScoreComparison {
+impl ScoreComparison {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -25,11 +27,11 @@ impl HighScoreComparison {
         }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> ScoreComparison {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowScoreComparison {
         match self {
-            Self::Range(range) => ScoreComparison::Range(range),
+            Self::Range(range) => LowScoreComparison::Range(range),
             Self::Score(operator, player_score) => {
-                ScoreComparison::Score(operator, player_score.compile(datapack, ctx).score)
+                LowScoreComparison::Score(operator, player_score.compile(datapack, ctx).score)
             }
         }
     }

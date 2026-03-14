@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::command::{HighCommand, r#return::HighReturnCommand},
+    high::command::{Command, r#return::ReturnCommand},
     high::expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
@@ -38,9 +38,7 @@ pub fn lower_return_command_expression(
     let value = value_token.text().parse().ok()?;
 
     Some(
-        ExpressionKind::Command(Box::new(HighCommand::Return(HighReturnCommand::Value(
-            value,
-        ))))
-        .with_span(span),
+        ExpressionKind::Command(Box::new(Command::Return(ReturnCommand::Value(value))))
+            .with_span(span),
     )
 }

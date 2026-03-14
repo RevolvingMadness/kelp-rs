@@ -1,6 +1,6 @@
 use kelp_core::{
     high::expression::{Expression, ExpressionKind},
-    high::player_score::HighPlayerScore,
+    high::player_score::PlayerScore,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -46,7 +46,7 @@ pub fn lower_score_expression(
     let objective = node.identifier_token()?.to_string();
 
     Some(
-        ExpressionKind::PlayerScore(HighPlayerScore {
+        ExpressionKind::PlayerScore(PlayerScore {
             is_generated: false,
             selector,
             objective,

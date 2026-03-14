@@ -12,7 +12,7 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::{
         data::GeneratedDataTarget,
         expression::{Expression as HighExpression, ExpressionKind},
@@ -43,7 +43,7 @@ pub enum Place {
 impl Place {
     pub fn assign_resolved(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         value: Expression,
     ) {
@@ -81,7 +81,7 @@ impl Place {
 
     pub fn assign(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         value: ExpressionKind,
     ) {
@@ -178,7 +178,7 @@ impl Place {
 
     pub fn augmented_assign(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
         value: Expression,

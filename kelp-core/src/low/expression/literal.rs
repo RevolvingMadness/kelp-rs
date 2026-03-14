@@ -1,7 +1,7 @@
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
-use crate::{high::snbt_string::HighSNBTString, pattern_type::PatternType};
+use crate::{high::snbt_string::SNBTString, pattern_type::PatternType};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum LiteralExpression {
@@ -12,7 +12,7 @@ pub enum LiteralExpression {
     Long(i64),
     Float(NotNan<f32>),
     Double(NotNan<f64>),
-    String(HighSNBTString),
+    String(SNBTString),
 }
 
 impl LiteralExpression {

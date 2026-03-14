@@ -1,6 +1,8 @@
 use std::hash::Hash;
 
-use minecraft_command_types::{has_macro::HasMacro, impl_has_macro_false, snbt::SNBTString};
+use minecraft_command_types::{
+    has_macro::HasMacro, impl_has_macro_false, snbt::SNBTString as LowSNBTString,
+};
 
 use crate::{
     semantic_analysis_context::{
@@ -11,23 +13,23 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct HighSNBTString {
+pub struct SNBTString {
     pub span: Span,
-    pub snbt_string: SNBTString,
+    pub snbt_string: LowSNBTString,
 }
 
-impl_has_macro_false!(HighSNBTString);
+impl_has_macro_false!(SNBTString);
 
-impl From<String> for HighSNBTString {
+impl From<String> for SNBTString {
     fn from(value: String) -> Self {
         Self {
             span: Span::dummy(),
-            snbt_string: SNBTString(false, value),
+            snbt_string: LowSNBTString(false, value),
         }
     }
 }
 
-impl HighSNBTString {
+impl SNBTString {
     #[must_use]
     pub fn perform_semantic_analysis(
         &self,

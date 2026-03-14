@@ -12,10 +12,10 @@ use crate::{
     syntax::SyntaxKind,
 };
 use kelp_core::{
-    high::{nbt_path::HighNbtPathNode, snbt_string::HighSNBTString},
+    high::{nbt_path::NbtPathNode, snbt_string::SNBTString},
     semantic_analysis_context::SemanticAnalysisContext,
 };
-use minecraft_command_types::snbt::SNBTString;
+use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 pub mod index;
 pub mod named;
@@ -45,12 +45,12 @@ pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
 pub fn lower_nbt_path_node(
     node: CSTNBTPathNode,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<HighNbtPathNode> {
+) -> Option<NbtPathNode> {
     match node {
         CSTNBTPathNode::IndexNBTPathNode(node) => {
             let index = node.index();
 
-            Some(HighNbtPathNode::Index(
+            Some(NbtPathNode::Index(
                 index
                     .and_then(|expression| lower_expression(expression, ctx))
                     .map(Box::new),
@@ -68,9 +68,9 @@ pub fn lower_nbt_path_node(
                 Some(compound)
             });
 
-            Some(HighNbtPathNode::Named(
-                HighSNBTString {
-                    snbt_string: SNBTString(false, name.to_string()),
+            Some(NbtPathNode::Named(
+                SNBTString {
+                    snbt_string: LowSNBTString(false, name.to_string()),
                     span,
                 },
                 compound,
@@ -79,7 +79,7 @@ pub fn lower_nbt_path_node(
         CSTNBTPathNode::CompoundNBTPathNode(node) => {
             let (_, compound) = lower_compound_expression_inner(node.compound_expression()?, ctx)?;
 
-            Some(HighNbtPathNode::RootCompound(compound))
+            Some(NbtPathNode::RootCompound(compound))
         }
     }
 }

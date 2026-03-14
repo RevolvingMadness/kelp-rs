@@ -1,15 +1,15 @@
 use minecraft_command_types_derive::HasMacro;
 
-use crate::{high::command::HighCommand, semantic_analysis_context::SemanticAnalysisContext};
+use crate::{high::command::Command, semantic_analysis_context::SemanticAnalysisContext};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighReturnCommand {
+pub enum ReturnCommand {
     Value(i32),
     Fail,
-    Run(Box<HighCommand>),
+    Run(Box<Command>),
 }
 
-impl HighReturnCommand {
+impl ReturnCommand {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,

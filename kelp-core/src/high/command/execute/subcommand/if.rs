@@ -2,7 +2,10 @@ use minecraft_command_types::{
     column_position::ColumnPosition,
     command::{
         enums::if_blocks_mode::IfBlocksMode,
-        execute::{ExecuteIfSubcommand, ExecuteSubcommand},
+        execute::{
+            ExecuteIfSubcommand as LowExecuteIfSubcommand,
+            ExecuteSubcommand as LowExecuteSubcommand,
+        },
     },
     coordinate::Coordinates,
     resource_location::ResourceLocation,
@@ -11,61 +14,49 @@ use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
-    datapack::HighDatapack,
-    high::score_comparison::HighScoreComparison,
+    datapack::Datapack,
+    high::score_comparison::ScoreComparison,
     high::{
-        block::HighBlockState, command::execute::subcommand::HighExecuteSubcommand,
-        data::HighDataTarget, entity_selector::HighEntitySelector, item::HighItemPredicate,
-        item_source::HighItemSource, nbt_path::HighNbtPath, player_score::HighPlayerScore,
+        block::BlockState, command::execute::subcommand::ExecuteSubcommand, data::DataTarget,
+        entity_selector::EntitySelector, item::ItemPredicate, item_source::ItemSource,
+        nbt_path::NbtPath, player_score::PlayerScore,
     },
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighExecuteIfSubcommand {
+pub enum ExecuteIfSubcommand {
     Biome(
         Coordinates,
         ResourceLocation,
-        Option<Box<HighExecuteSubcommand>>,
+        Option<Box<ExecuteSubcommand>>,
     ),
-    Block(
-        Coordinates,
-        HighBlockState,
-        Option<Box<HighExecuteSubcommand>>,
-    ),
+    Block(Coordinates, BlockState, Option<Box<ExecuteSubcommand>>),
     Blocks(
         Coordinates,
         Coordinates,
         Coordinates,
         IfBlocksMode,
-        Option<Box<HighExecuteSubcommand>>,
+        Option<Box<ExecuteSubcommand>>,
     ),
-    Data(
-        HighDataTarget,
-        HighNbtPath,
-        Option<Box<HighExecuteSubcommand>>,
-    ),
-    Dimension(ResourceLocation, Option<Box<HighExecuteSubcommand>>),
-    Entity(HighEntitySelector, Option<Box<HighExecuteSubcommand>>),
-    Function(ResourceLocation, Option<Box<HighExecuteSubcommand>>),
+    Data(DataTarget, NbtPath, Option<Box<ExecuteSubcommand>>),
+    Dimension(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Entity(EntitySelector, Option<Box<ExecuteSubcommand>>),
+    Function(ResourceLocation, Option<Box<ExecuteSubcommand>>),
     Items(
-        HighItemSource,
+        ItemSource,
         String,
-        HighItemPredicate,
-        Option<Box<HighExecuteSubcommand>>,
+        ItemPredicate,
+        Option<Box<ExecuteSubcommand>>,
     ),
-    Loaded(ColumnPosition, Option<Box<HighExecuteSubcommand>>),
-    Predicate(ResourceLocation, Option<Box<HighExecuteSubcommand>>),
-    Score(
-        HighPlayerScore,
-        HighScoreComparison,
-        Option<Box<HighExecuteSubcommand>>,
-    ),
+    Loaded(ColumnPosition, Option<Box<ExecuteSubcommand>>),
+    Predicate(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Score(PlayerScore, ScoreComparison, Option<Box<ExecuteSubcommand>>),
 }
 
-impl HighExecuteIfSubcommand {
+impl ExecuteIfSubcommand {
     #[must_use]
-    pub fn then(self, next: HighExecuteSubcommand) -> Self {
+    pub fn then(self, next: ExecuteSubcommand) -> Self {
         match self {
             Self::Biome(coordinates, resource_location, high_execute_subcommand) => Self::Biome(
                 coordinates,
@@ -253,22 +244,22 @@ impl HighExecuteIfSubcommand {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ExecuteIfSubcommand {
+    ) -> LowExecuteIfSubcommand {
         match self {
             Self::Biome(coords, biome, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                ExecuteIfSubcommand::Biome(coords, biome, next)
+                LowExecuteIfSubcommand::Biome(coords, biome, next)
             }
             Self::Block(coordinates, state, next) => {
                 let state = state.compile(datapack, ctx);
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                ExecuteIfSubcommand::Block(coordinates, state, next)
+                LowExecuteIfSubcommand::Block(coordinates, state, next)
             }
             Self::Blocks(start, end, destination, mode, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                ExecuteIfSubcommand::Blocks(start, end, destination, mode, next)
+                LowExecuteIfSubcommand::Blocks(start, end, destination, mode, next)
             }
             Self::Data(target, path, next) => {
                 let target = target.compile(datapack, ctx);
@@ -276,34 +267,34 @@ impl HighExecuteIfSubcommand {
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                ExecuteIfSubcommand::Data(target.target, path, next)
+                LowExecuteIfSubcommand::Data(target.target, path, next)
             }
             Self::Dimension(location, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                ExecuteIfSubcommand::Dimension(location, next)
+                LowExecuteIfSubcommand::Dimension(location, next)
             }
             Self::Entity(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                ExecuteIfSubcommand::Entity(selector, next)
+                LowExecuteIfSubcommand::Entity(selector, next)
             }
             Self::Function(location, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
                 if let Some(next) = next {
-                    ExecuteIfSubcommand::Function(location, next)
+                    LowExecuteIfSubcommand::Function(location, next)
                 } else {
                     let mut req = datapack.requirements.get();
                     req.always_succeed_predicate = true;
                     datapack.requirements.set(req);
 
-                    ExecuteIfSubcommand::Function(
+                    LowExecuteIfSubcommand::Function(
                         location,
-                        Box::new(ExecuteSubcommand::If(
+                        Box::new(LowExecuteSubcommand::If(
                             false,
-                            ExecuteIfSubcommand::Predicate(
+                            LowExecuteIfSubcommand::Predicate(
                                 ResourceLocation::new_namespace_path("kelp", "always_succeed"),
                                 None,
                             ),
@@ -317,21 +308,21 @@ impl HighExecuteIfSubcommand {
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                ExecuteIfSubcommand::Items(source, name, predicate, next)
+                LowExecuteIfSubcommand::Items(source, name, predicate, next)
             }
             Self::Loaded(position, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                ExecuteIfSubcommand::Loaded(position, next)
+                LowExecuteIfSubcommand::Loaded(position, next)
             }
             Self::Predicate(location, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                ExecuteIfSubcommand::Predicate(location, next)
+                LowExecuteIfSubcommand::Predicate(location, next)
             }
             Self::Score(score, comparison, next) => {
                 let score = score.compile(datapack, ctx);
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                ExecuteIfSubcommand::Score(score.score, comparison.compile(datapack, ctx), next)
+                LowExecuteIfSubcommand::Score(score.score, comparison.compile(datapack, ctx), next)
             }
         }
     }

@@ -1,7 +1,10 @@
 use minecraft_command_types::{
     command::{
         Command,
-        data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
+        data::{
+            DataCommand, DataCommandModification, DataCommandModificationMode,
+            DataTarget as LowDataTarget,
+        },
     },
     coordinate::Coordinates,
     nbt_path::NbtPath,
@@ -10,22 +13,21 @@ use minecraft_command_types::{
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack,
-    high::entity_selector::HighEntitySelector, semantic_analysis_context::SemanticAnalysisContext,
-    span::Span,
+    compile_context::CompileContext, datapack::Datapack, high::entity_selector::EntitySelector,
+    semantic_analysis_context::SemanticAnalysisContext, span::Span,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct GeneratedDataTarget {
     pub is_generated: bool,
-    pub target: DataTarget,
+    pub target: LowDataTarget,
 }
 
 impl GeneratedDataTarget {
     #[must_use]
     pub fn as_unique_data(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
         path: NbtPath,
     ) -> (Self, NbtPath) {
@@ -46,16 +48,16 @@ impl GeneratedDataTarget {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighDataTargetKind {
+pub enum DataTargetKind {
     Block(Coordinates),
-    Entity(HighEntitySelector),
+    Entity(EntitySelector),
     Storage(ResourceLocation),
 }
 
-impl HighDataTargetKind {
+impl DataTargetKind {
     #[must_use]
-    pub const fn with_regular_span(self, span: Span) -> HighDataTarget {
-        HighDataTarget {
+    pub const fn with_regular_span(self, span: Span) -> DataTarget {
+        DataTarget {
             is_generated: false,
             span,
             kind: self,
@@ -63,8 +65,8 @@ impl HighDataTargetKind {
     }
 
     #[must_use]
-    pub const fn with_generated_span(self) -> HighDataTarget {
-        HighDataTarget {
+    pub const fn with_generated_span(self) -> DataTarget {
+        DataTarget {
             is_generated: true,
             span: Span::dummy(),
             kind: self,
@@ -84,27 +86,23 @@ impl HighDataTargetKind {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct HighDataTarget {
+pub struct DataTarget {
     pub is_generated: bool,
     pub span: Span,
-    pub kind: HighDataTargetKind,
+    pub kind: DataTargetKind,
 }
 
-impl HighDataTarget {
-    pub fn compile(
-        self,
-        datapack: &mut HighDatapack,
-        ctx: &mut CompileContext,
-    ) -> GeneratedDataTarget {
+impl DataTarget {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> GeneratedDataTarget {
         GeneratedDataTarget {
             is_generated: self.is_generated,
             target: match self.kind {
-                HighDataTargetKind::Block(coordinates) => DataTarget::Block(coordinates),
-                HighDataTargetKind::Entity(entity_selector) => {
-                    DataTarget::Entity(entity_selector.compile(datapack, ctx))
+                DataTargetKind::Block(coordinates) => LowDataTarget::Block(coordinates),
+                DataTargetKind::Entity(entity_selector) => {
+                    LowDataTarget::Entity(entity_selector.compile(datapack, ctx))
                 }
-                HighDataTargetKind::Storage(resource_location) => {
-                    DataTarget::Storage(resource_location)
+                DataTargetKind::Storage(resource_location) => {
+                    LowDataTarget::Storage(resource_location)
                 }
             },
         }

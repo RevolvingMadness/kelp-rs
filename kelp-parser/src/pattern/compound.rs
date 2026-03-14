@@ -1,8 +1,8 @@
 use kelp_core::{
-    high::snbt_string::HighSNBTString,
+    high::snbt_string::SNBTString,
     pattern::{Pattern, PatternKind},
 };
-use minecraft_command_types::snbt::SNBTString;
+use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::{CSTCompoundPattern, CSTCompoundPatternEntry},
@@ -14,7 +14,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_compound_pattern_entry(
     node: CSTCompoundPatternEntry,
-) -> Option<(HighSNBTString, Option<Pattern>)> {
+) -> Option<(SNBTString, Option<Pattern>)> {
     let entry_name_token = node.name()?;
     let entry_name_span = text_range_to_span(entry_name_token.text_range());
     let entry_name = entry_name_token.text();
@@ -22,8 +22,8 @@ pub fn lower_compound_pattern_entry(
     let entry_pattern = node.pattern().and_then(lower_pattern);
 
     Some((
-        HighSNBTString {
-            snbt_string: SNBTString(false, entry_name.to_owned()),
+        SNBTString {
+            snbt_string: LowSNBTString(false, entry_name.to_owned()),
             span: entry_name_span,
         },
         entry_pattern,

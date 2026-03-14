@@ -1,8 +1,8 @@
 use kelp_core::{
-    high::snbt_string::HighSNBTString,
+    high::snbt_string::SNBTString,
     pattern::{Pattern, PatternKind},
 };
-use minecraft_command_types::snbt::SNBTString;
+use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::{CSTStructPattern, CSTStructPatternField},
@@ -14,7 +14,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_pattern_field(
     node: CSTStructPatternField,
-) -> Option<(HighSNBTString, Option<Pattern>)> {
+) -> Option<(SNBTString, Option<Pattern>)> {
     let field_name_token = node.name()?;
     let field_name_span = text_range_to_span(field_name_token.text_range());
     let field_name = field_name_token.text();
@@ -22,8 +22,8 @@ pub fn lower_struct_pattern_field(
     let field_pattern = node.pattern().and_then(lower_pattern);
 
     Some((
-        HighSNBTString {
-            snbt_string: SNBTString(false, field_name.to_owned()),
+        SNBTString {
+            snbt_string: LowSNBTString(false, field_name.to_owned()),
             span: field_name_span,
         },
         field_pattern,

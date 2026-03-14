@@ -12,7 +12,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack,
+    compile_context::CompileContext, datapack::Datapack,
     high::player_score::GeneratedPlayerScore,
 };
 
@@ -60,7 +60,7 @@ where
 }
 
 pub fn compile_bitwise_and_score(
-    datapack: &mut HighDatapack,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     target: GeneratedPlayerScore,
     source: GeneratedPlayerScore,
@@ -213,7 +213,7 @@ pub fn compile_bitwise_and_score(
 }
 
 pub fn compile_bitwise_or_score(
-    datapack: &mut HighDatapack,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     target: GeneratedPlayerScore,
     source: GeneratedPlayerScore,
@@ -397,7 +397,7 @@ pub fn compile_bitwise_or_score(
 }
 
 pub fn compile_shift_operation_score(
-    datapack: &mut HighDatapack,
+    datapack: &mut Datapack,
     ctx: &mut CompileContext,
     target: GeneratedPlayerScore,
     amount: GeneratedPlayerScore,

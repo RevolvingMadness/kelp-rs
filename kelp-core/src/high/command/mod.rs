@@ -1,7 +1,7 @@
 use minecraft_command_types::{
     command::{
-        Command, enums::difficulty::Difficulty, r#return::ReturnCommand,
-        stopwatch::StopwatchCommand,
+        Command as LowCommand, enums::difficulty::Difficulty,
+        r#return::ReturnCommand as LowReturnCommand, stopwatch::StopwatchCommand,
     },
     coordinate::Coordinates,
     resource_location::ResourceLocation,
@@ -11,14 +11,14 @@ use minecraft_command_types_derive::HasMacro;
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::{
         command::{
-            data::HighDataCommand, execute::subcommand::HighExecuteSubcommand,
-            function::HighFunctionCommandArguments, r#return::HighReturnCommand,
-            scoreboard::HighScoreboardCommand,
+            data::DataCommand, execute::subcommand::ExecuteSubcommand,
+            function::FunctionCommandArguments, r#return::ReturnCommand,
+            scoreboard::ScoreboardCommand,
         },
-        entity_selector::HighEntitySelector,
+        entity_selector::EntitySelector,
         expression::Expression,
     },
     semantic_analysis_context::SemanticAnalysisContext,
@@ -31,21 +31,21 @@ pub mod r#return;
 pub mod scoreboard;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighCommand {
-    Regular(Command),
-    Data(HighDataCommand),
+pub enum Command {
+    Regular(LowCommand),
+    Data(DataCommand),
     Difficulty(Option<Difficulty>),
-    Enchant(HighEntitySelector, ResourceLocation, Option<i32>),
-    Execute(HighExecuteSubcommand),
-    Function(ResourceLocation, Option<HighFunctionCommandArguments>),
-    Tellraw(HighEntitySelector, Expression),
-    Return(HighReturnCommand),
-    Scoreboard(HighScoreboardCommand),
+    Enchant(EntitySelector, ResourceLocation, Option<i32>),
+    Execute(ExecuteSubcommand),
+    Function(ResourceLocation, Option<FunctionCommandArguments>),
+    Tellraw(EntitySelector, Expression),
+    Return(ReturnCommand),
+    Scoreboard(ScoreboardCommand),
     Stopwatch(StopwatchCommand),
     Summon(ResourceLocation, Option<Coordinates>, Option<Expression>),
 }
 
-impl HighCommand {
+impl Command {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -86,42 +86,42 @@ impl HighCommand {
         }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Command {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowCommand {
         match self {
             Self::Regular(command) => command,
-            Self::Data(data_command) => data_command.compile(datapack, ctx),
-            Self::Difficulty(difficulty) => Command::Difficulty(difficulty),
+            Self::Data(data_command) => LowCommand::Data(data_command.compile(datapack, ctx)),
+            Self::Difficulty(difficulty) => LowCommand::Difficulty(difficulty),
             Self::Enchant(selector, location, level) => {
-                Command::Enchant(selector.compile(datapack, ctx), location, level)
+                LowCommand::Enchant(selector.compile(datapack, ctx), location, level)
             }
             Self::Execute(execute_subcommand) => {
-                Command::Execute(execute_subcommand.compile(datapack, ctx))
+                LowCommand::Execute(execute_subcommand.compile(datapack, ctx))
             }
             Self::Function(id, arguments) => {
                 let compiled_arguments =
                     arguments.map(|arguments| arguments.compile(datapack, ctx));
-                Command::Function(id, compiled_arguments)
+                LowCommand::Function(id, compiled_arguments)
             }
             Self::Tellraw(selector, expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                Command::Tellraw(
+                LowCommand::Tellraw(
                     selector.compile(datapack, ctx),
                     expression.as_text_component(datapack, ctx, false),
                 )
             }
             Self::Return(command) => match command {
-                HighReturnCommand::Fail | HighReturnCommand::Value(0) => {
-                    Command::Return(ReturnCommand::Fail)
+                ReturnCommand::Fail | ReturnCommand::Value(0) => {
+                    LowCommand::Return(LowReturnCommand::Fail)
                 }
-                HighReturnCommand::Value(value) => Command::Return(ReturnCommand::Value(value)),
-                HighReturnCommand::Run(command) => {
-                    Command::Return(ReturnCommand::Run(Box::new(command.compile(datapack, ctx))))
-                }
+                ReturnCommand::Value(value) => LowCommand::Return(LowReturnCommand::Value(value)),
+                ReturnCommand::Run(command) => LowCommand::Return(LowReturnCommand::Run(Box::new(
+                    command.compile(datapack, ctx),
+                ))),
             },
-            Self::Scoreboard(command) => Command::Scoreboard(command.compile(datapack, ctx)),
-            Self::Stopwatch(command) => Command::Stopwatch(command),
-            Self::Summon(entity, position, nbt) => Command::Summon(
+            Self::Scoreboard(command) => LowCommand::Scoreboard(command.compile(datapack, ctx)),
+            Self::Stopwatch(command) => LowCommand::Stopwatch(command),
+            Self::Summon(entity, position, nbt) => LowCommand::Summon(
                 entity,
                 position,
                 nbt.map(|nbt| nbt.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),

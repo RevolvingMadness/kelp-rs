@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::command::HighCommand,
+    high::command::Command,
     high::expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
@@ -40,7 +40,7 @@ pub fn lower_function_command_expression(
     let resource_location = lower_resource_location(node.resource_location()?)?;
 
     Some(
-        ExpressionKind::Command(Box::new(HighCommand::Function(resource_location, None)))
+        ExpressionKind::Command(Box::new(Command::Function(resource_location, None)))
             .with_span(span),
     )
 }

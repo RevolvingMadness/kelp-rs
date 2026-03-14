@@ -1,23 +1,23 @@
-use minecraft_command_types::command::function::FunctionCommandArguments;
+use minecraft_command_types::command::function::FunctionCommandArguments as LowFunctionCommandArguments;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::expression::ExpressionCompoundKind,
-    high::{data::HighDataTarget, nbt_path::HighNbtPath},
+    high::{data::DataTarget, nbt_path::NbtPath},
     semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighFunctionCommandArguments {
+pub enum FunctionCommandArguments {
     Compound(ExpressionCompoundKind),
-    DataTarget(HighDataTarget, Option<HighNbtPath>),
+    DataTarget(DataTarget, Option<NbtPath>),
 }
 
-impl HighFunctionCommandArguments {
+impl FunctionCommandArguments {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -50,11 +50,11 @@ impl HighFunctionCommandArguments {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> FunctionCommandArguments {
+    ) -> LowFunctionCommandArguments {
         match self {
-            Self::Compound(compound) => FunctionCommandArguments::Compound(
+            Self::Compound(compound) => LowFunctionCommandArguments::Compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -68,7 +68,7 @@ impl HighFunctionCommandArguments {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                FunctionCommandArguments::DataTarget(target.target, path)
+                LowFunctionCommandArguments::DataTarget(target.target, path)
             }
         }
     }

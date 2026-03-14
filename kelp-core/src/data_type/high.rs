@@ -3,9 +3,9 @@ use std::{collections::BTreeMap, str::FromStr};
 use minecraft_command_types::impl_has_macro_false;
 
 use crate::{
-    data_type::{BuiltinDataTypeKind, DataTypeKind},
+    data_type::{BuiltinDataTypeKind, DataTypeKind as LowDataTypeKind},
     datapack::DataTypeDeclarationKind,
-    high::{snbt_string::HighSNBTString, supports_variable_type_scope::SupportsVariableTypeScope},
+    high::{snbt_string::SNBTString, supports_variable_type_scope::SupportsVariableTypeScope},
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
         SemanticAnalysisInfoKind,
@@ -15,26 +15,26 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum HighDataTypeKind {
-    Named(Span, String, Vec<HighDataType>),
-    TypedCompound(BTreeMap<HighSNBTString, HighDataType>),
-    Reference(Box<HighDataType>),
-    Tuple(Vec<HighDataType>),
+pub enum DataTypeKind {
+    Named(Span, String, Vec<DataType>),
+    TypedCompound(BTreeMap<SNBTString, DataType>),
+    Reference(Box<DataType>),
+    Tuple(Vec<DataType>),
     Unit,
     Inferred,
 }
 
-impl HighDataTypeKind {
+impl DataTypeKind {
     #[must_use]
-    pub const fn with_span(self, span: Span) -> HighDataType {
-        HighDataType { span, kind: self }
+    pub const fn with_span(self, span: Span) -> DataType {
+        DataType { span, kind: self }
     }
 
     pub fn resolve(
         &self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
         generic_names: Option<&Vec<String>>,
-    ) -> Option<DataTypeKind> {
+    ) -> Option<LowDataTypeKind> {
         Some(match self {
             Self::Named(_, name, generic_types) => {
                 let generic_types = generic_types
@@ -68,7 +68,7 @@ impl HighDataTypeKind {
                         alias,
                         ..
                     } => {
-                        let mut substitutions: BTreeMap<String, DataTypeKind> = BTreeMap::new();
+                        let mut substitutions: BTreeMap<String, LowDataTypeKind> = BTreeMap::new();
 
                         for (alias_generic_name, generic_type) in alias_generic_names
                             .into_iter()
@@ -80,14 +80,14 @@ impl HighDataTypeKind {
                         alias.substitute(&substitutions)?
                     }
                     DataTypeDeclarationKind::Struct { name, .. } => {
-                        DataTypeKind::Struct(name, generic_types)
+                        LowDataTypeKind::Struct(name, generic_types)
                     }
-                    DataTypeDeclarationKind::Generic(name) => DataTypeKind::Generic(name),
+                    DataTypeDeclarationKind::Generic(name) => LowDataTypeKind::Generic(name),
                     DataTypeDeclarationKind::Builtin(_) => unreachable!(),
                 }
             }
-            Self::Unit => DataTypeKind::Unit,
-            Self::Tuple(data_types) => DataTypeKind::Tuple(
+            Self::Unit => LowDataTypeKind::Unit,
+            Self::Tuple(data_types) => LowDataTypeKind::Tuple(
                 data_types
                     .iter()
                     .map(|data_type| {
@@ -97,12 +97,12 @@ impl HighDataTypeKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            Self::Reference(data_type) => DataTypeKind::Reference(Box::new(
+            Self::Reference(data_type) => LowDataTypeKind::Reference(Box::new(
                 data_type
                     .kind
                     .resolve(supports_variable_type_scope, generic_names)?,
             )),
-            Self::TypedCompound(compound) => DataTypeKind::TypedCompound(
+            Self::TypedCompound(compound) => LowDataTypeKind::TypedCompound(
                 compound
                     .iter()
                     .map(|(key, value)| {
@@ -113,20 +113,20 @@ impl HighDataTypeKind {
                     })
                     .collect::<Option<_>>()?,
             ),
-            Self::Inferred => DataTypeKind::Inferred,
+            Self::Inferred => LowDataTypeKind::Inferred,
         })
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighDataType {
+pub struct DataType {
     pub span: Span,
-    pub kind: HighDataTypeKind,
+    pub kind: DataTypeKind,
 }
 
-impl_has_macro_false!(HighDataType);
+impl_has_macro_false!(DataType);
 
-impl HighDataType {
+impl DataType {
     #[must_use]
     pub fn perform_semantic_analysis(
         &self,
@@ -134,7 +134,7 @@ impl HighDataType {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<()> {
         match &self.kind {
-            HighDataTypeKind::Named(name_span, name, generic_types) => {
+            DataTypeKind::Named(name_span, name, generic_types) => {
                 let actual_generic_count = generic_types.len();
 
                 if let Ok(builtin_type) = BuiltinDataTypeKind::from_str(name) {
@@ -180,7 +180,7 @@ impl HighDataType {
                             })
                             .all_some()?;
 
-                        let resolved_generic_types: Vec<DataTypeKind> = generic_types
+                        let resolved_generic_types: Vec<LowDataTypeKind> = generic_types
                             .iter()
                             .map(|generic| generic.kind.resolve(ctx, context_generics).unwrap())
                             .collect();
@@ -206,15 +206,15 @@ impl HighDataType {
                     }
                 }
             }
-            HighDataTypeKind::Unit | HighDataTypeKind::Inferred => {}
-            HighDataTypeKind::Tuple(data_types) => data_types
+            DataTypeKind::Unit | DataTypeKind::Inferred => {}
+            DataTypeKind::Tuple(data_types) => data_types
                 .iter()
                 .map(|data_type| data_type.perform_semantic_analysis(context_generics, ctx))
                 .all_some()?,
-            HighDataTypeKind::Reference(data_type) => {
+            DataTypeKind::Reference(data_type) => {
                 return data_type.perform_semantic_analysis(context_generics, ctx);
             }
-            HighDataTypeKind::TypedCompound(compound) => compound
+            DataTypeKind::TypedCompound(compound) => compound
                 .values()
                 .map(|value| value.perform_semantic_analysis(context_generics, ctx))
                 .all_some()?,

@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 
 use kelp_core::{
     high::expression::{Expression, ExpressionKind},
-    high::snbt_string::HighSNBTString,
+    high::snbt_string::SNBTString,
     semantic_analysis_context::SemanticAnalysisContext,
     span::Span,
 };
-use minecraft_command_types::snbt::SNBTString;
+use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::CSTCompoundExpression,
@@ -105,7 +105,7 @@ fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
 pub fn lower_compound_expression_inner(
     node: CSTCompoundExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<(Span, BTreeMap<HighSNBTString, Expression>)> {
+) -> Option<(Span, BTreeMap<SNBTString, Expression>)> {
     let mut compound = BTreeMap::new();
 
     for entry in node.entries() {
@@ -124,9 +124,9 @@ pub fn lower_compound_expression_inner(
         let key = key_token.text().to_owned();
 
         compound.insert(
-            HighSNBTString {
+            SNBTString {
                 span: key_span,
-                snbt_string: SNBTString(false, key),
+                snbt_string: LowSNBTString(false, key),
             },
             value,
         );

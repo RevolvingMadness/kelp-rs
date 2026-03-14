@@ -1,22 +1,24 @@
 use minecraft_command_types::{
-    item::{ItemPredicate, ItemTest, ItemType, OrGroup},
+    item::{
+        ItemPredicate as LowItemPredicate, ItemTest as LowItemTest, ItemType, OrGroup as LowOrGroup,
+    },
     resource_location::ResourceLocation,
 };
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::HighDatapack, high::expression::Expression,
+    compile_context::CompileContext, datapack::Datapack, high::expression::Expression,
     semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighItemTest {
+pub enum ItemTest {
     Component(ResourceLocation),
     ComponentMatches(ResourceLocation, Expression),
     Predicate(ResourceLocation, Expression),
 }
 
-impl HighItemTest {
+impl ItemTest {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -30,14 +32,14 @@ impl HighItemTest {
         }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> ItemTest {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemTest {
         match self {
-            Self::Component(location) => ItemTest::Component(location),
-            Self::ComponentMatches(location, value) => ItemTest::ComponentMatches(
+            Self::Component(location) => LowItemTest::Component(location),
+            Self::ComponentMatches(location, value) => LowItemTest::ComponentMatches(
                 location,
                 value.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
-            Self::Predicate(location, value) => ItemTest::Predicate(
+            Self::Predicate(location, value) => LowItemTest::Predicate(
                 location,
                 value.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
@@ -46,9 +48,9 @@ impl HighItemTest {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct HighOrGroup(pub Vec<(bool, HighItemTest)>);
+pub struct OrGroup(pub Vec<(bool, ItemTest)>);
 
-impl HighOrGroup {
+impl OrGroup {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -60,8 +62,8 @@ impl HighOrGroup {
             .all_some()
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> OrGroup {
-        OrGroup(
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowOrGroup {
+        LowOrGroup(
             self.0
                 .into_iter()
                 .map(|(negated, test)| (negated, test.compile(datapack, ctx)))
@@ -71,12 +73,12 @@ impl HighOrGroup {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct HighItemPredicate {
+pub struct ItemPredicate {
     pub id: ItemType,
-    pub or_groups: Vec<HighOrGroup>,
+    pub or_groups: Vec<OrGroup>,
 }
 
-impl HighItemPredicate {
+impl ItemPredicate {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -88,8 +90,8 @@ impl HighItemPredicate {
             .all_some()
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> ItemPredicate {
-        ItemPredicate {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemPredicate {
+        LowItemPredicate {
             id: self.id,
             or_groups: self
                 .or_groups

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use minecraft_command_types::command::{
-    Command,
+    Command as LowCommand,
     enums::store_type::StoreType,
     execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
 };
@@ -10,14 +10,14 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
-    data_type::{DataTypeKind, high::HighDataType},
-    datapack::HighDatapack,
+    data_type::{DataTypeKind, high::DataType},
+    datapack::Datapack,
     high::{
-        command::{HighCommand, execute::subcommand::r#if::HighExecuteIfSubcommand},
-        data::HighDataTarget,
-        nbt_path::HighNbtPath,
-        player_score::HighPlayerScore,
-        snbt_string::HighSNBTString,
+        command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
+        data::DataTarget,
+        nbt_path::NbtPath,
+        player_score::PlayerScore,
+        snbt_string::SNBTString,
     },
     low::expression::Expression as LowExpression,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -31,7 +31,7 @@ use crate::{
     trait_ext::OptionUnitIterExt,
 };
 
-pub type ExpressionCompoundKind = BTreeMap<HighSNBTString, Expression>;
+pub type ExpressionCompoundKind = BTreeMap<SNBTString, Expression>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum ExpressionKind {
@@ -44,7 +44,7 @@ pub enum ExpressionKind {
     Float(NotNan<f32>),
     InferredFloat(NotNan<f32>),
     Double(NotNan<f64>),
-    String(HighSNBTString),
+    String(SNBTString),
     Underscore,
     Unit,
     Unary(UnaryOperator, Box<Expression>),
@@ -55,21 +55,21 @@ pub enum ExpressionKind {
     Assignment(Box<Expression>, Box<Expression>),
     List(Vec<Expression>),
     Compound(ExpressionCompoundKind),
-    PlayerScore(HighPlayerScore),
-    Data(Box<(HighDataTarget, HighNbtPath)>),
-    Condition(bool, Box<HighExecuteIfSubcommand>),
-    Command(Box<HighCommand>),
+    PlayerScore(PlayerScore),
+    Data(Box<(DataTarget, NbtPath)>),
+    Condition(bool, Box<ExecuteIfSubcommand>),
+    Command(Box<Command>),
     Index(Box<Expression>, Box<Expression>),
-    FieldAccess(Box<Expression>, HighSNBTString),
-    AsCast(Box<Expression>, HighDataType),
+    FieldAccess(Box<Expression>, SNBTString),
+    AsCast(Box<Expression>, DataType),
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Variable(String),
     Struct(
         Span,
         String,
-        Vec<HighDataType>,
-        BTreeMap<HighSNBTString, Expression>,
+        Vec<DataType>,
+        BTreeMap<SNBTString, Expression>,
     ),
     Invalid,
     // TODO ByteArray(Vec<i8>),
@@ -100,7 +100,7 @@ impl ExpressionKind {
         Some((*index as usize) >= expressions.len())
     }
 
-    pub fn as_place(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Option<Place> {
+    pub fn as_place(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Place> {
         match self {
             Self::Invalid => unreachable!(),
 
@@ -283,7 +283,7 @@ impl ExpressionKind {
         })
     }
 
-    pub fn resolve(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> LowExpression {
+    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowExpression {
         match self {
             Self::Invalid => unreachable!(),
 
@@ -375,7 +375,7 @@ impl ExpressionKind {
 
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
+                    LowCommand::Execute(ExecuteSubcommand::Store(
                         StoreType::Result,
                         ExecuteStoreSubcommand::Score(
                             unique_score.score.clone(),
@@ -457,7 +457,7 @@ impl ExpressionKind {
         }
     }
 
-    pub fn compile_as_statement(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) {
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::Assignment(target, value) => {
                 let target_place = target.kind.as_place(datapack, ctx).unwrap();
@@ -486,7 +486,7 @@ impl ExpressionKind {
 
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::If(false, condition)),
+                    LowCommand::Execute(ExecuteSubcommand::If(false, condition)),
                 );
             }
             Self::Command(command) => {

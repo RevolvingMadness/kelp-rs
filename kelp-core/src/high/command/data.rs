@@ -1,6 +1,6 @@
-use minecraft_command_types::command::{
-    Command,
-    data::{DataCommand, DataCommandModification, DataCommandModificationMode},
+use minecraft_command_types::command::data::{
+    DataCommand as LowDataCommand, DataCommandModification as LowDataCommandModification,
+    DataCommandModificationMode,
 };
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
@@ -8,25 +8,20 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     data_type::DataTypeKind,
-    datapack::HighDatapack,
+    datapack::Datapack,
     high::expression::Expression,
-    high::{data::HighDataTarget, nbt_path::HighNbtPath},
+    high::{data::DataTarget, nbt_path::NbtPath},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighDataCommandModification {
-    From(HighDataTarget, Option<HighNbtPath>),
-    String(
-        HighDataTarget,
-        Option<HighNbtPath>,
-        Option<i32>,
-        Option<i32>,
-    ),
+pub enum DataCommandModification {
+    From(DataTarget, Option<NbtPath>),
+    String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
     Value(Box<Expression>),
 }
 
-impl HighDataCommandModification {
+impl DataCommandModification {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -63,47 +58,47 @@ impl HighDataCommandModification {
 
     pub fn compile(
         self,
-        datapack: &mut HighDatapack,
+        datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> DataCommandModification {
+    ) -> LowDataCommandModification {
         match self {
             Self::From(target, path) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                DataCommandModification::From(target.target, path)
+                LowDataCommandModification::From(target.target, path)
             }
             Self::String(target, path, start, end) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                DataCommandModification::String(target.target, path, start, end)
+                LowDataCommandModification::String(target.target, path, start, end)
             }
             Self::Value(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
                 let expression_snbt = expression.as_snbt_macros(ctx);
 
-                DataCommandModification::Value(expression_snbt)
+                LowDataCommandModification::Value(expression_snbt)
             }
         }
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum HighDataCommand {
-    Get(HighDataTarget, Option<HighNbtPath>, Option<NotNan<f32>>),
-    Merge(HighDataTarget, Box<Expression>),
+pub enum DataCommand {
+    Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
+    Merge(DataTarget, Box<Expression>),
     Modify(
-        HighDataTarget,
-        HighNbtPath,
+        DataTarget,
+        NbtPath,
         DataCommandModificationMode,
-        Box<HighDataCommandModification>,
+        Box<DataCommandModification>,
     ),
-    Remove(HighDataTarget, HighNbtPath),
+    Remove(DataTarget, NbtPath),
 }
 
-impl HighDataCommand {
+impl DataCommand {
     pub fn perform_semantic_analysis(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -157,17 +152,13 @@ impl HighDataCommand {
         }
     }
 
-    pub fn compile(self, datapack: &mut HighDatapack, ctx: &mut CompileContext) -> Command {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowDataCommand {
         match self {
             Self::Get(target, path, count) => {
                 let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.map(|path| path.compile(datapack, ctx));
 
-                Command::Data(DataCommand::Get(
-                    compiled_target.target,
-                    compiled_path,
-                    count,
-                ))
+                LowDataCommand::Get(compiled_target.target, compiled_path, count)
             }
             Self::Merge(target, expression) => {
                 let target = target.compile(datapack, ctx);
@@ -175,25 +166,25 @@ impl HighDataCommand {
 
                 let snbt = expression.as_snbt_macros(ctx);
 
-                Command::Data(DataCommand::Merge(target.target, snbt))
+                LowDataCommand::Merge(target.target, snbt)
             }
             Self::Modify(target, path, mode, modification) => {
                 let compiled_modification = modification.compile(datapack, ctx);
                 let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.compile(datapack, ctx);
 
-                Command::Data(DataCommand::Modify(
+                LowDataCommand::Modify(
                     compiled_target.target,
                     compiled_path,
                     mode,
                     compiled_modification,
-                ))
+                )
             }
             Self::Remove(target, path) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
-                Command::Data(DataCommand::Remove(target.target, path))
+                LowDataCommand::Remove(target.target, path)
             }
         }
     }

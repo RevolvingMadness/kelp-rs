@@ -17,13 +17,13 @@ impl ReturnCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleReturnCommand> {
         Some(match self {
             Self::Value(value) => MiddleReturnCommand::Value(value),
             Self::Fail => MiddleReturnCommand::Fail,
             Self::Run(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddleReturnCommand::Run(Box::new(command))
             }

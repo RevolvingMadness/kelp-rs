@@ -46,14 +46,13 @@ impl DataTarget {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<MiddleDataTarget> {
         Some(MiddleDataTarget {
             is_generated: self.is_generated,
             kind: match self.kind {
                 DataTargetKind::Block(coordinates) => MiddleDataTargetKind::Block(coordinates),
                 DataTargetKind::Entity(selector) => {
-                    let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+                    let selector = selector.perform_semantic_analysis(ctx)?;
 
                     MiddleDataTargetKind::Entity(selector)
                 }

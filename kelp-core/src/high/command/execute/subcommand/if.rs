@@ -50,21 +50,21 @@ impl ExecuteIfSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleExecuteIfSubcommand> {
         Some(match self {
             Self::Biome(coordinates, resource_location, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
                 MiddleExecuteIfSubcommand::Biome(coordinates, resource_location, next.map(Box::new))
             }
             Self::Block(coordinates, block_state, next) => {
-                let block_state = block_state.perform_semantic_analysis(ctx, is_lhs);
+                let block_state = block_state.perform_semantic_analysis(ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -74,17 +74,17 @@ impl ExecuteIfSubcommand {
             }
             Self::Blocks(start, end, desination, mode, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
                 MiddleExecuteIfSubcommand::Blocks(start, end, desination, mode, next.map(Box::new))
             }
             Self::Data(target, path, next) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let path = path.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -95,16 +95,16 @@ impl ExecuteIfSubcommand {
             }
             Self::Dimension(resource_location, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
                 MiddleExecuteIfSubcommand::Dimension(resource_location, next.map(Box::new))
             }
             Self::Entity(selector, next) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs);
+                let selector = selector.perform_semantic_analysis(ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -114,17 +114,17 @@ impl ExecuteIfSubcommand {
             }
             Self::Function(resource_location, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
                 MiddleExecuteIfSubcommand::Function(resource_location, next.map(Box::new))
             }
             Self::Items(item_source, slot, item_predicate, next) => {
-                let item_source = item_source.perform_semantic_analysis(ctx, is_lhs);
-                let item_predicate = item_predicate.perform_semantic_analysis(ctx, is_lhs);
+                let item_source = item_source.perform_semantic_analysis(ctx);
+                let item_predicate = item_predicate.perform_semantic_analysis(ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -140,7 +140,7 @@ impl ExecuteIfSubcommand {
             }
             Self::Loaded(column_position, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -148,17 +148,17 @@ impl ExecuteIfSubcommand {
             }
             Self::Predicate(resource_location, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
                 MiddleExecuteIfSubcommand::Predicate(resource_location, next.map(Box::new))
             }
             Self::Score(score, score_comparison, next) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs);
-                let score_comparison = score_comparison.perform_semantic_analysis(ctx, is_lhs);
+                let score = score.perform_semantic_analysis(ctx);
+                let score_comparison = score_comparison.perform_semantic_analysis(ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 

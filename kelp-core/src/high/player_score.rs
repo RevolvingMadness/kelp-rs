@@ -26,9 +26,9 @@ impl PlayerScore {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddlePlayerScore> {
-        let selector = self.selector.perform_semantic_analysis(ctx, is_lhs)?;
+        let selector = self.selector.perform_semantic_analysis(ctx)?;
 
         Some(MiddlePlayerScore {
             is_generated: self.is_generated,

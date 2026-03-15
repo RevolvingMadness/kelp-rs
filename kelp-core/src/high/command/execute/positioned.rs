@@ -19,12 +19,12 @@ impl Positioned {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddlePositioned> {
         Some(match self {
             Self::Position(coordinates) => MiddlePositioned::Position(coordinates),
             Self::As(selector) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+                let selector = selector.perform_semantic_analysis(ctx)?;
 
                 MiddlePositioned::As(selector)
             }

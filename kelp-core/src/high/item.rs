@@ -37,11 +37,10 @@ impl Item {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<MiddleItem> {
         Some(match self.kind {
             ItemKind::MCFNDeclaration(resource_location, statement) => {
-                let statement = statement.perform_semantic_analysis(ctx, is_lhs)?;
+                let statement = statement.perform_semantic_analysis(ctx)?;
 
                 MiddleItem::MCFNDeclaration(resource_location, Box::new(statement))
             }

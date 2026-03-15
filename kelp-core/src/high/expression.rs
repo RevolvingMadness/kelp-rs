@@ -280,13 +280,12 @@ impl Expression {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<(Span, MiddleExpression)> {
         let expression: MiddleExpression = match self.kind {
             ExpressionKind::Invalid => return None,
 
             ExpressionKind::Unary(operator, expression) => {
-                let (span, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (span, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 match operator {
                     UnaryOperator::Negate => {
@@ -355,8 +354,8 @@ impl Expression {
                 }
             }
             ExpressionKind::Arithmetic(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx, is_lhs);
-                let right = right.perform_semantic_analysis(ctx, is_lhs);
+                let left = left.perform_semantic_analysis(ctx);
+                let right = right.perform_semantic_analysis(ctx);
 
                 let (_, left) = left?;
                 let (_, right) = right?;
@@ -396,8 +395,8 @@ impl Expression {
                     .with(result_type)
             }
             ExpressionKind::Comparison(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx, is_lhs);
-                let right = right.perform_semantic_analysis(ctx, is_lhs);
+                let left = left.perform_semantic_analysis(ctx);
+                let right = right.perform_semantic_analysis(ctx);
 
                 let (_, left) = left?;
                 let (_, right) = right?;
@@ -423,8 +422,8 @@ impl Expression {
                     .with(DataTypeKind::Boolean)
             }
             ExpressionKind::Logical(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx, is_lhs);
-                let right = right.perform_semantic_analysis(ctx, is_lhs);
+                let left = left.perform_semantic_analysis(ctx);
+                let right = right.perform_semantic_analysis(ctx);
 
                 let (left_span, left) = left?;
                 let (right_span, right) = right?;
@@ -464,13 +463,13 @@ impl Expression {
                     });
                 };
 
-                let (value_span, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
                 place.perform_augmented_assignment_semantic_analysis(
                     ctx, operator, value_span, &value,
                 )?;
 
-                let (_, target) = target.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, target) = target.perform_semantic_analysis(ctx)?;
 
                 MiddleExpressionKind::AugmentedAssignment(
                     Box::new(target),
@@ -489,11 +488,13 @@ impl Expression {
                     });
                 };
 
-                let (value_span, value) = value.perform_semantic_analysis(ctx, true)?;
+                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
                 place.perform_assignment_semantic_analysis(ctx, value_span, &value)?;
 
-                let (_, target) = target.perform_semantic_analysis(ctx, true)?;
+                ctx.is_lhs = true;
+                let (_, target) = target.perform_semantic_analysis(ctx)?;
+                ctx.is_lhs = false;
 
                 MiddleExpressionKind::Assignment(Box::new(target), Box::new(value))
                     .with(DataTypeKind::Unit)
@@ -502,7 +503,7 @@ impl Expression {
                 let expressions = expressions
                     .into_iter()
                     .map(|expression| {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                         Some(expression)
                     })
@@ -515,7 +516,7 @@ impl Expression {
                 let compound_values = compound_values
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, value) = value.perform_semantic_analysis(ctx)?;
 
                         Some((key.snbt_string, value))
                     })
@@ -530,7 +531,7 @@ impl Expression {
                     .with(DataTypeKind::TypedCompound(compound_data_types))
             }
             ExpressionKind::PlayerScore(score) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
+                let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddleExpressionKind::PlayerScore(score)
                     .with(DataTypeKind::Score(Box::new(DataTypeKind::Integer)))
@@ -538,8 +539,8 @@ impl Expression {
             ExpressionKind::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let path = path.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
                 let target = target?;
                 let path = path?;
@@ -548,19 +549,19 @@ impl Expression {
                     .with(DataTypeKind::Data(Box::new(DataTypeKind::SNBT)))
             }
             ExpressionKind::Condition(inverted, condition) => {
-                let condition = condition.perform_semantic_analysis(ctx, is_lhs)?;
+                let condition = condition.perform_semantic_analysis(ctx)?;
 
                 MiddleExpressionKind::Condition(inverted, Box::new(condition))
                     .with(DataTypeKind::Boolean)
             }
             ExpressionKind::Command(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddleExpressionKind::Command(Box::new(command)).with(DataTypeKind::Integer)
             }
             ExpressionKind::Index(target, index) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let index = index.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let index = index.perform_semantic_analysis(ctx);
 
                 let (target_span, target) = target?;
                 let (index_span, index) = index?;
@@ -587,7 +588,7 @@ impl Expression {
                 MiddleExpressionKind::Index(Box::new(target), Box::new(index)).with(index_result)
             }
             ExpressionKind::FieldAccess(expression, field) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 if !expression.data_type.has_fields() {
                     return ctx.add_info(SemanticAnalysisInfo {
@@ -598,7 +599,7 @@ impl Expression {
                     });
                 }
 
-                let (field_span, field) = field.perform_semantic_analysis(ctx, is_lhs);
+                let (field_span, field) = field.perform_semantic_analysis(ctx);
 
                 let Some(field_result) = expression.data_type.get_field_result(ctx, &field.1)
                 else {
@@ -616,7 +617,7 @@ impl Expression {
                 MiddleExpressionKind::FieldAccess(Box::new(expression), field).with(field_result)
             }
             ExpressionKind::AsCast(expression, data_type) => {
-                let expression = expression.perform_semantic_analysis(ctx, is_lhs);
+                let expression = expression.perform_semantic_analysis(ctx);
                 let data_type = data_type.perform_semantic_analysis(None, ctx);
 
                 let (_, expression) = expression?;
@@ -639,8 +640,7 @@ impl Expression {
             }
             ExpressionKind::ToCast(expression, runtime_storage_type) => {
                 let (scale, expression) = expression.extract_scale();
-                let (expression_span, expression) =
-                    expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 let data_type = match runtime_storage_type {
                     RuntimeStorageType::Score => {
@@ -672,7 +672,7 @@ impl Expression {
                     .into_iter()
                     .map(|expression| {
                         expression
-                            .perform_semantic_analysis(ctx, is_lhs)
+                            .perform_semantic_analysis(ctx)
                             .map(|(_, expression)| expression)
                     })
                     .collect_option_all::<Vec<_>>()?;
@@ -737,7 +737,7 @@ impl Expression {
                             return None;
                         }
 
-                        let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, value) = value.perform_semantic_analysis(ctx)?;
 
                         Some((key.snbt_string, value))
                     })
@@ -808,6 +808,11 @@ impl Expression {
                 MiddleExpressionKind::String(value.snbt_string).with(DataTypeKind::String)
             }
             ExpressionKind::Underscore => {
+                if !ctx.is_lhs {
+                    return ctx
+                        .add_error_ret(self.span, SemanticAnalysisError::UnderscoreExpression);
+                }
+
                 MiddleExpressionKind::Underscore.with(DataTypeKind::Inferred)
             }
             ExpressionKind::Unit => MiddleExpressionKind::Unit.with(DataTypeKind::Unit),

@@ -45,7 +45,7 @@ impl EntitySelectorOption {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleEntitySelectorOption> {
         Some(match self {
             Self::X(x) => MiddleEntitySelectorOption::X(x),
@@ -70,7 +70,7 @@ impl EntitySelectorOption {
                 MiddleEntitySelectorOption::Predicate(inverted, resource_location)
             }
             Self::Nbt(inverted, expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleEntitySelectorOption::Nbt(inverted, Box::new(expression))
             }

@@ -22,17 +22,16 @@ impl ItemTest {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<MiddleItemTest> {
         Some(match self {
             Self::Component(resource_location) => MiddleItemTest::Component(resource_location),
             Self::ComponentMatches(resource_location, expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleItemTest::ComponentMatches(resource_location, expression)
             }
             Self::Predicate(resource_location, expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleItemTest::Predicate(resource_location, expression)
             }
@@ -48,13 +47,12 @@ impl OrGroup {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<MiddleOrGroup> {
         let tests = self
             .0
             .into_iter()
             .map(|(inverted, test)| {
-                let test = test.perform_semantic_analysis(ctx, is_lhs)?;
+                let test = test.perform_semantic_analysis(ctx)?;
 
                 Some((inverted, test))
             })
@@ -75,12 +73,11 @@ impl ItemPredicate {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<MiddleItemPredicate> {
         let or_groups = self
             .or_groups
             .into_iter()
-            .map(|or_group| or_group.perform_semantic_analysis(ctx, is_lhs))
+            .map(|or_group| or_group.perform_semantic_analysis(ctx))
             .collect_option_all()?;
 
         Some(MiddleItemPredicate {

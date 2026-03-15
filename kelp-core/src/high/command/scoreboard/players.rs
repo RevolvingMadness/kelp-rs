@@ -23,17 +23,17 @@ impl ScoreboardNumberFormat {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleScoreboardNumberFormat> {
         Some(match self {
             Self::Blank => MiddleScoreboardNumberFormat::Blank,
             Self::Fixed(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleScoreboardNumberFormat::Fixed(expression)
             }
             Self::Styled(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleScoreboardNumberFormat::Styled(expression)
             }
@@ -52,14 +52,14 @@ impl PlayersDisplayScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddlePlayersDisplayScoreboardCommand> {
         Some(match self {
             Self::Name(score, expression) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs);
+                let score = score.perform_semantic_analysis(ctx);
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                         Some(expression)
                     }
@@ -71,10 +71,10 @@ impl PlayersDisplayScoreboardCommand {
                 MiddlePlayersDisplayScoreboardCommand::Name(score, expression)
             }
             Self::NumberFormat(score, number_format) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs);
+                let score = score.perform_semantic_analysis(ctx);
                 let number_format = match number_format {
                     Some(number_format) => {
-                        Some(number_format.perform_semantic_analysis(ctx, is_lhs)?)
+                        Some(number_format.perform_semantic_analysis(ctx)?)
                     }
                     None => None,
                 };
@@ -105,50 +105,50 @@ impl PlayersScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddlePlayersScoreboardCommand> {
         Some(match self {
             Self::List(selector) => {
                 let selector = match selector {
-                    Some(selector) => Some(selector.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(selector) => Some(selector.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
                 MiddlePlayersScoreboardCommand::List(selector)
             }
             Self::Get(score) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
+                let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddlePlayersScoreboardCommand::Get(score)
             }
             Self::Set(score, value) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
+                let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddlePlayersScoreboardCommand::Set(score, value)
             }
             Self::Add(score, amount) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
+                let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddlePlayersScoreboardCommand::Add(score, amount)
             }
             Self::Remove(score, amount) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
+                let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddlePlayersScoreboardCommand::Remove(score, amount)
             }
             Self::Reset(selector, objective) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+                let selector = selector.perform_semantic_analysis(ctx)?;
 
                 MiddlePlayersScoreboardCommand::Reset(selector, objective)
             }
             Self::Enable(score) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
+                let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddlePlayersScoreboardCommand::Enable(score)
             }
             Self::Operation(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx, is_lhs);
-                let right = right.perform_semantic_analysis(ctx, is_lhs);
+                let left = left.perform_semantic_analysis(ctx);
+                let right = right.perform_semantic_analysis(ctx);
 
                 let left = left?;
                 let right = right?;
@@ -156,7 +156,7 @@ impl PlayersScoreboardCommand {
                 MiddlePlayersScoreboardCommand::Operation(left, operator, right)
             }
             Self::Display(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddlePlayersScoreboardCommand::Display(Box::new(command))
             }

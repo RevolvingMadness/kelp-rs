@@ -21,16 +21,16 @@ impl ScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleScoreboardCommand> {
         Some(match self {
             Self::Objectives(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddleScoreboardCommand::Objectives(Box::new(command))
             }
             Self::Players(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddleScoreboardCommand::Players(command)
             }

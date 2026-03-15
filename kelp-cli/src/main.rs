@@ -224,7 +224,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let start_semantic = Instant::now();
     let items = items
         .into_iter()
-        .filter_map(|item| item.perform_semantic_analysis(&mut semantic_analysis_context, false))
+        .filter_map(|item| item.perform_semantic_analysis(&mut semantic_analysis_context))
         .collect();
     let semantic_elapsed = start_semantic.elapsed();
     let semantic_analysis_succeeded = semantic_analysis_context.infos.is_empty();

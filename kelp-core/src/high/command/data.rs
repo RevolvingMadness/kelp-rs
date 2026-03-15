@@ -22,13 +22,13 @@ impl DataCommandModification {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleDataCommandModification> {
         Some(match self {
             Self::From(target, path) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -37,9 +37,9 @@ impl DataCommandModification {
                 MiddleDataCommandModification::From(target, path)
             }
             Self::String(target, path, start, end) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -48,7 +48,7 @@ impl DataCommandModification {
                 MiddleDataCommandModification::String(target, path, start, end)
             }
             Self::Value(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleDataCommandModification::Value(Box::new(expression))
             }
@@ -73,13 +73,13 @@ impl DataCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleDataCommand> {
         Some(match self {
             Self::Get(target, path, scale) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -88,8 +88,8 @@ impl DataCommand {
                 MiddleDataCommand::Get(target, path, scale)
             }
             Self::Merge(target, expression) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let expression = expression.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let expression = expression.perform_semantic_analysis(ctx);
 
                 let target = target?;
                 let (_, expression) = expression?;
@@ -97,9 +97,9 @@ impl DataCommand {
                 MiddleDataCommand::Merge(target, Box::new(expression))
             }
             Self::Modify(target, path, mode, modification) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let path = path.perform_semantic_analysis(ctx, is_lhs);
-                let modification = modification.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
+                let modification = modification.perform_semantic_analysis(ctx);
 
                 let target = target?;
                 let path = path?;
@@ -108,8 +108,8 @@ impl DataCommand {
                 MiddleDataCommand::Modify(target, path, mode, Box::new(modification))
             }
             Self::Remove(target, path) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let path = path.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
                 let target = target?;
                 let path = path?;

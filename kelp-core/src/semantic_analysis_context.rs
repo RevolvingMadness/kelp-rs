@@ -209,6 +209,7 @@ pub struct SemanticAnalysisContext {
     pub max_infos: usize,
     pub scopes: Scopes,
     pub loop_depth: u32,
+    pub is_lhs: bool,
 }
 
 impl SemanticAnalysisContext {

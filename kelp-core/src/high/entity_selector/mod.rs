@@ -20,13 +20,13 @@ impl EntitySelector {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleEntitySelector> {
         Some(match self {
             Self::Variable(variable, options) => {
                 let options = options
                     .into_iter()
-                    .map(|option| option.perform_semantic_analysis(ctx, is_lhs))
+                    .map(|option| option.perform_semantic_analysis(ctx))
                     .collect_option_all()?;
 
                 MiddleEntitySelector::Variable(variable, options)

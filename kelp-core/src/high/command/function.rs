@@ -19,15 +19,15 @@ impl FunctionCommandArguments {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleFunctionCommandArguments> {
         Some(match self {
             Self::Compound(compound) => {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, key) = key.perform_semantic_analysis(ctx, is_lhs);
-                        let value = value.perform_semantic_analysis(ctx, is_lhs);
+                        let (_, key) = key.perform_semantic_analysis(ctx);
+                        let value = value.perform_semantic_analysis(ctx);
 
                         let (_, value) = value?;
 
@@ -38,9 +38,9 @@ impl FunctionCommandArguments {
                 MiddleFunctionCommandArguments::Compound(compound)
             }
             Self::DataTarget(target, path) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx, is_lhs)?),
+                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 

@@ -23,21 +23,21 @@ impl ScoreboardModification {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleScoreboardModification> {
         Some(match self {
             Self::DisplayAutoUpdate(auto_update) => {
                 MiddleScoreboardModification::DisplayAutoUpdate(auto_update)
             }
             Self::DisplayName(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleScoreboardModification::DisplayName(expression)
             }
             Self::NumberFormat(number_format) => {
                 let number_format = match number_format {
                     Some(number_format) => {
-                        Some(number_format.perform_semantic_analysis(ctx, is_lhs)?)
+                        Some(number_format.perform_semantic_analysis(ctx)?)
                     }
                     None => None,
                 };
@@ -62,14 +62,14 @@ impl ObjectivesScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleObjectivesScoreboardCommand> {
         Some(match self {
             Self::List => MiddleObjectivesScoreboardCommand::List,
             Self::Add(name, criterion, expression) => {
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                         Some(expression)
                     }
@@ -83,7 +83,7 @@ impl ObjectivesScoreboardCommand {
                 MiddleObjectivesScoreboardCommand::SetDisplay(position, objective)
             }
             Self::Modify(objective, modification) => {
-                let modification = modification.perform_semantic_analysis(ctx, is_lhs)?;
+                let modification = modification.perform_semantic_analysis(ctx)?;
 
                 MiddleObjectivesScoreboardCommand::Modify(objective, modification)
             }

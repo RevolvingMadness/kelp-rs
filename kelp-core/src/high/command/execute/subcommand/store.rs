@@ -32,13 +32,13 @@ impl ExecuteStoreSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleExecuteStoreSubcommand> {
         Some(match self {
             Self::Data(target, path, snbt_type, scale, next) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let path = path.perform_semantic_analysis(ctx, is_lhs);
-                let next = next.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
+                let next = next.perform_semantic_analysis(ctx);
 
                 let target = target?;
                 let path = path?;
@@ -47,13 +47,13 @@ impl ExecuteStoreSubcommand {
                 MiddleExecuteStoreSubcommand::Data(target, path, snbt_type, scale, Box::new(next))
             }
             Self::Bossbar(resource_location, store_type, next) => {
-                let next = next.perform_semantic_analysis(ctx, is_lhs)?;
+                let next = next.perform_semantic_analysis(ctx)?;
 
                 MiddleExecuteStoreSubcommand::Bossbar(resource_location, store_type, Box::new(next))
             }
             Self::Score(score, next) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs);
-                let next = next.perform_semantic_analysis(ctx, is_lhs);
+                let score = score.perform_semantic_analysis(ctx);
+                let next = next.perform_semantic_analysis(ctx);
 
                 let score = score?;
                 let next = next?;

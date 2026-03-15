@@ -100,11 +100,11 @@ impl Statement {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleStatement> {
         Some(match self.kind {
             StatementKind::Expression(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 MiddleStatement::Expression(expression)
             }
@@ -124,7 +124,7 @@ impl Statement {
                     None => None,
                 };
 
-                let (value_span, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
                 let variable_type = explicit_type.unwrap_or_else(|| value.data_type.clone());
 
@@ -149,10 +149,10 @@ impl Statement {
                 MiddleStatement::Let(variable_type, pattern, value)
             }
             StatementKind::While(condition, body) => {
-                let condition = condition.perform_semantic_analysis(ctx, is_lhs);
+                let condition = condition.perform_semantic_analysis(ctx);
 
                 ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx, is_lhs);
+                let body = body.perform_semantic_analysis(ctx);
                 ctx.loop_depth -= 1;
 
                 let (condition_span, condition) = condition?;
@@ -172,7 +172,7 @@ impl Statement {
             }
             StatementKind::Loop(body) => {
                 ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx, is_lhs);
+                let body = body.perform_semantic_analysis(ctx);
                 ctx.loop_depth -= 1;
 
                 let body = body?;
@@ -181,11 +181,11 @@ impl Statement {
             }
             StatementKind::Match(_, _) => todo!(),
             StatementKind::If(condition, statement, else_statement) => {
-                let condition = condition.perform_semantic_analysis(ctx, is_lhs);
-                let statement = statement.perform_semantic_analysis(ctx, is_lhs);
+                let condition = condition.perform_semantic_analysis(ctx);
+                let statement = statement.perform_semantic_analysis(ctx);
                 let else_statement = match else_statement {
                     Some(else_statement) => {
-                        Some(else_statement.perform_semantic_analysis(ctx, is_lhs)?)
+                        Some(else_statement.perform_semantic_analysis(ctx)?)
                     }
                     None => None,
                 };
@@ -207,9 +207,9 @@ impl Statement {
             }
             StatementKind::ForIn(is_reversed, name, iterable, statement) => {
                 let (expression_span, iterable) =
-                    iterable.perform_semantic_analysis(ctx, is_lhs)?;
+                    iterable.perform_semantic_analysis(ctx)?;
 
-                let statement = statement.perform_semantic_analysis(ctx, is_lhs);
+                let statement = statement.perform_semantic_analysis(ctx);
 
                 let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
                     ctx.declare_variable_unknown(&name);
@@ -235,7 +235,7 @@ impl Statement {
 
                 let statements = statements
                     .into_iter()
-                    .map(|statement| statement.perform_semantic_analysis(ctx, is_lhs))
+                    .map(|statement| statement.perform_semantic_analysis(ctx))
                     .collect_option_all();
 
                 ctx.scopes.pop();
@@ -245,8 +245,8 @@ impl Statement {
                 MiddleStatement::Block(statements)
             }
             StatementKind::Append(target, value) => {
-                let target = target.perform_semantic_analysis(ctx, is_lhs);
-                let value = value.perform_semantic_analysis(ctx, is_lhs);
+                let target = target.perform_semantic_analysis(ctx);
+                let value = value.perform_semantic_analysis(ctx);
 
                 let (_, target) = target?;
                 let (_, value) = value?;
@@ -254,7 +254,7 @@ impl Statement {
                 MiddleStatement::Append(target, Box::new(value))
             }
             StatementKind::Remove(target) => {
-                let (_, target) = target.perform_semantic_analysis(ctx, is_lhs)?;
+                let (_, target) = target.perform_semantic_analysis(ctx)?;
 
                 MiddleStatement::Remove(target)
             }
@@ -283,7 +283,7 @@ impl Statement {
                 MiddleStatement::Continue
             }
             StatementKind::Item(item) => {
-                let item = item.perform_semantic_analysis(ctx, is_lhs)?;
+                let item = item.perform_semantic_analysis(ctx)?;
 
                 MiddleStatement::Item(Box::new(item))
             }

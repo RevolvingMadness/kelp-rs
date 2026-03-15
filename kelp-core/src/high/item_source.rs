@@ -17,12 +17,11 @@ impl ItemSource {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<MiddleItemSource> {
         Some(match self {
             Self::Block(coordinates) => MiddleItemSource::Block(coordinates),
             Self::Entity(selector) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+                let selector = selector.perform_semantic_analysis(ctx)?;
 
                 MiddleItemSource::Entity(selector)
             }

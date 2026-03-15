@@ -21,15 +21,14 @@ impl BlockState {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
     ) -> Option<MiddleBlockState> {
         let data_tags = match self.data_tags {
             Some(data_tags) => Some(
                 data_tags
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, key) = key.perform_semantic_analysis(ctx, is_lhs);
-                        let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, key) = key.perform_semantic_analysis(ctx);
+                        let (_, value) = value.perform_semantic_analysis(ctx)?;
 
                         Some((key, value))
                     })

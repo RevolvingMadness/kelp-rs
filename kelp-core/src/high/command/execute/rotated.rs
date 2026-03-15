@@ -18,12 +18,12 @@ impl Rotated {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleRotated> {
         Some(match self {
             Self::Rotation(rotation) => MiddleRotated::Rotation(rotation),
             Self::As(selector) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+                let selector = selector.perform_semantic_analysis(ctx)?;
 
                 MiddleRotated::As(selector)
             }

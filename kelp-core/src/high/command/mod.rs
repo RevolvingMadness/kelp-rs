@@ -44,7 +44,7 @@ impl Command {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleCommand> {
         Some(match self {
             Self::Regular(command) => {
@@ -53,33 +53,33 @@ impl Command {
                 MiddleCommand::Regular(command)
             }
             Self::Data(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddleCommand::Data(command)
             }
             Self::Difficulty(difficulty) => MiddleCommand::Difficulty(difficulty),
             Self::Stopwatch(command) => MiddleCommand::Stopwatch(command),
             Self::Enchant(selector, enchantment, level) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+                let selector = selector.perform_semantic_analysis(ctx)?;
 
                 MiddleCommand::Enchant(selector, enchantment, level)
             }
             Self::Execute(subcommand) => {
-                let subcommand = subcommand.perform_semantic_analysis(ctx, is_lhs)?;
+                let subcommand = subcommand.perform_semantic_analysis(ctx)?;
 
                 MiddleCommand::Execute(subcommand)
             }
             Self::Function(resource_location, arguments) => {
                 let arguments = match arguments {
-                    Some(arguments) => Some(arguments.perform_semantic_analysis(ctx, is_lhs))?,
+                    Some(arguments) => Some(arguments.perform_semantic_analysis(ctx))?,
                     None => None,
                 };
 
                 MiddleCommand::Function(resource_location, arguments)
             }
             Self::Tellraw(selector, expression) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs);
-                let expression = expression.perform_semantic_analysis(ctx, is_lhs);
+                let selector = selector.perform_semantic_analysis(ctx);
+                let expression = expression.perform_semantic_analysis(ctx);
 
                 let selector = selector?;
                 let (_, expression) = expression?;
@@ -87,19 +87,19 @@ impl Command {
                 MiddleCommand::Tellraw(selector, expression)
             }
             Self::Return(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddleCommand::Return(command)
             }
             Self::Scoreboard(command) => {
-                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+                let command = command.perform_semantic_analysis(ctx)?;
 
                 MiddleCommand::Scoreboard(command)
             }
             Self::Summon(resource_location, coordinates, expression) => {
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                         Some(expression)
                     }

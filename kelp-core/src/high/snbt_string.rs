@@ -34,7 +34,6 @@ impl SNBTString {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        _is_lhs: bool,
     ) -> (Span, LowSNBTString) {
         if self.snbt_string.has_macro_conflict() {
             ctx.add_info::<()>(SemanticAnalysisInfo {

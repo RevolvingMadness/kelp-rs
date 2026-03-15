@@ -22,15 +22,15 @@ impl NbtPathNode {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleNbtPathNode> {
         Some(match self {
             Self::RootCompound(compound) => {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, key) = key.perform_semantic_analysis(ctx, is_lhs);
-                        let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, key) = key.perform_semantic_analysis(ctx);
+                        let (_, value) = value.perform_semantic_analysis(ctx)?;
 
                         Some((key, value))
                     })
@@ -39,14 +39,14 @@ impl NbtPathNode {
                 MiddleNbtPathNode::RootCompound(compound)
             }
             Self::Named(name, compound) => {
-                let (_, name) = name.perform_semantic_analysis(ctx, is_lhs);
+                let (_, name) = name.perform_semantic_analysis(ctx);
                 let compound = match compound {
                     Some(compound) => Some(
                         compound
                             .into_iter()
                             .map(|(key, value)| {
-                                let (_, key) = key.perform_semantic_analysis(ctx, is_lhs);
-                                let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+                                let (_, key) = key.perform_semantic_analysis(ctx);
+                                let (_, value) = value.perform_semantic_analysis(ctx)?;
 
                                 Some((key, value))
                             })
@@ -60,7 +60,7 @@ impl NbtPathNode {
             Self::Index(expression) => {
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                         Some(expression)
                     }
@@ -80,13 +80,13 @@ impl NbtPath {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleNbtPath> {
         Some(MiddleNbtPath(
             NonEmpty::from_vec(
                 self.0
                     .into_iter()
-                    .map(|node| node.perform_semantic_analysis(ctx, is_lhs))
+                    .map(|node| node.perform_semantic_analysis(ctx))
                     .collect_option_all()?,
             )
             .unwrap(),

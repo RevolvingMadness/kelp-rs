@@ -16,12 +16,12 @@ impl ScoreComparison {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleScoreComparison> {
         Some(match self {
             Self::Range(range) => MiddleScoreComparison::Range(range),
             Self::Score(operator, score) => {
-                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
+                let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddleScoreComparison::Score(operator, score)
             }

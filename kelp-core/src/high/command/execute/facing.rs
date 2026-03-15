@@ -20,12 +20,12 @@ impl Facing {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
+        
     ) -> Option<MiddleFacing> {
         Some(match self {
             Self::Position(coordinates) => MiddleFacing::Position(coordinates),
             Self::Entity(selector, anchor) => {
-                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+                let selector = selector.perform_semantic_analysis(ctx)?;
 
                 MiddleFacing::Entity(selector, anchor)
             }

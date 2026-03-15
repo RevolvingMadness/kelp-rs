@@ -4,10 +4,10 @@ use minecraft_command_types::{nbt_path::NbtPathNode, snbt::SNBT};
 
 use crate::{
     compile_context::CompileContext,
-    data_type::DataTypeKind,
     datapack::Datapack,
     high::snbt_string::SNBTString,
     low::expression::{Expression, literal::LiteralExpression},
+    middle::data_type::DataTypeKind,
     pattern_type::PatternType,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,

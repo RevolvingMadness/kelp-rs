@@ -8,9 +8,7 @@ use minecraft_command_types::{
     snbt::SNBT,
 };
 
-use crate::{
-    datapack::Datapack, high::data::GeneratedDataTarget, low::expression::Expression,
-};
+use crate::{data::GeneratedDataTarget, datapack::Datapack, low::expression::Expression};
 
 #[derive(Debug, Clone)]
 pub enum LoopType {

@@ -1,26 +1,17 @@
 use minecraft_command_types::{
-    column_position::ColumnPosition,
-    command::{
-        enums::if_blocks_mode::IfBlocksMode,
-        execute::{
-            ExecuteIfSubcommand as LowExecuteIfSubcommand,
-            ExecuteSubcommand as LowExecuteSubcommand,
-        },
-    },
-    coordinate::Coordinates,
-    resource_location::ResourceLocation,
+    column_position::ColumnPosition, command::enums::if_blocks_mode::IfBlocksMode,
+    coordinate::Coordinates, resource_location::ResourceLocation,
 };
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
     high::score_comparison::ScoreComparison,
     high::{
         block::BlockState, command::execute::subcommand::ExecuteSubcommand, data::DataTarget,
-        entity_selector::EntitySelector, item::ItemPredicate, item_source::ItemSource,
+        entity_selector::EntitySelector, item_source::ItemSource, mc_item::ItemPredicate,
         nbt_path::NbtPath, player_score::PlayerScore,
     },
+    middle::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -56,274 +47,126 @@ pub enum ExecuteIfSubcommand {
 
 impl ExecuteIfSubcommand {
     #[must_use]
-    pub fn then(self, next: ExecuteSubcommand) -> Self {
-        match self {
-            Self::Biome(coordinates, resource_location, high_execute_subcommand) => Self::Biome(
-                coordinates,
-                resource_location,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Block(coordinates, block_state, high_execute_subcommand) => Self::Block(
-                coordinates,
-                block_state,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Blocks(
-                coordinates,
-                coordinates1,
-                coordinates2,
-                if_blocks_mode,
-                high_execute_subcommand,
-            ) => Self::Blocks(
-                coordinates,
-                coordinates1,
-                coordinates2,
-                if_blocks_mode,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Data(data_target, nbt_path, high_execute_subcommand) => Self::Data(
-                data_target,
-                nbt_path,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Dimension(resource_location, high_execute_subcommand) => Self::Dimension(
-                resource_location,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Entity(entity_selector, high_execute_subcommand) => Self::Entity(
-                entity_selector,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Function(resource_location, high_execute_subcommand) => Self::Function(
-                resource_location,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Items(item_source, slot, item_predicate, high_execute_subcommand) => Self::Items(
-                item_source,
-                slot,
-                item_predicate,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Loaded(column_position, high_execute_subcommand) => Self::Loaded(
-                column_position,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Predicate(resource_location, high_execute_subcommand) => Self::Predicate(
-                resource_location,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-            Self::Score(player_score, score_comparison, high_execute_subcommand) => Self::Score(
-                player_score,
-                score_comparison,
-                Some(Box::new(match high_execute_subcommand {
-                    Some(subcommand) => subcommand.then(next),
-                    None => next,
-                })),
-            ),
-        }
-    }
-
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Biome(_, _, next) => next
-                .as_ref()
-                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
-            Self::Block(_, block_state, next) => {
-                let block_state_result = block_state.perform_semantic_analysis(ctx, is_lhs);
-                let next_result = next
-                    .as_ref()
-                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
+    ) -> Option<MiddleExecuteIfSubcommand> {
+        Some(match self {
+            Self::Biome(coordinates, resource_location, next) => {
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                block_state_result?;
-                next_result?;
-
-                Some(())
+                MiddleExecuteIfSubcommand::Biome(coordinates, resource_location, next.map(Box::new))
             }
-            Self::Blocks(_, _, _, _, next) => next
-                .as_ref()
-                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
+            Self::Block(coordinates, block_state, next) => {
+                let block_state = block_state.perform_semantic_analysis(ctx, is_lhs);
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
+
+                let block_state = block_state?;
+
+                MiddleExecuteIfSubcommand::Block(coordinates, block_state, next.map(Box::new))
+            }
+            Self::Blocks(start, end, desination, mode, next) => {
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
+
+                MiddleExecuteIfSubcommand::Blocks(start, end, desination, mode, next.map(Box::new))
+            }
             Self::Data(target, path, next) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let path_result = path.perform_semantic_analysis(ctx, is_lhs);
-                let next_result = next
-                    .as_ref()
-                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
+                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let path = path.perform_semantic_analysis(ctx, is_lhs);
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                target_result?;
-                path_result?;
-                next_result?;
+                let target = target?;
+                let path = path?;
 
-                Some(())
+                MiddleExecuteIfSubcommand::Data(target, path, next.map(Box::new))
             }
-            Self::Dimension(_, next) => next
-                .as_ref()
-                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
+            Self::Dimension(resource_location, next) => {
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
+
+                MiddleExecuteIfSubcommand::Dimension(resource_location, next.map(Box::new))
+            }
             Self::Entity(selector, next) => {
-                let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
-                let next_result = next
-                    .as_ref()
-                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs);
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                selector_result?;
-                next_result?;
+                let selector = selector?;
 
-                Some(())
+                MiddleExecuteIfSubcommand::Entity(selector, next.map(Box::new))
             }
-            Self::Function(_, next) => next
-                .as_ref()
-                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
-            Self::Items(item_source, _, item_predicate, next) => {
-                let item_source_result = item_source.perform_semantic_analysis(ctx, is_lhs);
-                let item_predicate_result = item_predicate.perform_semantic_analysis(ctx, is_lhs);
-                let next_result = next
-                    .as_ref()
-                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
+            Self::Function(resource_location, next) => {
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                item_source_result?;
-                item_predicate_result?;
-                next_result?;
-
-                Some(())
+                MiddleExecuteIfSubcommand::Function(resource_location, next.map(Box::new))
             }
-            Self::Loaded(_, next) => next
-                .as_ref()
-                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
-            Self::Predicate(_, next) => next
-                .as_ref()
-                .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs)),
+            Self::Items(item_source, slot, item_predicate, next) => {
+                let item_source = item_source.perform_semantic_analysis(ctx, is_lhs);
+                let item_predicate = item_predicate.perform_semantic_analysis(ctx, is_lhs);
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
+
+                let item_source = item_source?;
+                let item_predicate = item_predicate?;
+
+                MiddleExecuteIfSubcommand::Items(
+                    item_source,
+                    slot,
+                    item_predicate,
+                    next.map(Box::new),
+                )
+            }
+            Self::Loaded(column_position, next) => {
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
+
+                MiddleExecuteIfSubcommand::Loaded(column_position, next.map(Box::new))
+            }
+            Self::Predicate(resource_location, next) => {
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
+
+                MiddleExecuteIfSubcommand::Predicate(resource_location, next.map(Box::new))
+            }
             Self::Score(score, score_comparison, next) => {
-                let score_result = score.perform_semantic_analysis(ctx, is_lhs);
-                let score_comparison_result =
-                    score_comparison.perform_semantic_analysis(ctx, is_lhs);
-                let next_result = next
-                    .as_ref()
-                    .map_or(Some(()), |next| next.perform_semantic_analysis(ctx, is_lhs));
+                let score = score.perform_semantic_analysis(ctx, is_lhs);
+                let score_comparison = score_comparison.perform_semantic_analysis(ctx, is_lhs);
+                let next = match next {
+                    Some(next) => Some(next.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                score_result?;
-                score_comparison_result?;
-                next_result?;
+                let score = score?;
+                let score_comparison = score_comparison?;
 
-                Some(())
+                MiddleExecuteIfSubcommand::Score(score, score_comparison, next.map(Box::new))
             }
-        }
-    }
-
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowExecuteIfSubcommand {
-        match self {
-            Self::Biome(coords, biome, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Biome(coords, biome, next)
-            }
-            Self::Block(coordinates, state, next) => {
-                let state = state.compile(datapack, ctx);
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Block(coordinates, state, next)
-            }
-            Self::Blocks(start, end, destination, mode, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Blocks(start, end, destination, mode, next)
-            }
-            Self::Data(target, path, next) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
-
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-
-                LowExecuteIfSubcommand::Data(target.target, path, next)
-            }
-            Self::Dimension(location, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Dimension(location, next)
-            }
-            Self::Entity(selector, next) => {
-                let selector = selector.compile(datapack, ctx);
-
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-
-                LowExecuteIfSubcommand::Entity(selector, next)
-            }
-            Self::Function(location, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-
-                if let Some(next) = next {
-                    LowExecuteIfSubcommand::Function(location, next)
-                } else {
-                    let mut req = datapack.requirements.get();
-                    req.always_succeed_predicate = true;
-                    datapack.requirements.set(req);
-
-                    LowExecuteIfSubcommand::Function(
-                        location,
-                        Box::new(LowExecuteSubcommand::If(
-                            false,
-                            LowExecuteIfSubcommand::Predicate(
-                                ResourceLocation::new_namespace_path("kelp", "always_succeed"),
-                                None,
-                            ),
-                        )),
-                    )
-                }
-            }
-            Self::Items(source, name, predicate, next) => {
-                let source = source.compile(datapack, ctx);
-                let predicate = predicate.compile(datapack, ctx);
-
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-
-                LowExecuteIfSubcommand::Items(source, name, predicate, next)
-            }
-            Self::Loaded(position, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Loaded(position, next)
-            }
-            Self::Predicate(location, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Predicate(location, next)
-            }
-            Self::Score(score, comparison, next) => {
-                let score = score.compile(datapack, ctx);
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-
-                LowExecuteIfSubcommand::Score(score.score, comparison.compile(datapack, ctx), next)
-            }
-        }
+        })
     }
 }

@@ -3,13 +3,14 @@ use std::{collections::BTreeMap, str::FromStr};
 use thiserror::Error;
 
 use crate::{
-    data_type::{BuiltinDataTypeKind, DataTypeKind},
-    datapack::DataTypeDeclarationKind,
-    high::supports_variable_type_scope::SupportsVariableTypeScope,
+    high::{statement::ControlFlowKind, supports_variable_type_scope::SupportsVariableTypeScope},
+    middle::{
+        data_type::DataTypeKind,
+        data_type_declaration::{BuiltinDataTypeKind, DataTypeDeclarationKind},
+    },
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     span::Span,
-    statement::ControlFlowKind,
 };
 
 const fn format_arithmetic_operator(op: ArithmeticOperator) -> &'static str {
@@ -240,10 +241,14 @@ impl SemanticAnalysisContext {
     }
 
     pub fn add_error(&mut self, span: Span, error: SemanticAnalysisError) {
-        self.add_info::<()>(SemanticAnalysisInfo {
+        self.add_error_ret::<()>(span, error);
+    }
+
+    pub fn add_error_ret<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
+        self.add_info(SemanticAnalysisInfo {
             span,
             kind: SemanticAnalysisInfoKind::Error(error),
-        });
+        })
     }
 
     pub fn declare_variable(&mut self, name: &str, data_type: Option<DataTypeKind>) {

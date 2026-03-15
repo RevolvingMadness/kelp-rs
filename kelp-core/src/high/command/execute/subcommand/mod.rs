@@ -1,20 +1,14 @@
 use std::collections::BTreeSet;
 
 use minecraft_command_types::{
-    command::{
-        Command as LowCommand,
-        enums::{
-            axis::Axis, entity_anchor::EntityAnchor, relation::Relation, store_type::StoreType,
-        },
-        execute::ExecuteSubcommand as LowExecuteSubcommand,
+    command::enums::{
+        axis::Axis, entity_anchor::EntityAnchor, relation::Relation, store_type::StoreType,
     },
     resource_location::ResourceLocation,
 };
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
     high::{
         command::{
             Command,
@@ -27,8 +21,9 @@ use crate::{
         },
         entity_selector::EntitySelector,
     },
+    middle::expression::command::execute::subcommand::ExecuteSubcommand as MiddleExecuteSubcommand,
     semantic_analysis_context::SemanticAnalysisContext,
-    trait_ext::OptionUnitIterExt,
+    trait_ext::CollectOptionAllIterExt,
 };
 
 pub mod r#if;
@@ -54,178 +49,99 @@ pub enum ExecuteSubcommand {
 
 impl ExecuteSubcommand {
     #[must_use]
-    pub fn then(self, next: Self) -> Self {
-        match self {
-            Self::Align(btree_set, high_execute_subcommand) => {
-                Self::Align(btree_set, Box::new(high_execute_subcommand.then(next)))
-            }
-            Self::Anchored(entity_anchor, high_execute_subcommand) => {
-                Self::Anchored(entity_anchor, Box::new(high_execute_subcommand.then(next)))
-            }
-            Self::As(entity_selector, high_execute_subcommand) => Self::As(
-                entity_selector,
-                Box::new(high_execute_subcommand.then(next)),
-            ),
-            Self::At(entity_selector, high_execute_subcommand) => Self::At(
-                entity_selector,
-                Box::new(high_execute_subcommand.then(next)),
-            ),
-            Self::Facing(facing, high_execute_subcommand) => {
-                Self::Facing(facing, Box::new(high_execute_subcommand.then(next)))
-            }
-            Self::In(resource_location, high_execute_subcommand) => Self::In(
-                resource_location,
-                Box::new(high_execute_subcommand.then(next)),
-            ),
-            Self::On(relation, high_execute_subcommand) => {
-                Self::On(relation, Box::new(high_execute_subcommand.then(next)))
-            }
-            Self::Positioned(positioned, high_execute_subcommand) => {
-                Self::Positioned(positioned, Box::new(high_execute_subcommand.then(next)))
-            }
-            Self::Rotated(rotated, high_execute_subcommand) => {
-                Self::Rotated(rotated, Box::new(high_execute_subcommand.then(next)))
-            }
-            Self::Summon(resource_location, high_execute_subcommand) => Self::Summon(
-                resource_location,
-                Box::new(high_execute_subcommand.then(next)),
-            ),
-            Self::If(inverted, high_execute_if_subcommand) => {
-                Self::If(inverted, high_execute_if_subcommand.then(next))
-            }
-            Self::Store(store_type, high_execute_store_subcommand) => {
-                Self::Store(store_type, high_execute_store_subcommand.then(next))
-            }
-            Self::Run(_) => next.then(self),
-            Self::Multiple(high_execute_subcommands) => Self::Multiple(
-                high_execute_subcommands
-                    .into_iter()
-                    .map(|subcommand| subcommand.then(next.clone()))
-                    .collect(),
-            ),
-        }
-    }
-
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
+    ) -> Option<MiddleExecuteSubcommand> {
+        Some(match self {
             Self::As(selector, next) | Self::At(selector, next) => {
-                let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
-                let next_result = next.perform_semantic_analysis(ctx, is_lhs);
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs);
+                let next = next.perform_semantic_analysis(ctx, is_lhs);
 
-                selector_result?;
-                next_result?;
+                let selector = selector?;
+                let next = next?;
 
-                Some(())
-            }
-            Self::Positioned(_, next)
-            | Self::Align(_, next)
-            | Self::Anchored(_, next)
-            | Self::Facing(_, next)
-            | Self::In(_, next)
-            | Self::On(_, next)
-            | Self::Rotated(_, next)
-            | Self::Summon(_, next) => next.perform_semantic_analysis(ctx, is_lhs),
-            Self::If(_, if_subcommand) => if_subcommand.perform_semantic_analysis(ctx, is_lhs),
-            Self::Store(_, store_subcommand) => {
-                store_subcommand.perform_semantic_analysis(ctx, is_lhs)
-            }
-            Self::Run(commands) => commands
-                .iter()
-                .map(|command| command.perform_semantic_analysis(ctx, is_lhs))
-                .all_some(),
-            Self::Multiple(subcommands) => subcommands
-                .iter()
-                .map(|subcommand| subcommand.perform_semantic_analysis(ctx, is_lhs))
-                .all_some(),
-        }
-    }
-
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowExecuteSubcommand {
-        match self {
-            Self::Align(axes, next) => {
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Align(axes, Box::new(next))
-            }
-            Self::Anchored(anchor, next) => {
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Anchored(anchor, Box::new(next))
-            }
-            Self::As(selector, next) => {
-                let selector = selector.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::As(selector, Box::new(next))
-            }
-            Self::At(selector, next) => {
-                let selector = selector.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::At(selector, Box::new(next))
-            }
-            Self::Facing(facing, next) => {
-                let facing = facing.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Facing(facing, Box::new(next))
-            }
-            Self::In(location, next) => {
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::In(location, Box::new(next))
-            }
-            Self::On(relation, next) => {
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::On(relation, Box::new(next))
+                MiddleExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::Positioned(positioned, next) => {
-                let positioned = positioned.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Positioned(positioned, Box::new(next))
+                let positioned = positioned.perform_semantic_analysis(ctx, is_lhs);
+                let next = next.perform_semantic_analysis(ctx, is_lhs);
+
+                let positioned = positioned?;
+                let next = next?;
+
+                MiddleExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
-            Self::Rotated(rotated, next) => {
-                let rotated = rotated.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Rotated(rotated, Box::new(next))
+            Self::Align(alignment, next) => {
+                let next = next.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleExecuteSubcommand::Align(alignment, Box::new(next))
             }
-            Self::Summon(entity_id, next) => {
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Summon(entity_id, Box::new(next))
+            Self::Anchored(anchor, next) => {
+                let next = next.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
-            Self::If(is_if, next) => {
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::If(is_if, next)
+            Self::Facing(facing, next) => {
+                let facing = facing.perform_semantic_analysis(ctx, is_lhs);
+                let next = next.perform_semantic_analysis(ctx, is_lhs);
+
+                let facing = facing?;
+                let next = next?;
+
+                MiddleExecuteSubcommand::Facing(facing, Box::new(next))
             }
-            Self::Store(store_type, next) => {
-                let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Store(store_type, next)
+            Self::In(resource_location, next) => {
+                let next = next.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleExecuteSubcommand::In(resource_location, Box::new(next))
+            }
+            Self::On(relation, next) => {
+                let next = next.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleExecuteSubcommand::On(relation, Box::new(next))
+            }
+            Self::Rotated(rotation, next) => {
+                let rotation = rotation.perform_semantic_analysis(ctx, is_lhs);
+                let next = next.perform_semantic_analysis(ctx, is_lhs);
+
+                let rotation = rotation?;
+                let next = next?;
+
+                MiddleExecuteSubcommand::Rotated(rotation, Box::new(next))
+            }
+            Self::Summon(resource_location, next) => {
+                let next = next.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleExecuteSubcommand::Summon(resource_location, Box::new(next))
+            }
+            Self::If(inverted, subcommand) => {
+                let subcommand = subcommand.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleExecuteSubcommand::If(inverted, subcommand)
+            }
+            Self::Store(store_type, subcommand) => {
+                let subcommand = subcommand.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleExecuteSubcommand::Store(store_type, subcommand)
             }
             Self::Run(commands) => {
-                let mut commands = commands
+                let commands = commands
                     .into_iter()
-                    .map(|command| command.compile(datapack, ctx))
-                    .collect::<Vec<_>>();
+                    .map(|command| command.perform_semantic_analysis(ctx, is_lhs))
+                    .collect_option_all()?;
 
-                let last = commands.pop().unwrap();
-                ctx.add_commands(datapack, commands);
-
-                LowExecuteSubcommand::Run(Box::new(last))
+                MiddleExecuteSubcommand::Run(commands)
             }
             Self::Multiple(subcommands) => {
-                let mut subcommands = subcommands
+                let subcommands = subcommands
                     .into_iter()
-                    .map(|subcommand| subcommand.compile(datapack, ctx))
-                    .collect::<Vec<_>>();
+                    .map(|subcommand| subcommand.perform_semantic_analysis(ctx, is_lhs))
+                    .collect_option_all()?;
 
-                let last = subcommands.pop().unwrap();
-                let commands = subcommands.into_iter().map(LowCommand::Execute).collect();
-                ctx.add_commands(datapack, commands);
-
-                last
+                MiddleExecuteSubcommand::Multiple(subcommands)
             }
-        }
+        })
     }
 }

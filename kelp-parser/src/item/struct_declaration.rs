@@ -1,4 +1,4 @@
-use kelp_core::data_type::high::DataType;
+use kelp_core::high::data_type::DataType;
 
 use crate::{
     cst::CSTStructDeclarationItemField,

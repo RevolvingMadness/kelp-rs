@@ -1,16 +1,12 @@
-use minecraft_command_types::command::data::{
-    DataCommand as LowDataCommand, DataCommandModification as LowDataCommandModification,
-    DataCommandModificationMode,
-};
+use minecraft_command_types::command::data::DataCommandModificationMode;
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext,
-    data_type::DataTypeKind,
-    datapack::Datapack,
-    high::expression::Expression,
-    high::{data::DataTarget, nbt_path::NbtPath},
+    high::{data::DataTarget, expression::Expression, nbt_path::NbtPath},
+    middle::expression::command::data::{
+        DataCommand as MiddleDataCommand, DataCommandModification as MiddleDataCommandModification,
+    },
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -22,66 +18,41 @@ pub enum DataCommandModification {
 }
 
 impl DataCommandModification {
+    #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
+    ) -> Option<MiddleDataCommandModification> {
+        Some(match self {
             Self::From(target, path) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let path_result = path
-                    .as_ref()
-                    .map_or(Some(()), |path| path.perform_semantic_analysis(ctx, is_lhs));
+                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let path = match path {
+                    Some(path) => Some(path.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                target_result?;
-                path_result?;
+                let target = target?;
 
-                Some(())
-            }
-            Self::String(target, path, _, _) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let path_result = path
-                    .as_ref()
-                    .map_or(Some(()), |path| path.perform_semantic_analysis(ctx, is_lhs));
-
-                target_result?;
-                path_result?;
-
-                Some(())
-            }
-            Self::Value(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
-            }
-        }
-    }
-
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowDataCommandModification {
-        match self {
-            Self::From(target, path) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.map(|path| path.compile(datapack, ctx));
-
-                LowDataCommandModification::From(target.target, path)
+                MiddleDataCommandModification::From(target, path)
             }
             Self::String(target, path, start, end) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.map(|path| path.compile(datapack, ctx));
+                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let path = match path {
+                    Some(path) => Some(path.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                LowDataCommandModification::String(target.target, path, start, end)
+                let target = target?;
+
+                MiddleDataCommandModification::String(target, path, start, end)
             }
             Self::Value(expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
 
-                let expression_snbt = expression.as_snbt_macros(ctx);
-
-                LowDataCommandModification::Value(expression_snbt)
+                MiddleDataCommandModification::Value(Box::new(expression))
             }
-        }
+        })
     }
 }
 
@@ -100,92 +71,51 @@ pub enum DataCommand {
 
 impl DataCommand {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Get(target, path, _) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let path_result = path
-                    .as_ref()
-                    .map_or(Some(()), |path| path.perform_semantic_analysis(ctx, is_lhs));
+    ) -> Option<MiddleDataCommand> {
+        Some(match self {
+            Self::Get(target, path, scale) => {
+                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let path = match path {
+                    Some(path) => Some(path.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                target_result?;
-                path_result?;
+                let target = target?;
 
-                Some(())
+                MiddleDataCommand::Get(target, path, scale)
             }
             Self::Merge(target, expression) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let expression_result = expression.perform_semantic_analysis(
-                    ctx,
-                    is_lhs,
-                    Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
-                );
+                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let expression = expression.perform_semantic_analysis(ctx, is_lhs);
 
-                target_result?;
-                expression_result?;
+                let target = target?;
+                let (_, expression) = expression?;
 
-                Some(())
-            }
-            Self::Modify(target, path, _, modification) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let path_result = path.perform_semantic_analysis(ctx, is_lhs);
-                let modification_result = modification.perform_semantic_analysis(ctx, is_lhs);
-
-                target_result?;
-                path_result?;
-                modification_result?;
-
-                Some(())
-            }
-            Self::Remove(target, path) => {
-                let target_result = target.kind.perform_semantic_analysis(ctx, is_lhs);
-                let path_result = path.perform_semantic_analysis(ctx, is_lhs);
-
-                target_result?;
-                path_result?;
-
-                Some(())
-            }
-        }
-    }
-
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowDataCommand {
-        match self {
-            Self::Get(target, path, count) => {
-                let compiled_target = target.compile(datapack, ctx);
-                let compiled_path = path.map(|path| path.compile(datapack, ctx));
-
-                LowDataCommand::Get(compiled_target.target, compiled_path, count)
-            }
-            Self::Merge(target, expression) => {
-                let target = target.compile(datapack, ctx);
-                let expression = expression.kind.resolve(datapack, ctx);
-
-                let snbt = expression.as_snbt_macros(ctx);
-
-                LowDataCommand::Merge(target.target, snbt)
+                MiddleDataCommand::Merge(target, Box::new(expression))
             }
             Self::Modify(target, path, mode, modification) => {
-                let compiled_modification = modification.compile(datapack, ctx);
-                let compiled_target = target.compile(datapack, ctx);
-                let compiled_path = path.compile(datapack, ctx);
+                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let path = path.perform_semantic_analysis(ctx, is_lhs);
+                let modification = modification.perform_semantic_analysis(ctx, is_lhs);
 
-                LowDataCommand::Modify(
-                    compiled_target.target,
-                    compiled_path,
-                    mode,
-                    compiled_modification,
-                )
+                let target = target?;
+                let path = path?;
+                let modification = modification?;
+
+                MiddleDataCommand::Modify(target, path, mode, Box::new(modification))
             }
             Self::Remove(target, path) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
+                let target = target.perform_semantic_analysis(ctx, is_lhs);
+                let path = path.perform_semantic_analysis(ctx, is_lhs);
 
-                LowDataCommand::Remove(target.target, path)
+                let target = target?;
+                let path = path?;
+
+                MiddleDataCommand::Remove(target, path)
             }
-        }
+        })
     }
 }

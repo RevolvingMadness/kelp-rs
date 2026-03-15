@@ -1,12 +1,10 @@
-use minecraft_command_types::entity_selector::{
-    EntitySelector as LowEntitySelector, EntitySelectorVariable,
-};
+use minecraft_command_types::entity_selector::EntitySelectorVariable;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
     high::entity_selector::option::EntitySelectorOption,
-    semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
+    middle::entity_selector::EntitySelector as MiddleEntitySelector,
+    semantic_analysis_context::SemanticAnalysisContext, trait_ext::CollectOptionAllIterExt,
 };
 
 pub mod option;
@@ -20,29 +18,20 @@ pub enum EntitySelector {
 impl EntitySelector {
     #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Variable(_, options) => options
-                .iter()
-                .map(|option| option.perform_semantic_analysis(ctx, is_lhs))
-                .all_some(),
-            Self::Name(_) => Some(()),
-        }
-    }
-
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowEntitySelector {
-        match self {
-            Self::Variable(variable, options) => LowEntitySelector::Variable(
-                variable,
-                options
+    ) -> Option<MiddleEntitySelector> {
+        Some(match self {
+            Self::Variable(variable, options) => {
+                let options = options
                     .into_iter()
-                    .map(|option| option.compile(datapack, ctx))
-                    .collect(),
-            ),
-            Self::Name(name) => LowEntitySelector::Name(name),
-        }
+                    .map(|option| option.perform_semantic_analysis(ctx, is_lhs))
+                    .collect_option_all()?;
+
+                MiddleEntitySelector::Variable(variable, options)
+            }
+            Self::Name(name) => MiddleEntitySelector::Name(name),
+        })
     }
 }

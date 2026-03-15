@@ -1,19 +1,13 @@
-use minecraft_command_types::command::{
-    enums::score_operation_operator::ScoreOperationOperator,
-    scoreboard::{
-        PlayersDisplayScoreboardCommand as LowPlayersDisplayScoreboardCommand,
-        PlayersScoreboardCommand as LowPlayersScoreboardCommand,
-        ScoreboardNumberFormat as LowScoreboardNumberFormat,
-    },
-};
+use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext,
-    data_type::DataTypeKind,
-    datapack::Datapack,
-    high::expression::Expression,
-    high::{entity_selector::EntitySelector, player_score::PlayerScore},
+    high::{entity_selector::EntitySelector, expression::Expression, player_score::PlayerScore},
+    middle::expression::command::scoreboard::players::{
+        PlayersDisplayScoreboardCommand as MiddlePlayersDisplayScoreboardCommand,
+        PlayersScoreboardCommand as MiddlePlayersScoreboardCommand,
+        ScoreboardNumberFormat as MiddleScoreboardNumberFormat,
+    },
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -25,33 +19,25 @@ pub enum ScoreboardNumberFormat {
 }
 
 impl ScoreboardNumberFormat {
+    #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Blank => Some(()),
-            Self::Fixed(expression) | Self::Styled(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
-            }
-        }
-    }
+    ) -> Option<MiddleScoreboardNumberFormat> {
+        Some(match self {
+            Self::Blank => MiddleScoreboardNumberFormat::Blank,
+            Self::Fixed(expression) => {
+                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
 
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowScoreboardNumberFormat {
-        match self {
-            Self::Blank => LowScoreboardNumberFormat::Blank,
-            Self::Fixed(expression) => LowScoreboardNumberFormat::Fixed(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
-            ),
-            Self::Styled(expression) => LowScoreboardNumberFormat::Styled(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
-            ),
-        }
+                MiddleScoreboardNumberFormat::Fixed(expression)
+            }
+            Self::Styled(expression) => {
+                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleScoreboardNumberFormat::Styled(expression)
+            }
+        })
     }
 }
 
@@ -62,61 +48,42 @@ pub enum PlayersDisplayScoreboardCommand {
 }
 
 impl PlayersDisplayScoreboardCommand {
+    #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
+    ) -> Option<MiddlePlayersDisplayScoreboardCommand> {
+        Some(match self {
             Self::Name(score, expression) => {
-                let score_result = score.perform_semantic_analysis(ctx, is_lhs);
-                let expression_result = expression.as_ref().map_or(Some(()), |expression| {
-                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
-                });
+                let score = score.perform_semantic_analysis(ctx, is_lhs);
+                let expression = match expression {
+                    Some(expression) => {
+                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
 
-                score_result?;
-                expression_result?;
+                        Some(expression)
+                    }
+                    None => None,
+                };
 
-                Some(())
+                let score = score?;
+
+                MiddlePlayersDisplayScoreboardCommand::Name(score, expression)
             }
             Self::NumberFormat(score, number_format) => {
-                let score_result = score.perform_semantic_analysis(ctx, is_lhs);
-                let number_format_result =
-                    number_format.as_ref().map_or(Some(()), |number_format| {
-                        number_format.perform_semantic_analysis(ctx, is_lhs)
-                    });
+                let score = score.perform_semantic_analysis(ctx, is_lhs);
+                let number_format = match number_format {
+                    Some(number_format) => {
+                        Some(number_format.perform_semantic_analysis(ctx, is_lhs)?)
+                    }
+                    None => None,
+                };
 
-                score_result?;
-                number_format_result?;
+                let score = score?;
 
-                Some(())
+                MiddlePlayersDisplayScoreboardCommand::NumberFormat(score, number_format)
             }
-        }
-    }
-
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowPlayersDisplayScoreboardCommand {
-        match self {
-            Self::Name(score, expression) => {
-                let score = score.compile(datapack, ctx);
-
-                LowPlayersDisplayScoreboardCommand::Name(
-                    score.score,
-                    expression.map(|e| e.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
-                )
-            }
-            Self::NumberFormat(score, number_format) => {
-                let score = score.compile(datapack, ctx);
-
-                LowPlayersDisplayScoreboardCommand::NumberFormat(
-                    score.score,
-                    number_format.map(|number_format| number_format.compile(datapack, ctx)),
-                )
-            }
-        }
+        })
     }
 }
 
@@ -134,93 +101,65 @@ pub enum PlayersScoreboardCommand {
 }
 
 impl PlayersScoreboardCommand {
+    #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::List(selector) => selector.as_ref().map_or(Some(()), |selector| {
-                selector.perform_semantic_analysis(ctx, is_lhs)
-            }),
-            Self::Get(score)
-            | Self::Set(score, _)
-            | Self::Add(score, _)
-            | Self::Remove(score, _)
-            | Self::Enable(score) => score.perform_semantic_analysis(ctx, is_lhs),
-            Self::Reset(selector, _) => selector.perform_semantic_analysis(ctx, is_lhs),
-            Self::Operation(left, _, right) => {
-                let left_result = left.perform_semantic_analysis(ctx, is_lhs);
-                let right_result = right.perform_semantic_analysis(ctx, is_lhs);
+    ) -> Option<MiddlePlayersScoreboardCommand> {
+        Some(match self {
+            Self::List(selector) => {
+                let selector = match selector {
+                    Some(selector) => Some(selector.perform_semantic_analysis(ctx, is_lhs)?),
+                    None => None,
+                };
 
-                left_result?;
-                right_result?;
-
-                Some(())
-            }
-            Self::Display(command) => command.perform_semantic_analysis(ctx, is_lhs),
-        }
-    }
-
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowPlayersScoreboardCommand {
-        match self {
-            Self::List(high_entity_selector) => {
-                let compiled_selector =
-                    high_entity_selector.map(|selector| selector.compile(datapack, ctx));
-
-                LowPlayersScoreboardCommand::List(compiled_selector)
+                MiddlePlayersScoreboardCommand::List(selector)
             }
             Self::Get(score) => {
-                let score = score.compile(datapack, ctx);
+                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
 
-                LowPlayersScoreboardCommand::Get(score.score)
+                MiddlePlayersScoreboardCommand::Get(score)
             }
             Self::Set(score, value) => {
-                let score = score.compile(datapack, ctx);
+                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
 
-                LowPlayersScoreboardCommand::Set(score.score, value)
+                MiddlePlayersScoreboardCommand::Set(score, value)
             }
-            Self::Add(score, value) => {
-                let score = score.compile(datapack, ctx);
+            Self::Add(score, amount) => {
+                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
 
-                LowPlayersScoreboardCommand::Add(score.score, value)
+                MiddlePlayersScoreboardCommand::Add(score, amount)
             }
-            Self::Remove(score, value) => {
-                let score = score.compile(datapack, ctx);
+            Self::Remove(score, amount) => {
+                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
 
-                LowPlayersScoreboardCommand::Remove(score.score, value)
+                MiddlePlayersScoreboardCommand::Remove(score, amount)
             }
-            Self::Reset(high_entity_selector, objective) => LowPlayersScoreboardCommand::Reset(
-                high_entity_selector.compile(datapack, ctx),
-                objective,
-            ),
+            Self::Reset(selector, objective) => {
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddlePlayersScoreboardCommand::Reset(selector, objective)
+            }
             Self::Enable(score) => {
-                let score = score.compile(datapack, ctx);
+                let score = score.perform_semantic_analysis(ctx, is_lhs)?;
 
-                LowPlayersScoreboardCommand::Enable(score.score)
+                MiddlePlayersScoreboardCommand::Enable(score)
             }
-            Self::Operation(left_score, operator, right_score) => {
-                let left_score = left_score.compile(datapack, ctx);
-                let right_score = right_score.compile(datapack, ctx);
+            Self::Operation(left, operator, right) => {
+                let left = left.perform_semantic_analysis(ctx, is_lhs);
+                let right = right.perform_semantic_analysis(ctx, is_lhs);
 
-                LowPlayersScoreboardCommand::Operation(
-                    left_score.score,
-                    operator,
-                    right_score.score,
-                )
-            }
-            Self::Display(high_players_display_scoreboard_command) => {
-                let compiled_high_players_display_scoreboard_command =
-                    high_players_display_scoreboard_command.compile(datapack, ctx);
+                let left = left?;
+                let right = right?;
 
-                LowPlayersScoreboardCommand::Display(
-                    compiled_high_players_display_scoreboard_command,
-                )
+                MiddlePlayersScoreboardCommand::Operation(left, operator, right)
             }
-        }
+            Self::Display(command) => {
+                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddlePlayersScoreboardCommand::Display(Box::new(command))
+            }
+        })
     }
 }

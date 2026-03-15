@@ -1,4 +1,4 @@
-use kelp_core::data_type::high::{DataTypeKind, DataType};
+use kelp_core::high::data_type::{DataType, DataTypeKind};
 
 use crate::{cst::CSTInferredDataType, span::span_of_cst_node};
 

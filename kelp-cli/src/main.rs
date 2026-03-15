@@ -2,7 +2,7 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
-use kelp_core::item::Item;
+use kelp_core::middle::item::Item;
 use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
@@ -222,9 +222,10 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let lower_elapsed = lower_start.elapsed();
 
     let start_semantic = Instant::now();
-    for statement in &items {
-        statement.perform_semantic_analysis(&mut semantic_analysis_context, false);
-    }
+    let items = items
+        .into_iter()
+        .filter_map(|item| item.perform_semantic_analysis(&mut semantic_analysis_context, false))
+        .collect();
     let semantic_elapsed = start_semantic.elapsed();
     let semantic_analysis_succeeded = semantic_analysis_context.infos.is_empty();
 
@@ -294,7 +295,7 @@ fn process_success(
     let mut ctx = CompileContext::default();
     let start_compile = Instant::now();
     for item in items {
-        item.kind.compile(&mut datapack, &mut ctx);
+        item.compile(&mut datapack, &mut ctx);
     }
     let compile_elapsed = start_compile.elapsed();
     println!(

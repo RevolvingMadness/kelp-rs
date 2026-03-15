@@ -1,103 +1,113 @@
-use minecraft_command_types::{
-    item::{
-        ItemPredicate as LowItemPredicate, ItemTest as LowItemTest, ItemType, OrGroup as LowOrGroup,
-    },
-    resource_location::ResourceLocation,
-};
-use minecraft_command_types_derive::HasMacro;
+use std::collections::BTreeMap;
+
+use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, high::expression::Expression,
-    semantic_analysis_context::SemanticAnalysisContext, trait_ext::OptionUnitIterExt,
+    high::{data_type::DataType, statement::Statement},
+    middle::{data_type_declaration::DataTypeDeclarationKind, item::Item as MiddleItem},
+    semantic_analysis_context::{
+        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
+        SemanticAnalysisInfoKind,
+    },
+    span::Span,
+    trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub enum ItemTest {
-    Component(ResourceLocation),
-    ComponentMatches(ResourceLocation, Expression),
-    Predicate(ResourceLocation, Expression),
+#[derive(Debug, Clone, PartialEq)]
+pub enum ItemKind {
+    MCFNDeclaration(ResourceLocation, Box<Statement>),
+    TypeAliasDeclaration(String, Vec<String>, DataType),
+    StructDeclaration(String, Vec<String>, BTreeMap<String, DataType>),
 }
 
-impl ItemTest {
+impl ItemKind {
+    #[must_use]
+    pub const fn with_span(self, span: Span) -> Item {
+        Item { span, kind: self }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Item {
+    pub span: Span,
+    pub kind: ItemKind,
+}
+
+impl Item {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Component(_) => Some(()),
-            Self::ComponentMatches(_, expression) | Self::Predicate(_, expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, None)
+    ) -> Option<MiddleItem> {
+        Some(match self.kind {
+            ItemKind::MCFNDeclaration(resource_location, statement) => {
+                let statement = statement.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleItem::MCFNDeclaration(resource_location, Box::new(statement))
             }
-        }
-    }
+            ItemKind::TypeAliasDeclaration(name, generic_names, alias) => {
+                if ctx.data_type_is_declared(&name) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeIsAlreadyDefined(name),
+                        ),
+                    });
+                }
 
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemTest {
-        match self {
-            Self::Component(location) => LowItemTest::Component(location),
-            Self::ComponentMatches(location, value) => LowItemTest::ComponentMatches(
-                location,
-                value.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
-            ),
-            Self::Predicate(location, value) => LowItemTest::Predicate(
-                location,
-                value.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
-            ),
-        }
-    }
-}
+                let Some(alias) = alias.perform_semantic_analysis(Some(&generic_names), ctx) else {
+                    ctx.declare_data_type(name, None);
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct OrGroup(pub Vec<(bool, ItemTest)>);
+                    return None;
+                };
 
-impl OrGroup {
-    pub fn perform_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
-    ) -> Option<()> {
-        self.0
-            .iter()
-            .map(|(_, test)| test.perform_semantic_analysis(ctx, is_lhs))
-            .all_some()
-    }
+                ctx.declare_data_type(
+                    name.clone(),
+                    Some(DataTypeDeclarationKind::Alias {
+                        name: name.clone(),
+                        generics: generic_names.clone(),
+                        alias: alias.clone(),
+                    }),
+                );
 
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowOrGroup {
-        LowOrGroup(
-            self.0
-                .into_iter()
-                .map(|(negated, test)| (negated, test.compile(datapack, ctx)))
-                .collect(),
-        )
-    }
-}
+                MiddleItem::TypeAliasDeclaration(name, generic_names, alias)
+            }
+            ItemKind::StructDeclaration(name, generic_names, field_types) => {
+                if ctx.data_type_is_declared(&name) {
+                    return ctx.add_info(SemanticAnalysisInfo {
+                        span: self.span,
+                        kind: SemanticAnalysisInfoKind::Error(
+                            SemanticAnalysisError::TypeIsAlreadyDefined(name),
+                        ),
+                    });
+                }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct ItemPredicate {
-    pub id: ItemType,
-    pub or_groups: Vec<OrGroup>,
-}
+                let Some(field_types) = field_types
+                    .into_iter()
+                    .map(|(field_name, field_type)| {
+                        let field_type =
+                            field_type.perform_semantic_analysis(Some(&generic_names), ctx)?;
 
-impl ItemPredicate {
-    pub fn perform_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
-    ) -> Option<()> {
-        self.or_groups
-            .iter()
-            .map(|or_group| or_group.perform_semantic_analysis(ctx, is_lhs))
-            .all_some()
-    }
+                        Some((field_name, field_type))
+                    })
+                    .collect_option_all::<BTreeMap<_, _>>()
+                else {
+                    ctx.declare_data_type(name, None);
 
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemPredicate {
-        LowItemPredicate {
-            id: self.id,
-            or_groups: self
-                .or_groups
-                .into_iter()
-                .map(|or_group| or_group.compile(datapack, ctx))
-                .collect(),
-        }
+                    return None;
+                };
+
+                ctx.declare_data_type(
+                    name.clone(),
+                    Some(DataTypeDeclarationKind::Struct {
+                        name: name.clone(),
+                        generics: generic_names.clone(),
+                        fields: field_types.clone(),
+                    }),
+                );
+
+                MiddleItem::StructDeclaration(name, generic_names, field_types)
+            }
+        })
     }
 }

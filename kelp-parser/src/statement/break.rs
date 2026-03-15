@@ -1,6 +1,6 @@
 use kelp_core::{
+    high::statement::{Statement, StatementKind},
     semantic_analysis_context::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
 };
 
 use crate::{cst::CSTBreakStatement, parser::Parser, span::span_of_cst_node, syntax::SyntaxKind};

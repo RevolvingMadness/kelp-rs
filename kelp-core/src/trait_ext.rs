@@ -12,23 +12,50 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
-    high::player_score::GeneratedPlayerScore,
+    compile_context::CompileContext, datapack::Datapack, player_score::GeneratedPlayerScore,
 };
 
-pub trait OptionUnitIterExt {
-    fn all_some(self) -> Option<()>;
+pub trait CollectOptionAllIterExt<T>: Iterator<Item = Option<T>> + Sized {
+    fn collect_option_all<C>(self) -> Option<C>
+    where
+        C: FromIterator<T>;
+
+    fn run_all_succeeded(self) -> Option<()>;
 }
 
-impl<I> OptionUnitIterExt for I
+impl<T, I> CollectOptionAllIterExt<T> for I
 where
-    I: Iterator<Item = Option<()>>,
+    I: Iterator<Item = Option<T>>,
 {
-    fn all_some(self) -> Option<()> {
+    fn collect_option_all<C>(self) -> Option<C>
+    where
+        C: FromIterator<T>,
+    {
+        let mut failed = false;
+
+        let collection: C = self
+            .filter_map(|item| {
+                item.map_or_else(
+                    || {
+                        failed = true;
+
+                        None
+                    },
+                    |v| Some(v),
+                )
+            })
+            .collect();
+
+        if failed { None } else { Some(collection) }
+    }
+
+    fn run_all_succeeded(self) -> Option<()> {
         let mut failed = false;
 
         for item in self {
-            failed |= item.is_none();
+            if item.is_none() {
+                failed = true;
+            }
         }
 
         (!failed).then_some(())
@@ -36,14 +63,14 @@ where
 }
 
 pub trait OptionBoolIterExt {
-    fn all_some_true(self) -> Option<bool>;
+    fn run_all_succeeded_true(self) -> Option<bool>;
 }
 
 impl<I> OptionBoolIterExt for I
 where
     I: Iterator<Item = Option<bool>>,
 {
-    fn all_some_true(self) -> Option<bool> {
+    fn run_all_succeeded_true(self) -> Option<bool> {
         let mut failed = false;
         let mut result = false;
 
@@ -56,6 +83,52 @@ where
         }
 
         (!failed).then_some(!result)
+    }
+}
+
+pub trait FilterOptionIteratorExt: Iterator {
+    fn filter_all<F>(self, predicate: F) -> Option<bool>
+    where
+        F: Fn(&Self::Item) -> Option<bool>;
+
+    fn filter_any<F>(self, predicate: F) -> Option<bool>
+    where
+        F: Fn(&Self::Item) -> Option<bool>;
+}
+
+impl<I> FilterOptionIteratorExt for I
+where
+    I: Iterator,
+{
+    fn filter_all<F>(self, predicate: F) -> Option<bool>
+    where
+        F: Fn(&Self::Item) -> Option<bool>,
+    {
+        for item in self {
+            match predicate(&item) {
+                Some(true) => {}
+                Some(false) => return Some(false),
+                None => return None,
+            }
+        }
+
+        Some(true)
+    }
+
+    fn filter_any<F>(self, predicate: F) -> Option<bool>
+    where
+        F: Fn(&Self::Item) -> Option<bool>,
+    {
+        let mut any = false;
+
+        for item in self {
+            match predicate(&item) {
+                Some(value) => any |= value,
+                None => return None,
+            }
+        }
+
+        Some(any)
     }
 }
 

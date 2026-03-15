@@ -1,17 +1,12 @@
-use minecraft_command_types::command::{
-    enums::scoreboard_render_type::ScoreboardRenderType,
-    scoreboard::{
-        ObjectivesScoreboardCommand as LowObjectivesScoreboardCommand,
-        ScoreboardModification as LowScoreboardModification,
-    },
-};
+use minecraft_command_types::command::enums::scoreboard_render_type::ScoreboardRenderType;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext,
-    data_type::DataTypeKind,
-    datapack::Datapack,
     high::{command::scoreboard::players::ScoreboardNumberFormat, expression::Expression},
+    middle::expression::command::scoreboard::objectives::{
+        ObjectivesScoreboardCommand as MiddleObjectivesScoreboardCommand,
+        ScoreboardModification as MiddleScoreboardModification,
+    },
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -24,88 +19,74 @@ pub enum ScoreboardModification {
 }
 
 impl ScoreboardModification {
+    #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
+    ) -> Option<MiddleScoreboardModification> {
+        Some(match self {
+            Self::DisplayAutoUpdate(auto_update) => {
+                MiddleScoreboardModification::DisplayAutoUpdate(auto_update)
+            }
             Self::DisplayName(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
+                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleScoreboardModification::DisplayName(expression)
             }
             Self::NumberFormat(number_format) => {
-                number_format.as_ref().map_or(Some(()), |number_format| {
-                    number_format.perform_semantic_analysis(ctx, is_lhs)
-                })
-            }
-            Self::DisplayAutoUpdate(_) | Self::RenderType(_) => Some(()),
-        }
-    }
+                let number_format = match number_format {
+                    Some(number_format) => {
+                        Some(number_format.perform_semantic_analysis(ctx, is_lhs)?)
+                    }
+                    None => None,
+                };
 
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowScoreboardModification {
-        match self {
-            Self::DisplayAutoUpdate(value) => LowScoreboardModification::DisplayAutoUpdate(value),
-            Self::DisplayName(expression) => LowScoreboardModification::DisplayName(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
-            ),
-            Self::NumberFormat(number_format) => LowScoreboardModification::NumberFormat(
-                number_format.map(|number_format| number_format.compile(datapack, ctx)),
-            ),
-            Self::RenderType(render_type) => LowScoreboardModification::RenderType(render_type),
-        }
+                MiddleScoreboardModification::NumberFormat(number_format)
+            }
+            Self::RenderType(render_type) => MiddleScoreboardModification::RenderType(render_type),
+        })
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum ObjectivesScoreboardCommand {
     List,
-    Add(String, String, Option<Expression>),
+    Add(String, String, Option<Expression>), // TODO: box
     Remove(String),
     SetDisplay(String, Option<String>),
-    Modify(String, ScoreboardModification),
+    Modify(String, ScoreboardModification), // TODO: box
 }
 
 impl ObjectivesScoreboardCommand {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Add(_, _, expression) => expression.as_ref().map_or(Some(()), |expression| {
-                expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT))
-            }),
-            Self::List | Self::Remove(_) | Self::SetDisplay(_, _) => Some(()),
-            Self::Modify(_, modification) => modification.perform_semantic_analysis(ctx, is_lhs),
-        }
-    }
+    ) -> Option<MiddleObjectivesScoreboardCommand> {
+        Some(match self {
+            Self::List => MiddleObjectivesScoreboardCommand::List,
+            Self::Add(name, criterion, expression) => {
+                let expression = match expression {
+                    Some(expression) => {
+                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
 
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowObjectivesScoreboardCommand {
-        match self {
-            Self::List => LowObjectivesScoreboardCommand::List,
-            Self::Add(objective, display_name, expression) => LowObjectivesScoreboardCommand::Add(
-                objective,
-                display_name,
-                expression.map(|e| e.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
-            ),
-            Self::Remove(objective) => LowObjectivesScoreboardCommand::Remove(objective),
-            Self::SetDisplay(objective, display_name) => {
-                LowObjectivesScoreboardCommand::SetDisplay(objective, display_name)
+                        Some(expression)
+                    }
+                    None => None,
+                };
+
+                MiddleObjectivesScoreboardCommand::Add(name, criterion, expression)
             }
-            Self::Modify(objective, scoreboard_modification) => {
-                LowObjectivesScoreboardCommand::Modify(
-                    objective,
-                    scoreboard_modification.compile(datapack, ctx),
-                )
+            Self::Remove(objective) => MiddleObjectivesScoreboardCommand::Remove(objective),
+            Self::SetDisplay(position, objective) => {
+                MiddleObjectivesScoreboardCommand::SetDisplay(position, objective)
             }
-        }
+            Self::Modify(objective, modification) => {
+                let modification = modification.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleObjectivesScoreboardCommand::Modify(objective, modification)
+            }
+        })
     }
 }

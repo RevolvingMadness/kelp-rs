@@ -1,13 +1,13 @@
 use kelp_core::{
+    high::statement::{Statement, StatementKind},
     semantic_analysis_context::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
 };
 
 use crate::{
     cst::CSTLoopStatement,
-    statement::{lower_statement, try_parse_statement},
     parser::Parser,
     span::span_of_cst_node,
+    statement::{lower_statement, try_parse_statement},
     syntax::SyntaxKind,
 };
 

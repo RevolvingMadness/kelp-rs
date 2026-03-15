@@ -1,6 +1,6 @@
-use kelp_core::{
-    data_type::high::{DataType, DataTypeKind},
-    high::snbt_string::SNBTString,
+use kelp_core::high::{
+    data_type::{DataType, DataTypeKind},
+    snbt_string::SNBTString,
 };
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 

@@ -1,51 +1,47 @@
 use std::collections::BTreeMap;
 
-use minecraft_command_types::{
-    block::BlockState as LowBlockState, resource_location::ResourceLocation,
-};
+use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
-    high::expression::ExpressionCompoundKind, semantic_analysis_context::SemanticAnalysisContext,
-    trait_ext::OptionUnitIterExt,
+    high::{expression::Expression, snbt_string::SNBTString},
+    middle::block::BlockState as MiddleBlockState,
+    semantic_analysis_context::SemanticAnalysisContext,
+    trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: BTreeMap<String, String>,
-    pub data_tags: Option<ExpressionCompoundKind>,
+    pub data_tags: Option<BTreeMap<SNBTString, Expression>>,
 }
 
 impl BlockState {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        self.data_tags.as_ref().map_or(Some(()), |data_tags| {
-            data_tags
-                .values()
-                .map(|data_tag| data_tag.perform_semantic_analysis(ctx, is_lhs, None))
-                .all_some()
-        })
-    }
-
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowBlockState {
-        LowBlockState {
-            id: self.id,
-            block_states: self.block_states.into_iter().collect(),
-            data_tags: self.data_tags.map(|value| {
-                value
+    ) -> Option<MiddleBlockState> {
+        let data_tags = match self.data_tags {
+            Some(data_tags) => Some(
+                data_tags
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                        let (_, key) = key.perform_semantic_analysis(ctx, is_lhs);
+                        let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
 
-                        (key.snbt_string, value)
+                        Some((key, value))
                     })
-                    .collect()
-            }),
-        }
+                    .collect_option_all()?,
+            ),
+            None => None,
+        };
+
+        Some(MiddleBlockState {
+            id: self.id,
+            block_states: self.block_states,
+            data_tags,
+        })
     }
 }

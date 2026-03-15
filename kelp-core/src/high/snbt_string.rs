@@ -32,17 +32,17 @@ impl From<String> for SNBTString {
 impl SNBTString {
     #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         _is_lhs: bool,
-    ) -> Option<()> {
+    ) -> (Span, LowSNBTString) {
         if self.snbt_string.has_macro_conflict() {
-            ctx.add_info(SemanticAnalysisInfo {
+            ctx.add_info::<()>(SemanticAnalysisInfo {
                 span: self.span,
                 kind: SemanticAnalysisInfoKind::Error(SemanticAnalysisError::MacroConflict),
-            })
-        } else {
-            Some(())
+            });
         }
+
+        (self.span, self.snbt_string)
     }
 }

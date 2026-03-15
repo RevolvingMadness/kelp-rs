@@ -1,11 +1,10 @@
-use minecraft_command_types::{
-    command::{enums::heightmap::Heightmap, execute::Positioned as LowPositioned},
-    coordinate::Coordinates,
-};
+use minecraft_command_types::{command::enums::heightmap::Heightmap, coordinate::Coordinates};
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, high::entity_selector::EntitySelector,
+    high::entity_selector::EntitySelector,
+    middle::expression::command::execute::positioned::Positioned as MiddlePositioned,
+    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -16,11 +15,20 @@ pub enum Positioned {
 }
 
 impl Positioned {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowPositioned {
-        match self {
-            Self::Position(position) => LowPositioned::Position(position),
-            Self::As(selector) => LowPositioned::As(selector.compile(datapack, ctx)),
-            Self::Over(heightmap) => LowPositioned::Over(heightmap),
-        }
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<MiddlePositioned> {
+        Some(match self {
+            Self::Position(coordinates) => MiddlePositioned::Position(coordinates),
+            Self::As(selector) => {
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddlePositioned::As(selector)
+            }
+            Self::Over(heightmap) => MiddlePositioned::Over(heightmap),
+        })
     }
 }

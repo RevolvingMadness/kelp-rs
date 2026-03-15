@@ -1,6 +1,10 @@
 use minecraft_command_types_derive::HasMacro;
 
-use crate::{high::command::Command, semantic_analysis_context::SemanticAnalysisContext};
+use crate::{
+    high::command::Command,
+    middle::expression::command::r#return::ReturnCommand as MiddleReturnCommand,
+    semantic_analysis_context::SemanticAnalysisContext,
+};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum ReturnCommand {
@@ -11,13 +15,18 @@ pub enum ReturnCommand {
 
 impl ReturnCommand {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Value(_) | Self::Fail => Some(()),
-            Self::Run(command) => command.perform_semantic_analysis(ctx, is_lhs),
-        }
+    ) -> Option<MiddleReturnCommand> {
+        Some(match self {
+            Self::Value(value) => MiddleReturnCommand::Value(value),
+            Self::Fail => MiddleReturnCommand::Fail,
+            Self::Run(command) => {
+                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleReturnCommand::Run(Box::new(command))
+            }
+        })
     }
 }

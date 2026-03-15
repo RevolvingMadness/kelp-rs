@@ -1,10 +1,8 @@
-use minecraft_command_types::{
-    command::item_source::ItemSource as LowItemSource, coordinate::Coordinates,
-};
+use minecraft_command_types::coordinate::Coordinates;
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, high::entity_selector::EntitySelector,
+    high::entity_selector::EntitySelector, middle::item_source::ItemSource as MiddleItemSource,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -15,25 +13,19 @@ pub enum ItemSource {
 }
 
 impl ItemSource {
+    #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
-            Self::Block(_) => Some(()),
-        }
-    }
-
-    pub fn compile(&self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemSource {
-        match self {
-            Self::Block(coordinates) => LowItemSource::Block(*coordinates),
+    ) -> Option<MiddleItemSource> {
+        Some(match self {
+            Self::Block(coordinates) => MiddleItemSource::Block(coordinates),
             Self::Entity(selector) => {
-                let selector = selector.clone().compile(datapack, ctx);
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
 
-                LowItemSource::Entity(selector)
+                MiddleItemSource::Entity(selector)
             }
-        }
+        })
     }
 }

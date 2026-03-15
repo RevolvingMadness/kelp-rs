@@ -1,4 +1,4 @@
-use kelp_core::item::{Item, ItemKind};
+use kelp_core::high::item::{Item, ItemKind};
 
 use crate::{
     cst::CSTTypeAliasDeclarationItem,

@@ -1,51 +1,12 @@
-use minecraft_command_types::{
-    command::{
-        Command,
-        data::{
-            DataCommand, DataCommandModification, DataCommandModificationMode,
-            DataTarget as LowDataTarget,
-        },
-    },
-    coordinate::Coordinates,
-    nbt_path::NbtPath,
-    resource_location::ResourceLocation,
-};
+use minecraft_command_types::{coordinate::Coordinates, resource_location::ResourceLocation};
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, high::entity_selector::EntitySelector,
-    semantic_analysis_context::SemanticAnalysisContext, span::Span,
+    high::entity_selector::EntitySelector,
+    middle::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
+    semantic_analysis_context::SemanticAnalysisContext,
+    span::Span,
 };
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
-pub struct GeneratedDataTarget {
-    pub is_generated: bool,
-    pub target: LowDataTarget,
-}
-
-impl GeneratedDataTarget {
-    #[must_use]
-    pub fn as_unique_data(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        path: NbtPath,
-    ) -> (Self, NbtPath) {
-        let (unique_data, unique_path) = datapack.get_unique_data();
-
-        ctx.add_command(
-            datapack,
-            Command::Data(DataCommand::Modify(
-                unique_data.target.clone(),
-                unique_path.clone(),
-                DataCommandModificationMode::Set,
-                DataCommandModification::From(self.target, Some(path)),
-            )),
-        );
-
-        (unique_data, unique_path)
-    }
-}
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum DataTargetKind {
@@ -72,17 +33,6 @@ impl DataTargetKind {
             kind: self,
         }
     }
-
-    pub fn perform_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Entity(selector) => selector.perform_semantic_analysis(ctx, is_lhs),
-            _ => Some(()),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -93,18 +43,25 @@ pub struct DataTarget {
 }
 
 impl DataTarget {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> GeneratedDataTarget {
-        GeneratedDataTarget {
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<MiddleDataTarget> {
+        Some(MiddleDataTarget {
             is_generated: self.is_generated,
-            target: match self.kind {
-                DataTargetKind::Block(coordinates) => LowDataTarget::Block(coordinates),
-                DataTargetKind::Entity(entity_selector) => {
-                    LowDataTarget::Entity(entity_selector.compile(datapack, ctx))
+            kind: match self.kind {
+                DataTargetKind::Block(coordinates) => MiddleDataTargetKind::Block(coordinates),
+                DataTargetKind::Entity(selector) => {
+                    let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+
+                    MiddleDataTargetKind::Entity(selector)
                 }
                 DataTargetKind::Storage(resource_location) => {
-                    LowDataTarget::Storage(resource_location)
+                    MiddleDataTargetKind::Storage(resource_location)
                 }
             },
-        }
+            span: self.span,
+        })
     }
 }

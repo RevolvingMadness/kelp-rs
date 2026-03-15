@@ -18,7 +18,7 @@ use minecraft_command_types::{
     nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
     resource_location::ResourceLocation,
-    snbt::{SNBT, SNBTString as LowSNBTString},
+    snbt::{SNBT, SNBTString},
 };
 use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
@@ -28,14 +28,13 @@ pub mod utils;
 
 use crate::{
     compile_context::CompileContext,
-    data_type::DataTypeKind,
+    data::GeneratedDataTarget,
     datapack::Datapack,
-    high::{
-        data::GeneratedDataTarget, player_score::GeneratedPlayerScore, snbt_string::SNBTString,
-    },
     low::expression::utils::push_scoreboard_players,
+    middle::data_type::DataTypeKind,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
+    player_score::GeneratedPlayerScore,
 };
 
 pub fn compile_shift_operation(
@@ -89,10 +88,10 @@ pub fn split_constants_compound(
     for (key, expression) in compound {
         match expression.try_into_snbt() {
             Ok(snbt) => {
-                constants.insert(key.snbt_string, snbt);
+                constants.insert(key, snbt);
             }
             Err(expression) => {
-                constants.insert(key.snbt_string.clone(), SNBT::Compound(BTreeMap::new()));
+                constants.insert(key.clone(), SNBT::Compound(BTreeMap::new()));
                 non_constants.insert(key, expression);
             }
         }
@@ -197,7 +196,7 @@ impl Expression {
             Self::Compound(compound) => DataTypeKind::TypedCompound(
                 compound
                     .iter()
-                    .map(|(key, value)| (key.snbt_string.clone(), value.get_data_type()))
+                    .map(|(key, value)| (key.clone(), value.get_data_type()))
                     .collect(),
             ),
             Self::Tuple(expressions) => {
@@ -258,11 +257,7 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn dereference(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> Option<Self> {
+    pub fn dereference(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
         match self {
             Self::PlayerScore(score) => {
                 let unique_score = datapack.get_unique_score();
@@ -323,7 +318,7 @@ impl Expression {
             | Self::Double(_)
             | Self::String(_) => None,
             Self::Compound(compound) => compound.into_iter().find_map(|(actual_field, value)| {
-                if actual_field.snbt_string.1 == field {
+                if actual_field.1 == field {
                     Some(value)
                 } else {
                     None
@@ -335,7 +330,7 @@ impl Expression {
                 Some(Self::Data(Box::new((
                     target,
                     path.with_node(NbtPathNode::Named(
-                        LowSNBTString(false, field.to_owned()),
+                        SNBTString(false, field.to_owned()),
                         None,
                     )),
                 ))))
@@ -379,7 +374,7 @@ impl Expression {
                 let mut compound = BTreeMap::new();
 
                 for (key, value) in field_expressions {
-                    compound.insert(LowSNBTString(false, key), value.try_into_snbt().unwrap());
+                    compound.insert(SNBTString(false, key), value.try_into_snbt().unwrap());
                 }
 
                 SNBT::Compound(compound)
@@ -391,7 +386,7 @@ impl Expression {
             Self::Long(long) => SNBT::Long(long),
             Self::Float(float) => SNBT::Float(float),
             Self::Double(double) => SNBT::Double(double),
-            Self::String(string) => SNBT::String(string.snbt_string),
+            Self::String(string) => SNBT::String(string),
             Self::List(list) => {
                 if !list.iter().all(Self::can_into_snbt) {
                     return Err(Self::List(list));
@@ -411,7 +406,7 @@ impl Expression {
 
                 let compound = compound
                     .into_iter()
-                    .map(|(key, value)| (key.snbt_string, value.try_into_snbt().unwrap()))
+                    .map(|(key, value)| (key, value.try_into_snbt().unwrap()))
                     .collect();
 
                 SNBT::Compound(compound)
@@ -432,7 +427,7 @@ impl Expression {
                 let mut compound = BTreeMap::new();
 
                 compound.insert(
-                    LowSNBTString(false, "__kelp_rs_unit__".to_string()),
+                    SNBTString(false, "__kelp_rs_unit__".to_string()),
                     SNBT::Byte(1),
                 );
 
@@ -501,7 +496,7 @@ impl Expression {
             Self::Compound(compound) => SNBT::Compound(
                 compound
                     .into_iter()
-                    .map(|(key, value)| (key.snbt_string, value.as_snbt_macros(ctx)))
+                    .map(|(key, value)| (key, value.as_snbt_macros(ctx)))
                     .collect(),
             ),
             Self::Struct(_, _, _)
@@ -509,224 +504,6 @@ impl Expression {
             | Self::Data(_)
             | Self::Condition(_, _) => ctx.get_macro_snbt(self),
             Self::Underscore => unreachable!(),
-        }
-    }
-
-    pub fn assign_to_score(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        target: GeneratedPlayerScore,
-    ) {
-        match self {
-            Self::Boolean(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
-                );
-            }
-            Self::Byte(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
-                );
-            }
-            Self::Short(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
-                );
-            }
-            Self::Integer(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value),
-                );
-            }
-            Self::Long(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value as i32),
-                );
-            }
-            Self::Float(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
-                );
-            }
-            Self::Double(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
-                );
-            }
-            Self::String(SNBTString {
-                snbt_string: LowSNBTString(_, value),
-                ..
-            }) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
-                );
-            }
-            Self::List(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
-                );
-            }
-            Self::Compound(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
-                );
-            }
-            Self::PlayerScore(source) => {
-                source.assign_to_score(datapack, ctx, target);
-            }
-            Self::Data(data_target_path) => {
-                let (data_target, path) = *data_target_path;
-
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            target.score,
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(data_target.target, Some(path), None),
-                            )))),
-                        ),
-                    )),
-                );
-            }
-            Self::Condition(inverted, condition) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            target.score,
-                            Box::new(ExecuteSubcommand::If(inverted, *condition)),
-                        ),
-                    )),
-                );
-            }
-            Self::Struct(_, _, _) | Self::Tuple(_) | Self::Unit | Self::Underscore => {
-                unreachable!()
-            }
-        }
-    }
-
-    pub fn assign_to_score_scale(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        target: GeneratedPlayerScore,
-        scale: NotNan<f32>,
-    ) {
-        match self {
-            Self::Byte(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        target.score,
-                        (f32::from(value) * scale.into_inner()) as i32,
-                    ),
-                );
-            }
-            Self::Short(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        target.score,
-                        (f32::from(value) * scale.into_inner()) as i32,
-                    ),
-                );
-            }
-            Self::Integer(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        target.score,
-                        (value as f32 * scale.into_inner()) as i32,
-                    ),
-                );
-            }
-            Self::Long(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        target.score,
-                        (value as f32 * scale.into_inner()) as i32,
-                    ),
-                );
-            }
-            Self::Float(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        target.score,
-                        (value.into_inner() * scale.into_inner()) as i32,
-                    ),
-                );
-            }
-            Self::Double(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        target.score,
-                        (value.into_inner() * f64::from(scale.into_inner())) as i32,
-                    ),
-                );
-            }
-            Self::PlayerScore(source) => {
-                source.assign_to_score_scale(datapack, ctx, target, scale);
-            }
-            Self::Data(data_target_path) => {
-                let (data_target, path) = *data_target_path;
-
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            target.score,
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(data_target.target, Some(path), Some(scale)),
-                            )))),
-                        ),
-                    )),
-                );
-            }
-            Self::Condition(_, _)
-            | Self::Boolean(_)
-            | Self::Struct(_, _, _)
-            | Self::Tuple(_)
-            | Self::Unit
-            | Self::Underscore
-            | Self::String(_)
-            | Self::List(_)
-            | Self::Compound(_) => {
-                unreachable!("{:?}", self)
-            }
         }
     }
 
@@ -895,7 +672,7 @@ impl Expression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone().with_node(NbtPathNode::named(key.snbt_string)),
+                            path.clone().with_node(NbtPathNode::named(key)),
                         );
                     }
                 }
@@ -907,7 +684,7 @@ impl Expression {
                             ctx,
                             target.clone(),
                             path.clone()
-                                .with_node(NbtPathNode::Named(LowSNBTString(false, key), None)),
+                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
                         );
                     }
                 }
@@ -1042,7 +819,7 @@ impl Expression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone().with_node(NbtPathNode::named(key.snbt_string)),
+                            path.clone().with_node(NbtPathNode::named(key)),
                             scale,
                         );
                     }
@@ -1055,7 +832,7 @@ impl Expression {
                             ctx,
                             target.clone(),
                             path.clone()
-                                .with_node(NbtPathNode::Named(LowSNBTString(false, key), None)),
+                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
                             scale,
                         );
                     }
@@ -1171,10 +948,7 @@ impl Expression {
             Self::Long(v) => *v as i32,
             Self::Float(v) if force => v.into_inner() as i32,
             Self::Double(v) if force => v.into_inner() as i32,
-            Self::String(SNBTString {
-                snbt_string: LowSNBTString(_, v),
-                ..
-            }) if force => v.len() as i32,
+            Self::String(SNBTString(_, v)) if force => v.len() as i32,
             Self::List(v) if force => v.len() as i32,
             Self::Compound(compound) if force => compound.len() as i32,
             _ => return None,
@@ -1665,28 +1439,25 @@ impl Expression {
                 match target.target {
                     DataTarget::Block(coordinates) => {
                         map.insert(
-                            LowSNBTString(false, "block".to_string()),
+                            SNBTString(false, "block".to_string()),
                             SNBT::string(coordinates),
                         );
                     }
                     DataTarget::Entity(entity_selector) => {
                         map.insert(
-                            LowSNBTString(false, "entity".to_string()),
+                            SNBTString(false, "entity".to_string()),
                             SNBT::string(entity_selector),
                         );
                     }
                     DataTarget::Storage(resource_location) => {
                         map.insert(
-                            LowSNBTString(false, "storage".to_string()),
+                            SNBTString(false, "storage".to_string()),
                             SNBT::string(resource_location),
                         );
                     }
                 }
 
-                map.insert(
-                    LowSNBTString(false, "nbt".to_string()),
-                    path.to_snbt_string(),
-                );
+                map.insert(SNBTString(false, "nbt".to_string()), path.to_snbt_string());
 
                 SNBT::Compound(map)
             }
@@ -1741,9 +1512,9 @@ impl Expression {
             }
             Self::String(string) => {
                 if force_display {
-                    SNBT::string(format!("\"{}\"", string.snbt_string.1))
+                    SNBT::string(format!("\"{}\"", string.1))
                 } else {
-                    SNBT::String(string.snbt_string)
+                    SNBT::String(string)
                 }
             }
             Self::List(list) => SNBT::List(
@@ -1754,12 +1525,7 @@ impl Expression {
             Self::Compound(compound) => SNBT::Compound(
                 compound
                     .into_iter()
-                    .map(|(key, value)| {
-                        (
-                            key.snbt_string,
-                            value.as_text_component(datapack, ctx, false),
-                        )
-                    })
+                    .map(|(key, value)| (key, value.as_text_component(datapack, ctx, false)))
                     .collect(),
             ),
             Self::Condition(_, _) => {
@@ -1836,7 +1602,7 @@ impl Expression {
 
                     for (field_name, field_value) in fields {
                         output.insert(
-                            LowSNBTString(false, field_name),
+                            SNBTString(false, field_name),
                             field_value.as_text_component(datapack, ctx, force_display),
                         );
                     }
@@ -1925,6 +1691,221 @@ impl Expression {
             | Self::Struct(_, _, _)
             | Self::Unit
             | Self::Condition(_, _) => unreachable!(),
+        }
+    }
+
+    pub fn assign_to_score(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        target: GeneratedPlayerScore,
+    ) {
+        match self {
+            Self::Boolean(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                );
+            }
+            Self::Byte(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                );
+            }
+            Self::Short(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                );
+            }
+            Self::Integer(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value),
+                );
+            }
+            Self::Long(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value as i32),
+                );
+            }
+            Self::Float(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
+                );
+            }
+            Self::Double(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
+                );
+            }
+            Self::String(SNBTString(_, value)) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                );
+            }
+            Self::List(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                );
+            }
+            Self::Compound(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                );
+            }
+            Self::PlayerScore(source) => {
+                source.assign_to_score(datapack, ctx, target);
+            }
+            Self::Data(data_target_path) => {
+                let (data_target, path) = *data_target_path;
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Score(
+                            target.score,
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
+                                DataCommand::Get(data_target.target, Some(path), None),
+                            )))),
+                        ),
+                    )),
+                );
+            }
+            Self::Condition(inverted, condition) => {
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Success,
+                        ExecuteStoreSubcommand::Score(
+                            target.score,
+                            Box::new(ExecuteSubcommand::If(inverted, *condition)),
+                        ),
+                    )),
+                );
+            }
+            Self::Struct(_, _, _) | Self::Tuple(_) | Self::Unit | Self::Underscore => {
+                unreachable!()
+            }
+        }
+    }
+
+    pub fn assign_to_score_scale(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        target: GeneratedPlayerScore,
+        scale: NotNan<f32>,
+    ) {
+        match self {
+            Self::Byte(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (f32::from(value) * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Short(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (f32::from(value) * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Integer(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value as f32 * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Long(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value as f32 * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Float(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value.into_inner() * scale.into_inner()) as i32,
+                    ),
+                );
+            }
+            Self::Double(value) => {
+                push_scoreboard_players(
+                    datapack,
+                    ctx,
+                    PlayersScoreboardCommand::Set(
+                        target.score,
+                        (value.into_inner() * f64::from(scale.into_inner())) as i32,
+                    ),
+                );
+            }
+            Self::PlayerScore(source) => {
+                source.assign_to_score_scale(datapack, ctx, target, scale);
+            }
+            Self::Data(data_target_path) => {
+                let (data_target, path) = *data_target_path;
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Score(
+                            target.score,
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
+                                DataCommand::Get(data_target.target, Some(path), Some(scale)),
+                            )))),
+                        ),
+                    )),
+                );
+            }
+            Self::Condition(_, _)
+            | Self::Boolean(_)
+            | Self::Struct(_, _, _)
+            | Self::Tuple(_)
+            | Self::Unit
+            | Self::Underscore
+            | Self::String(_)
+            | Self::List(_)
+            | Self::Compound(_) => {
+                unreachable!("{:?}", self)
+            }
         }
     }
 
@@ -2154,7 +2135,7 @@ impl Expression {
                 *compound
                     .iter_mut()
                     .find_map(|(actual_field, value)| {
-                        if actual_field.snbt_string.1 == field {
+                        if actual_field.1 == field {
                             Some(value)
                         } else {
                             None
@@ -2170,7 +2151,7 @@ impl Expression {
                     ctx,
                     target.clone(),
                     path.clone().with_node(NbtPathNode::Named(
-                        LowSNBTString(false, field.to_owned()),
+                        SNBTString(false, field.to_owned()),
                         None,
                     )),
                 );

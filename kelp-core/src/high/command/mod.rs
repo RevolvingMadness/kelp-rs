@@ -1,17 +1,11 @@
 use minecraft_command_types::{
-    command::{
-        Command as LowCommand, enums::difficulty::Difficulty,
-        r#return::ReturnCommand as LowReturnCommand, stopwatch::StopwatchCommand,
-    },
+    command::{Command as LowCommand, enums::difficulty::Difficulty, stopwatch::StopwatchCommand},
     coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext,
-    data_type::DataTypeKind,
-    datapack::Datapack,
     high::{
         command::{
             data::DataCommand, execute::subcommand::ExecuteSubcommand,
@@ -21,6 +15,7 @@ use crate::{
         entity_selector::EntitySelector,
         expression::Expression,
     },
+    middle::expression::command::Command as MiddleCommand,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -47,85 +42,72 @@ pub enum Command {
 
 impl Command {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Regular(_command) => {
+    ) -> Option<MiddleCommand> {
+        Some(match self {
+            Self::Regular(command) => {
                 // TODO future
 
-                Some(())
+                MiddleCommand::Regular(command)
             }
-            Self::Data(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            Self::Difficulty(_) | Self::Stopwatch(_) => Some(()),
-            Self::Enchant(selector, _, _) => selector.perform_semantic_analysis(ctx, is_lhs),
-            Self::Execute(subcommand) => subcommand.perform_semantic_analysis(ctx, is_lhs),
-            Self::Function(_, arguments) => arguments.as_ref().map_or(Some(()), |arguments| {
-                arguments.perform_semantic_analysis(ctx, is_lhs)
-            }),
-            Self::Tellraw(selector, expression) => {
-                let selector_result = selector.perform_semantic_analysis(ctx, is_lhs);
-                let expression_result =
-                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::SNBT));
+            Self::Data(command) => {
+                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
 
-                selector_result?;
-                expression_result?;
+                MiddleCommand::Data(command)
+            }
+            Self::Difficulty(difficulty) => MiddleCommand::Difficulty(difficulty),
+            Self::Stopwatch(command) => MiddleCommand::Stopwatch(command),
+            Self::Enchant(selector, enchantment, level) => {
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
 
-                Some(())
+                MiddleCommand::Enchant(selector, enchantment, level)
             }
-            Self::Return(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            Self::Scoreboard(command) => command.perform_semantic_analysis(ctx, is_lhs),
-            Self::Summon(_, _, expression) => expression.as_ref().map_or(Some(()), |expression| {
-                expression.perform_semantic_analysis(
-                    ctx,
-                    is_lhs,
-                    Some(&DataTypeKind::Compound(Box::new(DataTypeKind::SNBT))),
-                )
-            }),
-        }
-    }
+            Self::Execute(subcommand) => {
+                let subcommand = subcommand.perform_semantic_analysis(ctx, is_lhs)?;
 
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowCommand {
-        match self {
-            Self::Regular(command) => command,
-            Self::Data(data_command) => LowCommand::Data(data_command.compile(datapack, ctx)),
-            Self::Difficulty(difficulty) => LowCommand::Difficulty(difficulty),
-            Self::Enchant(selector, location, level) => {
-                LowCommand::Enchant(selector.compile(datapack, ctx), location, level)
+                MiddleCommand::Execute(subcommand)
             }
-            Self::Execute(execute_subcommand) => {
-                LowCommand::Execute(execute_subcommand.compile(datapack, ctx))
-            }
-            Self::Function(id, arguments) => {
-                let compiled_arguments =
-                    arguments.map(|arguments| arguments.compile(datapack, ctx));
-                LowCommand::Function(id, compiled_arguments)
+            Self::Function(resource_location, arguments) => {
+                let arguments = match arguments {
+                    Some(arguments) => Some(arguments.perform_semantic_analysis(ctx, is_lhs))?,
+                    None => None,
+                };
+
+                MiddleCommand::Function(resource_location, arguments)
             }
             Self::Tellraw(selector, expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs);
+                let expression = expression.perform_semantic_analysis(ctx, is_lhs);
 
-                LowCommand::Tellraw(
-                    selector.compile(datapack, ctx),
-                    expression.as_text_component(datapack, ctx, false),
-                )
+                let selector = selector?;
+                let (_, expression) = expression?;
+
+                MiddleCommand::Tellraw(selector, expression)
             }
-            Self::Return(command) => match command {
-                ReturnCommand::Fail | ReturnCommand::Value(0) => {
-                    LowCommand::Return(LowReturnCommand::Fail)
-                }
-                ReturnCommand::Value(value) => LowCommand::Return(LowReturnCommand::Value(value)),
-                ReturnCommand::Run(command) => LowCommand::Return(LowReturnCommand::Run(Box::new(
-                    command.compile(datapack, ctx),
-                ))),
-            },
-            Self::Scoreboard(command) => LowCommand::Scoreboard(command.compile(datapack, ctx)),
-            Self::Stopwatch(command) => LowCommand::Stopwatch(command),
-            Self::Summon(entity, position, nbt) => LowCommand::Summon(
-                entity,
-                position,
-                nbt.map(|nbt| nbt.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
-            ),
-        }
+            Self::Return(command) => {
+                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleCommand::Return(command)
+            }
+            Self::Scoreboard(command) => {
+                let command = command.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleCommand::Scoreboard(command)
+            }
+            Self::Summon(resource_location, coordinates, expression) => {
+                let expression = match expression {
+                    Some(expression) => {
+                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+
+                        Some(expression)
+                    }
+                    None => None,
+                };
+
+                MiddleCommand::Summon(resource_location, coordinates, expression)
+            }
+        })
     }
 }

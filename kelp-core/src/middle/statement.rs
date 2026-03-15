@@ -1,20 +1,12 @@
 use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
-use crate::item::Item;
 use crate::low::expression::Expression as LowExpression;
-use crate::span::Span;
-use crate::trait_ext::OptionUnitIterExt;
+use crate::middle::data_type::DataTypeKind;
+use crate::middle::item::Item;
 use crate::{
-    compile_context::CompileContext,
-    data_type::{DataTypeKind, high::DataType},
-    datapack::Datapack,
-    high::expression::Expression,
+    compile_context::CompileContext, datapack::Datapack, middle::expression::Expression,
     pattern::Pattern,
-    semantic_analysis_context::{
-        Scope, SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
 };
 use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{
@@ -31,16 +23,16 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::{SNBT, SNBTString};
 use nonempty::nonempty;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum StatementKind {
+#[derive(Debug, Clone)]
+pub enum Statement {
     Expression(Expression),
-    Let(Option<DataType>, Pattern, Expression),
-    While(Expression, Box<Statement>),
-    Loop(Box<Statement>),
-    Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
-    If(Expression, Box<Statement>, Option<Box<Statement>>),
-    ForIn(bool, String, Expression, Box<Statement>),
-    Block(Vec<Statement>),
+    Let(DataTypeKind, Pattern, Expression),
+    While(Expression, Box<Self>),
+    Loop(Box<Self>),
+    Match(Expression, BTreeMap<IntegerRange, Box<Self>>),
+    If(Expression, Box<Self>, Option<Box<Self>>),
+    ForIn(bool, String, Expression, Box<Self>),
+    Block(Vec<Self>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
     Item(Box<Item>),
@@ -128,12 +120,7 @@ pub enum ControlFlowKind {
     Continue,
 }
 
-impl StatementKind {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> Statement {
-        Statement { span, kind: self }
-    }
-
+impl Statement {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::Expression(expression) => {
@@ -141,11 +128,6 @@ impl StatementKind {
             }
             Self::Let(data_type, pattern, value) => {
                 let value = value.kind.resolve(datapack, ctx);
-
-                #[allow(clippy::map_unwrap_or)]
-                let data_type = data_type
-                    .map(|data_type| data_type.kind.resolve(datapack, None).unwrap())
-                    .unwrap_or_else(|| value.get_data_type());
 
                 pattern.kind.destructure(datapack, ctx, data_type, value);
             }
@@ -181,7 +163,7 @@ impl StatementKind {
                     type_: LoopType::While(should_be_inverted, condition),
                 });
 
-                body.kind.compile(datapack, &mut while_body_ctx);
+                body.compile(datapack, &mut while_body_ctx);
 
                 while_body_ctx.extend_context(condition_ctx.clone());
                 ctx.extend_context(condition_ctx);
@@ -204,7 +186,7 @@ impl StatementKind {
                     type_: LoopType::Loop,
                 });
 
-                body.kind.compile(datapack, &mut loop_body_ctx);
+                body.compile(datapack, &mut loop_body_ctx);
 
                 loop_body_ctx.add_command(datapack, iteration_command.clone());
                 ctx.add_command(datapack, iteration_command);
@@ -252,7 +234,7 @@ impl StatementKind {
                             ),
                         )),
                     );
-                    body.kind.compile(datapack, &mut for_body_ctx);
+                    body.compile(datapack, &mut for_body_ctx);
                     datapack.end_scope();
 
                     let current_namespace_name = datapack.current_namespace_name().to_string();
@@ -329,7 +311,7 @@ impl StatementKind {
                             unique_path.clone(),
                         ))),
                     );
-                    body.kind.compile(datapack, &mut for_body_ctx);
+                    body.compile(datapack, &mut for_body_ctx);
                     datapack.end_scope();
 
                     let current_namespace_name = datapack.current_namespace_name().to_string();
@@ -376,7 +358,7 @@ impl StatementKind {
                 datapack.start_scope();
 
                 for statement in body {
-                    statement.kind.compile(datapack, ctx);
+                    statement.compile(datapack, ctx);
                 }
 
                 datapack.end_scope();
@@ -386,8 +368,8 @@ impl StatementKind {
             }
             Self::If(condition, body, else_body) => {
                 let mut body_ctx = ctx.create_child_ctx();
-                let control_flow = body.kind.get_control_flow(ctx);
-                body.kind.compile(datapack, &mut body_ctx);
+                let control_flow = body.get_control_flow(ctx);
+                body.compile(datapack, &mut body_ctx);
 
                 let (invert, condition) = condition
                     .kind
@@ -397,8 +379,8 @@ impl StatementKind {
 
                 if let Some(else_body) = else_body {
                     let mut else_body_ctx = ctx.create_child_ctx();
-                    let else_control_flow = else_body.kind.get_control_flow(ctx);
-                    else_body.kind.compile(datapack, &mut else_body_ctx);
+                    let else_control_flow = else_body.get_control_flow(ctx);
+                    else_body.compile(datapack, &mut else_body_ctx);
 
                     let should_add_condition =
                         body_ctx.num_commands() > 1 || else_body_ctx.num_commands() > 1;
@@ -530,7 +512,7 @@ impl StatementKind {
                     Command::Return(ReturnCommand::Run(Box::new(command))),
                 );
             }
-            Self::Item(item) => item.kind.compile(datapack, ctx),
+            Self::Item(item) => item.compile(datapack, ctx),
         }
     }
 
@@ -543,19 +525,17 @@ impl StatementKind {
             | Self::Remove(_)
             | Self::Item(_) => None,
             Self::While(_, statement) | Self::Loop(statement) | Self::ForIn(_, _, _, statement) => {
-                statement.kind.get_control_flow_kind()
+                statement.get_control_flow_kind()
             }
             Self::Match(_, _) => todo!(),
             Self::If(_, statement, else_statement) => {
-                statement.kind.get_control_flow_kind().or_else(|| {
+                statement.get_control_flow_kind().or_else(|| {
                     else_statement
                         .as_ref()
-                        .and_then(|statement| statement.kind.get_control_flow_kind())
+                        .and_then(|statement| statement.get_control_flow_kind())
                 })
             }
-            Self::Block(statements) => statements
-                .iter()
-                .find_map(|statement| statement.kind.get_control_flow_kind()),
+            Self::Block(statements) => statements.iter().find_map(Self::get_control_flow_kind),
             Self::Break => Some(ControlFlowKind::Break),
             Self::Continue => Some(ControlFlowKind::Continue),
         }
@@ -569,240 +549,5 @@ impl StatementKind {
             kind: self.get_control_flow_kind()?,
             loop_info,
         })
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Statement {
-    pub span: Span,
-    pub kind: StatementKind,
-}
-
-impl Statement {
-    pub fn perform_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        is_lhs: bool,
-    ) -> Option<()> {
-        match &self.kind {
-            StatementKind::Expression(expression) => {
-                expression.perform_semantic_analysis(ctx, is_lhs, None)
-            }
-            StatementKind::Let(explicit_type, pattern, value) => {
-                let variable_type = if let Some(explicit_type) = explicit_type {
-                    if explicit_type.perform_semantic_analysis(None, ctx).is_none() {
-                        let value_result = value.perform_semantic_analysis(ctx, is_lhs, None);
-
-                        pattern.kind.destructure_unknown(ctx);
-
-                        value_result?;
-
-                        return None;
-                    }
-
-                    let explicit_type = explicit_type.kind.resolve(ctx, None).unwrap();
-
-                    let value_result =
-                        value.perform_semantic_analysis(ctx, is_lhs, Some(&explicit_type));
-
-                    pattern.kind.destructure_unknown(ctx);
-
-                    value_result?;
-
-                    let value_type = value.kind.infer_data_type(ctx);
-
-                    explicit_type.try_infer(value_type)
-                } else {
-                    let value_result = value.perform_semantic_analysis(ctx, is_lhs, None);
-
-                    pattern.kind.destructure_unknown(ctx);
-
-                    value_result?;
-
-                    value.kind.infer_data_type(ctx)?
-                };
-
-                let mut error = false;
-
-                if value
-                    .perform_semantic_analysis(ctx, is_lhs, Some(&variable_type))
-                    .is_none()
-                {
-                    error = true;
-                }
-
-                if pattern
-                    .perform_irrefutablity_semantic_analysis(ctx)
-                    .is_none()
-                {
-                    error = true;
-                }
-
-                if variable_type
-                    .destructure_and_perform_semantic_analysis(ctx, value.span, pattern)
-                    .is_none()
-                {
-                    pattern.kind.destructure_unknown(ctx);
-
-                    error = true;
-                }
-
-                if error {
-                    return None;
-                }
-
-                Some(())
-            }
-            StatementKind::While(condition, body) => {
-                let condition_result =
-                    condition.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::Boolean));
-
-                ctx.loop_depth += 1;
-                let body_result = body.perform_semantic_analysis(ctx, is_lhs);
-                ctx.loop_depth -= 1;
-
-                condition_result?;
-
-                let expression_type = condition.kind.infer_data_type(ctx)?;
-
-                if !expression_type.is_condition() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: condition.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsNotCondition(expression_type),
-                        ),
-                    });
-                }
-
-                body_result?;
-
-                Some(())
-            }
-            StatementKind::Loop(body) => {
-                ctx.loop_depth += 1;
-                let body_result = body.perform_semantic_analysis(ctx, is_lhs);
-                ctx.loop_depth -= 1;
-
-                body_result?;
-
-                Some(())
-            }
-            StatementKind::Match(_, _) => todo!(),
-            StatementKind::If(expression, statement, else_statement) => {
-                let expression_result =
-                    expression.perform_semantic_analysis(ctx, is_lhs, Some(&DataTypeKind::Boolean));
-                let statement_result = statement.perform_semantic_analysis(ctx, is_lhs);
-                let else_statement_result =
-                    else_statement.as_ref().map_or(Some(()), |else_statement| {
-                        else_statement.perform_semantic_analysis(ctx, is_lhs)
-                    });
-
-                expression_result?;
-
-                let expression_type = expression.kind.infer_data_type(ctx)?;
-
-                if !expression_type.is_condition() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: expression.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsNotCondition(expression_type),
-                        ),
-                    });
-                }
-
-                statement_result?;
-                else_statement_result?;
-
-                Some(())
-            }
-            StatementKind::ForIn(_, name, expression, statement) => {
-                let expression_result = expression.perform_semantic_analysis(ctx, is_lhs, None);
-
-                let expression_type = expression.kind.infer_data_type(ctx)?;
-
-                let Some(iterable_type) = expression_type.get_iterable_type() else {
-                    ctx.declare_variable_unknown(name);
-
-                    statement.perform_semantic_analysis(ctx, is_lhs);
-
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: expression.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotIterateType(expression_type),
-                        ),
-                    });
-                };
-
-                ctx.declare_variable_known(name, iterable_type);
-
-                statement.perform_semantic_analysis(ctx, is_lhs)?;
-
-                expression_result?;
-
-                Some(())
-            }
-            StatementKind::Block(statements) => {
-                ctx.scopes.push(Scope::default());
-
-                let result = statements
-                    .iter()
-                    .map(|statement| statement.perform_semantic_analysis(ctx, is_lhs))
-                    .all_some();
-
-                ctx.scopes.pop();
-
-                result
-            }
-            StatementKind::Append(target, value) => {
-                let target_result = target.perform_semantic_analysis(
-                    ctx,
-                    is_lhs,
-                    Some(&DataTypeKind::Data(Box::new(DataTypeKind::List(Box::new(
-                        DataTypeKind::SNBT,
-                    ))))),
-                );
-                let value_result = value.perform_semantic_analysis(ctx, is_lhs, None);
-
-                target_result?;
-                value_result?;
-
-                Some(())
-            }
-            StatementKind::Remove(target) => target.perform_semantic_analysis(
-                ctx,
-                is_lhs,
-                Some(&DataTypeKind::Data(Box::new(DataTypeKind::SNBT))),
-            ),
-            StatementKind::Break => {
-                if ctx.loop_depth == 0 {
-                    ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Break),
-                        ),
-                    })
-                } else {
-                    Some(())
-                }
-            }
-            StatementKind::Continue => {
-                if ctx.loop_depth == 0 {
-                    ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Continue),
-                        ),
-                    })
-                } else {
-                    Some(())
-                }
-            }
-            StatementKind::Item(item) => item.perform_semantic_analysis(ctx, is_lhs),
-        }
-    }
-
-    #[must_use]
-    pub const fn new(span: Span, kind: StatementKind) -> Self {
-        Self { span, kind }
     }
 }

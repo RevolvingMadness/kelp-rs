@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use minecraft_command_types::{
     command::enums::{gamemode::Gamemode, sort::Sort},
-    entity_selector::{AdvancementChoiceType, EntitySelectorOption as LowEntitySelectorOption},
+    entity_selector::AdvancementChoiceType,
     range::{FloatRange, IntegerRange},
     resource_location::ResourceLocation,
 };
@@ -10,7 +10,8 @@ use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, high::expression::Expression,
+    high::expression::Expression,
+    middle::entity_selector::option::EntitySelectorOption as MiddleEntitySelectorOption,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -42,53 +43,46 @@ pub enum EntitySelectorOption {
 impl EntitySelectorOption {
     #[must_use]
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::Nbt(_, expression) => expression.perform_semantic_analysis(ctx, is_lhs, None),
-            _ => Some(()),
-        }
-    }
-
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowEntitySelectorOption {
-        match self {
-            Self::X(x) => LowEntitySelectorOption::X(x),
-            Self::Y(y) => LowEntitySelectorOption::Y(y),
-            Self::Z(z) => LowEntitySelectorOption::Z(z),
-            Self::Distance(distance) => LowEntitySelectorOption::Distance(distance),
-            Self::DistanceX(distance_x) => LowEntitySelectorOption::DistanceX(distance_x),
-            Self::DistanceY(distance_y) => LowEntitySelectorOption::DistanceY(distance_y),
-            Self::DistanceZ(distance_z) => LowEntitySelectorOption::DistanceZ(distance_z),
-            Self::XRotation(x_rotation) => LowEntitySelectorOption::XRotation(x_rotation),
-            Self::YRotation(y_rotation) => LowEntitySelectorOption::YRotation(y_rotation),
-            Self::Scores(scores) => LowEntitySelectorOption::Scores(scores.into_iter().collect()),
-            Self::Tag(inverted, tag) => LowEntitySelectorOption::Tag(inverted, tag),
-            Self::Team(inverted, team) => LowEntitySelectorOption::Team(inverted, team),
-            Self::Name(inverted, name) => LowEntitySelectorOption::Name(inverted, name),
-            Self::Type(inverted, type_) => LowEntitySelectorOption::Type(inverted, type_),
-            Self::Predicate(inverted, predicate) => {
-                LowEntitySelectorOption::Predicate(inverted, predicate)
+    ) -> Option<MiddleEntitySelectorOption> {
+        Some(match self {
+            Self::X(x) => MiddleEntitySelectorOption::X(x),
+            Self::Y(y) => MiddleEntitySelectorOption::Y(y),
+            Self::Z(z) => MiddleEntitySelectorOption::Z(z),
+            Self::Distance(distance) => MiddleEntitySelectorOption::Distance(distance),
+            Self::DistanceX(distance_x) => MiddleEntitySelectorOption::DistanceX(distance_x),
+            Self::DistanceY(distance_y) => MiddleEntitySelectorOption::DistanceY(distance_y),
+            Self::DistanceZ(distance_z) => MiddleEntitySelectorOption::DistanceZ(distance_z),
+            Self::XRotation(x_rotation) => MiddleEntitySelectorOption::XRotation(x_rotation),
+            Self::YRotation(y_rotation) => MiddleEntitySelectorOption::YRotation(y_rotation),
+            Self::Scores(scores) => MiddleEntitySelectorOption::Scores(scores),
+            Self::Tag(inverted, tag_name) => MiddleEntitySelectorOption::Tag(inverted, tag_name),
+            Self::Team(inverted, team_name) => {
+                MiddleEntitySelectorOption::Team(inverted, team_name)
+            }
+            Self::Name(inverted, name) => MiddleEntitySelectorOption::Name(inverted, name),
+            Self::Type(inverted, resource_location) => {
+                MiddleEntitySelectorOption::Type(inverted, resource_location)
+            }
+            Self::Predicate(inverted, resource_location) => {
+                MiddleEntitySelectorOption::Predicate(inverted, resource_location)
             }
             Self::Nbt(inverted, expression) => {
-                let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
 
-                LowEntitySelectorOption::Nbt(inverted, expression)
+                MiddleEntitySelectorOption::Nbt(inverted, Box::new(expression))
             }
             Self::Gamemode(inverted, gamemode) => {
-                LowEntitySelectorOption::Gamemode(inverted, gamemode)
+                MiddleEntitySelectorOption::Gamemode(inverted, gamemode)
             }
-            Self::Level(level) => LowEntitySelectorOption::Level(level),
+            Self::Level(level) => MiddleEntitySelectorOption::Level(level),
             Self::Advancements(advancements) => {
-                LowEntitySelectorOption::Advancements(advancements.into_iter().collect())
+                MiddleEntitySelectorOption::Advancements(advancements)
             }
-            Self::Limit(limit) => LowEntitySelectorOption::Limit(limit),
-            Self::Sort(sort) => LowEntitySelectorOption::Sort(sort),
-        }
+            Self::Limit(limit) => MiddleEntitySelectorOption::Limit(limit),
+            Self::Sort(sort) => MiddleEntitySelectorOption::Sort(sort),
+        })
     }
 }

@@ -1,11 +1,12 @@
 use minecraft_command_types::{
-    command::{enums::entity_anchor::EntityAnchor, execute::Facing as LowFacing},
-    coordinate::Coordinates,
+    command::enums::entity_anchor::EntityAnchor, coordinate::Coordinates,
 };
 use minecraft_command_types_derive::HasMacro;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, high::entity_selector::EntitySelector,
+    high::entity_selector::EntitySelector,
+    middle::expression::command::execute::facing::Facing as MiddleFacing,
+    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
@@ -15,12 +16,19 @@ pub enum Facing {
 }
 
 impl Facing {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowFacing {
-        match self {
-            Self::Position(position) => LowFacing::Position(position),
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        is_lhs: bool,
+    ) -> Option<MiddleFacing> {
+        Some(match self {
+            Self::Position(coordinates) => MiddleFacing::Position(coordinates),
             Self::Entity(selector, anchor) => {
-                LowFacing::Entity(selector.compile(datapack, ctx), anchor)
+                let selector = selector.perform_semantic_analysis(ctx, is_lhs)?;
+
+                MiddleFacing::Entity(selector, anchor)
             }
-        }
+        })
     }
 }

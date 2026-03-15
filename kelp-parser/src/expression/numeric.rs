@@ -1,8 +1,8 @@
 use std::num::IntErrorKind;
 
 use kelp_core::{
-    data_type::DataTypeKind,
     high::expression::{Expression, ExpressionKind},
+    middle::data_type::DataTypeKind,
     semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
 };
 use ordered_float::NotNan;

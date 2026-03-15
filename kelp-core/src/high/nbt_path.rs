@@ -1,102 +1,75 @@
-use minecraft_command_types::nbt_path::{
-    NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode, SNBTCompound,
-};
+use std::collections::BTreeMap;
+
 use minecraft_command_types_derive::HasMacro;
 use nonempty::NonEmpty;
 
 use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
-    high::expression::{Expression, ExpressionCompoundKind},
+    high::expression::Expression,
     high::snbt_string::SNBTString,
+    middle::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
     semantic_analysis_context::SemanticAnalysisContext,
-    trait_ext::OptionUnitIterExt,
+    trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
 pub enum NbtPathNode {
-    RootCompound(ExpressionCompoundKind),
-    Named(SNBTString, Option<ExpressionCompoundKind>),
+    RootCompound(BTreeMap<SNBTString, Expression>),
+    Named(SNBTString, Option<BTreeMap<SNBTString, Expression>>),
     Index(Option<Box<Expression>>),
 }
 
 impl NbtPathNode {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        match self {
-            Self::RootCompound(compound) => compound
-                .iter()
-                .map(|(key, value)| {
-                    let key = key.perform_semantic_analysis(ctx, is_lhs);
-                    let value = value.perform_semantic_analysis(ctx, is_lhs, None);
-
-                    key?;
-                    value?;
-
-                    Some(())
-                })
-                .all_some(),
-            Self::Named(name, compound) => {
-                let name = name.perform_semantic_analysis(ctx, is_lhs);
-                let compound = compound.as_ref().map_or(Some(()), |compound| {
-                    compound
-                        .iter()
-                        .map(|(key, value)| {
-                            let key = key.perform_semantic_analysis(ctx, is_lhs);
-                            let value = value.perform_semantic_analysis(ctx, is_lhs, None);
-
-                            key?;
-                            value?;
-
-                            Some(())
-                        })
-                        .collect::<Option<()>>()
-                });
-
-                name?;
-                compound?;
-
-                Some(())
-            }
-            Self::Index(expression) => expression.as_ref().map_or(Some(()), |expression| {
-                expression.perform_semantic_analysis(ctx, is_lhs, None)
-            }),
-        }
-    }
-
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPathNode {
-        match self {
-            Self::RootCompound(compound) => LowNbtPathNode::RootCompound(
-                compound
+    ) -> Option<MiddleNbtPathNode> {
+        Some(match self {
+            Self::RootCompound(compound) => {
+                let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                        let (_, key) = key.perform_semantic_analysis(ctx, is_lhs);
+                        let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
 
-                        (key.snbt_string, value)
+                        Some((key, value))
                     })
-                    .collect(),
-            ),
-            Self::Named(name, expression) => LowNbtPathNode::Named(
-                name.snbt_string,
-                expression.map(|expression| {
-                    expression
-                        .into_iter()
-                        .map(|(key, value)| {
-                            let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                    .collect_option_all()?;
 
-                            (key.snbt_string, value)
-                        })
-                        .collect::<SNBTCompound>()
-                }),
-            ),
-            Self::Index(expression) => LowNbtPathNode::Index(
-                expression
-                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
-            ),
-        }
+                MiddleNbtPathNode::RootCompound(compound)
+            }
+            Self::Named(name, compound) => {
+                let (_, name) = name.perform_semantic_analysis(ctx, is_lhs);
+                let compound = match compound {
+                    Some(compound) => Some(
+                        compound
+                            .into_iter()
+                            .map(|(key, value)| {
+                                let (_, key) = key.perform_semantic_analysis(ctx, is_lhs);
+                                let (_, value) = value.perform_semantic_analysis(ctx, is_lhs)?;
+
+                                Some((key, value))
+                            })
+                            .collect_option_all()?,
+                    ),
+                    None => None,
+                };
+
+                MiddleNbtPathNode::Named(name, compound)
+            }
+            Self::Index(expression) => {
+                let expression = match expression {
+                    Some(expression) => {
+                        let (_, expression) = expression.perform_semantic_analysis(ctx, is_lhs)?;
+
+                        Some(expression)
+                    }
+                    None => None,
+                };
+
+                MiddleNbtPathNode::Index(expression.map(Box::new))
+            }
+        })
     }
 }
 
@@ -105,18 +78,19 @@ pub struct NbtPath(pub NonEmpty<NbtPathNode>);
 
 impl NbtPath {
     pub fn perform_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         is_lhs: bool,
-    ) -> Option<()> {
-        self.0
-            .iter()
-            .map(|node| node.perform_semantic_analysis(ctx, is_lhs))
-            .all_some()
-    }
-
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPath {
-        LowNbtPath(self.0.map(|node| node.compile(datapack, ctx)))
+    ) -> Option<MiddleNbtPath> {
+        Some(MiddleNbtPath(
+            NonEmpty::from_vec(
+                self.0
+                    .into_iter()
+                    .map(|node| node.perform_semantic_analysis(ctx, is_lhs))
+                    .collect_option_all()?,
+            )
+            .unwrap(),
+        ))
     }
 
     #[must_use]

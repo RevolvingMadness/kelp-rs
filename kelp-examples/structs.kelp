@@ -1,6 +1,6 @@
 struct Person {
     name: data<string>,
-    age: score
+    age: score<integer>
 }
 
 mcfn namespace:main {

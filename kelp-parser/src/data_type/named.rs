@@ -1,4 +1,4 @@
-use kelp_core::data_type::high::{DataType, DataTypeKind};
+use kelp_core::high::data_type::{DataType, DataTypeKind};
 
 use crate::{
     cst::CSTNamedDataType,

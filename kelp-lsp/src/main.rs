@@ -2,8 +2,8 @@ use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_parser::cst::CSTRoot;
-use kelp_parser::root::lower_root;
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
+use kelp_parser::root::lower_root;
 use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
 use kelp_parser::syntax::SyntaxNode;
 use rowan::GreenNode;
@@ -146,16 +146,13 @@ impl Backend {
 
             let root_syntax = match CSTRoot::cast(root) {
                 Ok(cst_root) => {
-                    let mut semantic_analysis_context = SemanticAnalysisContext {
-                        max_infos: usize::MAX,
-                        ..Default::default()
-                    };
+                    let mut semantic_analysis_context = SemanticAnalysisContext::new(usize::MAX);
                     semantic_analysis_context.scopes.push(Scope::default());
 
                     let statements = lower_root(&cst_root, &mut semantic_analysis_context);
 
                     for statement in statements {
-                        statement.perform_semantic_analysis(&mut semantic_analysis_context, false);
+                        statement.perform_semantic_analysis(&mut semantic_analysis_context);
                     }
 
                     for info in semantic_analysis_context.infos {

@@ -55,13 +55,13 @@ impl Item {
                 }
 
                 let Some(alias) = alias.perform_semantic_analysis(Some(&generic_names), ctx) else {
-                    ctx.declare_data_type(name, None);
+                    ctx.declare_data_type(&name, None);
 
                     return None;
                 };
 
                 ctx.declare_data_type(
-                    name.clone(),
+                    &name,
                     Some(DataTypeDeclarationKind::Alias {
                         name: name.clone(),
                         generics: generic_names.clone(),
@@ -91,13 +91,13 @@ impl Item {
                     })
                     .collect_option_all::<HashMap<_, _>>()
                 else {
-                    ctx.declare_data_type(name, None);
+                    ctx.declare_data_type(&name, None);
 
                     return None;
                 };
 
                 ctx.declare_data_type(
-                    name.clone(),
+                    &name,
                     Some(DataTypeDeclarationKind::Struct {
                         name: name.clone(),
                         generics: generic_names.clone(),

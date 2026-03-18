@@ -211,10 +211,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
             .unwrap();
     }
 
-    let mut semantic_analysis_context = SemanticAnalysisContext {
-        max_infos: 10,
-        ..Default::default()
-    };
+    let mut semantic_analysis_context = SemanticAnalysisContext::new(10);
     semantic_analysis_context.scopes.push(Scope::default());
 
     let lower_start = Instant::now();

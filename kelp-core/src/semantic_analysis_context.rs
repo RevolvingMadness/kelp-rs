@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
 
 use thiserror::Error;
 
@@ -184,8 +184,8 @@ impl Scope {
         self.variables.get(name)
     }
 
-    pub fn declare_data_type(&mut self, name: String, kind: Option<DataTypeDeclarationKind>) {
-        self.data_types.insert(name, kind);
+    pub fn declare_data_type(&mut self, name: &str, kind: Option<DataTypeDeclarationKind>) {
+        self.data_types.insert(name.to_owned(), kind);
     }
 
     #[inline]
@@ -203,7 +203,7 @@ impl Scope {
 
 pub type Scopes = Vec<Scope>;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
     pub max_infos: usize,
@@ -213,6 +213,90 @@ pub struct SemanticAnalysisContext {
 }
 
 impl SemanticAnalysisContext {
+    #[must_use]
+    pub fn new(max_infos: usize) -> Self {
+        let mut scopes = Vec::new();
+
+        let mut scope = Scope::default();
+
+        scope.declare_data_type(
+            "boolean",
+            Some(DataTypeDeclarationKind::Builtin(
+                BuiltinDataTypeKind::Boolean,
+            )),
+        );
+        scope.declare_data_type(
+            "byte",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Byte)),
+        );
+        scope.declare_data_type(
+            "short",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Short)),
+        );
+        scope.declare_data_type(
+            "integer",
+            Some(DataTypeDeclarationKind::Builtin(
+                BuiltinDataTypeKind::Integer,
+            )),
+        );
+        scope.declare_data_type(
+            "long",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Long)),
+        );
+        scope.declare_data_type(
+            "float",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Float)),
+        );
+        scope.declare_data_type(
+            "double",
+            Some(DataTypeDeclarationKind::Builtin(
+                BuiltinDataTypeKind::Double,
+            )),
+        );
+        scope.declare_data_type(
+            "string",
+            Some(DataTypeDeclarationKind::Builtin(
+                BuiltinDataTypeKind::String,
+            )),
+        );
+        // scope.declare_data_type(
+        //     "unit",
+        //     Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Unit)),
+        // );
+        scope.declare_data_type(
+            "score",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Score)),
+        );
+        scope.declare_data_type(
+            "list",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::List)),
+        );
+        scope.declare_data_type(
+            "compound",
+            Some(DataTypeDeclarationKind::Builtin(
+                BuiltinDataTypeKind::Compound,
+            )),
+        );
+        scope.declare_data_type(
+            "data",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Data)),
+        );
+        scope.declare_data_type(
+            "snbt",
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::SNBT)),
+        );
+
+        scopes.push(scope);
+
+        Self {
+            infos: Vec::new(),
+            max_infos,
+            scopes,
+            loop_depth: 0,
+            is_lhs: false,
+        }
+    }
+
     #[inline]
     pub fn add_invalid_generics<T>(
         &mut self,
@@ -269,7 +353,7 @@ impl SemanticAnalysisContext {
         self.declare_variable(name, None);
     }
 
-    pub fn declare_data_type(&mut self, name: String, kind: Option<DataTypeDeclarationKind>) {
+    pub fn declare_data_type(&mut self, name: &str, kind: Option<DataTypeDeclarationKind>) {
         self.scopes
             .last_mut()
             .expect("No scopes")
@@ -279,22 +363,20 @@ impl SemanticAnalysisContext {
     #[must_use]
     pub fn variable_is_declared(&self, name: &str) -> bool {
         self.scopes
-            .iter()
-            .rev()
-            .any(|scope| scope.variable_is_declared(name))
+            .last()
+            .is_some_and(|scope| scope.variable_is_declared(name))
     }
 
     #[must_use]
     pub fn data_type_is_declared(&self, name: &str) -> bool {
         self.scopes
-            .iter()
-            .rev()
-            .any(|scope| scope.data_type_is_declared(name))
+            .last()
+            .is_some_and(|scope| scope.data_type_is_declared(name))
     }
 
     #[must_use]
     pub fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
-        for scope in &self.scopes {
+        for scope in self.scopes.iter().rev() {
             if let Some(data_type) = scope.get_variable(name) {
                 return Some(data_type.clone());
             }
@@ -305,11 +387,7 @@ impl SemanticAnalysisContext {
 
     #[must_use]
     pub fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
-        if let Ok(data_type) = BuiltinDataTypeKind::from_str(name) {
-            return Some(Some(DataTypeDeclarationKind::Builtin(data_type)));
-        }
-
-        for scope in &self.scopes {
+        for scope in self.scopes.iter().rev() {
             if let Some(data_type) = scope.get_data_type(name) {
                 return Some(data_type.clone());
             }

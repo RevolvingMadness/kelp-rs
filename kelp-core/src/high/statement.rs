@@ -100,7 +100,6 @@ impl Statement {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleStatement> {
         Some(match self.kind {
             StatementKind::Expression(expression) => {
@@ -124,7 +123,11 @@ impl Statement {
                     None => None,
                 };
 
-                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+                let Some((value_span, value)) = value.perform_semantic_analysis(ctx) else {
+                    pattern.kind.destructure_unknown(ctx);
+
+                    return None;
+                };
 
                 let variable_type = explicit_type.unwrap_or_else(|| value.data_type.clone());
 
@@ -132,19 +135,18 @@ impl Statement {
                     .clone()
                     .destructure(ctx, value_span, &pattern)
                     .is_some()
+                    && !value.data_type.equals(&variable_type)
                 {
-                    if !value.data_type.equals(&variable_type) {
-                        ctx.add_error(
-                            value_span,
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: variable_type.clone(),
-                                actual: value.data_type.clone(),
-                            },
-                        );
-                    }
-                } else {
-                    pattern.kind.destructure_unknown(ctx);
+                    ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: variable_type.clone(),
+                            actual: value.data_type.clone(),
+                        },
+                    );
                 }
+
+                pattern.kind.destructure_unknown(ctx);
 
                 MiddleStatement::Let(variable_type, pattern, value)
             }
@@ -184,9 +186,7 @@ impl Statement {
                 let condition = condition.perform_semantic_analysis(ctx);
                 let statement = statement.perform_semantic_analysis(ctx);
                 let else_statement = match else_statement {
-                    Some(else_statement) => {
-                        Some(else_statement.perform_semantic_analysis(ctx)?)
-                    }
+                    Some(else_statement) => Some(else_statement.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -206,8 +206,7 @@ impl Statement {
                 MiddleStatement::If(condition, Box::new(statement), else_statement.map(Box::new))
             }
             StatementKind::ForIn(is_reversed, name, iterable, statement) => {
-                let (expression_span, iterable) =
-                    iterable.perform_semantic_analysis(ctx)?;
+                let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
 
                 let statement = statement.perform_semantic_analysis(ctx);
 

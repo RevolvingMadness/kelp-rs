@@ -12,7 +12,7 @@ use crate::{
 pub mod objectives;
 pub mod players;
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ScoreboardCommand {
     Objectives(Box<ObjectivesScoreboardCommand>),
     Players(PlayersScoreboardCommand),

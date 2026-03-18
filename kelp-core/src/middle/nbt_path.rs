@@ -9,7 +9,7 @@ use nonempty::NonEmpty;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum NbtPathNode {
     RootCompound(BTreeMap<SNBTString, Expression>),
     Named(SNBTString, Option<BTreeMap<SNBTString, Expression>>),
@@ -50,7 +50,7 @@ impl NbtPathNode {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub struct NbtPath(pub NonEmpty<NbtPathNode>);
 
 impl NbtPath {

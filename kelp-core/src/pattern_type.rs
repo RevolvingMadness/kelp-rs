@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fmt::Display};
 
 use crate::high::snbt_string::SNBTString;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum PatternType {
     Boolean,
     Byte,

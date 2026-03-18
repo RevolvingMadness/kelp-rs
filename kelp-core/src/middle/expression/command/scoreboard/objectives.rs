@@ -13,7 +13,7 @@ use crate::{
     middle::expression::{Expression, command::scoreboard::players::ScoreboardNumberFormat},
 };
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
     DisplayName(Expression),
@@ -48,7 +48,7 @@ impl ScoreboardModification {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ObjectivesScoreboardCommand {
     List,
     Add(String, String, Option<Expression>),

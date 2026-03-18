@@ -7,7 +7,7 @@ use minecraft_command_types_derive::HasMacro;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: BTreeMap<String, String>,

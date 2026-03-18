@@ -150,7 +150,7 @@ macro_rules! compute_float {
     };
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum Expression {
     Boolean(bool),
     Byte(i8),

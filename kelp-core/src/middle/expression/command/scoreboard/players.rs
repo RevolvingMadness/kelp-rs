@@ -15,7 +15,7 @@ use crate::{
     middle::{entity_selector::EntitySelector, player_score::PlayerScore},
 };
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ScoreboardNumberFormat {
     Blank,
     Fixed(Expression),
@@ -41,7 +41,7 @@ impl ScoreboardNumberFormat {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum PlayersDisplayScoreboardCommand {
     Name(PlayerScore, Option<Expression>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
@@ -73,7 +73,7 @@ impl PlayersDisplayScoreboardCommand {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum PlayersScoreboardCommand {
     List(Option<EntitySelector>),
     Get(PlayerScore),

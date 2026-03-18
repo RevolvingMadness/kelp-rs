@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
@@ -89,7 +89,7 @@ impl Item {
 
                         Some((field_name, field_type))
                     })
-                    .collect_option_all::<BTreeMap<_, _>>()
+                    .collect_option_all::<HashMap<_, _>>()
                 else {
                     ctx.declare_data_type(name, None);
 

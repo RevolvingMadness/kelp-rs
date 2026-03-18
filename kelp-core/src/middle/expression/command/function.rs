@@ -11,7 +11,7 @@ use crate::{
     middle::{data::DataTarget, expression::Expression, nbt_path::NbtPath},
 };
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum FunctionCommandArguments {
     Compound(BTreeMap<SNBTString, Expression>),
     DataTarget(DataTarget, Option<NbtPath>),

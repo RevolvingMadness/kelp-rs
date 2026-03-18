@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
@@ -15,7 +15,7 @@ use crate::{
 pub enum Item {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration(String, Vec<String>, DataTypeKind),
-    StructDeclaration(String, Vec<String>, BTreeMap<String, DataTypeKind>),
+    StructDeclaration(String, Vec<String>, HashMap<String, DataTypeKind>),
 }
 
 impl Item {

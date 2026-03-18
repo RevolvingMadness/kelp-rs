@@ -8,7 +8,7 @@ use minecraft_command_types_derive::HasMacro;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ItemTest {
     Component(ResourceLocation),
     ComponentMatches(ResourceLocation, Expression),
@@ -34,7 +34,7 @@ impl ItemTest {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub struct OrGroup(pub Vec<(bool, ItemTest)>);
 
 impl OrGroup {
@@ -49,7 +49,7 @@ impl OrGroup {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub struct ItemPredicate {
     pub id: ItemType,
     pub or_groups: Vec<OrGroup>,

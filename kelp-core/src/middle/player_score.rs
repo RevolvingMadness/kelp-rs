@@ -6,7 +6,7 @@ use crate::{
     player_score::GeneratedPlayerScore,
 };
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub struct PlayerScore {
     pub is_generated: bool,
     pub selector: EntitySelector,

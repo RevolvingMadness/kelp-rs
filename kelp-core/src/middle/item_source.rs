@@ -7,7 +7,7 @@ use crate::{
     compile_context::CompileContext, datapack::Datapack, middle::entity_selector::EntitySelector,
 };
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ItemSource {
     Block(Coordinates),
     Entity(EntitySelector),

@@ -8,7 +8,7 @@ use crate::compile_context::CompileContext;
 use crate::datapack::Datapack;
 use crate::middle::player_score::PlayerScore;
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ScoreComparison {
     Range(IntegerRange),
     Score(ScoreComparisonOperator, PlayerScore),

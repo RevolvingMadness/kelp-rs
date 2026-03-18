@@ -12,14 +12,15 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_pattern_field(
-    node: CSTStructPatternField,
-) -> Option<(SNBTString, Option<Pattern>)> {
+pub fn lower_struct_pattern_field(node: CSTStructPatternField) -> Option<(SNBTString, Pattern)> {
     let field_name_token = node.name()?;
     let field_name_span = text_range_to_span(field_name_token.text_range());
     let field_name = field_name_token.text();
 
-    let field_pattern = node.pattern().and_then(lower_pattern);
+    let field_pattern = node.pattern().and_then(lower_pattern).unwrap_or(Pattern {
+        span: field_name_span,
+        kind: PatternKind::Binding(field_name.to_owned()),
+    });
 
     Some((
         SNBTString {

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::{nbt_path::NbtPathNode, snbt::SNBT};
 
@@ -56,7 +56,7 @@ fn destructure_tuple(
 }
 
 fn destructure_compound(
-    patterns: &BTreeMap<SNBTString, Option<Pattern>>,
+    patterns: &HashMap<SNBTString, Pattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: DataTypeKind,
@@ -68,27 +68,19 @@ fn destructure_compound(
                 let expression = expression.clone();
                 let data_type = data_types.get(&key.snbt_string).unwrap().clone();
 
-                if let Some(pattern) = pattern {
-                    pattern
-                        .kind
-                        .destructure(datapack, ctx, data_type, expression);
-                } else {
-                    datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
-                }
+                pattern
+                    .kind
+                    .destructure(datapack, ctx, data_type, expression);
             }
         }
         (DataTypeKind::Compound(data_type), Expression::Compound(expressions)) => {
-            for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
+            for ((_, pattern), (_, expression)) in patterns.iter().zip(expressions) {
                 let expression = expression.clone();
                 let data_type = *data_type.clone();
 
-                if let Some(pattern) = pattern {
-                    pattern
-                        .kind
-                        .destructure(datapack, ctx, data_type, expression);
-                } else {
-                    datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
-                }
+                pattern
+                    .kind
+                    .destructure(datapack, ctx, data_type, expression);
             }
         }
         (DataTypeKind::Data(data_type), value @ Expression::Data(_)) => {
@@ -105,13 +97,9 @@ fn destructure_compound(
                 )));
                 let data_type = data_types.get(&key.snbt_string).unwrap().clone();
 
-                if let Some(pattern) = pattern {
-                    pattern
-                        .kind
-                        .destructure(datapack, ctx, data_type, expression);
-                } else {
-                    datapack.declare_variable(key.snbt_string.1.clone(), data_type, expression);
-                }
+                pattern
+                    .kind
+                    .destructure(datapack, ctx, data_type, expression);
             }
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
@@ -119,7 +107,7 @@ fn destructure_compound(
 }
 
 fn destructure_struct(
-    field_patterns: &BTreeMap<SNBTString, Option<Pattern>>,
+    field_patterns: &HashMap<SNBTString, Pattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     name: &str,
@@ -131,17 +119,13 @@ fn destructure_struct(
             let declaration = datapack.get_data_type(name).unwrap();
             let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
-            for (key, pattern_opt) in field_patterns {
+            for (key, pattern) in field_patterns {
                 let field_value = fields.get(&key.snbt_string.1).unwrap().clone();
                 let data_type = field_types.get(&key.snbt_string.1).unwrap().clone();
 
-                if let Some(pattern) = pattern_opt {
-                    pattern
-                        .kind
-                        .destructure(datapack, ctx, data_type, field_value);
-                } else {
-                    datapack.declare_variable(key.snbt_string.1.clone(), data_type, field_value);
-                }
+                pattern
+                    .kind
+                    .destructure(datapack, ctx, data_type, field_value);
             }
         }
         (DataTypeKind::Struct(_, generics), Expression::Data(target_path)) => {
@@ -150,7 +134,7 @@ fn destructure_struct(
             let declaration = datapack.get_data_type(name).unwrap();
             let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
-            for (key, pattern_opt) in field_patterns {
+            for (key, pattern) in field_patterns {
                 let field_path = path
                     .clone()
                     .with_node(NbtPathNode::Named(key.snbt_string.clone(), None));
@@ -160,17 +144,9 @@ fn destructure_struct(
 
                 let data_wrapped_type = DataTypeKind::Data(Box::new(data_type));
 
-                if let Some(pattern) = pattern_opt {
-                    pattern
-                        .kind
-                        .destructure(datapack, ctx, data_wrapped_type, field_value);
-                } else {
-                    datapack.declare_variable(
-                        key.snbt_string.1.clone(),
-                        data_wrapped_type,
-                        field_value,
-                    );
-                }
+                pattern
+                    .kind
+                    .destructure(datapack, ctx, data_wrapped_type, field_value);
             }
         }
         (DataTypeKind::Reference(data_type), value) => {
@@ -215,9 +191,9 @@ pub enum PatternKind {
     Binding(String),
 
     Tuple(Vec<Pattern>),
-    Struct(String, BTreeMap<SNBTString, Option<Pattern>>),
+    Struct(String, HashMap<SNBTString, Pattern>),
 
-    Compound(BTreeMap<SNBTString, Option<Pattern>>),
+    Compound(HashMap<SNBTString, Pattern>),
 
     Dereference(Box<Pattern>),
 }
@@ -255,14 +231,7 @@ impl PatternKind {
             Self::Compound(compound) => PatternType::Compound(
                 compound
                     .iter()
-                    .map(|(key, pattern)| {
-                        (
-                            key.clone(),
-                            pattern
-                                .as_ref()
-                                .map_or(PatternType::Any, |pattern| pattern.kind.get_type()),
-                        )
-                    })
+                    .map(|(key, pattern)| (key.clone(), pattern.kind.get_type()))
                     .collect(),
             ),
             Self::Dereference(pattern) => {
@@ -272,14 +241,7 @@ impl PatternKind {
                 name.clone(),
                 field_patterns
                     .iter()
-                    .map(|(key, pattern)| {
-                        (
-                            key.clone(),
-                            pattern
-                                .as_ref()
-                                .map_or(PatternType::Any, |pattern| pattern.kind.get_type()),
-                        )
-                    })
+                    .map(|(key, pattern)| (key.clone(), pattern.kind.get_type()))
                     .collect(),
             ),
         }
@@ -297,24 +259,16 @@ impl PatternKind {
                 }
             }
             Self::Compound(compound) => {
-                for (key, pattern) in compound {
-                    if let Some(pattern) = pattern {
-                        pattern.kind.destructure_unknown(ctx);
-                    } else {
-                        ctx.declare_variable_unknown(&key.snbt_string.1);
-                    }
+                for pattern in compound.values() {
+                    pattern.kind.destructure_unknown(ctx);
                 }
             }
             Self::Dereference(pattern) => {
                 pattern.kind.destructure_unknown(ctx);
             }
             Self::Struct(_, field_patterns) => {
-                for (key, pattern) in field_patterns {
-                    if let Some(pattern) = pattern {
-                        pattern.kind.destructure_unknown(ctx);
-                    } else {
-                        ctx.declare_variable_unknown(&key.snbt_string.1);
-                    }
+                for pattern in field_patterns.values() {
+                    pattern.kind.destructure_unknown(ctx);
                 }
             }
         }

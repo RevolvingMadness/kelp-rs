@@ -11,7 +11,7 @@ use ordered_float::NotNan;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum EntitySelectorOption {
     X(NotNan<f32>),
     Y(NotNan<f32>),

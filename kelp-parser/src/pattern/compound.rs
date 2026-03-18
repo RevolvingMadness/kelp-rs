@@ -14,12 +14,15 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_compound_pattern_entry(
     node: CSTCompoundPatternEntry,
-) -> Option<(SNBTString, Option<Pattern>)> {
+) -> Option<(SNBTString, Pattern)> {
     let entry_name_token = node.name()?;
     let entry_name_span = text_range_to_span(entry_name_token.text_range());
     let entry_name = entry_name_token.text();
 
-    let entry_pattern = node.pattern().and_then(lower_pattern);
+    let entry_pattern = node.pattern().and_then(lower_pattern).unwrap_or(Pattern {
+        span: entry_name_span,
+        kind: PatternKind::Binding(entry_name.to_owned()),
+    });
 
     Some((
         SNBTString {

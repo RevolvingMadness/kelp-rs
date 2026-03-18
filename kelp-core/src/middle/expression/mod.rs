@@ -29,7 +29,7 @@ use crate::{
 
 pub mod command;
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum ExpressionKind {
     Boolean(bool),
     Byte(i8),
@@ -420,7 +420,7 @@ impl ExpressionKind {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub struct Expression {
     pub kind: ExpressionKind,
     pub data_type: DataTypeKind,

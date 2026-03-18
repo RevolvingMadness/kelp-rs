@@ -9,7 +9,7 @@ use crate::{
     middle::entity_selector::EntitySelector, span::Span,
 };
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum DataTargetKind {
     Block(Coordinates),
     Entity(EntitySelector),
@@ -36,7 +36,7 @@ impl DataTargetKind {
     }
 }
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub struct DataTarget {
     pub is_generated: bool,
     pub span: Span,

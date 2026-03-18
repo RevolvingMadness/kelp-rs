@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display};
 
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 use minecraft_command_types_derive::HasMacro;
@@ -16,7 +16,7 @@ use crate::{
     trait_ext::{CollectOptionAllIterExt, OptionBoolIterExt},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, PartialEq, Eq, HasMacro)]
 pub enum DataTypeKind {
     Boolean,
     Byte,
@@ -29,7 +29,7 @@ pub enum DataTypeKind {
     Unit,
     Score(Box<Self>),
     List(Box<Self>),
-    TypedCompound(BTreeMap<LowSNBTString, Self>),
+    TypedCompound(HashMap<LowSNBTString, Self>),
     Compound(Box<Self>),
     Data(Box<Self>),
     Reference(Box<Self>),
@@ -253,7 +253,7 @@ impl DataTypeKind {
     }
 
     #[must_use]
-    pub fn substitute(self, substitutions: &BTreeMap<String, Self>) -> Option<Self> {
+    pub fn substitute(self, substitutions: &HashMap<String, Self>) -> Option<Self> {
         Some(match self {
             Self::List(inner) => Self::List(Box::new(inner.substitute(substitutions)?)),
             Self::Compound(inner) => Self::Compound(Box::new(inner.substitute(substitutions)?)),
@@ -421,7 +421,7 @@ impl DataTypeKind {
     #[must_use]
     pub fn destructure_compound(
         self,
-        patterns: &BTreeMap<SNBTString, Option<Pattern>>,
+        patterns: &HashMap<SNBTString, Pattern>,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         pattern: &Pattern,
@@ -437,11 +437,7 @@ impl DataTypeKind {
                         .map(|(_, value)| value.clone());
 
                     if let Some(data_type) = data_type {
-                        if let Some(pattern) = pattern {
-                            data_type.destructure(ctx, value_span, pattern)?;
-                        } else {
-                            ctx.declare_variable_known(&key.snbt_string.1, data_type);
-                        }
+                        data_type.destructure(ctx, value_span, pattern)?;
                     } else {
                         ctx.add_info::<()>(SemanticAnalysisInfo {
                             span: key.span,
@@ -453,11 +449,7 @@ impl DataTypeKind {
                             ),
                         });
 
-                        if let Some(pattern) = pattern {
-                            pattern.kind.destructure_unknown(ctx);
-                        } else {
-                            ctx.declare_variable_unknown(&key.snbt_string.1);
-                        }
+                        pattern.kind.destructure_unknown(ctx);
 
                         error = true;
                     }
@@ -466,14 +458,10 @@ impl DataTypeKind {
                 if error { None } else { Some(()) }
             }
             Self::Compound(data_type) => {
-                for (key, pattern) in patterns {
+                for pattern in patterns.values() {
                     let data_type = *data_type.clone();
 
-                    if let Some(pattern) = pattern {
-                        data_type.destructure(ctx, value_span, pattern)?;
-                    } else {
-                        ctx.declare_variable_known(&key.snbt_string.1, data_type);
-                    }
+                    data_type.destructure(ctx, value_span, pattern)?;
                 }
 
                 Some(())
@@ -485,12 +473,8 @@ impl DataTypeKind {
                 .distribute_references()
                 .destructure_compound(patterns, ctx, value_span, pattern),
             _ => {
-                for (key, pattern) in patterns {
-                    if let Some(pattern) = pattern {
-                        pattern.kind.destructure_unknown(ctx);
-                    } else {
-                        ctx.declare_variable_unknown(&key.snbt_string.1);
-                    }
+                for pattern in patterns.values() {
+                    pattern.kind.destructure_unknown(ctx);
                 }
 
                 ctx.add_info(SemanticAnalysisInfo {
@@ -510,7 +494,7 @@ impl DataTypeKind {
     pub fn destructure_struct(
         self,
         name: &str,
-        field_patterns: &BTreeMap<SNBTString, Option<Pattern>>,
+        field_patterns: &HashMap<SNBTString, Pattern>,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         pattern: &Pattern,
@@ -533,15 +517,11 @@ impl DataTypeKind {
                 let fields = declaration.get_struct_fields(ctx, generics)?;
 
                 let mut error = false;
-                for (key, pattern_opt) in field_patterns {
+                for (key, pattern) in field_patterns {
                     if let Some(field_type) = fields.get(&key.snbt_string.1) {
                         let field_type = field_type.clone();
 
-                        if let Some(inner_pattern) = pattern_opt {
-                            field_type.destructure(ctx, value_span, inner_pattern)?;
-                        } else {
-                            ctx.declare_variable_known(&key.snbt_string.1, field_type);
-                        }
+                        field_type.destructure(ctx, value_span, pattern)?;
                     } else {
                         error = true;
                         ctx.add_info::<()>(SemanticAnalysisInfo {
@@ -550,11 +530,8 @@ impl DataTypeKind {
                                 SemanticAnalysisError::UnexpectedField(key.snbt_string.1.clone()),
                             ),
                         });
-                        if let Some(p) = pattern_opt {
-                            p.kind.destructure_unknown(ctx);
-                        } else {
-                            ctx.declare_variable_unknown(&key.snbt_string.1);
-                        }
+
+                        pattern.kind.destructure_unknown(ctx);
                     }
                 }
                 if error { None } else { Some(()) }
@@ -581,7 +558,7 @@ impl DataTypeKind {
                 pattern,
             ),
             _ => {
-                for inner in field_patterns.values().flatten() {
+                for inner in field_patterns.values() {
                     inner.kind.destructure_unknown(ctx);
                 }
 

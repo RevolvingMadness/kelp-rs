@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use strum::{Display, EnumString};
 
@@ -95,7 +95,7 @@ pub enum DataTypeDeclarationKind {
     Struct {
         name: String,
         generics: Vec<String>,
-        fields: BTreeMap<String, DataTypeKind>,
+        fields: HashMap<String, DataTypeKind>,
     },
     Builtin(BuiltinDataTypeKind),
 }
@@ -139,14 +139,14 @@ impl DataTypeDeclarationKind {
         &self,
         ctx: &impl SupportsVariableTypeScope,
         generic_types: &[DataTypeKind],
-    ) -> Option<BTreeMap<String, DataTypeKind>> {
+    ) -> Option<HashMap<String, DataTypeKind>> {
         match self {
             Self::Alias {
                 generics: generic_names,
                 alias,
                 ..
             } => {
-                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
+                let substitutions: HashMap<String, DataTypeKind> = generic_names
                     .iter()
                     .zip(generic_types.iter().cloned())
                     .map(|(k, v)| (k.clone(), v))
@@ -166,7 +166,7 @@ impl DataTypeDeclarationKind {
                 generics: generic_names,
                 ..
             } => {
-                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
+                let substitutions: HashMap<String, DataTypeKind> = generic_names
                     .iter()
                     .zip(generic_types.iter().cloned())
                     .map(|(k, v)| (k.clone(), v))
@@ -198,7 +198,7 @@ impl DataTypeDeclarationKind {
                 alias,
                 ..
             } => {
-                let substitutions: BTreeMap<String, DataTypeKind> =
+                let substitutions: HashMap<String, DataTypeKind> =
                     generic_names.into_iter().zip(generic_types).collect();
 
                 let resolved_alias = alias.substitute(&substitutions)?;
@@ -215,7 +215,7 @@ impl DataTypeDeclarationKind {
                 generics: generic_names,
                 ..
             } => {
-                let substitutions: BTreeMap<String, DataTypeKind> = generic_names
+                let substitutions: HashMap<String, DataTypeKind> = generic_names
                     .into_iter()
                     .zip(generic_types.clone())
                     .collect();

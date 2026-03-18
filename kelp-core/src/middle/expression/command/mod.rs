@@ -30,7 +30,7 @@ pub mod function;
 pub mod r#return;
 pub mod scoreboard;
 
-#[derive(Debug, Clone, Hash, HasMacro)]
+#[derive(Debug, Clone, HasMacro)]
 pub enum Command {
     Regular(LowCommand),
     Data(DataCommand),

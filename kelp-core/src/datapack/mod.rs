@@ -103,11 +103,6 @@ pub struct Datapack {
 }
 
 impl SupportsVariableTypeScope for Datapack {
-    fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
-        self.get_variable(name)
-            .map(|(data_type, _)| Some(data_type))
-    }
-
     fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
         self.get_data_type(name).map(Some)
     }

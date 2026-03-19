@@ -378,10 +378,6 @@ impl SemanticAnalysisContext {
 }
 
 impl SupportsVariableTypeScope for SemanticAnalysisContext {
-    fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
-        self.get_variable(name)
-    }
-
     fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
         self.get_data_type(name)
     }

@@ -4,10 +4,8 @@ use crate::compile_context::{LoopInfo, LoopType};
 use crate::low::expression::Expression as LowExpression;
 use crate::middle::data_type::DataType;
 use crate::middle::item::Item;
-use crate::{
-    compile_context::CompileContext, datapack::Datapack, middle::expression::Expression,
-    pattern::Pattern,
-};
+use crate::middle::pattern::Pattern;
+use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{
     DataCommand, DataCommandModification, DataCommandModificationMode,
@@ -129,7 +127,7 @@ impl Statement {
             Self::Let(data_type, pattern, value) => {
                 let value = value.kind.resolve(datapack, ctx);
 
-                pattern.kind.destructure(datapack, ctx, data_type, value);
+                pattern.destructure(datapack, ctx, data_type, value);
             }
             Self::While(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();

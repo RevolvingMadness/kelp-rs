@@ -1,6 +1,6 @@
 use kelp_core::{
+    high::pattern::{Pattern, PatternKind},
     high::snbt_string::SNBTString,
-    pattern::{Pattern, PatternKind},
 };
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
@@ -19,10 +19,13 @@ pub fn lower_compound_pattern_entry(
     let entry_name_span = text_range_to_span(entry_name_token.text_range());
     let entry_name = entry_name_token.text();
 
-    let entry_pattern = node.pattern().and_then(lower_pattern).unwrap_or(Pattern {
-        span: entry_name_span,
-        kind: PatternKind::Binding(entry_name.to_owned()),
-    });
+    let entry_pattern = node
+        .pattern()
+        .and_then(lower_pattern)
+        .unwrap_or_else(|| Pattern {
+            span: entry_name_span,
+            kind: PatternKind::Binding(entry_name.to_owned()),
+        });
 
     Some((
         SNBTString {

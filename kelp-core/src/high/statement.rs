@@ -3,13 +3,13 @@ use std::collections::BTreeMap;
 use crate::compile_context::LoopInfo;
 use crate::high::data_type::DataType;
 use crate::high::item::Item;
+use crate::high::pattern::Pattern;
 use crate::span::Span;
 use crate::trait_ext::CollectOptionAllIterExt;
 use crate::{
     compile_context::CompileContext,
     high::expression::Expression,
     middle::statement::Statement as MiddleStatement,
-    pattern::Pattern,
     semantic_analysis_context::{Scope, SemanticAnalysisContext, SemanticAnalysisError},
 };
 use minecraft_command_types::range::IntegerRange;
@@ -120,7 +120,7 @@ impl Statement {
                     None => None,
                 };
 
-                let Some((value_span, value)) = value.perform_semantic_analysis(ctx) else {
+                let Some((_, value)) = value.perform_semantic_analysis(ctx) else {
                     pattern.kind.destructure_unknown(ctx);
 
                     return None;
@@ -128,24 +128,7 @@ impl Statement {
 
                 let variable_type = explicit_type.unwrap_or_else(|| value.data_type.clone());
 
-                if variable_type
-                    .clone()
-                    .destructure(ctx, value_span, &pattern)
-                    .is_some()
-                    && !value.data_type.equals(&variable_type)
-                {
-                    pattern.kind.destructure_unknown(ctx);
-
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: variable_type,
-                            actual: value.data_type,
-                        },
-                    );
-                }
-
-                pattern.kind.destructure_unknown(ctx);
+                let pattern = pattern.perform_semantic_analysis(ctx, variable_type.clone())?;
 
                 MiddleStatement::Let(variable_type, pattern, value)
             }

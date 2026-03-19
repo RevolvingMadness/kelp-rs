@@ -16,7 +16,6 @@ pub enum PatternType {
     Struct(String, BTreeMap<SNBTString, Self>),
     Reference(Box<Self>),
     Compound(BTreeMap<SNBTString, Self>),
-    Dereference(Box<Self>),
     Any,
 }
 
@@ -90,7 +89,6 @@ impl Display for PatternType {
                 f.write_str("}")
             }
             Self::Any => f.write_str("_"),
-            Self::Dereference(pattern_type) => write!(f, "&{}", pattern_type),
         }
     }
 }

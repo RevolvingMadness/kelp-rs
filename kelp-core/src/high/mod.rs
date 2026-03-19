@@ -8,6 +8,7 @@ pub mod item;
 pub mod item_source;
 pub mod mc_item;
 pub mod nbt_path;
+pub mod pattern;
 pub mod player_score;
 pub mod score_comparison;
 pub mod snbt_string;

@@ -1,6 +1,6 @@
 use kelp_core::{
+    high::pattern::{Pattern, PatternKind},
     high::snbt_string::SNBTString,
-    pattern::{Pattern, PatternKind},
 };
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
@@ -17,10 +17,13 @@ pub fn lower_struct_pattern_field(node: CSTStructPatternField) -> Option<(SNBTSt
     let field_name_span = text_range_to_span(field_name_token.text_range());
     let field_name = field_name_token.text();
 
-    let field_pattern = node.pattern().and_then(lower_pattern).unwrap_or(Pattern {
-        span: field_name_span,
-        kind: PatternKind::Binding(field_name.to_owned()),
-    });
+    let field_pattern = node
+        .pattern()
+        .and_then(lower_pattern)
+        .unwrap_or_else(|| Pattern {
+            span: field_name_span,
+            kind: PatternKind::Binding(field_name.to_owned()),
+        });
 
     Some((
         SNBTString {

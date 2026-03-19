@@ -1,4 +1,4 @@
-use kelp_core::pattern::Pattern;
+use kelp_core::high::pattern::Pattern;
 
 use crate::{
     cst::CSTPattern,

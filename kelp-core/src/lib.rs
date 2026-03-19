@@ -5,7 +5,6 @@ pub mod high;
 pub mod low;
 pub mod middle;
 pub mod operator;
-pub mod pattern;
 pub mod pattern_type;
 pub mod place;
 pub mod player_score;

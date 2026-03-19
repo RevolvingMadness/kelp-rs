@@ -3,16 +3,10 @@ use std::{collections::HashMap, fmt::Display};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
-    high::{snbt_string::SNBTString, supports_variable_type_scope::SupportsVariableTypeScope},
+    high::supports_variable_type_scope::SupportsVariableTypeScope,
     operator::{ArithmeticOperator, ComparisonOperator},
-    pattern::{Pattern, PatternKind},
     place::PlaceTypeKind,
-    semantic_analysis_context::{
-        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
-    span::Span,
-    trait_ext::{CollectOptionAllIterExt, OptionBoolIterExt},
+    trait_ext::OptionBoolIterExt,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,6 +115,16 @@ impl Display for DataType {
 }
 
 impl DataType {
+    #[must_use]
+    pub fn distribute(self) -> Self {
+        match self {
+            Self::Data(data_type) => data_type.distribute_data(),
+            Self::Reference(data_type) => data_type.distribute_references(),
+            Self::Score(data_type) => data_type.distribute_score(),
+            _ => self,
+        }
+    }
+
     #[must_use]
     pub const fn is_integer_like(&self) -> bool {
         self.is_restrictied_integer_like() || matches!(self, Self::Long)
@@ -376,222 +380,6 @@ impl DataType {
                 inner => Self::Score(Box::new(inner)),
             },
             _ => self,
-        }
-    }
-
-    #[must_use]
-    pub fn destructure_tuple(
-        self,
-        patterns: &Vec<Pattern>,
-        ctx: &mut SemanticAnalysisContext,
-        value_span: Span,
-        pattern: &Pattern,
-    ) -> Option<()> {
-        match self {
-            Self::Tuple(data_types) if patterns.len() == data_types.len() => patterns
-                .iter()
-                .zip(data_types)
-                .map(|(pattern, data_type)| data_type.destructure(ctx, value_span, pattern))
-                .run_all_succeeded(),
-            Self::Reference(_) => self
-                .distribute_references()
-                .destructure_tuple(patterns, ctx, value_span, pattern),
-            Self::Data(data_type) => data_type
-                .distribute_data()
-                .destructure(ctx, value_span, pattern),
-            _ => {
-                for pattern in patterns {
-                    pattern.kind.destructure_unknown(ctx);
-                }
-
-                ctx.add_error(
-                    pattern.span,
-                    SemanticAnalysisError::MismatchedPatternTypes {
-                        expected: self,
-                        actual: pattern.kind.get_type(),
-                    },
-                )
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn destructure_compound(
-        self,
-        patterns: &HashMap<SNBTString, Pattern>,
-        ctx: &mut SemanticAnalysisContext,
-        value_span: Span,
-        pattern: &Pattern,
-    ) -> Option<()> {
-        match self {
-            Self::TypedCompound(ref data_types) => {
-                let mut error = false;
-
-                for (key, pattern) in patterns {
-                    let data_type = data_types
-                        .iter()
-                        .find(|(value_key, _)| value_key.1 == key.snbt_string.1)
-                        .map(|(_, value)| value.clone());
-
-                    if let Some(data_type) = data_type {
-                        data_type.destructure(ctx, value_span, pattern)?;
-                    } else {
-                        ctx.add_info::<()>(SemanticAnalysisInfo {
-                            span: key.span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: self.clone(),
-                                    field: key.snbt_string.1.clone(),
-                                },
-                            ),
-                        });
-
-                        pattern.kind.destructure_unknown(ctx);
-
-                        error = true;
-                    }
-                }
-
-                if error { None } else { Some(()) }
-            }
-            Self::Compound(data_type) => {
-                for pattern in patterns.values() {
-                    let data_type = *data_type.clone();
-
-                    data_type.destructure(ctx, value_span, pattern)?;
-                }
-
-                Some(())
-            }
-            Self::Data(data_type) => data_type
-                .distribute_data()
-                .destructure(ctx, value_span, pattern),
-            Self::Reference(_) => self
-                .distribute_references()
-                .destructure_compound(patterns, ctx, value_span, pattern),
-            _ => {
-                for pattern in patterns.values() {
-                    pattern.kind.destructure_unknown(ctx);
-                }
-
-                ctx.add_error(
-                    pattern.span,
-                    SemanticAnalysisError::MismatchedPatternTypes {
-                        expected: self,
-                        actual: pattern.kind.get_type(),
-                    },
-                )
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn destructure_struct(
-        self,
-        name: &str,
-        field_patterns: &HashMap<SNBTString, Pattern>,
-        ctx: &mut SemanticAnalysisContext,
-        value_span: Span,
-        pattern: &Pattern,
-    ) -> Option<()> {
-        match self {
-            Self::Struct(ref struct_name, ref generics) => {
-                if struct_name != name {
-                    return ctx.add_error(
-                        pattern.span,
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: self.clone(),
-                            actual: pattern.kind.get_type(),
-                        },
-                    );
-                }
-
-                let declaration = ctx.get_data_type(struct_name)??;
-                let fields = declaration.get_struct_fields(ctx, generics)?;
-
-                let mut error = false;
-                for (key, pattern) in field_patterns {
-                    if let Some(field_type) = fields.get(&key.snbt_string.1) {
-                        let field_type = field_type.clone();
-
-                        field_type.destructure(ctx, value_span, pattern)?;
-                    } else {
-                        error = true;
-                        ctx.add_info::<()>(SemanticAnalysisInfo {
-                            span: key.span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::UnexpectedField(key.snbt_string.1.clone()),
-                            ),
-                        });
-
-                        pattern.kind.destructure_unknown(ctx);
-                    }
-                }
-                if error { None } else { Some(()) }
-            }
-            Self::Reference(_) => self.distribute_references().destructure_struct(
-                name,
-                field_patterns,
-                ctx,
-                value_span,
-                pattern,
-            ),
-            Self::Data(inner) => inner.distribute_data().destructure_struct(
-                name,
-                field_patterns,
-                ctx,
-                value_span,
-                pattern,
-            ),
-            Self::Score(inner) => inner.distribute_score().destructure_struct(
-                name,
-                field_patterns,
-                ctx,
-                value_span,
-                pattern,
-            ),
-            _ => {
-                for inner in field_patterns.values() {
-                    inner.kind.destructure_unknown(ctx);
-                }
-
-                ctx.add_error(
-                    pattern.span,
-                    SemanticAnalysisError::MismatchedPatternTypes {
-                        expected: self,
-                        actual: pattern.kind.get_type(),
-                    },
-                )
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn destructure(
-        self,
-        ctx: &mut SemanticAnalysisContext,
-        value_span: Span,
-        pattern: &Pattern,
-    ) -> Option<()> {
-        match &pattern.kind {
-            PatternKind::Literal(_) | PatternKind::Wildcard => Some(()),
-            PatternKind::Binding(name) => {
-                ctx.declare_variable_known(name, self);
-
-                Some(())
-            }
-            PatternKind::Tuple(patterns) => {
-                self.destructure_tuple(patterns, ctx, value_span, pattern)
-            }
-            PatternKind::Compound(patterns) => {
-                self.destructure_compound(patterns, ctx, value_span, pattern)
-            }
-            PatternKind::Struct(name, field_patterns) => {
-                self.destructure_struct(name, field_patterns, ctx, value_span, pattern)
-            }
-            PatternKind::Dereference(inner_pattern) => {
-                self.destructure(ctx, value_span, inner_pattern)
-            }
         }
     }
 

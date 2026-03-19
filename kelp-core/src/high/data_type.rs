@@ -6,10 +6,7 @@ use crate::{
         data_type::DataType as MiddleDataType,
         data_type_declaration::{BuiltinDataType, DataTypeDeclarationKind},
     },
-    semantic_analysis_context::{
-        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
+    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };
@@ -92,12 +89,10 @@ impl DataType {
                         if context_generic_names.is_none_or(|context_generic_names| {
                             !context_generic_names.contains(&name)
                         }) {
-                            return ctx.add_info(SemanticAnalysisInfo {
-                                span: name_span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::UnknownType(name.clone()),
-                                ),
-                            });
+                            return ctx.add_error(
+                                name_span,
+                                SemanticAnalysisError::UnknownType(name.clone()),
+                            );
                         }
 
                         MiddleDataType::Generic(name)

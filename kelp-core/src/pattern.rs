@@ -9,10 +9,7 @@ use crate::{
     low::expression::{Expression, literal::LiteralExpression},
     middle::data_type::DataType,
     pattern_type::PatternType,
-    semantic_analysis_context::{
-        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
+    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
 };
 
@@ -319,12 +316,7 @@ impl Pattern {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<()> {
         if !self.kind.is_irrefutable() {
-            return ctx.add_info(SemanticAnalysisInfo {
-                span: self.span,
-                kind: SemanticAnalysisInfoKind::Error(
-                    SemanticAnalysisError::PatternIsNotIrrefutable,
-                ),
-            });
+            return ctx.add_error(self.span, SemanticAnalysisError::PatternIsNotIrrefutable);
         }
 
         Some(())

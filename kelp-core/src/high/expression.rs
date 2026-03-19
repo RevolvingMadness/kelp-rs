@@ -290,12 +290,10 @@ impl Expression {
                     UnaryOperator::Negate => {
                         let Some(negation_result) = expression.data_type.get_negation_result()
                         else {
-                            return ctx.add_info(SemanticAnalysisInfo {
-                                span: self.span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::CannotNegateType(expression.data_type),
-                                ),
-                            });
+                            return ctx.add_error(
+                                self.span,
+                                SemanticAnalysisError::CannotNegateType(expression.data_type),
+                            );
                         };
 
                         MiddleExpressionKind::Unary(UnaryOperator::Negate, Box::new(expression))
@@ -303,12 +301,10 @@ impl Expression {
                     }
                     UnaryOperator::Reference => {
                         if !expression.kind.can_be_referenced() {
-                            return ctx.add_info(SemanticAnalysisInfo {
+                            return ctx.add_error(
                                 span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::CannotBeReferenced(expression.data_type),
-                                ),
-                            });
+                                SemanticAnalysisError::CannotBeReferenced(expression.data_type),
+                            );
                         }
 
                         let expression_data_type = expression.data_type.clone();
@@ -320,14 +316,10 @@ impl Expression {
                         let Some(dereferenced_result) =
                             expression.data_type.get_dereferenced_result()
                         else {
-                            return ctx.add_info(SemanticAnalysisInfo {
+                            return ctx.add_error(
                                 span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::CannotBeDereferenced(
-                                        expression.data_type,
-                                    ),
-                                ),
-                            });
+                                SemanticAnalysisError::CannotBeDereferenced(expression.data_type),
+                            );
                         };
 
                         MiddleExpressionKind::Unary(
@@ -339,12 +331,10 @@ impl Expression {
                     UnaryOperator::Invert => {
                         let Some(invered_result) = expression.data_type.get_inverted_result()
                         else {
-                            return ctx.add_info(SemanticAnalysisInfo {
-                                span: self.span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::CannotInvertType(expression.data_type),
-                                ),
-                            });
+                            return ctx.add_error(
+                                self.span,
+                                SemanticAnalysisError::CannotInvertType(expression.data_type),
+                            );
                         };
 
                         MiddleExpressionKind::Unary(UnaryOperator::Invert, Box::new(expression))
@@ -363,31 +353,27 @@ impl Expression {
                     left.data_type
                         .get_arithmetic_result(ctx, operator, &right.data_type)
                 else {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotPerformArithmeticOperation {
-                                left: left.data_type,
-                                operator,
-                                right: right.data_type,
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CannotPerformArithmeticOperation {
+                            left: left.data_type,
+                            operator,
+                            right: right.data_type,
+                        },
+                    );
                 };
 
                 if operator == ArithmeticOperator::Swap
                     && (!left.data_type.is_lvalue() || !right.data_type.is_lvalue())
                 {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotPerformArithmeticOperation {
-                                left: left.data_type,
-                                operator,
-                                right: right.data_type,
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CannotPerformArithmeticOperation {
+                            left: left.data_type,
+                            operator,
+                            right: right.data_type,
+                        },
+                    );
                 }
 
                 MiddleExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
@@ -405,16 +391,14 @@ impl Expression {
                         .can_perform_comparison(ctx, operator, &right.data_type)
                     && !value
                 {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotPerformComparisonOperation {
-                                left: left.data_type,
-                                operator,
-                                right: right.data_type,
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CannotPerformComparisonOperation {
+                            left: left.data_type,
+                            operator,
+                            right: right.data_type,
+                        },
+                    );
                 }
 
                 MiddleExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
@@ -428,25 +412,21 @@ impl Expression {
                 let (right_span, right) = right?;
 
                 if left.data_type != DataType::Boolean {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: left_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: DataType::Boolean,
-                                actual: left.data_type,
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        left_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: DataType::Boolean,
+                            actual: left.data_type,
+                        },
+                    );
                 } else if right.data_type != DataType::Boolean {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: right_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: DataType::Boolean,
-                                actual: right.data_type,
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        right_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: DataType::Boolean,
+                            actual: right.data_type,
+                        },
+                    );
                 }
 
                 MiddleExpressionKind::Logical(Box::new(left), operator, Box::new(right))
@@ -454,12 +434,7 @@ impl Expression {
             }
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
                 let Some(place) = target.get_place_type(ctx) else {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: target.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedTo,
-                        ),
-                    });
+                    return ctx.add_error(target.span, SemanticAnalysisError::CannotBeAssignedTo);
                 };
 
                 let (value_span, value) = value.perform_semantic_analysis(ctx)?;
@@ -479,12 +454,7 @@ impl Expression {
             }
             ExpressionKind::Assignment(target, value) => {
                 let Some(place) = target.get_place_type(ctx) else {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: target.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeAssignedTo,
-                        ),
-                    });
+                    return ctx.add_error(target.span, SemanticAnalysisError::CannotBeAssignedTo);
                 };
 
                 let (value_span, value) = value.perform_semantic_analysis(ctx)?;
@@ -566,22 +536,15 @@ impl Expression {
                 let (index_span, index) = index?;
 
                 let Some(index_result) = target.data_type.get_index_result() else {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: target_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotBeIndexed(target.data_type),
-                        ),
-                    });
+                    return ctx.add_error(
+                        target_span,
+                        SemanticAnalysisError::CannotBeIndexed(target.data_type),
+                    );
                 };
 
                 // TODO: Improve this.
                 if target.kind.is_index_out_of_bounds(&index) == Some(true) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: index_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::IndexOutOfBounds,
-                        ),
-                    });
+                    return ctx.add_error(index_span, SemanticAnalysisError::IndexOutOfBounds);
                 }
 
                 MiddleExpressionKind::Index(Box::new(target), Box::new(index)).with(index_result)
@@ -590,27 +553,23 @@ impl Expression {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 if !expression.data_type.has_fields() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: field.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeDoesntHaveFields(expression.data_type),
-                        ),
-                    });
+                    return ctx.add_error(
+                        field.span,
+                        SemanticAnalysisError::TypeDoesntHaveFields(expression.data_type),
+                    );
                 }
 
                 let (field_span, field) = field.perform_semantic_analysis(ctx);
 
                 let Some(field_result) = expression.data_type.get_field_result(ctx, &field.1)
                 else {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: field_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeDoesntHaveField {
-                                data_type: expression.data_type,
-                                field: field.1,
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        field_span,
+                        SemanticAnalysisError::TypeDoesntHaveField {
+                            data_type: expression.data_type,
+                            field: field.1,
+                        },
+                    );
                 };
 
                 MiddleExpressionKind::FieldAccess(Box::new(expression), field).with(field_result)
@@ -623,15 +582,13 @@ impl Expression {
                 let data_type = data_type?;
 
                 if !expression.data_type.can_cast_to(&data_type) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotCastType {
-                                from: expression.data_type,
-                                to: data_type,
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CannotCastType {
+                            from: expression.data_type,
+                            to: data_type,
+                        },
+                    );
                 }
 
                 MiddleExpressionKind::AsCast(Box::new(expression), data_type.clone())
@@ -646,14 +603,12 @@ impl Expression {
                         if let Some(value) = expression.data_type.is_score_compatible(ctx)
                             && !value
                         {
-                            return ctx.add_info(SemanticAnalysisInfo {
-                                span: expression_span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::TypeIsNotScoreCompatible(
-                                        expression.data_type,
-                                    ),
+                            return ctx.add_error(
+                                expression_span,
+                                SemanticAnalysisError::TypeIsNotScoreCompatible(
+                                    expression.data_type,
                                 ),
-                            });
+                            );
                         }
 
                         DataType::Score(Box::new(DataType::Integer))
@@ -689,12 +644,7 @@ impl Expression {
 
                 let declaration = match declaration {
                     None => {
-                        return ctx.add_info(SemanticAnalysisInfo {
-                            span: name_span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::UnknownType(name),
-                            ),
-                        });
+                        return ctx.add_error(name_span, SemanticAnalysisError::UnknownType(name));
                     }
                     Some(Some(declaration)) => declaration,
                     Some(None) => return None,
@@ -708,12 +658,7 @@ impl Expression {
                 let defined_fields = declaration.get_struct_fields(ctx, &generic_types);
 
                 if !declaration.resolve_is_struct(ctx, generic_types.clone())? {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: name_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsNotStruct(name),
-                        ),
-                    });
+                    return ctx.add_error(name_span, SemanticAnalysisError::TypeIsNotStruct(name));
                 }
 
                 let defined_fields = defined_fields?;
@@ -764,12 +709,8 @@ impl Expression {
             }
             ExpressionKind::Variable(name) => {
                 let Some(variable_data_type) = ctx.get_variable(&name) else {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::UndeclaredVariable(name),
-                        ),
-                    });
+                    return ctx
+                        .add_error(self.span, SemanticAnalysisError::UndeclaredVariable(name));
                 };
 
                 let variable_data_type = variable_data_type?;
@@ -804,8 +745,7 @@ impl Expression {
             }
             ExpressionKind::Underscore => {
                 if !ctx.is_lhs {
-                    return ctx
-                        .add_error_ret(self.span, SemanticAnalysisError::UnderscoreExpression);
+                    return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
                 }
 
                 MiddleExpressionKind::Underscore.with(DataType::Inferred)

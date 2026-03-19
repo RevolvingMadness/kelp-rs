@@ -55,7 +55,7 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Byte(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooLarge(DataType::Byte),
                         );
@@ -63,7 +63,7 @@ pub fn lower_numeric_expression(
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooSmall(DataType::Byte),
                         );
@@ -77,7 +77,7 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Short(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooLarge(DataType::Short),
                         );
@@ -85,7 +85,7 @@ pub fn lower_numeric_expression(
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooSmall(DataType::Short),
                         );
@@ -99,7 +99,7 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Integer(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooLarge(DataType::Integer),
                         );
@@ -107,7 +107,7 @@ pub fn lower_numeric_expression(
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooSmall(DataType::Integer),
                         );
@@ -121,7 +121,7 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Long(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooLarge(DataType::Long),
                         );
@@ -129,7 +129,7 @@ pub fn lower_numeric_expression(
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error(
+                        ctx.add_error::<()>(
                             text_range_to_span(value_token.text_range()),
                             SemanticAnalysisError::ValueTooSmall(DataType::Long),
                         );
@@ -159,7 +159,7 @@ pub fn lower_numeric_expression(
                         Ok(value) => ExpressionKind::InferredInteger(value),
                         Err(error) => match error.kind() {
                             IntErrorKind::PosOverflow => {
-                                ctx.add_error(
+                                ctx.add_error::<()>(
                                     text_range_to_span(value_token.text_range()),
                                     SemanticAnalysisError::ValueTooLarge(DataType::Integer),
                                 );
@@ -167,7 +167,7 @@ pub fn lower_numeric_expression(
                                 ExpressionKind::Invalid
                             }
                             IntErrorKind::NegOverflow => {
-                                ctx.add_error(
+                                ctx.add_error::<()>(
                                     text_range_to_span(value_token.text_range()),
                                     SemanticAnalysisError::ValueTooSmall(DataType::Integer),
                                 );

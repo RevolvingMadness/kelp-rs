@@ -404,15 +404,13 @@ impl DataType {
                     pattern.kind.destructure_unknown(ctx);
                 }
 
-                ctx.add_info(SemanticAnalysisInfo {
-                    span: pattern.span,
-                    kind: SemanticAnalysisInfoKind::Error(
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: self,
-                            actual: pattern.kind.get_type(),
-                        },
-                    ),
-                })
+                ctx.add_error(
+                    pattern.span,
+                    SemanticAnalysisError::MismatchedPatternTypes {
+                        expected: self,
+                        actual: pattern.kind.get_type(),
+                    },
+                )
             }
         }
     }
@@ -476,15 +474,13 @@ impl DataType {
                     pattern.kind.destructure_unknown(ctx);
                 }
 
-                ctx.add_info(SemanticAnalysisInfo {
-                    span: pattern.span,
-                    kind: SemanticAnalysisInfoKind::Error(
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: self,
-                            actual: pattern.kind.get_type(),
-                        },
-                    ),
-                })
+                ctx.add_error(
+                    pattern.span,
+                    SemanticAnalysisError::MismatchedPatternTypes {
+                        expected: self,
+                        actual: pattern.kind.get_type(),
+                    },
+                )
             }
         }
     }
@@ -501,15 +497,13 @@ impl DataType {
         match self {
             Self::Struct(ref struct_name, ref generics) => {
                 if struct_name != name {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: pattern.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::MismatchedPatternTypes {
-                                expected: self.clone(),
-                                actual: pattern.kind.get_type(),
-                            },
-                        ),
-                    });
+                    return ctx.add_error(
+                        pattern.span,
+                        SemanticAnalysisError::MismatchedPatternTypes {
+                            expected: self.clone(),
+                            actual: pattern.kind.get_type(),
+                        },
+                    );
                 }
 
                 let declaration = ctx.get_data_type(struct_name)??;
@@ -561,15 +555,13 @@ impl DataType {
                     inner.kind.destructure_unknown(ctx);
                 }
 
-                ctx.add_info(SemanticAnalysisInfo {
-                    span: pattern.span,
-                    kind: SemanticAnalysisInfoKind::Error(
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: self,
-                            actual: pattern.kind.get_type(),
-                        },
-                    ),
-                })
+                ctx.add_error(
+                    pattern.span,
+                    SemanticAnalysisError::MismatchedPatternTypes {
+                        expected: self,
+                        actual: pattern.kind.get_type(),
+                    },
+                )
             }
         }
     }

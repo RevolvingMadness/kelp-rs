@@ -5,10 +5,7 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use crate::{
     high::{data_type::DataType, statement::Statement},
     middle::{data_type_declaration::DataTypeDeclarationKind, item::Item as MiddleItem},
-    semantic_analysis_context::{
-        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
+    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };
@@ -46,12 +43,8 @@ impl Item {
             }
             ItemKind::TypeAliasDeclaration(name, generic_names, alias) => {
                 if ctx.data_type_is_declared(&name) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsAlreadyDefined(name),
-                        ),
-                    });
+                    return ctx
+                        .add_error(self.span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
                 }
 
                 let Some(alias) = alias.perform_semantic_analysis(Some(&generic_names), ctx) else {
@@ -73,12 +66,8 @@ impl Item {
             }
             ItemKind::StructDeclaration(name, generic_names, field_types) => {
                 if ctx.data_type_is_declared(&name) {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsAlreadyDefined(name),
-                        ),
-                    });
+                    return ctx
+                        .add_error(self.span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
                 }
 
                 let Some(field_types) = field_types

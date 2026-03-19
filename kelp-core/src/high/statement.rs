@@ -10,10 +10,7 @@ use crate::{
     high::expression::Expression,
     middle::statement::Statement as MiddleStatement,
     pattern::Pattern,
-    semantic_analysis_context::{
-        Scope, SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
+    semantic_analysis_context::{Scope, SemanticAnalysisContext, SemanticAnalysisError},
 };
 use minecraft_command_types::range::IntegerRange;
 
@@ -137,11 +134,13 @@ impl Statement {
                     .is_some()
                     && !value.data_type.equals(&variable_type)
                 {
-                    ctx.add_error(
+                    pattern.kind.destructure_unknown(ctx);
+
+                    return ctx.add_error(
                         value_span,
                         SemanticAnalysisError::MismatchedTypes {
-                            expected: variable_type.clone(),
-                            actual: value.data_type.clone(),
+                            expected: variable_type,
+                            actual: value.data_type,
                         },
                     );
                 }
@@ -160,12 +159,10 @@ impl Statement {
                 let (condition_span, condition) = condition?;
 
                 if !condition.data_type.is_condition() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: condition_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
-                        ),
-                    });
+                    return ctx.add_error(
+                        condition_span,
+                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
+                    );
                 }
 
                 let body = body?;
@@ -193,12 +190,10 @@ impl Statement {
                 let (expression_span, condition) = condition?;
 
                 if !condition.data_type.is_condition() {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: expression_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
-                        ),
-                    });
+                    return ctx.add_error(
+                        expression_span,
+                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
+                    );
                 }
 
                 let statement = statement?;
@@ -213,12 +208,10 @@ impl Statement {
                 let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
                     ctx.declare_variable_unknown(&name);
 
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: expression_span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::CannotIterateType(iterable.data_type),
-                        ),
-                    });
+                    return ctx.add_error(
+                        expression_span,
+                        SemanticAnalysisError::CannotIterateType(iterable.data_type),
+                    );
                 };
 
                 ctx.declare_variable_known(&name, iterable_type);
@@ -259,24 +252,20 @@ impl Statement {
             }
             StatementKind::Break => {
                 if ctx.loop_depth == 0 {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Break),
-                        ),
-                    });
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Break),
+                    );
                 }
 
                 MiddleStatement::Break
             }
             StatementKind::Continue => {
                 if ctx.loop_depth == 0 {
-                    return ctx.add_info(SemanticAnalysisInfo {
-                        span: self.span,
-                        kind: SemanticAnalysisInfoKind::Error(
-                            SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Continue),
-                        ),
-                    });
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Continue),
+                    );
                 }
 
                 MiddleStatement::Continue

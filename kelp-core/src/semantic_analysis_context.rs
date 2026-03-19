@@ -289,14 +289,14 @@ impl SemanticAnalysisContext {
         expected: usize,
         actual: usize,
     ) -> Option<T> {
-        self.add_info(SemanticAnalysisInfo {
+        self.add_error(
             span,
-            kind: SemanticAnalysisInfoKind::Error(SemanticAnalysisError::InvalidGenerics {
+            SemanticAnalysisError::InvalidGenerics {
                 data_type_kind: data_type,
                 expected,
                 actual,
-            }),
-        })
+            },
+        )
     }
 
     pub fn add_info<T>(&mut self, info: SemanticAnalysisInfo) -> Option<T> {
@@ -309,11 +309,7 @@ impl SemanticAnalysisContext {
         None
     }
 
-    pub fn add_error(&mut self, span: Span, error: SemanticAnalysisError) {
-        self.add_error_ret::<()>(span, error);
-    }
-
-    pub fn add_error_ret<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
+    pub fn add_error<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
         self.add_info(SemanticAnalysisInfo {
             span,
             kind: SemanticAnalysisInfoKind::Error(error),

@@ -349,7 +349,7 @@ impl PlaceType {
                 if let Some(result) = value.data_type.is_score_compatible(ctx)
                     && !result
                 {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         value_span,
                         SemanticAnalysisError::TypeIsNotScoreCompatible(value.data_type.clone()),
                     );
@@ -373,7 +373,7 @@ impl PlaceType {
             }
             PlaceTypeKind::Variable(data_type) => {
                 if !value.data_type.equals(&data_type) {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         value_span,
                         SemanticAnalysisError::MismatchedTypes {
                             expected: data_type,
@@ -383,7 +383,7 @@ impl PlaceType {
                 }
 
                 if !data_type.is_runtime() && ctx.loop_depth != 0 {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
                     );
@@ -393,7 +393,7 @@ impl PlaceType {
                 if target.kind.get_index_result(ctx).is_none() {
                     let target_data_type = target.kind.get_data_type(ctx)?;
 
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         target.span,
                         SemanticAnalysisError::CannotBeIndexed(target_data_type),
                     );
@@ -403,7 +403,7 @@ impl PlaceType {
                     && let Some(is_runtime) = target.kind.is_runtime(ctx)
                     && !is_runtime
                 {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         target.span,
                         SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
                     );
@@ -413,7 +413,7 @@ impl PlaceType {
                 if target.kind.get_field_result(ctx, &field).is_none() {
                     let target_data_type = target.kind.get_data_type(ctx)?;
 
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         target.span,
                         SemanticAnalysisError::TypeDoesntHaveField {
                             data_type: target_data_type,
@@ -426,7 +426,7 @@ impl PlaceType {
                     && let Some(is_runtime) = target.kind.is_runtime(ctx)
                     && !is_runtime
                 {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         target.span,
                         SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
                     );
@@ -447,7 +447,7 @@ impl PlaceType {
         match self.kind {
             PlaceTypeKind::Data(data_type) | PlaceTypeKind::Score(data_type) => {
                 if !data_type.can_perform_augmented_assignment(operator, &value.data_type) {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         value_span,
                         SemanticAnalysisError::InvalidAugmentedAssignmentType(
                             operator,
@@ -459,7 +459,7 @@ impl PlaceType {
             }
             PlaceTypeKind::Variable(data_type) => {
                 if !data_type.can_perform_augmented_assignment(operator, &value.data_type) {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         value_span,
                         SemanticAnalysisError::InvalidAugmentedAssignmentType(
                             operator,
@@ -470,7 +470,7 @@ impl PlaceType {
                 }
 
                 if !data_type.is_runtime() && ctx.loop_depth != 0 {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
                     );
@@ -479,14 +479,14 @@ impl PlaceType {
             PlaceTypeKind::Tuple(_) | PlaceTypeKind::Underscore => {
                 let self_data_type = self.kind.get_data_type(ctx)?;
 
-                return ctx.add_error_ret(
+                return ctx.add_error(
                     self.span,
                     SemanticAnalysisError::CannotPerformAugmentedAssignment(self_data_type),
                 );
             }
             PlaceTypeKind::Index(target) => {
                 if target.kind.get_index_result(ctx).is_none() {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::CannotBeIndexed(value.data_type.clone()),
                     );
@@ -496,7 +496,7 @@ impl PlaceType {
                     && let Some(is_runtime) = target.kind.is_runtime(ctx)
                     && !is_runtime
                 {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         target.span,
                         SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
                     );
@@ -504,7 +504,7 @@ impl PlaceType {
             }
             PlaceTypeKind::FieldAccess(target, field) => {
                 if target.kind.get_field_result(ctx, &field).is_none() {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::CannotBeIndexed(value.data_type.clone()),
                     );
@@ -514,7 +514,7 @@ impl PlaceType {
                     && let Some(is_runtime) = target.kind.is_runtime(ctx)
                     && !is_runtime
                 {
-                    return ctx.add_error_ret(
+                    return ctx.add_error(
                         target.span,
                         SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
                     );

@@ -1,11 +1,9 @@
-use kelp_core::high::data_type::{DataType, DataTypeKind};
+use kelp_core::high::data_type::DataType;
 
-use crate::{cst::CSTInferredDataType, span::span_of_cst_node};
+use crate::cst::CSTInferredDataType;
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_inferred_data_type(node: CSTInferredDataType) -> Option<DataType> {
-    let span = span_of_cst_node(&node);
-
-    Some(DataTypeKind::Inferred.with_span(span))
+pub fn lower_inferred_data_type(_node: CSTInferredDataType) -> Option<DataType> {
+    Some(DataType::Inferred)
 }

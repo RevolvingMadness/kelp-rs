@@ -1,8 +1,6 @@
 use std::hash::Hash;
 
-use minecraft_command_types::{
-    has_macro::HasMacro, impl_has_macro_false, snbt::SNBTString as LowSNBTString,
-};
+use minecraft_command_types::{has_macro::HasMacro, snbt::SNBTString as LowSNBTString};
 
 use crate::{
     semantic_analysis_context::{
@@ -17,8 +15,6 @@ pub struct SNBTString {
     pub span: Span,
     pub snbt_string: LowSNBTString,
 }
-
-impl_has_macro_false!(SNBTString);
 
 impl From<String> for SNBTString {
     fn from(value: String) -> Self {

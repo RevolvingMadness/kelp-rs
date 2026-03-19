@@ -15,7 +15,7 @@ use crate::{
     datapack::Datapack,
     low::expression::Expression,
     middle::{
-        data_type::DataTypeKind,
+        data_type::DataType,
         expression::{Expression as MiddleExpression, ExpressionKind},
     },
     operator::ArithmeticOperator,
@@ -241,10 +241,10 @@ impl Place {
 
 #[derive(Debug)]
 pub enum PlaceTypeKind {
-    Score(DataTypeKind),
-    Data(DataTypeKind),
+    Score(DataType),
+    Data(DataType),
     Tuple(Vec<PlaceType>),
-    Variable(DataTypeKind),
+    Variable(DataType),
     Index(Box<PlaceType>),
     FieldAccess(Box<PlaceType>, String),
     Underscore,
@@ -257,11 +257,11 @@ impl PlaceTypeKind {
     }
 
     #[must_use]
-    pub fn get_data_type(self, ctx: &SemanticAnalysisContext) -> Option<DataTypeKind> {
+    pub fn get_data_type(self, ctx: &SemanticAnalysisContext) -> Option<DataType> {
         Some(match self {
-            Self::Score(data_type) => DataTypeKind::Score(Box::new(data_type)),
-            Self::Data(data_type) => DataTypeKind::Data(Box::new(data_type)),
-            Self::Tuple(place_types) => DataTypeKind::Tuple(
+            Self::Score(data_type) => DataType::Score(Box::new(data_type)),
+            Self::Data(data_type) => DataType::Data(Box::new(data_type)),
+            Self::Tuple(place_types) => DataType::Tuple(
                 place_types
                     .into_iter()
                     .map(|place_type| place_type.kind.get_data_type(ctx))
@@ -272,12 +272,12 @@ impl PlaceTypeKind {
             Self::FieldAccess(place_type, field) => {
                 place_type.kind.get_field_result(ctx, &field)?
             }
-            Self::Underscore => DataTypeKind::Inferred,
+            Self::Underscore => DataType::Inferred,
         })
     }
 
     #[must_use]
-    pub fn get_index_result(&self, ctx: &SemanticAnalysisContext) -> Option<DataTypeKind> {
+    pub fn get_index_result(&self, ctx: &SemanticAnalysisContext) -> Option<DataType> {
         match self {
             Self::Variable(data_type_kind) => data_type_kind.get_index_result(),
             Self::Index(place_type) => place_type.kind.get_index_result(ctx)?.get_index_result(),
@@ -294,7 +294,7 @@ impl PlaceTypeKind {
         &self,
         ctx: &SemanticAnalysisContext,
         field: &str,
-    ) -> Option<DataTypeKind> {
+    ) -> Option<DataType> {
         match self {
             Self::Score(data_type) | Self::Data(data_type) | Self::Variable(data_type) => {
                 data_type.get_field_result(ctx, field)

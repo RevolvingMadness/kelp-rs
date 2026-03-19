@@ -6,7 +6,7 @@ use crate::high::data::{DataTarget as HighDataTarget, DataTargetKind};
 use crate::high::nbt_path::{NbtPath, NbtPathNode};
 use crate::high::supports_variable_type_scope::SupportsVariableTypeScope;
 use crate::low::expression::Expression;
-use crate::middle::data_type::DataTypeKind;
+use crate::middle::data_type::DataType;
 use crate::middle::data_type_declaration::DataTypeDeclarationKind;
 use crate::player_score::GeneratedPlayerScore;
 use crate::span::Span;
@@ -47,20 +47,20 @@ pub struct DatapackSettings {
 
 #[derive(Default)]
 pub struct Scope {
-    pub variables: BTreeMap<String, (DataTypeKind, Expression)>,
+    pub variables: BTreeMap<String, (DataType, Expression)>,
     pub types: BTreeMap<String, DataTypeDeclarationKind>,
 }
 
 impl Scope {
     #[inline]
     #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<&(DataTypeKind, Expression)> {
+    pub fn get_variable(&self, name: &str) -> Option<&(DataType, Expression)> {
         self.variables.get(name)
     }
 
     #[inline]
     #[must_use]
-    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut (DataTypeKind, Expression)> {
+    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut (DataType, Expression)> {
         self.variables.get_mut(name)
     }
 
@@ -71,7 +71,7 @@ impl Scope {
     }
 
     #[inline]
-    pub fn declare_variable(&mut self, name: String, data_type: DataTypeKind, value: Expression) {
+    pub fn declare_variable(&mut self, name: String, data_type: DataType, value: Expression) {
         self.variables.insert(name, (data_type, value));
     }
 
@@ -103,7 +103,7 @@ pub struct Datapack {
 }
 
 impl SupportsVariableTypeScope for Datapack {
-    fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
+    fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
         self.get_variable(name)
             .map(|(data_type, _)| Some(data_type))
     }
@@ -311,7 +311,7 @@ impl Datapack {
         )
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<(DataTypeKind, Expression)> {
+    pub fn get_variable(&self, name: &str) -> Option<(DataType, Expression)> {
         for scope in &self.scopes {
             if let Some(value) = scope.get_variable(name) {
                 return Some(value.clone());
@@ -350,7 +350,7 @@ impl Datapack {
             .contains_variable(name)
     }
 
-    pub fn declare_variable(&mut self, name: String, data_type: DataTypeKind, value: Expression) {
+    pub fn declare_variable(&mut self, name: String, data_type: DataType, value: Expression) {
         self.scopes
             .front_mut()
             .expect("No scopes")

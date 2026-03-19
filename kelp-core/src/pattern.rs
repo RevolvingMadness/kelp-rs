@@ -7,7 +7,7 @@ use crate::{
     datapack::Datapack,
     high::snbt_string::SNBTString,
     low::expression::{Expression, literal::LiteralExpression},
-    middle::data_type::DataTypeKind,
+    middle::data_type::DataType,
     pattern_type::PatternType,
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -20,11 +20,11 @@ fn destructure_tuple(
     patterns: &[Pattern],
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    data_type: DataTypeKind,
+    data_type: DataType,
     value: Expression,
 ) {
     match (data_type, value) {
-        (DataTypeKind::Tuple(data_types), Expression::Tuple(expressions)) => {
+        (DataType::Tuple(data_types), Expression::Tuple(expressions)) => {
             for ((pattern, expression), data_type) in
                 patterns.iter().zip(expressions).zip(data_types)
             {
@@ -33,7 +33,7 @@ fn destructure_tuple(
                     .destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataTypeKind::Tuple(data_types), Expression::Data(target_path)) => {
+        (DataType::Tuple(data_types), Expression::Data(target_path)) => {
             let (target, path) = *target_path;
 
             for (i, (pattern, data_type)) in patterns.iter().zip(data_types).enumerate() {
@@ -48,7 +48,7 @@ fn destructure_tuple(
                     .destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataTypeKind::Data(inner_type), value @ Expression::Data(_)) => {
+        (DataType::Data(inner_type), value @ Expression::Data(_)) => {
             destructure_tuple(patterns, datapack, ctx, *inner_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
@@ -59,11 +59,11 @@ fn destructure_compound(
     patterns: &HashMap<SNBTString, Pattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    data_type: DataTypeKind,
+    data_type: DataType,
     value: Expression,
 ) {
     match (data_type, value) {
-        (DataTypeKind::TypedCompound(data_types), Expression::Compound(expressions)) => {
+        (DataType::TypedCompound(data_types), Expression::Compound(expressions)) => {
             for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
                 let expression = expression.clone();
                 let data_type = data_types.get(&key.snbt_string).unwrap().clone();
@@ -73,7 +73,7 @@ fn destructure_compound(
                     .destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataTypeKind::Compound(data_type), Expression::Compound(expressions)) => {
+        (DataType::Compound(data_type), Expression::Compound(expressions)) => {
             for ((_, pattern), (_, expression)) in patterns.iter().zip(expressions) {
                 let expression = expression.clone();
                 let data_type = *data_type.clone();
@@ -83,10 +83,10 @@ fn destructure_compound(
                     .destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataTypeKind::Data(data_type), value @ Expression::Data(_)) => {
+        (DataType::Data(data_type), value @ Expression::Data(_)) => {
             destructure_compound(patterns, datapack, ctx, *data_type, value);
         }
-        (DataTypeKind::TypedCompound(data_types), Expression::Data(target_path)) => {
+        (DataType::TypedCompound(data_types), Expression::Data(target_path)) => {
             let (target, path) = *target_path;
 
             for (key, pattern) in patterns {
@@ -111,11 +111,11 @@ fn destructure_struct(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     name: &str,
-    data_type: DataTypeKind,
+    data_type: DataType,
     value: Expression,
 ) {
     match (data_type, value) {
-        (DataTypeKind::Struct(_, generics), Expression::Struct(_, _, fields)) => {
+        (DataType::Struct(_, generics), Expression::Struct(_, _, fields)) => {
             let declaration = datapack.get_data_type(name).unwrap();
             let field_types = declaration.get_struct_fields(datapack, &generics).unwrap();
 
@@ -128,7 +128,7 @@ fn destructure_struct(
                     .destructure(datapack, ctx, data_type, field_value);
             }
         }
-        (DataTypeKind::Struct(_, generics), Expression::Data(target_path)) => {
+        (DataType::Struct(_, generics), Expression::Data(target_path)) => {
             let (target, path) = *target_path;
 
             let declaration = datapack.get_data_type(name).unwrap();
@@ -142,14 +142,14 @@ fn destructure_struct(
 
                 let data_type = field_types.get(&key.snbt_string.1).unwrap().clone();
 
-                let data_wrapped_type = DataTypeKind::Data(Box::new(data_type));
+                let data_wrapped_type = DataType::Data(Box::new(data_type));
 
                 pattern
                     .kind
                     .destructure(datapack, ctx, data_wrapped_type, field_value);
             }
         }
-        (DataTypeKind::Reference(data_type), value) => {
+        (DataType::Reference(data_type), value) => {
             destructure_struct(
                 field_patterns,
                 datapack,
@@ -159,7 +159,7 @@ fn destructure_struct(
                 value,
             );
         }
-        (DataTypeKind::Data(data_type), value) => {
+        (DataType::Data(data_type), value) => {
             destructure_struct(
                 field_patterns,
                 datapack,
@@ -169,7 +169,7 @@ fn destructure_struct(
                 value,
             );
         }
-        (DataTypeKind::Score(data_type), value) => {
+        (DataType::Score(data_type), value) => {
             destructure_struct(
                 field_patterns,
                 datapack,
@@ -278,7 +278,7 @@ impl PatternKind {
         &self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        data_type: DataTypeKind,
+        data_type: DataType,
         value: Expression,
     ) {
         match self {

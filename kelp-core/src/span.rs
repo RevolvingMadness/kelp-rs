@@ -1,7 +1,5 @@
 use std::{fmt::Display, ops::Range};
 
-use minecraft_command_types::impl_has_macro_false;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span {
     pub start: usize,
@@ -35,5 +33,3 @@ impl Span {
         self.start == self.end
     }
 }
-
-impl_has_macro_false!(Span);

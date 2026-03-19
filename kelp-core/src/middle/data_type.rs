@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DataTypeKind {
+pub enum DataType {
     Boolean,
     Byte,
     Short,
@@ -41,7 +41,7 @@ pub enum DataTypeKind {
     InferredFloat,
 }
 
-impl Display for DataTypeKind {
+impl Display for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Boolean => f.write_str("boolean"),
@@ -120,7 +120,7 @@ impl Display for DataTypeKind {
     }
 }
 
-impl DataTypeKind {
+impl DataType {
     #[must_use]
     pub const fn is_integer_like(&self) -> bool {
         self.is_restrictied_integer_like() || matches!(self, Self::Long)

@@ -6,13 +6,13 @@ use crate::{
     high::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         data::DataTarget,
-        data_type::DataType,
+        data_type::DataType as HighDataType,
         nbt_path::NbtPath,
         player_score::PlayerScore,
         snbt_string::SNBTString,
     },
     middle::{
-        data_type::DataTypeKind,
+        data_type::DataType,
         expression::{Expression as MiddleExpression, ExpressionKind as MiddleExpressionKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -54,14 +54,14 @@ pub enum ExpressionKind {
     Command(Box<Command>),
     Index(Box<Expression>, Box<Expression>),
     FieldAccess(Box<Expression>, SNBTString),
-    AsCast(Box<Expression>, DataType),
+    AsCast(Box<Expression>, HighDataType),
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Variable(String),
     Struct(
         Span,
         String,
-        Vec<DataType>,
+        Vec<HighDataType>,
         BTreeMap<SNBTString, Expression>,
     ),
     Invalid,
@@ -146,8 +146,8 @@ impl Expression {
     #[must_use]
     pub fn get_dereferenced_place_type(&self, ctx: &SemanticAnalysisContext) -> Option<PlaceType> {
         let place_type_kind = match &self.kind {
-            ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataTypeKind::Integer),
-            ExpressionKind::Data(_) => PlaceTypeKind::Data(DataTypeKind::SNBT),
+            ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataType::Integer),
+            ExpressionKind::Data(_) => PlaceTypeKind::Data(DataType::SNBT),
             ExpressionKind::Invalid
             | ExpressionKind::Boolean(_)
             | ExpressionKind::Byte(_)
@@ -199,8 +199,8 @@ impl Expression {
                     .map(|expression| expression.get_place_type(ctx))
                     .collect::<Option<_>>()?,
             ),
-            ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataTypeKind::Integer),
-            ExpressionKind::Data(_) => PlaceTypeKind::Data(DataTypeKind::SNBT),
+            ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataType::Integer),
+            ExpressionKind::Data(_) => PlaceTypeKind::Data(DataType::SNBT),
             ExpressionKind::Unary(operator, expression) => match operator {
                 UnaryOperator::Dereference => return expression.get_dereferenced_place_type(ctx),
                 UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => {
@@ -314,7 +314,7 @@ impl Expression {
                         let expression_data_type = expression.data_type.clone();
 
                         MiddleExpressionKind::Unary(UnaryOperator::Reference, Box::new(expression))
-                            .with(DataTypeKind::Reference(Box::new(expression_data_type)))
+                            .with(DataType::Reference(Box::new(expression_data_type)))
                     }
                     UnaryOperator::Dereference => {
                         let Some(dereferenced_result) =
@@ -418,7 +418,7 @@ impl Expression {
                 }
 
                 MiddleExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
-                    .with(DataTypeKind::Boolean)
+                    .with(DataType::Boolean)
             }
             ExpressionKind::Logical(left, operator, right) => {
                 let left = left.perform_semantic_analysis(ctx);
@@ -427,22 +427,22 @@ impl Expression {
                 let (left_span, left) = left?;
                 let (right_span, right) = right?;
 
-                if left.data_type != DataTypeKind::Boolean {
+                if left.data_type != DataType::Boolean {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: left_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::MismatchedTypes {
-                                expected: DataTypeKind::Boolean,
+                                expected: DataType::Boolean,
                                 actual: left.data_type,
                             },
                         ),
                     });
-                } else if right.data_type != DataTypeKind::Boolean {
+                } else if right.data_type != DataType::Boolean {
                     return ctx.add_info(SemanticAnalysisInfo {
                         span: right_span,
                         kind: SemanticAnalysisInfoKind::Error(
                             SemanticAnalysisError::MismatchedTypes {
-                                expected: DataTypeKind::Boolean,
+                                expected: DataType::Boolean,
                                 actual: right.data_type,
                             },
                         ),
@@ -450,7 +450,7 @@ impl Expression {
                 }
 
                 MiddleExpressionKind::Logical(Box::new(left), operator, Box::new(right))
-                    .with(DataTypeKind::Boolean)
+                    .with(DataType::Boolean)
             }
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
                 let Some(place) = target.get_place_type(ctx) else {
@@ -475,7 +475,7 @@ impl Expression {
                     operator,
                     Box::new(value),
                 )
-                .with(DataTypeKind::Unit)
+                .with(DataType::Unit)
             }
             ExpressionKind::Assignment(target, value) => {
                 let Some(place) = target.get_place_type(ctx) else {
@@ -496,7 +496,7 @@ impl Expression {
                 ctx.is_lhs = false;
 
                 MiddleExpressionKind::Assignment(Box::new(target), Box::new(value))
-                    .with(DataTypeKind::Unit)
+                    .with(DataType::Unit)
             }
             ExpressionKind::List(expressions) => {
                 let expressions = expressions
@@ -509,7 +509,7 @@ impl Expression {
                     .collect_option_all::<Vec<_>>()?;
 
                 MiddleExpressionKind::List(expressions)
-                    .with(DataTypeKind::List(Box::new(DataTypeKind::Inferred)))
+                    .with(DataType::List(Box::new(DataType::Inferred)))
             }
             ExpressionKind::Compound(compound_values) => {
                 let compound_values = compound_values
@@ -527,13 +527,13 @@ impl Expression {
                     .collect();
 
                 MiddleExpressionKind::Compound(compound_values)
-                    .with(DataTypeKind::TypedCompound(compound_data_types))
+                    .with(DataType::TypedCompound(compound_data_types))
             }
             ExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
                 MiddleExpressionKind::PlayerScore(score)
-                    .with(DataTypeKind::Score(Box::new(DataTypeKind::Integer)))
+                    .with(DataType::Score(Box::new(DataType::Integer)))
             }
             ExpressionKind::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -545,18 +545,18 @@ impl Expression {
                 let path = path?;
 
                 MiddleExpressionKind::Data(Box::new((target, path)))
-                    .with(DataTypeKind::Data(Box::new(DataTypeKind::SNBT)))
+                    .with(DataType::Data(Box::new(DataType::SNBT)))
             }
             ExpressionKind::Condition(inverted, condition) => {
                 let condition = condition.perform_semantic_analysis(ctx)?;
 
                 MiddleExpressionKind::Condition(inverted, Box::new(condition))
-                    .with(DataTypeKind::Boolean)
+                    .with(DataType::Boolean)
             }
             ExpressionKind::Command(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleExpressionKind::Command(Box::new(command)).with(DataTypeKind::Integer)
+                MiddleExpressionKind::Command(Box::new(command)).with(DataType::Integer)
             }
             ExpressionKind::Index(target, index) => {
                 let target = target.perform_semantic_analysis(ctx);
@@ -656,10 +656,10 @@ impl Expression {
                             });
                         }
 
-                        DataTypeKind::Score(Box::new(DataTypeKind::Integer))
+                        DataType::Score(Box::new(DataType::Integer))
                     }
                     RuntimeStorageType::Data => {
-                        DataTypeKind::Data(Box::new(expression.data_type.clone()))
+                        DataType::Data(Box::new(expression.data_type.clone()))
                     }
                 };
 
@@ -682,7 +682,7 @@ impl Expression {
                     .collect();
 
                 MiddleExpressionKind::Tuple(expressions)
-                    .with(DataTypeKind::Tuple(expression_data_types))
+                    .with(DataType::Tuple(expression_data_types))
             }
             ExpressionKind::Struct(name_span, name, generic_types, field_values) => {
                 let declaration = ctx.get_data_type(&name);
@@ -760,7 +760,7 @@ impl Expression {
                 }
 
                 MiddleExpressionKind::Struct(name.clone(), generic_types.clone(), field_values)
-                    .with(DataTypeKind::Struct(name, generic_types))
+                    .with(DataType::Struct(name, generic_types))
             }
             ExpressionKind::Variable(name) => {
                 let Some(variable_data_type) = ctx.get_variable(&name) else {
@@ -777,34 +777,30 @@ impl Expression {
                 MiddleExpressionKind::Variable(name).with(variable_data_type)
             }
             ExpressionKind::Boolean(value) => {
-                MiddleExpressionKind::Boolean(value).with(DataTypeKind::Boolean)
+                MiddleExpressionKind::Boolean(value).with(DataType::Boolean)
             }
-            ExpressionKind::Byte(value) => {
-                MiddleExpressionKind::Byte(value).with(DataTypeKind::Byte)
-            }
+            ExpressionKind::Byte(value) => MiddleExpressionKind::Byte(value).with(DataType::Byte),
             ExpressionKind::Short(value) => {
-                MiddleExpressionKind::Short(value).with(DataTypeKind::Short)
+                MiddleExpressionKind::Short(value).with(DataType::Short)
             }
             ExpressionKind::Integer(value) => {
-                MiddleExpressionKind::Integer(value).with(DataTypeKind::Integer)
+                MiddleExpressionKind::Integer(value).with(DataType::Integer)
             }
             ExpressionKind::InferredInteger(value) => {
-                MiddleExpressionKind::InferredInteger(value).with(DataTypeKind::InferredInteger)
+                MiddleExpressionKind::InferredInteger(value).with(DataType::InferredInteger)
             }
-            ExpressionKind::Long(value) => {
-                MiddleExpressionKind::Long(value).with(DataTypeKind::Long)
-            }
+            ExpressionKind::Long(value) => MiddleExpressionKind::Long(value).with(DataType::Long),
             ExpressionKind::Float(value) => {
-                MiddleExpressionKind::Float(value).with(DataTypeKind::Float)
+                MiddleExpressionKind::Float(value).with(DataType::Float)
             }
             ExpressionKind::InferredFloat(value) => {
-                MiddleExpressionKind::InferredFloat(value).with(DataTypeKind::InferredFloat)
+                MiddleExpressionKind::InferredFloat(value).with(DataType::InferredFloat)
             }
             ExpressionKind::Double(value) => {
-                MiddleExpressionKind::Double(value).with(DataTypeKind::Double)
+                MiddleExpressionKind::Double(value).with(DataType::Double)
             }
             ExpressionKind::String(value) => {
-                MiddleExpressionKind::String(value.snbt_string).with(DataTypeKind::String)
+                MiddleExpressionKind::String(value.snbt_string).with(DataType::String)
             }
             ExpressionKind::Underscore => {
                 if !ctx.is_lhs {
@@ -812,9 +808,9 @@ impl Expression {
                         .add_error_ret(self.span, SemanticAnalysisError::UnderscoreExpression);
                 }
 
-                MiddleExpressionKind::Underscore.with(DataTypeKind::Inferred)
+                MiddleExpressionKind::Underscore.with(DataType::Inferred)
             }
-            ExpressionKind::Unit => MiddleExpressionKind::Unit.with(DataTypeKind::Unit),
+            ExpressionKind::Unit => MiddleExpressionKind::Unit.with(DataType::Unit),
         };
 
         Some((self.span, expression))

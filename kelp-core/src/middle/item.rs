@@ -6,16 +6,15 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     middle::{
-        data_type::DataTypeKind, data_type_declaration::DataTypeDeclarationKind,
-        statement::Statement,
+        data_type::DataType, data_type_declaration::DataTypeDeclarationKind, statement::Statement,
     },
 };
 
 #[derive(Debug, Clone)]
 pub enum Item {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
-    TypeAliasDeclaration(String, Vec<String>, DataTypeKind),
-    StructDeclaration(String, Vec<String>, HashMap<String, DataTypeKind>),
+    TypeAliasDeclaration(String, Vec<String>, DataType),
+    StructDeclaration(String, Vec<String>, HashMap<String, DataType>),
 }
 
 impl Item {

@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use strum::{Display, EnumString};
 
 use crate::{
-    high::supports_variable_type_scope::SupportsVariableTypeScope, middle::data_type::DataTypeKind,
+    high::supports_variable_type_scope::SupportsVariableTypeScope, middle::data_type::DataType,
 };
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
-pub enum BuiltinDataTypeKind {
+pub enum BuiltinDataType {
     #[strum(serialize = "boolean", serialize = "bool")]
     Boolean,
     Byte,
@@ -35,32 +35,32 @@ pub enum BuiltinDataTypeKind {
     SNBT,
 }
 
-impl BuiltinDataTypeKind {
+impl BuiltinDataType {
     #[must_use]
-    pub fn to_data_type(&self, mut generic_types: Vec<DataTypeKind>) -> Option<DataTypeKind> {
+    pub fn to_data_type(&self, mut generic_types: Vec<DataType>) -> Option<DataType> {
         if generic_types.len() != self.generic_count() {
             return None;
         }
 
         Some(match self {
-            Self::Unit => DataTypeKind::Unit,
-            Self::Boolean => DataTypeKind::Boolean,
-            Self::Byte => DataTypeKind::Byte,
-            Self::Short => DataTypeKind::Short,
-            Self::Integer => DataTypeKind::Integer,
-            Self::Long => DataTypeKind::Long,
-            Self::Float => DataTypeKind::Float,
-            Self::Double => DataTypeKind::Double,
-            Self::String => DataTypeKind::String,
-            Self::SNBT => DataTypeKind::SNBT,
+            Self::Unit => DataType::Unit,
+            Self::Boolean => DataType::Boolean,
+            Self::Byte => DataType::Byte,
+            Self::Short => DataType::Short,
+            Self::Integer => DataType::Integer,
+            Self::Long => DataType::Long,
+            Self::Float => DataType::Float,
+            Self::Double => DataType::Double,
+            Self::String => DataType::String,
+            Self::SNBT => DataType::SNBT,
             Self::List | Self::Compound | Self::Data | Self::Score => {
                 let element_type = generic_types.remove(0);
 
                 match self {
-                    Self::List => DataTypeKind::List(Box::new(element_type)),
-                    Self::Compound => DataTypeKind::Compound(Box::new(element_type)),
-                    Self::Data => DataTypeKind::Data(Box::new(element_type)),
-                    Self::Score => DataTypeKind::Score(Box::new(element_type)),
+                    Self::List => DataType::List(Box::new(element_type)),
+                    Self::Compound => DataType::Compound(Box::new(element_type)),
+                    Self::Data => DataType::Data(Box::new(element_type)),
+                    Self::Score => DataType::Score(Box::new(element_type)),
                     _ => unreachable!(),
                 }
             }
@@ -90,25 +90,25 @@ pub enum DataTypeDeclarationKind {
     Alias {
         name: String,
         generics: Vec<String>,
-        alias: DataTypeKind,
+        alias: DataType,
     },
     Struct {
         name: String,
         generics: Vec<String>,
-        fields: HashMap<String, DataTypeKind>,
+        fields: HashMap<String, DataType>,
     },
-    Builtin(BuiltinDataTypeKind),
+    Builtin(BuiltinDataType),
 }
 
 impl DataTypeDeclarationKind {
     pub fn resolve_is_struct(
         self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
-        generic_types: Vec<DataTypeKind>,
+        generic_types: Vec<DataType>,
     ) -> Option<bool> {
         Some(matches!(
             self.resolve(supports_variable_type_scope, generic_types)?,
-            DataTypeKind::Struct(_, _)
+            DataType::Struct(_, _)
         ))
     }
 
@@ -138,15 +138,15 @@ impl DataTypeDeclarationKind {
     pub fn get_struct_fields(
         &self,
         ctx: &impl SupportsVariableTypeScope,
-        generic_types: &[DataTypeKind],
-    ) -> Option<HashMap<String, DataTypeKind>> {
+        generic_types: &[DataType],
+    ) -> Option<HashMap<String, DataType>> {
         match self {
             Self::Alias {
                 generics: generic_names,
                 alias,
                 ..
             } => {
-                let substitutions: HashMap<String, DataTypeKind> = generic_names
+                let substitutions: HashMap<String, DataType> = generic_names
                     .iter()
                     .zip(generic_types.iter().cloned())
                     .map(|(k, v)| (k.clone(), v))
@@ -154,7 +154,7 @@ impl DataTypeDeclarationKind {
 
                 let resolved_alias = alias.clone().substitute(&substitutions)?;
 
-                if let DataTypeKind::Struct(name, generics) = resolved_alias {
+                if let DataType::Struct(name, generics) = resolved_alias {
                     let declaration = ctx.get_data_type(&name)??;
                     declaration.get_struct_fields(ctx, &generics)
                 } else {
@@ -166,7 +166,7 @@ impl DataTypeDeclarationKind {
                 generics: generic_names,
                 ..
             } => {
-                let substitutions: HashMap<String, DataTypeKind> = generic_names
+                let substitutions: HashMap<String, DataType> = generic_names
                     .iter()
                     .zip(generic_types.iter().cloned())
                     .map(|(k, v)| (k.clone(), v))
@@ -190,20 +190,20 @@ impl DataTypeDeclarationKind {
     pub fn resolve(
         self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
-        generic_types: Vec<DataTypeKind>,
-    ) -> Option<DataTypeKind> {
+        generic_types: Vec<DataType>,
+    ) -> Option<DataType> {
         match self {
             Self::Alias {
                 generics: generic_names,
                 alias,
                 ..
             } => {
-                let substitutions: HashMap<String, DataTypeKind> =
+                let substitutions: HashMap<String, DataType> =
                     generic_names.into_iter().zip(generic_types).collect();
 
                 let resolved_alias = alias.substitute(&substitutions)?;
 
-                if let DataTypeKind::Struct(name, generics) = resolved_alias {
+                if let DataType::Struct(name, generics) = resolved_alias {
                     let declaration = supports_variable_type_scope.get_data_type(&name)??;
                     declaration.resolve(supports_variable_type_scope, generics)
                 } else {
@@ -215,12 +215,12 @@ impl DataTypeDeclarationKind {
                 generics: generic_names,
                 ..
             } => {
-                let substitutions: HashMap<String, DataTypeKind> = generic_names
+                let substitutions: HashMap<String, DataType> = generic_names
                     .into_iter()
                     .zip(generic_types.clone())
                     .collect();
 
-                Some(DataTypeKind::Struct(name, generic_types).substitute(&substitutions)?)
+                Some(DataType::Struct(name, generic_types).substitute(&substitutions)?)
             }
             Self::Builtin(data_type) => data_type.to_data_type(generic_types),
         }

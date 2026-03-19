@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::low::expression::Expression as LowExpression;
-use crate::middle::data_type::DataTypeKind;
+use crate::middle::data_type::DataType;
 use crate::middle::item::Item;
 use crate::{
     compile_context::CompileContext, datapack::Datapack, middle::expression::Expression,
@@ -26,7 +26,7 @@ use nonempty::nonempty;
 #[derive(Debug, Clone)]
 pub enum Statement {
     Expression(Expression),
-    Let(DataTypeKind, Pattern, Expression),
+    Let(DataType, Pattern, Expression),
     While(Expression, Box<Self>),
     Loop(Box<Self>),
     Match(Expression, BTreeMap<IntegerRange, Box<Self>>),
@@ -198,7 +198,7 @@ impl Statement {
 
                 let collection_data_type = collection.get_data_type().get_iterable_type().unwrap();
 
-                if collection_data_type.equals(&DataTypeKind::String) {
+                if collection_data_type.equals(&DataType::String) {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
                     let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
 
@@ -214,7 +214,7 @@ impl Statement {
                     datapack.start_scope();
                     datapack.declare_variable(
                         variable_name,
-                        DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
+                        DataType::Data(Box::new(DataType::SNBT)),
                         LowExpression::Data(Box::new((
                             unique_data_target_2.clone(),
                             unique_path_2.clone(),
@@ -305,7 +305,7 @@ impl Statement {
                     datapack.start_scope();
                     datapack.declare_variable(
                         variable_name,
-                        DataTypeKind::Data(Box::new(DataTypeKind::SNBT)),
+                        DataType::Data(Box::new(DataType::SNBT)),
                         LowExpression::Data(Box::new((
                             unique_data_target.clone(),
                             unique_path.clone(),

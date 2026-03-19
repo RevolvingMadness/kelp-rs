@@ -5,8 +5,8 @@ use thiserror::Error;
 use crate::{
     high::{statement::ControlFlowKind, supports_variable_type_scope::SupportsVariableTypeScope},
     middle::{
-        data_type::DataTypeKind,
-        data_type_declaration::{BuiltinDataTypeKind, DataTypeDeclarationKind},
+        data_type::DataType,
+        data_type_declaration::{BuiltinDataType, DataTypeDeclarationKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
@@ -39,31 +39,31 @@ const fn format_control_flow_kind(kind: ControlFlowKind) -> &'static str {
 pub enum SemanticAnalysisError {
     #[error("Cannot perform: `{}` {} `{}`", left, operator, right)]
     CannotPerformArithmeticOperation {
-        left: DataTypeKind,
+        left: DataType,
         operator: ArithmeticOperator,
-        right: DataTypeKind,
+        right: DataType,
     },
     #[error("Cannot perform: `{}` {} `{}`", left, operator, right)]
     CannotPerformComparisonOperation {
-        left: DataTypeKind,
+        left: DataType,
         operator: ComparisonOperator,
-        right: DataTypeKind,
+        right: DataType,
     },
     #[error("Cannot perform augmented assignment on type `{}`", .0)]
-    CannotPerformAugmentedAssignment(DataTypeKind),
+    CannotPerformAugmentedAssignment(DataType),
     #[error("Expected type `{}` but got `{}`", expected, actual)]
     MismatchedPatternTypes {
-        expected: DataTypeKind,
+        expected: DataType,
         actual: PatternType,
     },
     #[error("The underscore expression can only be used on the left hand side of assignments")]
     UnderscoreExpression,
     #[error("Cannot iterate over type `{}`", .0)]
-    CannotIterateType(DataTypeKind),
+    CannotIterateType(DataType),
     #[error("Expected type `{}` but got `{}`", expected, actual)]
     MismatchedTypes {
-        expected: DataTypeKind,
-        actual: DataTypeKind,
+        expected: DataType,
+        actual: DataType,
     },
     #[error(
         "Cannot {}-assign type `{}` to type `{}`",
@@ -71,18 +71,15 @@ pub enum SemanticAnalysisError {
         .2,
         .0
     )]
-    InvalidAugmentedAssignmentType(ArithmeticOperator, DataTypeKind, DataTypeKind),
+    InvalidAugmentedAssignmentType(ArithmeticOperator, DataType, DataType),
     #[error("Cannot cast type `{}` to `{}`", from, to)]
-    CannotCastType {
-        from: DataTypeKind,
-        to: DataTypeKind,
-    },
+    CannotCastType { from: DataType, to: DataType },
     #[error("Unknown runtime storage type")]
     UnknownRuntimeStorageType,
     #[error("This value is too big to fit in the type `{}`", .0)]
-    ValueTooLarge(DataTypeKind),
+    ValueTooLarge(DataType),
     #[error("This value is too small to fit in the type `{}`", .0)]
-    ValueTooSmall(DataTypeKind),
+    ValueTooSmall(DataType),
     #[error("Cannot mutate a compile-time value in a runtime loop")]
     CompiletimeValueMutationInRuntimeLoop,
     #[error("The type `{}` is not a struct", .0)]
@@ -102,32 +99,29 @@ pub enum SemanticAnalysisError {
     #[error("Unknown type `{}`", .0)]
     UnknownType(String),
     #[error("The type `{}` cannot be used in conditions", .0)]
-    TypeIsNotCondition(DataTypeKind),
+    TypeIsNotCondition(DataType),
     #[error("The type `{}` is not score compatible", .0)]
-    TypeIsNotScoreCompatible(DataTypeKind),
+    TypeIsNotScoreCompatible(DataType),
     #[error("The type `{}` cannot be assigned to data storage", .0)]
-    CannotBeAssignedToData(DataTypeKind),
+    CannotBeAssignedToData(DataType),
     #[error("The type `{}` cannot be indexed", .0)]
-    CannotBeIndexed(DataTypeKind),
+    CannotBeIndexed(DataType),
     #[error("Index out of bounds")]
     IndexOutOfBounds,
     #[error("The type `{}` cannot be dereferenced", .0)]
-    CannotBeDereferenced(DataTypeKind),
+    CannotBeDereferenced(DataType),
     #[error("The type `{}` cannot be referenced", .0)]
-    CannotBeReferenced(DataTypeKind),
+    CannotBeReferenced(DataType),
     #[error("Cannot assign a value to this expression")]
     CannotBeAssignedTo,
     #[error("The type `{}` does not have any fields", .0)]
-    TypeDoesntHaveFields(DataTypeKind),
+    TypeDoesntHaveFields(DataType),
     #[error("The type `{}` cannot be negated", .0)]
-    CannotNegateType(DataTypeKind),
+    CannotNegateType(DataType),
     #[error("The type `{}` cannot be inverted", .0)]
-    CannotInvertType(DataTypeKind),
+    CannotInvertType(DataType),
     #[error("The type `{}` does not have a field named `{}`", data_type, field)]
-    TypeDoesntHaveField {
-        data_type: DataTypeKind,
-        field: String,
-    },
+    TypeDoesntHaveField { data_type: DataType, field: String },
     #[error(
         "The type `{}` takes {} generic argument{} but {} {} given",
         data_type_kind,
@@ -163,12 +157,12 @@ pub struct SemanticAnalysisInfo {
 
 #[derive(Debug, Default, Clone)]
 pub struct Scope {
-    pub variables: BTreeMap<String, Option<DataTypeKind>>,
+    pub variables: BTreeMap<String, Option<DataType>>,
     pub data_types: BTreeMap<String, Option<DataTypeDeclarationKind>>,
 }
 
 impl Scope {
-    pub fn declare_variable(&mut self, name: String, value: Option<DataTypeKind>) {
+    pub fn declare_variable(&mut self, name: String, value: Option<DataType>) {
         self.variables.insert(name, value);
     }
 
@@ -180,7 +174,7 @@ impl Scope {
 
     #[inline]
     #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<&Option<DataTypeKind>> {
+    pub fn get_variable(&self, name: &str) -> Option<&Option<DataType>> {
         self.variables.get(name)
     }
 
@@ -221,69 +215,59 @@ impl SemanticAnalysisContext {
 
         scope.declare_data_type(
             "boolean",
-            Some(DataTypeDeclarationKind::Builtin(
-                BuiltinDataTypeKind::Boolean,
-            )),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Boolean)),
         );
         scope.declare_data_type(
             "byte",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Byte)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Byte)),
         );
         scope.declare_data_type(
             "short",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Short)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Short)),
         );
         scope.declare_data_type(
             "integer",
-            Some(DataTypeDeclarationKind::Builtin(
-                BuiltinDataTypeKind::Integer,
-            )),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Integer)),
         );
         scope.declare_data_type(
             "long",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Long)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Long)),
         );
         scope.declare_data_type(
             "float",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Float)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Float)),
         );
         scope.declare_data_type(
             "double",
-            Some(DataTypeDeclarationKind::Builtin(
-                BuiltinDataTypeKind::Double,
-            )),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Double)),
         );
         scope.declare_data_type(
             "string",
-            Some(DataTypeDeclarationKind::Builtin(
-                BuiltinDataTypeKind::String,
-            )),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::String)),
         );
         // scope.declare_data_type(
         //     "unit",
-        //     Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Unit)),
+        //     Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Unit)),
         // );
         scope.declare_data_type(
             "score",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Score)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Score)),
         );
         scope.declare_data_type(
             "list",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::List)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::List)),
         );
         scope.declare_data_type(
             "compound",
-            Some(DataTypeDeclarationKind::Builtin(
-                BuiltinDataTypeKind::Compound,
-            )),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Compound)),
         );
         scope.declare_data_type(
             "data",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::Data)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Data)),
         );
         scope.declare_data_type(
             "snbt",
-            Some(DataTypeDeclarationKind::Builtin(BuiltinDataTypeKind::SNBT)),
+            Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::SNBT)),
         );
 
         scopes.push(scope);
@@ -336,7 +320,7 @@ impl SemanticAnalysisContext {
         })
     }
 
-    pub fn declare_variable(&mut self, name: &str, data_type: Option<DataTypeKind>) {
+    pub fn declare_variable(&mut self, name: &str, data_type: Option<DataType>) {
         self.scopes
             .last_mut()
             .expect("No scopes")
@@ -344,7 +328,7 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_variable_known(&mut self, name: &str, data_type: DataTypeKind) {
+    pub fn declare_variable_known(&mut self, name: &str, data_type: DataType) {
         self.declare_variable(name, Some(data_type));
     }
 
@@ -375,7 +359,7 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
+    pub fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
         for scope in self.scopes.iter().rev() {
             if let Some(data_type) = scope.get_variable(name) {
                 return Some(data_type.clone());
@@ -398,7 +382,7 @@ impl SemanticAnalysisContext {
 }
 
 impl SupportsVariableTypeScope for SemanticAnalysisContext {
-    fn get_variable(&self, name: &str) -> Option<Option<DataTypeKind>> {
+    fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
         self.get_variable(name)
     }
 

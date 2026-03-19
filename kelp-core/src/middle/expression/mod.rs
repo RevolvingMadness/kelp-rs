@@ -16,7 +16,7 @@ use crate::{
     low::expression::Expression as LowExpression,
     middle::{
         data::DataTarget,
-        data_type::DataTypeKind,
+        data_type::DataType,
         expression::command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         nbt_path::NbtPath,
         player_score::PlayerScore,
@@ -56,11 +56,11 @@ pub enum ExpressionKind {
     Command(Box<Command>),
     Index(Box<Expression>, Box<Expression>),
     FieldAccess(Box<Expression>, SNBTString),
-    AsCast(Box<Expression>, DataTypeKind),
+    AsCast(Box<Expression>, DataType),
     ToCast(Option<NotNan<f32>>, Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Variable(String),
-    Struct(String, Vec<DataTypeKind>, BTreeMap<SNBTString, Expression>),
+    Struct(String, Vec<DataType>, BTreeMap<SNBTString, Expression>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -68,7 +68,7 @@ pub enum ExpressionKind {
 
 impl ExpressionKind {
     #[must_use]
-    pub const fn with(self, data_type: DataTypeKind) -> Expression {
+    pub const fn with(self, data_type: DataType) -> Expression {
         Expression {
             kind: self,
             data_type,
@@ -422,5 +422,5 @@ impl ExpressionKind {
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
-    pub data_type: DataTypeKind,
+    pub data_type: DataType,
 }

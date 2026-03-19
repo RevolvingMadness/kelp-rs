@@ -30,7 +30,7 @@ use crate::{
     data::GeneratedDataTarget,
     datapack::Datapack,
     low::expression::utils::push_scoreboard_players,
-    middle::data_type::DataTypeKind,
+    middle::data_type::DataType,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
     player_score::GeneratedPlayerScore,
@@ -163,7 +163,7 @@ pub enum Expression {
     List(Vec<Self>),
     Compound(BTreeMap<SNBTString, Self>),
     Tuple(Vec<Self>),
-    Struct(String, Vec<DataTypeKind>, BTreeMap<String, Self>),
+    Struct(String, Vec<DataType>, BTreeMap<String, Self>),
     Unit,
 
     PlayerScore(GeneratedPlayerScore),
@@ -172,27 +172,27 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn get_data_type(&self) -> DataTypeKind {
+    pub fn get_data_type(&self) -> DataType {
         match self {
-            Self::Boolean(_) | Self::Condition(_, _) => DataTypeKind::Boolean,
-            Self::Byte(_) => DataTypeKind::Byte,
-            Self::Short(_) => DataTypeKind::Short,
-            Self::Integer(_) => DataTypeKind::Integer,
-            Self::Long(_) => DataTypeKind::Long,
-            Self::Float(_) => DataTypeKind::Float,
-            Self::Double(_) => DataTypeKind::Double,
-            Self::String(_) => DataTypeKind::String,
-            Self::Underscore => DataTypeKind::Inferred,
+            Self::Boolean(_) | Self::Condition(_, _) => DataType::Boolean,
+            Self::Byte(_) => DataType::Byte,
+            Self::Short(_) => DataType::Short,
+            Self::Integer(_) => DataType::Integer,
+            Self::Long(_) => DataType::Long,
+            Self::Float(_) => DataType::Float,
+            Self::Double(_) => DataType::Double,
+            Self::String(_) => DataType::String,
+            Self::Underscore => DataType::Inferred,
             Self::List(expressions) => {
                 let element_type = expressions
                     .first()
-                    .map_or(DataTypeKind::Inferred, |expression| {
+                    .map_or(DataType::Inferred, |expression| {
                         expression.get_data_type()
                     });
 
-                DataTypeKind::List(Box::new(element_type))
+                DataType::List(Box::new(element_type))
             }
-            Self::Compound(compound) => DataTypeKind::TypedCompound(
+            Self::Compound(compound) => DataType::TypedCompound(
                 compound
                     .iter()
                     .map(|(key, value)| (key.clone(), value.get_data_type()))
@@ -201,14 +201,14 @@ impl Expression {
             Self::Tuple(expressions) => {
                 let expression_types = expressions.iter().map(Self::get_data_type).collect();
 
-                DataTypeKind::Tuple(expression_types)
+                DataType::Tuple(expression_types)
             }
             Self::Struct(name, generic_data_types, _) => {
-                DataTypeKind::Struct(name.clone(), generic_data_types.clone())
+                DataType::Struct(name.clone(), generic_data_types.clone())
             }
-            Self::Unit => DataTypeKind::Unit,
-            Self::PlayerScore(_) => DataTypeKind::Score(Box::new(DataTypeKind::Integer)),
-            Self::Data(_) => DataTypeKind::Data(Box::new(DataTypeKind::Inferred)),
+            Self::Unit => DataType::Unit,
+            Self::PlayerScore(_) => DataType::Score(Box::new(DataType::Integer)),
+            Self::Data(_) => DataType::Data(Box::new(DataType::Inferred)),
         }
     }
 
@@ -1297,73 +1297,73 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn cast_to(self, data_type: DataTypeKind) -> Self {
+    pub fn cast_to(self, data_type: DataType) -> Self {
         match (self, data_type) {
-            (Self::Byte(value), DataTypeKind::Short) => Self::Short(i16::from(value)),
-            (Self::Byte(value), DataTypeKind::Integer) => Self::Integer(i32::from(value)),
-            (Self::Byte(value), DataTypeKind::Long) => Self::Long(i64::from(value)),
-            (Self::Byte(value), DataTypeKind::Float) => {
+            (Self::Byte(value), DataType::Short) => Self::Short(i16::from(value)),
+            (Self::Byte(value), DataType::Integer) => Self::Integer(i32::from(value)),
+            (Self::Byte(value), DataType::Long) => Self::Long(i64::from(value)),
+            (Self::Byte(value), DataType::Float) => {
                 Self::Float(NotNan::new(f32::from(value)).unwrap())
             }
-            (Self::Byte(value), DataTypeKind::Double) => {
+            (Self::Byte(value), DataType::Double) => {
                 Self::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
-            (Self::Short(value), DataTypeKind::Byte) => Self::Byte(value as i8),
-            (Self::Short(value), DataTypeKind::Integer) => Self::Integer(i32::from(value)),
-            (Self::Short(value), DataTypeKind::Long) => Self::Long(i64::from(value)),
-            (Self::Short(value), DataTypeKind::Float) => {
+            (Self::Short(value), DataType::Byte) => Self::Byte(value as i8),
+            (Self::Short(value), DataType::Integer) => Self::Integer(i32::from(value)),
+            (Self::Short(value), DataType::Long) => Self::Long(i64::from(value)),
+            (Self::Short(value), DataType::Float) => {
                 Self::Float(NotNan::new(f32::from(value)).unwrap())
             }
-            (Self::Short(value), DataTypeKind::Double) => {
+            (Self::Short(value), DataType::Double) => {
                 Self::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
-            (Self::Integer(value), DataTypeKind::Byte) => Self::Byte(value as i8),
-            (Self::Integer(value), DataTypeKind::Short) => Self::Short(value as i16),
-            (Self::Integer(value), DataTypeKind::Long) => Self::Long(i64::from(value)),
-            (Self::Integer(value), DataTypeKind::Float) => {
+            (Self::Integer(value), DataType::Byte) => Self::Byte(value as i8),
+            (Self::Integer(value), DataType::Short) => Self::Short(value as i16),
+            (Self::Integer(value), DataType::Long) => Self::Long(i64::from(value)),
+            (Self::Integer(value), DataType::Float) => {
                 Self::Float(NotNan::new(value as f32).unwrap())
             }
-            (Self::Integer(value), DataTypeKind::Double) => {
+            (Self::Integer(value), DataType::Double) => {
                 Self::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
-            (Self::Long(value), DataTypeKind::Byte) => Self::Byte(value as i8),
-            (Self::Long(value), DataTypeKind::Short) => Self::Short(value as i16),
-            (Self::Long(value), DataTypeKind::Integer) => Self::Integer(value as i32),
-            (Self::Long(value), DataTypeKind::Float) => {
+            (Self::Long(value), DataType::Byte) => Self::Byte(value as i8),
+            (Self::Long(value), DataType::Short) => Self::Short(value as i16),
+            (Self::Long(value), DataType::Integer) => Self::Integer(value as i32),
+            (Self::Long(value), DataType::Float) => {
                 Self::Float(NotNan::new(value as f32).unwrap())
             }
-            (Self::Long(value), DataTypeKind::Double) => {
+            (Self::Long(value), DataType::Double) => {
                 Self::Double(NotNan::new(value as f64).unwrap())
             }
 
-            (Self::Float(value), DataTypeKind::Byte) => Self::Byte(value.into_inner() as i8),
-            (Self::Float(value), DataTypeKind::Short) => Self::Short(value.into_inner() as i16),
-            (Self::Float(value), DataTypeKind::Integer) => Self::Integer(value.into_inner() as i32),
-            (Self::Float(value), DataTypeKind::Long) => Self::Long(value.into_inner() as i64),
-            (Self::Float(value), DataTypeKind::Double) => Self::Double(value.into()),
+            (Self::Float(value), DataType::Byte) => Self::Byte(value.into_inner() as i8),
+            (Self::Float(value), DataType::Short) => Self::Short(value.into_inner() as i16),
+            (Self::Float(value), DataType::Integer) => Self::Integer(value.into_inner() as i32),
+            (Self::Float(value), DataType::Long) => Self::Long(value.into_inner() as i64),
+            (Self::Float(value), DataType::Double) => Self::Double(value.into()),
 
-            (Self::Double(value), DataTypeKind::Byte) => Self::Byte(value.into_inner() as i8),
-            (Self::Double(value), DataTypeKind::Short) => Self::Short(value.into_inner() as i16),
-            (Self::Double(value), DataTypeKind::Integer) => {
+            (Self::Double(value), DataType::Byte) => Self::Byte(value.into_inner() as i8),
+            (Self::Double(value), DataType::Short) => Self::Short(value.into_inner() as i16),
+            (Self::Double(value), DataType::Integer) => {
                 Self::Integer(value.into_inner() as i32)
             }
-            (Self::Double(value), DataTypeKind::Long) => Self::Long(value.into_inner() as i64),
-            (Self::Double(value), DataTypeKind::Float) => {
+            (Self::Double(value), DataType::Long) => Self::Long(value.into_inner() as i64),
+            (Self::Double(value), DataType::Float) => {
                 Self::Float(unsafe { NotNan::new_unchecked(value.into_inner() as f32) })
             }
 
-            (self_ @ Self::Boolean(_), DataTypeKind::Boolean)
-            | (self_ @ Self::Byte(_), DataTypeKind::Byte)
-            | (self_ @ Self::Short(_), DataTypeKind::Short)
-            | (self_ @ Self::Integer(_), DataTypeKind::Integer)
-            | (self_ @ Self::Long(_), DataTypeKind::Long)
-            | (self_ @ Self::Float(_), DataTypeKind::Float)
-            | (self_ @ Self::Double(_), DataTypeKind::Double)
-            | (self_ @ Self::Data(_), DataTypeKind::Data(_))
-            | (self_ @ Self::PlayerScore(_), DataTypeKind::Score(_)) => self_,
+            (self_ @ Self::Boolean(_), DataType::Boolean)
+            | (self_ @ Self::Byte(_), DataType::Byte)
+            | (self_ @ Self::Short(_), DataType::Short)
+            | (self_ @ Self::Integer(_), DataType::Integer)
+            | (self_ @ Self::Long(_), DataType::Long)
+            | (self_ @ Self::Float(_), DataType::Float)
+            | (self_ @ Self::Double(_), DataType::Double)
+            | (self_ @ Self::Data(_), DataType::Data(_))
+            | (self_ @ Self::PlayerScore(_), DataType::Score(_)) => self_,
 
             _ => unreachable!(""),
         }

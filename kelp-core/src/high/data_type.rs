@@ -1,12 +1,10 @@
 use std::{collections::BTreeMap, str::FromStr};
 
-use minecraft_command_types::impl_has_macro_false;
-
 use crate::{
     high::snbt_string::SNBTString,
     middle::{
-        data_type::DataTypeKind as MiddleDataTypeKind,
-        data_type_declaration::{BuiltinDataTypeKind, DataTypeDeclarationKind},
+        data_type::DataType as MiddleDataType,
+        data_type_declaration::{BuiltinDataType, DataTypeDeclarationKind},
     },
     semantic_analysis_context::{
         SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
@@ -17,29 +15,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum DataTypeKind {
-    Named(Span, String, Vec<DataType>),
-    TypedCompound(BTreeMap<SNBTString, DataType>),
-    Reference(Box<DataType>),
-    Tuple(Vec<DataType>),
+pub enum DataType {
+    Named(Span, String, Vec<Self>),
+    TypedCompound(BTreeMap<SNBTString, Self>),
+    Reference(Box<Self>),
+    Tuple(Vec<Self>),
     Unit,
     Inferred,
 }
-
-impl DataTypeKind {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> DataType {
-        DataType { span, kind: self }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DataType {
-    pub span: Span,
-    pub kind: DataTypeKind,
-}
-
-impl_has_macro_false!(DataType);
 
 impl DataType {
     #[must_use]
@@ -47,12 +30,12 @@ impl DataType {
         self,
         context_generic_names: Option<&Vec<String>>,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleDataTypeKind> {
-        Some(match self.kind {
-            DataTypeKind::Named(name_span, name, generic_types) => {
+    ) -> Option<MiddleDataType> {
+        Some(match self {
+            Self::Named(name_span, name, generic_types) => {
                 let actual_generic_count = generic_types.len();
 
-                if let Ok(builtin_type) = BuiltinDataTypeKind::from_str(&name) {
+                if let Ok(builtin_type) = BuiltinDataType::from_str(&name) {
                     let expected_generic_count = builtin_type.generic_count();
 
                     if actual_generic_count != expected_generic_count {
@@ -98,7 +81,7 @@ impl DataType {
                         match declaration {
                             DataTypeDeclarationKind::Alias { alias, .. } => alias,
                             DataTypeDeclarationKind::Struct { name, .. } => {
-                                MiddleDataTypeKind::Struct(name, generic_types)
+                                MiddleDataType::Struct(name, generic_types)
                             }
                             DataTypeDeclarationKind::Builtin(kind) => {
                                 kind.to_data_type(generic_types).unwrap()
@@ -117,13 +100,13 @@ impl DataType {
                             });
                         }
 
-                        MiddleDataTypeKind::Generic(name)
+                        MiddleDataType::Generic(name)
                     }
                 }
             }
-            DataTypeKind::Unit => MiddleDataTypeKind::Unit,
-            DataTypeKind::Inferred => MiddleDataTypeKind::Inferred,
-            DataTypeKind::Tuple(data_types) => {
+            Self::Unit => MiddleDataType::Unit,
+            Self::Inferred => MiddleDataType::Inferred,
+            Self::Tuple(data_types) => {
                 let data_types = data_types
                     .into_iter()
                     .map(|data_type| {
@@ -131,14 +114,14 @@ impl DataType {
                     })
                     .collect_option_all()?;
 
-                MiddleDataTypeKind::Tuple(data_types)
+                MiddleDataType::Tuple(data_types)
             }
-            DataTypeKind::Reference(data_type) => {
+            Self::Reference(data_type) => {
                 let data_type = data_type.perform_semantic_analysis(context_generic_names, ctx)?;
 
-                MiddleDataTypeKind::Reference(Box::new(data_type))
+                MiddleDataType::Reference(Box::new(data_type))
             }
-            DataTypeKind::TypedCompound(compound) => {
+            Self::TypedCompound(compound) => {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -148,7 +131,7 @@ impl DataType {
                     })
                     .collect_option_all()?;
 
-                MiddleDataTypeKind::TypedCompound(compound)
+                MiddleDataType::TypedCompound(compound)
             }
         })
     }

@@ -1,7 +1,4 @@
-use kelp_core::high::{
-    data_type::{DataType, DataTypeKind},
-    snbt_string::SNBTString,
-};
+use kelp_core::high::{data_type::DataType, snbt_string::SNBTString};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
@@ -13,7 +10,7 @@ use crate::{
         typed_compound::try_parse_typed_compound_data_type,
     },
     parser::Parser,
-    span::{span_of_cst_node, text_range_to_span},
+    span::text_range_to_span,
     syntax::SyntaxKind,
 };
 
@@ -98,23 +95,21 @@ pub fn lower_typed_compound_data_type_field(
 
 #[must_use]
 pub fn lower_data_type(node: CSTDataType) -> Option<DataType> {
-    let span = span_of_cst_node(&node);
-
     match node {
         CSTDataType::ReferenceDataType(node) => lower_reference_data_type(node),
         CSTDataType::TupleDataType(node) => {
             let data_types = node.data_types().filter_map(lower_data_type).collect();
 
-            Some(DataTypeKind::Tuple(data_types).with_span(span))
+            Some(DataType::Tuple(data_types))
         }
-        CSTDataType::UnitDataType(_) => Some(DataTypeKind::Unit.with_span(span)),
+        CSTDataType::UnitDataType(_) => Some(DataType::Unit),
         CSTDataType::TypedCompoundDataType(data_type) => {
             let fields = data_type
                 .fields()
                 .filter_map(lower_typed_compound_data_type_field)
                 .collect();
 
-            Some(DataTypeKind::TypedCompound(fields).with_span(span))
+            Some(DataType::TypedCompound(fields))
         }
         CSTDataType::NamedDataType(node) => lower_named_data_type(node),
         CSTDataType::InferredDataType(node) => lower_inferred_data_type(node),

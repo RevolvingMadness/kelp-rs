@@ -6,7 +6,6 @@ use minecraft_command_types::command::{
         ScoreboardNumberFormat as LowScoreboardNumberFormat,
     },
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
@@ -15,7 +14,7 @@ use crate::{
     middle::{entity_selector::EntitySelector, player_score::PlayerScore},
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ScoreboardNumberFormat {
     Blank,
     Fixed(Expression),
@@ -41,7 +40,7 @@ impl ScoreboardNumberFormat {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum PlayersDisplayScoreboardCommand {
     Name(PlayerScore, Option<Expression>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
@@ -73,7 +72,7 @@ impl PlayersDisplayScoreboardCommand {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum PlayersScoreboardCommand {
     List(Option<EntitySelector>),
     Get(PlayerScore),

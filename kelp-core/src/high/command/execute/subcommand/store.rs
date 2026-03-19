@@ -2,7 +2,6 @@ use minecraft_command_types::{
     command::enums::{bossbar_store_type::BossbarStoreType, numeric_snbt_type::NumericSNBTType},
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -14,7 +13,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ExecuteStoreSubcommand {
     Data(
         DataTarget,
@@ -32,7 +31,6 @@ impl ExecuteStoreSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleExecuteStoreSubcommand> {
         Some(match self {
             Self::Data(target, path, snbt_type, scale, next) => {

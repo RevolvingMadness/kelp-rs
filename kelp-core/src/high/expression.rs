@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -27,7 +26,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ExpressionKind {
     Boolean(bool),
     Byte(i8),
@@ -137,7 +136,7 @@ impl ExpressionKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Expression {
     pub span: Span,
     pub kind: ExpressionKind,

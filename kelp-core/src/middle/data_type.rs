@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::{snbt_string::SNBTString, supports_variable_type_scope::SupportsVariableTypeScope},
@@ -16,7 +15,7 @@ use crate::{
     trait_ext::{CollectOptionAllIterExt, OptionBoolIterExt},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, HasMacro)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataTypeKind {
     Boolean,
     Byte,

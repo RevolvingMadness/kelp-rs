@@ -2,7 +2,6 @@ use minecraft_command_types::command::data::{
     DataCommand as LowDataCommand, DataCommandModification as LowDataCommandModification,
     DataCommandModificationMode,
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
     middle::{data::DataTarget, expression::Expression, nbt_path::NbtPath},
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum DataCommandModification {
     From(DataTarget, Option<NbtPath>),
     String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
@@ -48,7 +47,7 @@ impl DataCommandModification {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum DataCommand {
     Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
     Merge(DataTarget, Box<Expression>),

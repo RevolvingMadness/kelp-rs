@@ -3,11 +3,10 @@ use std::collections::BTreeMap;
 use minecraft_command_types::{
     block::BlockState as LowBlockState, resource_location::ResourceLocation, snbt::SNBTString,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: BTreeMap<String, String>,

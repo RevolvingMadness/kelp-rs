@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use minecraft_command_types::{
     command::function::FunctionCommandArguments as LowFunctionCommandArguments, snbt::SNBTString,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
@@ -11,7 +10,7 @@ use crate::{
     middle::{data::DataTarget, expression::Expression, nbt_path::NbtPath},
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
     Compound(BTreeMap<SNBTString, Expression>),
     DataTarget(DataTarget, Option<NbtPath>),

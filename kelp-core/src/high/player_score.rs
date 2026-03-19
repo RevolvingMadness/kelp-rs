@@ -1,11 +1,9 @@
-use minecraft_command_types_derive::HasMacro;
-
 use crate::{
     high::entity_selector::EntitySelector, middle::player_score::PlayerScore as MiddlePlayerScore,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct PlayerScore {
     pub is_generated: bool,
     pub selector: EntitySelector,
@@ -26,7 +24,6 @@ impl PlayerScore {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddlePlayerScore> {
         let selector = self.selector.perform_semantic_analysis(ctx)?;
 

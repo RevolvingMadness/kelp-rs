@@ -1,7 +1,6 @@
 use minecraft_command_types::entity_selector::{
     EntitySelector as LowEntitySelector, EntitySelectorVariable,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack,
@@ -10,7 +9,7 @@ use crate::{
 
 pub mod option;
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum EntitySelector {
     Variable(EntitySelectorVariable, Vec<EntitySelectorOption>),
     Name(String),

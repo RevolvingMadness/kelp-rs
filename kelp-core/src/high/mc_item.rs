@@ -1,5 +1,4 @@
 use minecraft_command_types::{item::ItemType, resource_location::ResourceLocation};
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::expression::Expression,
@@ -10,7 +9,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ItemTest {
     Component(ResourceLocation),
     ComponentMatches(ResourceLocation, Expression),
@@ -39,7 +38,7 @@ impl ItemTest {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct OrGroup(pub Vec<(bool, ItemTest)>);
 
 impl OrGroup {
@@ -62,7 +61,7 @@ impl OrGroup {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct ItemPredicate {
     pub id: ItemType,
     pub or_groups: Vec<OrGroup>,

@@ -1,12 +1,11 @@
 use minecraft_command_types::coordinate::Coordinates;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::entity_selector::EntitySelector, middle::item_source::ItemSource as MiddleItemSource,
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ItemSource {
     Block(Coordinates),
     Entity(EntitySelector),

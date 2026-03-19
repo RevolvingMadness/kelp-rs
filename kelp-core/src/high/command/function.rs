@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use minecraft_command_types_derive::HasMacro;
-
 use crate::{
     high::{data::DataTarget, expression::Expression, nbt_path::NbtPath, snbt_string::SNBTString},
     middle::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
@@ -9,7 +7,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum FunctionCommandArguments {
     Compound(BTreeMap<SNBTString, Expression>),
     DataTarget(DataTarget, Option<NbtPath>),
@@ -19,7 +17,6 @@ impl FunctionCommandArguments {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleFunctionCommandArguments> {
         Some(match self {
             Self::Compound(compound) => {

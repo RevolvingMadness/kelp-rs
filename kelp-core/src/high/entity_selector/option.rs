@@ -6,7 +6,6 @@ use minecraft_command_types::{
     range::{FloatRange, IntegerRange},
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum EntitySelectorOption {
     X(NotNan<f32>),
     Y(NotNan<f32>),
@@ -45,7 +44,6 @@ impl EntitySelectorOption {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleEntitySelectorOption> {
         Some(match self {
             Self::X(x) => MiddleEntitySelectorOption::X(x),

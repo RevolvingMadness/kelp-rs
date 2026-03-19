@@ -1,5 +1,4 @@
 use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::{entity_selector::EntitySelector, expression::Expression, player_score::PlayerScore},
@@ -11,7 +10,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ScoreboardNumberFormat {
     Blank,
     Fixed(Expression),
@@ -23,7 +22,6 @@ impl ScoreboardNumberFormat {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleScoreboardNumberFormat> {
         Some(match self {
             Self::Blank => MiddleScoreboardNumberFormat::Blank,
@@ -41,7 +39,7 @@ impl ScoreboardNumberFormat {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum PlayersDisplayScoreboardCommand {
     Name(PlayerScore, Option<Expression>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
@@ -52,7 +50,6 @@ impl PlayersDisplayScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddlePlayersDisplayScoreboardCommand> {
         Some(match self {
             Self::Name(score, expression) => {
@@ -73,9 +70,7 @@ impl PlayersDisplayScoreboardCommand {
             Self::NumberFormat(score, number_format) => {
                 let score = score.perform_semantic_analysis(ctx);
                 let number_format = match number_format {
-                    Some(number_format) => {
-                        Some(number_format.perform_semantic_analysis(ctx)?)
-                    }
+                    Some(number_format) => Some(number_format.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -87,7 +82,7 @@ impl PlayersDisplayScoreboardCommand {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum PlayersScoreboardCommand {
     List(Option<EntitySelector>),
     Get(PlayerScore),
@@ -105,7 +100,6 @@ impl PlayersScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddlePlayersScoreboardCommand> {
         Some(match self {
             Self::List(selector) => {

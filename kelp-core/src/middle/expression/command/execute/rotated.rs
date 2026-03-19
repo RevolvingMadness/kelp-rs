@@ -1,11 +1,10 @@
 use minecraft_command_types::{command::execute::Rotated as LowRotated, rotation::Rotation};
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack, middle::entity_selector::EntitySelector,
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum Rotated {
     Rotation(Rotation),
     As(EntitySelector),

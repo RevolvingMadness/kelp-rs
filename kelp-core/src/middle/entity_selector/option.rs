@@ -6,12 +6,11 @@ use minecraft_command_types::{
     range::{FloatRange, IntegerRange},
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum EntitySelectorOption {
     X(NotNan<f32>),
     Y(NotNan<f32>),

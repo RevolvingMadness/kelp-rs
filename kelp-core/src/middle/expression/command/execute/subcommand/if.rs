@@ -4,7 +4,6 @@ use minecraft_command_types::{
     command::execute::ExecuteSubcommand as LowExecuteSubcommand, coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
@@ -17,7 +16,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ExecuteIfSubcommand {
     Biome(
         Coordinates,

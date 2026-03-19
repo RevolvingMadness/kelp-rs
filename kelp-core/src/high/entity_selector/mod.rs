@@ -1,5 +1,4 @@
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::entity_selector::option::EntitySelectorOption,
@@ -9,7 +8,7 @@ use crate::{
 
 pub mod option;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum EntitySelector {
     Variable(EntitySelectorVariable, Vec<EntitySelectorOption>),
     Name(String),
@@ -20,7 +19,6 @@ impl EntitySelector {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleEntitySelector> {
         Some(match self {
             Self::Variable(variable, options) => {

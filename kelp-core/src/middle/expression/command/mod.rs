@@ -6,7 +6,6 @@ use minecraft_command_types::{
     coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
@@ -30,7 +29,7 @@ pub mod function;
 pub mod r#return;
 pub mod scoreboard;
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum Command {
     Regular(LowCommand),
     Data(DataCommand),

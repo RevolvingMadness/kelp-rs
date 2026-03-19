@@ -1,5 +1,4 @@
 use minecraft_command_types::command::data::DataCommandModificationMode;
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -10,7 +9,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum DataCommandModification {
     From(DataTarget, Option<NbtPath>),
     String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
@@ -22,7 +21,6 @@ impl DataCommandModification {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleDataCommandModification> {
         Some(match self {
             Self::From(target, path) => {
@@ -56,7 +54,7 @@ impl DataCommandModification {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum DataCommand {
     Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
     Merge(DataTarget, Box<Expression>),
@@ -73,7 +71,6 @@ impl DataCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleDataCommand> {
         Some(match self {
             Self::Get(target, path, scale) => {

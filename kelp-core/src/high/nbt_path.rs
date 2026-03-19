@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use minecraft_command_types_derive::HasMacro;
 use nonempty::NonEmpty;
 
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum NbtPathNode {
     RootCompound(BTreeMap<SNBTString, Expression>),
     Named(SNBTString, Option<BTreeMap<SNBTString, Expression>>),
@@ -22,7 +21,6 @@ impl NbtPathNode {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleNbtPathNode> {
         Some(match self {
             Self::RootCompound(compound) => {
@@ -73,14 +71,13 @@ impl NbtPathNode {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct NbtPath(pub NonEmpty<NbtPathNode>);
 
 impl NbtPath {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleNbtPath> {
         Some(MiddleNbtPath(
             NonEmpty::from_vec(

@@ -1,5 +1,4 @@
 use minecraft_command_types::command::enums::scoreboard_render_type::ScoreboardRenderType;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::{command::scoreboard::players::ScoreboardNumberFormat, expression::Expression},
@@ -10,7 +9,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
     DisplayName(Expression),
@@ -23,7 +22,6 @@ impl ScoreboardModification {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleScoreboardModification> {
         Some(match self {
             Self::DisplayAutoUpdate(auto_update) => {
@@ -36,9 +34,7 @@ impl ScoreboardModification {
             }
             Self::NumberFormat(number_format) => {
                 let number_format = match number_format {
-                    Some(number_format) => {
-                        Some(number_format.perform_semantic_analysis(ctx)?)
-                    }
+                    Some(number_format) => Some(number_format.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
@@ -49,7 +45,7 @@ impl ScoreboardModification {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ObjectivesScoreboardCommand {
     List,
     Add(String, String, Option<Expression>), // TODO: box
@@ -62,7 +58,6 @@ impl ObjectivesScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleObjectivesScoreboardCommand> {
         Some(match self {
             Self::List => MiddleObjectivesScoreboardCommand::List,

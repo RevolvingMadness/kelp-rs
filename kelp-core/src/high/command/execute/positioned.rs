@@ -1,5 +1,4 @@
 use minecraft_command_types::{command::enums::heightmap::Heightmap, coordinate::Coordinates};
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::entity_selector::EntitySelector,
@@ -7,7 +6,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Positioned {
     Position(Coordinates),
     As(EntitySelector),
@@ -19,7 +18,6 @@ impl Positioned {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddlePositioned> {
         Some(match self {
             Self::Position(coordinates) => MiddlePositioned::Position(coordinates),

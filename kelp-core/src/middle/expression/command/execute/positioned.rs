@@ -2,13 +2,12 @@ use minecraft_command_types::{
     command::{enums::heightmap::Heightmap, execute::Positioned as LowPositioned},
     coordinate::Coordinates,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack, middle::entity_selector::EntitySelector,
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum Positioned {
     Position(Coordinates),
     As(EntitySelector),

@@ -1,13 +1,12 @@
 use minecraft_command_types::{
     command::item_source::ItemSource as LowItemSource, coordinate::Coordinates,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack, middle::entity_selector::EntitySelector,
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ItemSource {
     Block(Coordinates),
     Entity(EntitySelector),

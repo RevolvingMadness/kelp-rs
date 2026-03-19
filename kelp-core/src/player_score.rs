@@ -16,7 +16,6 @@ use minecraft_command_types::{
     range::IntegerRange,
     snbt::{SNBT, SNBTString},
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -30,7 +29,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct GeneratedPlayerScore {
     pub is_generated: bool,
     pub score: PlayerScore,

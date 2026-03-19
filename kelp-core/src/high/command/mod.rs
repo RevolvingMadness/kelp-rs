@@ -3,7 +3,6 @@ use minecraft_command_types::{
     coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::{
@@ -25,7 +24,7 @@ pub mod function;
 pub mod r#return;
 pub mod scoreboard;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Command {
     Regular(LowCommand),
     Data(DataCommand),
@@ -44,7 +43,6 @@ impl Command {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleCommand> {
         Some(match self {
             Self::Regular(command) => {

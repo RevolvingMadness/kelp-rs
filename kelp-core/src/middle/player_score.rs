@@ -1,12 +1,11 @@
 use minecraft_command_types::command::PlayerScore as LowPlayerScore;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack, middle::entity_selector::EntitySelector,
     player_score::GeneratedPlayerScore,
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub struct PlayerScore {
     pub is_generated: bool,
     pub selector: EntitySelector,

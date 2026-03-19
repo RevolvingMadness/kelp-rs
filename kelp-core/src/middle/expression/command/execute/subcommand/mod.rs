@@ -10,7 +10,6 @@ use minecraft_command_types::{
     },
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
@@ -32,7 +31,7 @@ use crate::{
 pub mod r#if;
 pub mod store;
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ExecuteSubcommand {
     Align(BTreeSet<Axis>, Box<Self>),
     Anchored(EntityAnchor, Box<Self>),

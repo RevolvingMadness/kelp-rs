@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use minecraft_command_types::resource_location::ResourceLocation;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::{expression::Expression, snbt_string::SNBTString},
@@ -10,7 +9,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: BTreeMap<String, String>,

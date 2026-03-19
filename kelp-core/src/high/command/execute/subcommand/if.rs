@@ -2,7 +2,6 @@ use minecraft_command_types::{
     column_position::ColumnPosition, command::enums::if_blocks_mode::IfBlocksMode,
     coordinate::Coordinates, resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::score_comparison::ScoreComparison,
@@ -15,7 +14,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ExecuteIfSubcommand {
     Biome(
         Coordinates,
@@ -50,7 +49,6 @@ impl ExecuteIfSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleExecuteIfSubcommand> {
         Some(match self {
             Self::Biome(coordinates, resource_location, next) => {

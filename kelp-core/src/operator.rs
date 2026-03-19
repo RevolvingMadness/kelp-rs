@@ -3,9 +3,8 @@ use std::fmt::Display;
 use minecraft_command_types::command::{
     enums::score_operation_operator::ScoreOperationOperator, execute::ScoreComparisonOperator,
 };
-use minecraft_command_types_derive::HasMacro;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ArithmeticOperator {
     Add,
     Subtract,
@@ -58,7 +57,7 @@ impl ArithmeticOperator {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum LogicalOperator {
     And,
     Or,
@@ -73,7 +72,7 @@ impl Display for LogicalOperator {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ComparisonOperator {
     LessThan,
     LessThanOrEqualTo,
@@ -114,7 +113,7 @@ impl ComparisonOperator {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum UnaryOperator {
     Negate,
     Reference,

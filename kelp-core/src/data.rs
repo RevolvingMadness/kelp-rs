@@ -1,3 +1,4 @@
+use crate::{compile_context::CompileContext, datapack::Datapack};
 use minecraft_command_types::{
     command::{
         Command,
@@ -5,11 +6,8 @@ use minecraft_command_types::{
     },
     nbt_path::NbtPath,
 };
-use minecraft_command_types_derive::HasMacro;
 
-use crate::{compile_context::CompileContext, datapack::Datapack};
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct GeneratedDataTarget {
     pub is_generated: bool,
     pub target: DataTarget,

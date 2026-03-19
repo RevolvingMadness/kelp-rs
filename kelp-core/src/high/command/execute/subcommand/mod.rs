@@ -6,7 +6,6 @@ use minecraft_command_types::{
     },
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::{
@@ -29,7 +28,7 @@ use crate::{
 pub mod r#if;
 pub mod store;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ExecuteSubcommand {
     Align(BTreeSet<Axis>, Box<Self>),
     Anchored(EntityAnchor, Box<Self>),
@@ -52,7 +51,6 @@ impl ExecuteSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleExecuteSubcommand> {
         Some(match self {
             Self::As(selector, next) | Self::At(selector, next) => {

@@ -2,14 +2,13 @@ use minecraft_command_types::{
     command::data::DataTarget as LowDataTarget, coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext, data::GeneratedDataTarget, datapack::Datapack,
     middle::entity_selector::EntitySelector, span::Span,
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum DataTargetKind {
     Block(Coordinates),
     Entity(EntitySelector),
@@ -36,7 +35,7 @@ impl DataTargetKind {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub struct DataTarget {
     pub is_generated: bool,
     pub span: Span,

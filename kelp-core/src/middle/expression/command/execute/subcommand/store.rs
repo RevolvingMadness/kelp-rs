@@ -5,7 +5,6 @@ use minecraft_command_types::{
     },
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -17,7 +16,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ExecuteStoreSubcommand {
     Data(
         DataTarget,

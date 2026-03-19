@@ -5,7 +5,6 @@ use minecraft_command_types::command::{
         ScoreboardModification as LowScoreboardModification,
     },
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
@@ -13,7 +12,7 @@ use crate::{
     middle::expression::{Expression, command::scoreboard::players::ScoreboardNumberFormat},
 };
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
     DisplayName(Expression),
@@ -48,7 +47,7 @@ impl ScoreboardModification {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ObjectivesScoreboardCommand {
     List,
     Add(String, String, Option<Expression>),

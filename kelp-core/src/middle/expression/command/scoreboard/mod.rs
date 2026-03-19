@@ -1,5 +1,4 @@
 use minecraft_command_types::command::scoreboard::ScoreboardCommand as LowScoreboardCommand;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     compile_context::CompileContext,
@@ -12,7 +11,7 @@ use crate::{
 pub mod objectives;
 pub mod players;
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ScoreboardCommand {
     Objectives(Box<ObjectivesScoreboardCommand>),
     Players(PlayersScoreboardCommand),

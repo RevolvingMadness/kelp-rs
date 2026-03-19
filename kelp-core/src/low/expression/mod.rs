@@ -20,7 +20,6 @@ use minecraft_command_types::{
     resource_location::ResourceLocation,
     snbt::{SNBT, SNBTString},
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 pub mod literal;
@@ -150,7 +149,7 @@ macro_rules! compute_float {
     };
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Boolean(bool),
     Byte(i8),

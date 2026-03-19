@@ -8,7 +8,6 @@ use minecraft_command_types::{
     },
     snbt::SNBTString,
 };
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{
@@ -29,7 +28,7 @@ use crate::{
 
 pub mod command;
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ExpressionKind {
     Boolean(bool),
     Byte(i8),
@@ -420,7 +419,7 @@ impl ExpressionKind {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
     pub data_type: DataTypeKind,

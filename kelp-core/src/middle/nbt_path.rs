@@ -4,12 +4,11 @@ use minecraft_command_types::{
     nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode, SNBTCompound},
     snbt::SNBTString,
 };
-use minecraft_command_types_derive::HasMacro;
 use nonempty::NonEmpty;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum NbtPathNode {
     RootCompound(BTreeMap<SNBTString, Expression>),
     Named(SNBTString, Option<BTreeMap<SNBTString, Expression>>),
@@ -50,7 +49,7 @@ impl NbtPathNode {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub struct NbtPath(pub NonEmpty<NbtPathNode>);
 
 impl NbtPath {

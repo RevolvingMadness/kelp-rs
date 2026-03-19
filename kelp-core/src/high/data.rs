@@ -1,5 +1,4 @@
 use minecraft_command_types::{coordinate::Coordinates, resource_location::ResourceLocation};
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::entity_selector::EntitySelector,
@@ -8,7 +7,7 @@ use crate::{
     span::Span,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum DataTargetKind {
     Block(Coordinates),
     Entity(EntitySelector),
@@ -35,7 +34,7 @@ impl DataTargetKind {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DataTarget {
     pub is_generated: bool,
     pub span: Span,

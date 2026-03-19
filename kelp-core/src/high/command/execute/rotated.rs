@@ -1,5 +1,4 @@
 use minecraft_command_types::rotation::Rotation;
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{
     high::entity_selector::EntitySelector,
@@ -7,7 +6,7 @@ use crate::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Rotated {
     Rotation(Rotation),
     As(EntitySelector),
@@ -18,7 +17,6 @@ impl Rotated {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        
     ) -> Option<MiddleRotated> {
         Some(match self {
             Self::Rotation(rotation) => MiddleRotated::Rotation(rotation),

@@ -1,9 +1,8 @@
-use minecraft_command_types_derive::HasMacro;
 use ordered_float::NotNan;
 
 use crate::{high::snbt_string::SNBTString, pattern_type::PatternType};
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, HasMacro)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum LiteralExpression {
     Boolean(bool),
     Byte(i8),

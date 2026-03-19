@@ -4,11 +4,10 @@ use minecraft_command_types::{
     },
     resource_location::ResourceLocation,
 };
-use minecraft_command_types_derive::HasMacro;
 
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub enum ItemTest {
     Component(ResourceLocation),
     ComponentMatches(ResourceLocation, Expression),
@@ -34,7 +33,7 @@ impl ItemTest {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub struct OrGroup(pub Vec<(bool, ItemTest)>);
 
 impl OrGroup {
@@ -49,7 +48,7 @@ impl OrGroup {
     }
 }
 
-#[derive(Debug, Clone, HasMacro)]
+#[derive(Debug, Clone)]
 pub struct ItemPredicate {
     pub id: ItemType,
     pub or_groups: Vec<OrGroup>,

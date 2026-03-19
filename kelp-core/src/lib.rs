@@ -1,3 +1,4 @@
+pub mod builtin_data_type;
 pub mod compile_context;
 pub mod data;
 pub mod datapack;

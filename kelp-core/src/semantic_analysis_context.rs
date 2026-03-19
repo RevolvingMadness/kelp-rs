@@ -3,11 +3,9 @@ use std::collections::BTreeMap;
 use thiserror::Error;
 
 use crate::{
+    builtin_data_type::BuiltinDataType,
     high::{statement::ControlFlowKind, supports_variable_type_scope::SupportsVariableTypeScope},
-    middle::{
-        data_type::DataType,
-        data_type_declaration::{BuiltinDataType, DataTypeDeclarationKind},
-    },
+    middle::{data_type::DataType, data_type_declaration::DataTypeDeclarationKind},
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     span::Span,

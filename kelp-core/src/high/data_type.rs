@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, str::FromStr};
 
 use crate::{
+    builtin_data_type::BuiltinDataType,
     high::snbt_string::SNBTString,
     middle::{
-        data_type::DataType as MiddleDataType,
-        data_type_declaration::{BuiltinDataType, DataTypeDeclarationKind},
+        data_type::DataType as MiddleDataType, data_type_declaration::DataTypeDeclarationKind,
     },
     semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,

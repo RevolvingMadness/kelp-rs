@@ -6,21 +6,27 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum DataTypeDeclarationKind {
-    Alias {
-        name: String,
-        generics: Vec<String>,
-        alias: DataType,
-    },
-    Struct {
-        name: String,
-        generics: Vec<String>,
-        fields: HashMap<String, DataType>,
-    },
+pub struct AliasDeclaration {
+    pub name: String,
+    pub generic_names: Vec<String>,
+    pub alias: DataType,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructDeclaration {
+    pub name: String,
+    pub generic_names: Vec<String>,
+    pub field_types: HashMap<String, DataType>,
+}
+
+#[derive(Debug, Clone)]
+pub enum TypeDeclaration {
+    Struct(StructDeclaration),
+    Alias(AliasDeclaration),
     Builtin(BuiltinDataType),
 }
 
-impl DataTypeDeclarationKind {
+impl TypeDeclaration {
     pub fn resolve_is_struct(
         self,
         supports_variable_type_scope: &impl SupportsVariableTypeScope,
@@ -33,24 +39,19 @@ impl DataTypeDeclarationKind {
     }
 
     #[must_use]
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> &str {
         match self {
-            Self::Builtin(builtin_type) => builtin_type.to_string(),
-            Self::Alias { name, .. } | Self::Struct { name, .. } => name.clone(),
+            Self::Struct(declaration) => &declaration.name,
+            Self::Alias(declaration) => &declaration.name,
+            Self::Builtin(data_type) => data_type.name(),
         }
     }
 
     #[must_use]
     pub const fn generic_count(&self) -> usize {
         match self {
-            Self::Alias {
-                generics: generic_names,
-                ..
-            }
-            | Self::Struct {
-                generics: generic_names,
-                ..
-            } => generic_names.len(),
+            Self::Struct(declaration) => declaration.generic_names.len(),
+            Self::Alias(declaration) => declaration.generic_names.len(),
             Self::Builtin(builtin_type) => builtin_type.generic_count(),
         }
     }
@@ -61,39 +62,34 @@ impl DataTypeDeclarationKind {
         generic_types: &[DataType],
     ) -> Option<HashMap<String, DataType>> {
         match self {
-            Self::Alias {
-                generics: generic_names,
-                alias,
-                ..
-            } => {
-                let substitutions: HashMap<String, DataType> = generic_names
+            Self::Alias(declaration) => {
+                let substitutions: HashMap<String, DataType> = declaration
+                    .generic_names
                     .iter()
+                    .cloned()
                     .zip(generic_types.iter().cloned())
-                    .map(|(k, v)| (k.clone(), v))
                     .collect();
 
-                let resolved_alias = alias.clone().substitute(&substitutions)?;
+                let alias = declaration.alias.clone().substitute(&substitutions)?;
 
-                if let DataType::Struct(name, generics) = resolved_alias {
+                if let DataType::Struct(name, generics) = alias {
                     let declaration = ctx.get_data_type(&name)??;
                     declaration.get_struct_fields(ctx, &generics)
                 } else {
                     None
                 }
             }
-            Self::Struct {
-                fields,
-                generics: generic_names,
-                ..
-            } => {
-                let substitutions: HashMap<String, DataType> = generic_names
+            Self::Struct(declaration) => {
+                let substitutions: HashMap<String, DataType> = declaration
+                    .generic_names
                     .iter()
+                    .cloned()
                     .zip(generic_types.iter().cloned())
-                    .map(|(k, v)| (k.clone(), v))
                     .collect();
 
                 Some(
-                    fields
+                    declaration
+                        .field_types
                         .iter()
                         .map(|(field_name, field_type)| {
                             let substituted = field_type.clone().substitute(&substitutions)?;
@@ -113,15 +109,14 @@ impl DataTypeDeclarationKind {
         generic_types: Vec<DataType>,
     ) -> Option<DataType> {
         match self {
-            Self::Alias {
-                generics: generic_names,
-                alias,
-                ..
-            } => {
-                let substitutions: HashMap<String, DataType> =
-                    generic_names.into_iter().zip(generic_types).collect();
+            Self::Alias(declaration) => {
+                let substitutions: HashMap<String, DataType> = declaration
+                    .generic_names
+                    .into_iter()
+                    .zip(generic_types)
+                    .collect();
 
-                let resolved_alias = alias.substitute(&substitutions)?;
+                let resolved_alias = declaration.alias.substitute(&substitutions)?;
 
                 if let DataType::Struct(name, generics) = resolved_alias {
                     let declaration = supports_variable_type_scope.get_data_type(&name)??;
@@ -130,17 +125,14 @@ impl DataTypeDeclarationKind {
                     Some(resolved_alias)
                 }
             }
-            Self::Struct {
-                name,
-                generics: generic_names,
-                ..
-            } => {
-                let substitutions: HashMap<String, DataType> = generic_names
+            Self::Struct(declaration) => {
+                let substitutions: HashMap<String, DataType> = declaration
+                    .generic_names
                     .into_iter()
                     .zip(generic_types.clone())
                     .collect();
 
-                Some(DataType::Struct(name, generic_types).substitute(&substitutions)?)
+                Some(DataType::Struct(declaration.name, generic_types).substitute(&substitutions)?)
             }
             Self::Builtin(data_type) => data_type.to_data_type(generic_types),
         }

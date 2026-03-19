@@ -3,9 +3,7 @@ use std::{collections::BTreeMap, str::FromStr};
 use crate::{
     builtin_data_type::BuiltinDataType,
     high::snbt_string::SNBTString,
-    middle::{
-        data_type::DataType as MiddleDataType, data_type_declaration::DataTypeDeclarationKind,
-    },
+    middle::{data_type::DataType as MiddleDataType, data_type_declaration::TypeDeclaration},
     semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
@@ -32,13 +30,13 @@ impl DataType {
             Self::Named(name_span, name, generic_types) => {
                 let actual_generic_count = generic_types.len();
 
-                if let Ok(builtin_type) = BuiltinDataType::from_str(&name) {
-                    let expected_generic_count = builtin_type.generic_count();
+                if let Ok(builtin_data_type) = BuiltinDataType::from_str(&name) {
+                    let expected_generic_count = builtin_data_type.generic_count();
 
                     if actual_generic_count != expected_generic_count {
                         return ctx.add_invalid_generics(
                             name_span,
-                            builtin_type.to_string(),
+                            builtin_data_type.name(),
                             expected_generic_count,
                             actual_generic_count,
                         );
@@ -51,7 +49,7 @@ impl DataType {
                         })
                         .collect_option_all()?;
 
-                    return builtin_type.to_data_type(generic_types);
+                    return builtin_data_type.to_data_type(generic_types);
                 }
 
                 match ctx.get_data_type(&name) {
@@ -76,11 +74,11 @@ impl DataType {
                             .collect_option_all::<Vec<_>>()?;
 
                         match declaration {
-                            DataTypeDeclarationKind::Alias { alias, .. } => alias,
-                            DataTypeDeclarationKind::Struct { name, .. } => {
-                                MiddleDataType::Struct(name, generic_types)
+                            TypeDeclaration::Alias(declaration) => declaration.alias,
+                            TypeDeclaration::Struct(declaration) => {
+                                MiddleDataType::Struct(declaration.name, generic_types)
                             }
-                            DataTypeDeclarationKind::Builtin(kind) => {
+                            TypeDeclaration::Builtin(kind) => {
                                 kind.to_data_type(generic_types).unwrap()
                             }
                         }

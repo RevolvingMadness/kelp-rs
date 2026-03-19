@@ -7,7 +7,7 @@ use crate::high::nbt_path::{NbtPath, NbtPathNode};
 use crate::high::supports_variable_type_scope::SupportsVariableTypeScope;
 use crate::low::expression::Expression;
 use crate::middle::data_type::DataType;
-use crate::middle::data_type_declaration::DataTypeDeclarationKind;
+use crate::middle::data_type_declaration::TypeDeclaration;
 use crate::player_score::GeneratedPlayerScore;
 use crate::span::Span;
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
@@ -48,7 +48,7 @@ pub struct DatapackSettings {
 #[derive(Default)]
 pub struct Scope {
     pub variables: BTreeMap<String, (DataType, Expression)>,
-    pub types: BTreeMap<String, DataTypeDeclarationKind>,
+    pub types: BTreeMap<String, TypeDeclaration>,
 }
 
 impl Scope {
@@ -77,12 +77,12 @@ impl Scope {
 
     #[inline]
     #[must_use]
-    pub fn get_data_type(&self, name: &str) -> Option<&DataTypeDeclarationKind> {
+    pub fn get_data_type(&self, name: &str) -> Option<&TypeDeclaration> {
         self.types.get(name)
     }
 
     #[inline]
-    pub fn declare_data_type(&mut self, name: String, alias: DataTypeDeclarationKind) {
+    pub fn declare_data_type(&mut self, name: String, alias: TypeDeclaration) {
         self.types.insert(name, alias);
     }
 }
@@ -103,7 +103,7 @@ pub struct Datapack {
 }
 
 impl SupportsVariableTypeScope for Datapack {
-    fn get_data_type(&self, name: &str) -> Option<Option<DataTypeDeclarationKind>> {
+    fn get_data_type(&self, name: &str) -> Option<Option<TypeDeclaration>> {
         self.get_data_type(name).map(Some)
     }
 }
@@ -326,7 +326,7 @@ impl Datapack {
         None
     }
 
-    pub fn get_data_type(&self, name: &str) -> Option<DataTypeDeclarationKind> {
+    pub fn get_data_type(&self, name: &str) -> Option<TypeDeclaration> {
         for scope in &self.scopes {
             if let Some(value) = scope.get_data_type(name) {
                 return Some(value.clone());
@@ -352,7 +352,7 @@ impl Datapack {
             .declare_variable(name, data_type, value);
     }
 
-    pub fn declare_data_type(&mut self, name: String, kind: DataTypeDeclarationKind) {
+    pub fn declare_data_type(&mut self, name: String, kind: TypeDeclaration) {
         self.scopes
             .front_mut()
             .expect("No scopes")

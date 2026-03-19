@@ -6,7 +6,9 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     middle::{
-        data_type::DataType, data_type_declaration::DataTypeDeclarationKind, statement::Statement,
+        data_type::DataType,
+        data_type_declaration::{AliasDeclaration, StructDeclaration, TypeDeclaration},
+        statement::Statement,
     },
 };
 
@@ -38,24 +40,24 @@ impl Item {
                     datapack.pop_function_from_current_namespace();
                 });
             }
-            Self::TypeAliasDeclaration(name, generics, alias) => {
+            Self::TypeAliasDeclaration(name, generic_names, alias) => {
                 datapack.declare_data_type(
                     name.clone(),
-                    DataTypeDeclarationKind::Alias {
+                    TypeDeclaration::Alias(AliasDeclaration {
                         name,
-                        generics,
+                        generic_names,
                         alias,
-                    },
+                    }),
                 );
             }
-            Self::StructDeclaration(name, generics, fields) => {
+            Self::StructDeclaration(name, generic_names, field_types) => {
                 datapack.declare_data_type(
                     name.clone(),
-                    DataTypeDeclarationKind::Struct {
+                    TypeDeclaration::Struct(StructDeclaration {
                         name,
-                        generics,
-                        fields,
-                    },
+                        generic_names,
+                        field_types,
+                    }),
                 );
             }
         }

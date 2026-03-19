@@ -79,4 +79,24 @@ impl BuiltinDataType {
             Self::List | Self::Compound | Self::Data | Self::Score => 1,
         }
     }
+
+    #[must_use]
+    pub const fn name(&self) -> &str {
+        match self {
+            Self::Boolean => "boolean",
+            Self::Byte => "byte",
+            Self::Short => "short",
+            Self::Integer => "integer",
+            Self::Long => "long",
+            Self::Float => "float",
+            Self::Double => "double",
+            Self::String => "string",
+            Self::Unit => "unit",
+            Self::Score => "score",
+            Self::List => "list",
+            Self::Compound => "compound",
+            Self::Data => "data",
+            Self::SNBT => "snbt",
+        }
+    }
 }

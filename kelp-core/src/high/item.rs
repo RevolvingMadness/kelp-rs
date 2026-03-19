@@ -4,7 +4,10 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     high::{data_type::DataType, statement::Statement},
-    middle::{data_type_declaration::DataTypeDeclarationKind, item::Item as MiddleItem},
+    middle::{
+        data_type_declaration::{AliasDeclaration, StructDeclaration, TypeDeclaration},
+        item::Item as MiddleItem,
+    },
     semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
@@ -55,11 +58,11 @@ impl Item {
 
                 ctx.declare_data_type(
                     &name,
-                    Some(DataTypeDeclarationKind::Alias {
+                    Some(TypeDeclaration::Alias(AliasDeclaration {
                         name: name.clone(),
-                        generics: generic_names.clone(),
+                        generic_names: generic_names.clone(),
                         alias: alias.clone(),
-                    }),
+                    })),
                 );
 
                 MiddleItem::TypeAliasDeclaration(name, generic_names, alias)
@@ -87,11 +90,11 @@ impl Item {
 
                 ctx.declare_data_type(
                     &name,
-                    Some(DataTypeDeclarationKind::Struct {
+                    Some(TypeDeclaration::Struct(StructDeclaration {
                         name: name.clone(),
-                        generics: generic_names.clone(),
-                        fields: field_types.clone(),
-                    }),
+                        generic_names: generic_names.clone(),
+                        field_types: field_types.clone(),
+                    })),
                 );
 
                 MiddleItem::StructDeclaration(name, generic_names, field_types)

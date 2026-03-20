@@ -1,12 +1,14 @@
 use minecraft_command_types::command::enums::scoreboard_render_type::ScoreboardRenderType;
 
 use crate::{
-    high::{command::scoreboard::players::ScoreboardNumberFormat, expression::Expression},
+    high::{
+        command::scoreboard::players::ScoreboardNumberFormat, expression::Expression,
+        semantic_analysis_context::SemanticAnalysisContext,
+    },
     middle::expression::command::scoreboard::objectives::{
         ObjectivesScoreboardCommand as MiddleObjectivesScoreboardCommand,
         ScoreboardModification as MiddleScoreboardModification,
     },
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

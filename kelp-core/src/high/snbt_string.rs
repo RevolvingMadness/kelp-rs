@@ -3,10 +3,7 @@ use std::hash::Hash;
 use minecraft_command_types::{has_macro::HasMacro, snbt::SNBTString as LowSNBTString};
 
 use crate::{
-    semantic_analysis_context::{
-        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
+    high::semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
 };
 
@@ -32,10 +29,7 @@ impl SNBTString {
         ctx: &mut SemanticAnalysisContext,
     ) -> (Span, LowSNBTString) {
         if self.snbt_string.has_macro_conflict() {
-            ctx.add_info::<()>(SemanticAnalysisInfo {
-                span: self.span,
-                kind: SemanticAnalysisInfoKind::Error(SemanticAnalysisError::MacroConflict),
-            });
+            ctx.add_error::<()>(self.span, SemanticAnalysisError::MacroConflict);
         }
 
         (self.span, self.snbt_string)

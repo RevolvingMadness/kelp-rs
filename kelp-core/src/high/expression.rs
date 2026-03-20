@@ -9,6 +9,10 @@ use crate::{
         data_type::unresolved::UnresolvedDataType,
         nbt_path::NbtPath,
         player_score::PlayerScore,
+        semantic_analysis_context::{
+            SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
+            SemanticAnalysisInfoKind,
+        },
         snbt_string::SNBTString,
     },
     middle::{
@@ -19,10 +23,6 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     place::{PlaceType, PlaceTypeKind},
     runtime_storage_type::RuntimeStorageType,
-    semantic_analysis_context::{
-        SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-        SemanticAnalysisInfoKind,
-    },
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };

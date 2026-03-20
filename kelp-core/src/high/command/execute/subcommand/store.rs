@@ -7,10 +7,9 @@ use ordered_float::NotNan;
 use crate::{
     high::{
         command::execute::subcommand::ExecuteSubcommand, data::DataTarget, nbt_path::NbtPath,
-        player_score::PlayerScore,
+        player_score::PlayerScore, semantic_analysis_context::SemanticAnalysisContext,
     },
     middle::expression::command::execute::subcommand::store::ExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

@@ -1,6 +1,6 @@
 use crate::{
-    high::entity_selector::EntitySelector, middle::player_score::PlayerScore as MiddlePlayerScore,
-    semantic_analysis_context::SemanticAnalysisContext,
+    high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
+    middle::player_score::PlayerScore as MiddlePlayerScore,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

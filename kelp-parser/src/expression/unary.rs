@@ -1,7 +1,9 @@
 use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
+    high::{
+        expression::{Expression, ExpressionKind},
+        semantic_analysis_context::SemanticAnalysisContext,
+    },
     operator::UnaryOperator,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 use crate::{

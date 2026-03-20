@@ -1,8 +1,4 @@
-use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
-    high::snbt_string::SNBTString,
-    semantic_analysis_context::SemanticAnalysisContext,
-};
+use kelp_core::high::{expression::{Expression, ExpressionKind}, semantic_analysis_context::SemanticAnalysisContext, snbt_string::SNBTString};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{

@@ -1,9 +1,8 @@
 use minecraft_command_types::{coordinate::Coordinates, resource_location::ResourceLocation};
 
 use crate::{
-    high::entity_selector::EntitySelector,
+    high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
     middle::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
-    semantic_analysis_context::SemanticAnalysisContext,
     span::Span,
 };
 

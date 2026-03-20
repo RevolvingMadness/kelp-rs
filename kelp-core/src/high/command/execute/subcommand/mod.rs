@@ -19,9 +19,9 @@ use crate::{
             },
         },
         entity_selector::EntitySelector,
+        semantic_analysis_context::SemanticAnalysisContext,
     },
     middle::expression::command::execute::subcommand::ExecuteSubcommand as MiddleExecuteSubcommand,
-    semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::CollectOptionAllIterExt,
 };
 

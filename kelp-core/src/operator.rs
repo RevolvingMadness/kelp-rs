@@ -37,6 +37,22 @@ impl Display for ArithmeticOperator {
 
 impl ArithmeticOperator {
     #[must_use]
+    pub const fn name(&self) -> &str {
+        match self {
+            Self::Add => "add",
+            Self::Subtract => "subtract",
+            Self::Multiply => "multiply",
+            Self::FloorDivide => "divide",
+            Self::Modulo => "modulo",
+            Self::And => "and",
+            Self::Or => "or",
+            Self::LeftShift => "left-shift",
+            Self::RightShift => "right-shift",
+            Self::Swap => "swap",
+        }
+    }
+
+    #[must_use]
     pub const fn is_additive(self) -> bool {
         matches!(self, Self::Add | Self::Subtract)
     }

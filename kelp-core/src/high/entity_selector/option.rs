@@ -9,9 +9,8 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    high::expression::Expression,
+    high::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext},
     middle::entity_selector::option::EntitySelectorOption as MiddleEntitySelectorOption,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

@@ -1,11 +1,10 @@
 use minecraft_command_types::{item::ItemType, resource_location::ResourceLocation};
 
 use crate::{
-    high::expression::Expression,
+    high::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext},
     middle::mc_item::{
         ItemPredicate as MiddleItemPredicate, ItemTest as MiddleItemTest, OrGroup as MiddleOrGroup,
     },
-    semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::CollectOptionAllIterExt,
 };
 

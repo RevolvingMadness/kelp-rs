@@ -11,9 +11,9 @@ use crate::{
     span::span_of_cst_node,
     syntax::SyntaxKind,
 };
-use kelp_core::{
-    high::{nbt_path::NbtPathNode, snbt_string::SNBTString},
-    semantic_analysis_context::SemanticAnalysisContext,
+use kelp_core::high::{
+    nbt_path::NbtPathNode, semantic_analysis_context::SemanticAnalysisContext,
+    snbt_string::SNBTString,
 };
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 

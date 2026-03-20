@@ -2,11 +2,12 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     high::{
-        data_type::resolved::ResolvedDataType, environment::r#type::HighTypeDeclaration,
+        data_type::resolved::ResolvedDataType,
+        environment::r#type::HighTypeDeclaration,
+        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
         snbt_string::SNBTString,
     },
     middle::data_type::DataType as MiddleDataType,
-    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };

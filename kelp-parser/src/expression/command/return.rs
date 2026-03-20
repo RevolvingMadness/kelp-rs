@@ -1,6 +1,6 @@
-use kelp_core::{
-    high::command::{Command, r#return::ReturnCommand},
-    high::expression::{Expression, ExpressionKind},
+use kelp_core::high::{
+    command::{Command, r#return::ReturnCommand},
+    expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 

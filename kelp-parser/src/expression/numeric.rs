@@ -1,9 +1,11 @@
 use std::num::IntErrorKind;
 
 use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
+    high::{
+        expression::{Expression, ExpressionKind},
+        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+    },
     middle::data_type::DataType,
-    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
 };
 use ordered_float::NotNan;
 

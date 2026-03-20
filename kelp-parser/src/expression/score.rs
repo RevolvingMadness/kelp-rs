@@ -1,8 +1,4 @@
-use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
-    high::player_score::PlayerScore,
-    semantic_analysis_context::SemanticAnalysisContext,
-};
+use kelp_core::high::{expression::{Expression, ExpressionKind}, player_score::PlayerScore, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTScoreExpression,

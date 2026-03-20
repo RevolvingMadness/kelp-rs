@@ -3,10 +3,11 @@ use std::collections::BTreeMap;
 use nonempty::NonEmpty;
 
 use crate::{
-    high::expression::Expression,
-    high::snbt_string::SNBTString,
+    high::{
+        expression::Expression, semantic_analysis_context::SemanticAnalysisContext,
+        snbt_string::SNBTString,
+    },
     middle::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
-    semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::CollectOptionAllIterExt,
 };
 

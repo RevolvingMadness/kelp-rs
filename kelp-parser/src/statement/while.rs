@@ -1,6 +1,6 @@
-use kelp_core::{
-    high::statement::{Statement, StatementKind},
+use kelp_core::high::{
     semantic_analysis_context::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
 };
 
 use crate::{

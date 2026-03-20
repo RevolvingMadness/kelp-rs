@@ -2,11 +2,11 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
-use kelp_core::middle::environment::Environment;
-use kelp_core::middle::item::Item;
-use kelp_core::semantic_analysis_context::{
+use kelp_core::high::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
+use kelp_core::middle::environment::Environment;
+use kelp_core::middle::item::Item;
 use kelp_parser::cst::CSTRoot;
 use kelp_parser::parser::{ParseResult, Parser};
 use kelp_parser::root::lower_root;

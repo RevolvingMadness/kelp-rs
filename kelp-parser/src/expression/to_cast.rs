@@ -1,7 +1,9 @@
 use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
+    high::{
+        expression::{Expression, ExpressionKind},
+        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+    },
     runtime_storage_type::RuntimeStorageType,
-    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
 };
 
 use crate::{

@@ -1,5 +1,5 @@
-use kelp_core::{
-    high::item::{Item, ItemKind},
+use kelp_core::high::{
+    item::{Item, ItemKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 

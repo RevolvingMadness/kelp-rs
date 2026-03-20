@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
 use crate::{
-    high::snbt_string::SNBTString,
+    high::{
+        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+        snbt_string::SNBTString,
+    },
     low::expression::literal::LiteralExpression,
     middle::{data_type::DataType, pattern::Pattern as MiddlePattern},
     pattern_type::PatternType,
-    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };

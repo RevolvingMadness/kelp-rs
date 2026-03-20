@@ -1,9 +1,12 @@
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
-    high::entity_selector::option::EntitySelectorOption,
+    high::{
+        entity_selector::option::EntitySelectorOption,
+        semantic_analysis_context::SemanticAnalysisContext,
+    },
     middle::entity_selector::EntitySelector as MiddleEntitySelector,
-    semantic_analysis_context::SemanticAnalysisContext, trait_ext::CollectOptionAllIterExt,
+    trait_ext::CollectOptionAllIterExt,
 };
 
 pub mod option;

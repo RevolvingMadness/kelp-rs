@@ -1,5 +1,5 @@
-use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
+use kelp_core::high::{
+    expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 

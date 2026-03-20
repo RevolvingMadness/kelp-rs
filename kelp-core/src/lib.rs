@@ -10,6 +10,5 @@ pub mod pattern_type;
 pub mod place;
 pub mod player_score;
 pub mod runtime_storage_type;
-pub mod semantic_analysis_context;
 pub mod span;
 pub mod trait_ext;

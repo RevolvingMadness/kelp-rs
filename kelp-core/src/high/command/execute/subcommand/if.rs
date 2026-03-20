@@ -4,14 +4,13 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    high::score_comparison::ScoreComparison,
     high::{
         block::BlockState, command::execute::subcommand::ExecuteSubcommand, data::DataTarget,
         entity_selector::EntitySelector, item_source::ItemSource, mc_item::ItemPredicate,
-        nbt_path::NbtPath, player_score::PlayerScore,
+        nbt_path::NbtPath, player_score::PlayerScore, score_comparison::ScoreComparison,
+        semantic_analysis_context::SemanticAnalysisContext,
     },
     middle::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

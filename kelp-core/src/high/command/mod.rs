@@ -13,9 +13,9 @@ use crate::{
         },
         entity_selector::EntitySelector,
         expression::Expression,
+        semantic_analysis_context::SemanticAnalysisContext,
     },
     middle::expression::command::Command as MiddleCommand,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 pub mod data;

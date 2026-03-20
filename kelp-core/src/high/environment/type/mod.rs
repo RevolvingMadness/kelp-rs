@@ -3,9 +3,9 @@ use crate::{
     high::{
         data_type::resolved::ResolvedDataType,
         environment::r#type::{alias::HighAliasDeclaration, r#struct::HighStructDeclaration},
+        semantic_analysis_context::SemanticAnalysisContext,
     },
     middle::{data_type::DataType, environment::r#type::r#struct::StructId},
-    semantic_analysis_context::SemanticAnalysisContext,
     span::Span,
 };
 

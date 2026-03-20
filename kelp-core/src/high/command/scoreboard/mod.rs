@@ -1,9 +1,11 @@
 use crate::{
-    high::command::scoreboard::{
-        objectives::ObjectivesScoreboardCommand, players::PlayersScoreboardCommand,
+    high::{
+        command::scoreboard::{
+            objectives::ObjectivesScoreboardCommand, players::PlayersScoreboardCommand,
+        },
+        semantic_analysis_context::SemanticAnalysisContext,
     },
     middle::expression::command::scoreboard::ScoreboardCommand as MiddleScoreboardCommand,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 pub mod objectives;

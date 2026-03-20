@@ -118,6 +118,16 @@ pub enum ControlFlowKind {
     Continue,
 }
 
+impl ControlFlowKind {
+    #[must_use]
+    pub const fn name(&self) -> &str {
+        match self {
+            Self::Break => "break",
+            Self::Continue => "continue",
+        }
+    }
+}
+
 impl Statement {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {

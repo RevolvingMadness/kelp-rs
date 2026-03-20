@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    high::{data::DataTarget, expression::Expression, nbt_path::NbtPath, snbt_string::SNBTString},
+    high::{
+        data::DataTarget, expression::Expression, nbt_path::NbtPath,
+        semantic_analysis_context::SemanticAnalysisContext, snbt_string::SNBTString,
+    },
     middle::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
-    semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::CollectOptionAllIterExt,
 };
 

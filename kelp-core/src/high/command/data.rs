@@ -2,11 +2,13 @@ use minecraft_command_types::command::data::DataCommandModificationMode;
 use ordered_float::NotNan;
 
 use crate::{
-    high::{data::DataTarget, expression::Expression, nbt_path::NbtPath},
+    high::{
+        data::DataTarget, expression::Expression, nbt_path::NbtPath,
+        semantic_analysis_context::SemanticAnalysisContext,
+    },
     middle::expression::command::data::{
         DataCommand as MiddleDataCommand, DataCommandModification as MiddleDataCommandModification,
     },
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

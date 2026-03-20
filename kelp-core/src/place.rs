@@ -13,6 +13,7 @@ use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
     datapack::Datapack,
+    high::semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     low::expression::Expression,
     middle::{
         data_type::DataType,
@@ -24,7 +25,6 @@ use crate::{
     },
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,
-    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };

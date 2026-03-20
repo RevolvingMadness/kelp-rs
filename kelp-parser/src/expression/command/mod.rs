@@ -1,4 +1,4 @@
-use kelp_core::{high::expression::Expression, semantic_analysis_context::SemanticAnalysisContext};
+use kelp_core::high::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTCommandExpression,

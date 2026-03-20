@@ -8,10 +8,10 @@ use crate::{
         environment::r#type::{
             HighTypeDeclaration, alias::HighAliasDeclaration, r#struct::HighStructDeclaration,
         },
+        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
         statement::Statement,
     },
     middle::item::Item as MiddleItem,
-    semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
 };
 

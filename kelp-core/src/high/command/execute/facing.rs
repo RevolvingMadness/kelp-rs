@@ -3,9 +3,8 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    high::entity_selector::EntitySelector,
+    high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
     middle::expression::command::execute::facing::Facing as MiddleFacing,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

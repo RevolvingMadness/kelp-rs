@@ -5,12 +5,9 @@ use std::{
 
 use crate::{
     builtin_data_type::BuiltinDataType,
-    high::{
-        environment::{
-            HighEnvironment,
-            r#type::{HighTypeDeclaration, HighTypeId, r#struct::HighStructDeclaration},
-        },
-        statement::ControlFlowKind,
+    high::environment::{
+        HighEnvironment,
+        r#type::{HighTypeDeclaration, HighTypeId, r#struct::HighStructDeclaration},
     },
     middle::{
         data_type::DataType,
@@ -19,33 +16,12 @@ use crate::{
             r#type::r#struct::{StructDeclaration, StructId},
             value::{ValueDeclaration, ValueId, variable::VariableDeclaration},
         },
+        statement::ControlFlowKind,
     },
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     span::Span,
 };
-
-const fn format_arithmetic_operator(op: ArithmeticOperator) -> &'static str {
-    match op {
-        ArithmeticOperator::Add => "add",
-        ArithmeticOperator::Subtract => "subtract",
-        ArithmeticOperator::Multiply => "multiply",
-        ArithmeticOperator::FloorDivide => "divide",
-        ArithmeticOperator::Modulo => "modulo",
-        ArithmeticOperator::And => "and",
-        ArithmeticOperator::Or => "or",
-        ArithmeticOperator::LeftShift => "left-shift",
-        ArithmeticOperator::RightShift => "right-shift",
-        ArithmeticOperator::Swap => "swap",
-    }
-}
-
-const fn format_control_flow_kind(kind: ControlFlowKind) -> &'static str {
-    match kind {
-        ControlFlowKind::Break => "break",
-        ControlFlowKind::Continue => "continue",
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
@@ -169,11 +145,7 @@ impl SemanticAnalysisError {
                 output.write_str("`")
             }
             Self::InvalidAugmentedAssignmentType(op, target, value) => {
-                write!(
-                    output,
-                    "Cannot {}-assign type `",
-                    format_arithmetic_operator(*op)
-                )?;
+                write!(output, "Cannot {}-assign type `", op.name())?;
                 value.write_string(output, environment)?;
                 output.write_str("` to type `")?;
                 target.write_string(output, environment)?;
@@ -287,11 +259,7 @@ impl SemanticAnalysisError {
                 output.write_str("This string conflicts with the compiler-generated command macros")
             }
             Self::ControlFlowNotInLoop(kind) => {
-                write!(
-                    output,
-                    "Cannot `{}` outside of a loop",
-                    format_control_flow_kind(*kind)
-                )
+                write!(output, "Cannot `{}` outside of a loop", kind.name())
             }
         }
     }

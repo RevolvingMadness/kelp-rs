@@ -1,7 +1,6 @@
 use crate::{
-    high::command::Command,
+    high::{command::Command, semantic_analysis_context::SemanticAnalysisContext},
     middle::expression::command::r#return::ReturnCommand as MiddleReturnCommand,
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

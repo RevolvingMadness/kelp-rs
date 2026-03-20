@@ -2,8 +2,8 @@ use minecraft_command_types::command::execute::ScoreComparisonOperator;
 use minecraft_command_types::range::IntegerRange;
 
 use crate::high::player_score::PlayerScore;
+use crate::high::semantic_analysis_context::SemanticAnalysisContext;
 use crate::middle::score_comparison::ScoreComparison as MiddleScoreComparison;
-use crate::semantic_analysis_context::SemanticAnalysisContext;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ScoreComparison {

@@ -1,17 +1,15 @@
 use std::collections::BTreeMap;
 
-use crate::compile_context::LoopInfo;
 use crate::high::data_type::unresolved::UnresolvedDataType;
 use crate::high::item::Item;
 use crate::high::pattern::Pattern;
+use crate::high::semantic_analysis_context::{
+    Scope, SemanticAnalysisContext, SemanticAnalysisError,
+};
+use crate::middle::statement::ControlFlowKind;
 use crate::span::Span;
 use crate::trait_ext::CollectOptionAllIterExt;
-use crate::{
-    compile_context::CompileContext,
-    high::expression::Expression,
-    middle::statement::Statement as MiddleStatement,
-    semantic_analysis_context::{Scope, SemanticAnalysisContext, SemanticAnalysisError},
-};
+use crate::{high::expression::Expression, middle::statement::Statement as MiddleStatement};
 use minecraft_command_types::range::IntegerRange;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,59 +29,10 @@ pub enum StatementKind {
     Continue,
 }
 
-#[derive(Debug, Clone)]
-pub struct ControlFlow {
-    pub kind: ControlFlowKind,
-    pub loop_info: LoopInfo,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum ControlFlowKind {
-    Break,
-    Continue,
-}
-
 impl StatementKind {
     #[must_use]
     pub const fn with_span(self, span: Span) -> Statement {
         Statement { span, kind: self }
-    }
-
-    #[must_use]
-    pub fn get_control_flow_kind(&self) -> Option<ControlFlowKind> {
-        match self {
-            Self::Expression(_)
-            | Self::Let(_, _, _)
-            | Self::Append(_, _)
-            | Self::Remove(_)
-            | Self::Item(_) => None,
-            Self::While(_, statement) | Self::Loop(statement) | Self::ForIn(_, _, _, statement) => {
-                statement.kind.get_control_flow_kind()
-            }
-            Self::Match(_, _) => todo!(),
-            Self::If(_, statement, else_statement) => {
-                statement.kind.get_control_flow_kind().or_else(|| {
-                    else_statement
-                        .as_ref()
-                        .and_then(|statement| statement.kind.get_control_flow_kind())
-                })
-            }
-            Self::Block(statements) => statements
-                .iter()
-                .find_map(|statement| statement.kind.get_control_flow_kind()),
-            Self::Break => Some(ControlFlowKind::Break),
-            Self::Continue => Some(ControlFlowKind::Continue),
-        }
-    }
-
-    #[must_use]
-    pub fn get_control_flow(&self, ctx: &mut CompileContext) -> Option<ControlFlow> {
-        let loop_info = ctx.loop_info.as_ref()?.clone();
-
-        Some(ControlFlow {
-            kind: self.get_control_flow_kind()?,
-            loop_info,
-        })
     }
 }
 

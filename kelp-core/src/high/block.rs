@@ -3,9 +3,11 @@ use std::collections::BTreeMap;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    high::{expression::Expression, snbt_string::SNBTString},
+    high::{
+        expression::Expression, semantic_analysis_context::SemanticAnalysisContext,
+        snbt_string::SNBTString,
+    },
     middle::block::BlockState as MiddleBlockState,
-    semantic_analysis_context::SemanticAnalysisContext,
     trait_ext::CollectOptionAllIterExt,
 };
 

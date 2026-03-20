@@ -1,13 +1,15 @@
 use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;
 
 use crate::{
-    high::{entity_selector::EntitySelector, expression::Expression, player_score::PlayerScore},
+    high::{
+        entity_selector::EntitySelector, expression::Expression, player_score::PlayerScore,
+        semantic_analysis_context::SemanticAnalysisContext,
+    },
     middle::expression::command::scoreboard::players::{
         PlayersDisplayScoreboardCommand as MiddlePlayersDisplayScoreboardCommand,
         PlayersScoreboardCommand as MiddlePlayersScoreboardCommand,
         ScoreboardNumberFormat as MiddleScoreboardNumberFormat,
     },
-    semantic_analysis_context::SemanticAnalysisContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]

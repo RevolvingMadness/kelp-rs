@@ -680,37 +680,49 @@ impl Expression {
 
                 let declaration = ctx.get_struct_type(id);
 
-                let declared_field_names =
-                    declaration.field_types.keys().cloned().collect::<Vec<_>>();
+                let declared_fields = declaration.field_types.clone();
+
+                let mut has_error = false;
 
                 let given_field_values = field_values
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.perform_semantic_analysis(ctx);
-
-                        if !declared_field_names.contains(&key.snbt_string.1) {
+                        let Some(field_type) = declared_fields.get(&key.snbt_string.1) else {
                             ctx.add_info::<()>(SemanticAnalysisInfo {
                                 span: key.span,
                                 kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::UnexpectedField(key.snbt_string.1),
+                                    SemanticAnalysisError::TypeDoesntHaveField {
+                                        data_type: DataType::Struct(id),
+                                        field: key.snbt_string.1,
+                                    },
                                 ),
                             });
 
                             return None;
-                        }
+                        };
 
-                        let (_, value) = value?;
+                        let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+
+                        if !value.data_type.equals(field_type) {
+                            has_error = true;
+
+                            return ctx.add_error(
+                                value_span,
+                                SemanticAnalysisError::MismatchedTypes {
+                                    expected: field_type.clone(),
+                                    actual: value.data_type,
+                                },
+                            );
+                        }
 
                         Some((key.snbt_string, value))
                     })
                     .collect_option_all::<BTreeMap<_, _>>()?;
 
-                let mut has_error = false;
-
-                for declared_field_name in declared_field_names {
-                    if given_field_values
+                for declared_field_name in declared_fields.into_keys() {
+                    if !given_field_values
                         .keys()
-                        .all(|given_field_name| given_field_name.1 != declared_field_name)
+                        .any(|given_field_name| given_field_name.1 == declared_field_name)
                     {
                         has_error = true;
 

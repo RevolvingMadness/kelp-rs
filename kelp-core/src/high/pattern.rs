@@ -240,7 +240,10 @@ impl Pattern {
 
                             return ctx.add_error(
                                 name.span,
-                                SemanticAnalysisError::UnexpectedField(name.snbt_string.1.clone()),
+                                SemanticAnalysisError::TypeDoesntHaveField {
+                                    data_type: DataType::Struct(id),
+                                    field: name.snbt_string.1.clone(),
+                                },
                             );
                         };
 

@@ -83,7 +83,6 @@ pub enum SemanticAnalysisError {
     MissingKey(String),
     UnexpectedKey(String),
     MissingField(String),
-    UnexpectedField(String),
     TypeIsAlreadyDefined(String),
     PatternIsNotIrrefutable,
     UnknownType(String),
@@ -205,7 +204,6 @@ impl SemanticAnalysisError {
             Self::MissingKey(key) => write!(output, "Missing key `{}`", key),
             Self::UnexpectedKey(key) => write!(output, "Unexpected key `{}`", key),
             Self::MissingField(field) => write!(output, "Missing field `{}`", field),
-            Self::UnexpectedField(field) => write!(output, "Unexpected field `{}`", field),
             Self::TypeIsAlreadyDefined(name) => write!(
                 output,
                 "The type `{}` has already been declared in this scope",

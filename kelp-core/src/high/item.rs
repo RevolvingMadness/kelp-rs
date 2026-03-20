@@ -52,7 +52,7 @@ impl Item {
                 MiddleItem::MCFNDeclaration(resource_location, Box::new(statement))
             }
             ItemKind::TypeAliasDeclaration(name_span, name, generic_names, alias) => {
-                if ctx.type_is_declared(&name) {
+                if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
                 }
@@ -68,7 +68,7 @@ impl Item {
                 MiddleItem::TypeAliasDeclaration
             }
             ItemKind::StructDeclaration(name_span, name, generic_names, field_types) => {
-                if ctx.type_is_declared(&name) {
+                if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
                 }

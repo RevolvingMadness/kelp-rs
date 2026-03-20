@@ -493,6 +493,7 @@ impl SemanticAnalysisContext {
     pub fn get_value_id(&self, name: &str) -> Option<ValueId> {
         self.scopes
             .iter()
+            .rev()
             .find_map(|scope| scope.values.get(name))
             .copied()
     }
@@ -503,11 +504,8 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn type_is_declared(&self, name: &str) -> bool {
-        self.scopes
-            .iter()
-            .rev()
-            .any(|scope| scope.types.contains_key(name))
+    pub fn type_is_declared_in_current_scope(&self, name: &str) -> bool {
+        self.scopes.last().unwrap().types.contains_key(name)
     }
 
     pub fn declare_data_type(&mut self, declaration: HighTypeDeclaration) -> HighTypeId {
@@ -532,6 +530,7 @@ impl SemanticAnalysisContext {
     pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
         self.scopes
             .iter()
+            .rev()
             .find_map(|scope| scope.types.get(name))
             .copied()
     }

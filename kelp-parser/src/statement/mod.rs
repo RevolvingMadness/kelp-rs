@@ -14,7 +14,7 @@ use crate::{
         r#break::{lower_break_statement, try_parse_break_statement},
         r#continue::{lower_continue_statement, try_parse_continue_statement},
         r#if::{lower_if_statement, try_parse_if_statement},
-        item::lower_item_statement,
+        item::{lower_item_statement, try_parse_item_statement},
         r#let::{lower_let_statement, try_parse_let_statement},
         r#loop::{lower_loop_statement, try_parse_loop_statement},
         remove::{lower_remove_statement, try_parse_remove_statement},
@@ -91,7 +91,11 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                             return true;
                         }
                     }
-                    _ => {}
+                    _ => {
+                        if try_parse_item_statement(parser) {
+                            return true;
+                        }
+                    }
                 }
             }
 

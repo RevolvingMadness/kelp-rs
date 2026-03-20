@@ -83,7 +83,7 @@ impl Environment {
 
     #[must_use]
     pub fn declare_variable(&mut self, name: String, data_type: Option<DataType>) -> VariableId {
-        let id = VariableId(self.types.len());
+        let id = VariableId(self.values.len());
 
         self.values
             .push(ValueDeclaration::Variable(VariableDeclaration {

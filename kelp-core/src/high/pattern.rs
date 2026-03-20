@@ -71,7 +71,7 @@ impl PatternKind {
         match self {
             Self::Literal(_) | Self::Wildcard => {}
             Self::Binding(name) => {
-                ctx.declare_variable_unknown(name.clone());
+                let _ = ctx.declare_variable_unknown(name.clone());
             }
             Self::Tuple(patterns) => {
                 for pattern in patterns {

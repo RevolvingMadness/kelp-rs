@@ -14,7 +14,7 @@ use crate::{
         environment::{
             Environment,
             r#type::r#struct::{StructDeclaration, StructId},
-            value::{ValueDeclaration, ValueId, variable::VariableDeclaration},
+            value::{ValueDeclaration, ValueId, variable::VariableId},
         },
         statement::ControlFlowKind,
     },
@@ -438,20 +438,27 @@ impl SemanticAnalysisContext {
         id
     }
 
-    pub fn declare_variable(&mut self, name: String, data_type: Option<DataType>) -> ValueId {
-        self.declare_value(ValueDeclaration::Variable(VariableDeclaration {
-            name,
-            data_type,
-        }))
+    #[must_use]
+    pub fn declare_variable(&mut self, name: String, data_type: Option<DataType>) -> VariableId {
+        let id = self.environment.declare_variable(name.clone(), data_type);
+
+        self.scopes
+            .last_mut()
+            .expect("No scopes")
+            .declare_value(name, ValueId(id.0));
+
+        id
     }
 
     #[inline]
-    pub fn declare_variable_known(&mut self, name: String, data_type: DataType) -> ValueId {
+    #[must_use]
+    pub fn declare_variable_known(&mut self, name: String, data_type: DataType) -> VariableId {
         self.declare_variable(name, Some(data_type))
     }
 
     #[inline]
-    pub fn declare_variable_unknown(&mut self, name: String) -> ValueId {
+    #[must_use]
+    pub fn declare_variable_unknown(&mut self, name: String) -> VariableId {
         self.declare_variable(name, None)
     }
 

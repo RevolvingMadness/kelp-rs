@@ -7,7 +7,10 @@ use crate::middle::{
             TypeDeclaration, TypeId,
             r#struct::{StructDeclaration, StructId},
         },
-        value::{ValueDeclaration, ValueId},
+        value::{
+            ValueDeclaration, ValueId,
+            variable::{VariableDeclaration, VariableId},
+        },
     },
 };
 
@@ -76,5 +79,28 @@ impl Environment {
     #[must_use]
     pub fn get_value(&self, id: ValueId) -> &ValueDeclaration {
         &self.values[id.0]
+    }
+
+    #[must_use]
+    pub fn declare_variable(&mut self, name: String, data_type: Option<DataType>) -> VariableId {
+        let id = VariableId(self.types.len());
+
+        self.values
+            .push(ValueDeclaration::Variable(VariableDeclaration {
+                name,
+                data_type,
+            }));
+
+        id
+    }
+
+    #[must_use]
+    pub fn get_variable(&self, id: VariableId) -> &VariableDeclaration {
+        #[allow(irrefutable_let_patterns)] // TODO: Remove this
+        let ValueDeclaration::Variable(declaration) = &self.values[id.0] else {
+            unreachable!();
+        };
+
+        declaration
     }
 }

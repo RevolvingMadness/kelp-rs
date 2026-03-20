@@ -259,7 +259,7 @@ impl Expression {
             ExpressionKind::Variable(name) => {
                 let id = ctx.get_value_id(name)?;
 
-                PlaceTypeKind::Variable(id)
+                PlaceTypeKind::Value(id)
             }
         };
 

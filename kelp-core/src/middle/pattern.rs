@@ -11,7 +11,10 @@ use crate::{
     low::expression::{Expression, literal::LiteralExpression},
     middle::{
         data_type::DataType,
-        environment::{r#type::r#struct::StructId, value::ValueId},
+        environment::{
+            r#type::r#struct::StructId,
+            value::{ValueId, variable::VariableId},
+        },
     },
 };
 
@@ -175,7 +178,7 @@ pub enum Pattern {
     Literal(LiteralExpression),
 
     Wildcard,
-    Binding(ValueId),
+    Binding(VariableId),
 
     Tuple(Vec<Self>),
     Struct(StructId, HashMap<SNBTString, Self>),
@@ -194,7 +197,7 @@ impl Pattern {
         match self {
             Self::Literal(_) | Self::Wildcard => {}
             Self::Binding(id) => {
-                datapack.declare_variable(*id, data_type, value);
+                datapack.declare_value(ValueId(id.0), data_type, value);
             }
             Self::Tuple(patterns) => {
                 destructure_tuple(patterns, datapack, ctx, data_type, value);

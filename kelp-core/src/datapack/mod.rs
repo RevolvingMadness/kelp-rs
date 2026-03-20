@@ -53,7 +53,7 @@ pub struct Datapack {
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub variable_values: HashMap<ValueId, (DataType, Expression)>,
+    pub value_values: HashMap<ValueId, (DataType, Expression)>,
     namespaces: BTreeMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
@@ -70,7 +70,7 @@ impl Datapack {
             requirements: Cell::new(DatapackRequirements::default()),
             settings: DatapackSettings::default(),
             environment,
-            variable_values: HashMap::new(),
+            value_values: HashMap::new(),
             namespaces: BTreeMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),
@@ -92,13 +92,13 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn declare_variable(&mut self, id: ValueId, data_type: DataType, value: Expression) {
-        self.variable_values.insert(id, (data_type, value));
+    pub fn declare_value(&mut self, id: ValueId, data_type: DataType, value: Expression) {
+        self.value_values.insert(id, (data_type, value));
     }
 
     #[inline]
     pub fn set_variable(&mut self, id: ValueId, value: Expression) {
-        self.variable_values.get_mut(&id).unwrap().1 = value;
+        self.value_values.get_mut(&id).unwrap().1 = value;
     }
 
     #[inline]
@@ -110,13 +110,13 @@ impl Datapack {
     #[inline]
     #[must_use]
     pub fn get_variable_value(&self, id: ValueId) -> &(DataType, Expression) {
-        self.variable_values.get(&id).unwrap()
+        self.value_values.get(&id).unwrap()
     }
 
     #[inline]
     #[must_use]
     pub fn get_variable_value_mut(&mut self, id: ValueId) -> &mut (DataType, Expression) {
-        self.variable_values.get_mut(&id).unwrap()
+        self.value_values.get_mut(&id).unwrap()
     }
 
     pub fn compile_and_add_to_function(

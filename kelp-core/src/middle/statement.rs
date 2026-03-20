@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::middle::data_type::DataType;
-use crate::middle::environment::value::ValueId;
+use crate::middle::environment::value::variable::VariableId;
 use crate::middle::item::Item;
 use crate::middle::pattern::Pattern;
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
@@ -29,7 +29,7 @@ pub enum Statement {
     Loop(Box<Self>),
     Match(Expression, BTreeMap<IntegerRange, Box<Self>>),
     If(Expression, Box<Self>, Option<Box<Self>>),
-    ForIn(bool, ValueId, Expression, Box<Self>),
+    ForIn(bool, VariableId, Expression, Box<Self>),
     Block(Vec<Self>),
     Append(Expression, Box<Expression>),
     Remove(Expression),

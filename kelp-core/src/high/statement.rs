@@ -136,7 +136,7 @@ impl Statement {
                 let statement = statement.perform_semantic_analysis(ctx);
 
                 let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
-                    ctx.declare_variable_unknown(name);
+                    let _ = ctx.declare_variable_unknown(name);
 
                     return ctx.add_error(
                         expression_span,

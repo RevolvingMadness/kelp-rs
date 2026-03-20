@@ -1,4 +1,4 @@
-use kelp_core::semantic_analysis_context::{
+use kelp_core::high::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
 };
 use kelp_parser::cst::CSTRoot;

@@ -278,7 +278,7 @@ pub enum PlaceTypeKind {
     Score(DataType),
     Data(DataType),
     Tuple(Vec<PlaceType>),
-    Variable(ValueId),
+    Value(ValueId),
     Index(Box<PlaceType>),
     FieldAccess(Box<PlaceType>, String),
     Dereference(Box<PlaceType>),
@@ -302,7 +302,7 @@ impl PlaceTypeKind {
                     .map(|place_type| place_type.kind.get_data_type(environment))
                     .collect::<Option<_>>()?,
             ),
-            Self::Variable(id) => {
+            Self::Value(id) => {
                 let ValueDeclaration::Variable(declaration) = environment.get_value(*id);
 
                 declaration.data_type.as_ref()?.clone()
@@ -323,7 +323,7 @@ impl PlaceTypeKind {
     #[must_use]
     pub fn get_index_result(&self, environment: &Environment) -> Option<DataType> {
         match self {
-            Self::Variable(id) => {
+            Self::Value(id) => {
                 let ValueDeclaration::Variable(declaration) = environment.get_value(*id);
 
                 declaration.data_type.as_ref()?.clone().get_index_result()
@@ -351,7 +351,7 @@ impl PlaceTypeKind {
             Self::Score(data_type) | Self::Data(data_type) => {
                 data_type.get_field_result(environment, field)
             }
-            Self::Variable(id) => {
+            Self::Value(id) => {
                 let ValueDeclaration::Variable(declaration) = environment.get_value(*id);
 
                 declaration
@@ -412,7 +412,7 @@ impl PlaceTypeKind {
                     })
                     .run_all_succeeded()?;
             }
-            Self::Variable(id) => {
+            Self::Value(id) => {
                 let ValueDeclaration::Variable(declaration) = ctx.get_value(id);
 
                 let data_type = declaration.data_type.as_ref()?;
@@ -544,7 +544,7 @@ impl PlaceTypeKind {
                     );
                 }
             }
-            Self::Variable(id) => {
+            Self::Value(id) => {
                 let ValueDeclaration::Variable(declaration) = ctx.get_value(id);
 
                 let data_type = declaration.data_type.as_ref()?;

@@ -6,13 +6,14 @@ use crate::{
     high::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         data::DataTarget,
-        data_type::DataType as HighDataType,
+        data_type::unresolved::UnresolvedDataType,
         nbt_path::NbtPath,
         player_score::PlayerScore,
         snbt_string::SNBTString,
     },
     middle::{
         data_type::DataType,
+        environment::value::ValueDeclaration,
         expression::{Expression as MiddleExpression, ExpressionKind as MiddleExpressionKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -54,14 +55,14 @@ pub enum ExpressionKind {
     Command(Box<Command>),
     Index(Box<Expression>, Box<Expression>),
     FieldAccess(Box<Expression>, SNBTString),
-    AsCast(Box<Expression>, HighDataType),
+    AsCast(Box<Expression>, UnresolvedDataType),
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Variable(String),
     Struct(
         Span,
         String,
-        Vec<HighDataType>,
+        Vec<UnresolvedDataType>,
         BTreeMap<SNBTString, Expression>,
     ),
     Invalid,
@@ -183,7 +184,16 @@ impl Expression {
                 }
             },
             ExpressionKind::Variable(name) => {
-                ctx.get_variable(name)??.as_dereferenced_place_type().ok()?
+                let id = ctx.get_value_id(name)?;
+
+                let ValueDeclaration::Variable(declaration) = ctx.get_value(id);
+
+                declaration
+                    .data_type
+                    .as_ref()?
+                    .clone()
+                    .as_dereferenced_place_type()
+                    .ok()?
             }
         };
 
@@ -202,7 +212,11 @@ impl Expression {
             ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataType::Integer),
             ExpressionKind::Data(_) => PlaceTypeKind::Data(DataType::SNBT),
             ExpressionKind::Unary(operator, expression) => match operator {
-                UnaryOperator::Dereference => return expression.get_dereferenced_place_type(ctx),
+                UnaryOperator::Dereference => {
+                    let place_type = expression.get_place_type(ctx)?;
+
+                    PlaceTypeKind::Dereference(Box::new(place_type))
+                }
                 UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => {
                     return None;
                 }
@@ -243,9 +257,9 @@ impl Expression {
             | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Variable(name) => {
-                let variable_type = ctx.get_variable(name)??;
+                let id = ctx.get_value_id(name)?;
 
-                PlaceTypeKind::Variable(variable_type)
+                PlaceTypeKind::Variable(id)
             }
         };
 
@@ -349,10 +363,11 @@ impl Expression {
                 let (_, left) = left?;
                 let (_, right) = right?;
 
-                let Some(result_type) =
-                    left.data_type
-                        .get_arithmetic_result(ctx, operator, &right.data_type)
-                else {
+                let Some(result_type) = left.data_type.get_arithmetic_result(
+                    &ctx.environment,
+                    operator,
+                    &right.data_type,
+                ) else {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::CannotPerformArithmeticOperation {
@@ -386,10 +401,11 @@ impl Expression {
                 let (_, left) = left?;
                 let (_, right) = right?;
 
-                if let Some(value) =
-                    left.data_type
-                        .can_perform_comparison(ctx, operator, &right.data_type)
-                    && !value
+                if let Some(value) = left.data_type.can_perform_comparison(
+                    &ctx.environment,
+                    operator,
+                    &right.data_type,
+                ) && !value
                 {
                     return ctx.add_error(
                         self.span,
@@ -561,7 +577,9 @@ impl Expression {
 
                 let (field_span, field) = field.perform_semantic_analysis(ctx);
 
-                let Some(field_result) = expression.data_type.get_field_result(ctx, &field.1)
+                let Some(field_result) = expression
+                    .data_type
+                    .get_field_result(&ctx.environment, &field.1)
                 else {
                     return ctx.add_error(
                         field_span,
@@ -576,7 +594,7 @@ impl Expression {
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.perform_semantic_analysis(ctx);
-                let data_type = data_type.perform_semantic_analysis(None, ctx);
+                let data_type = data_type.resolve_fully(ctx);
 
                 let (_, expression) = expression?;
                 let data_type = data_type?;
@@ -600,7 +618,8 @@ impl Expression {
 
                 let data_type = match runtime_storage_type {
                     RuntimeStorageType::Score => {
-                        if let Some(value) = expression.data_type.is_score_compatible(ctx)
+                        if let Some(value) =
+                            expression.data_type.is_score_compatible(&ctx.environment)
                             && !value
                         {
                             return ctx.add_error(
@@ -611,7 +630,7 @@ impl Expression {
                             );
                         }
 
-                        DataType::Score(Box::new(DataType::Integer))
+                        DataType::Score(Box::new(expression.data_type.clone()))
                     }
                     RuntimeStorageType::Data => {
                         DataType::Data(Box::new(expression.data_type.clone()))
@@ -640,37 +659,36 @@ impl Expression {
                     .with(DataType::Tuple(expression_data_types))
             }
             ExpressionKind::Struct(name_span, name, generic_types, field_values) => {
-                let declaration = ctx.get_data_type(&name);
-
-                let declaration = match declaration {
-                    None => {
-                        return ctx.add_error(name_span, SemanticAnalysisError::UnknownType(name));
-                    }
-                    Some(Some(declaration)) => declaration,
-                    Some(None) => return None,
-                };
-
                 let generic_types = generic_types
                     .into_iter()
-                    .map(|generic_type| generic_type.perform_semantic_analysis(None, ctx))
+                    .map(|generic_type| generic_type.resolve_fully(ctx))
                     .collect_option_all::<Vec<_>>()?;
 
-                let defined_fields = declaration.get_struct_fields(ctx, &generic_types);
+                let id = ctx.get_data_type_id_semantic_analysis(name_span, &name)?;
 
-                if !declaration.resolve_is_struct(ctx, generic_types.clone())? {
+                let declaration = ctx.get_type(id);
+
+                let Some(id) = declaration.clone().as_monomorphized_struct_id(
+                    id,
+                    name_span,
+                    generic_types,
+                    ctx,
+                )?
+                else {
                     return ctx.add_error(name_span, SemanticAnalysisError::TypeIsNotStruct(name));
-                }
+                };
 
-                let defined_fields = defined_fields?;
+                let declaration = ctx.get_struct_type(id);
 
-                let mut has_error = false;
+                let declared_field_names =
+                    declaration.field_types.keys().cloned().collect::<Vec<_>>();
 
-                let field_values = field_values
+                let given_field_values = field_values
                     .into_iter()
                     .map(|(key, value)| {
-                        if !defined_fields.contains_key(&key.snbt_string.1) {
-                            has_error = true;
+                        let value = value.perform_semantic_analysis(ctx);
 
+                        if !declared_field_names.contains(&key.snbt_string.1) {
                             ctx.add_info::<()>(SemanticAnalysisInfo {
                                 span: key.span,
                                 kind: SemanticAnalysisInfoKind::Error(
@@ -681,20 +699,25 @@ impl Expression {
                             return None;
                         }
 
-                        let (_, value) = value.perform_semantic_analysis(ctx)?;
+                        let (_, value) = value?;
 
                         Some((key.snbt_string, value))
                     })
                     .collect_option_all::<BTreeMap<_, _>>()?;
 
-                for defined_field in defined_fields.keys() {
-                    if !field_values.keys().any(|field| field.1 == *defined_field) {
+                let mut has_error = false;
+
+                for declared_field_name in declared_field_names {
+                    if given_field_values
+                        .keys()
+                        .all(|given_field_name| given_field_name.1 != declared_field_name)
+                    {
                         has_error = true;
 
                         ctx.add_info::<()>(SemanticAnalysisInfo {
-                            span: self.span,
+                            span: name_span,
                             kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::MissingField(defined_field.clone()),
+                                SemanticAnalysisError::MissingField(declared_field_name.clone()),
                             ),
                         });
                     }
@@ -704,18 +727,19 @@ impl Expression {
                     return None;
                 }
 
-                MiddleExpressionKind::Struct(name.clone(), generic_types.clone(), field_values)
-                    .with(DataType::Struct(name, generic_types))
+                MiddleExpressionKind::Struct(id, given_field_values).with(DataType::Struct(id))
             }
             ExpressionKind::Variable(name) => {
-                let Some(variable_data_type) = ctx.get_variable(&name) else {
+                let Some(id) = ctx.get_value_id(&name) else {
                     return ctx
                         .add_error(self.span, SemanticAnalysisError::UndeclaredVariable(name));
                 };
 
-                let variable_data_type = variable_data_type?;
+                let ValueDeclaration::Variable(declaration) = ctx.get_value(id);
 
-                MiddleExpressionKind::Variable(name).with(variable_data_type)
+                let data_type = declaration.data_type.as_ref()?.clone();
+
+                MiddleExpressionKind::Variable(id).with(data_type)
             }
             ExpressionKind::Boolean(value) => {
                 MiddleExpressionKind::Boolean(value).with(DataType::Boolean)

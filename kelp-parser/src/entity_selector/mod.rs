@@ -151,9 +151,7 @@ fn parse_options(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_variable_entity_selector(
-    node: CSTVariableEntitySelector,
-) -> Option<EntitySelector> {
+pub fn lower_variable_entity_selector(node: CSTVariableEntitySelector) -> Option<EntitySelector> {
     let variable_token = node.entity_selector_variable_token()?;
     let variable = variable_token.text();
 

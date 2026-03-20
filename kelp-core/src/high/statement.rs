@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::compile_context::LoopInfo;
-use crate::high::data_type::DataType;
+use crate::high::data_type::unresolved::UnresolvedDataType;
 use crate::high::item::Item;
 use crate::high::pattern::Pattern;
 use crate::span::Span;
@@ -17,7 +17,7 @@ use minecraft_command_types::range::IntegerRange;
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
     Expression(Expression),
-    Let(Option<DataType>, Pattern, Expression),
+    Let(Option<UnresolvedDataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
     Loop(Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
@@ -107,9 +107,7 @@ impl Statement {
             StatementKind::Let(explicit_type, pattern, value) => {
                 let explicit_type = match explicit_type {
                     Some(explicit_type) => {
-                        let Some(explicit_type) =
-                            explicit_type.perform_semantic_analysis(None, ctx)
-                        else {
+                        let Some(explicit_type) = explicit_type.resolve_fully(ctx) else {
                             pattern.kind.destructure_unknown(ctx);
 
                             return None;
@@ -189,7 +187,7 @@ impl Statement {
                 let statement = statement.perform_semantic_analysis(ctx);
 
                 let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
-                    ctx.declare_variable_unknown(&name);
+                    ctx.declare_variable_unknown(name);
 
                     return ctx.add_error(
                         expression_span,
@@ -197,13 +195,13 @@ impl Statement {
                     );
                 };
 
-                ctx.declare_variable_known(&name, iterable_type);
+                let id = ctx.declare_variable_known(name, iterable_type);
 
                 let statement = statement?;
 
                 // TODO: Reorder semantic analysis
 
-                MiddleStatement::ForIn(is_reversed, name, iterable, Box::new(statement))
+                MiddleStatement::ForIn(is_reversed, id, iterable, Box::new(statement))
             }
             StatementKind::Block(statements) => {
                 ctx.scopes.push(Scope::default());

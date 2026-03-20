@@ -1,4 +1,4 @@
-use kelp_core::high::{data_type::DataType, snbt_string::SNBTString};
+use kelp_core::high::{data_type::unresolved::UnresolvedDataType, snbt_string::SNBTString};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
@@ -78,7 +78,7 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_typed_compound_data_type_field(
     node: CSTTypedCompoundDataTypeField,
-) -> Option<(SNBTString, DataType)> {
+) -> Option<(SNBTString, UnresolvedDataType)> {
     let name_token = node.name()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
@@ -94,22 +94,22 @@ pub fn lower_typed_compound_data_type_field(
 }
 
 #[must_use]
-pub fn lower_data_type(node: CSTDataType) -> Option<DataType> {
+pub fn lower_data_type(node: CSTDataType) -> Option<UnresolvedDataType> {
     match node {
         CSTDataType::ReferenceDataType(node) => lower_reference_data_type(node),
         CSTDataType::TupleDataType(node) => {
             let data_types = node.data_types().filter_map(lower_data_type).collect();
 
-            Some(DataType::Tuple(data_types))
+            Some(UnresolvedDataType::Tuple(data_types))
         }
-        CSTDataType::UnitDataType(_) => Some(DataType::Unit),
+        CSTDataType::UnitDataType(_) => Some(UnresolvedDataType::Unit),
         CSTDataType::TypedCompoundDataType(data_type) => {
             let fields = data_type
                 .fields()
                 .filter_map(lower_typed_compound_data_type_field)
                 .collect();
 
-            Some(DataType::TypedCompound(fields))
+            Some(UnresolvedDataType::TypedCompound(fields))
         }
         CSTDataType::NamedDataType(node) => lower_named_data_type(node),
         CSTDataType::InferredDataType(node) => lower_inferred_data_type(node),

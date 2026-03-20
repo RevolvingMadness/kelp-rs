@@ -1,6 +1,6 @@
 use strum::{Display, EnumString};
 
-use crate::middle::data_type::DataType;
+use crate::{high::data_type::resolved::ResolvedDataType, middle::data_type::DataType};
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
@@ -33,7 +33,7 @@ pub enum BuiltinDataType {
 
 impl BuiltinDataType {
     #[must_use]
-    pub fn to_data_type(&self, mut generic_types: Vec<DataType>) -> Option<DataType> {
+    pub fn to_data_type(self, mut generic_types: Vec<DataType>) -> Option<DataType> {
         if generic_types.len() != self.generic_count() {
             return None;
         }
@@ -57,6 +57,40 @@ impl BuiltinDataType {
                     Self::Compound => DataType::Compound(Box::new(element_type)),
                     Self::Data => DataType::Data(Box::new(element_type)),
                     Self::Score => DataType::Score(Box::new(element_type)),
+                    _ => unreachable!(),
+                }
+            }
+        })
+    }
+
+    #[must_use]
+    pub fn to_resolved_data_type(
+        &self,
+        mut generic_types: Vec<ResolvedDataType>,
+    ) -> Option<ResolvedDataType> {
+        if generic_types.len() != self.generic_count() {
+            return None;
+        }
+
+        Some(match self {
+            Self::Unit => ResolvedDataType::Unit,
+            Self::Boolean => ResolvedDataType::Boolean,
+            Self::Byte => ResolvedDataType::Byte,
+            Self::Short => ResolvedDataType::Short,
+            Self::Integer => ResolvedDataType::Integer,
+            Self::Long => ResolvedDataType::Long,
+            Self::Float => ResolvedDataType::Float,
+            Self::Double => ResolvedDataType::Double,
+            Self::String => ResolvedDataType::String,
+            Self::SNBT => ResolvedDataType::SNBT,
+            Self::List | Self::Compound | Self::Data | Self::Score => {
+                let element_type = generic_types.remove(0);
+
+                match self {
+                    Self::List => ResolvedDataType::List(Box::new(element_type)),
+                    Self::Compound => ResolvedDataType::Compound(Box::new(element_type)),
+                    Self::Data => ResolvedDataType::Data(Box::new(element_type)),
+                    Self::Score => ResolvedDataType::Score(Box::new(element_type)),
                     _ => unreachable!(),
                 }
             }

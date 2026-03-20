@@ -69,7 +69,7 @@ impl PatternKind {
         match self {
             Self::Literal(_) | Self::Wildcard => {}
             Self::Binding(name) => {
-                ctx.declare_variable_unknown(name);
+                ctx.declare_variable_unknown(name.clone());
             }
             Self::Tuple(patterns) => {
                 for pattern in patterns {
@@ -114,23 +114,25 @@ impl Pattern {
         ctx: &mut SemanticAnalysisContext,
         variable_type: DataType,
     ) -> Option<MiddlePattern> {
-        let variable_type = variable_type.distribute();
+        let (wrappers, unwrapped_type) = variable_type.clone().unwrap_all();
 
         Some(match self.kind {
             PatternKind::Literal(expression) => MiddlePattern::Literal(expression),
             PatternKind::Wildcard => MiddlePattern::Wildcard,
             PatternKind::Binding(name) => {
-                ctx.declare_variable_known(&name, variable_type);
+                let id = ctx.declare_variable_known(name, variable_type);
 
-                MiddlePattern::Binding(name)
+                MiddlePattern::Binding(id)
             }
-            PatternKind::Tuple(ref patterns) => match variable_type {
+            PatternKind::Tuple(ref patterns) => match unwrapped_type {
                 DataType::Tuple(data_types) if patterns.len() == data_types.len() => {
                     let patterns = patterns
                         .iter()
                         .cloned()
                         .zip(data_types)
                         .map(|(pattern, data_type)| {
+                            let data_type = data_type.wrap_all(&wrappers);
+
                             pattern.perform_semantic_analysis(ctx, data_type)
                         })
                         .collect_option_all()?;
@@ -151,7 +153,7 @@ impl Pattern {
                     );
                 }
             },
-            PatternKind::Compound(ref compound) => match variable_type {
+            PatternKind::Compound(ref compound) => match unwrapped_type {
                 DataType::TypedCompound(ref data_types) => {
                     let compound = compound
                         .iter()
@@ -176,6 +178,8 @@ impl Pattern {
                                 );
                             };
 
+                            let data_type = data_type.wrap_all(&wrappers);
+
                             let pattern =
                                 pattern.clone().perform_semantic_analysis(ctx, data_type)?;
 
@@ -189,9 +193,10 @@ impl Pattern {
                     let compound = compound
                         .iter()
                         .map(|(key, pattern)| {
-                            let pattern = pattern
-                                .clone()
-                                .perform_semantic_analysis(ctx, *data_type.clone())?;
+                            let data_type = data_type.clone().wrap_all(&wrappers);
+
+                            let pattern =
+                                pattern.clone().perform_semantic_analysis(ctx, data_type)?;
 
                             Some((key.snbt_string.clone(), pattern))
                         })
@@ -211,37 +216,8 @@ impl Pattern {
                     );
                 }
             },
-            PatternKind::Struct(ref name, ref field_patterns) => match variable_type {
-                DataType::Struct(ref struct_name, ref generics) if struct_name == name => {
-                    let declaration = ctx.get_data_type(struct_name)??;
-                    let field_types = declaration.get_struct_fields(ctx, generics)?;
-
-                    let field_patterns = field_patterns
-                        .iter()
-                        .map(|(name, pattern)| {
-                            let Some(field_type) = field_types.get(&name.snbt_string.1) else {
-                                pattern.kind.destructure_unknown(ctx);
-
-                                return ctx.add_error(
-                                    name.span,
-                                    SemanticAnalysisError::UnexpectedField(
-                                        name.snbt_string.1.clone(),
-                                    ),
-                                );
-                            };
-
-                            let field_type = field_type.clone();
-
-                            let pattern =
-                                pattern.clone().perform_semantic_analysis(ctx, field_type)?;
-
-                            Some((name.snbt_string.clone(), pattern))
-                        })
-                        .collect_option_all()?;
-
-                    MiddlePattern::Struct(name.clone(), field_patterns)
-                }
-                _ => {
+            PatternKind::Struct(_, ref field_patterns) => {
+                let DataType::Struct(id) = unwrapped_type else {
                     self.kind.destructure_unknown(ctx);
 
                     return ctx.add_error(
@@ -251,8 +227,33 @@ impl Pattern {
                             actual: self.kind.get_type(),
                         },
                     );
-                }
-            },
+                };
+
+                let declaration = ctx.get_struct_type(id);
+                let field_types = declaration.field_types.clone();
+
+                let field_patterns = field_patterns
+                    .iter()
+                    .map(|(name, pattern)| {
+                        let Some(field_type) = field_types.get(&name.snbt_string.1) else {
+                            pattern.kind.destructure_unknown(ctx);
+
+                            return ctx.add_error(
+                                name.span,
+                                SemanticAnalysisError::UnexpectedField(name.snbt_string.1.clone()),
+                            );
+                        };
+
+                        let field_type = field_type.clone().wrap_all(&wrappers);
+
+                        let pattern = pattern.clone().perform_semantic_analysis(ctx, field_type)?;
+
+                        Some((name.snbt_string.clone(), pattern))
+                    })
+                    .collect_option_all()?;
+
+                MiddlePattern::Struct(id, field_patterns)
+            }
         })
     }
 }

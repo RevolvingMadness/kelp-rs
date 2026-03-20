@@ -17,6 +17,7 @@ use crate::{
     middle::{
         data::DataTarget,
         data_type::DataType,
+        environment::{r#type::r#struct::StructId, value::ValueId},
         expression::command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         nbt_path::NbtPath,
         player_score::PlayerScore,
@@ -59,8 +60,8 @@ pub enum ExpressionKind {
     AsCast(Box<Expression>, DataType),
     ToCast(Option<NotNan<f32>>, Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
-    Variable(String),
-    Struct(String, Vec<DataType>, BTreeMap<SNBTString, Expression>),
+    Variable(ValueId),
+    Struct(StructId, BTreeMap<SNBTString, Expression>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -147,7 +148,7 @@ impl ExpressionKind {
                     .map(|expression| expression.kind.as_place(datapack, ctx))
                     .collect::<Option<_>>()?,
             )),
-            Self::Variable(name) => Some(Place::Variable(name)),
+            Self::Variable(name) => Some(Place::Value(name)),
             Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
@@ -170,30 +171,22 @@ impl ExpressionKind {
             | Self::Command(_)
             | Self::AsCast(_, _)
             | Self::ToCast(_, _, _)
-            | Self::Struct(_, _, _) => None,
+            | Self::Struct(_, _) => None,
         }
     }
 
     pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowExpression {
         match self {
-            Self::Unary(unary_operator, expression) => match unary_operator {
-                UnaryOperator::Negate => {
-                    let expression = expression.kind.resolve(datapack, ctx);
+            Self::Unary(unary_operator, expression) => {
+                let expression = expression.kind.resolve(datapack, ctx);
 
-                    expression.negate(datapack, ctx)
+                match unary_operator {
+                    UnaryOperator::Negate => expression.negate(datapack, ctx),
+                    UnaryOperator::Invert => expression.invert(),
+                    UnaryOperator::Reference => LowExpression::Reference(Box::new(expression)),
+                    UnaryOperator::Dereference => expression.dereference(datapack, ctx).unwrap(),
                 }
-                UnaryOperator::Invert => {
-                    let expression = expression.kind.resolve(datapack, ctx);
-
-                    expression.invert()
-                }
-                UnaryOperator::Reference => expression.kind.resolve(datapack, ctx),
-                UnaryOperator::Dereference => expression
-                    .kind
-                    .resolve(datapack, ctx)
-                    .dereference(datapack, ctx)
-                    .unwrap(),
-            },
+            }
             Self::Arithmetic(left, operator, right) => {
                 let left = left.kind.resolve(datapack, ctx);
                 let right = right.kind.resolve(datapack, ctx);
@@ -319,9 +312,8 @@ impl ExpressionKind {
                     .map(|expression| expression.kind.resolve(datapack, ctx))
                     .collect(),
             ),
-            Self::Struct(name, generics, fields) => LowExpression::Struct(
-                name,
-                generics,
+            Self::Struct(id, fields) => LowExpression::Struct(
+                id,
                 fields
                     .into_iter()
                     .map(|(key, field)| (key.1, field.kind.resolve(datapack, ctx)))
@@ -337,7 +329,7 @@ impl ExpressionKind {
             Self::Double(value) => LowExpression::Double(value),
             Self::String(value) => LowExpression::String(value),
             Self::Unit => LowExpression::Unit,
-            Self::Variable(name) => datapack.get_variable(&name).unwrap().1,
+            Self::Variable(id) => datapack.get_variable_value(id).1.clone(),
         }
     }
 
@@ -386,7 +378,7 @@ impl ExpressionKind {
                     element.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Struct(_, _, field_expressions) => {
+            Self::Struct(_, field_expressions) => {
                 for value in field_expressions.into_values() {
                     value.kind.compile_as_statement(datapack, ctx);
                 }

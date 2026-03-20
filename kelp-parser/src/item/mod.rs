@@ -11,7 +11,7 @@ use crate::{
         struct_declaration::lower_struct_declaration_item_field,
         type_alias_declaration::lower_type_alias_declaration_item,
     },
-    span::span_of_cst_node,
+    span::{span_of_cst_node, text_range_to_span},
 };
 
 pub mod mcfn_declaration;
@@ -27,6 +27,7 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
             let span = span_of_cst_node(&node);
 
             let struct_name_token = node.name()?;
+            let struct_name_span = text_range_to_span(struct_name_token.text_range());
             let struct_name = struct_name_token.text().to_owned();
 
             let generics = node.generic_names().and_then(lower_generic_names);
@@ -37,8 +38,13 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
                 .collect();
 
             Some(
-                ItemKind::StructDeclaration(struct_name, generics.unwrap_or_default(), fields)
-                    .with_span(span),
+                ItemKind::StructDeclaration(
+                    struct_name_span,
+                    struct_name,
+                    generics.unwrap_or_default(),
+                    fields,
+                )
+                .with_span(span),
             )
         }
         CSTItem::TypeAliasDeclarationItem(node) => lower_type_alias_declaration_item(node),

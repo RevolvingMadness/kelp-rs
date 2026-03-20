@@ -1,0 +1,7 @@
+use crate::middle::data_type::DataType;
+
+#[derive(Debug, Clone)]
+pub struct VariableDeclaration {
+    pub name: String,
+    pub data_type: Option<DataType>,
+}

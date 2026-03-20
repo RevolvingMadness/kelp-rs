@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
-use crate::low::expression::Expression as LowExpression;
 use crate::middle::data_type::DataType;
+use crate::middle::environment::value::ValueId;
 use crate::middle::item::Item;
 use crate::middle::pattern::Pattern;
 use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
@@ -29,7 +29,7 @@ pub enum Statement {
     Loop(Box<Self>),
     Match(Expression, BTreeMap<IntegerRange, Box<Self>>),
     If(Expression, Box<Self>, Option<Box<Self>>),
-    ForIn(bool, String, Expression, Box<Self>),
+    ForIn(bool, ValueId, Expression, Box<Self>),
     Block(Vec<Self>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
@@ -191,7 +191,7 @@ impl Statement {
 
                 datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
             }
-            Self::ForIn(is_reversed, variable_name, collection, body) => {
+            Self::ForIn(is_reversed, _, collection, body) => {
                 let collection = collection.kind.resolve(datapack, ctx);
 
                 let collection_data_type = collection.get_data_type().get_iterable_type().unwrap();
@@ -209,15 +209,6 @@ impl Statement {
 
                     let mut for_body_ctx = CompileContext::default();
 
-                    datapack.start_scope();
-                    datapack.declare_variable(
-                        variable_name,
-                        DataType::Data(Box::new(DataType::SNBT)),
-                        LowExpression::Data(Box::new((
-                            unique_data_target_2.clone(),
-                            unique_path_2.clone(),
-                        ))),
-                    );
                     for_body_ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
@@ -233,7 +224,6 @@ impl Statement {
                         )),
                     );
                     body.compile(datapack, &mut for_body_ctx);
-                    datapack.end_scope();
 
                     let current_namespace_name = datapack.current_namespace_name().to_string();
 
@@ -300,17 +290,7 @@ impl Statement {
 
                     let mut for_body_ctx = CompileContext::default();
 
-                    datapack.start_scope();
-                    datapack.declare_variable(
-                        variable_name,
-                        DataType::Data(Box::new(DataType::SNBT)),
-                        LowExpression::Data(Box::new((
-                            unique_data_target.clone(),
-                            unique_path.clone(),
-                        ))),
-                    );
                     body.compile(datapack, &mut for_body_ctx);
-                    datapack.end_scope();
 
                     let current_namespace_name = datapack.current_namespace_name().to_string();
 
@@ -353,13 +333,9 @@ impl Statement {
                 }
             }
             Self::Block(body) => {
-                datapack.start_scope();
-
                 for statement in body {
                     statement.compile(datapack, ctx);
                 }
-
-                datapack.end_scope();
             }
             Self::Match(_, _) => {
                 todo!()

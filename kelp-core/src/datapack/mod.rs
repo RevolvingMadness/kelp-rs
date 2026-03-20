@@ -4,10 +4,12 @@ use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
 use crate::high::data::{DataTarget as HighDataTarget, DataTargetKind};
 use crate::high::nbt_path::{NbtPath, NbtPathNode};
-use crate::high::supports_variable_type_scope::SupportsVariableTypeScope;
 use crate::low::expression::Expression;
 use crate::middle::data_type::DataType;
-use crate::middle::data_type_declaration::TypeDeclaration;
+use crate::middle::environment::Environment;
+use crate::middle::environment::r#type::r#struct::{StructDeclaration, StructId};
+use crate::middle::environment::r#type::{TypeDeclaration, TypeId};
+use crate::middle::environment::value::{ValueDeclaration, ValueId};
 use crate::player_score::GeneratedPlayerScore;
 use crate::span::Span;
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
@@ -27,7 +29,7 @@ use minecraft_command_types::snbt::SNBTString;
 use nonempty::{NonEmpty, nonempty};
 use serde_json::json;
 use std::cell::Cell;
-use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem::take;
 
 pub mod mcfunction;
@@ -45,56 +47,13 @@ pub struct DatapackSettings {
     pub num_match_cases_to_split: usize,
 }
 
-#[derive(Default)]
-pub struct Scope {
-    pub variables: BTreeMap<String, (DataType, Expression)>,
-    pub types: BTreeMap<String, TypeDeclaration>,
-}
-
-impl Scope {
-    #[inline]
-    #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<&(DataType, Expression)> {
-        self.variables.get(name)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut (DataType, Expression)> {
-        self.variables.get_mut(name)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn contains_variable(&self, name: &str) -> bool {
-        self.variables.contains_key(name)
-    }
-
-    #[inline]
-    pub fn declare_variable(&mut self, name: String, data_type: DataType, value: Expression) {
-        self.variables.insert(name, (data_type, value));
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_data_type(&self, name: &str) -> Option<&TypeDeclaration> {
-        self.types.get(name)
-    }
-
-    #[inline]
-    pub fn declare_data_type(&mut self, name: String, alias: TypeDeclaration) {
-        self.types.insert(name, alias);
-    }
-}
-
-pub type Scopes = VecDeque<Scope>;
-
 pub struct Datapack {
     pub name: String,
     pub description: Option<String>,
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
-    pub scopes: Scopes,
+    pub environment: Environment,
+    pub variable_values: HashMap<ValueId, (DataType, Expression)>,
     namespaces: BTreeMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
@@ -102,30 +61,62 @@ pub struct Datapack {
     used_data: Vec<(DataTarget, LowNbtPath)>,
 }
 
-impl SupportsVariableTypeScope for Datapack {
-    fn get_data_type(&self, name: &str) -> Option<Option<TypeDeclaration>> {
-        self.get_data_type(name).map(Some)
-    }
-}
-
 impl Datapack {
     #[must_use]
-    pub fn new(name: String, description: Option<String>) -> Self {
-        let mut scopes = Scopes::new();
-        scopes.push_front(Scope::default());
-
+    pub fn new(environment: Environment, name: String, description: Option<String>) -> Self {
         Self {
             name,
             description,
             requirements: Cell::new(DatapackRequirements::default()),
             settings: DatapackSettings::default(),
-            scopes,
+            environment,
+            variable_values: HashMap::new(),
             namespaces: BTreeMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),
             used_constants: HashSet::new(),
             used_data: Vec::new(),
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_type(&self, id: TypeId) -> &TypeDeclaration {
+        self.environment.get_type(id)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_struct_type(&self, id: StructId) -> &StructDeclaration {
+        self.environment.get_struct(id)
+    }
+
+    #[inline]
+    pub fn declare_variable(&mut self, id: ValueId, data_type: DataType, value: Expression) {
+        self.variable_values.insert(id, (data_type, value));
+    }
+
+    #[inline]
+    pub fn set_variable(&mut self, id: ValueId, value: Expression) {
+        self.variable_values.get_mut(&id).unwrap().1 = value;
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_value(&self, id: ValueId) -> &ValueDeclaration {
+        self.environment.get_value(id)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_variable_value(&self, id: ValueId) -> &(DataType, Expression) {
+        self.variable_values.get(&id).unwrap()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_variable_value_mut(&mut self, id: ValueId) -> &mut (DataType, Expression) {
+        self.variable_values.get_mut(&id).unwrap()
     }
 
     pub fn compile_and_add_to_function(
@@ -136,16 +127,6 @@ impl Datapack {
         let commands = ctx.compile();
 
         self.get_function_mut(paths).add_commands(commands);
-    }
-
-    #[inline]
-    pub fn start_scope(&mut self) {
-        self.scopes.push_front(Scope::default());
-    }
-
-    #[inline]
-    pub fn end_scope(&mut self) {
-        self.scopes.pop_front().unwrap();
     }
 
     #[inline]
@@ -303,99 +284,6 @@ impl Datapack {
                 .into(),
                 None,
             )]),
-        )
-    }
-
-    pub fn get_variable(&self, name: &str) -> Option<(DataType, Expression)> {
-        for scope in &self.scopes {
-            if let Some(value) = scope.get_variable(name) {
-                return Some(value.clone());
-            }
-        }
-
-        None
-    }
-
-    pub fn get_variable_mut(&mut self, name: &str) -> Option<&mut Expression> {
-        for scope in &mut self.scopes {
-            if let Some((_, value)) = scope.get_variable_mut(name) {
-                return Some(value);
-            }
-        }
-
-        None
-    }
-
-    pub fn get_data_type(&self, name: &str) -> Option<TypeDeclaration> {
-        for scope in &self.scopes {
-            if let Some(value) = scope.get_data_type(name) {
-                return Some(value.clone());
-            }
-        }
-
-        None
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn variable_exists_in_current_scope(&self, name: &str) -> bool {
-        self.scopes
-            .front()
-            .expect("No scopes")
-            .contains_variable(name)
-    }
-
-    pub fn declare_variable(&mut self, name: String, data_type: DataType, value: Expression) {
-        self.scopes
-            .front_mut()
-            .expect("No scopes")
-            .declare_variable(name, data_type, value);
-    }
-
-    pub fn declare_data_type(&mut self, name: String, kind: TypeDeclaration) {
-        self.scopes
-            .front_mut()
-            .expect("No scopes")
-            .declare_data_type(name, kind);
-    }
-
-    pub fn assign_variable(&mut self, name: &str, value: Expression) {
-        for scope in self.scopes.iter_mut().rev() {
-            if let Some((_, existing_value)) = scope.get_variable_mut(name) {
-                *existing_value = value;
-                return;
-            }
-        }
-
-        panic!("Variable '{}' has not been declared", name);
-    }
-
-    pub fn new_get_variable_score(&self, name: &str) -> Option<PlayerScore> {
-        if self.variable_exists_in_current_scope(name) {
-            return None;
-        }
-
-        let current_namespace = self.current_namespace();
-
-        Some(PlayerScore::new(
-            current_namespace.get_variable_selector(name, self.scopes.len()),
-            current_namespace.get_scores_objective(),
-        ))
-    }
-
-    pub fn get_variable_data(&self, name: &str) -> (DataTarget, LowNbtPath) {
-        let current_namespace_name = self.current_namespace_name();
-
-        (
-            DataTarget::Storage(ResourceLocation::new_namespace_path(
-                "kelp",
-                format!("__{}_variables__", current_namespace_name),
-            )),
-            LowNbtPath(nonempty![LowNbtPathNode::named_string(format!(
-                "__variable_{}_{}__",
-                name,
-                self.scopes.len(),
-            ))]),
         )
     }
 

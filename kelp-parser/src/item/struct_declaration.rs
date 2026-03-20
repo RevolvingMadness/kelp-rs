@@ -1,4 +1,4 @@
-use kelp_core::high::data_type::DataType;
+use kelp_core::high::data_type::unresolved::UnresolvedDataType;
 
 use crate::{
     cst::CSTStructDeclarationItemField,
@@ -11,7 +11,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_declaration_item_field(
     node: CSTStructDeclarationItemField,
-) -> Option<(String, DataType)> {
+) -> Option<(String, UnresolvedDataType)> {
     let name_token = node.name()?;
     let name = name_token.text().to_owned();
     let data_type = lower_data_type(node.data_type()?)?;

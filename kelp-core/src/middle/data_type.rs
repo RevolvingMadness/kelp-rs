@@ -1,15 +1,15 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::BTreeMap, fmt::Write};
 
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
-    high::supports_variable_type_scope::SupportsVariableTypeScope,
+    middle::environment::{Environment, r#type::r#struct::StructId},
     operator::{ArithmeticOperator, ComparisonOperator},
     place::PlaceTypeKind,
     trait_ext::OptionBoolIterExt,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DataType {
     Boolean,
     Byte,
@@ -22,105 +22,204 @@ pub enum DataType {
     Unit,
     Score(Box<Self>),
     List(Box<Self>),
-    TypedCompound(HashMap<LowSNBTString, Self>),
+    TypedCompound(BTreeMap<LowSNBTString, Self>),
     Compound(Box<Self>),
     Data(Box<Self>),
     Reference(Box<Self>),
-    Generic(String),
     Tuple(Vec<Self>),
     SNBT,
-    Struct(String, Vec<Self>),
+    Struct(StructId),
     Inferred,
     InferredInteger,
     InferredFloat,
 }
 
-impl Display for DataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl DataType {
+    #[must_use]
+    pub fn format_string(&self, environment: &Environment) -> String {
+        let mut output = String::new();
+
+        let _ = self.write_string(&mut output, environment);
+
+        output
+    }
+
+    pub fn write_string(&self, output: &mut String, environment: &Environment) -> std::fmt::Result {
         match self {
-            Self::Boolean => f.write_str("boolean"),
-            Self::Byte => f.write_str("byte"),
-            Self::Short => f.write_str("short"),
-            Self::Integer => f.write_str("integer"),
-            Self::Long => f.write_str("long"),
-            Self::Float => f.write_str("float"),
-            Self::Double => f.write_str("double"),
-            Self::String => f.write_str("string"),
-            Self::Unit => f.write_str("()"),
-            Self::Score(data_type) => write!(f, "score<{}>", data_type),
-            Self::List(data_type) => write!(f, "list<{}>", data_type),
+            Self::Boolean => output.write_str("boolean"),
+            Self::Byte => output.write_str("byte"),
+            Self::Short => output.write_str("short"),
+            Self::Integer => output.write_str("integer"),
+            Self::Long => output.write_str("long"),
+            Self::Float => output.write_str("float"),
+            Self::Double => output.write_str("double"),
+            Self::String => output.write_str("string"),
+            Self::Unit => output.write_str("()"),
+            Self::Score(data_type) => {
+                output.write_str("score<")?;
+                data_type.write_string(output, environment)?;
+                output.write_char('>')?;
+
+                Ok(())
+            }
+            Self::List(data_type) => {
+                output.write_str("list<")?;
+                data_type.write_string(output, environment)?;
+                output.write_char('>')?;
+
+                Ok(())
+            }
             Self::TypedCompound(compound) => {
-                f.write_str("{")?;
+                output.write_char('{')?;
 
                 if !compound.is_empty() {
-                    f.write_str(" ")?;
+                    output.write_char(' ')?;
                 }
 
                 for (i, (key, value_data_type)) in compound.iter().enumerate() {
                     if i != 0 {
-                        f.write_str(", ")?;
+                        output.write_str(", ")?;
                     }
 
-                    write!(f, "{}: {}", key.1, value_data_type)?;
+                    write!(output, "{}: ", key.1)?;
+                    value_data_type.write_string(output, environment)?;
                 }
 
                 if !compound.is_empty() {
-                    f.write_str(" ")?;
+                    output.write_char(' ')?;
                 }
 
-                f.write_str("}")
+                output.write_char('}')?;
+
+                Ok(())
             }
-            Self::Compound(data_type) => write!(f, "compound<{}>", data_type),
-            Self::Data(data_type) => write!(f, "data<{}>", data_type),
-            Self::Reference(data_type) => write!(f, "&{}", data_type),
-            Self::Generic(name) => f.write_str(name),
+            Self::Compound(data_type) => {
+                output.write_str("compound<")?;
+                data_type.write_string(output, environment)?;
+                output.write_char('>')?;
+
+                Ok(())
+            }
+            Self::Data(data_type) => {
+                output.write_str("data<")?;
+                data_type.write_string(output, environment)?;
+                output.write_char('>')?;
+
+                Ok(())
+            }
+            Self::Reference(data_type) => {
+                output.write_char('&')?;
+                data_type.write_string(output, environment)?;
+
+                Ok(())
+            }
             Self::Tuple(data_types) => {
-                f.write_str("(")?;
+                output.write_char('(')?;
 
                 for (i, data_type) in data_types.iter().enumerate() {
                     if i != 0 {
-                        f.write_str(", ")?;
+                        output.write_str(", ")?;
                     }
 
-                    write!(f, "{}", data_type)?;
+                    data_type.write_string(output, environment)?;
                 }
 
-                f.write_str(")")
+                output.write_char(')')?;
+
+                Ok(())
             }
-            Self::SNBT => f.write_str("snbt"),
-            Self::Struct(name, generics) => {
-                f.write_str(name)?;
+            Self::SNBT => output.write_str("snbt"),
+            Self::Struct(id) => {
+                let declaration = environment.get_struct(*id);
 
-                if !generics.is_empty() {
-                    f.write_str("<")?;
+                output.write_str(&declaration.name)?;
 
-                    for (i, data_type) in generics.iter().enumerate() {
+                if !declaration.generic_types.is_empty() {
+                    output.write_str("<")?;
+
+                    for (i, data_type) in declaration.generic_types.iter().enumerate() {
                         if i != 0 {
-                            f.write_str(", ")?;
+                            output.write_str(", ")?;
                         }
 
-                        write!(f, "{}", data_type)?;
+                        data_type.write_string(output, environment)?;
                     }
 
-                    f.write_str(">")?;
+                    output.write_str(">")?;
                 }
 
                 Ok(())
             }
-            Self::Inferred => f.write_str("_"),
-            Self::InferredInteger => f.write_str("{integer}"),
-            Self::InferredFloat => f.write_str("{float}"),
+            Self::Inferred => output.write_char('_'),
+            Self::InferredInteger => output.write_str("{integer}"),
+            Self::InferredFloat => output.write_str("{float}"),
         }
     }
 }
 
 impl DataType {
     #[must_use]
+    #[allow(clippy::type_complexity)]
+    pub fn unwrap(self) -> (Option<fn(Box<Self>) -> Self>, Self) {
+        match self {
+            Self::Score(data_type) => (Some(Self::Score), *data_type),
+            Self::Data(data_type) => (Some(Self::Data), *data_type),
+            Self::Reference(data_type) => (Some(Self::Reference), *data_type),
+
+            Self::SNBT
+            | Self::Boolean
+            | Self::Byte
+            | Self::Short
+            | Self::Integer
+            | Self::Long
+            | Self::Float
+            | Self::Double
+            | Self::String
+            | Self::Unit
+            | Self::List(_)
+            | Self::TypedCompound(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::Struct(_)
+            | Self::Inferred
+            | Self::InferredInteger
+            | Self::InferredFloat => (None, self),
+        }
+    }
+
+    #[allow(clippy::type_complexity)]
+    #[must_use]
+    pub fn unwrap_all(mut self) -> (Vec<fn(Box<Self>) -> Self>, Self) {
+        let mut wrappers = Vec::new();
+
+        loop {
+            let (wrapper, inner) = self.unwrap();
+
+            if let Some(wrapper) = wrapper {
+                wrappers.push(wrapper);
+
+                self = inner;
+            } else {
+                return (wrappers, inner);
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn wrap_all(mut self, wrappers: &[fn(Box<Self>) -> Self]) -> Self {
+        for wrapper in wrappers.iter().rev() {
+            self = wrapper(Box::new(self));
+        }
+
+        self
+    }
+
+    #[must_use]
     pub fn distribute(self) -> Self {
         match self {
-            Self::Data(data_type) => data_type.distribute_data(),
-            Self::Reference(data_type) => data_type.distribute_references(),
-            Self::Score(data_type) => data_type.distribute_score(),
+            Self::Data(_) => self.distribute_data(),
+            Self::Reference(_) => self.distribute_references(),
+            Self::Score(_) => self.distribute_score(),
             _ => self,
         }
     }
@@ -179,12 +278,32 @@ impl DataType {
     }
 
     #[must_use]
-    pub fn is_runtime(&self) -> bool {
+    pub fn is_compiletime(&self, environment: &Environment) -> bool {
         match self {
-            Self::Score(_) | Self::Data(_) => true,
-            Self::Reference(data_type_kind) => data_type_kind.is_runtime(),
-            Self::Generic(_) => unreachable!(),
-            _ => false,
+            Self::Score(_) | Self::Data(_) => false,
+            Self::Reference(data_type) => data_type.is_compiletime(environment),
+            Self::Struct(id) => {
+                let declaration = environment.get_struct(*id);
+
+                declaration.field_types.values().all(|field_type| field_type.is_compiletime(environment))
+            },
+            Self::Boolean
+            | Self::Byte
+            | Self::Short
+            | Self::Integer
+            | Self::Long
+            | Self::Float
+            | Self::Double
+            | Self::String
+            | Self::Unit
+            | Self::List(_)
+            | Self::TypedCompound(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::SNBT
+            | Self::Inferred // TODO
+            | Self::InferredInteger
+            | Self::InferredFloat => true,
         }
     }
 
@@ -211,12 +330,11 @@ impl DataType {
             Self::Data(data_type) | Self::Score(data_type) | Self::Reference(data_type) => {
                 data_type.to_data()
             }
-            Self::Generic(_) => unreachable!(),
             Self::Tuple(data_types) => {
                 Self::Tuple(data_types.into_iter().map(Self::to_data).collect())
             }
             Self::SNBT => Self::SNBT,
-            Self::Struct(name, generic_types) => Self::Struct(name, generic_types),
+            Self::Struct(id) => Self::Struct(id),
             Self::Inferred => Self::Inferred,
         }
     }
@@ -243,46 +361,8 @@ impl DataType {
             Self::Score(data_type) | Self::Reference(data_type) | Self::Data(data_type) => {
                 data_type.to_score()?
             }
-            Self::Generic(_) => unreachable!(),
-            Self::Struct(name, generic_types) => Self::Struct(
-                name,
-                generic_types
-                    .into_iter()
-                    .map(Self::to_score)
-                    .collect::<Option<_>>()?,
-            ),
+            Self::Struct(id) => Self::Struct(id),
             _ => return None,
-        })
-    }
-
-    #[must_use]
-    pub fn substitute(self, substitutions: &HashMap<String, Self>) -> Option<Self> {
-        Some(match self {
-            Self::List(inner) => Self::List(Box::new(inner.substitute(substitutions)?)),
-            Self::Compound(inner) => Self::Compound(Box::new(inner.substitute(substitutions)?)),
-            Self::Data(inner) => Self::Data(Box::new(inner.substitute(substitutions)?)),
-            Self::Reference(inner) => Self::Reference(Box::new(inner.substitute(substitutions)?)),
-            Self::Tuple(inner) => Self::Tuple(
-                inner
-                    .into_iter()
-                    .map(|t| t.substitute(substitutions))
-                    .collect::<Option<_>>()?,
-            ),
-            Self::TypedCompound(inner) => Self::TypedCompound(
-                inner
-                    .into_iter()
-                    .map(|(k, v)| v.substitute(substitutions).map(|v| (k, v)))
-                    .collect::<Option<_>>()?,
-            ),
-            Self::Generic(ref name) => substitutions.get(name)?.clone(),
-            Self::Struct(name, generics) => Self::Struct(
-                name,
-                generics
-                    .into_iter()
-                    .map(|g| g.substitute(substitutions))
-                    .collect::<Option<_>>()?,
-            ),
-            _ => self,
         })
     }
 
@@ -300,10 +380,7 @@ impl DataType {
                 Self::Tuple(data_types) => {
                     Self::Tuple(data_types.into_iter().map(Self::reference).collect())
                 }
-                Self::Struct(name, generic_types) => Self::Struct(
-                    name,
-                    generic_types.into_iter().map(Self::reference).collect(),
-                ),
+                Self::Struct(id) => Self::Struct(id),
                 Self::TypedCompound(compound) => Self::TypedCompound(
                     compound
                         .into_iter()
@@ -336,14 +413,6 @@ impl DataType {
                         .collect(),
                 ),
                 Self::Compound(data_type) => Self::Compound(Box::new(data_type.distribute_data())),
-                Self::Struct(name, generic_types) => Self::Struct(
-                    name,
-                    generic_types
-                        .into_iter()
-                        .map(Self::distribute_data)
-                        .collect(),
-                ),
-                Self::Data(inner) => *inner,
                 inner => Self::Data(Box::new(inner)),
             },
             _ => self,
@@ -368,15 +437,7 @@ impl DataType {
                         .collect(),
                 ),
                 Self::Compound(data_type) => Self::Compound(Box::new(data_type.distribute_score())),
-                Self::Struct(name, generic_types) => Self::Struct(
-                    name,
-                    generic_types
-                        .into_iter()
-                        .map(Self::distribute_score)
-                        .collect(),
-                ),
                 Self::Data(inner) => Self::Data(Box::new(inner.distribute_score())),
-                Self::Score(inner) => *inner,
                 inner => Self::Score(Box::new(inner)),
             },
             _ => self,
@@ -417,13 +478,12 @@ impl DataType {
         })
     }
 
-    #[must_use]
-    pub fn dereference(self) -> Option<Self> {
-        Some(match self {
+    pub fn dereference(self) -> Result<Self, Self> {
+        Ok(match self {
             Self::Reference(data_type) => *data_type,
             Self::Score(_) | Self::Data(_) => self,
 
-            _ => return None,
+            _ => return Err(self),
         })
     }
 
@@ -436,9 +496,7 @@ impl DataType {
     pub fn can_cast_to(&self, data_type: &Self) -> bool {
         match (self, data_type) {
             (Self::Score(self_type), Self::Score(data_type))
-            | (Self::Data(self_type), Self::Data(data_type)) => {
-                **self_type == Self::SNBT || self_type == data_type
-            }
+            | (Self::Data(self_type), Self::Data(data_type)) => self_type.can_cast_to(data_type),
 
             (Self::SNBT, _)
             | (
@@ -466,17 +524,12 @@ impl DataType {
                 data_type.is_condition()
             }
 
-            Self::Generic(_) => unreachable!(),
-
             _ => false,
         }
     }
 
     #[must_use]
-    pub fn is_score_compatible(
-        &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
-    ) -> Option<bool> {
+    pub fn is_score_compatible(&self, environment: &Environment) -> Option<bool> {
         Some(match self {
             Self::Boolean => true,
             t if t.is_numeric() => true,
@@ -484,17 +537,15 @@ impl DataType {
             Self::Data(data_type)
             | Self::Score(data_type)
             | Self::Reference(data_type)
-            | Self::Compound(data_type) => {
-                data_type.is_score_compatible(supports_variable_type_scope)?
-            }
+            | Self::Compound(data_type) => data_type.is_score_compatible(environment)?,
 
-            Self::Struct(name, generics) => {
-                let declaration = supports_variable_type_scope.get_data_type(name)??;
-                let fields =
-                    declaration.get_struct_fields(supports_variable_type_scope, generics)?;
-                fields
+            Self::Struct(id) => {
+                let declaration = environment.get_struct(*id);
+
+                declaration
+                    .field_types
                     .values()
-                    .map(|dt| dt.is_score_compatible(supports_variable_type_scope))
+                    .map(|data_type| data_type.is_score_compatible(environment))
                     .run_all_succeeded_true()?
             }
             _ => false,
@@ -517,8 +568,7 @@ impl DataType {
             | Self::Double
             | Self::String
             | Self::SNBT
-            | Self::Struct(_, _) => true,
-            Self::Generic(_) => unreachable!(),
+            | Self::Struct(_) => true,
             _ => false,
         }
     }
@@ -528,14 +578,12 @@ impl DataType {
         match self {
             Self::Reference(data_type) | Self::Score(data_type) => data_type.has_fields(),
 
-            Self::Struct(_, _)
+            Self::Struct(_)
             | Self::TypedCompound(_)
             | Self::Compound(_)
             | Self::Data(_)
             | Self::Tuple(_)
             | Self::SNBT => true,
-
-            Self::Generic(_) => unreachable!(),
 
             _ => false,
         }
@@ -543,7 +591,7 @@ impl DataType {
 
     fn raw_get_arithmetic_result(
         &self,
-        supports_variable_type_score: &impl SupportsVariableTypeScope,
+        supports_variable_type_score: &Environment,
         _operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
@@ -596,16 +644,16 @@ impl DataType {
     #[must_use]
     pub fn get_arithmetic_result(
         &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
+        environment: &Environment,
         operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
         match (self, other) {
             (Self::Reference(self_), other) | (other, Self::Reference(self_)) => {
-                self_.raw_get_arithmetic_result(supports_variable_type_scope, operator, other)
+                self_.raw_get_arithmetic_result(environment, operator, other)
             }
 
-            _ => self.raw_get_arithmetic_result(supports_variable_type_scope, operator, other),
+            _ => self.raw_get_arithmetic_result(environment, operator, other),
         }
     }
 
@@ -632,7 +680,7 @@ impl DataType {
     #[must_use]
     fn raw_can_perform_comparison(
         &self,
-        supports_variable_type_score: &impl SupportsVariableTypeScope,
+        supports_variable_type_score: &Environment,
         operator: ComparisonOperator,
         other: &Self,
     ) -> Option<bool> {
@@ -662,7 +710,7 @@ impl DataType {
     #[must_use]
     pub fn can_perform_comparison(
         &self,
-        supports_variable_type_score: &impl SupportsVariableTypeScope,
+        supports_variable_type_score: &Environment,
         operator: ComparisonOperator,
         other: &Self,
     ) -> Option<bool> {
@@ -693,35 +741,27 @@ impl DataType {
         })
     }
 
-    pub fn get_field_result(
-        &self,
-        supports_variable_type_scope: &impl SupportsVariableTypeScope,
-        field: &str,
-    ) -> Option<Self> {
+    #[must_use]
+    pub fn get_field_result(&self, environment: &Environment, field: &str) -> Option<Self> {
         Some(match self {
-            Self::Reference(self_) => {
-                self_.get_field_result(supports_variable_type_scope, field)?
-            }
+            Self::Reference(self_) => self_.get_field_result(environment, field)?,
 
-            Self::Struct(name, generics) => {
-                let declaration = supports_variable_type_scope.get_data_type(name)??;
+            Self::Struct(id) => {
+                let declaration = environment.get_struct(*id);
 
-                let fields =
-                    declaration.get_struct_fields(supports_variable_type_scope, generics)?;
-
-                fields.get(field).cloned()?
+                declaration.field_types.get(field).cloned()?
             }
 
             Self::TypedCompound(compound) => {
                 compound.iter().find(|(key, _)| key.1 == *field)?.1.clone()
             }
             Self::Compound(data_type) => *data_type.clone(),
-            Self::Data(data_type) => Self::Data(Box::new(
-                data_type.get_field_result(supports_variable_type_scope, field)?,
-            )),
-            Self::Score(data_type) => Self::Score(Box::new(
-                data_type.get_field_result(supports_variable_type_scope, field)?,
-            )),
+            Self::Data(data_type) => {
+                Self::Data(Box::new(data_type.get_field_result(environment, field)?))
+            }
+            Self::Score(data_type) => {
+                Self::Score(Box::new(data_type.get_field_result(environment, field)?))
+            }
             Self::Tuple(items) => {
                 return field
                     .parse::<i32>()
@@ -748,7 +788,6 @@ impl DataType {
         })
     }
 
-    // TODO maybe create a can_be_negated method?
     #[must_use]
     pub fn get_negation_result(&self) -> Option<Self> {
         Some(match self {

@@ -1,11 +1,25 @@
-use std::collections::BTreeMap;
-
-use thiserror::Error;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Write,
+};
 
 use crate::{
     builtin_data_type::BuiltinDataType,
-    high::{statement::ControlFlowKind, supports_variable_type_scope::SupportsVariableTypeScope},
-    middle::{data_type::DataType, data_type_declaration::TypeDeclaration},
+    high::{
+        environment::{
+            HighEnvironment,
+            r#type::{HighTypeDeclaration, HighTypeId, r#struct::HighStructDeclaration},
+        },
+        statement::ControlFlowKind,
+    },
+    middle::{
+        data_type::DataType,
+        environment::{
+            Environment,
+            r#type::r#struct::{StructDeclaration, StructId},
+            value::{ValueDeclaration, ValueId, variable::VariableDeclaration},
+        },
+    },
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     span::Span,
@@ -33,112 +47,256 @@ const fn format_control_flow_kind(kind: ControlFlowKind) -> &'static str {
     }
 }
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
-    #[error("Cannot perform: `{}` {} `{}`", left, operator, right)]
     CannotPerformArithmeticOperation {
         left: DataType,
         operator: ArithmeticOperator,
         right: DataType,
     },
-    #[error("Cannot perform: `{}` {} `{}`", left, operator, right)]
     CannotPerformComparisonOperation {
         left: DataType,
         operator: ComparisonOperator,
         right: DataType,
     },
-    #[error("Cannot perform augmented assignment on type `{}`", .0)]
     CannotPerformAugmentedAssignment(DataType),
-    #[error("Expected type `{}` but got `{}`", expected, actual)]
     MismatchedPatternTypes {
         expected: DataType,
         actual: PatternType,
     },
-    #[error("The underscore expression can only be used on the left hand side of assignments")]
     UnderscoreExpression,
-    #[error("Cannot iterate over type `{}`", .0)]
     CannotIterateType(DataType),
-    #[error("Expected type `{}` but got `{}`", expected, actual)]
     MismatchedTypes {
         expected: DataType,
         actual: DataType,
     },
-    #[error(
-        "Cannot {}-assign type `{}` to type `{}`",
-        format_arithmetic_operator(*.0),
-        .2,
-        .0
-    )]
     InvalidAugmentedAssignmentType(ArithmeticOperator, DataType, DataType),
-    #[error("Cannot cast type `{}` to `{}`", from, to)]
-    CannotCastType { from: DataType, to: DataType },
-    #[error("Unknown runtime storage type")]
+    CannotCastType {
+        from: DataType,
+        to: DataType,
+    },
     UnknownRuntimeStorageType,
-    #[error("This value is too big to fit in the type `{}`", .0)]
     ValueTooLarge(DataType),
-    #[error("This value is too small to fit in the type `{}`", .0)]
     ValueTooSmall(DataType),
-    #[error("Cannot mutate a compile-time value in a runtime loop")]
     CompiletimeValueMutationInRuntimeLoop,
-    #[error("The type `{}` is not a struct", .0)]
     TypeIsNotStruct(String),
-    #[error("Missing key `{}`", .0)]
     MissingKey(String),
-    #[error("Unexpected key `{}`", .0)]
     UnexpectedKey(String),
-    #[error("Missing field `{}`", .0)]
     MissingField(String),
-    #[error("Unexpected field `{}`", .0)]
     UnexpectedField(String),
-    #[error("The type `{}` has already been declared in this scope", .0)]
     TypeIsAlreadyDefined(String),
-    #[error("This pattern is not irrefutable")]
     PatternIsNotIrrefutable,
-    #[error("Unknown type `{}`", .0)]
     UnknownType(String),
-    #[error("The type `{}` cannot be used in conditions", .0)]
     TypeIsNotCondition(DataType),
-    #[error("The type `{}` is not score compatible", .0)]
     TypeIsNotScoreCompatible(DataType),
-    #[error("The type `{}` cannot be assigned to data storage", .0)]
     CannotBeAssignedToData(DataType),
-    #[error("The type `{}` cannot be indexed", .0)]
     CannotBeIndexed(DataType),
-    #[error("Index out of bounds")]
     IndexOutOfBounds,
-    #[error("The type `{}` cannot be dereferenced", .0)]
     CannotBeDereferenced(DataType),
-    #[error("The type `{}` cannot be referenced", .0)]
     CannotBeReferenced(DataType),
-    #[error("Cannot assign a value to this expression")]
     CannotBeAssignedTo,
-    #[error("The type `{}` does not have any fields", .0)]
     TypeDoesntHaveFields(DataType),
-    #[error("The type `{}` cannot be negated", .0)]
     CannotNegateType(DataType),
-    #[error("The type `{}` cannot be inverted", .0)]
     CannotInvertType(DataType),
-    #[error("The type `{}` does not have a field named `{}`", data_type, field)]
-    TypeDoesntHaveField { data_type: DataType, field: String },
-    #[error(
-        "The type `{}` takes {} generic argument{} but {} {} given",
-        data_type_name,
-        expected,
-        if *.expected == 1 { "" } else { "s" },
-        actual,
-        if *.actual == 1 { "was" } else { "were" }
-    )]
+    TypeDoesntHaveField {
+        data_type: DataType,
+        field: String,
+    },
     InvalidGenerics {
         data_type_name: String,
         expected: usize,
         actual: usize,
     },
-    #[error("The variable `{}` has not been declared in the current scope", .0)]
     UndeclaredVariable(String),
-    #[error("This string conflicts with the compiler-generated command macros")]
     MacroConflict,
-    #[error("Cannot `{}` outside of a loop", format_control_flow_kind(*.0))]
     ControlFlowNotInLoop(ControlFlowKind),
+}
+
+impl SemanticAnalysisError {
+    #[must_use]
+    pub fn format_string(&self, environment: &Environment) -> String {
+        let mut output = String::new();
+        let _ = self.write_string(&mut output, environment);
+        output
+    }
+
+    pub fn write_string(&self, output: &mut String, environment: &Environment) -> std::fmt::Result {
+        match self {
+            Self::CannotPerformArithmeticOperation {
+                left,
+                operator,
+                right,
+            } => {
+                output.write_str("Cannot perform: `")?;
+                left.write_string(output, environment)?;
+                write!(output, "` {} `", operator)?;
+                right.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::CannotPerformComparisonOperation {
+                left,
+                operator,
+                right,
+            } => {
+                output.write_str("Cannot perform: `")?;
+                left.write_string(output, environment)?;
+                write!(output, "` {} `", operator)?;
+                right.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::CannotPerformAugmentedAssignment(data_type) => {
+                output.write_str("Cannot perform augmented assignment on type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::MismatchedPatternTypes { expected, actual } => {
+                output.write_str("Expected type `")?;
+                expected.write_string(output, environment)?;
+                write!(output, "` but got `{}`", actual)
+            }
+            Self::UnderscoreExpression => output.write_str(
+                "The underscore expression can only be used on the left hand side of assignments",
+            ),
+            Self::CannotIterateType(data_type) => {
+                output.write_str("Cannot iterate over type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::MismatchedTypes { expected, actual } => {
+                output.write_str("Expected type `")?;
+                expected.write_string(output, environment)?;
+                output.write_str("` but got `")?;
+                actual.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::InvalidAugmentedAssignmentType(op, target, value) => {
+                write!(
+                    output,
+                    "Cannot {}-assign type `",
+                    format_arithmetic_operator(*op)
+                )?;
+                value.write_string(output, environment)?;
+                output.write_str("` to type `")?;
+                target.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::CannotCastType { from, to } => {
+                output.write_str("Cannot cast type `")?;
+                from.write_string(output, environment)?;
+                output.write_str("` to `")?;
+                to.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::UnknownRuntimeStorageType => output.write_str("Unknown runtime storage type"),
+            Self::ValueTooLarge(data_type) => {
+                output.write_str("This value is too big to fit in the type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::ValueTooSmall(data_type) => {
+                output.write_str("This value is too small to fit in the type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("`")
+            }
+            Self::CompiletimeValueMutationInRuntimeLoop => {
+                output.write_str("Cannot mutate a compile-time value in a runtime loop")
+            }
+            Self::TypeIsNotStruct(name) => write!(output, "The type `{}` is not a struct", name),
+            Self::MissingKey(key) => write!(output, "Missing key `{}`", key),
+            Self::UnexpectedKey(key) => write!(output, "Unexpected key `{}`", key),
+            Self::MissingField(field) => write!(output, "Missing field `{}`", field),
+            Self::UnexpectedField(field) => write!(output, "Unexpected field `{}`", field),
+            Self::TypeIsAlreadyDefined(name) => write!(
+                output,
+                "The type `{}` has already been declared in this scope",
+                name
+            ),
+            Self::PatternIsNotIrrefutable => output.write_str("This pattern is not irrefutable"),
+            Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
+            Self::TypeIsNotCondition(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be used in conditions")
+            }
+            Self::TypeIsNotScoreCompatible(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` is not score compatible")
+            }
+            Self::CannotBeAssignedToData(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be assigned to data storage")
+            }
+            Self::CannotBeIndexed(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be indexed")
+            }
+            Self::IndexOutOfBounds => output.write_str("Index out of bounds"),
+            Self::CannotBeDereferenced(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be dereferenced")
+            }
+            Self::CannotBeReferenced(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be referenced")
+            }
+            Self::CannotBeAssignedTo => {
+                output.write_str("Cannot assign a value to this expression")
+            }
+            Self::TypeDoesntHaveFields(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` does not have any fields")
+            }
+            Self::CannotNegateType(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be negated")
+            }
+            Self::CannotInvertType(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be inverted")
+            }
+            Self::TypeDoesntHaveField { data_type, field } => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                write!(output, "` does not have a field named `{}`", field)
+            }
+            Self::InvalidGenerics {
+                data_type_name,
+                expected,
+                actual,
+            } => {
+                let arg_s = if *expected == 1 { "" } else { "s" };
+                let was_were = if *actual == 1 { "was" } else { "were" };
+                write!(
+                    output,
+                    "The type `{}` takes {} generic argument{} but {} {} given",
+                    data_type_name, expected, arg_s, actual, was_were
+                )
+            }
+            Self::UndeclaredVariable(name) => write!(
+                output,
+                "The variable `{}` has not been declared in the current scope",
+                name
+            ),
+            Self::MacroConflict => {
+                output.write_str("This string conflicts with the compiler-generated command macros")
+            }
+            Self::ControlFlowNotInLoop(kind) => {
+                write!(
+                    output,
+                    "Cannot `{}` outside of a loop",
+                    format_control_flow_kind(*kind)
+                )
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -155,51 +313,30 @@ pub struct SemanticAnalysisInfo {
 
 #[derive(Debug, Default, Clone)]
 pub struct Scope {
-    pub variables: BTreeMap<String, Option<DataType>>,
-    pub data_types: BTreeMap<String, Option<TypeDeclaration>>,
+    pub types: BTreeMap<String, HighTypeId>,
+    pub values: BTreeMap<String, ValueId>,
 }
 
 impl Scope {
-    pub fn declare_variable(&mut self, name: String, value: Option<DataType>) {
-        self.variables.insert(name, value);
+    #[inline]
+    pub fn declare_type(&mut self, name: String, id: HighTypeId) {
+        self.types.insert(name, id);
     }
 
     #[inline]
-    #[must_use]
-    pub fn variable_is_declared(&self, name: &str) -> bool {
-        self.variables.contains_key(name)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<&Option<DataType>> {
-        self.variables.get(name)
-    }
-
-    pub fn declare_data_type(&mut self, name: &str, kind: Option<TypeDeclaration>) {
-        self.data_types.insert(name.to_owned(), kind);
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn data_type_is_declared(&self, name: &str) -> bool {
-        self.data_types.contains_key(name)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_data_type(&self, name: &str) -> Option<&Option<TypeDeclaration>> {
-        self.data_types.get(name)
+    pub fn declare_value(&mut self, name: String, id: ValueId) {
+        self.values.insert(name, id);
     }
 }
-
-pub type Scopes = Vec<Scope>;
 
 #[derive(Debug, Clone)]
 pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
     pub max_infos: usize,
-    pub scopes: Scopes,
+    pub environment: Environment,
+    pub high_environment: HighEnvironment,
+    pub scopes: Vec<Scope>,
+    pub monomorphized_structs: BTreeMap<(HighTypeId, Vec<DataType>), StructId>,
     pub loop_depth: u32,
     pub is_lhs: bool,
 }
@@ -207,90 +344,98 @@ pub struct SemanticAnalysisContext {
 impl SemanticAnalysisContext {
     #[must_use]
     pub fn new(max_infos: usize) -> Self {
-        let mut scopes = Vec::new();
-
-        let mut scope = Scope::default();
-
-        scope.declare_data_type(
-            "boolean",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Boolean)),
-        );
-        scope.declare_data_type(
-            "byte",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Byte)),
-        );
-        scope.declare_data_type(
-            "short",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Short)),
-        );
-        scope.declare_data_type(
-            "integer",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Integer)),
-        );
-        scope.declare_data_type(
-            "long",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Long)),
-        );
-        scope.declare_data_type(
-            "float",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Float)),
-        );
-        scope.declare_data_type(
-            "double",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Double)),
-        );
-        scope.declare_data_type(
-            "string",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::String)),
-        );
-        // scope.declare_data_type(
-        //     "unit",
-        //     Some(DataTypeDeclarationKind::Builtin(BuiltinDataType::Unit)),
-        // );
-        scope.declare_data_type(
-            "score",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Score)),
-        );
-        scope.declare_data_type(
-            "list",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::List)),
-        );
-        scope.declare_data_type(
-            "compound",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Compound)),
-        );
-        scope.declare_data_type(
-            "data",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::Data)),
-        );
-        scope.declare_data_type(
-            "snbt",
-            Some(TypeDeclaration::Builtin(BuiltinDataType::SNBT)),
-        );
-
-        scopes.push(scope);
-
-        Self {
+        let mut self_ = Self {
             infos: Vec::new(),
             max_infos,
-            scopes,
+            environment: Environment::default(),
+            high_environment: HighEnvironment::default(),
+            scopes: vec![Scope::default()],
+            monomorphized_structs: BTreeMap::new(),
             loop_depth: 0,
             is_lhs: false,
-        }
+        };
+
+        self_.declare_builtin_type(BuiltinDataType::Boolean);
+        self_.declare_builtin_type(BuiltinDataType::Byte);
+        self_.declare_builtin_type(BuiltinDataType::Short);
+        self_.declare_builtin_type(BuiltinDataType::Integer);
+        self_.declare_builtin_type(BuiltinDataType::Long);
+        self_.declare_builtin_type(BuiltinDataType::Float);
+        self_.declare_builtin_type(BuiltinDataType::Double);
+        self_.declare_builtin_type(BuiltinDataType::String);
+        // self_.declare_builtin_type(BuiltinDataType::Unit);
+        self_.declare_builtin_type(BuiltinDataType::Score);
+        self_.declare_builtin_type(BuiltinDataType::List);
+        self_.declare_builtin_type(BuiltinDataType::Compound);
+        self_.declare_builtin_type(BuiltinDataType::Data);
+        self_.declare_builtin_type(BuiltinDataType::SNBT);
+
+        self_
+    }
+
+    pub fn get_monomorphized_struct_id(
+        &mut self,
+        id: HighTypeId,
+        declaration: HighStructDeclaration,
+        generic_types: Vec<DataType>,
+        name_span: Span,
+    ) -> Option<StructId> {
+        // TODO optimize?
+        let id = if let Some(&id) = self.monomorphized_structs.get(&(id, generic_types.clone())) {
+            id
+        } else {
+            let expected_generics = declaration.generic_names.len();
+            let actual_generics = generic_types.len();
+
+            if actual_generics != expected_generics {
+                return self.add_invalid_generics(
+                    name_span,
+                    declaration.name,
+                    expected_generics,
+                    actual_generics,
+                );
+            }
+
+            let generic_mapping = declaration
+                .generic_names
+                .into_iter()
+                .zip(generic_types.iter().cloned())
+                .collect::<HashMap<_, _>>();
+
+            let monomorphized_struct_name = declaration.name.clone();
+
+            let monomorphized_field_types = declaration
+                .field_types
+                .into_iter()
+                .map(|(field_name, field_type)| {
+                    let field_type = field_type?.lower(self, &generic_mapping).unwrap();
+
+                    Some((field_name, field_type))
+                })
+                .collect::<Option<_>>()?;
+
+            self.environment.declare_struct(
+                monomorphized_struct_name,
+                generic_types,
+                monomorphized_field_types,
+            )
+        };
+
+        Some(id)
     }
 
     #[inline]
     pub fn add_invalid_generics<T>(
         &mut self,
         span: Span,
-        data_type_name: &str,
+        data_type_name: String,
         expected: usize,
         actual: usize,
     ) -> Option<T> {
         self.add_error(
             span,
             SemanticAnalysisError::InvalidGenerics {
-                data_type_name: data_type_name.to_owned(),
+                data_type_name,
                 expected,
                 actual,
             },
@@ -314,69 +459,107 @@ impl SemanticAnalysisContext {
         })
     }
 
-    pub fn declare_variable(&mut self, name: &str, data_type: Option<DataType>) {
+    pub fn declare_value(&mut self, declaration: ValueDeclaration) -> ValueId {
+        let name = declaration.name().to_owned();
+
+        let id = self.environment.declare_value(declaration);
+
         self.scopes
             .last_mut()
             .expect("No scopes")
-            .declare_variable(name.to_string(), data_type);
+            .declare_value(name, id);
+
+        id
+    }
+
+    pub fn declare_variable(&mut self, name: String, data_type: Option<DataType>) -> ValueId {
+        self.declare_value(ValueDeclaration::Variable(VariableDeclaration {
+            name,
+            data_type,
+        }))
     }
 
     #[inline]
-    pub fn declare_variable_known(&mut self, name: &str, data_type: DataType) {
-        self.declare_variable(name, Some(data_type));
+    pub fn declare_variable_known(&mut self, name: String, data_type: DataType) -> ValueId {
+        self.declare_variable(name, Some(data_type))
     }
 
     #[inline]
-    pub fn declare_variable_unknown(&mut self, name: &str) {
-        self.declare_variable(name, None);
+    pub fn declare_variable_unknown(&mut self, name: String) -> ValueId {
+        self.declare_variable(name, None)
     }
 
-    pub fn declare_data_type(&mut self, name: &str, kind: Option<TypeDeclaration>) {
+    #[must_use]
+    pub fn get_value_id(&self, name: &str) -> Option<ValueId> {
+        self.scopes
+            .iter()
+            .find_map(|scope| scope.values.get(name))
+            .copied()
+    }
+
+    #[must_use]
+    pub fn get_value(&self, id: ValueId) -> &ValueDeclaration {
+        &self.environment.values[id.0]
+    }
+
+    #[must_use]
+    pub fn type_is_declared(&self, name: &str) -> bool {
+        self.scopes
+            .iter()
+            .rev()
+            .any(|scope| scope.types.contains_key(name))
+    }
+
+    pub fn declare_data_type(&mut self, declaration: HighTypeDeclaration) -> HighTypeId {
+        let name = declaration.name().to_owned();
+
+        let id = self.high_environment.declare_type(declaration);
+
         self.scopes
             .last_mut()
             .expect("No scopes")
-            .declare_data_type(name, kind);
+            .declare_type(name, id);
+
+        id
+    }
+
+    #[inline]
+    pub fn declare_builtin_type(&mut self, builtin_data_type: BuiltinDataType) -> HighTypeId {
+        self.declare_data_type(HighTypeDeclaration::Builtin(builtin_data_type))
     }
 
     #[must_use]
-    pub fn variable_is_declared(&self, name: &str) -> bool {
+    pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
         self.scopes
-            .last()
-            .is_some_and(|scope| scope.variable_is_declared(name))
+            .iter()
+            .find_map(|scope| scope.types.get(name))
+            .copied()
     }
 
     #[must_use]
-    pub fn data_type_is_declared(&self, name: &str) -> bool {
-        self.scopes
-            .last()
-            .is_some_and(|scope| scope.data_type_is_declared(name))
+    pub fn get_data_type_id_semantic_analysis(
+        &mut self,
+        name_span: Span,
+        name: &str,
+    ) -> Option<HighTypeId> {
+        let Some(id) = self.get_type_id(name) else {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::UnknownType(name.to_owned()),
+            );
+        };
+
+        Some(id)
     }
 
     #[must_use]
-    pub fn get_variable(&self, name: &str) -> Option<Option<DataType>> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(data_type) = scope.get_variable(name) {
-                return Some(data_type.clone());
-            }
-        }
-
-        None
+    pub fn get_type(&self, id: HighTypeId) -> &HighTypeDeclaration {
+        &self.high_environment.types[id.0]
     }
 
+    #[inline]
     #[must_use]
-    pub fn get_data_type(&self, name: &str) -> Option<Option<TypeDeclaration>> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(data_type) = scope.get_data_type(name) {
-                return Some(data_type.clone());
-            }
-        }
-
-        None
-    }
-}
-
-impl SupportsVariableTypeScope for SemanticAnalysisContext {
-    fn get_data_type(&self, name: &str) -> Option<Option<TypeDeclaration>> {
-        self.get_data_type(name)
+    pub fn get_struct_type(&self, id: StructId) -> &StructDeclaration {
+        self.environment.get_struct(id)
     }
 }

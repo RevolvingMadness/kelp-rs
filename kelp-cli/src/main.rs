@@ -2,6 +2,7 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
+use kelp_core::middle::environment::Environment;
 use kelp_core::middle::item::Item;
 use kelp_core::semantic_analysis_context::{
     Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
@@ -226,14 +227,16 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let semantic_elapsed = start_semantic.elapsed();
     let semantic_analysis_succeeded = semantic_analysis_context.infos.is_empty();
 
-    for info in semantic_analysis_context.infos {
-        match info.kind {
+    for info in &semantic_analysis_context.infos {
+        match &info.kind {
             SemanticAnalysisInfoKind::Error(error) => {
                 let span = (&main_kelp_path, info.span.into_range());
                 Report::build(ReportKind::Error, span.clone())
                     .with_label(
                         Label::new(span)
-                            .with_message(format!("{}", error))
+                            .with_message(
+                                error.format_string(&semantic_analysis_context.environment),
+                            )
                             .with_color(Color::Red),
                     )
                     .finish()
@@ -265,6 +268,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     if semantic_analysis_succeeded && parse_succeeded {
         process_success(
             part_1_elapsed,
+            semantic_analysis_context.environment,
             items,
             &main_kelp_path,
             &main_kelp,
@@ -275,6 +279,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
 fn process_success(
     existing_elapsed: Duration,
+    environment: Environment,
     items: Vec<Item>,
     _file_name: &str,
     _source_text: &str,
@@ -284,7 +289,7 @@ fn process_success(
     let project_name = kelp_toml.project.name;
     let project_description = kelp_toml.project.description;
 
-    let mut datapack = Datapack::new(project_name.clone(), project_description);
+    let mut datapack = Datapack::new(environment, project_name.clone(), project_description);
     datapack.settings.num_match_cases_to_split = 5;
     datapack.push_namespace("main");
     datapack.push_function_to_current_namespace(nonempty!["main".to_string()]);

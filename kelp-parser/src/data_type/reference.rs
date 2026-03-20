@@ -1,4 +1,4 @@
-use kelp_core::high::data_type::DataType;
+use kelp_core::high::data_type::unresolved::UnresolvedDataType;
 
 use crate::{
     cst::CSTReferenceDataType,
@@ -24,8 +24,8 @@ pub fn try_parse_reference_data_type(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_reference_data_type(node: CSTReferenceDataType) -> Option<DataType> {
+pub fn lower_reference_data_type(node: CSTReferenceDataType) -> Option<UnresolvedDataType> {
     let data_type = lower_data_type(node.data_type()?)?;
 
-    Some(DataType::Reference(Box::new(data_type)))
+    Some(UnresolvedDataType::Reference(Box::new(data_type)))
 }

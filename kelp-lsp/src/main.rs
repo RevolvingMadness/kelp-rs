@@ -166,7 +166,9 @@ impl Backend {
                             }),
                             source: Some("kelp-lsp".to_string()),
                             message: match &info.kind {
-                                SemanticAnalysisInfoKind::Error(error) => error.to_string(),
+                                SemanticAnalysisInfoKind::Error(error) => {
+                                    error.format_string(&semantic_analysis_context.environment)
+                                }
                             },
                             ..Default::default()
                         });

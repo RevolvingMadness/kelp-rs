@@ -27,7 +27,7 @@ mcfn namespace:main {
 
     tellraw @a x // 0
 
-    **z = 10
+    ***z = 10
     
     tellraw @a x // 10
 }

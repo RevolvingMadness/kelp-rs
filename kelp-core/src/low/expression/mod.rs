@@ -30,10 +30,11 @@ use crate::{
     data::GeneratedDataTarget,
     datapack::Datapack,
     low::expression::utils::push_scoreboard_players,
-    middle::data_type::DataType,
+    middle::{data_type::DataType, environment::r#type::r#struct::StructId},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
     player_score::GeneratedPlayerScore,
+    trait_ext::CollectOptionAllIterExt,
 };
 
 pub fn compile_shift_operation(
@@ -159,11 +160,11 @@ pub enum Expression {
     Float(NotNan<f32>),
     Double(NotNan<f64>),
     String(SNBTString),
-    Underscore,
     List(Vec<Self>),
     Compound(BTreeMap<SNBTString, Self>),
     Tuple(Vec<Self>),
-    Struct(String, Vec<DataType>, BTreeMap<String, Self>),
+    Reference(Box<Self>),
+    Struct(StructId, BTreeMap<String, Self>),
     Unit,
 
     PlayerScore(GeneratedPlayerScore),
@@ -172,6 +173,7 @@ pub enum Expression {
 }
 
 impl Expression {
+    #[must_use]
     pub fn get_data_type(&self) -> DataType {
         match self {
             Self::Boolean(_) | Self::Condition(_, _) => DataType::Boolean,
@@ -182,13 +184,10 @@ impl Expression {
             Self::Float(_) => DataType::Float,
             Self::Double(_) => DataType::Double,
             Self::String(_) => DataType::String,
-            Self::Underscore => DataType::Inferred,
             Self::List(expressions) => {
                 let element_type = expressions
                     .first()
-                    .map_or(DataType::Inferred, |expression| {
-                        expression.get_data_type()
-                    });
+                    .map_or(DataType::Inferred, Self::get_data_type);
 
                 DataType::List(Box::new(element_type))
             }
@@ -203,9 +202,8 @@ impl Expression {
 
                 DataType::Tuple(expression_types)
             }
-            Self::Struct(name, generic_data_types, _) => {
-                DataType::Struct(name.clone(), generic_data_types.clone())
-            }
+            Self::Reference(_) => todo!(),
+            Self::Struct(name, _) => DataType::Struct(*name),
             Self::Unit => DataType::Unit,
             Self::PlayerScore(_) => DataType::Score(Box::new(DataType::Integer)),
             Self::Data(_) => DataType::Data(Box::new(DataType::Inferred)),
@@ -229,7 +227,7 @@ impl Expression {
                     element.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Struct(_, _, field_expressions) => {
+            Self::Struct(_, field_expressions) => {
                 for value in field_expressions.into_values() {
                     value.compile_as_statement(datapack, ctx);
                 }
@@ -240,7 +238,8 @@ impl Expression {
                     Command::Execute(ExecuteSubcommand::If(inverted, *execute_if_subcommand)),
                 );
             }
-            Self::Boolean(_)
+            Self::Reference(_)
+            | Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
             | Self::Integer(_)
@@ -248,7 +247,6 @@ impl Expression {
             | Self::Float(_)
             | Self::Double(_)
             | Self::String(_)
-            | Self::Underscore
             | Self::Unit
             | Self::PlayerScore(_)
             | Self::Data(_) => {}
@@ -282,11 +280,11 @@ impl Expression {
 
                 Some(Self::Data(Box::new((unique_target, unique_path))))
             }
-            Self::Underscore
-            | Self::List(_)
+            Self::Reference(expression) => expression.dereference(datapack, ctx),
+            Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _, _)
+            | Self::Struct(_, _)
             | Self::Unit
             | Self::Condition(_, _)
             | Self::Boolean(_)
@@ -307,7 +305,6 @@ impl Expression {
             | Self::Condition(_, _)
             | Self::Unit
             | Self::PlayerScore(_)
-            | Self::Underscore
             | Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
@@ -339,7 +336,8 @@ impl Expression {
 
                 Some(expressions.remove(index as usize))
             }
-            Self::Struct(_, _, fields) => fields
+            Self::Reference(_) => todo!(),
+            Self::Struct(_, fields) => fields
                 .into_iter()
                 .find_map(|(key, value)| if key == field { Some(value) } else { None }),
         }
@@ -348,10 +346,8 @@ impl Expression {
     #[must_use]
     pub fn can_into_snbt(&self) -> bool {
         match self {
-            Self::Underscore | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
-                false
-            }
-            Self::Struct(_, _, field_expressions) => {
+            Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => false,
+            Self::Struct(_, field_expressions) => {
                 field_expressions.values().all(Self::can_into_snbt)
             }
             Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
@@ -362,12 +358,12 @@ impl Expression {
 
     pub fn try_into_snbt(self) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::Underscore | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
+            Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
                 return Err(self);
             }
-            Self::Struct(name, generic_data_types, field_expressions) => {
+            Self::Struct(name, field_expressions) => {
                 if !field_expressions.values().all(Self::can_into_snbt) {
-                    return Err(Self::Struct(name, generic_data_types, field_expressions));
+                    return Err(Self::Struct(name, field_expressions));
                 }
 
                 let mut compound = BTreeMap::new();
@@ -432,16 +428,16 @@ impl Expression {
 
                 SNBT::Compound(compound)
             }
+            Self::Reference(_) => todo!(),
         })
     }
 
     pub fn try_into_snbt_scale(self, scale: NotNan<f32>) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::Underscore
-            | Self::PlayerScore(_)
+            Self::PlayerScore(_)
             | Self::Data(_)
             | Self::Condition(_, _)
-            | Self::Struct(_, _, _)
+            | Self::Struct(_, _)
             | Self::Boolean(_)
             | Self::String(_)
             | Self::List(_)
@@ -466,6 +462,7 @@ impl Expression {
             Self::Double(double) => SNBT::Double(
                 NotNan::new(f64::from(double.into_inner() as f32 * scale.into_inner())).unwrap(),
             ),
+            Self::Reference(_) => todo!(),
         })
     }
 
@@ -498,11 +495,10 @@ impl Expression {
                     .map(|(key, value)| (key, value.as_snbt_macros(ctx)))
                     .collect(),
             ),
-            Self::Struct(_, _, _)
-            | Self::PlayerScore(_)
-            | Self::Data(_)
-            | Self::Condition(_, _) => ctx.get_macro_snbt(self),
-            Self::Underscore => unreachable!(),
+            Self::Reference(_) => todo!(),
+            Self::Struct(_, _) | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
+                ctx.get_macro_snbt(self)
+            }
         }
     }
 
@@ -530,7 +526,7 @@ impl Expression {
     #[must_use]
     pub fn to_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         match self {
-            Self::Struct(name, generic_data_types, field_expressions) => {
+            Self::Struct(name, field_expressions) => {
                 let mut new_field_expressions = BTreeMap::new();
 
                 for (key, value) in field_expressions {
@@ -539,7 +535,7 @@ impl Expression {
                     new_field_expressions.insert(key, Self::PlayerScore(value_score));
                 }
 
-                Self::Struct(name, generic_data_types, new_field_expressions)
+                Self::Struct(name, new_field_expressions)
             }
             Self::PlayerScore(player_score) if player_score.is_generated => {
                 Self::PlayerScore(player_score)
@@ -561,7 +557,7 @@ impl Expression {
     ) -> Self {
         #[allow(clippy::single_match_else)]
         match self {
-            Self::Struct(name, generic_data_types, field_expressions) => {
+            Self::Struct(name, field_expressions) => {
                 let mut new_field_expressions = BTreeMap::new();
 
                 for (key, value) in field_expressions {
@@ -570,7 +566,7 @@ impl Expression {
                     new_field_expressions.insert(key, Self::PlayerScore(value_score));
                 }
 
-                Self::Struct(name, generic_data_types, new_field_expressions)
+                Self::Struct(name, new_field_expressions)
             }
             _ => {
                 let unique_score = datapack.get_unique_score();
@@ -675,8 +671,8 @@ impl Expression {
                         );
                     }
                 }
-                Self::Underscore => unreachable!(),
-                Self::Struct(_, _, fields) => {
+                Self::Reference(_) => todo!(),
+                Self::Struct(_, fields) => {
                     for (key, value) in fields {
                         value.assign_to_data(
                             datapack,
@@ -823,8 +819,8 @@ impl Expression {
                         );
                     }
                 }
-                Self::Underscore => unreachable!(),
-                Self::Struct(_, _, fields) => {
+                Self::Reference(_) => todo!(),
+                Self::Struct(_, fields) => {
                     for (key, value) in fields {
                         value.assign_to_data_scale(
                             datapack,
@@ -1332,9 +1328,7 @@ impl Expression {
             (Self::Long(value), DataType::Byte) => Self::Byte(value as i8),
             (Self::Long(value), DataType::Short) => Self::Short(value as i16),
             (Self::Long(value), DataType::Integer) => Self::Integer(value as i32),
-            (Self::Long(value), DataType::Float) => {
-                Self::Float(NotNan::new(value as f32).unwrap())
-            }
+            (Self::Long(value), DataType::Float) => Self::Float(NotNan::new(value as f32).unwrap()),
             (Self::Long(value), DataType::Double) => {
                 Self::Double(NotNan::new(value as f64).unwrap())
             }
@@ -1347,9 +1341,7 @@ impl Expression {
 
             (Self::Double(value), DataType::Byte) => Self::Byte(value.into_inner() as i8),
             (Self::Double(value), DataType::Short) => Self::Short(value.into_inner() as i16),
-            (Self::Double(value), DataType::Integer) => {
-                Self::Integer(value.into_inner() as i32)
-            }
+            (Self::Double(value), DataType::Integer) => Self::Integer(value.into_inner() as i32),
             (Self::Double(value), DataType::Long) => Self::Long(value.into_inner() as i64),
             (Self::Double(value), DataType::Float) => {
                 Self::Float(unsafe { NotNan::new_unchecked(value.into_inner() as f32) })
@@ -1405,6 +1397,7 @@ impl Expression {
                 unique_score.to_execute_condition(inverted)
             }
             Self::Condition(inner_inverted, condition) => (inverted ^ inner_inverted, *condition),
+            Self::Reference(_) => todo!(),
             Self::Byte(_)
             | Self::Short(_)
             | Self::Integer(_)
@@ -1412,11 +1405,10 @@ impl Expression {
             | Self::Float(_)
             | Self::Double(_)
             | Self::String(_)
-            | Self::Underscore
             | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _, _)
+            | Self::Struct(_, _)
             | Self::Unit => return None,
         })
     }
@@ -1552,29 +1544,32 @@ impl Expression {
                 SNBT::List(list)
             }
             Self::Unit => SNBT::string("()"),
-            Self::Struct(name, generics, fields) => {
+            Self::Reference(_) => todo!(),
+            Self::Struct(id, fields) => {
                 if force_display {
+                    let declaration = datapack.get_struct_type(id);
+
                     let mut output = Vec::new();
 
-                    output.push(SNBT::string(if generics.is_empty() {
+                    output.push(SNBT::string(if declaration.generic_types.is_empty() {
                         if fields.is_empty() {
-                            format!("{} {{", name)
+                            format!("{} {{", declaration.name)
                         } else {
-                            format!("{} {{ ", name)
+                            format!("{} {{ ", declaration.name)
                         }
                     } else {
-                        name
+                        declaration.name.clone()
                     }));
 
-                    if !generics.is_empty() {
+                    if !declaration.generic_types.is_empty() {
                         output.push(SNBT::string("<"));
 
-                        for (i, generic) in generics.into_iter().enumerate() {
+                        for (i, generic) in declaration.generic_types.iter().enumerate() {
                             if i != 0 {
                                 output.push(SNBT::string(", "));
                             }
 
-                            output.push(SNBT::string(format!("{}", generic)));
+                            output.push(SNBT::string(generic.format_string(&datapack.environment)));
                         }
 
                         output.push(SNBT::string(if fields.is_empty() { "> {" } else { "> { " }));
@@ -1609,25 +1604,26 @@ impl Expression {
                     SNBT::Compound(output)
                 }
             }
-            Self::Underscore => SNBT::string("_"),
         }
     }
 
     #[must_use]
-    pub fn as_place(self) -> Place {
-        match self {
+    pub fn as_place(self) -> Option<Place> {
+        Some(match self {
             Self::PlayerScore(score) => Place::Score(score),
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
                 Place::Data(target, path)
             }
-            Self::Underscore => Place::Underscore,
-            Self::Tuple(expressions) => {
-                Place::Tuple(expressions.into_iter().map(Self::as_place).collect())
-            }
-            _ => unreachable!("This expression is not a place {:?}", self),
-        }
+            Self::Tuple(expressions) => Place::Tuple(
+                expressions
+                    .into_iter()
+                    .map(Self::as_place)
+                    .collect_option_all()?,
+            ),
+            _ => return None,
+        })
     }
 
     #[must_use]
@@ -1642,11 +1638,11 @@ impl Expression {
             | Self::Float(_)
             | Self::Double(_)
             | Self::String(_)
-            | Self::Underscore
             | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _, _)
+            | Self::Reference(_)
+            | Self::Struct(_, _)
             | Self::Unit
             | Self::Condition(_, _) => false,
         }
@@ -1675,6 +1671,7 @@ impl Expression {
 
                 unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
             }
+            Self::Reference(_) => todo!(),
             Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
@@ -1683,11 +1680,10 @@ impl Expression {
             | Self::Float(_)
             | Self::Double(_)
             | Self::String(_)
-            | Self::Underscore
             | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _, _)
+            | Self::Struct(_, _)
             | Self::Unit
             | Self::Condition(_, _) => unreachable!(),
         }
@@ -1801,7 +1797,8 @@ impl Expression {
                     )),
                 );
             }
-            Self::Struct(_, _, _) | Self::Tuple(_) | Self::Unit | Self::Underscore => {
+            Self::Reference(_) => todo!(),
+            Self::Struct(_, _) | Self::Tuple(_) | Self::Unit => {
                 unreachable!()
             }
         }
@@ -1894,12 +1891,12 @@ impl Expression {
                     )),
                 );
             }
+            Self::Reference(_) => todo!(),
             Self::Condition(_, _)
             | Self::Boolean(_)
-            | Self::Struct(_, _, _)
+            | Self::Struct(_, _)
             | Self::Tuple(_)
             | Self::Unit
-            | Self::Underscore
             | Self::String(_)
             | Self::List(_)
             | Self::Compound(_) => {

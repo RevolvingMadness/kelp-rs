@@ -3,21 +3,28 @@ use std::collections::{BTreeMap, HashMap};
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    high::{data_type::DataType, statement::Statement},
-    middle::{
-        data_type_declaration::{AliasDeclaration, StructDeclaration, TypeDeclaration},
-        item::Item as MiddleItem,
+    high::{
+        data_type::unresolved::UnresolvedDataType,
+        environment::r#type::{
+            HighTypeDeclaration, alias::HighAliasDeclaration, r#struct::HighStructDeclaration,
+        },
+        statement::Statement,
     },
+    middle::item::Item as MiddleItem,
     semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
     span::Span,
-    trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ItemKind {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
-    TypeAliasDeclaration(String, Vec<String>, DataType),
-    StructDeclaration(String, Vec<String>, BTreeMap<String, DataType>),
+    TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
+    StructDeclaration(
+        Span,
+        String,
+        Vec<String>,
+        BTreeMap<String, UnresolvedDataType>,
+    ),
 }
 
 impl ItemKind {
@@ -44,60 +51,44 @@ impl Item {
 
                 MiddleItem::MCFNDeclaration(resource_location, Box::new(statement))
             }
-            ItemKind::TypeAliasDeclaration(name, generic_names, alias) => {
-                if ctx.data_type_is_declared(&name) {
+            ItemKind::TypeAliasDeclaration(name_span, name, generic_names, alias) => {
+                if ctx.type_is_declared(&name) {
                     return ctx
-                        .add_error(self.span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
+                        .add_error(name_span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
                 }
 
-                let Some(alias) = alias.perform_semantic_analysis(Some(&generic_names), ctx) else {
-                    ctx.declare_data_type(&name, None);
+                let alias = alias.resolve_generics(Some(&generic_names), ctx);
 
-                    return None;
-                };
+                ctx.declare_data_type(HighTypeDeclaration::Alias(HighAliasDeclaration {
+                    name,
+                    generic_names,
+                    alias,
+                }));
 
-                ctx.declare_data_type(
-                    &name,
-                    Some(TypeDeclaration::Alias(AliasDeclaration {
-                        name: name.clone(),
-                        generic_names: generic_names.clone(),
-                        alias: alias.clone(),
-                    })),
-                );
-
-                MiddleItem::TypeAliasDeclaration(name, generic_names, alias)
+                MiddleItem::TypeAliasDeclaration
             }
-            ItemKind::StructDeclaration(name, generic_names, field_types) => {
-                if ctx.data_type_is_declared(&name) {
+            ItemKind::StructDeclaration(name_span, name, generic_names, field_types) => {
+                if ctx.type_is_declared(&name) {
                     return ctx
-                        .add_error(self.span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
+                        .add_error(name_span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
                 }
 
-                let Some(field_types) = field_types
+                let field_types = field_types
                     .into_iter()
                     .map(|(field_name, field_type)| {
-                        let field_type =
-                            field_type.perform_semantic_analysis(Some(&generic_names), ctx)?;
+                        let field_type = field_type.resolve_generics(Some(&generic_names), ctx);
 
-                        Some((field_name, field_type))
+                        (field_name, field_type)
                     })
-                    .collect_option_all::<HashMap<_, _>>()
-                else {
-                    ctx.declare_data_type(&name, None);
+                    .collect::<HashMap<_, _>>();
 
-                    return None;
-                };
+                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration {
+                    name,
+                    generic_names,
+                    field_types,
+                }));
 
-                ctx.declare_data_type(
-                    &name,
-                    Some(TypeDeclaration::Struct(StructDeclaration {
-                        name: name.clone(),
-                        generic_names: generic_names.clone(),
-                        field_types: field_types.clone(),
-                    })),
-                );
-
-                MiddleItem::StructDeclaration(name, generic_names, field_types)
+                MiddleItem::StructDeclaration
             }
         })
     }

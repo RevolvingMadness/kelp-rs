@@ -1,22 +1,12 @@
-use std::collections::HashMap;
-
 use minecraft_command_types::resource_location::ResourceLocation;
 
-use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
-    middle::{
-        data_type::DataType,
-        data_type_declaration::{AliasDeclaration, StructDeclaration, TypeDeclaration},
-        statement::Statement,
-    },
-};
+use crate::{compile_context::CompileContext, datapack::Datapack, middle::statement::Statement};
 
 #[derive(Debug, Clone)]
 pub enum Item {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
-    TypeAliasDeclaration(String, Vec<String>, DataType),
-    StructDeclaration(String, Vec<String>, HashMap<String, DataType>),
+    TypeAliasDeclaration,
+    StructDeclaration,
 }
 
 impl Item {
@@ -40,26 +30,7 @@ impl Item {
                     datapack.pop_function_from_current_namespace();
                 });
             }
-            Self::TypeAliasDeclaration(name, generic_names, alias) => {
-                datapack.declare_data_type(
-                    name.clone(),
-                    TypeDeclaration::Alias(AliasDeclaration {
-                        name,
-                        generic_names,
-                        alias,
-                    }),
-                );
-            }
-            Self::StructDeclaration(name, generic_names, field_types) => {
-                datapack.declare_data_type(
-                    name.clone(),
-                    TypeDeclaration::Struct(StructDeclaration {
-                        name,
-                        generic_names,
-                        field_types,
-                    }),
-                );
-            }
+            Self::TypeAliasDeclaration | Self::StructDeclaration => {}
         }
     }
 }

@@ -13,7 +13,9 @@ use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
     datapack::Datapack,
-    high::semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+    high::semantic_analysis_context::{
+        SemanticAnalysisContext, info::error::SemanticAnalysisError,
+    },
     low::expression::Expression,
     middle::{
         data_type::DataType,

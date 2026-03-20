@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use crate::high::data_type::unresolved::UnresolvedDataType;
 use crate::high::item::Item;
 use crate::high::pattern::Pattern;
-use crate::high::semantic_analysis_context::{
-    Scope, SemanticAnalysisContext, SemanticAnalysisError,
-};
+use crate::high::semantic_analysis_context::SemanticAnalysisContext;
+use crate::high::semantic_analysis_context::info::error::SemanticAnalysisError;
+use crate::high::semantic_analysis_context::scope::Scope;
 use crate::middle::statement::ControlFlowKind;
 use crate::span::Span;
 use crate::trait_ext::CollectOptionAllIterExt;

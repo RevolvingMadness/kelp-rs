@@ -9,10 +9,7 @@ use crate::{
         data_type::unresolved::UnresolvedDataType,
         nbt_path::NbtPath,
         player_score::PlayerScore,
-        semantic_analysis_context::{
-            SemanticAnalysisContext, SemanticAnalysisError, SemanticAnalysisInfo,
-            SemanticAnalysisInfoKind,
-        },
+        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
     middle::{
@@ -688,17 +685,13 @@ impl Expression {
                     .into_iter()
                     .map(|(key, value)| {
                         let Some(field_type) = declared_fields.get(&key.snbt_string.1) else {
-                            ctx.add_info::<()>(SemanticAnalysisInfo {
-                                span: key.span,
-                                kind: SemanticAnalysisInfoKind::Error(
-                                    SemanticAnalysisError::TypeDoesntHaveField {
-                                        data_type: DataType::Struct(id),
-                                        field: key.snbt_string.1,
-                                    },
-                                ),
-                            });
-
-                            return None;
+                            return ctx.add_error(
+                                key.span,
+                                SemanticAnalysisError::TypeDoesntHaveField {
+                                    data_type: DataType::Struct(id),
+                                    field: key.snbt_string.1,
+                                },
+                            );
                         };
 
                         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
@@ -726,12 +719,10 @@ impl Expression {
                     {
                         has_error = true;
 
-                        ctx.add_info::<()>(SemanticAnalysisInfo {
-                            span: name_span,
-                            kind: SemanticAnalysisInfoKind::Error(
-                                SemanticAnalysisError::MissingField(declared_field_name.clone()),
-                            ),
-                        });
+                        ctx.add_error::<()>(
+                            name_span,
+                            SemanticAnalysisError::MissingField(declared_field_name.clone()),
+                        );
                     }
                 }
 

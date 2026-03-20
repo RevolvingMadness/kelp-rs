@@ -3,7 +3,7 @@ use std::num::IntErrorKind;
 use kelp_core::{
     high::{
         expression::{Expression, ExpressionKind},
-        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     middle::data_type::DataType,
 };

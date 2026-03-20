@@ -1,5 +1,5 @@
 use kelp_core::high::semantic_analysis_context::{
-    Scope, SemanticAnalysisContext, SemanticAnalysisInfoKind,
+    SemanticAnalysisContext, info::SemanticAnalysisInfoKind,
 };
 use kelp_parser::cst::CSTRoot;
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
@@ -147,7 +147,6 @@ impl Backend {
             let root_syntax = match CSTRoot::cast(root) {
                 Ok(cst_root) => {
                     let mut semantic_analysis_context = SemanticAnalysisContext::new(usize::MAX);
-                    semantic_analysis_context.scopes.push(Scope::default());
 
                     let statements = lower_root(&cst_root, &mut semantic_analysis_context);
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     high::{
-        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
     low::expression::literal::LiteralExpression,

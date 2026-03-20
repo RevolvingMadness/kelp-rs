@@ -4,7 +4,7 @@ use crate::{
     high::{
         data_type::resolved::ResolvedDataType,
         environment::r#type::HighTypeDeclaration,
-        semantic_analysis_context::{SemanticAnalysisContext, SemanticAnalysisError},
+        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
     middle::data_type::DataType as MiddleDataType,

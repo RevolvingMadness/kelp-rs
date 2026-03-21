@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+hashbrown = "0.16.1"
 minecraft-command-types = { workspace = true }
 minecraft-command-types_derive = { workspace = true }
 nonempty = { workspace = true }

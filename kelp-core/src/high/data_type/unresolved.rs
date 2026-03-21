@@ -1,9 +1,8 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use crate::{
     high::{
         data_type::resolved::ResolvedDataType,
-        environment::r#type::HighTypeDeclaration,
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
@@ -52,26 +51,7 @@ impl UnresolvedDataType {
                     );
                 }
 
-                match declaration {
-                    HighTypeDeclaration::Struct(declaration) => {
-                        let id = ctx.get_monomorphized_struct_id(
-                            id,
-                            declaration,
-                            generic_types,
-                            name_span,
-                        )?;
-
-                        MiddleDataType::Struct(id)
-                    }
-                    HighTypeDeclaration::Alias(declaration) => {
-                        let alias = declaration.alias?;
-
-                        alias.lower(ctx, &HashMap::new())?
-                    }
-                    HighTypeDeclaration::Builtin(data_type) => {
-                        data_type.to_data_type(generic_types)?
-                    }
-                }
+                return declaration.resolve_fully(ctx, id, generic_types, name_span);
             }
             Self::Unit => MiddleDataType::Unit,
             Self::Inferred => MiddleDataType::Inferred,

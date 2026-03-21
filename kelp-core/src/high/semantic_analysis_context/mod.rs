@@ -1,11 +1,12 @@
-use std::collections::{BTreeMap, HashMap};
+use hashbrown::{Equivalent, HashMap};
+use std::collections::HashMap as StdHashMap;
 
 use crate::{
     builtin_data_type::BuiltinDataType,
     high::{
         environment::{
             HighEnvironment,
-            r#type::{HighTypeDeclaration, HighTypeId, r#struct::HighStructDeclaration},
+            r#type::{HighTypeDeclaration, HighTypeId},
         },
         semantic_analysis_context::{
             info::{SemanticAnalysisInfo, SemanticAnalysisInfoKind, error::SemanticAnalysisError},
@@ -26,16 +27,34 @@ use crate::{
 pub mod info;
 pub mod scope;
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct MonomorphizedStructKey {
+    pub id: HighTypeId,
+    pub generics: Vec<DataType>,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct MonomorphizedStructKeyRef<'a> {
+    pub id: HighTypeId,
+    pub generics: &'a [DataType],
+}
+
+impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
+    fn equivalent(&self, key: &MonomorphizedStructKey) -> bool {
+        self.id == key.id && self.generics == key.generics.as_slice()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
-    pub max_infos: usize,
     pub environment: Environment,
-    pub high_environment: HighEnvironment,
-    pub scopes: Vec<Scope>,
-    pub monomorphized_structs: BTreeMap<(HighTypeId, Vec<DataType>), StructId>,
     pub loop_depth: u32,
     pub is_lhs: bool,
+    max_infos: usize,
+    scopes: Vec<Scope>,
+    high_environment: HighEnvironment,
+    monomorphized_structs: HashMap<MonomorphizedStructKey, StructId>,
 }
 
 impl SemanticAnalysisContext {
@@ -47,7 +66,7 @@ impl SemanticAnalysisContext {
             environment: Environment::default(),
             high_environment: HighEnvironment::default(),
             scopes: vec![Scope::default()],
-            monomorphized_structs: BTreeMap::new(),
+            monomorphized_structs: HashMap::new(),
             loop_depth: 0,
             is_lhs: false,
         };
@@ -72,56 +91,29 @@ impl SemanticAnalysisContext {
         self_
     }
 
+    #[inline]
+    #[must_use]
     pub fn get_monomorphized_struct_id(
-        &mut self,
+        &self,
         id: HighTypeId,
-        declaration: HighStructDeclaration,
-        generic_types: Vec<DataType>,
-        name_span: Span,
+        generic_types: &[DataType],
     ) -> Option<StructId> {
-        // TODO optimize?
-        let id = if let Some(&id) = self.monomorphized_structs.get(&(id, generic_types.clone())) {
-            id
-        } else {
-            let expected_generics = declaration.generic_names.len();
-            let actual_generics = generic_types.len();
-
-            if actual_generics != expected_generics {
-                return self.add_invalid_generics(
-                    name_span,
-                    declaration.name,
-                    expected_generics,
-                    actual_generics,
-                );
-            }
-
-            let generic_mapping = declaration
-                .generic_names
-                .into_iter()
-                .zip(generic_types.iter().cloned())
-                .collect::<HashMap<_, _>>();
-
-            let monomorphized_struct_name = declaration.name.clone();
-
-            let monomorphized_field_types = declaration
-                .field_types
-                .into_iter()
-                .map(|(field_name, field_type)| {
-                    let field_type = field_type?.lower(self, &generic_mapping).unwrap();
-
-                    Some((field_name, field_type))
-                })
-                .collect::<Option<_>>()?;
-
-            self.declare_struct(
-                id,
-                monomorphized_struct_name,
-                generic_types,
-                monomorphized_field_types,
-            )
+        let key = MonomorphizedStructKeyRef {
+            id,
+            generics: generic_types,
         };
 
-        Some(id)
+        self.monomorphized_structs.get(&key).copied()
+    }
+
+    #[inline]
+    pub fn start_scope(&mut self) {
+        self.scopes.push(Scope::default());
+    }
+
+    #[inline]
+    pub fn end_scope(&mut self) {
+        self.scopes.pop();
     }
 
     #[inline]
@@ -159,19 +151,23 @@ impl SemanticAnalysisContext {
         })
     }
 
-    pub fn declare_struct(
+    pub fn declare_monomorphized_struct(
         &mut self,
         original_id: HighTypeId,
         name: String,
         generic_types: Vec<DataType>,
-        field_types: HashMap<String, DataType>,
+        field_types: StdHashMap<String, DataType>,
     ) -> StructId {
         let id = self
             .environment
             .declare_struct(name, generic_types.clone(), field_types);
 
-        self.monomorphized_structs
-            .insert((original_id, generic_types), id);
+        let key = MonomorphizedStructKey {
+            id: original_id,
+            generics: generic_types,
+        };
+
+        self.monomorphized_structs.insert(key, id);
 
         id
     }

@@ -5,7 +5,6 @@ use crate::high::item::Item;
 use crate::high::pattern::Pattern;
 use crate::high::semantic_analysis_context::SemanticAnalysisContext;
 use crate::high::semantic_analysis_context::info::error::SemanticAnalysisError;
-use crate::high::semantic_analysis_context::scope::Scope;
 use crate::middle::statement::ControlFlowKind;
 use crate::span::Span;
 use crate::trait_ext::CollectOptionAllIterExt;
@@ -142,35 +141,35 @@ impl Statement {
                     );
                 };
 
-                ctx.scopes.push(Scope::default());
+                ctx.start_scope();
 
                 let Some(pattern) = pattern.perform_semantic_analysis(ctx, iterable_type) else {
-                    ctx.scopes.pop();
+                    ctx.end_scope();
 
                     return None;
                 };
 
                 let Some(statement) = statement.perform_semantic_analysis(ctx) else {
-                    ctx.scopes.pop();
+                    ctx.end_scope();
 
                     return None;
                 };
 
-                ctx.scopes.pop();
+                ctx.end_scope();
 
                 // TODO: Reorder semantic analysis
 
                 MiddleStatement::For(is_reversed, pattern, iterable, Box::new(statement))
             }
             StatementKind::Block(statements) => {
-                ctx.scopes.push(Scope::default());
+                ctx.start_scope();
 
                 let statements = statements
                     .into_iter()
                     .map(|statement| statement.perform_semantic_analysis(ctx))
                     .collect_option_all();
 
-                ctx.scopes.pop();
+                ctx.end_scope();
 
                 let statements = statements?;
 

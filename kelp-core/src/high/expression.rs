@@ -360,11 +360,10 @@ impl Expression {
                 let (_, left) = left?;
                 let (_, right) = right?;
 
-                let Some(result_type) = left.data_type.get_arithmetic_result(
-                    &ctx.environment,
-                    operator,
-                    &right.data_type,
-                ) else {
+                let Some(result_type) = left
+                    .data_type
+                    .get_arithmetic_result(operator, &right.data_type)
+                else {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::CannotPerformArithmeticOperation {
@@ -653,9 +652,11 @@ impl Expression {
 
                 let data_type = match runtime_storage_type {
                     RuntimeStorageType::Score => {
-                        if let Some(value) =
-                            expression.data_type.is_score_compatible(&ctx.environment)
-                            && !value
+                        if !expression
+                            .data_type
+                            .unwrap_all_apply_predicate_all(&ctx.environment, |data_type| {
+                                data_type.is_score_compatible()
+                            })
                         {
                             return ctx.add_error(
                                 expression_span,
@@ -703,12 +704,10 @@ impl Expression {
 
                 let declaration = ctx.get_type(id);
 
-                let Some(id) = declaration.clone().as_monomorphized_struct_id(
-                    id,
-                    name_span,
-                    generic_types,
-                    ctx,
-                )?
+                let DataType::Struct(id) =
+                    declaration
+                        .clone()
+                        .resolve_fully(ctx, id, generic_types, name_span)?
                 else {
                     return ctx.add_error(name_span, SemanticAnalysisError::TypeIsNotStruct(name));
                 };

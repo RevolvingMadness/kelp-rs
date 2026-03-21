@@ -3,14 +3,47 @@ use std::collections::HashMap;
 use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
-    high::{
-        environment::r#type::{HighTypeDeclaration, HighTypeId},
-        semantic_analysis_context::SemanticAnalysisContext,
-    },
+    high::{environment::r#type::HighTypeId, semantic_analysis_context::SemanticAnalysisContext},
     middle::data_type::DataType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };
+
+pub struct GenericResolver<'a> {
+    names: &'a [String],
+    types: &'a [DataType],
+}
+
+impl<'a> GenericResolver<'a> {
+    pub fn create_semantic_analysis(
+        ctx: &mut SemanticAnalysisContext,
+        name: &str,
+        name_span: Span,
+        names: &'a [String],
+        types: &'a [DataType],
+    ) -> Option<Self> {
+        let expected_generics = names.len();
+        let actual_generics = types.len();
+
+        if actual_generics != expected_generics {
+            return ctx.add_invalid_generics(
+                name_span,
+                name.to_owned(),
+                expected_generics,
+                actual_generics,
+            );
+        }
+
+        Some(Self { names, types })
+    }
+
+    #[must_use]
+    pub fn resolve(&self, name: &str) -> Option<&DataType> {
+        let index = self.names.iter().position(|n| n == name)?;
+
+        self.types.get(index)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResolvedDataType {
@@ -39,10 +72,10 @@ pub enum ResolvedDataType {
 }
 
 impl ResolvedDataType {
-    pub fn lower(
+    pub fn resolve_fully(
         self,
         ctx: &mut SemanticAnalysisContext,
-        generic_mapping: &HashMap<String, DataType>,
+        resolver: &GenericResolver,
     ) -> Option<DataType> {
         Some(match self {
             Self::Boolean => DataType::Boolean,
@@ -55,12 +88,12 @@ impl ResolvedDataType {
             Self::String => DataType::String,
             Self::Unit => DataType::Unit,
             Self::Score(data_type) => {
-                let data_type = data_type.lower(ctx, generic_mapping)?;
+                let data_type = data_type.resolve_fully(ctx, resolver)?;
 
                 DataType::Score(Box::new(data_type))
             }
             Self::List(data_type) => {
-                let data_type = data_type.lower(ctx, generic_mapping)?;
+                let data_type = data_type.resolve_fully(ctx, resolver)?;
 
                 DataType::List(Box::new(data_type))
             }
@@ -68,7 +101,7 @@ impl ResolvedDataType {
                 let compound = compound
                     .into_iter()
                     .map(|(key, data_type)| {
-                        let data_type = data_type.lower(ctx, generic_mapping)?;
+                        let data_type = data_type.resolve_fully(ctx, resolver)?;
 
                         Some((key, data_type))
                     })
@@ -77,44 +110,41 @@ impl ResolvedDataType {
                 DataType::TypedCompound(compound)
             }
             Self::Compound(data_type) => {
-                let data_type = data_type.lower(ctx, generic_mapping)?;
+                let data_type = data_type.resolve_fully(ctx, resolver)?;
 
                 DataType::Compound(Box::new(data_type))
             }
             Self::Data(data_type) => {
-                let data_type = data_type.lower(ctx, generic_mapping)?;
+                let data_type = data_type.resolve_fully(ctx, resolver)?;
 
                 DataType::Data(Box::new(data_type))
             }
             Self::Reference(data_type) => {
-                let data_type = data_type.lower(ctx, generic_mapping)?;
+                let data_type = data_type.resolve_fully(ctx, resolver)?;
 
                 DataType::Reference(Box::new(data_type))
             }
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .into_iter()
-                    .map(|data_type| data_type.lower(ctx, generic_mapping))
+                    .map(|data_type| data_type.resolve_fully(ctx, resolver))
                     .collect_option_all()?;
 
                 DataType::Tuple(data_types)
             }
             Self::SNBT => DataType::SNBT,
-            Self::Generic(name) => generic_mapping.get(&name)?.clone(),
+            Self::Generic(name) => resolver.resolve(&name)?.clone(),
             Self::Struct(name_span, id, generic_types) => {
                 let generic_types = generic_types
                     .into_iter()
-                    .map(|generic_type| generic_type.lower(ctx, generic_mapping))
+                    .map(|generic_type| generic_type.resolve_fully(ctx, resolver))
                     .collect_option_all()?;
 
-                let HighTypeDeclaration::Struct(declaration) = ctx.get_type(id) else {
-                    return None;
-                };
-
-                let declaration = declaration.clone();
-
-                let id =
-                    ctx.get_monomorphized_struct_id(id, declaration, generic_types, name_span)?;
+                let id = ctx
+                    .get_type(id)
+                    .clone()
+                    .resolve_fully(ctx, id, generic_types, name_span)?
+                    .as_struct_id()?;
 
                 DataType::Struct(id)
             }

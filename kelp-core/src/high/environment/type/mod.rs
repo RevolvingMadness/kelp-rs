@@ -1,11 +1,11 @@
 use crate::{
     builtin_data_type::BuiltinDataType,
     high::{
-        data_type::resolved::ResolvedDataType,
+        data_type::resolved::{GenericResolver, ResolvedDataType},
         environment::r#type::{alias::HighAliasDeclaration, r#struct::HighStructDeclaration},
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::{data_type::DataType, environment::r#type::r#struct::StructId},
+    middle::data_type::DataType,
     span::Span,
 };
 
@@ -41,6 +41,63 @@ impl HighTypeDeclaration {
         }
     }
 
+    pub fn resolve_fully(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        id: HighTypeId,
+        generic_types: Vec<DataType>,
+        name_span: Span,
+    ) -> Option<DataType> {
+        match self {
+            Self::Struct(declaration) => {
+                if let Some(id) = ctx.get_monomorphized_struct_id(id, &generic_types) {
+                    return Some(DataType::Struct(id));
+                }
+
+                let resolver = GenericResolver::create_semantic_analysis(
+                    ctx,
+                    &declaration.name,
+                    name_span,
+                    &declaration.generic_names,
+                    &generic_types,
+                )?;
+
+                let field_types = declaration
+                    .field_types
+                    .into_iter()
+                    .map(|(field_name, field_type)| {
+                        let field_type = field_type?.resolve_fully(ctx, &resolver).unwrap();
+
+                        Some((field_name, field_type))
+                    })
+                    .collect::<Option<_>>()?;
+
+                let id = ctx.declare_monomorphized_struct(
+                    id,
+                    declaration.name,
+                    generic_types,
+                    field_types,
+                );
+
+                Some(DataType::Struct(id))
+            }
+            Self::Alias(declaration) => {
+                let alias = declaration.alias?;
+
+                let resolver = GenericResolver::create_semantic_analysis(
+                    ctx,
+                    &declaration.name,
+                    name_span,
+                    &declaration.generic_names,
+                    &generic_types,
+                )?;
+
+                alias.resolve_fully(ctx, &resolver)
+            }
+            Self::Builtin(data_type) => data_type.to_data_type(generic_types),
+        }
+    }
+
     #[must_use]
     pub fn resolve_generics(
         self,
@@ -68,50 +125,5 @@ impl HighTypeDeclaration {
             Self::Alias(declaration) => declaration.alias,
             Self::Builtin(data_type) => data_type.to_resolved_data_type(generic_types),
         }
-    }
-
-    #[must_use]
-    pub fn as_monomorphized_struct_id(
-        self,
-        id: HighTypeId,
-        name_span: Span,
-        generic_types: Vec<DataType>,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> Option<Option<StructId>> {
-        let expected_generic_count = self.generic_count();
-        let actual_generic_count = generic_types.len();
-
-        if actual_generic_count != expected_generic_count {
-            let name = self.name().to_owned();
-
-            return ctx.add_invalid_generics(
-                name_span,
-                name,
-                expected_generic_count,
-                actual_generic_count,
-            );
-        }
-
-        Some(match self {
-            Self::Struct(declaration) => {
-                ctx.get_monomorphized_struct_id(id, declaration, generic_types, name_span)
-            }
-            Self::Alias(declaration) => {
-                let alias = declaration.alias.as_ref()?.clone();
-
-                let generic_mapping = declaration
-                    .generic_names
-                    .into_iter()
-                    .zip(generic_types.iter().cloned())
-                    .collect();
-
-                let DataType::Struct(id) = alias.lower(ctx, &generic_mapping)? else {
-                    return None;
-                };
-
-                Some(id)
-            }
-            Self::Builtin(_) => None,
-        })
     }
 }

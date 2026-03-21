@@ -104,15 +104,17 @@ where
     where
         F: Fn(&Self::Item) -> Option<bool>,
     {
+        let mut all = true;
+
         for item in self {
             match predicate(&item) {
                 Some(true) => {}
-                Some(false) => return Some(false),
+                Some(false) => all = false,
                 None => return None,
             }
         }
 
-        Some(true)
+        Some(all)
     }
 
     fn filter_any<F>(self, predicate: F) -> Option<bool>

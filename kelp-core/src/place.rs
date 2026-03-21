@@ -432,9 +432,7 @@ impl PlaceTypeKind {
     ) -> Option<()> {
         match self {
             Self::Score(_) => {
-                if let Some(result) = value.data_type.is_score_compatible(&ctx.environment)
-                    && !result
-                {
+                if !value.data_type.is_score_compatible() {
                     return ctx.add_error(
                         value_span,
                         SemanticAnalysisError::TypeIsNotScoreCompatible(value.data_type.clone()),
@@ -501,9 +499,7 @@ impl PlaceTypeKind {
 
                 match place_data_type {
                     DataType::Score(_) => {
-                        if let Some(result) = value.data_type.is_score_compatible(&ctx.environment)
-                            && !result
-                        {
+                        if !value.data_type.is_score_compatible() {
                             return ctx.add_error(
                                 value_span,
                                 SemanticAnalysisError::TypeIsNotScoreCompatible(

@@ -6,7 +6,6 @@ use crate::{
     middle::environment::{Environment, r#type::r#struct::StructId},
     operator::{ArithmeticOperator, ComparisonOperator},
     place::PlaceTypeKind,
-    trait_ext::OptionBoolIterExt,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -35,6 +34,49 @@ pub enum DataType {
 }
 
 impl DataType {
+    #[must_use]
+    pub fn as_struct_id(self) -> Option<StructId> {
+        let Self::Struct(id) = self else {
+            return None;
+        };
+
+        Some(id)
+    }
+
+    pub fn unwrap_all_apply_predicate_all(
+        &self,
+        environment: &Environment,
+        predicate: fn(&Self) -> bool,
+    ) -> bool {
+        match self {
+            Self::TypedCompound(compound) => compound.values().all(predicate),
+            Self::Score(data_type)
+            | Self::List(data_type)
+            | Self::Compound(data_type)
+            | Self::Data(data_type)
+            | Self::Reference(data_type) => predicate(data_type),
+            Self::Tuple(data_types) => data_types.iter().all(predicate),
+            Self::Struct(id) => {
+                let declaration = environment.get_struct(*id);
+
+                declaration.field_types.values().all(predicate)
+            }
+            Self::Boolean
+            | Self::Byte
+            | Self::Short
+            | Self::Integer
+            | Self::Long
+            | Self::Float
+            | Self::Double
+            | Self::String
+            | Self::Unit
+            | Self::SNBT
+            | Self::Inferred
+            | Self::InferredInteger
+            | Self::InferredFloat => predicate(self),
+        }
+    }
+
     #[must_use]
     pub fn reduce(self, other: &Self) -> Option<Self> {
         if self.equals(other) {
@@ -676,27 +718,17 @@ impl DataType {
     }
 
     #[must_use]
-    pub fn is_score_compatible(&self, environment: &Environment) -> Option<bool> {
-        Some(match self {
+    pub fn is_score_compatible(&self) -> bool {
+        match self {
             Self::Boolean => true,
             t if t.is_numeric() => true,
 
-            Self::Data(data_type)
-            | Self::Score(data_type)
-            | Self::Reference(data_type)
-            | Self::Compound(data_type) => data_type.is_score_compatible(environment)?,
-
-            Self::Struct(id) => {
-                let declaration = environment.get_struct(*id);
-
-                declaration
-                    .field_types
-                    .values()
-                    .map(|data_type| data_type.is_score_compatible(environment))
-                    .run_all_succeeded_true()?
+            Self::Data(data_type) | Self::Score(data_type) | Self::Reference(data_type) => {
+                data_type.is_score_compatible()
             }
+
             _ => false,
-        })
+        }
     }
 
     #[must_use]
@@ -717,7 +749,6 @@ impl DataType {
 
     fn raw_get_arithmetic_result(
         &self,
-        supports_variable_type_score: &Environment,
         _operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
@@ -752,14 +783,12 @@ impl DataType {
 
         match (self, other) {
             (Self::Score(inner), other) | (other, Self::Score(inner))
-                if other.is_score_compatible(supports_variable_type_score)?
-                    && inner.is_score_compatible(supports_variable_type_score)? =>
+                if other.is_score_compatible() && inner.is_score_compatible() =>
             {
                 Some(Self::Score(Box::new(Self::Integer)))
             }
             (Self::Data(inner), other) | (other, Self::Data(inner))
-                if other.is_score_compatible(supports_variable_type_score)?
-                    && inner.is_score_compatible(supports_variable_type_score)? =>
+                if other.is_score_compatible() && inner.is_score_compatible() =>
             {
                 Some(Self::Score(Box::new(Self::Integer)))
             }
@@ -770,16 +799,15 @@ impl DataType {
     #[must_use]
     pub fn get_arithmetic_result(
         &self,
-        environment: &Environment,
         operator: ArithmeticOperator,
         other: &Self,
     ) -> Option<Self> {
         match (self, other) {
             (Self::Reference(self_), other) | (other, Self::Reference(self_)) => {
-                self_.raw_get_arithmetic_result(environment, operator, other)
+                self_.raw_get_arithmetic_result(operator, other)
             }
 
-            _ => self.raw_get_arithmetic_result(environment, operator, other),
+            _ => self.raw_get_arithmetic_result(operator, other),
         }
     }
 
@@ -806,7 +834,7 @@ impl DataType {
     #[must_use]
     fn raw_can_perform_comparison(
         &self,
-        supports_variable_type_score: &Environment,
+        environment: &Environment,
         operator: ComparisonOperator,
         other: &Self,
     ) -> Option<bool> {
@@ -816,18 +844,16 @@ impl DataType {
 
         match (self, other) {
             (Self::Score(inner), other_type) | (other_type, Self::Score(inner))
-                if inner.is_score_compatible(supports_variable_type_score)?
-                    && other_type.is_score_compatible(supports_variable_type_score)? =>
+                if inner.is_score_compatible() && other_type.is_score_compatible() =>
             {
-                inner.can_perform_comparison(supports_variable_type_score, operator, other_type)
+                inner.can_perform_comparison(environment, operator, other_type)
             }
             (Self::Data(inner), other) | (other, Self::Data(inner))
                 if (operator == ComparisonOperator::EqualTo
                     || operator == ComparisonOperator::NotEqualTo)
-                    || (inner.is_score_compatible(supports_variable_type_score)?
-                        && other.is_score_compatible(supports_variable_type_score)?) =>
+                    || (inner.is_score_compatible() && other.is_score_compatible()) =>
             {
-                inner.can_perform_comparison(supports_variable_type_score, operator, other)
+                inner.can_perform_comparison(environment, operator, other)
             }
             _ => Some(false),
         }
@@ -836,7 +862,7 @@ impl DataType {
     #[must_use]
     pub fn can_perform_comparison(
         &self,
-        supports_variable_type_score: &Environment,
+        environment: &Environment,
         operator: ComparisonOperator,
         other: &Self,
     ) -> Option<bool> {
@@ -847,10 +873,11 @@ impl DataType {
         }
 
         Some(match (self, other) {
-            (Self::Reference(data_type), other) | (other, Self::Reference(data_type)) => data_type
-                .raw_can_perform_comparison(supports_variable_type_score, operator, other)?,
+            (Self::Reference(data_type), other) | (other, Self::Reference(data_type)) => {
+                data_type.raw_can_perform_comparison(environment, operator, other)?
+            }
 
-            _ => self.raw_can_perform_comparison(supports_variable_type_score, operator, other)?,
+            _ => self.raw_can_perform_comparison(environment, operator, other)?,
         })
     }
 

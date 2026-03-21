@@ -146,7 +146,7 @@ impl Pattern {
             PatternKind::Score(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
-                if !variable_type.is_score_compatible(&ctx.environment)? {
+                if !variable_type.is_score_compatible() {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {

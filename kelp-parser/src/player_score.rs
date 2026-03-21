@@ -12,18 +12,25 @@ use crate::{
 #[must_use]
 pub fn try_parse_player_score(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
+    let state = parser.save_state();
 
     if !parser.try_bump_str("score", SyntaxKind::ScoreKeyword) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::PlayerScore);
+    if !parser.expect_inline_whitespace() {
+        parser.restore_state(state);
 
-    parser.expect_inline_whitespace();
+        return false;
+    }
 
     if !try_parse_entity_selector(parser) {
-        parser.error("Expected entity selector");
+        parser.restore_state(state);
+
+        return false;
     }
+
+    parser.start_node_at(checkpoint, SyntaxKind::PlayerScore);
 
     parser.expect_inline_whitespace();
 

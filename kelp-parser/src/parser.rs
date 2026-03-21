@@ -478,6 +478,17 @@ impl Parser<'_> {
         self.bump_until_newline();
     }
 
+    pub fn bump_until_whitespace(&mut self) {
+        let bytes = &self.source.as_bytes()[self.pos..];
+
+        let length = bytes
+            .iter()
+            .position(u8::is_ascii_whitespace)
+            .unwrap_or(bytes.len());
+
+        self.add_token(SyntaxKind::Garbage, length);
+    }
+
     pub fn try_parse_string_or_identifier(&mut self) -> bool {
         if self.peek_char() == Some('"') {
             let text = self.peek_quoted_string().unwrap();
@@ -547,6 +558,34 @@ impl Parser<'_> {
             self.error(message);
             false
         }
+    }
+
+    pub fn try_bump_str(&mut self, expected_text: &str, kind: SyntaxKind) -> bool {
+        let end = self.pos + expected_text.len();
+
+        if end >= self.source.len() {
+            return false;
+        }
+
+        let text = &self.source[self.pos..end];
+
+        if text != expected_text {
+            return false;
+        }
+
+        self.bump_str(kind, expected_text);
+
+        true
+    }
+
+    pub fn expect_str(&mut self, expected_text: &str, kind: SyntaxKind, message: &str) -> bool {
+        if !self.try_bump_str(expected_text, kind) {
+            self.error(message);
+
+            return false;
+        }
+
+        true
     }
 
     #[inline]
@@ -675,8 +714,9 @@ impl Parser<'_> {
         self.events.len()
     }
 
-    pub fn bump_str(&mut self, kind: SyntaxKind, keyword: &str) {
-        self.add_token(kind, keyword.len());
+    #[inline]
+    pub fn bump_str(&mut self, kind: SyntaxKind, expected_text: &str) {
+        self.add_token(kind, expected_text.len());
     }
 
     #[must_use]

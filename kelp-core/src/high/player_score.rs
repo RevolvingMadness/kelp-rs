@@ -1,3 +1,5 @@
+use std::fmt::{Display, Write};
+
 use crate::{
     high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
     middle::player_score::PlayerScore as MiddlePlayerScore,
@@ -8,6 +10,20 @@ pub struct PlayerScore {
     pub is_generated: bool,
     pub selector: EntitySelector,
     pub objective: String,
+}
+
+impl Display for PlayerScore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("score ")?;
+
+        self.selector.fmt(f)?;
+
+        f.write_char(' ')?;
+
+        f.write_str(&self.objective)?;
+
+        Ok(())
+    }
 }
 
 impl PlayerScore {

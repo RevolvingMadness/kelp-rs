@@ -1,10 +1,10 @@
 use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
+    pattern::{Pattern, PatternKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
 use crate::{
-    cst::CSTScoreExpression,
+    cst::CSTScorePattern,
     parser::Parser,
     player_score::{lower_player_score, try_parse_player_score},
     span::span_of_cst_node,
@@ -12,14 +12,14 @@ use crate::{
 };
 
 #[must_use]
-pub fn try_parse_score_expression(parser: &mut Parser) -> bool {
+pub fn try_parse_score_pattern(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
 
     if !try_parse_player_score(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::ScoreExpression);
+    parser.start_node_at(checkpoint, SyntaxKind::ScorePattern);
 
     parser.finish_node();
 
@@ -28,13 +28,13 @@ pub fn try_parse_score_expression(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_score_expression(
-    node: CSTScoreExpression,
+pub fn lower_score_pattern(
+    node: CSTScorePattern,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Expression> {
+) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
 
     let player_score = lower_player_score(node.player_score()?, ctx)?;
 
-    Some(ExpressionKind::PlayerScore(player_score).with_span(span))
+    Some(PatternKind::Score(player_score).with_span(span))
 }

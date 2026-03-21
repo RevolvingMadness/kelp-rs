@@ -144,8 +144,7 @@ BinaryExpression =
 DataExpression =
   DataTarget NBTPath?
 
-ScoreExpression =
-  'score' EntitySelector 'ident'
+ScoreExpression = PlayerScore
 
 BooleanExpression =
   'true' | 'false'
@@ -241,6 +240,8 @@ Pattern =
   WildcardPattern
 | TuplePattern
 | BindingPattern
+| ScorePattern
+| DataPattern
 | StructPattern
 | CompoundPattern
 
@@ -252,6 +253,10 @@ TuplePattern =
 
 BindingPattern =
   'binding_pattern_name'
+
+ScorePattern = PlayerScore
+
+DataPattern = Data
 
 StructPattern =
   name:'struct_name'
@@ -373,3 +378,11 @@ LocalCoordinates =
 
 LocalCoordinate =
   ('~' | '^')? 'fractional_value'
+
+// ----- Player Score -----
+
+PlayerScore = 'score' EntitySelector 'ident'
+
+// ----- Data -----
+
+Data = DataTarget NBTPath

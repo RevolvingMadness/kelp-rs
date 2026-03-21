@@ -1,6 +1,8 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use crate::high::snbt_string::SNBTString;
+use crate::high::{
+    data::DataTarget, nbt_path::NbtPath, player_score::PlayerScore, snbt_string::SNBTString,
+};
 
 #[derive(Debug, Clone)]
 pub enum PatternType {
@@ -12,6 +14,8 @@ pub enum PatternType {
     Float,
     Double,
     String,
+    Score(PlayerScore),
+    Data(DataTarget, NbtPath),
     Tuple(Vec<Self>),
     Struct(String, BTreeMap<SNBTString, Self>),
     Reference(Box<Self>),
@@ -30,6 +34,14 @@ impl Display for PatternType {
             Self::Float => f.write_str("float"),
             Self::Double => f.write_str("double"),
             Self::String => f.write_str("string"),
+            Self::Score(score) => score.fmt(f),
+            Self::Data(target, _) => {
+                target.fmt(f)?;
+
+                f.write_str(" ...")?;
+
+                Ok(())
+            }
             Self::Tuple(pattern_types) => {
                 f.write_str("(")?;
 

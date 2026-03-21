@@ -223,7 +223,7 @@ impl Statement {
 
                     pattern.destructure(
                         datapack,
-                        ctx,
+                        &mut for_body_ctx,
                         iterable_data_type,
                         LowExpression::Data(Box::new((
                             unique_data_target_2.clone(),
@@ -314,7 +314,7 @@ impl Statement {
 
                     pattern.destructure(
                         datapack,
-                        ctx,
+                        &mut for_body_ctx,
                         iterable_data_type,
                         LowExpression::Data(Box::new((
                             unique_data_target.clone(),

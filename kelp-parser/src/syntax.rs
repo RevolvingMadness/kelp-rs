@@ -64,6 +64,9 @@ pub enum SyntaxKind {
     RightArrowEqual,           // >=
     LeftArrowEqual,            // <=
 
+    PlayerScore,
+    Data,
+
     CharacterLiteral,
     StringLiteral,
 
@@ -94,6 +97,8 @@ pub enum SyntaxKind {
     TuplePattern,
     BindingPattern,
     BindingPatternName,
+    ScorePattern,
+    DataPattern,
     StructPattern,
     StructPatternField,
     CompoundPattern,

@@ -7,6 +7,7 @@ pub mod expression;
 pub mod item;
 pub mod parser;
 pub mod pattern;
+pub mod player_score;
 pub mod resource_location;
 pub mod root;
 pub mod semantic_token;

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use minecraft_command_types::{coordinate::Coordinates, resource_location::ResourceLocation};
 
 use crate::{
@@ -38,6 +40,16 @@ pub struct DataTarget {
     pub is_generated: bool,
     pub span: Span,
     pub kind: DataTargetKind,
+}
+
+impl Display for DataTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            DataTargetKind::Block(coordinates) => coordinates.fmt(f),
+            DataTargetKind::Entity(selector) => selector.fmt(f),
+            DataTargetKind::Storage(resource_location) => resource_location.fmt(f),
+        }
+    }
 }
 
 impl DataTarget {

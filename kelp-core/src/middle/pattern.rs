@@ -10,16 +10,19 @@ use crate::{
     datapack::Datapack,
     low::expression::{Expression, literal::LiteralExpression},
     middle::{
+        data::DataTarget,
         data_type::DataType,
         environment::{
             r#type::r#struct::StructId,
             value::{ValueId, variable::VariableId},
         },
+        nbt_path::NbtPath,
+        player_score::PlayerScore,
     },
 };
 
 fn destructure_tuple(
-    patterns: &[Pattern],
+    patterns: Vec<Pattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: DataType,
@@ -28,7 +31,7 @@ fn destructure_tuple(
     match (data_type, value) {
         (DataType::Tuple(data_types), Expression::Tuple(expressions)) => {
             for ((pattern, expression), data_type) in
-                patterns.iter().zip(expressions).zip(data_types)
+                patterns.into_iter().zip(expressions).zip(data_types)
             {
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
@@ -36,7 +39,7 @@ fn destructure_tuple(
         (DataType::Tuple(data_types), Expression::Data(target_path)) => {
             let (target, path) = *target_path;
 
-            for (i, (pattern, data_type)) in patterns.iter().zip(data_types).enumerate() {
+            for (i, (pattern, data_type)) in patterns.into_iter().zip(data_types).enumerate() {
                 let expression = Expression::Data(Box::new((
                     target.clone(),
                     path.clone()
@@ -54,7 +57,7 @@ fn destructure_tuple(
 }
 
 fn destructure_compound(
-    patterns: &HashMap<SNBTString, Pattern>,
+    patterns: HashMap<SNBTString, Pattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: DataType,
@@ -62,15 +65,15 @@ fn destructure_compound(
 ) {
     match (data_type, value) {
         (DataType::TypedCompound(data_types), Expression::Compound(expressions)) => {
-            for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
+            for ((key, pattern), (_, expression)) in patterns.into_iter().zip(expressions) {
                 let expression = expression.clone();
-                let data_type = data_types.get(key).unwrap().clone();
+                let data_type = data_types.get(&key).unwrap().clone();
 
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
         }
         (DataType::Compound(data_type), Expression::Compound(expressions)) => {
-            for ((_, pattern), (_, expression)) in patterns.iter().zip(expressions) {
+            for ((_, pattern), (_, expression)) in patterns.into_iter().zip(expressions) {
                 let expression = expression.clone();
                 let data_type = *data_type.clone();
 
@@ -89,7 +92,7 @@ fn destructure_compound(
                     path.clone()
                         .with_node(NbtPathNode::Named(key.clone(), None)),
                 )));
-                let data_type = data_types.get(key).unwrap().clone();
+                let data_type = data_types.get(&key).unwrap().clone();
 
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
@@ -99,7 +102,7 @@ fn destructure_compound(
 }
 
 fn destructure_struct(
-    field_patterns: &HashMap<SNBTString, Pattern>,
+    field_patterns: HashMap<SNBTString, Pattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: StructId,
@@ -173,12 +176,15 @@ fn destructure_struct(
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Pattern {
     Literal(LiteralExpression),
 
     Wildcard,
     Binding(VariableId),
+
+    Score(PlayerScore),
+    Data(DataTarget, NbtPath),
 
     Tuple(Vec<Self>),
     Struct(StructId, HashMap<SNBTString, Self>),
@@ -188,7 +194,7 @@ pub enum Pattern {
 
 impl Pattern {
     pub fn destructure(
-        &self,
+        self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         data_type: DataType,
@@ -199,6 +205,17 @@ impl Pattern {
             Self::Binding(id) => {
                 datapack.declare_value(ValueId(id.0), data_type, value);
             }
+            Self::Score(score) => {
+                let score = score.compile(datapack, ctx);
+
+                value.assign_to_score(datapack, ctx, score);
+            }
+            Self::Data(target, path) => {
+                let target = target.compile(datapack, ctx);
+                let path = path.compile(datapack, ctx);
+
+                value.assign_to_data(datapack, ctx, target, path);
+            }
             Self::Tuple(patterns) => {
                 destructure_tuple(patterns, datapack, ctx, data_type, value);
             }
@@ -206,7 +223,7 @@ impl Pattern {
                 destructure_compound(patterns, datapack, ctx, data_type, value);
             }
             Self::Struct(id, field_patterns) => {
-                destructure_struct(field_patterns, datapack, ctx, *id, data_type, value);
+                destructure_struct(field_patterns, datapack, ctx, id, data_type, value);
             }
         }
     }

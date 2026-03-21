@@ -123,6 +123,8 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::FunctionKeyword
                     | SyntaxKind::IfKeyword
                     | SyntaxKind::WhileKeyword
+                    | SyntaxKind::ForKeyword
+                    | SyntaxKind::InKeyword
                     | SyntaxKind::LoopKeyword
                     | SyntaxKind::TypeKeyword
                     | SyntaxKind::ElseKeyword

@@ -62,7 +62,7 @@ pub fn lower_let_statement(
 ) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let pattern = lower_pattern(node.pattern()?)?;
+    let pattern = lower_pattern(node.pattern()?, ctx)?;
 
     let data_type = node.data_type().and_then(lower_data_type);
 

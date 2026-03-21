@@ -29,8 +29,8 @@ pub fn try_parse_for_statement(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !parser.expect_identifier_kind(SyntaxKind::InKeyword, "in") {
-        parser.error("Expected 'in'");
+    if !parser.expect_str("in", SyntaxKind::InKeyword, "Expected 'in'") {
+        parser.bump_until_whitespace();
     }
 
     parser.skip_whitespace();
@@ -58,7 +58,7 @@ pub fn lower_for_statement(
 ) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
-    let pattern = lower_pattern(node.pattern()?)?;
+    let pattern = lower_pattern(node.pattern()?, ctx)?;
 
     let expression = lower_expression(node.expression()?, ctx)?;
 

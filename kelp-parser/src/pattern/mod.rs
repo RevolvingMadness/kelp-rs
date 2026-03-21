@@ -1,11 +1,15 @@
-use kelp_core::high::pattern::Pattern;
+use kelp_core::high::{pattern::Pattern, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTPattern,
     parser::Parser,
     pattern::{
-        binding::lower_binding_pattern, compound::lower_compound_pattern,
-        r#struct::lower_struct_pattern, tuple::lower_tuple_pattern,
+        binding::lower_binding_pattern,
+        compound::lower_compound_pattern,
+        data::{lower_data_pattern, try_parse_data_pattern},
+        score::{lower_score_pattern, try_parse_score_pattern},
+        r#struct::lower_struct_pattern,
+        tuple::lower_tuple_pattern,
         wildcard::lower_wildcard_pattern,
     },
     syntax::SyntaxKind,
@@ -13,6 +17,8 @@ use crate::{
 
 pub mod binding;
 pub mod compound;
+pub mod data;
+pub mod score;
 pub mod r#struct;
 pub mod tuple;
 pub mod wildcard;
@@ -105,6 +111,14 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
                 true
             }
             Some(name) => {
+                if try_parse_score_pattern(parser) {
+                    return true;
+                }
+
+                if try_parse_data_pattern(parser) {
+                    return true;
+                }
+
                 let checkpoint = parser.checkpoint();
 
                 let pos = parser.bump_identifier_kind(SyntaxKind::BindingPatternName, name);
@@ -159,12 +173,14 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_pattern(node: CSTPattern) -> Option<Pattern> {
+pub fn lower_pattern(node: CSTPattern, ctx: &mut SemanticAnalysisContext) -> Option<Pattern> {
     match node {
         CSTPattern::WildcardPattern(node) => lower_wildcard_pattern(node),
-        CSTPattern::TuplePattern(node) => lower_tuple_pattern(node),
+        CSTPattern::TuplePattern(node) => lower_tuple_pattern(node, ctx),
         CSTPattern::BindingPattern(node) => lower_binding_pattern(node),
-        CSTPattern::StructPattern(node) => lower_struct_pattern(node),
-        CSTPattern::CompoundPattern(node) => lower_compound_pattern(node),
+        CSTPattern::ScorePattern(node) => lower_score_pattern(node, ctx),
+        CSTPattern::DataPattern(node) => lower_data_pattern(node, ctx),
+        CSTPattern::StructPattern(node) => lower_struct_pattern(node, ctx),
+        CSTPattern::CompoundPattern(node) => lower_compound_pattern(node, ctx),
     }
 }

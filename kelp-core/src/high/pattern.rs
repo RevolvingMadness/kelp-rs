@@ -2,6 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     high::{
+        data::DataTarget,
+        nbt_path::NbtPath,
+        player_score::PlayerScore,
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
@@ -19,6 +22,9 @@ pub enum PatternKind {
     Wildcard,
     Binding(String),
 
+    Score(PlayerScore),
+    Data(DataTarget, NbtPath),
+
     Tuple(Vec<Pattern>),
     Struct(String, HashMap<SNBTString, Pattern>),
 
@@ -35,8 +41,15 @@ impl PatternKind {
     pub fn is_irrefutable(&self) -> bool {
         match self {
             Self::Literal(_) => false,
-            Self::Wildcard | Self::Binding(_) | Self::Compound(_) | Self::Struct(_, _) => true,
+            Self::Wildcard
+            | Self::Binding(_)
+            | Self::Compound(_)
+            | Self::Score(_)
+            | Self::Data(_, _) => true,
             Self::Tuple(patterns) => patterns.iter().all(|pattern| pattern.kind.is_irrefutable()),
+            Self::Struct(_, field_patterns) => field_patterns
+                .values()
+                .all(|pattern| pattern.kind.is_irrefutable()),
         }
     }
 
@@ -44,6 +57,8 @@ impl PatternKind {
     pub fn get_type(&self) -> PatternType {
         match self {
             Self::Literal(expression) => expression.get_pattern_type(),
+            Self::Score(score) => PatternType::Score(score.clone()),
+            Self::Data(target, path) => PatternType::Data(target.clone(), path.clone()),
             Self::Wildcard | Self::Binding(_) => PatternType::Any,
             Self::Tuple(patterns) => PatternType::Tuple(
                 patterns
@@ -69,7 +84,7 @@ impl PatternKind {
 
     pub fn destructure_unknown(&self, ctx: &mut SemanticAnalysisContext) {
         match self {
-            Self::Literal(_) | Self::Wildcard => {}
+            Self::Literal(_) | Self::Score(_) | Self::Data(_, _) | Self::Wildcard => {}
             Self::Binding(name) => {
                 let _ = ctx.declare_variable_unknown(name.clone());
             }
@@ -116,6 +131,8 @@ impl Pattern {
         ctx: &mut SemanticAnalysisContext,
         variable_type: DataType,
     ) -> Option<MiddlePattern> {
+        let self_type = self.kind.get_type();
+
         let (wrappers, unwrapped_type) = variable_type.clone().unwrap_all();
 
         Some(match self.kind {
@@ -125,6 +142,27 @@ impl Pattern {
                 let id = ctx.declare_variable_known(name, variable_type);
 
                 MiddlePattern::Binding(id)
+            }
+            PatternKind::Score(score) => {
+                let score = score.perform_semantic_analysis(ctx)?;
+
+                if !variable_type.is_score_compatible(&ctx.environment)? {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::MismatchedPatternTypes {
+                            expected: variable_type,
+                            actual: self_type,
+                        },
+                    );
+                }
+
+                MiddlePattern::Score(score)
+            }
+            PatternKind::Data(target, path) => {
+                let target = target.perform_semantic_analysis(ctx)?;
+                let path = path.perform_semantic_analysis(ctx)?;
+
+                MiddlePattern::Data(target, path)
             }
             PatternKind::Tuple(ref patterns) => match unwrapped_type {
                 DataType::Tuple(data_types) if patterns.len() == data_types.len() => {
@@ -150,7 +188,7 @@ impl Pattern {
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type,
-                            actual: self.kind.get_type(),
+                            actual: self_type,
                         },
                     );
                 }
@@ -213,7 +251,7 @@ impl Pattern {
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type,
-                            actual: self.kind.get_type(),
+                            actual: self_type,
                         },
                     );
                 }
@@ -226,7 +264,7 @@ impl Pattern {
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type,
-                            actual: self.kind.get_type(),
+                            actual: self_type,
                         },
                     );
                 };

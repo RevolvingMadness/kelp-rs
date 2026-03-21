@@ -1,3 +1,5 @@
+use std::fmt::{Display, Write};
+
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
@@ -15,6 +17,24 @@ pub mod option;
 pub enum EntitySelector {
     Variable(EntitySelectorVariable, Vec<EntitySelectorOption>),
     Name(String),
+}
+
+impl Display for EntitySelector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Variable(variable, options) => {
+                f.write_char('@')?;
+                variable.fmt(f)?;
+
+                if !options.is_empty() {
+                    f.write_str("[...]")?;
+                }
+
+                Ok(())
+            }
+            Self::Name(name) => f.write_str(name),
+        }
+    }
 }
 
 impl EntitySelector {

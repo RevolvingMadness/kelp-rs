@@ -5,7 +5,8 @@ use minecraft_command_types::{
         execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
-    nbt_path::NbtPath,
+    nbt_path::{NbtPath, NbtPathNode},
+    snbt::SNBTString,
 };
 use ordered_float::NotNan;
 
@@ -37,32 +38,98 @@ pub enum Place {
     Data(GeneratedDataTarget, NbtPath),
     Value(ValueId),
     Tuple(Vec<Self>),
-    Dereference(Box<Expression>),
-    Field(Box<Expression>, String),
-    Index(Box<Expression>, Box<Expression>),
+    Dereference(Box<Self>),
+    Field(Box<Self>, String),
+    Index(Box<Self>, Box<Expression>),
     Underscore,
 }
 
 impl Place {
-    pub fn dereference(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> Option<Expression> {
+    pub fn dereference(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
         Some(match self {
-            Self::Score(score) => Expression::PlayerScore(score),
-            Self::Data(target, path) => Expression::Data(Box::new((target, path))),
-            Self::Value(id) => datapack.get_variable_value(id).1.clone(),
-            Self::Dereference(expression) => expression
+            Self::Score(score) => Self::Score(score),
+            Self::Data(target, path) => Self::Data(target, path),
+            Self::Value(id) => datapack.get_variable_value(id).1.clone().as_place()?,
+            Self::Dereference(place) => place
                 .dereference(datapack, ctx)?
                 .dereference(datapack, ctx)?,
             Self::Field(expression, field) => expression
-                .access_field(&field)?
+                .access_field(datapack, ctx, &field)?
                 .dereference(datapack, ctx)?,
             Self::Index(target, index) => target
                 .index(datapack, ctx, *index)?
                 .dereference(datapack, ctx)?,
             Self::Tuple(_) | Self::Underscore => return None,
+        })
+    }
+
+    #[must_use]
+    pub fn access_field(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        field: &str,
+    ) -> Option<Self> {
+        Some(match self {
+            Self::Data(target, path) => Self::Data(
+                target,
+                path.with_node(NbtPathNode::Named(
+                    SNBTString(false, field.to_owned()),
+                    None,
+                )),
+            ),
+            Self::Value(id) => datapack
+                .get_variable_value(id)
+                .1
+                .clone()
+                .as_place()?
+                .access_field(datapack, ctx, field)?,
+            Self::Tuple(mut places) => {
+                let index = field.parse::<i32>().ok()?;
+
+                places.swap_remove(index as usize)
+            }
+            Self::Dereference(place) => place
+                .dereference(datapack, ctx)?
+                .access_field(datapack, ctx, field)?,
+            Self::Field(place, inner_field) => place
+                .access_field(datapack, ctx, &inner_field)?
+                .access_field(datapack, ctx, field)?,
+            Self::Index(place, index) => place
+                .index(datapack, ctx, *index)?
+                .access_field(datapack, ctx, field)?,
+            Self::Score(_) | Self::Underscore => return None,
+        })
+    }
+
+    #[must_use]
+    pub fn index(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        index: Expression,
+    ) -> Option<Self> {
+        Some(match self {
+            Self::Data(target, path) => Self::Data(
+                target,
+                path.with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
+            ),
+            Self::Value(id) => datapack
+                .get_variable_value(id)
+                .1
+                .clone()
+                .as_place()?
+                .index(datapack, ctx, index)?,
+            Self::Dereference(place) => place
+                .dereference(datapack, ctx)?
+                .index(datapack, ctx, index)?,
+            Self::Field(place, inner_field) => place
+                .access_field(datapack, ctx, &inner_field)?
+                .index(datapack, ctx, index)?,
+            Self::Index(place, inner_index) => place
+                .index(datapack, ctx, *inner_index)?
+                .index(datapack, ctx, index)?,
+            Self::Score(_) | Self::Tuple(_) | Self::Underscore => return None,
         })
     }
 
@@ -92,64 +159,58 @@ impl Place {
                     unreachable!("{:?}", value)
                 }
             }
-            Self::Dereference(expression) => {
-                expression
-                    .as_place()
+            Self::Dereference(place) => {
+                place
+                    .dereference(datapack, ctx)
                     .unwrap()
                     .assign_resolved(datapack, ctx, value);
             }
-            Self::Field(mut target, field) => {
-                target.assign_field(datapack, ctx, &field, value);
+            Self::Field(target, field) => {
+                target
+                    .access_field(datapack, ctx, &field)
+                    .unwrap()
+                    .assign_resolved(datapack, ctx, value);
             }
-            Self::Index(mut target, index) => {
-                target.assign_index(datapack, ctx, *index, value);
+            Self::Index(target, index) => {
+                target
+                    .index(datapack, ctx, *index)
+                    .unwrap()
+                    .assign_resolved(datapack, ctx, value);
             }
         }
     }
 
-    pub fn assign(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: ExpressionKind) {
+    pub fn assign(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: Expression) {
         match self {
             Self::Score(score) => {
-                let value = value.resolve(datapack, ctx);
-
                 value.assign_to_score(datapack, ctx, score);
             }
             Self::Data(target, path) => {
-                let value = value.resolve(datapack, ctx);
-
                 value.assign_to_data(datapack, ctx, target, path);
             }
             Self::Value(id) => {
-                let value = value.resolve(datapack, ctx);
-
                 datapack.set_variable(id, value);
             }
-            Self::Underscore => {
-                value.resolve(datapack, ctx);
-            }
+            Self::Underscore => {}
             Self::Tuple(places) => {
-                if let ExpressionKind::Tuple(values) = value {
+                if let Expression::Tuple(values) = value {
                     assert!(places.len() == values.len());
 
                     let safe_values: Vec<Expression> = values
                         .into_iter()
-                        .map(|value| {
-                            let value = value.kind.resolve(datapack, ctx);
-
-                            match value {
-                                Expression::PlayerScore(score) => {
-                                    Expression::PlayerScore(score.as_unique_score(datapack, ctx))
-                                }
-                                Expression::Data(target_path) => {
-                                    let (target, path) = *target_path;
-
-                                    let (unique_target, unique_path) =
-                                        target.as_unique_data(datapack, ctx, path);
-
-                                    Expression::Data(Box::new((unique_target, unique_path)))
-                                }
-                                _ => value,
+                        .map(|value| match value {
+                            Expression::PlayerScore(score) => {
+                                Expression::PlayerScore(score.as_unique_score(datapack, ctx))
                             }
+                            Expression::Data(target_path) => {
+                                let (target, path) = *target_path;
+
+                                let (unique_target, unique_path) =
+                                    target.as_unique_data(datapack, ctx, path);
+
+                                Expression::Data(Box::new((unique_target, unique_path)))
+                            }
+                            _ => value,
                         })
                         .collect();
 
@@ -160,20 +221,23 @@ impl Place {
                     unreachable!("{:?}", value)
                 }
             }
-            Self::Dereference(expression) => {
-                let place = expression.as_place().unwrap();
-
-                place.assign(datapack, ctx, value);
+            Self::Dereference(place) => {
+                place
+                    .dereference(datapack, ctx)
+                    .unwrap()
+                    .assign(datapack, ctx, value);
             }
-            Self::Field(mut target, field) => {
-                let value = value.resolve(datapack, ctx);
-
-                target.assign_field(datapack, ctx, &field, value);
+            Self::Field(target, field) => {
+                target
+                    .access_field(datapack, ctx, &field)
+                    .unwrap()
+                    .assign(datapack, ctx, value);
             }
-            Self::Index(mut target, index) => {
-                let value = value.resolve(datapack, ctx);
-
-                target.assign_index(datapack, ctx, *index, value);
+            Self::Index(target, index) => {
+                target
+                    .index(datapack, ctx, *index)
+                    .unwrap()
+                    .assign(datapack, ctx, value);
             }
         }
     }
@@ -232,41 +296,20 @@ impl Place {
                     datapack.set_variable(id, new_value);
                 }
             }
-            Self::Field(mut target, field) => {
-                let current_value = target.clone().access_field(&field).unwrap();
+            Self::Field(target, field) => {
+                let target = target.access_field(datapack, ctx, &field).unwrap();
 
-                if current_value.is_lvalue() {
-                    current_value
-                        .as_place()
-                        .unwrap()
-                        .augmented_assign(datapack, ctx, operator, value);
-                } else {
-                    let new_value =
-                        current_value.perform_arithmetic(datapack, ctx, operator, value);
-
-                    target.assign_field(datapack, ctx, &field, new_value);
-                }
+                target.augmented_assign(datapack, ctx, operator, value);
             }
-            Self::Index(mut target, index) => {
-                let current_value = target.clone().index(datapack, ctx, *index.clone()).unwrap();
+            Self::Index(target, index) => {
+                let target = target.index(datapack, ctx, *index).unwrap();
 
-                if current_value.is_lvalue() {
-                    current_value
-                        .as_place()
-                        .unwrap()
-                        .augmented_assign(datapack, ctx, operator, value);
-                } else {
-                    let new_value =
-                        current_value.perform_arithmetic(datapack, ctx, operator, value);
-
-                    target.assign_index(datapack, ctx, *index, new_value);
-                }
+                target.augmented_assign(datapack, ctx, operator, value);
             }
-            Self::Dereference(expression) => {
-                expression
-                    .as_place()
-                    .unwrap()
-                    .augmented_assign(datapack, ctx, operator, value);
+            Self::Dereference(place) => {
+                let place = place.dereference(datapack, ctx).unwrap();
+
+                place.augmented_assign(datapack, ctx, operator, value);
             }
             Self::Tuple(_) | Self::Underscore => {
                 unreachable!()

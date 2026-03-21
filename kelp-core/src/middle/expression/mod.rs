@@ -113,7 +113,7 @@ impl ExpressionKind {
             Self::Unary(operator, expression) => match operator {
                 UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => None,
                 UnaryOperator::Dereference => {
-                    let expression = expression.kind.resolve(datapack, ctx);
+                    let expression = expression.kind.as_place(datapack, ctx)?;
 
                     Some(Place::Dereference(Box::new(expression)))
                 }
@@ -132,13 +132,13 @@ impl ExpressionKind {
                 Some(Place::Data(target, path))
             }
             Self::Index(target, index) => {
-                let target = target.kind.resolve(datapack, ctx);
+                let target = target.kind.resolve(datapack, ctx).as_place()?;
                 let index = index.kind.resolve(datapack, ctx);
 
                 Some(Place::Index(Box::new(target), Box::new(index)))
             }
             Self::FieldAccess(target, field) => {
-                let target = target.kind.resolve(datapack, ctx);
+                let target = target.kind.resolve(datapack, ctx).as_place()?;
 
                 Some(Place::Field(Box::new(target), field.1))
             }
@@ -214,9 +214,10 @@ impl ExpressionKind {
                 LowExpression::Unit
             }
             Self::Assignment(target, value) => {
-                let target_place = target.kind.as_place(datapack, ctx).unwrap();
+                let target = target.kind.as_place(datapack, ctx).unwrap();
+                let value = value.kind.resolve(datapack, ctx);
 
-                target_place.assign(datapack, ctx, value.kind);
+                target.assign(datapack, ctx, value);
 
                 LowExpression::Unit
             }
@@ -336,9 +337,10 @@ impl ExpressionKind {
     pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::Assignment(target, value) => {
-                let target_place = target.kind.as_place(datapack, ctx).unwrap();
+                let target = target.kind.as_place(datapack, ctx).unwrap();
+                let value = value.kind.resolve(datapack, ctx);
 
-                target_place.assign(datapack, ctx, value.kind);
+                target.assign(datapack, ctx, value);
             }
             Self::AugmentedAssignment(target, operator, value) => {
                 let value = value.kind.resolve(datapack, ctx);

@@ -31,7 +31,6 @@ pub mod scoreboard;
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    Regular(LowCommand),
     Data(DataCommand),
     Difficulty(Option<Difficulty>),
     Enchant(EntitySelector, ResourceLocation, Option<i32>),
@@ -47,7 +46,6 @@ pub enum Command {
 impl Command {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowCommand {
         match self {
-            Self::Regular(command) => command,
             Self::Data(data_command) => LowCommand::Data(data_command.compile(datapack, ctx)),
             Self::Difficulty(difficulty) => LowCommand::Difficulty(difficulty),
             Self::Enchant(selector, location, level) => {

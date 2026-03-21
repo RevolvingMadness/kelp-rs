@@ -1,5 +1,5 @@
 use minecraft_command_types::{
-    command::{Command as LowCommand, enums::difficulty::Difficulty, stopwatch::StopwatchCommand},
+    command::{enums::difficulty::Difficulty, stopwatch::StopwatchCommand},
     coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
@@ -26,7 +26,6 @@ pub mod scoreboard;
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    Regular(LowCommand),
     Data(DataCommand),
     Difficulty(Option<Difficulty>),
     Enchant(EntitySelector, ResourceLocation, Option<i32>),
@@ -45,11 +44,6 @@ impl Command {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleCommand> {
         Some(match self {
-            Self::Regular(command) => {
-                // TODO future
-
-                MiddleCommand::Regular(command)
-            }
             Self::Data(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 

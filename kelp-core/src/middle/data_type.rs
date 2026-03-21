@@ -36,6 +36,124 @@ pub enum DataType {
 
 impl DataType {
     #[must_use]
+    pub fn reduce(self, other: &Self) -> Option<Self> {
+        if self.equals(other) {
+            if self == Self::Inferred {
+                return Some(other.clone());
+            }
+
+            if *other == Self::Inferred {
+                return Some(self);
+            }
+
+            if self == Self::InferredInteger {
+                return Some(other.clone());
+            }
+
+            if *other == Self::InferredInteger {
+                return Some(self);
+            }
+
+            if self == Self::InferredFloat {
+                return Some(other.clone());
+            }
+
+            if *other == Self::InferredFloat {
+                return Some(self);
+            }
+
+            return Some(self);
+        }
+
+        match (self, other) {
+            (Self::Inferred, other) => Some(other.clone()),
+            (this, Self::Inferred) => Some(this),
+
+            (Self::InferredInteger, other) if other.is_integer_like() => Some(other.clone()),
+            (this, Self::InferredInteger) if this.is_integer_like() => Some(this),
+
+            (Self::InferredFloat, other) if other.is_float_like() => Some(other.clone()),
+            (this, Self::InferredFloat) if this.is_float_like() => Some(this),
+
+            (Self::SNBT, _) | (_, Self::SNBT) => Some(Self::SNBT),
+
+            (Self::Data(inner), other) => inner
+                .reduce(other)
+                .map_or(Some(Self::SNBT), |reduced_inner| {
+                    Some(Self::Data(Box::new(reduced_inner)))
+                }),
+            (this, Self::Data(inner)) => this
+                .reduce(inner)
+                .map_or(Some(Self::SNBT), |reduced_inner| {
+                    Some(Self::Data(Box::new(reduced_inner)))
+                }),
+
+            (Self::Score(inner), other) => inner
+                .reduce(other)
+                .map_or(Some(Self::SNBT), |reduced_inner| {
+                    Some(Self::Score(Box::new(reduced_inner)))
+                }),
+            (this, Self::Score(inner)) => this
+                .reduce(inner)
+                .map_or(Some(Self::SNBT), |reduced_inner| {
+                    Some(Self::Score(Box::new(reduced_inner)))
+                }),
+
+            (Self::Reference(a), Self::Reference(b)) => {
+                Some(Self::Reference(Box::new(a.reduce(b)?)))
+            }
+
+            (Self::List(a), Self::List(b)) => Some(Self::List(Box::new(a.reduce(b)?))),
+
+            (Self::Compound(a), Self::Compound(b)) => Some(Self::Compound(Box::new(a.reduce(b)?))),
+
+            (Self::TypedCompound(map), Self::Compound(inner)) => {
+                if map.values().all(|v| v.equals(inner)) {
+                    Some(Self::Compound(inner.clone()))
+                } else {
+                    None
+                }
+            }
+
+            (Self::Compound(inner), Self::TypedCompound(map)) => {
+                if map.values().all(|v| v.equals(&inner)) {
+                    Some(Self::Compound(inner))
+                } else {
+                    None
+                }
+            }
+
+            (Self::TypedCompound(a_map), Self::TypedCompound(b_map)) => {
+                if a_map.len() != b_map.len() {
+                    return None;
+                }
+                let mut new_map = BTreeMap::new();
+                for (key, a_val) in a_map {
+                    let b_val = b_map.get(&key)?;
+                    let reduced = a_val.reduce(b_val)?;
+                    new_map.insert(key, reduced);
+                }
+                Some(Self::TypedCompound(new_map))
+            }
+
+            (Self::Tuple(a_vec), Self::Tuple(b_vec)) => {
+                if a_vec.len() != b_vec.len() {
+                    return None;
+                }
+                let mut new_vec = Vec::new();
+                for (a, b) in a_vec.into_iter().zip(b_vec.iter()) {
+                    new_vec.push(a.reduce(b)?);
+                }
+                Some(Self::Tuple(new_vec))
+            }
+
+            (Self::Struct(a_id), Self::Struct(b_id)) if a_id == *b_id => Some(Self::Struct(a_id)),
+
+            _ => None,
+        }
+    }
+
+    #[must_use]
     pub fn format_string(&self, environment: &Environment) -> String {
         let mut output = String::new();
 
@@ -579,27 +697,6 @@ impl DataType {
             }
             _ => false,
         })
-    }
-
-    #[must_use]
-    pub fn is_snbt_like(&self) -> bool {
-        match self {
-            Self::TypedCompound(compound) => compound.values().all(Self::is_snbt_like),
-            Self::List(data_type) | Self::Compound(data_type) => data_type.is_snbt_like(),
-            Self::Boolean
-            | Self::Byte
-            | Self::Short
-            | Self::Integer
-            | Self::InferredInteger
-            | Self::Long
-            | Self::Float
-            | Self::InferredFloat
-            | Self::Double
-            | Self::String
-            | Self::SNBT
-            | Self::Struct(_) => true,
-            _ => false,
-        }
     }
 
     #[must_use]

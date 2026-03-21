@@ -492,12 +492,14 @@ impl Expression {
                     .collect_option_all::<Vec<_>>()?;
 
                 let element_type = if let Some((_, element_expression)) = expressions.first() {
-                    let element_type = &element_expression.data_type;
+                    let mut element_type = element_expression.data_type.clone();
 
                     let mut has_error = false;
 
                     for (expression_span, expression) in &expressions {
-                        if !expression.data_type.equals(element_type) {
+                        let Some(reduced_element_type) =
+                            element_type.clone().reduce(&expression.data_type)
+                        else {
                             has_error = true;
 
                             ctx.add_error::<()>(
@@ -507,14 +509,18 @@ impl Expression {
                                     actual: expression.data_type.clone(),
                                 },
                             );
-                        }
+
+                            continue;
+                        };
+
+                        element_type = reduced_element_type;
                     }
 
                     if has_error {
                         return None;
                     }
 
-                    element_type.clone()
+                    element_type
                 } else {
                     DataType::Inferred
                 };

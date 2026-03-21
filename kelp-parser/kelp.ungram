@@ -34,6 +34,7 @@ Statement =
 | ExpressionStatement
 | IfStatement
 | WhileStatement
+| ForStatement
 | LoopStatement
 | LetStatement
 | BreakStatement
@@ -53,6 +54,9 @@ IfStatement =
 
 WhileStatement =
   'while' condition:Expression body:Statement
+
+ForStatement =
+  'for' Pattern 'in' Expression Statement
 
 LoopStatement =
   'loop' body:Statement

@@ -20,7 +20,7 @@ pub enum StatementKind {
     Loop(Box<Statement>),
     Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
-    ForIn(bool, String, Expression, Box<Statement>),
+    For(bool, Pattern, Expression, Box<Statement>),
     Block(Vec<Statement>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
@@ -130,13 +130,11 @@ impl Statement {
 
                 MiddleStatement::If(condition, Box::new(statement), else_statement.map(Box::new))
             }
-            StatementKind::ForIn(is_reversed, name, iterable, statement) => {
+            StatementKind::For(is_reversed, pattern, iterable, statement) => {
                 let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
 
-                let statement = statement.perform_semantic_analysis(ctx);
-
                 let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
-                    let _ = ctx.declare_variable_unknown(name);
+                    pattern.kind.destructure_unknown(ctx);
 
                     return ctx.add_error(
                         expression_span,
@@ -144,13 +142,25 @@ impl Statement {
                     );
                 };
 
-                let id = ctx.declare_variable_known(name, iterable_type);
+                ctx.scopes.push(Scope::default());
 
-                let statement = statement?;
+                let Some(pattern) = pattern.perform_semantic_analysis(ctx, iterable_type) else {
+                    ctx.scopes.pop();
+
+                    return None;
+                };
+
+                let Some(statement) = statement.perform_semantic_analysis(ctx) else {
+                    ctx.scopes.pop();
+
+                    return None;
+                };
+
+                ctx.scopes.pop();
 
                 // TODO: Reorder semantic analysis
 
-                MiddleStatement::ForIn(is_reversed, id, iterable, Box::new(statement))
+                MiddleStatement::For(is_reversed, pattern, iterable, Box::new(statement))
             }
             StatementKind::Block(statements) => {
                 ctx.scopes.push(Scope::default());

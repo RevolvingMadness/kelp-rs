@@ -2,10 +2,12 @@ use std::collections::BTreeMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::middle::data_type::DataType;
-use crate::middle::environment::value::variable::VariableId;
 use crate::middle::item::Item;
 use crate::middle::pattern::Pattern;
-use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
+use crate::{
+    compile_context::CompileContext, datapack::Datapack,
+    low::expression::Expression as LowExpression, middle::expression::Expression,
+};
 use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{
     DataCommand, DataCommandModification, DataCommandModificationMode,
@@ -29,7 +31,7 @@ pub enum Statement {
     Loop(Box<Self>),
     Match(Expression, BTreeMap<IntegerRange, Box<Self>>),
     If(Expression, Box<Self>, Option<Box<Self>>),
-    ForIn(bool, VariableId, Expression, Box<Self>),
+    For(bool, Pattern, Expression, Box<Self>),
     Block(Vec<Self>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
@@ -201,16 +203,16 @@ impl Statement {
 
                 datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
             }
-            Self::ForIn(is_reversed, _, collection, body) => {
-                let collection = collection.kind.resolve(datapack, ctx);
+            Self::For(is_reversed, pattern, iterable, body) => {
+                let iterable_data_type = iterable.data_type.get_iterable_type().unwrap();
 
-                let collection_data_type = collection.get_data_type().get_iterable_type().unwrap();
+                let iterable = iterable.kind.resolve(datapack, ctx);
 
-                if collection_data_type.equals(&DataType::String) {
+                if iterable_data_type.equals(&DataType::String) {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
                     let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
 
-                    collection.assign_to_data(
+                    iterable.assign_to_data(
                         datapack,
                         ctx,
                         unique_data_target.clone(),
@@ -218,6 +220,16 @@ impl Statement {
                     );
 
                     let mut for_body_ctx = CompileContext::default();
+
+                    pattern.destructure(
+                        datapack,
+                        ctx,
+                        iterable_data_type,
+                        LowExpression::Data(Box::new((
+                            unique_data_target_2.clone(),
+                            unique_path_2.clone(),
+                        ))),
+                    );
 
                     for_body_ctx.add_command(
                         datapack,
@@ -287,18 +299,28 @@ impl Statement {
                 } else {
                     let (unique_data_target, unique_path) = datapack.get_unique_data();
 
-                    collection.assign_to_data(
+                    iterable.assign_to_data(
                         datapack,
                         ctx,
                         unique_data_target.clone(),
                         unique_path.clone(),
                     );
 
+                    let mut for_body_ctx = CompileContext::default();
+
                     let unique_path = unique_path.with_node(NbtPathNode::Index(Some(
                         SNBT::Integer(if is_reversed { -1 } else { 0 }),
                     )));
 
-                    let mut for_body_ctx = CompileContext::default();
+                    pattern.destructure(
+                        datapack,
+                        ctx,
+                        iterable_data_type,
+                        LowExpression::Data(Box::new((
+                            unique_data_target.clone(),
+                            unique_path.clone(),
+                        ))),
+                    );
 
                     body.compile(datapack, &mut for_body_ctx);
 
@@ -508,7 +530,7 @@ impl Statement {
             | Self::Append(_, _)
             | Self::Remove(_)
             | Self::Item(_) => None,
-            Self::While(_, statement) | Self::Loop(statement) | Self::ForIn(_, _, _, statement) => {
+            Self::While(_, statement) | Self::Loop(statement) | Self::For(_, _, _, statement) => {
                 statement.get_control_flow_kind()
             }
             Self::Match(_, _) => todo!(),

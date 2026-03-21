@@ -173,43 +173,6 @@ pub enum Expression {
 }
 
 impl Expression {
-    #[must_use]
-    pub fn get_data_type(&self) -> DataType {
-        match self {
-            Self::Boolean(_) | Self::Condition(_, _) => DataType::Boolean,
-            Self::Byte(_) => DataType::Byte,
-            Self::Short(_) => DataType::Short,
-            Self::Integer(_) => DataType::Integer,
-            Self::Long(_) => DataType::Long,
-            Self::Float(_) => DataType::Float,
-            Self::Double(_) => DataType::Double,
-            Self::String(_) => DataType::String,
-            Self::List(expressions) => {
-                let element_type = expressions
-                    .first()
-                    .map_or(DataType::Inferred, Self::get_data_type);
-
-                DataType::List(Box::new(element_type))
-            }
-            Self::Compound(compound) => DataType::TypedCompound(
-                compound
-                    .iter()
-                    .map(|(key, value)| (key.clone(), value.get_data_type()))
-                    .collect(),
-            ),
-            Self::Tuple(expressions) => {
-                let expression_types = expressions.iter().map(Self::get_data_type).collect();
-
-                DataType::Tuple(expression_types)
-            }
-            Self::Reference(_) => todo!(),
-            Self::Struct(name, _) => DataType::Struct(*name),
-            Self::Unit => DataType::Unit,
-            Self::PlayerScore(_) => DataType::Score(Box::new(DataType::Integer)),
-            Self::Data(_) => DataType::Data(Box::new(DataType::Inferred)),
-        }
-    }
-
     pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::List(list) => {

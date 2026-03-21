@@ -484,6 +484,8 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "continue" => "ContinueKeyword",
         "true" => "TrueKeyword",
         "false" => "FalseKeyword",
+        "for" => "ForKeyword",
+        "in" => "InKeyword",
         "loop" => "LoopKeyword",
         "append" => "AppendKeyword",
         "remove" => "RemoveKeyword",

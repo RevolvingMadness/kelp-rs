@@ -160,7 +160,36 @@ impl DataType {
 impl DataType {
     #[must_use]
     #[allow(clippy::type_complexity)]
-    pub fn unwrap(self) -> (Option<fn(Box<Self>) -> Self>, Self) {
+    pub fn unwrap(self) -> Self {
+        match self {
+            Self::Score(data_type) | Self::Data(data_type) | Self::Reference(data_type) => {
+                *data_type
+            }
+
+            Self::SNBT
+            | Self::Boolean
+            | Self::Byte
+            | Self::Short
+            | Self::Integer
+            | Self::Long
+            | Self::Float
+            | Self::Double
+            | Self::String
+            | Self::Unit
+            | Self::List(_)
+            | Self::TypedCompound(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::Struct(_)
+            | Self::Inferred
+            | Self::InferredInteger
+            | Self::InferredFloat => self,
+        }
+    }
+
+    #[must_use]
+    #[allow(clippy::type_complexity)]
+    pub fn unwrap_single(self) -> (Option<fn(Box<Self>) -> Self>, Self) {
         match self {
             Self::Score(data_type) => (Some(Self::Score), *data_type),
             Self::Data(data_type) => (Some(Self::Data), *data_type),
@@ -193,7 +222,7 @@ impl DataType {
         let mut wrappers = Vec::new();
 
         loop {
-            let (wrapper, inner) = self.unwrap();
+            let (wrapper, inner) = self.unwrap_single();
 
             if let Some(wrapper) = wrapper {
                 wrappers.push(wrapper);

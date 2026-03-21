@@ -113,7 +113,8 @@ impl SemanticAnalysisContext {
                 })
                 .collect::<Option<_>>()?;
 
-            self.environment.declare_struct(
+            self.declare_struct(
+                id,
                 monomorphized_struct_name,
                 generic_types,
                 monomorphized_field_types,
@@ -156,6 +157,23 @@ impl SemanticAnalysisContext {
             span,
             kind: SemanticAnalysisInfoKind::Error(error),
         })
+    }
+
+    pub fn declare_struct(
+        &mut self,
+        original_id: HighTypeId,
+        name: String,
+        generic_types: Vec<DataType>,
+        field_types: HashMap<String, DataType>,
+    ) -> StructId {
+        let id = self
+            .environment
+            .declare_struct(name, generic_types.clone(), field_types);
+
+        self.monomorphized_structs
+            .insert((original_id, generic_types), id);
+
+        id
     }
 
     pub fn declare_value(&mut self, declaration: ValueDeclaration) -> ValueId {

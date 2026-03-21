@@ -485,14 +485,46 @@ impl Expression {
                 let expressions = expressions
                     .into_iter()
                     .map(|expression| {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                        let result = expression.perform_semantic_analysis(ctx)?;
 
-                        Some(expression)
+                        Some(result)
                     })
                     .collect_option_all::<Vec<_>>()?;
 
-                MiddleExpressionKind::List(expressions)
-                    .with(DataType::List(Box::new(DataType::Inferred)))
+                let element_type = if let Some((_, element_expression)) = expressions.first() {
+                    let element_type = &element_expression.data_type;
+
+                    let mut has_error = false;
+
+                    for (expression_span, expression) in &expressions {
+                        if !expression.data_type.equals(element_type) {
+                            has_error = true;
+
+                            ctx.add_error::<()>(
+                                *expression_span,
+                                SemanticAnalysisError::MismatchedTypes {
+                                    expected: element_type.clone(),
+                                    actual: expression.data_type.clone(),
+                                },
+                            );
+                        }
+                    }
+
+                    if has_error {
+                        return None;
+                    }
+
+                    element_type.clone()
+                } else {
+                    DataType::Inferred
+                };
+
+                let expressions = expressions
+                    .into_iter()
+                    .map(|(_, expression)| expression)
+                    .collect();
+
+                MiddleExpressionKind::List(expressions).with(DataType::List(Box::new(element_type)))
             }
             ExpressionKind::Compound(compound_values) => {
                 let compound_values = compound_values

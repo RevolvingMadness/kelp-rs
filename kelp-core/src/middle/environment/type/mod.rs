@@ -12,3 +12,13 @@ pub enum TypeDeclaration {
     Struct(StructDeclaration),
     Builtin(BuiltinDataType),
 }
+
+impl TypeDeclaration {
+    #[must_use]
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Struct(declaration) => &declaration.name,
+            Self::Builtin(data_type) => data_type.name(),
+        }
+    }
+}

@@ -1,0 +1,24 @@
+struct Container<T> {
+    value: T
+}
+
+mcfn namespace:main {
+    let containers = [
+        Container<string> {
+            value: "a"
+        },
+        Container<string> {
+            value: "b"
+        },
+        Container<string> {
+            value: "c"
+        },
+        Container<string> {
+            value: "d"
+        }
+    ]
+
+    for Container { value } in (containers) {
+        tellraw @a value
+    }
+}

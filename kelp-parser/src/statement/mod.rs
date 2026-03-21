@@ -13,6 +13,7 @@ use crate::{
         block::{lower_block_statement, try_parse_block_statement},
         r#break::{lower_break_statement, try_parse_break_statement},
         r#continue::{lower_continue_statement, try_parse_continue_statement},
+        r#for::{lower_for_statement, try_parse_for_statement},
         r#if::{lower_if_statement, try_parse_if_statement},
         item::{lower_item_statement, try_parse_item_statement},
         r#let::{lower_let_statement, try_parse_let_statement},
@@ -27,6 +28,7 @@ pub mod append;
 pub mod block;
 pub mod r#break;
 pub mod r#continue;
+pub mod r#for;
 pub mod r#if;
 pub mod item;
 pub mod r#let;
@@ -63,6 +65,11 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
                     }
                     "while" => {
                         if try_parse_while_statement(parser) {
+                            return true;
+                        }
+                    }
+                    "for" => {
+                        if try_parse_for_statement(parser) {
                             return true;
                         }
                     }
@@ -146,6 +153,7 @@ pub fn lower_statement(node: CSTStatement, ctx: &mut SemanticAnalysisContext) ->
         CSTStatement::IfStatement(statement) => lower_if_statement(statement, ctx),
         CSTStatement::LetStatement(statement) => lower_let_statement(statement, ctx),
         CSTStatement::WhileStatement(node) => lower_while_statement(node, ctx),
+        CSTStatement::ForStatement(node) => lower_for_statement(node, ctx),
         CSTStatement::LoopStatement(node) => lower_loop_statement(node, ctx),
         CSTStatement::BreakStatement(node) => lower_break_statement(node, ctx),
         CSTStatement::ContinueStatement(node) => lower_continue_statement(node, ctx),

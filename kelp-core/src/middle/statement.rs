@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::middle::data_type::DataType;
@@ -17,7 +17,7 @@ use minecraft_command_types::command::execute::{
     ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
 };
 use minecraft_command_types::command::r#return::ReturnCommand;
-use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
+use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode, SNBTCompound};
 use minecraft_command_types::range::IntegerRange;
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::{SNBT, SNBTString};
@@ -29,7 +29,7 @@ pub enum Statement {
     Let(DataType, Pattern, Expression),
     While(Expression, Box<Self>),
     Loop(Box<Self>),
-    Match(Expression, BTreeMap<IntegerRange, Box<Self>>),
+    Match(Expression, HashMap<IntegerRange, Box<Self>>),
     If(Expression, Box<Self>, Option<Box<Self>>),
     For(bool, Pattern, Expression, Box<Self>),
     Block(Vec<Self>),
@@ -268,7 +268,7 @@ impl Statement {
                         )),
                     );
 
-                    let mut map = BTreeMap::new();
+                    let mut map = SNBTCompound::new();
                     map.insert(SNBTString(false, name), SNBT::string(""));
                     let unique_path = NbtPath(nonempty![NbtPathNode::RootCompound(map)]);
 

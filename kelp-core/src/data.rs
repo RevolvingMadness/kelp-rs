@@ -7,7 +7,7 @@ use minecraft_command_types::{
     nbt_path::NbtPath,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct GeneratedDataTarget {
     pub is_generated: bool,
     pub target: DataTarget,

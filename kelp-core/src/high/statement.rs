@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::high::data_type::unresolved::UnresolvedDataType;
 use crate::high::item::Item;
@@ -11,13 +11,13 @@ use crate::trait_ext::CollectOptionAllIterExt;
 use crate::{high::expression::Expression, middle::statement::Statement as MiddleStatement};
 use minecraft_command_types::range::IntegerRange;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
     Let(Option<UnresolvedDataType>, Pattern, Expression),
     While(Expression, Box<Statement>),
     Loop(Box<Statement>),
-    Match(Expression, BTreeMap<IntegerRange, Box<Statement>>),
+    Match(Expression, HashMap<IntegerRange, Box<Statement>>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
     For(bool, Pattern, Expression, Box<Statement>),
     Block(Vec<Statement>),
@@ -35,7 +35,7 @@ impl StatementKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Statement {
     pub span: Span,
     pub kind: StatementKind,

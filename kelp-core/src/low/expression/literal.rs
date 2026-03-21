@@ -2,7 +2,7 @@ use ordered_float::NotNan;
 
 use crate::{high::snbt_string::SNBTString, pattern_type::PatternType};
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum LiteralExpression {
     Boolean(bool),
     Byte(i8),

@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
     DisplayName(Expression),
@@ -47,7 +47,7 @@ impl ScoreboardModification {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ObjectivesScoreboardCommand {
     List,
     Add(String, String, Option<Expression>), // TODO: box

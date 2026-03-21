@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use kelp_core::{
     high::{
@@ -107,8 +107,8 @@ fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
 pub fn lower_compound_expression_inner(
     node: CSTCompoundExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<(Span, BTreeMap<SNBTString, Expression>)> {
-    let mut compound = BTreeMap::new();
+) -> Option<(Span, HashMap<SNBTString, Expression>)> {
+    let mut compound = HashMap::new();
 
     for entry in node.entries() {
         let Some(key_token) = entry.name() else {

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::{
     high::{
@@ -9,9 +9,9 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
-    Compound(BTreeMap<SNBTString, Expression>),
+    Compound(HashMap<SNBTString, Expression>),
     DataTarget(DataTarget, Option<NbtPath>),
 }
 

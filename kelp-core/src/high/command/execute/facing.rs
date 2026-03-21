@@ -7,7 +7,7 @@ use crate::{
     middle::expression::command::execute::facing::Facing as MiddleFacing,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum Facing {
     Position(Coordinates),
     Entity(EntitySelector, EntityAnchor),

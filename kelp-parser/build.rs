@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{HashMap, HashSet},
     env, fs,
     path::{Path, PathBuf},
 };
@@ -199,7 +199,7 @@ fn generate_node(node: &AstNodeSrc) -> TokenStream {
     let name = format_ident!("CST{}", node.name);
     let kind = format_ident!("{}", node.name);
 
-    let mut token_groups: BTreeMap<String, (HashSet<String>, Cardinality)> = BTreeMap::new();
+    let mut token_groups: HashMap<String, (HashSet<String>, Cardinality)> = HashMap::new();
     let mut node_fields = Vec::new();
 
     for field in &node.fields {
@@ -254,14 +254,14 @@ fn generate_node(node: &AstNodeSrc) -> TokenStream {
             }
         });
 
-    let mut ty_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut ty_counts: HashMap<String, usize> = HashMap::new();
     for field in &node_fields {
         if let Field::Node { ty, .. } = field {
             *ty_counts.entry(ty.clone()).or_default() += 1;
         }
     }
 
-    let mut ty_indices: BTreeMap<String, usize> = BTreeMap::new();
+    let mut ty_indices: HashMap<String, usize> = HashMap::new();
 
     let node_methods = node_fields.into_iter().map(|field| {
         if let Field::Node {

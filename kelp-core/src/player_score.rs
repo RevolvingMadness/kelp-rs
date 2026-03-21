@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use minecraft_command_types::{
     command::{
         Command, PlayerScore,
@@ -12,7 +10,7 @@ use minecraft_command_types::{
         },
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
-    nbt_path::NbtPath,
+    nbt_path::{NbtPath, SNBTCompound},
     range::IntegerRange,
     snbt::{SNBT, SNBTString},
 };
@@ -29,7 +27,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct GeneratedPlayerScore {
     pub is_generated: bool,
     pub score: PlayerScore,
@@ -83,8 +81,8 @@ impl GeneratedPlayerScore {
 
     #[must_use]
     pub fn to_text_component(self) -> SNBT {
-        let mut text_component = BTreeMap::new();
-        let mut score = BTreeMap::new();
+        let mut text_component = SNBTCompound::new();
+        let mut score = SNBTCompound::new();
         score.insert(
             SNBTString(false, "name".to_string()),
             SNBT::string(self.score.selector.to_string()),

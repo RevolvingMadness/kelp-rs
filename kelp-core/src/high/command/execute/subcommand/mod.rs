@@ -28,7 +28,7 @@ use crate::{
 pub mod r#if;
 pub mod store;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ExecuteSubcommand {
     Align(BTreeSet<Axis>, Box<Self>),
     Anchored(EntityAnchor, Box<Self>),

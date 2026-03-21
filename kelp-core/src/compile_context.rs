@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, mem::take};
+use std::{collections::HashMap, mem::take};
 
 use minecraft_command_types::{
     command::{Command, execute::ExecuteIfSubcommand, function::FunctionCommandArguments},
@@ -25,7 +25,7 @@ pub struct LoopInfo {
 #[derive(Debug, Default, Clone)]
 pub struct CompileContext {
     pub commands: Vec<Command>,
-    pub macro_arguments: BTreeMap<usize, Expression>,
+    pub macro_arguments: HashMap<usize, Expression>,
     pub macro_data: Option<(GeneratedDataTarget, NbtPath)>,
     pub loop_info: Option<LoopInfo>,
     macro_counter: usize,

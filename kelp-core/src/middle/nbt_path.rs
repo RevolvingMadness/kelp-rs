@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::{
     nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode, SNBTCompound},
@@ -10,8 +10,8 @@ use crate::{compile_context::CompileContext, datapack::Datapack, middle::express
 
 #[derive(Debug, Clone)]
 pub enum NbtPathNode {
-    RootCompound(BTreeMap<SNBTString, Expression>),
-    Named(SNBTString, Option<BTreeMap<SNBTString, Expression>>),
+    RootCompound(HashMap<SNBTString, Expression>),
+    Named(SNBTString, Option<HashMap<SNBTString, Expression>>),
     Index(Option<Box<Expression>>),
 }
 

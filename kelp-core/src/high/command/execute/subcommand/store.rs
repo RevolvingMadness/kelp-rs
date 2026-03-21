@@ -12,7 +12,7 @@ use crate::{
     middle::expression::command::execute::subcommand::store::ExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ExecuteStoreSubcommand {
     Data(
         DataTarget,

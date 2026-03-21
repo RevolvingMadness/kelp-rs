@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::{
     block::BlockState as LowBlockState, resource_location::ResourceLocation, snbt::SNBTString,
@@ -9,8 +9,8 @@ use crate::{compile_context::CompileContext, datapack::Datapack, middle::express
 #[derive(Debug, Clone)]
 pub struct BlockState {
     pub id: ResourceLocation,
-    pub block_states: BTreeMap<String, String>,
-    pub data_tags: Option<BTreeMap<SNBTString, Expression>>,
+    pub block_states: HashMap<String, String>,
+    pub data_tags: Option<HashMap<SNBTString, Expression>>,
 }
 
 impl BlockState {

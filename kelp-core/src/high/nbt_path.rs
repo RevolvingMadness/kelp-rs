@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use nonempty::NonEmpty;
 
@@ -11,10 +11,10 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum NbtPathNode {
-    RootCompound(BTreeMap<SNBTString, Expression>),
-    Named(SNBTString, Option<BTreeMap<SNBTString, Expression>>),
+    RootCompound(HashMap<SNBTString, Expression>),
+    Named(SNBTString, Option<HashMap<SNBTString, Expression>>),
     Index(Option<Box<Expression>>),
 }
 
@@ -72,7 +72,7 @@ impl NbtPathNode {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct NbtPath(pub NonEmpty<NbtPathNode>);
 
 impl NbtPath {

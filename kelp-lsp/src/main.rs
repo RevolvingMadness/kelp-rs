@@ -7,7 +7,7 @@ use kelp_parser::root::lower_root;
 use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
 use kelp_parser::syntax::SyntaxNode;
 use rowan::GreenNode;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::{Error, Result};
 use tower_lsp::lsp_types::*;
@@ -103,7 +103,7 @@ struct DocumentState {
 #[derive(Debug)]
 struct Backend {
     client: Client,
-    document_map: RwLock<BTreeMap<Url, DocumentState>>,
+    document_map: RwLock<HashMap<Url, DocumentState>>,
 }
 
 fn normalize_line_endings(text: &str) -> String {
@@ -536,7 +536,7 @@ async fn main() {
 
     let (service, socket) = LspService::new(|client| Backend {
         client,
-        document_map: RwLock::new(BTreeMap::new()),
+        document_map: RwLock::new(HashMap::new()),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

@@ -29,7 +29,7 @@ use minecraft_command_types::snbt::SNBTString;
 use nonempty::{NonEmpty, nonempty};
 use serde_json::json;
 use std::cell::Cell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::mem::take;
 
 pub mod mcfunction;
@@ -54,7 +54,7 @@ pub struct Datapack {
     pub settings: DatapackSettings,
     pub environment: Environment,
     pub value_values: HashMap<ValueId, (DataType, Expression)>,
-    namespaces: BTreeMap<String, DatapackNamespace>,
+    namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
     used_constants: HashSet<i32>,
@@ -71,7 +71,7 @@ impl Datapack {
             settings: DatapackSettings::default(),
             environment,
             value_values: HashMap::new(),
-            namespaces: BTreeMap::new(),
+            namespaces: HashMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),
             used_constants: HashSet::new(),

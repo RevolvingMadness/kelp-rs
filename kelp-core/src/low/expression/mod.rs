@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::HashMap, hash::BuildHasher};
 
 use minecraft_command_types::{
     command::{
@@ -70,7 +70,7 @@ pub fn split_constants_list(list: Vec<Expression>) -> (Vec<SNBT>, Vec<(usize, Ex
             }
             Err(expression) => {
                 non_constants.push((i, expression));
-                constants.push(SNBT::Compound(BTreeMap::new()));
+                constants.push(SNBT::Compound(SNBTCompound::new()));
             }
         }
     }
@@ -79,11 +79,11 @@ pub fn split_constants_list(list: Vec<Expression>) -> (Vec<SNBT>, Vec<(usize, Ex
 }
 
 #[must_use]
-pub fn split_constants_compound(
-    compound: BTreeMap<SNBTString, Expression>,
-) -> (SNBTCompound, BTreeMap<SNBTString, Expression>) {
-    let mut constants = BTreeMap::new();
-    let mut non_constants = BTreeMap::new();
+pub fn split_constants_compound<S: BuildHasher>(
+    compound: HashMap<SNBTString, Expression, S>,
+) -> (SNBTCompound, HashMap<SNBTString, Expression>) {
+    let mut constants = SNBTCompound::new();
+    let mut non_constants = HashMap::default();
 
     for (key, expression) in compound {
         match expression.try_into_snbt() {
@@ -91,7 +91,7 @@ pub fn split_constants_compound(
                 constants.insert(key, snbt);
             }
             Err(expression) => {
-                constants.insert(key.clone(), SNBT::Compound(BTreeMap::new()));
+                constants.insert(key.clone(), SNBT::Compound(SNBTCompound::new()));
                 non_constants.insert(key, expression);
             }
         }
@@ -161,9 +161,9 @@ pub enum Expression {
     Double(NotNan<f64>),
     String(SNBTString),
     List(Vec<Self>),
-    Compound(BTreeMap<SNBTString, Self>),
+    Compound(HashMap<SNBTString, Self>),
     Tuple(Vec<Self>),
-    Struct(StructId, BTreeMap<String, Self>),
+    Struct(StructId, HashMap<String, Self>),
     Unit,
 
     PlayerScore(GeneratedPlayerScore),
@@ -325,7 +325,7 @@ impl Expression {
                     return Err(Self::Struct(name, field_expressions));
                 }
 
-                let mut compound = BTreeMap::new();
+                let mut compound = SNBTCompound::new();
 
                 for (key, value) in field_expressions {
                     compound.insert(SNBTString(false, key), value.try_into_snbt().unwrap());
@@ -378,7 +378,7 @@ impl Expression {
                 SNBT::List(tuple)
             }
             Self::Unit => {
-                let mut compound = BTreeMap::new();
+                let mut compound = SNBTCompound::new();
 
                 compound.insert(
                     SNBTString(false, "__kelp_rs_unit__".to_string()),
@@ -483,7 +483,7 @@ impl Expression {
     pub fn to_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         match self {
             Self::Struct(name, field_expressions) => {
-                let mut new_field_expressions = BTreeMap::new();
+                let mut new_field_expressions = HashMap::new();
 
                 for (key, value) in field_expressions {
                     let value_score = value.as_score(datapack, ctx, true);
@@ -514,7 +514,7 @@ impl Expression {
         #[allow(clippy::single_match_else)]
         match self {
             Self::Struct(name, field_expressions) => {
-                let mut new_field_expressions = BTreeMap::new();
+                let mut new_field_expressions = HashMap::new();
 
                 for (key, value) in field_expressions {
                     let value_score = value.as_score_scale(datapack, ctx, scale);
@@ -1378,7 +1378,7 @@ impl Expression {
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                let mut map = BTreeMap::new();
+                let mut map = SNBTCompound::new();
 
                 match target.target {
                     DataTarget::Block(coordinates) => {
@@ -1544,7 +1544,7 @@ impl Expression {
 
                     SNBT::List(output)
                 } else {
-                    let mut output = BTreeMap::new();
+                    let mut output = SNBTCompound::new();
 
                     for (field_name, field_value) in fields {
                         output.insert(

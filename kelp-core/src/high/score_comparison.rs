@@ -5,7 +5,7 @@ use crate::high::player_score::PlayerScore;
 use crate::high::semantic_analysis_context::SemanticAnalysisContext;
 use crate::middle::score_comparison::ScoreComparison as MiddleScoreComparison;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ScoreComparison {
     Range(IntegerRange),
     Score(ScoreComparisonOperator, PlayerScore),

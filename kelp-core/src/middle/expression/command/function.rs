@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::{
     command::function::FunctionCommandArguments as LowFunctionCommandArguments, snbt::SNBTString,
@@ -12,7 +12,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
-    Compound(BTreeMap<SNBTString, Expression>),
+    Compound(HashMap<SNBTString, Expression>),
     DataTarget(DataTarget, Option<NbtPath>),
 }
 

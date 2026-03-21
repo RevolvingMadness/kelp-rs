@@ -8,7 +8,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ItemTest {
     Component(ResourceLocation),
     ComponentMatches(ResourceLocation, Expression),
@@ -37,7 +37,7 @@ impl ItemTest {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct OrGroup(pub Vec<(bool, ItemTest)>);
 
 impl OrGroup {
@@ -60,7 +60,7 @@ impl OrGroup {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct ItemPredicate {
     pub id: ItemType,
     pub or_groups: Vec<OrGroup>,

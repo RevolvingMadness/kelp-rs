@@ -1,4 +1,4 @@
-use std::{cell::Cell, collections::BTreeMap};
+use std::{cell::Cell, collections::HashMap};
 
 use minecraft_command_types::{
     command::{
@@ -20,7 +20,7 @@ use crate::datapack::mcfunction::MCFunction;
 pub struct DatapackNamespace {
     pub name: String,
     uses_scores_objective: Cell<bool>,
-    functions: BTreeMap<NonEmpty<String>, MCFunction>,
+    functions: HashMap<NonEmpty<String>, MCFunction>,
     function_stack: Vec<NonEmpty<String>>,
     counter: Cell<usize>,
 }
@@ -39,10 +39,10 @@ fn join_non_empty(non_empty: &NonEmpty<String>, separator: &str) -> String {
 
 impl DatapackNamespace {
     #[must_use]
-    pub const fn new(name: String) -> Self {
+    pub fn new(name: String) -> Self {
         Self {
             name,
-            functions: BTreeMap::new(),
+            functions: HashMap::new(),
             function_stack: Vec::new(),
             counter: Cell::new(0),
             uses_scores_objective: Cell::new(false),

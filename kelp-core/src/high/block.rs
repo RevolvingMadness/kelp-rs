@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
@@ -11,11 +11,11 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct BlockState {
     pub id: ResourceLocation,
-    pub block_states: BTreeMap<String, String>,
-    pub data_tags: Option<BTreeMap<SNBTString, Expression>>,
+    pub block_states: HashMap<String, String>,
+    pub data_tags: Option<HashMap<SNBTString, Expression>>,
 }
 
 impl BlockState {
@@ -40,7 +40,7 @@ impl BlockState {
 
         Some(MiddleBlockState {
             id: self.id,
-            block_states: self.block_states,
+            block_states: self.block_states.into_iter().collect(),
             data_tags,
         })
     }

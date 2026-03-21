@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum DataCommandModification {
     From(DataTarget, Option<NbtPath>),
     String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
@@ -56,7 +56,7 @@ impl DataCommandModification {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum DataCommand {
     Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
     Merge(DataTarget, Box<Expression>),

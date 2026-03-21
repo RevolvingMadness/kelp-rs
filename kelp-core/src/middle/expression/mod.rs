@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::{
     command::{
@@ -50,7 +50,7 @@ pub enum ExpressionKind {
     AugmentedAssignment(Box<Expression>, ArithmeticOperator, Box<Expression>),
     Assignment(Box<Expression>, Box<Expression>),
     List(Vec<Expression>),
-    Compound(BTreeMap<SNBTString, Expression>),
+    Compound(HashMap<SNBTString, Expression>),
     PlayerScore(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<ExecuteIfSubcommand>),
@@ -61,7 +61,7 @@ pub enum ExpressionKind {
     ToCast(Option<NotNan<f32>>, Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Variable(ValueId),
-    Struct(StructId, BTreeMap<SNBTString, Expression>),
+    Struct(StructId, HashMap<SNBTString, Expression>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -231,7 +231,7 @@ impl ExpressionKind {
                 compound
                     .into_iter()
                     .map(|(key, value)| (key, value.kind.resolve(datapack, ctx)))
-                    .collect::<BTreeMap<_, _>>(),
+                    .collect::<HashMap<_, _>>(),
             ),
             Self::PlayerScore(score) => {
                 let score = score.compile(datapack, ctx);

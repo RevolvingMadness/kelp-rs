@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::{
     high::{
@@ -11,10 +11,10 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum UnresolvedDataType {
     Named(Span, String, Vec<Self>),
-    TypedCompound(BTreeMap<SNBTString, Self>),
+    TypedCompound(HashMap<SNBTString, Self>),
     Reference(Box<Self>),
     Tuple(Vec<Self>),
     Unit,

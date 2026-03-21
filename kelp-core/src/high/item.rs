@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
@@ -15,7 +15,7 @@ use crate::{
     span::Span,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum ItemKind {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
@@ -23,7 +23,7 @@ pub enum ItemKind {
         Span,
         String,
         Vec<String>,
-        BTreeMap<String, UnresolvedDataType>,
+        HashMap<String, UnresolvedDataType>,
     ),
 }
 
@@ -34,7 +34,7 @@ impl ItemKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Item {
     pub span: Span,
     pub kind: ItemKind,

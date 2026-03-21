@@ -3,7 +3,7 @@ use crate::{
     middle::expression::command::r#return::ReturnCommand as MiddleReturnCommand,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ReturnCommand {
     Value(i32),
     Fail,

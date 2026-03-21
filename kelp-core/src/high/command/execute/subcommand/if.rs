@@ -13,7 +13,7 @@ use crate::{
     middle::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ExecuteIfSubcommand {
     Biome(
         Coordinates,

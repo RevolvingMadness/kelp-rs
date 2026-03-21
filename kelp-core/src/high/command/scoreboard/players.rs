@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ScoreboardNumberFormat {
     Blank,
     Fixed(Expression),
@@ -41,7 +41,7 @@ impl ScoreboardNumberFormat {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum PlayersDisplayScoreboardCommand {
     Name(PlayerScore, Option<Expression>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
@@ -84,7 +84,7 @@ impl PlayersDisplayScoreboardCommand {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum PlayersScoreboardCommand {
     List(Option<EntitySelector>),
     Get(PlayerScore),

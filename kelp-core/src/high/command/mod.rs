@@ -24,7 +24,7 @@ pub mod function;
 pub mod r#return;
 pub mod scoreboard;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum Command {
     Regular(LowCommand),
     Data(DataCommand),

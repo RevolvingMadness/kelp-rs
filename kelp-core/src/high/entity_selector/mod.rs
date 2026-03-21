@@ -13,7 +13,7 @@ use crate::{
 
 pub mod option;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum EntitySelector {
     Variable(EntitySelectorVariable, Vec<EntitySelectorOption>),
     Name(String),

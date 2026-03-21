@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use ordered_float::NotNan;
 
@@ -24,7 +24,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ExpressionKind {
     Boolean(bool),
     Byte(i8),
@@ -45,7 +45,7 @@ pub enum ExpressionKind {
     AugmentedAssignment(Box<Expression>, ArithmeticOperator, Box<Expression>),
     Assignment(Box<Expression>, Box<Expression>),
     List(Vec<Expression>),
-    Compound(BTreeMap<SNBTString, Expression>),
+    Compound(HashMap<SNBTString, Expression>),
     PlayerScore(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<ExecuteIfSubcommand>),
@@ -60,7 +60,7 @@ pub enum ExpressionKind {
         Span,
         String,
         Vec<UnresolvedDataType>,
-        BTreeMap<SNBTString, Expression>,
+        HashMap<SNBTString, Expression>,
     ),
     Invalid,
     // TODO ByteArray(Vec<i8>),
@@ -134,7 +134,7 @@ impl ExpressionKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     pub span: Span,
     pub kind: ExpressionKind,
@@ -263,6 +263,7 @@ impl Expression {
         Some(place_type_kind.with_span(self.span))
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn try_as_f32(self) -> Result<NotNan<f32>, Self> {
         match self.kind.try_as_f32() {
             Ok(f32) => Ok(f32),
@@ -539,7 +540,7 @@ impl Expression {
 
                         Some((key.snbt_string, value))
                     })
-                    .collect_option_all::<BTreeMap<_, _>>()?;
+                    .collect_option_all::<HashMap<_, _>>()?;
 
                 let compound_data_types = compound_values
                     .iter()
@@ -747,7 +748,7 @@ impl Expression {
 
                         Some((key.snbt_string, value))
                     })
-                    .collect_option_all::<BTreeMap<_, _>>()?;
+                    .collect_option_all::<HashMap<_, _>>()?;
 
                 for declared_field_name in declared_fields.into_keys() {
                     if !given_field_values

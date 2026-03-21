@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display};
 
 use crate::high::{
     data::DataTarget, nbt_path::NbtPath, player_score::PlayerScore, snbt_string::SNBTString,
@@ -17,9 +17,9 @@ pub enum PatternType {
     Score(PlayerScore),
     Data(DataTarget, NbtPath),
     Tuple(Vec<Self>),
-    Struct(String, BTreeMap<SNBTString, Self>),
+    Struct(String, HashMap<SNBTString, Self>),
     Reference(Box<Self>),
-    Compound(BTreeMap<SNBTString, Self>),
+    Compound(HashMap<SNBTString, Self>),
     Any,
 }
 

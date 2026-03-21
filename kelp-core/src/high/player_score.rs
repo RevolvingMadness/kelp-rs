@@ -5,7 +5,7 @@ use crate::{
     middle::player_score::PlayerScore as MiddlePlayerScore,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct PlayerScore {
     pub is_generated: bool,
     pub selector: EntitySelector,

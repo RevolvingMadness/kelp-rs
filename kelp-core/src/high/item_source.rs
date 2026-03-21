@@ -5,7 +5,7 @@ use crate::{
     middle::item_source::ItemSource as MiddleItemSource,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ItemSource {
     Block(Coordinates),
     Entity(EntitySelector),

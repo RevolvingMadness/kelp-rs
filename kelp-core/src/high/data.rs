@@ -8,7 +8,7 @@ use crate::{
     span::Span,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum DataTargetKind {
     Block(Coordinates),
     Entity(EntitySelector),
@@ -35,7 +35,7 @@ impl DataTargetKind {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct DataTarget {
     pub is_generated: bool,
     pub span: Span,

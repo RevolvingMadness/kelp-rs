@@ -15,7 +15,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum PatternKind {
     Literal(LiteralExpression),
 
@@ -107,7 +107,7 @@ impl PatternKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Pattern {
     pub span: Span,
     pub kind: PatternKind,

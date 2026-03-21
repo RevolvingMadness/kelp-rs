@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum RuntimeStorageType {
     Score,
     Data,

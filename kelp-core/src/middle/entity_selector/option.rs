@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use minecraft_command_types::{
     command::enums::{gamemode::Gamemode, sort::Sort},
@@ -21,7 +21,7 @@ pub enum EntitySelectorOption {
     DistanceZ(NotNan<f32>),
     XRotation(FloatRange),
     YRotation(FloatRange),
-    Scores(BTreeMap<String, IntegerRange>),
+    Scores(HashMap<String, IntegerRange>),
     Tag(bool, String),
     Team(bool, String),
     Name(bool, String),
@@ -30,7 +30,7 @@ pub enum EntitySelectorOption {
     Nbt(bool, Box<Expression>),
     Gamemode(bool, Gamemode),
     Level(IntegerRange),
-    Advancements(BTreeMap<ResourceLocation, AdvancementChoiceType>),
+    Advancements(HashMap<ResourceLocation, AdvancementChoiceType>),
     Limit(i32),
     Sort(Sort),
 }

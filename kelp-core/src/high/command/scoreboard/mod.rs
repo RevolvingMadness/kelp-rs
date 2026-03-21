@@ -11,7 +11,7 @@ use crate::{
 pub mod objectives;
 pub mod players;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum ScoreboardCommand {
     Objectives(Box<ObjectivesScoreboardCommand>), // TODO: Remove box
     Players(PlayersScoreboardCommand),

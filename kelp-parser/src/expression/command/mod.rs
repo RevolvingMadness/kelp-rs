@@ -27,7 +27,7 @@ pub fn try_parse_command_expression(parser: &mut Parser, name: &str) -> bool {
     };
 
     if !result {
-        parser.start_node(SyntaxKind::VariableExpression);
+        parser.start_node(SyntaxKind::PathExpression);
         parser.bump_identifier("tellraw");
         parser.finish_node();
     }

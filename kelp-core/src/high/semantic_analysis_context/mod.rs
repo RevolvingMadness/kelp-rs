@@ -6,7 +6,7 @@ use crate::{
     high::{
         environment::{
             HighEnvironment,
-            r#type::{HighTypeDeclaration, HighTypeId},
+            r#type::{HighTypeDeclaration, HighTypeId, module::HighModuleDeclaration},
         },
         semantic_analysis_context::{
             info::{SemanticAnalysisInfo, SemanticAnalysisInfoKind, error::SemanticAnalysisError},
@@ -21,6 +21,7 @@ use crate::{
             value::{ValueDeclaration, ValueId, variable::VariableId},
         },
     },
+    path::{Path, PathSegment},
     span::Span,
 };
 
@@ -71,22 +72,38 @@ impl SemanticAnalysisContext {
             is_lhs: false,
         };
 
-        self_.declare_builtin_type(BuiltinDataType::Boolean);
-        self_.declare_builtin_type(BuiltinDataType::Byte);
-        self_.declare_builtin_type(BuiltinDataType::Short);
-        self_.declare_builtin_type(BuiltinDataType::Integer);
-        self_.declare_builtin_type(BuiltinDataType::Long);
-        self_.declare_builtin_type(BuiltinDataType::Float);
-        self_.declare_builtin_type(BuiltinDataType::Double);
-        self_.declare_builtin_type(BuiltinDataType::String);
-        // self_.declare_builtin_type(BuiltinDataType::Unit);
-        self_.declare_builtin_type(BuiltinDataType::Score);
-        self_.declare_builtin_type(BuiltinDataType::List);
-        self_.declare_builtin_type(BuiltinDataType::Compound);
-        self_.declare_builtin_type(BuiltinDataType::Data);
-        self_.declare_builtin_type(BuiltinDataType::SNBT);
+        let builtins = [
+            ("boolean", BuiltinDataType::Boolean),
+            ("byte", BuiltinDataType::Byte),
+            ("short", BuiltinDataType::Short),
+            ("integer", BuiltinDataType::Integer),
+            ("long", BuiltinDataType::Long),
+            ("float", BuiltinDataType::Float),
+            ("double", BuiltinDataType::Double),
+            ("string", BuiltinDataType::String),
+            // ("unit", BuiltinDataType::Unit),
+            ("score", BuiltinDataType::Score),
+            ("list", BuiltinDataType::List),
+            ("compound", BuiltinDataType::Compound),
+            ("data", BuiltinDataType::Data),
+            ("snbt", BuiltinDataType::SNBT),
+        ];
 
-        self_.scopes.push(Scope::default());
+        let mut std_types = StdHashMap::new();
+        for (name, builtin) in builtins {
+            let id = self_.high_environment.declare_builtin_type(builtin);
+            std_types.insert(name.to_owned(), id);
+        }
+
+        let standard_module = HighModuleDeclaration {
+            name: "std".to_string(),
+            types: std_types,
+            values: StdHashMap::new(),
+        };
+
+        self_.declare_data_type(HighTypeDeclaration::Module(standard_module));
+
+        self_.start_scope();
 
         self_
     }
@@ -112,8 +129,8 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn end_scope(&mut self) {
-        self.scopes.pop();
+    pub fn end_scope(&mut self) -> Scope {
+        self.scopes.pop().unwrap()
     }
 
     #[inline]
@@ -241,9 +258,113 @@ impl SemanticAnalysisContext {
         id
     }
 
-    #[inline]
-    pub fn declare_builtin_type(&mut self, builtin_data_type: BuiltinDataType) -> HighTypeId {
-        self.declare_data_type(HighTypeDeclaration::Builtin(builtin_data_type))
+    #[must_use]
+    pub fn resolve_type_path<T>(
+        &mut self,
+        path: Path<T>,
+    ) -> Option<(HighTypeId, Span, PathSegment<T>)> {
+        let mut segments = path.segments.into_iter();
+
+        let mut current_segment = segments.next()?;
+
+        let Some(mut current_type_id) = self.get_type_id(&current_segment.name) else {
+            return self.add_error(
+                current_segment.span,
+                SemanticAnalysisError::UnknownType(current_segment.name),
+            );
+        };
+
+        for next_segment in segments {
+            let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
+                return self.add_error(
+                    current_segment.span,
+                    SemanticAnalysisError::NotAModule(current_segment.name),
+                );
+            };
+
+            let Some(next_type_id) = declaration.get_type_id(&next_segment.name) else {
+                return self.add_error(
+                    next_segment.span,
+                    SemanticAnalysisError::ModuleDoesntContainType {
+                        module_name: declaration.name.clone(),
+                        type_name: next_segment.name,
+                    },
+                );
+            };
+
+            current_type_id = next_type_id;
+            current_segment = next_segment;
+        }
+
+        Some((current_type_id, path.span, current_segment))
+    }
+
+    #[must_use]
+    pub fn resolve_value_path<T>(&mut self, path: &Path<T>) -> Option<ValueId> {
+        let (first_segment, segments) = path.segments.split_first()?;
+
+        if segments.is_empty() {
+            let Some(resolved_value_id) = self.get_value_id(&first_segment.name) else {
+                return self.add_error(
+                    first_segment.span,
+                    SemanticAnalysisError::UnknownValue(first_segment.name.clone()),
+                );
+            };
+
+            return Some(resolved_value_id);
+        }
+
+        let (last_segment, segments) = segments.split_last().unwrap();
+
+        let Some(mut current_type_id) = self.get_type_id(&first_segment.name) else {
+            return self.add_error(
+                first_segment.span,
+                SemanticAnalysisError::UnknownModule(first_segment.name.clone()),
+            );
+        };
+
+        let mut previous_segment = first_segment;
+
+        for segment in segments {
+            let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
+                return self.add_error(
+                    previous_segment.span,
+                    SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
+                );
+            };
+
+            let Some(next_type_id) = declaration.get_type_id(&declaration.name) else {
+                return self.add_error(
+                    segment.span,
+                    SemanticAnalysisError::ModuleDoesntContainType {
+                        module_name: declaration.name.clone(),
+                        type_name: segment.name.clone(),
+                    },
+                );
+            };
+
+            current_type_id = next_type_id;
+            previous_segment = segment;
+        }
+
+        let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
+            return self.add_error(
+                previous_segment.span,
+                SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
+            );
+        };
+
+        let Some(resolved_value_id) = declaration.get_value_id(&last_segment.name) else {
+            return self.add_error(
+                last_segment.span,
+                SemanticAnalysisError::ModuleDoesntContainValue {
+                    module_name: declaration.name.clone(),
+                    value_name: last_segment.name.clone(),
+                },
+            );
+        };
+
+        Some(resolved_value_id)
     }
 
     #[must_use]
@@ -253,22 +374,6 @@ impl SemanticAnalysisContext {
             .rev()
             .find_map(|scope| scope.types.get(name))
             .copied()
-    }
-
-    #[must_use]
-    pub fn get_data_type_id_semantic_analysis(
-        &mut self,
-        name_span: Span,
-        name: &str,
-    ) -> Option<HighTypeId> {
-        let Some(id) = self.get_type_id(name) else {
-            return self.add_error(
-                name_span,
-                SemanticAnalysisError::UnknownType(name.to_owned()),
-            );
-        };
-
-        Some(id)
     }
 
     #[must_use]

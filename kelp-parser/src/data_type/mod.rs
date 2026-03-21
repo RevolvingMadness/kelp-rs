@@ -5,7 +5,7 @@ use crate::{
     cst::{CSTDataType, CSTTypedCompoundDataTypeField},
     data_type::{
         inferred::lower_inferred_data_type,
-        named::{lower_named_data_type, try_parse_named_data_type},
+        path::{lower_path_data_type, try_parse_path_data_type},
         reference::{lower_reference_data_type, try_parse_reference_data_type},
         typed_compound::try_parse_typed_compound_data_type,
     },
@@ -16,7 +16,7 @@ use crate::{
 
 pub mod generics;
 pub mod inferred;
-pub mod named;
+pub mod path;
 pub mod reference;
 pub mod typed_compound;
 
@@ -34,7 +34,7 @@ pub fn try_parse_data_type(parser: &mut Parser) -> bool {
 
                 true
             } else {
-                try_parse_named_data_type(parser)
+                try_parse_path_data_type(parser)
             }
         }),
     }
@@ -111,7 +111,7 @@ pub fn lower_data_type(node: CSTDataType) -> Option<UnresolvedDataType> {
 
             Some(UnresolvedDataType::TypedCompound(fields))
         }
-        CSTDataType::NamedDataType(node) => lower_named_data_type(node),
+        CSTDataType::PathDataType(node) => lower_path_data_type(node),
         CSTDataType::InferredDataType(node) => lower_inferred_data_type(node),
     }
 }

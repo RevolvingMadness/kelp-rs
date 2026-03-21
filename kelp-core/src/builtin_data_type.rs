@@ -1,6 +1,6 @@
 use strum::{Display, EnumString};
 
-use crate::{high::data_type::resolved::ResolvedDataType, middle::data_type::DataType};
+use crate::{high::data_type::resolved::PartiallyResolvedDataType, middle::data_type::DataType};
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
@@ -66,31 +66,31 @@ impl BuiltinDataType {
     #[must_use]
     pub fn to_resolved_data_type(
         &self,
-        mut generic_types: Vec<ResolvedDataType>,
-    ) -> Option<ResolvedDataType> {
+        mut generic_types: Vec<PartiallyResolvedDataType>,
+    ) -> Option<PartiallyResolvedDataType> {
         if generic_types.len() != self.generic_count() {
             return None;
         }
 
         Some(match self {
-            Self::Unit => ResolvedDataType::Unit,
-            Self::Boolean => ResolvedDataType::Boolean,
-            Self::Byte => ResolvedDataType::Byte,
-            Self::Short => ResolvedDataType::Short,
-            Self::Integer => ResolvedDataType::Integer,
-            Self::Long => ResolvedDataType::Long,
-            Self::Float => ResolvedDataType::Float,
-            Self::Double => ResolvedDataType::Double,
-            Self::String => ResolvedDataType::String,
-            Self::SNBT => ResolvedDataType::SNBT,
+            Self::Unit => PartiallyResolvedDataType::Unit,
+            Self::Boolean => PartiallyResolvedDataType::Boolean,
+            Self::Byte => PartiallyResolvedDataType::Byte,
+            Self::Short => PartiallyResolvedDataType::Short,
+            Self::Integer => PartiallyResolvedDataType::Integer,
+            Self::Long => PartiallyResolvedDataType::Long,
+            Self::Float => PartiallyResolvedDataType::Float,
+            Self::Double => PartiallyResolvedDataType::Double,
+            Self::String => PartiallyResolvedDataType::String,
+            Self::SNBT => PartiallyResolvedDataType::SNBT,
             Self::List | Self::Compound | Self::Data | Self::Score => {
                 let element_type = generic_types.remove(0);
 
                 match self {
-                    Self::List => ResolvedDataType::List(Box::new(element_type)),
-                    Self::Compound => ResolvedDataType::Compound(Box::new(element_type)),
-                    Self::Data => ResolvedDataType::Data(Box::new(element_type)),
-                    Self::Score => ResolvedDataType::Score(Box::new(element_type)),
+                    Self::List => PartiallyResolvedDataType::List(Box::new(element_type)),
+                    Self::Compound => PartiallyResolvedDataType::Compound(Box::new(element_type)),
+                    Self::Data => PartiallyResolvedDataType::Data(Box::new(element_type)),
+                    Self::Score => PartiallyResolvedDataType::Score(Box::new(element_type)),
                     _ => unreachable!(),
                 }
             }

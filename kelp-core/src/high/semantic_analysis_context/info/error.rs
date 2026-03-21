@@ -45,7 +45,6 @@ pub enum SemanticAnalysisError {
     MissingField(String),
     TypeIsAlreadyDefined(String),
     PatternIsNotIrrefutable,
-    UnknownType(String),
     TypeIsNotCondition(DataType),
     TypeIsNotScoreCompatible(DataType),
     CannotBeAssignedToData(DataType),
@@ -66,9 +65,22 @@ pub enum SemanticAnalysisError {
         expected: usize,
         actual: usize,
     },
-    UndeclaredVariable(String),
     MacroConflict,
     ControlFlowNotInLoop(ControlFlowKind),
+
+    NotAType(String),
+    NotAModule(String),
+    UnknownType(String),
+    UnknownValue(String),
+    UnknownModule(String),
+    ModuleDoesntContainType {
+        module_name: String,
+        type_name: String,
+    },
+    ModuleDoesntContainValue {
+        module_name: String,
+        value_name: String,
+    },
 }
 
 impl SemanticAnalysisError {
@@ -173,7 +185,6 @@ impl SemanticAnalysisError {
                 name
             ),
             Self::PatternIsNotIrrefutable => output.write_str("This pattern is not irrefutable"),
-            Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
             Self::TypeIsNotCondition(data_type) => {
                 output.write_str("The type `")?;
                 data_type.write_string(output, environment)?;
@@ -241,17 +252,33 @@ impl SemanticAnalysisError {
                     data_type_name, expected, arg_s, actual, was_were
                 )
             }
-            Self::UndeclaredVariable(name) => write!(
-                output,
-                "The variable `{}` has not been declared in the current scope",
-                name
-            ),
             Self::MacroConflict => {
                 output.write_str("This string conflicts with the compiler-generated command macros")
             }
             Self::ControlFlowNotInLoop(kind) => {
                 write!(output, "Cannot `{}` outside of a loop", kind.name())
             }
+            Self::NotAType(name) => write!(output, "`{}` is not a type", name),
+            Self::NotAModule(name) => write!(output, "`{}` is not a module", name),
+            Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
+            Self::UnknownValue(name) => write!(output, "Unknown value `{}`", name),
+            Self::UnknownModule(name) => write!(output, "Unknown module `{}`", name),
+            Self::ModuleDoesntContainType {
+                module_name,
+                type_name,
+            } => write!(
+                output,
+                "The module `{}` does not contain the type `{}`",
+                module_name, type_name
+            ),
+            Self::ModuleDoesntContainValue {
+                module_name,
+                value_name,
+            } => write!(
+                output,
+                "The module `{}` does not contain the value `{}`",
+                module_name, value_name
+            ),
         }
     }
 }

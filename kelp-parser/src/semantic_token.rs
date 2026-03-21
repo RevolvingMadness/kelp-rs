@@ -101,7 +101,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
             NodeOrToken::Node(node) => {
                 let semantic_token_type = match node.kind() {
                     SyntaxKind::ResourceLocation => Some(SemanticTokenType::Function),
-                    SyntaxKind::VariableExpression => Some(SemanticTokenType::Variable),
+                    SyntaxKind::PathExpression => Some(SemanticTokenType::Variable),
                     _ => None,
                 };
 
@@ -131,6 +131,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::LetKeyword
                     | SyntaxKind::ToKeyword
                     | SyntaxKind::AsKeyword
+                    | SyntaxKind::ModKeyword
                     | SyntaxKind::MCFNKeyword
                     | SyntaxKind::StructKeyword
                     | SyntaxKind::BreakKeyword
@@ -147,9 +148,10 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::BindingPatternName
                     | SyntaxKind::ScoreboardObjective
                     | SyntaxKind::NamedNBTPathNodeName => Some(SemanticTokenType::Variable),
-                    SyntaxKind::DataTypeName | SyntaxKind::RuntimeStorageType => {
-                        Some(SemanticTokenType::Class)
-                    }
+                    SyntaxKind::PathIdentifier
+                    | SyntaxKind::ModuleName
+                    | SyntaxKind::DataTypeName
+                    | SyntaxKind::RuntimeStorageType => Some(SemanticTokenType::Class),
                     _ => None,
                 };
 

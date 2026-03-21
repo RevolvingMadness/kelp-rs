@@ -6,6 +6,7 @@ pub mod entity_selector;
 pub mod expression;
 pub mod item;
 pub mod parser;
+pub mod path;
 pub mod pattern;
 pub mod player_score;
 pub mod resource_location;

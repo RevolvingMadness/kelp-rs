@@ -37,6 +37,15 @@ impl<'a> GenericResolver<'a> {
         Some(Self { names, types })
     }
 
+    #[inline]
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            names: &[],
+            types: &[],
+        }
+    }
+
     #[must_use]
     pub fn resolve(&self, name: &str) -> Option<&DataType> {
         let index = self.names.iter().position(|n| n == name)?;
@@ -46,7 +55,7 @@ impl<'a> GenericResolver<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ResolvedDataType {
+pub enum PartiallyResolvedDataType {
     Boolean,
     Byte,
     Short,
@@ -71,7 +80,7 @@ pub enum ResolvedDataType {
     InferredFloat,
 }
 
-impl ResolvedDataType {
+impl PartiallyResolvedDataType {
     pub fn resolve_fully(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -140,9 +149,9 @@ impl ResolvedDataType {
                     .map(|generic_type| generic_type.resolve_fully(ctx, resolver))
                     .collect_option_all()?;
 
-                let id = ctx
-                    .get_type(id)
-                    .clone()
+                let declaration = ctx.get_type(id).clone();
+
+                let id = declaration
                     .resolve_fully(ctx, id, generic_types, name_span)?
                     .as_struct_id()?;
 

@@ -17,6 +17,7 @@ pub enum SyntaxKind {
     Tilde,                     // ~
     Caret,                     // ^
     Colon,                     // :
+    ColonColon,                // ::
     LeftBrace,                 // {
     RightBrace,                // }
     LeftBracket,               // [
@@ -105,6 +106,8 @@ pub enum SyntaxKind {
     CompoundPattern,
     CompoundPatternEntry,
 
+    ModuleName,
+
     ScoreKeyword,
     EntityKeyword,
     BlockKeyword,
@@ -125,6 +128,7 @@ pub enum SyntaxKind {
     LetKeyword,
     ToKeyword,
     AsKeyword,
+    ModKeyword,
     MCFNKeyword,
     StructKeyword,
     TypeKeyword,
@@ -135,6 +139,7 @@ pub enum SyntaxKind {
     TrueKeyword,
     FalseKeyword,
 
+    ModuleDeclarationItem,
     MCFNDeclarationItem,
     StructDeclarationItem,
     StructDeclarationItemField,
@@ -188,7 +193,7 @@ pub enum SyntaxKind {
     FieldName,
     AssignmentExpression,
     UnaryExpression,
-    VariableExpression,
+    PathExpression,
     UnderscoreExpression,
     NumericExpression,
     NumericExpressionSuffix,
@@ -216,8 +221,12 @@ pub enum SyntaxKind {
     TypedCompoundDataType,
     TypedCompoundDataTypeField,
     TypedCompoundDataTypeFieldName,
-    NamedDataType,
+    PathDataType,
     InferredDataType,
+
+    Path,
+    PathSegment,
+    PathIdentifier,
 
     Error,
     Garbage,

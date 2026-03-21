@@ -2,7 +2,7 @@ use kelp_core::high::{expression::Expression, semantic_analysis_context::Semanti
 
 use crate::{
     cst::CSTExpression,
-    data_type::{generics::try_parse_generic_data_types, try_parse_data_type},
+    data_type::try_parse_data_type,
     expression::{
         as_cast::lower_as_cast_expression,
         assignment::lower_assignment_expression,
@@ -17,6 +17,7 @@ use crate::{
         list::{lower_list_expression, try_parse_list_expression},
         numeric::lower_numeric_expression,
         parenthesized::lower_parenthesized_expression,
+        path::lower_path_expression,
         score::{lower_score_expression, try_parse_score_expression},
         string::lower_string_expression,
         r#struct::lower_struct_expression,
@@ -25,10 +26,10 @@ use crate::{
         unary::lower_unary_expression,
         underscore::lower_underscore_expression,
         unit::lower_unit_expression,
-        variable::lower_variable_expression,
     },
     item::struct_declaration::bump_until_next_field_or_end,
     parser::Parser,
+    path::try_parse_path,
     syntax::SyntaxKind,
 };
 
@@ -45,6 +46,7 @@ pub mod index;
 pub mod list;
 pub mod numeric;
 pub mod parenthesized;
+pub mod path;
 pub mod score;
 pub mod string;
 pub mod r#struct;
@@ -53,7 +55,6 @@ pub mod tuple;
 pub mod unary;
 pub mod underscore;
 pub mod unit;
-pub mod variable;
 
 #[must_use]
 pub fn is_expression_recovery(char: char) -> bool {
@@ -596,7 +597,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             }
             "score" => {
                 if !try_parse_score_expression(parser) {
-                    parser.start_node(SyntaxKind::VariableExpression);
+                    parser.start_node(SyntaxKind::PathExpression);
                     parser.bump_identifier("score");
                     parser.finish_node();
                 }
@@ -605,7 +606,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             }
             "entity" | "block" | "storage" => {
                 if !try_parse_data_expression(parser) {
-                    parser.start_node(SyntaxKind::VariableExpression);
+                    parser.start_node(SyntaxKind::PathExpression);
                     parser.bump_identifier(text);
                     parser.finish_node();
                 }
@@ -626,18 +627,20 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 }
 
                 let checkpoint = parser.checkpoint();
-                parser.bump_identifier(text);
+
+                if !try_parse_path(parser, false) {
+                    unreachable!();
+                }
 
                 let state = parser.save_state();
 
                 let parsed_struct = (|| {
-                    let _ = try_parse_generic_data_types(parser);
-
                     parser.skip_inline_whitespace();
 
                     if parser.peek_char() == Some('{') {
                         parser.bump_char();
                         parser.skip_whitespace();
+
                         while parser.peek_char() != Some('}') {
                             parser.start_node(SyntaxKind::StructExpressionField);
 
@@ -666,11 +669,12 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                             parser.finish_node();
 
                             parser.skip_whitespace();
-                            if parser.try_bump_char(',') {
-                                parser.skip_whitespace();
-                            } else {
+
+                            if !parser.try_bump_char(',') {
                                 break;
                             }
+
+                            parser.skip_whitespace();
                         }
 
                         if parser.expect_char('}', "Expected '}'") {
@@ -685,7 +689,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                     parser.start_node_at(checkpoint, SyntaxKind::StructExpression);
                 } else {
                     parser.restore_state(state);
-                    parser.start_node_at(checkpoint, SyntaxKind::VariableExpression);
+                    parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
                 }
 
                 parser.finish_node();
@@ -704,7 +708,7 @@ pub fn lower_expression(
 ) -> Option<Expression> {
     match node {
         CSTExpression::UnaryExpression(node) => lower_unary_expression(node, ctx),
-        CSTExpression::VariableExpression(node) => lower_variable_expression(node, ctx),
+        CSTExpression::PathExpression(node) => lower_path_expression(node, ctx),
         CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node, ctx),
         CSTExpression::BooleanExpression(node) => lower_boolean_expression(node, ctx),
         CSTExpression::NumericExpression(node) => lower_numeric_expression(node, ctx),

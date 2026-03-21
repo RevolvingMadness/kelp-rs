@@ -3,9 +3,12 @@ Root =
 
 // ----- Item -----
 Item =
-  MCFNDeclarationItem
+  ModuleDeclarationItem
+| MCFNDeclarationItem
 | StructDeclarationItem
 | TypeAliasDeclarationItem
+
+ModuleDeclarationItem = 'mod' 'module_name' '{' Item* '}'
 
 MCFNDeclarationItem =
   'mcfn' ResourceLocation Statement
@@ -83,7 +86,7 @@ GenericDataTypes =
 
 // ----- Expression -----
 Expression =
-  VariableExpression
+  PathExpression
 | UnderscoreExpression
 | UnaryExpression
 | AssignmentExpression
@@ -106,7 +109,7 @@ Expression =
 | IndexExpression
 | FieldAccessExpression
 
-VariableExpression = 'ident'
+PathExpression = Path
 
 UnderscoreExpression = '_'
 
@@ -176,12 +179,7 @@ TupleExpression =
 ListExpression =
   '[' (expressions:Expression (',' expressions:Expression)*)? ']'
 
-StructExpression =
-  name:'struct_name'
-  GenericDataTypes?
-  '{'
-  (fields:StructExpressionField (',' fields:StructExpressionField)* ','?)?
-  '}'
+StructExpression = Path '{' (fields:StructExpressionField (',' fields:StructExpressionField)* ','?)? '}'
 
 StructExpressionField =
   name:'struct_field_name' ':' value:Expression
@@ -281,7 +279,7 @@ DataType =
 | TupleDataType
 | TypedCompoundDataType
 | UnitDataType
-| NamedDataType
+| PathDataType
 | InferredDataType
 
 ReferenceDataType =
@@ -305,8 +303,7 @@ TypedCompoundDataType =
 TypedCompoundDataTypeField =
   name:'typed_compound_data_type_field_name' (':' DataType)?
 
-NamedDataType =
-  'data_type_name' GenericDataTypes?
+PathDataType = Path
 
 InferredDataType = '_'
 
@@ -386,3 +383,9 @@ PlayerScore = 'score' EntitySelector 'scoreboard_objective'
 // ----- Data -----
 
 Data = DataTarget NBTPath
+
+// ----- Path -----
+
+Path = '::'? PathSegment ('::' PathSegment)*
+
+PathSegment = 'path_identifier' ('::' GenericDataTypes)?

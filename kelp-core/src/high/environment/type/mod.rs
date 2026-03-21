@@ -1,15 +1,19 @@
 use crate::{
     builtin_data_type::BuiltinDataType,
     high::{
-        data_type::resolved::{GenericResolver, ResolvedDataType},
-        environment::r#type::{alias::HighAliasDeclaration, r#struct::HighStructDeclaration},
-        semantic_analysis_context::SemanticAnalysisContext,
+        data_type::resolved::{GenericResolver, PartiallyResolvedDataType},
+        environment::r#type::{
+            alias::HighAliasDeclaration, module::HighModuleDeclaration,
+            r#struct::HighStructDeclaration,
+        },
+        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     middle::data_type::DataType,
     span::Span,
 };
 
 pub mod alias;
+pub mod module;
 pub mod r#struct;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -17,6 +21,7 @@ pub struct HighTypeId(pub usize);
 
 #[derive(Debug, Clone)]
 pub enum HighTypeDeclaration {
+    Module(HighModuleDeclaration),
     Struct(HighStructDeclaration),
     Alias(HighAliasDeclaration),
     Builtin(BuiltinDataType),
@@ -26,6 +31,7 @@ impl HighTypeDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
+            Self::Module(declaration) => &declaration.name,
             Self::Struct(declaration) => &declaration.name,
             Self::Alias(declaration) => &declaration.name,
             Self::Builtin(data_type) => data_type.name(),
@@ -33,12 +39,13 @@ impl HighTypeDeclaration {
     }
 
     #[must_use]
-    pub const fn generic_count(&self) -> usize {
-        match self {
+    pub const fn generic_count(&self) -> Option<usize> {
+        Some(match self {
+            Self::Module(_) => return None,
             Self::Struct(declaration) => declaration.generic_names.len(),
             Self::Alias(declaration) => declaration.generic_names.len(),
             Self::Builtin(builtin_type) => builtin_type.generic_count(),
-        }
+        })
     }
 
     pub fn resolve_fully(
@@ -46,9 +53,13 @@ impl HighTypeDeclaration {
         ctx: &mut SemanticAnalysisContext,
         id: HighTypeId,
         generic_types: Vec<DataType>,
-        name_span: Span,
+        path_span: Span,
     ) -> Option<DataType> {
         match self {
+            Self::Module(_) => ctx.add_error(
+                path_span,
+                SemanticAnalysisError::NotAType(self.name().to_owned()),
+            ),
             Self::Struct(declaration) => {
                 if let Some(id) = ctx.get_monomorphized_struct_id(id, &generic_types) {
                     return Some(DataType::Struct(id));
@@ -57,7 +68,7 @@ impl HighTypeDeclaration {
                 let resolver = GenericResolver::create_semantic_analysis(
                     ctx,
                     &declaration.name,
-                    name_span,
+                    path_span,
                     &declaration.generic_names,
                     &generic_types,
                 )?;
@@ -87,7 +98,7 @@ impl HighTypeDeclaration {
                 let resolver = GenericResolver::create_semantic_analysis(
                     ctx,
                     &declaration.name,
-                    name_span,
+                    path_span,
                     &declaration.generic_names,
                     &generic_types,
                 )?;
@@ -99,29 +110,38 @@ impl HighTypeDeclaration {
     }
 
     #[must_use]
-    pub fn resolve_generics(
+    pub fn resolve_partially(
         self,
         id: HighTypeId,
         name_span: Span,
-        generic_types: Vec<ResolvedDataType>,
+        generic_types: Vec<PartiallyResolvedDataType>,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<ResolvedDataType> {
-        let expected_generic_count = self.generic_count();
-        let actual_generic_count = generic_types.len();
+    ) -> Option<PartiallyResolvedDataType> {
+        if let Some(expected_generic_count) = self.generic_count() {
+            let actual_generic_count = generic_types.len();
 
-        if actual_generic_count != expected_generic_count {
-            let name = self.name().to_owned();
+            if actual_generic_count != expected_generic_count {
+                let name = self.name().to_owned();
 
-            return ctx.add_invalid_generics(
-                name_span,
-                name,
-                expected_generic_count,
-                actual_generic_count,
-            );
+                return ctx.add_invalid_generics(
+                    name_span,
+                    name,
+                    expected_generic_count,
+                    actual_generic_count,
+                );
+            }
         }
 
         match self {
-            Self::Struct(_) => Some(ResolvedDataType::Struct(name_span, id, generic_types)),
+            Self::Module(_) => ctx.add_error(
+                name_span,
+                SemanticAnalysisError::NotAType(self.name().to_owned()),
+            ),
+            Self::Struct(_) => Some(PartiallyResolvedDataType::Struct(
+                name_span,
+                id,
+                generic_types,
+            )),
             Self::Alias(declaration) => declaration.alias,
             Self::Builtin(data_type) => data_type.to_resolved_data_type(generic_types),
         }

@@ -495,6 +495,10 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "query" => "QueryKeyword",
         "restart" => "RestartKeyword",
         "scoreboard_objective" => "ScoreboardObjective",
+        "::" => "ColonColon",
+        "path_identifier" => "PathIdentifier",
+        "mod" => "ModKeyword",
+        "module_name" => "ModuleName",
         _ => todo!("{:?}", token),
     }
 }

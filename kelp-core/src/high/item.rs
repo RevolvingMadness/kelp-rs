@@ -6,7 +6,8 @@ use crate::{
     high::{
         data_type::unresolved::UnresolvedDataType,
         environment::r#type::{
-            HighTypeDeclaration, alias::HighAliasDeclaration, r#struct::HighStructDeclaration,
+            HighTypeDeclaration, alias::HighAliasDeclaration, module::HighModuleDeclaration,
+            r#struct::HighStructDeclaration,
         },
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         statement::Statement,
@@ -17,6 +18,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum ItemKind {
+    ModuleDeclaration(String, Vec<Item>),
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
     StructDeclaration(
@@ -46,6 +48,36 @@ impl Item {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleItem> {
         Some(match self.kind {
+            ItemKind::ModuleDeclaration(name, items) => {
+                if ctx.type_is_declared_in_current_scope(&name) {
+                    return ctx
+                        .add_error(self.span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
+                }
+
+                ctx.start_scope();
+
+                let mut error = false;
+
+                for item in items {
+                    if item.perform_semantic_analysis(ctx).is_none() {
+                        error = true;
+                    }
+                }
+
+                let module_scope = ctx.end_scope();
+
+                ctx.declare_data_type(HighTypeDeclaration::Module(HighModuleDeclaration {
+                    name,
+                    types: module_scope.types,
+                    values: module_scope.values,
+                }));
+
+                if error {
+                    return None;
+                }
+
+                MiddleItem::ModuleDeclaration
+            }
             ItemKind::MCFNDeclaration(resource_location, statement) => {
                 let statement = statement.perform_semantic_analysis(ctx)?;
 
@@ -57,7 +89,7 @@ impl Item {
                         .add_error(name_span, SemanticAnalysisError::TypeIsAlreadyDefined(name));
                 }
 
-                let alias = alias.resolve_generics(Some(&generic_names), ctx);
+                let alias = alias.resolve_partially(Some(&generic_names), ctx);
 
                 ctx.declare_data_type(HighTypeDeclaration::Alias(HighAliasDeclaration {
                     name,
@@ -76,7 +108,7 @@ impl Item {
                 let field_types = field_types
                     .into_iter()
                     .map(|(field_name, field_type)| {
-                        let field_type = field_type.resolve_generics(Some(&generic_names), ctx);
+                        let field_type = field_type.resolve_partially(Some(&generic_names), ctx);
 
                         (field_name, field_type)
                     })

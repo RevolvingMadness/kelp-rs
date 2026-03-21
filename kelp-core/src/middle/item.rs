@@ -4,6 +4,7 @@ use crate::{compile_context::CompileContext, datapack::Datapack, middle::stateme
 
 #[derive(Debug, Clone)]
 pub enum Item {
+    ModuleDeclaration,
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration,
     StructDeclaration,
@@ -30,7 +31,7 @@ impl Item {
                     datapack.pop_function_from_current_namespace();
                 });
             }
-            Self::TypeAliasDeclaration | Self::StructDeclaration => {}
+            Self::ModuleDeclaration | Self::TypeAliasDeclaration | Self::StructDeclaration => {}
         }
     }
 }

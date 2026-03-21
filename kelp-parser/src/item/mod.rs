@@ -7,21 +7,44 @@ use crate::{
     cst::CSTItem,
     data_type::generics::lower_generic_names,
     item::{
-        mcfn_declaration::lower_mcfn_declaration_item,
-        struct_declaration::lower_struct_declaration_item_field,
-        type_alias_declaration::lower_type_alias_declaration_item,
+        mcfn_declaration::{lower_mcfn_declaration_item, try_parse_mcfn_declaration_item},
+        module_declaration::{lower_module_declaration_item, try_parse_module_declaration_item},
+        struct_declaration::{
+            lower_struct_declaration_item_field, try_parse_struct_declaration_item,
+        },
+        type_alias_declaration::{
+            lower_type_alias_declaration_item, try_parse_type_alias_declaration_item,
+        },
     },
+    parser::Parser,
     span::{span_of_cst_node, text_range_to_span},
 };
 
 pub mod mcfn_declaration;
+pub mod module_declaration;
 pub mod struct_declaration;
 pub mod type_alias_declaration;
+
+#[must_use]
+pub fn try_parse_item(parser: &mut Parser) -> bool {
+    let Some(identifier) = parser.peek_identifier() else {
+        return false;
+    };
+
+    match identifier {
+        "mod" => try_parse_module_declaration_item(parser),
+        "mcfn" => try_parse_mcfn_declaration_item(parser),
+        "struct" => try_parse_struct_declaration_item(parser),
+        "type" => try_parse_type_alias_declaration_item(parser),
+        _ => false,
+    }
+}
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
     match node {
+        CSTItem::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
         CSTItem::MCFNDeclarationItem(node) => lower_mcfn_declaration_item(node, ctx),
         CSTItem::StructDeclarationItem(node) => {
             let span = span_of_cst_node(&node);

@@ -1,10 +1,14 @@
-use kelp_core::high::{expression::{Expression, ExpressionKind}, semantic_analysis_context::SemanticAnalysisContext, snbt_string::SNBTString};
+use kelp_core::high::{
+    expression::{Expression, ExpressionKind},
+    semantic_analysis_context::SemanticAnalysisContext,
+    snbt_string::SNBTString,
+};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::{CSTStructExpression, CSTStructExpressionField},
-    data_type::generics::lower_generic_data_types,
     expression::lower_expression,
+    path::lower_path,
     span::{span_of_cst_node, text_range_to_span},
 };
 
@@ -37,11 +41,7 @@ pub fn lower_struct_expression(
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let name_token = node.name()?;
-    let name_span = name_token.text_range();
-    let name = name_token.text();
-
-    let generic_data_types = node.generic_data_types().and_then(lower_generic_data_types);
+    let path = lower_path(node.path()?)?;
 
     let fields = node
         .fields()
@@ -50,13 +50,5 @@ pub fn lower_struct_expression(
         })
         .collect();
 
-    Some(
-        ExpressionKind::Struct(
-            text_range_to_span(name_span),
-            name.to_owned(),
-            generic_data_types.unwrap_or_default(),
-            fields,
-        )
-        .with_span(span),
-    )
+    Some(ExpressionKind::Struct(path, fields).with_span(span))
 }

@@ -1,7 +1,9 @@
 use kelp_core::high::{item::Item, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
-    cst::CSTRoot, item::lower_item, parser::Parser, statement::item::try_parse_item,
+    cst::CSTRoot,
+    item::{lower_item, try_parse_item},
+    parser::Parser,
     syntax::SyntaxKind,
 };
 

@@ -381,7 +381,7 @@ LocalCoordinate =
 
 // ----- Player Score -----
 
-PlayerScore = 'score' EntitySelector 'ident'
+PlayerScore = 'score' EntitySelector 'scoreboard_objective'
 
 // ----- Data -----
 

@@ -65,6 +65,7 @@ pub enum SyntaxKind {
     LeftArrowEqual,            // <=
 
     PlayerScore,
+    ScoreboardObjective,
     Data,
 
     CharacterLiteral,

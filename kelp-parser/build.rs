@@ -494,6 +494,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "create" => "CreateKeyword",
         "query" => "QueryKeyword",
         "restart" => "RestartKeyword",
+        "scoreboard_objective" => "ScoreboardObjective",
         _ => todo!("{:?}", token),
     }
 }

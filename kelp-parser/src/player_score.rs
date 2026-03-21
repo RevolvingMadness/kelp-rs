@@ -27,7 +27,10 @@ pub fn try_parse_player_score(parser: &mut Parser) -> bool {
 
     parser.expect_inline_whitespace();
 
-    parser.expect_identifier("Expected scoreboard objective");
+    parser.expect_identifier_kind(
+        SyntaxKind::ScoreboardObjective,
+        "Expected scoreboard objective",
+    );
 
     parser.finish_node();
 
@@ -42,7 +45,7 @@ pub fn lower_player_score(
 ) -> Option<PlayerScore> {
     let selector = lower_entity_selector(node.entity_selector()?)?;
 
-    let objective_token = node.identifier_token()?;
+    let objective_token = node.scoreboard_objective_token()?;
     let objective = objective_token.text();
 
     Some(PlayerScore {

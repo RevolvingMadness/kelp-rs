@@ -183,7 +183,7 @@ impl ExpressionKind {
                 match unary_operator {
                     UnaryOperator::Negate => expression.negate(datapack, ctx),
                     UnaryOperator::Invert => expression.invert(),
-                    UnaryOperator::Reference => LowExpression::Reference(Box::new(expression)),
+                    UnaryOperator::Reference => expression,
                     UnaryOperator::Dereference => expression.dereference(datapack, ctx).unwrap(),
                 }
             }

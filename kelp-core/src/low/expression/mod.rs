@@ -163,7 +163,6 @@ pub enum Expression {
     List(Vec<Self>),
     Compound(BTreeMap<SNBTString, Self>),
     Tuple(Vec<Self>),
-    Reference(Box<Self>),
     Struct(StructId, BTreeMap<String, Self>),
     Unit,
 
@@ -201,8 +200,7 @@ impl Expression {
                     Command::Execute(ExecuteSubcommand::If(inverted, *execute_if_subcommand)),
                 );
             }
-            Self::Reference(_)
-            | Self::Boolean(_)
+            Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
             | Self::Integer(_)
@@ -243,7 +241,6 @@ impl Expression {
 
                 Some(Self::Data(Box::new((unique_target, unique_path))))
             }
-            Self::Reference(expression) => expression.dereference(datapack, ctx),
             Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
@@ -299,7 +296,6 @@ impl Expression {
 
                 Some(expressions.remove(index as usize))
             }
-            Self::Reference(_) => todo!(),
             Self::Struct(_, fields) => fields
                 .into_iter()
                 .find_map(|(key, value)| if key == field { Some(value) } else { None }),
@@ -391,7 +387,6 @@ impl Expression {
 
                 SNBT::Compound(compound)
             }
-            Self::Reference(_) => todo!(),
         })
     }
 
@@ -425,7 +420,6 @@ impl Expression {
             Self::Double(double) => SNBT::Double(
                 NotNan::new(f64::from(double.into_inner() as f32 * scale.into_inner())).unwrap(),
             ),
-            Self::Reference(_) => todo!(),
         })
     }
 
@@ -458,7 +452,6 @@ impl Expression {
                     .map(|(key, value)| (key, value.as_snbt_macros(ctx)))
                     .collect(),
             ),
-            Self::Reference(_) => todo!(),
             Self::Struct(_, _) | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
                 ctx.get_macro_snbt(self)
             }
@@ -634,7 +627,6 @@ impl Expression {
                         );
                     }
                 }
-                Self::Reference(_) => todo!(),
                 Self::Struct(_, fields) => {
                     for (key, value) in fields {
                         value.assign_to_data(
@@ -782,7 +774,6 @@ impl Expression {
                         );
                     }
                 }
-                Self::Reference(_) => todo!(),
                 Self::Struct(_, fields) => {
                     for (key, value) in fields {
                         value.assign_to_data_scale(
@@ -1360,7 +1351,6 @@ impl Expression {
                 unique_score.to_execute_condition(inverted)
             }
             Self::Condition(inner_inverted, condition) => (inverted ^ inner_inverted, *condition),
-            Self::Reference(_) => todo!(),
             Self::Byte(_)
             | Self::Short(_)
             | Self::Integer(_)
@@ -1507,7 +1497,6 @@ impl Expression {
                 SNBT::List(list)
             }
             Self::Unit => SNBT::string("()"),
-            Self::Reference(_) => todo!(),
             Self::Struct(id, fields) => {
                 if force_display {
                     let declaration = datapack.get_struct_type(id);
@@ -1604,7 +1593,6 @@ impl Expression {
             | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Reference(_)
             | Self::Struct(_, _)
             | Self::Unit
             | Self::Condition(_, _) => false,
@@ -1634,7 +1622,6 @@ impl Expression {
 
                 unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
             }
-            Self::Reference(_) => todo!(),
             Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
@@ -1760,7 +1747,6 @@ impl Expression {
                     )),
                 );
             }
-            Self::Reference(_) => todo!(),
             Self::Struct(_, _) | Self::Tuple(_) | Self::Unit => {
                 unreachable!()
             }
@@ -1854,7 +1840,6 @@ impl Expression {
                     )),
                 );
             }
-            Self::Reference(_) => todo!(),
             Self::Condition(_, _)
             | Self::Boolean(_)
             | Self::Struct(_, _)

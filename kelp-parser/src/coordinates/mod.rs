@@ -1,4 +1,6 @@
-use minecraft_command_types::coordinate::Coordinates;
+use kelp_core::high::{
+    coordinate::Coordinates, semantic_analysis_context::SemanticAnalysisContext,
+};
 
 use crate::{
     coordinates::{
@@ -45,23 +47,28 @@ pub fn try_parse_coordinates(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_coordinates(node: CSTCoordinates) -> Option<Coordinates> {
+pub fn lower_coordinates(
+    node: CSTCoordinates,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Coordinates> {
     Some(match node {
         CSTCoordinates::WorldCoordinates(node) => {
-            let mut coordinates = node.world_coordinates().filter_map(lower_world_coordinate);
+            let mut coordinates = node.world_coordinates();
 
-            let x = coordinates.next()?;
-            let y = coordinates.next()?;
-            let z = coordinates.next()?;
+            let x = lower_world_coordinate(coordinates.next()?, ctx)?;
+            let y = lower_world_coordinate(coordinates.next()?, ctx)?;
+            let z = lower_world_coordinate(coordinates.next()?, ctx)?;
 
             Coordinates::World(x, y, z)
         }
         CSTCoordinates::LocalCoordinates(node) => {
-            let mut coordinates = node.local_coordinates().filter_map(lower_local_coordinate);
+            let mut coordinates = node
+                .local_coordinates()
+                .map(|coordinate| lower_local_coordinate(coordinate, ctx));
 
-            let x = coordinates.next()?;
-            let y = coordinates.next()?;
-            let z = coordinates.next()?;
+            let x = coordinates.next()?.unwrap();
+            let y = coordinates.next()?.unwrap();
+            let z = coordinates.next()?.unwrap();
 
             Coordinates::Local(x, y, z)
         }

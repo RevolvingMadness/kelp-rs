@@ -1,16 +1,19 @@
 use std::fmt::Display;
 
-use minecraft_command_types::{coordinate::Coordinates, resource_location::ResourceLocation};
+use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
+    high::{
+        coordinate::Coordinates, entity_selector::EntitySelector,
+        semantic_analysis_context::SemanticAnalysisContext,
+    },
     middle::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
     span::Span,
 };
 
 #[derive(Debug, Clone)]
 pub enum DataTargetKind {
-    Block(Coordinates),
+    Block(Box<Coordinates>),
     Entity(EntitySelector),
     Storage(ResourceLocation),
 }
@@ -60,7 +63,11 @@ impl DataTarget {
         Some(MiddleDataTarget {
             is_generated: self.is_generated,
             kind: match self.kind {
-                DataTargetKind::Block(coordinates) => MiddleDataTargetKind::Block(coordinates),
+                DataTargetKind::Block(coordinates) => {
+                    let coordinates = coordinates.perform_semantic_analysis(ctx)?;
+
+                    MiddleDataTargetKind::Block(Box::new(coordinates))
+                }
                 DataTargetKind::Entity(selector) => {
                     let selector = selector.perform_semantic_analysis(ctx)?;
 

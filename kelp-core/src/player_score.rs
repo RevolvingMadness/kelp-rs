@@ -85,17 +85,17 @@ impl GeneratedPlayerScore {
         let mut score = SNBTCompound::new();
         score.insert(
             SNBTString(false, "name".to_string()),
-            SNBT::string(self.score.selector.to_string()),
+            SNBT::macroable_string(self.score.selector.to_string()),
         );
         score.insert(
             SNBTString(false, "objective".to_string()),
-            SNBT::string(self.score.objective),
+            SNBT::macroable_string(self.score.objective),
         );
         text_component.insert(
             SNBTString(false, "score".to_string()),
-            SNBT::Compound(score),
+            SNBT::macroable_compound(score),
         );
-        SNBT::Compound(text_component)
+        SNBT::compound(text_component)
     }
 
     #[inline]

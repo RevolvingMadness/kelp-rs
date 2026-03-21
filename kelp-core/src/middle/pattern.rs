@@ -43,7 +43,7 @@ fn destructure_tuple(
                 let expression = Expression::Data(Box::new((
                     target.clone(),
                     path.clone()
-                        .with_node(NbtPathNode::Index(Some(SNBT::Integer(i as i32)))),
+                        .with_node(NbtPathNode::Index(Some(SNBT::macroable_integer(i as i32)))),
                 )));
 
                 pattern.destructure(datapack, ctx, data_type, expression);

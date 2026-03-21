@@ -34,6 +34,7 @@ pub enum SemanticAnalysisError {
         from: DataType,
         to: DataType,
     },
+    CannotBeRepresentedAsFloat(DataType),
     UnknownRuntimeStorageType,
     ValueTooLarge(DataType),
     ValueTooSmall(DataType),
@@ -140,6 +141,13 @@ impl SemanticAnalysisError {
                 output.write_str("` to `")?;
                 to.write_string(output, environment)?;
                 output.write_str("`")
+            }
+            Self::CannotBeRepresentedAsFloat(data_type) => {
+                output.write_str("The type `")?;
+                data_type.write_string(output, environment)?;
+                output.write_str("` cannot be represented as a float")?;
+
+                Ok(())
             }
             Self::UnknownRuntimeStorageType => output.write_str("Unknown runtime storage type"),
             Self::ValueTooLarge(data_type) => {

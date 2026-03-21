@@ -170,7 +170,7 @@ impl Statement {
                 let mut while_body_ctx = ctx.create_child_ctx();
                 while_body_ctx.loop_info = Some(LoopInfo {
                     resource_location: while_function_resource_location,
-                    type_: LoopType::While(should_be_inverted, condition),
+                    type_: LoopType::While(should_be_inverted, Box::new(condition)),
                 });
 
                 body.compile(datapack, &mut while_body_ctx);
@@ -269,7 +269,7 @@ impl Statement {
                     );
 
                     let mut map = SNBTCompound::new();
-                    map.insert(SNBTString(false, name), SNBT::string(""));
+                    map.insert(SNBTString(false, name), SNBT::macroable_string(""));
                     let unique_path = NbtPath(nonempty![NbtPathNode::RootCompound(map)]);
 
                     condition_ctx.add_command(
@@ -309,7 +309,7 @@ impl Statement {
                     let mut for_body_ctx = CompileContext::default();
 
                     let unique_path = unique_path.with_node(NbtPathNode::Index(Some(
-                        SNBT::Integer(if is_reversed { -1 } else { 0 }),
+                        SNBT::macroable_integer(if is_reversed { -1 } else { 0 }),
                     )));
 
                     pattern.destructure(

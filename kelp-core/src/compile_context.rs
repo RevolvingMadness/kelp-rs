@@ -3,16 +3,16 @@ use std::{collections::HashMap, mem::take};
 use minecraft_command_types::{
     command::{Command, execute::ExecuteIfSubcommand, function::FunctionCommandArguments},
     has_macro::HasMacro,
+    macroable::Macroable,
     nbt_path::{NbtPath, NbtPathNode},
     resource_location::ResourceLocation,
-    snbt::SNBT,
 };
 
 use crate::{data::GeneratedDataTarget, datapack::Datapack, low::expression::Expression};
 
 #[derive(Debug, Clone)]
 pub enum LoopType {
-    While(bool, ExecuteIfSubcommand),
+    While(bool, Box<ExecuteIfSubcommand>),
     Loop,
 }
 
@@ -120,12 +120,12 @@ impl CompileContext {
         format!("$({})", id)
     }
 
-    pub fn get_macro_snbt(&mut self, expression: Expression) -> SNBT {
+    pub fn get_macro_snbt<T: HasMacro>(&mut self, expression: Expression) -> Macroable<T> {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);
 
-        SNBT::Macro(id.to_string())
+        Macroable::Macro(id.to_string())
     }
 
     #[inline]

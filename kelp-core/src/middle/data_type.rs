@@ -35,6 +35,33 @@ pub enum DataType {
 
 impl DataType {
     #[must_use]
+    pub fn can_be_represented_as_snbt_float_macro(&self) -> bool {
+        match self {
+            Self::Score(data_type) | Self::Data(data_type) | Self::Reference(data_type) => {
+                data_type.can_be_represented_as_snbt_float_macro()
+            }
+            Self::Byte
+            | Self::Short
+            | Self::Integer
+            | Self::Long
+            | Self::Float
+            | Self::Double
+            | Self::InferredInteger
+            | Self::InferredFloat => true,
+            Self::Boolean
+            | Self::String
+            | Self::Unit
+            | Self::List(_)
+            | Self::TypedCompound(_)
+            | Self::Compound(_)
+            | Self::Tuple(_)
+            | Self::SNBT
+            | Self::Struct(_)
+            | Self::Inferred => false,
+        }
+    }
+
+    #[must_use]
     pub fn as_struct_id(self) -> Option<StructId> {
         let Self::Struct(id) = self else {
             return None;

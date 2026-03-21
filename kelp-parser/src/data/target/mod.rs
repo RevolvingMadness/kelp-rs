@@ -1,4 +1,7 @@
-use kelp_core::high::data::{DataTarget, DataTargetKind};
+use kelp_core::high::{
+    data::{DataTarget, DataTargetKind},
+    semantic_analysis_context::SemanticAnalysisContext,
+};
 
 use crate::{
     coordinates::{lower_coordinates, try_parse_coordinates},
@@ -60,7 +63,10 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_data_target(node: CSTDataTarget) -> Option<DataTarget> {
+pub fn lower_data_target(
+    node: CSTDataTarget,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<DataTarget> {
     let span = span_of_cst_node(&node);
 
     Some(
@@ -71,9 +77,9 @@ pub fn lower_data_target(node: CSTDataTarget) -> Option<DataTarget> {
                 DataTargetKind::Entity(selector)
             }
             CSTDataTarget::BlockDataTarget(node) => {
-                let coordinates = lower_coordinates(node.coordinates()?)?;
+                let coordinates = lower_coordinates(node.coordinates()?, ctx)?;
 
-                DataTargetKind::Block(coordinates)
+                DataTargetKind::Block(Box::new(coordinates))
             }
             CSTDataTarget::StorageDataTarget(node) => {
                 let resource_location = lower_resource_location(node.resource_location()?)?;

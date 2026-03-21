@@ -371,13 +371,13 @@ WorldCoordinates =
   WorldCoordinate WorldCoordinate WorldCoordinate
 
 WorldCoordinate =
-  ('~' | '^')? 'fractional_value'
+  ('~' | '^')? Expression
 
 LocalCoordinates =
   LocalCoordinate LocalCoordinate LocalCoordinate
 
 LocalCoordinate =
-  ('~' | '^')? 'fractional_value'
+  ('~' | '^')? Expression
 
 // ----- Player Score -----
 

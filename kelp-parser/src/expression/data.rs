@@ -25,7 +25,9 @@ pub fn try_parse_data_expression(parser: &mut Parser) -> bool {
 
     parser.expect_inline_whitespace();
 
-    try_parse_nbt_path(parser);
+    if !try_parse_nbt_path(parser) {
+        parser.error("Expected nbt path");
+    }
 
     parser.finish_node();
 
@@ -40,7 +42,7 @@ pub fn lower_data_expression(
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let target = lower_data_target(node.data_target()?)?;
+    let target = lower_data_target(node.data_target()?, ctx)?;
     let path = lower_nbt_path(node.n_b_t_path()?, ctx)?;
 
     Some(ExpressionKind::Data(Box::new((target, path))).with_span(span))

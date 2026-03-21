@@ -1,16 +1,18 @@
 use minecraft_command_types::{
-    command::data::DataTarget as LowDataTarget, coordinate::Coordinates,
-    resource_location::ResourceLocation,
+    command::data::DataTarget as LowDataTarget, resource_location::ResourceLocation,
 };
 
 use crate::{
-    compile_context::CompileContext, data::GeneratedDataTarget, datapack::Datapack,
-    middle::entity_selector::EntitySelector, span::Span,
+    compile_context::CompileContext,
+    data::GeneratedDataTarget,
+    datapack::Datapack,
+    middle::{coordinate::Coordinates, entity_selector::EntitySelector},
+    span::Span,
 };
 
 #[derive(Debug, Clone)]
 pub enum DataTargetKind {
-    Block(Coordinates),
+    Block(Box<Coordinates>),
     Entity(EntitySelector),
     Storage(ResourceLocation),
 }
@@ -47,7 +49,9 @@ impl DataTarget {
         GeneratedDataTarget {
             is_generated: self.is_generated,
             target: match self.kind {
-                DataTargetKind::Block(coordinates) => LowDataTarget::Block(coordinates),
+                DataTargetKind::Block(coordinates) => {
+                    LowDataTarget::Block(coordinates.compile(datapack, ctx))
+                }
                 DataTargetKind::Entity(entity_selector) => {
                     LowDataTarget::Entity(entity_selector.compile(datapack, ctx))
                 }

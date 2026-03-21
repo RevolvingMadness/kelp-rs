@@ -42,7 +42,7 @@ pub fn lower_data(
     node: CSTData,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<(DataTarget, NbtPath)> {
-    let target = lower_data_target(node.data_target()?)?;
+    let target = lower_data_target(node.data_target()?, ctx)?;
     let path = lower_nbt_path(node.n_b_t_path()?, ctx)?;
 
     Some((target, path))

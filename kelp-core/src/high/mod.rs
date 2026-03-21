@@ -1,5 +1,6 @@
 pub mod block;
 pub mod command;
+pub mod coordinate;
 pub mod data;
 pub mod data_type;
 pub mod entity_selector;

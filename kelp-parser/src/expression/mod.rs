@@ -70,6 +70,7 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
         return false;
     }
 
+    let state = parser.save_state();
     parser.skip_inline_whitespace();
 
     let op_info = match (
@@ -103,6 +104,8 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
         }
 
         parser.finish_node();
+    } else {
+        parser.restore_state(state);
     }
     true
 }
@@ -115,6 +118,7 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
     }
 
     loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
 
         if parser.peek_identifier() == Some("to") {
@@ -140,6 +144,7 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
             continue;
         }
 
+        parser.restore_state(state);
         break;
     }
     true
@@ -152,12 +157,20 @@ pub fn try_parse_logical_or(parser: &mut Parser) -> bool {
         return false;
     }
 
-    while parser.peek_char() == Some('|') && parser.peek_nth_char(1) == Some('|') {
-        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
-        parser.add_token(SyntaxKind::PipePipe, 2);
+    loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
-        try_parse_logical_and(parser);
-        parser.finish_node();
+
+        if parser.peek_char() == Some('|') && parser.peek_nth_char(1) == Some('|') {
+            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            parser.add_token(SyntaxKind::PipePipe, 2);
+            parser.skip_inline_whitespace();
+            try_parse_logical_and(parser);
+            parser.finish_node();
+        } else {
+            parser.restore_state(state);
+            break;
+        }
     }
     true
 }
@@ -167,12 +180,21 @@ pub fn try_parse_logical_and(parser: &mut Parser) -> bool {
     if !try_parse_bitwise_or(parser) {
         return false;
     }
-    while parser.peek_char() == Some('&') && parser.peek_nth_char(1) == Some('&') {
-        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
-        parser.add_token(SyntaxKind::AmpersandAmpersand, 2);
+
+    loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
-        try_parse_bitwise_or(parser);
-        parser.finish_node();
+
+        if parser.peek_char() == Some('&') && parser.peek_nth_char(1) == Some('&') {
+            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            parser.add_token(SyntaxKind::AmpersandAmpersand, 2);
+            parser.skip_inline_whitespace();
+            try_parse_bitwise_or(parser);
+            parser.finish_node();
+        } else {
+            parser.restore_state(state);
+            break;
+        }
     }
     true
 }
@@ -182,15 +204,24 @@ pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
     if !try_parse_bitwise_and(parser) {
         return false;
     }
-    while parser.peek_char() == Some('|')
-        && parser.peek_nth_char(1) != Some('|')
-        && parser.peek_nth_char(1) != Some('=')
-    {
-        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
-        parser.add_token(SyntaxKind::Pipe, 1);
+
+    loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
-        try_parse_bitwise_and(parser);
-        parser.finish_node();
+
+        if parser.peek_char() == Some('|')
+            && parser.peek_nth_char(1) != Some('|')
+            && parser.peek_nth_char(1) != Some('=')
+        {
+            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            parser.add_token(SyntaxKind::Pipe, 1);
+            parser.skip_inline_whitespace();
+            try_parse_bitwise_and(parser);
+            parser.finish_node();
+        } else {
+            parser.restore_state(state);
+            break;
+        }
     }
     true
 }
@@ -200,15 +231,24 @@ pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
     if !try_parse_equality(parser) {
         return false;
     }
-    while parser.peek_char() == Some('&')
-        && parser.peek_nth_char(1) != Some('&')
-        && parser.peek_nth_char(1) != Some('=')
-    {
-        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
-        parser.add_token(SyntaxKind::Ampersand, 1);
+
+    loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
-        try_parse_equality(parser);
-        parser.finish_node();
+
+        if parser.peek_char() == Some('&')
+            && parser.peek_nth_char(1) != Some('&')
+            && parser.peek_nth_char(1) != Some('=')
+        {
+            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            parser.add_token(SyntaxKind::Ampersand, 1);
+            parser.skip_inline_whitespace();
+            try_parse_equality(parser);
+            parser.finish_node();
+        } else {
+            parser.restore_state(state);
+            break;
+        }
     }
     true
 }
@@ -218,7 +258,11 @@ pub fn try_parse_equality(parser: &mut Parser) -> bool {
     if !try_parse_comparison(parser) {
         return false;
     }
+
     loop {
+        let state = parser.save_state();
+        parser.skip_inline_whitespace();
+
         let op_info = match (parser.peek_char(), parser.peek_nth_char(1)) {
             (Some('='), Some('=')) => Some((2, SyntaxKind::EqualEqual)),
             (Some('!'), Some('=')) => Some((2, SyntaxKind::ExclamationMarkEqual)),
@@ -232,6 +276,7 @@ pub fn try_parse_equality(parser: &mut Parser) -> bool {
             try_parse_comparison(parser);
             parser.finish_node();
         } else {
+            parser.restore_state(state);
             break;
         }
     }
@@ -243,7 +288,11 @@ pub fn try_parse_comparison(parser: &mut Parser) -> bool {
     if !try_parse_shift(parser) {
         return false;
     }
+
     loop {
+        let state = parser.save_state();
+        parser.skip_inline_whitespace();
+
         let op_info = match (parser.peek_char(), parser.peek_nth_char(1)) {
             (Some('>'), Some('=')) => Some((2, SyntaxKind::RightArrowEqual)),
             (Some('<'), Some('=')) => Some((2, SyntaxKind::LeftArrowEqual)),
@@ -261,6 +310,7 @@ pub fn try_parse_comparison(parser: &mut Parser) -> bool {
             try_parse_shift(parser);
             parser.finish_node();
         } else {
+            parser.restore_state(state);
             break;
         }
     }
@@ -272,7 +322,11 @@ pub fn try_parse_shift(parser: &mut Parser) -> bool {
     if !try_parse_term(parser) {
         return false;
     }
+
     loop {
+        let state = parser.save_state();
+        parser.skip_inline_whitespace();
+
         let op_info = match (
             parser.peek_char(),
             parser.peek_nth_char(1),
@@ -294,6 +348,7 @@ pub fn try_parse_shift(parser: &mut Parser) -> bool {
             try_parse_term(parser);
             parser.finish_node();
         } else {
+            parser.restore_state(state);
             break;
         }
     }
@@ -305,17 +360,26 @@ pub fn try_parse_term(parser: &mut Parser) -> bool {
     if !try_parse_factor(parser) {
         return false;
     }
-    while let Some(c) = parser.peek_char()
-        && (c == '+' || c == '-')
-        && parser.peek_nth_char(1) != Some('=')
-    {
-        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
-        parser.bump_char();
+
+    loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
-        if !try_parse_factor(parser) {
-            parser.recover_newline("Expected expression after operator");
+
+        if let Some(c) = parser.peek_char()
+            && (c == '+' || c == '-')
+            && parser.peek_nth_char(1) != Some('=')
+        {
+            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            parser.bump_char();
+            parser.skip_inline_whitespace();
+            if !try_parse_factor(parser) {
+                parser.recover_newline("Expected expression after operator");
+            }
+            parser.finish_node();
+        } else {
+            parser.restore_state(state);
+            break;
         }
-        parser.finish_node();
     }
     true
 }
@@ -327,17 +391,25 @@ pub fn try_parse_factor(parser: &mut Parser) -> bool {
         return false;
     }
 
-    while let Some(c) = parser.peek_char()
-        && (c == '*' || c == '/' || c == '%')
-        && parser.peek_nth_char(1) != Some('=')
-    {
-        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
-        parser.bump_char();
+    loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
-        if !try_parse_unary(parser) {
-            parser.recover_newline("Expected expression after operator");
+
+        if let Some(c) = parser.peek_char()
+            && (c == '*' || c == '/' || c == '%')
+            && parser.peek_nth_char(1) != Some('=')
+        {
+            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            parser.bump_char();
+            parser.skip_inline_whitespace();
+            if !try_parse_unary(parser) {
+                parser.recover_newline("Expected expression after operator");
+            }
+            parser.finish_node();
+        } else {
+            parser.restore_state(state);
+            break;
         }
-        parser.finish_node();
     }
     true
 }
@@ -363,6 +435,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
     }
 
     loop {
+        let state = parser.save_state();
         parser.skip_inline_whitespace();
 
         match parser.peek_char() {
@@ -400,6 +473,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                     }
                     parser.finish_node();
                 } else {
+                    parser.restore_state(state);
                     break;
                 }
             }

@@ -15,6 +15,7 @@ use minecraft_command_types::{
         r#return::ReturnCommand,
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
+    macroable::Macroable,
     nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
     resource_location::ResourceLocation,
@@ -70,7 +71,7 @@ pub fn split_constants_list(list: Vec<Expression>) -> (Vec<SNBT>, Vec<(usize, Ex
             }
             Err(expression) => {
                 non_constants.push((i, expression));
-                constants.push(SNBT::Compound(SNBTCompound::new()));
+                constants.push(SNBT::compound(SNBTCompound::new()));
             }
         }
     }
@@ -88,10 +89,13 @@ pub fn split_constants_compound<S: BuildHasher>(
     for (key, expression) in compound {
         match expression.try_into_snbt() {
             Ok(snbt) => {
-                constants.insert(key, snbt);
+                constants.insert(key, Macroable::Regular(snbt));
             }
             Err(expression) => {
-                constants.insert(key.clone(), SNBT::Compound(SNBTCompound::new()));
+                constants.insert(
+                    key.clone(),
+                    Macroable::Regular(SNBT::compound(SNBTCompound::new())),
+                );
                 non_constants.insert(key, expression);
             }
         }
@@ -328,19 +332,22 @@ impl Expression {
                 let mut compound = SNBTCompound::new();
 
                 for (key, value) in field_expressions {
-                    compound.insert(SNBTString(false, key), value.try_into_snbt().unwrap());
+                    compound.insert(
+                        SNBTString(false, key),
+                        Macroable::Regular(value.try_into_snbt().unwrap()),
+                    );
                 }
 
-                SNBT::Compound(compound)
+                SNBT::compound(compound)
             }
-            Self::Boolean(boolean) => SNBT::Byte(i8::from(boolean)),
-            Self::Byte(byte) => SNBT::Byte(byte),
-            Self::Short(short) => SNBT::Short(short),
-            Self::Integer(integer) => SNBT::Integer(integer),
-            Self::Long(long) => SNBT::Long(long),
-            Self::Float(float) => SNBT::Float(float),
-            Self::Double(double) => SNBT::Double(double),
-            Self::String(string) => SNBT::String(string),
+            Self::Boolean(boolean) => SNBT::byte(i8::from(boolean)),
+            Self::Byte(byte) => SNBT::byte(byte),
+            Self::Short(short) => SNBT::short(short),
+            Self::Integer(integer) => SNBT::integer(integer),
+            Self::Long(long) => SNBT::long(long),
+            Self::Float(float) => SNBT::float(float),
+            Self::Double(double) => SNBT::double(double),
+            Self::String(string) => SNBT::snbt_string(string),
             Self::List(list) => {
                 if !list.iter().all(Self::can_into_snbt) {
                     return Err(Self::List(list));
@@ -351,7 +358,7 @@ impl Expression {
                     .map(|element| element.try_into_snbt().unwrap())
                     .collect();
 
-                SNBT::List(list)
+                SNBT::list(list)
             }
             Self::Compound(compound) => {
                 if !compound.values().all(Self::can_into_snbt) {
@@ -363,7 +370,7 @@ impl Expression {
                     .map(|(key, value)| (key, value.try_into_snbt().unwrap()))
                     .collect();
 
-                SNBT::Compound(compound)
+                SNBT::compound(compound)
             }
             Self::Tuple(tuple) => {
                 if !tuple.iter().all(Self::can_into_snbt) {
@@ -375,17 +382,17 @@ impl Expression {
                     .map(|element| element.try_into_snbt().unwrap())
                     .collect();
 
-                SNBT::List(tuple)
+                SNBT::list(tuple)
             }
             Self::Unit => {
                 let mut compound = SNBTCompound::new();
 
                 compound.insert(
                     SNBTString(false, "__kelp_rs_unit__".to_string()),
-                    SNBT::Byte(1),
+                    Macroable::Regular(SNBT::byte(1)),
                 );
 
-                SNBT::Compound(compound)
+                SNBT::compound(compound)
             }
         })
     }
@@ -405,25 +412,25 @@ impl Expression {
                 return Err(self);
             }
             Self::Byte(byte) => {
-                SNBT::Float(NotNan::new(f32::from(byte) * scale.into_inner()).unwrap())
+                SNBT::float(NotNan::new(f32::from(byte) * scale.into_inner()).unwrap())
             }
             Self::Short(short) => {
-                SNBT::Float(NotNan::new(f32::from(short) * scale.into_inner()).unwrap())
+                SNBT::float(NotNan::new(f32::from(short) * scale.into_inner()).unwrap())
             }
             Self::Integer(integer) => {
-                SNBT::Float(NotNan::new(integer as f32 * scale.into_inner()).unwrap())
+                SNBT::float(NotNan::new(integer as f32 * scale.into_inner()).unwrap())
             }
-            Self::Long(long) => SNBT::Float(NotNan::new(long as f32 * scale.into_inner()).unwrap()),
+            Self::Long(long) => SNBT::float(NotNan::new(long as f32 * scale.into_inner()).unwrap()),
             Self::Float(float) => {
-                SNBT::Float(NotNan::new(float.into_inner() * scale.into_inner()).unwrap())
+                SNBT::float(NotNan::new(float.into_inner() * scale.into_inner()).unwrap())
             }
-            Self::Double(double) => SNBT::Double(
+            Self::Double(double) => SNBT::double(
                 NotNan::new(f64::from(double.into_inner() as f32 * scale.into_inner())).unwrap(),
             ),
         })
     }
 
-    pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> SNBT {
+    pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> Macroable<SNBT> {
         match self {
             Self::Boolean(_)
             | Self::Byte(_)
@@ -433,29 +440,66 @@ impl Expression {
             | Self::Float(_)
             | Self::Double(_)
             | Self::String(_)
-            | Self::Unit => self.try_into_snbt().unwrap(),
+            | Self::Unit => Macroable::Regular(self.try_into_snbt().unwrap()),
 
-            Self::List(list) => SNBT::List(
+            Self::List(list) => Macroable::Regular(SNBT::list(
                 list.into_iter()
                     .map(|element| element.as_snbt_macros(ctx))
                     .collect(),
-            ),
-            Self::Tuple(tuple) => SNBT::List(
+            )),
+            Self::Tuple(tuple) => Macroable::Regular(SNBT::list(
                 tuple
                     .into_iter()
                     .map(|element| element.as_snbt_macros(ctx))
                     .collect(),
-            ),
-            Self::Compound(compound) => SNBT::Compound(
+            )),
+            Self::Compound(compound) => Macroable::Regular(SNBT::compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| (key, value.as_snbt_macros(ctx)))
                     .collect(),
-            ),
+            )),
             Self::Struct(_, _) | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
                 ctx.get_macro_snbt(self)
             }
         }
+    }
+
+    pub fn as_snbt_double(self, ctx: &mut CompileContext) -> Option<Macroable<NotNan<f64>>> {
+        Some(match self {
+            Self::Byte(_)
+            | Self::Short(_)
+            | Self::Integer(_)
+            | Self::Long(_)
+            | Self::Float(_)
+            | Self::Double(_) => {
+                Macroable::Regular(NotNan::new(self.try_as_f32().unwrap()).unwrap())
+            }
+
+            Self::PlayerScore(_) | Self::Data(_) => ctx.get_macro_snbt(self),
+
+            Self::Unit
+            | Self::Boolean(_)
+            | Self::String(_)
+            | Self::List(_)
+            | Self::Tuple(_)
+            | Self::Compound(_)
+            | Self::Struct(_, _)
+            | Self::Condition(_, _) => return None,
+        })
+    }
+
+    #[must_use]
+    pub fn try_as_f32(&self) -> Option<f64> {
+        Some(match self {
+            Self::Byte(v) => f64::from(*v),
+            Self::Short(v) => f64::from(*v),
+            Self::Integer(v) => f64::from(*v),
+            Self::Long(v) => *v as f64,
+            Self::Float(v) => f64::from(v.into_inner()),
+            Self::Double(v) => v.into_inner(),
+            _ => return None,
+        })
     }
 
     #[must_use]
@@ -561,7 +605,7 @@ impl Expression {
                         target.target,
                         path,
                         DataCommandModificationMode::Set,
-                        DataCommandModification::Value(snbt),
+                        DataCommandModification::Value(Macroable::Regular(snbt)),
                     )),
                 );
             }
@@ -591,7 +635,7 @@ impl Expression {
                             target.target.clone(),
                             path.clone(),
                             DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::List(constants)),
+                            DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
                     );
 
@@ -600,8 +644,9 @@ impl Expression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                            path.clone().with_node(NbtPathNode::Index(Some(
+                                SNBT::macroable_integer(index as i32),
+                            ))),
                         );
                     }
                 }
@@ -614,7 +659,7 @@ impl Expression {
                             target.target.clone(),
                             path.clone(),
                             DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::Compound(constants)),
+                            DataCommandModification::Value(SNBT::macroable_compound(constants)),
                         )),
                     );
 
@@ -647,7 +692,7 @@ impl Expression {
                             target.target.clone(),
                             path.clone(),
                             DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::List(constants)),
+                            DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
                     );
 
@@ -656,8 +701,9 @@ impl Expression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                            path.clone().with_node(NbtPathNode::Index(Some(
+                                SNBT::macroable_integer(index as i32),
+                            ))),
                         );
                     }
                 }
@@ -707,7 +753,7 @@ impl Expression {
                         target.target,
                         path,
                         DataCommandModificationMode::Set,
-                        DataCommandModification::Value(snbt),
+                        DataCommandModification::Value(Macroable::Regular(snbt)),
                     )),
                 );
             }
@@ -737,7 +783,7 @@ impl Expression {
                             target.target.clone(),
                             path.clone(),
                             DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::List(constants)),
+                            DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
                     );
 
@@ -746,8 +792,9 @@ impl Expression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                            path.clone().with_node(NbtPathNode::Index(Some(
+                                SNBT::macroable_integer(index as i32),
+                            ))),
                         );
                     }
                 }
@@ -760,7 +807,7 @@ impl Expression {
                             target.target.clone(),
                             path.clone(),
                             DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::Compound(constants)),
+                            DataCommandModification::Value(SNBT::macroable_compound(constants)),
                         )),
                     );
 
@@ -795,7 +842,7 @@ impl Expression {
                             target.target.clone(),
                             path.clone(),
                             DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::List(constants)),
+                            DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
                     );
 
@@ -804,8 +851,9 @@ impl Expression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::Index(Some(SNBT::Integer(index as i32)))),
+                            path.clone().with_node(NbtPathNode::Index(Some(
+                                SNBT::macroable_integer(index as i32),
+                            ))),
                             scale,
                         );
                     }
@@ -879,7 +927,7 @@ impl Expression {
         ctx: &mut CompileContext,
     ) -> DataCommandModification {
         match self.try_into_snbt() {
-            Ok(snbt) => DataCommandModification::Value(snbt),
+            Ok(snbt) => DataCommandModification::Value(Macroable::Regular(snbt)),
             Err(self_) => {
                 let (target, path) = self_.as_data(datapack, ctx, false);
 
@@ -1384,89 +1432,92 @@ impl Expression {
                     DataTarget::Block(coordinates) => {
                         map.insert(
                             SNBTString(false, "block".to_string()),
-                            SNBT::string(coordinates),
+                            Macroable::Regular(SNBT::string(coordinates)),
                         );
                     }
                     DataTarget::Entity(entity_selector) => {
                         map.insert(
                             SNBTString(false, "entity".to_string()),
-                            SNBT::string(entity_selector),
+                            Macroable::Regular(SNBT::string(entity_selector)),
                         );
                     }
                     DataTarget::Storage(resource_location) => {
                         map.insert(
                             SNBTString(false, "storage".to_string()),
-                            SNBT::string(resource_location),
+                            Macroable::Regular(SNBT::string(resource_location)),
                         );
                     }
                 }
 
-                map.insert(SNBTString(false, "nbt".to_string()), path.to_snbt_string());
+                map.insert(
+                    SNBTString(false, "nbt".to_string()),
+                    Macroable::Regular(path.to_snbt_string()),
+                );
 
-                SNBT::Compound(map)
+                SNBT::compound(map)
             }
             Self::Boolean(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Byte(i8::from(value))
+                    SNBT::byte(i8::from(value))
                 }
             }
             Self::Byte(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Byte(value)
+                    SNBT::byte(value)
                 }
             }
             Self::Short(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Short(value)
+                    SNBT::short(value)
                 }
             }
             Self::Integer(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Integer(value)
+                    SNBT::integer(value)
                 }
             }
             Self::Long(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Long(value)
+                    SNBT::long(value)
                 }
             }
             Self::Float(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Float(value)
+                    SNBT::float(value)
                 }
             }
             Self::Double(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::Double(value)
+                    SNBT::double(value)
                 }
             }
             Self::String(string) => {
                 if force_display {
                     SNBT::string(format!("\"{}\"", string.1))
                 } else {
-                    SNBT::String(string)
+                    SNBT::snbt_string(string)
                 }
             }
-            Self::List(list) => SNBT::List(
+            Self::List(list) => SNBT::list(
                 list.into_iter()
                     .map(|element| element.as_text_component(datapack, ctx, false))
                     .collect(),
             ),
-            Self::Compound(compound) => SNBT::Compound(
+            Self::Compound(compound) => SNBT::compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| (key, value.as_text_component(datapack, ctx, false)))
@@ -1494,7 +1545,7 @@ impl Expression {
 
                 list.push(SNBT::string(")"));
 
-                SNBT::List(list)
+                SNBT::list(list)
             }
             Self::Unit => SNBT::string("()"),
             Self::Struct(id, fields) => {
@@ -1542,18 +1593,22 @@ impl Expression {
                         output.push(SNBT::string(" }"));
                     }
 
-                    SNBT::List(output)
+                    SNBT::list(output)
                 } else {
                     let mut output = SNBTCompound::new();
 
                     for (field_name, field_value) in fields {
                         output.insert(
                             SNBTString(false, field_name),
-                            field_value.as_text_component(datapack, ctx, force_display),
+                            Macroable::Regular(field_value.as_text_component(
+                                datapack,
+                                ctx,
+                                force_display,
+                            )),
                         );
                     }
 
-                    SNBT::Compound(output)
+                    SNBT::compound(output)
                 }
             }
         }

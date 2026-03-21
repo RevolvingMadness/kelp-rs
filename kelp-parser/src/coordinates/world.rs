@@ -1,7 +1,13 @@
-use minecraft_command_types::coordinate::WorldCoordinate;
-use ordered_float::NotNan;
+use kelp_core::high::{
+    coordinate::WorldCoordinate, semantic_analysis_context::SemanticAnalysisContext,
+};
 
-use crate::{cst::CSTWorldCoordinate, parser::Parser, syntax::SyntaxKind};
+use crate::{
+    cst::CSTWorldCoordinate,
+    expression::{lower_expression, try_parse_expression},
+    parser::Parser,
+    syntax::SyntaxKind,
+};
 
 pub fn parse_world_coordinate(parser: &mut Parser) {
     parser.start_node(SyntaxKind::WorldCoordinate);
@@ -24,23 +30,22 @@ pub fn parse_world_coordinate(parser: &mut Parser) {
         parser.bump_char();
     }
 
-    parser.try_parse_fractional_value();
+    try_parse_expression(parser);
+
     parser.finish_node();
 }
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_world_coordinate(node: CSTWorldCoordinate) -> Option<WorldCoordinate> {
+pub fn lower_world_coordinate(
+    node: CSTWorldCoordinate,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<WorldCoordinate> {
     let is_relative = node.tilde_token().is_some();
 
-    let value = match node
-        .fractional_value_token()
-        .map(|token| token.text().parse::<NotNan<f32>>().ok())
-    {
-        None => None,
-        Some(None) => return None,
-        Some(Some(value)) => Some(value),
-    };
+    let value = node
+        .expression()
+        .and_then(|expression| lower_expression(expression, ctx));
 
     Some(WorldCoordinate {
         relative: is_relative,

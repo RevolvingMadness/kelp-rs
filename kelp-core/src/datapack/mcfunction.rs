@@ -36,4 +36,10 @@ impl MCFunction {
     pub const fn commands(&self) -> &Vec<Command> {
         &self.commands
     }
+
+    #[inline]
+    #[must_use]
+    pub const fn number_of_commands(&self) -> usize {
+        self.commands.len()
+    }
 }

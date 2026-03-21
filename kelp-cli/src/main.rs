@@ -283,7 +283,6 @@ fn process_success(
     _source_text: &str,
     kelp_toml: KelpToml,
 ) {
-    // let project_id = kelp_toml.project.id();
     let project_name = kelp_toml.project.name;
     let project_description = kelp_toml.project.description;
 
@@ -308,6 +307,10 @@ fn process_success(
     datapack.pop_function_from_current_namespace();
     datapack.pop_namespace();
 
+    let number_of_commands = datapack.number_of_commands();
+    let number_of_functions = datapack.number_of_functions();
+    let number_of_commands_per_function = number_of_commands as f32 / number_of_functions as f32;
+
     let start_gen = Instant::now();
     let regular_datapack = datapack.compile();
     let gen_elapsed = start_gen.elapsed();
@@ -325,13 +328,30 @@ fn process_success(
     if datapack_dir.exists() {
         fs::remove_dir_all(&datapack_dir).unwrap();
     }
+
     regular_datapack
         .write(datapack_dir.as_path())
         .expect("Failed to write datapack");
 
     println!(
+        "\n{} {:>6} function(s) generated",
+        "Done:".bold().green(),
+        number_of_functions,
+    );
+    println!(
+        "{} {:>6} command(s) generated",
+        "Done:".bold().green(),
+        number_of_commands,
+    );
+    println!(
+        "{} {:>6.2} command(s)/function",
+        "Done:".bold().green(),
+        number_of_commands_per_function,
+    );
+
+    println!(
         "\n{} Total processing time: {:?}",
-        "Finished:".bold().bright_green(),
+        "Finished:".bold().green(),
         (existing_elapsed + compile_elapsed + gen_elapsed).green()
     );
 }

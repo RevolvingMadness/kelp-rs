@@ -49,6 +49,20 @@ impl DatapackNamespace {
         }
     }
 
+    #[inline]
+    #[must_use]
+    pub fn number_of_functions(&self) -> usize {
+        self.functions.len()
+    }
+
+    #[must_use]
+    pub fn number_of_commands(&self) -> usize {
+        self.functions
+            .values()
+            .map(MCFunction::number_of_commands)
+            .sum()
+    }
+
     pub fn within_function<F>(&mut self, paths: NonEmpty<String>, function: F)
     where
         F: FnOnce(&mut Self),

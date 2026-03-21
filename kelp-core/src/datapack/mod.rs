@@ -417,6 +417,29 @@ impl Datapack {
             .expect("No current namespace")
     }
 
+    #[inline]
+    #[must_use]
+    pub fn number_of_namespaces(&self) -> usize {
+        self.namespaces.len()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn number_of_functions(&self) -> usize {
+        self.namespaces
+            .values()
+            .map(DatapackNamespace::number_of_functions)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn number_of_commands(&self) -> usize {
+        self.namespaces
+            .values()
+            .map(DatapackNamespace::number_of_commands)
+            .sum()
+    }
+
     pub fn compile(mut self) -> LowDatapack {
         let mut output_datapack = LowDatapack::new_pack(PackMCMeta {
             pack: Pack {

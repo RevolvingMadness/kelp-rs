@@ -52,7 +52,10 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
 
             let generics = node.generic_names().and_then(lower_generic_names);
 
-            let fields = lower_struct_fields(node.struct_fields()?)?;
+            let fields = node
+                .struct_fields()
+                .and_then(lower_struct_fields)
+                .unwrap_or_default();
 
             Some(Item::StructStructDeclaration(
                 struct_name_span,
@@ -68,7 +71,10 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
 
             let generics = node.generic_names().and_then(lower_generic_names);
 
-            let fields = lower_tuple_fields(node.tuple_fields()?)?;
+            let fields = node
+                .tuple_fields()
+                .and_then(lower_tuple_fields)
+                .unwrap_or_default();
 
             Some(Item::TupleStructDeclaration(
                 struct_name_span,

@@ -123,8 +123,10 @@ pub fn lower_struct_struct_expression(
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    let fields =
-        lower_struct_struct_expression_fields(node.struct_struct_expression_fields()?, ctx)?;
+    let fields = node
+        .struct_struct_expression_fields()
+        .and_then(|fields| lower_struct_struct_expression_fields(fields, ctx))
+        .unwrap_or_default();
 
     Some(ExpressionKind::StructStruct(path, fields).with_span(span))
 }
@@ -208,7 +210,10 @@ pub fn lower_tuple_struct_expression(
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    let fields = lower_tuple_struct_expression_fields(node.tuple_struct_expression_fields()?, ctx)?;
+    let fields = node
+        .tuple_struct_expression_fields()
+        .and_then(|fields| lower_tuple_struct_expression_fields(fields, ctx))
+        .unwrap_or_default();
 
     Some(ExpressionKind::TupleStruct(path, fields).with_span(span))
 }

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Write},
+};
 
 use crate::{
     high::{
@@ -64,7 +67,7 @@ impl Display for PatternType {
                 write!(f, "{} {{", path)?;
 
                 if !field_types.is_empty() {
-                    f.write_str(" ")?;
+                    f.write_char(' ')?;
                 }
 
                 for (i, (field_name, field_type)) in field_types.iter().enumerate() {
@@ -76,7 +79,7 @@ impl Display for PatternType {
                 }
 
                 if !field_types.is_empty() {
-                    f.write_str(" ")?;
+                    f.write_char(' ')?;
                 }
 
                 f.write_str("}")?;
@@ -84,10 +87,10 @@ impl Display for PatternType {
                 Ok(())
             }
             Self::TupleStruct(path, field_types) => {
-                write!(f, "{} (", path)?;
+                write!(f, "{}(", path)?;
 
                 if !field_types.is_empty() {
-                    f.write_str(" ")?;
+                    f.write_char(' ')?;
                 }
 
                 for (i, field_type) in field_types.iter().enumerate() {
@@ -99,19 +102,19 @@ impl Display for PatternType {
                 }
 
                 if !field_types.is_empty() {
-                    f.write_str(" ")?;
+                    f.write_char(' ')?;
                 }
 
-                f.write_str("}")?;
+                f.write_char(')')?;
 
                 Ok(())
             }
             Self::Reference(pattern) => write!(f, "&{}", pattern),
             Self::Compound(compound) => {
-                f.write_str("{")?;
+                f.write_char('{')?;
 
                 if !compound.is_empty() {
-                    f.write_str(" ")?;
+                    f.write_char(' ')?;
                 }
 
                 for (i, (key, pattern_type)) in compound.iter().enumerate() {
@@ -123,10 +126,12 @@ impl Display for PatternType {
                 }
 
                 if !compound.is_empty() {
-                    f.write_str(" ")?;
+                    f.write_char(' ')?;
                 }
 
-                f.write_str("}")
+                f.write_char('}')?;
+
+                Ok(())
             }
             Self::Any => f.write_str("_"),
         }

@@ -128,7 +128,10 @@ pub fn lower_struct_struct_pattern(
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    let fields = lower_struct_struct_pattern_fields(node.struct_struct_pattern_fields()?, ctx);
+    let fields = node
+        .struct_struct_pattern_fields()
+        .map(|fields| lower_struct_struct_pattern_fields(fields, ctx))
+        .unwrap_or_default();
 
     Some(PatternKind::StructStruct(path, fields).with_span(span))
 }
@@ -211,7 +214,10 @@ pub fn lower_tuple_struct_pattern(
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    let fields = lower_tuple_struct_pattern_fields(node.tuple_struct_pattern_fields()?, ctx);
+    let fields = node
+        .tuple_struct_pattern_fields()
+        .map(|fields| lower_tuple_struct_pattern_fields(fields, ctx))
+        .unwrap_or_default();
 
     Some(PatternKind::TupleStruct(path, fields).with_span(span))
 }

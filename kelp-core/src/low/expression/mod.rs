@@ -33,7 +33,7 @@ use crate::{
     low::expression::utils::push_scoreboard_players,
     middle::{
         data_type::DataType,
-        environment::r#type::r#struct::{StructStructId, TupleStructId},
+        environment::r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
@@ -273,7 +273,12 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn access_field(self, field: &str) -> Option<Self> {
+    pub fn access_field(
+        self,
+        data_type: &DataType,
+        datapack: &Datapack,
+        field: &str,
+    ) -> Option<Self> {
         match self {
             Self::List(_)
             | Self::Condition(_, _)
@@ -297,13 +302,21 @@ impl Expression {
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                Some(Self::Data(Box::new((
-                    target,
-                    path.with_node(NbtPathNode::Named(
-                        SNBTString(false, field.to_owned()),
-                        None,
-                    )),
-                ))))
+                let DataType::Data(inner) = data_type else {
+                    unreachable!();
+                };
+
+                let node = if let DataType::Struct(id) = &**inner
+                    && let StructDeclaration::Tuple(_) = datapack.get_struct_type(*id)
+                {
+                    let index = field.parse::<i32>().ok()?;
+
+                    NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
+                } else {
+                    NbtPathNode::Named(SNBTString(false, field.to_owned()), None)
+                };
+
+                Some(Self::Data(Box::new((target, path.with_node(node)))))
             }
             Self::Tuple(mut expressions) => {
                 let index = field.parse::<i32>().ok()?;

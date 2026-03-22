@@ -281,9 +281,11 @@ impl ExpressionKind {
                 target.index(datapack, ctx, index).unwrap()
             }
             Self::FieldAccess(target, field) => {
+                let data_type = target.data_type;
+
                 let target = target.kind.resolve(datapack, ctx);
 
-                target.access_field(&field.1).unwrap()
+                target.access_field(&data_type, datapack, &field.1).unwrap()
             }
             Self::AsCast(expression, data_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);

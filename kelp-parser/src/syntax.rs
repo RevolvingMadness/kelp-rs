@@ -108,6 +108,7 @@ pub enum SyntaxKind {
 
     ModuleName,
 
+    UseKeyword,
     ScoreKeyword,
     EntityKeyword,
     BlockKeyword,
@@ -144,6 +145,7 @@ pub enum SyntaxKind {
     StructDeclarationItem,
     StructDeclarationItemField,
     TypeAliasDeclarationItem,
+    UseItem,
 
     BlockStatement,
     ExpressionStatement,
@@ -224,8 +226,16 @@ pub enum SyntaxKind {
     PathDataType,
     InferredDataType,
 
+    UseTree,
+    WildcardUseTree,
+    GroupUseTree,
+    AsUseTree,
+    PathUseTree,
+
     Path,
     PathSegment,
+    GenericPath,
+    GenericPathSegment,
     PathIdentifier,
 
     Error,

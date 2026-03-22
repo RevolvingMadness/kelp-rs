@@ -21,7 +21,7 @@ use crate::{
             value::{ValueDeclaration, ValueId, variable::VariableId},
         },
     },
-    path::{Path, PathSegment},
+    path::{generic::GenericPath, regular::Path},
     span::Span,
 };
 
@@ -46,14 +46,19 @@ impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
     }
 }
 
+pub enum ResolvedItem {
+    Type(HighTypeId),
+    Value(ValueId),
+}
+
 #[derive(Debug, Clone)]
 pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
     pub environment: Environment,
+    pub scopes: Vec<Scope>,
     pub loop_depth: u32,
     pub is_lhs: bool,
     max_infos: usize,
-    scopes: Vec<Scope>,
     high_environment: HighEnvironment,
     monomorphized_structs: HashMap<MonomorphizedStructKey, StructId>,
 }
@@ -245,6 +250,59 @@ impl SemanticAnalysisContext {
         self.scopes.last().unwrap().types.contains_key(name)
     }
 
+    #[inline]
+    #[must_use]
+    pub fn current_scope_mut(&mut self) -> &mut Scope {
+        self.scopes.last_mut().unwrap()
+    }
+
+    pub fn declare_type_in_current_scope(&mut self, name_span: Span, name: String, id: HighTypeId) {
+        let scope = self.current_scope_mut();
+
+        if scope.types.contains_key(&name) {
+            self.add_error::<()>(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+
+            return;
+        }
+
+        scope.types.insert(name, id);
+    }
+
+    pub fn declare_value_in_current_scope(&mut self, name_span: Span, name: String, id: ValueId) {
+        let scope = self.current_scope_mut();
+
+        if scope.values.contains_key(&name) {
+            self.add_error::<()>(
+                name_span,
+                SemanticAnalysisError::ValueIsAlreadyDefined(name),
+            );
+
+            return;
+        }
+
+        scope.values.insert(name, id);
+    }
+
+    pub fn declare_type_if_not_defined(&mut self, name: String, id: HighTypeId) {
+        let scope = self.current_scope_mut();
+
+        if scope.types.contains_key(&name) {
+            return;
+        }
+
+        scope.types.insert(name, id);
+    }
+
+    pub fn declare_value_if_not_defined(&mut self, name: String, id: ValueId) {
+        let scope = self.current_scope_mut();
+
+        if scope.values.contains_key(&name) {
+            return;
+        }
+
+        scope.values.insert(name, id);
+    }
+
     pub fn declare_data_type(&mut self, declaration: HighTypeDeclaration) -> HighTypeId {
         let name = declaration.name().to_owned();
 
@@ -259,35 +317,31 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn resolve_type_path<T>(
-        &mut self,
-        path: Path<T>,
-    ) -> Option<(HighTypeId, Span, PathSegment<T>)> {
-        let mut segments = path.segments.into_iter();
-
+    pub fn resolve_type_generic_path<T>(&mut self, path: &GenericPath<T>) -> Option<HighTypeId> {
+        let mut segments = path.segments.iter();
         let mut current_segment = segments.next()?;
 
         let Some(mut current_type_id) = self.get_type_id(&current_segment.name) else {
             return self.add_error(
-                current_segment.span,
-                SemanticAnalysisError::UnknownType(current_segment.name),
+                current_segment.name_span,
+                SemanticAnalysisError::UnknownType(current_segment.name.clone()),
             );
         };
 
         for next_segment in segments {
             let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
                 return self.add_error(
-                    current_segment.span,
-                    SemanticAnalysisError::NotAModule(current_segment.name),
+                    current_segment.name_span,
+                    SemanticAnalysisError::NotAModule(current_segment.name.clone()),
                 );
             };
 
             let Some(next_type_id) = declaration.get_type_id(&next_segment.name) else {
                 return self.add_error(
-                    next_segment.span,
+                    next_segment.name_span,
                     SemanticAnalysisError::ModuleDoesntContainType {
                         module_name: declaration.name.clone(),
-                        type_name: next_segment.name,
+                        type_name: next_segment.name.clone(),
                     },
                 );
             };
@@ -296,22 +350,118 @@ impl SemanticAnalysisContext {
             current_segment = next_segment;
         }
 
-        Some((current_type_id, path.span, current_segment))
+        Some(current_type_id)
     }
 
     #[must_use]
-    pub fn resolve_value_path<T>(&mut self, path: &Path<T>) -> Option<ValueId> {
+    pub fn resolve_value_generic_path<T>(&mut self, path: &GenericPath<T>) -> Option<ValueId> {
+        let (first_segment, segments) = path.segments.split_first()?;
+
+        if segments.is_empty() {
+            let Some(resolved_value_id) = self.get_value_id(&first_segment.name) else {
+                return self.add_error(
+                    first_segment.name_span,
+                    SemanticAnalysisError::UnknownValue(first_segment.name.clone()),
+                );
+            };
+
+            return Some(resolved_value_id);
+        }
+
+        let (last_segment, segments) = segments.split_last().unwrap();
+
+        let Some(mut current_type_id) = self.get_type_id(&first_segment.name) else {
+            return self.add_error(
+                first_segment.name_span,
+                SemanticAnalysisError::UnknownModule(first_segment.name.clone()),
+            );
+        };
+
+        let mut previous_segment = first_segment;
+
+        for segment in segments {
+            let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
+                return self.add_error(
+                    previous_segment.name_span,
+                    SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
+                );
+            };
+
+            let Some(next_type_id) = declaration.get_type_id(&segment.name) else {
+                return self.add_error(
+                    segment.name_span,
+                    SemanticAnalysisError::ModuleDoesntContainType {
+                        module_name: declaration.name.clone(),
+                        type_name: segment.name.clone(),
+                    },
+                );
+            };
+
+            current_type_id = next_type_id;
+            previous_segment = segment;
+        }
+
+        let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
+            return self.add_error(
+                previous_segment.name_span,
+                SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
+            );
+        };
+
+        let Some(resolved_value_id) = declaration.get_value_id(&last_segment.name) else {
+            return self.add_error(
+                last_segment.name_span,
+                SemanticAnalysisError::ModuleDoesntContainValue {
+                    module_name: declaration.name.clone(),
+                    value_name: last_segment.name.clone(),
+                },
+            );
+        };
+
+        Some(resolved_value_id)
+    }
+
+    #[must_use]
+    pub fn resolve_item_path(&mut self, path: &Path) -> Option<ResolvedItem> {
+        let mut type_segments = path.segments.iter();
+
+        if let Some(first_segment) = type_segments.next()
+            && let Some(mut current_type_id) = self.get_type_id(&first_segment.name)
+        {
+            let mut found_type = true;
+
+            for next_segment in type_segments {
+                let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id)
+                else {
+                    found_type = false;
+                    break;
+                };
+
+                let Some(next_type_id) = declaration.get_type_id(&next_segment.name) else {
+                    found_type = false;
+
+                    break;
+                };
+
+                current_type_id = next_type_id;
+            }
+
+            if found_type {
+                return Some(ResolvedItem::Type(current_type_id));
+            }
+        }
+
         let (first_segment, segments) = path.segments.split_first()?;
 
         if segments.is_empty() {
             let Some(resolved_value_id) = self.get_value_id(&first_segment.name) else {
                 return self.add_error(
                     first_segment.span,
-                    SemanticAnalysisError::UnknownValue(first_segment.name.clone()),
+                    SemanticAnalysisError::UnknownItem(first_segment.name.clone()),
                 );
             };
 
-            return Some(resolved_value_id);
+            return Some(ResolvedItem::Value(resolved_value_id));
         }
 
         let (last_segment, segments) = segments.split_last().unwrap();
@@ -333,7 +483,7 @@ impl SemanticAnalysisContext {
                 );
             };
 
-            let Some(next_type_id) = declaration.get_type_id(&declaration.name) else {
+            let Some(next_type_id) = declaration.get_type_id(&segment.name) else {
                 return self.add_error(
                     segment.span,
                     SemanticAnalysisError::ModuleDoesntContainType {
@@ -357,14 +507,14 @@ impl SemanticAnalysisContext {
         let Some(resolved_value_id) = declaration.get_value_id(&last_segment.name) else {
             return self.add_error(
                 last_segment.span,
-                SemanticAnalysisError::ModuleDoesntContainValue {
+                SemanticAnalysisError::ModuleDoesntContainItem {
                     module_name: declaration.name.clone(),
-                    value_name: last_segment.name.clone(),
+                    item_name: last_segment.name.clone(),
                 },
             );
         };
 
-        Some(resolved_value_id)
+        Some(ResolvedItem::Value(resolved_value_id))
     }
 
     #[must_use]

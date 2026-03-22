@@ -29,7 +29,7 @@ use crate::{
     },
     item::struct_declaration::bump_until_next_field_or_end,
     parser::Parser,
-    path::try_parse_path,
+    path::generic::try_parse_generic_path,
     syntax::SyntaxKind,
 };
 
@@ -628,7 +628,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                 let checkpoint = parser.checkpoint();
 
-                if !try_parse_path(parser, false) {
+                if !try_parse_generic_path(parser, false) {
                     unreachable!();
                 }
 

@@ -8,6 +8,7 @@ pub enum Item {
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration,
     StructDeclaration,
+    Use,
 }
 
 impl Item {
@@ -31,7 +32,10 @@ impl Item {
                     datapack.pop_function_from_current_namespace();
                 });
             }
-            Self::ModuleDeclaration | Self::TypeAliasDeclaration | Self::StructDeclaration => {}
+            Self::ModuleDeclaration
+            | Self::TypeAliasDeclaration
+            | Self::StructDeclaration
+            | Self::Use => {}
         }
     }
 }

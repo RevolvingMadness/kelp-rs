@@ -1,13 +1,10 @@
-use kelp_core::high::{
-    item::{Item, ItemKind},
-    semantic_analysis_context::SemanticAnalysisContext,
-};
+use kelp_core::high::{item::Item, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTModuleDeclarationItem,
     item::{lower_item, try_parse_item},
     parser::Parser,
-    span::span_of_cst_node,
+    span::text_range_to_span,
     syntax::SyntaxKind,
 };
 
@@ -58,9 +55,8 @@ pub fn lower_module_declaration_item(
     node: CSTModuleDeclarationItem,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Item> {
-    let span = span_of_cst_node(&node);
-
     let name_token = node.module_name_token()?;
+    let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
 
     let items = node
@@ -68,5 +64,5 @@ pub fn lower_module_declaration_item(
         .filter_map(|item| lower_item(item, ctx))
         .collect();
 
-    Some(ItemKind::ModuleDeclaration(name.to_owned(), items).with_span(span))
+    Some(Item::ModuleDeclaration(name_span, name.to_owned(), items))
 }

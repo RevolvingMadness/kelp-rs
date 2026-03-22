@@ -8,7 +8,7 @@ use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 use crate::{
     cst::{CSTStructExpression, CSTStructExpressionField},
     expression::lower_expression,
-    path::lower_path,
+    path::generic::lower_generic_path,
     span::{span_of_cst_node, text_range_to_span},
 };
 
@@ -41,7 +41,7 @@ pub fn lower_struct_expression(
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let path = lower_path(node.path()?)?;
+    let path = lower_generic_path(node.generic_path()?)?;
 
     let fields = node
         .fields()

@@ -15,4 +15,5 @@ pub mod semantic_token;
 pub mod span;
 pub mod statement;
 pub mod syntax;
+pub mod use_tree;
 pub mod whole_value;

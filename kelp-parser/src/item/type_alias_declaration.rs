@@ -1,4 +1,4 @@
-use kelp_core::high::item::{Item, ItemKind};
+use kelp_core::high::item::Item;
 
 use crate::{
     cst::CSTTypeAliasDeclarationItem,
@@ -7,7 +7,7 @@ use crate::{
         lower_data_type, try_parse_data_type,
     },
     parser::Parser,
-    span::{span_of_cst_node, text_range_to_span},
+    span::text_range_to_span,
     syntax::SyntaxKind,
 };
 
@@ -47,21 +47,16 @@ pub fn try_parse_type_alias_declaration_item(parser: &mut Parser) -> bool {
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_type_alias_declaration_item(node: CSTTypeAliasDeclarationItem) -> Option<Item> {
-    let span = span_of_cst_node(&node);
-
     let name_token = node.name()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
     let generic_names = node.generic_names().and_then(lower_generic_names);
     let data_type = lower_data_type(node.data_type()?)?;
 
-    Some(
-        ItemKind::TypeAliasDeclaration(
-            name_span,
-            name.to_owned(),
-            generic_names.unwrap_or_default(),
-            data_type,
-        )
-        .with_span(span),
-    )
+    Some(Item::TypeAliasDeclaration(
+        name_span,
+        name.to_owned(),
+        generic_names.unwrap_or_default(),
+        data_type,
+    ))
 }

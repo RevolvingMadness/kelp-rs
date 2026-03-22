@@ -1,0 +1,19 @@
+use std::string
+
+mod useful_structs {
+    struct Container<T> {
+        value: T
+    }
+}
+
+use useful_structs::Container
+
+mcfn namespace:main {
+    let container = Container::<string> {
+        value: "Hello, World!"
+    }
+
+    let Container { value } = container
+
+    tellraw @a value
+}

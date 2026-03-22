@@ -7,13 +7,13 @@ use crate::{
         snbt_string::SNBTString,
     },
     middle::data_type::DataType as MiddleDataType,
-    path::Path,
+    path::generic::GenericPath,
     trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone)]
 pub enum UnresolvedDataType {
-    Named(Path<Self>),
+    Named(GenericPath<Self>),
     TypedCompound(HashMap<SNBTString, Self>),
     Reference(Box<Self>),
     Tuple(Vec<Self>),
@@ -45,15 +45,16 @@ impl UnresolvedDataType {
                     }
                 }
 
-                let path = path.resolve_partially(context_generic_names, ctx)?;
+                let mut path = path.resolve_partially(context_generic_names, ctx)?;
 
-                let (id, _, last_segment) = ctx.resolve_type_path(path)?;
+                let id = ctx.resolve_type_generic_path(&path)?;
+                let last_segment = path.segments.pop().unwrap();
 
                 let declaration = ctx.get_type(id).clone();
 
                 declaration.resolve_partially(
                     id,
-                    last_segment.span,
+                    last_segment.name_span,
                     last_segment.generic_types,
                     ctx,
                 )?

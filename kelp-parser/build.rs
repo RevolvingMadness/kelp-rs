@@ -499,6 +499,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "path_identifier" => "PathIdentifier",
         "mod" => "ModKeyword",
         "module_name" => "ModuleName",
+        "use" => "UseKeyword",
         _ => todo!("{:?}", token),
     }
 }

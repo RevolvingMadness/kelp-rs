@@ -3,7 +3,7 @@ use kelp_core::high::{
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
-use crate::{cst::CSTPathExpression, path::lower_path, span::span_of_cst_node};
+use crate::{cst::CSTPathExpression, path::generic::lower_generic_path, span::span_of_cst_node};
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
@@ -13,7 +13,7 @@ pub fn lower_path_expression(
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let path = lower_path(node.path()?)?;
+    let path = lower_generic_path(node.generic_path()?)?;
 
     Some(ExpressionKind::Path(path).with_span(span))
 }

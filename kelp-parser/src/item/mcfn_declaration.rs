@@ -1,13 +1,9 @@
-use kelp_core::high::{
-    item::{Item, ItemKind},
-    semantic_analysis_context::SemanticAnalysisContext,
-};
+use kelp_core::high::{item::Item, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTMCFNDeclarationItem,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    span::span_of_cst_node,
     statement::{lower_statement, try_parse_statement},
     syntax::SyntaxKind,
 };
@@ -41,10 +37,8 @@ pub fn lower_mcfn_declaration_item(
     node: CSTMCFNDeclarationItem,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Item> {
-    let span = span_of_cst_node(&node);
-
     let resource_location = lower_resource_location(node.resource_location()?)?;
     let body = lower_statement(node.statement()?, ctx)?;
 
-    Some(ItemKind::MCFNDeclaration(resource_location, Box::new(body)).with_span(span))
+    Some(Item::MCFNDeclaration(resource_location, Box::new(body)))
 }

@@ -1,7 +1,4 @@
-use kelp_core::high::{
-    item::{Item, ItemKind},
-    semantic_analysis_context::SemanticAnalysisContext,
-};
+use kelp_core::high::{item::Item, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTItem,
@@ -15,15 +12,17 @@ use crate::{
         type_alias_declaration::{
             lower_type_alias_declaration_item, try_parse_type_alias_declaration_item,
         },
+        r#use::{lower_use_item, try_parse_use_item},
     },
     parser::Parser,
-    span::{span_of_cst_node, text_range_to_span},
+    span::text_range_to_span,
 };
 
 pub mod mcfn_declaration;
 pub mod module_declaration;
 pub mod struct_declaration;
 pub mod type_alias_declaration;
+pub mod r#use;
 
 #[must_use]
 pub fn try_parse_item(parser: &mut Parser) -> bool {
@@ -32,6 +31,7 @@ pub fn try_parse_item(parser: &mut Parser) -> bool {
     };
 
     match identifier {
+        "use" => try_parse_use_item(parser),
         "mod" => try_parse_module_declaration_item(parser),
         "mcfn" => try_parse_mcfn_declaration_item(parser),
         "struct" => try_parse_struct_declaration_item(parser),
@@ -47,8 +47,6 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
         CSTItem::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
         CSTItem::MCFNDeclarationItem(node) => lower_mcfn_declaration_item(node, ctx),
         CSTItem::StructDeclarationItem(node) => {
-            let span = span_of_cst_node(&node);
-
             let struct_name_token = node.name()?;
             let struct_name_span = text_range_to_span(struct_name_token.text_range());
             let struct_name = struct_name_token.text().to_owned();
@@ -60,16 +58,14 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
                 .filter_map(lower_struct_declaration_item_field)
                 .collect();
 
-            Some(
-                ItemKind::StructDeclaration(
-                    struct_name_span,
-                    struct_name,
-                    generics.unwrap_or_default(),
-                    fields,
-                )
-                .with_span(span),
-            )
+            Some(Item::StructDeclaration(
+                struct_name_span,
+                struct_name,
+                generics.unwrap_or_default(),
+                fields,
+            ))
         }
         CSTItem::TypeAliasDeclarationItem(node) => lower_type_alias_declaration_item(node),
+        CSTItem::UseItem(node) => lower_use_item(node),
     }
 }

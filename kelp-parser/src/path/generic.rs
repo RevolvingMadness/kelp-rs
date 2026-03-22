@@ -1,25 +1,25 @@
 use kelp_core::{
     high::data_type::unresolved::UnresolvedDataType,
-    path::{Path, PathSegment},
+    path::generic::{GenericPath, GenericPathSegment},
 };
 
 use crate::{
-    cst::{CSTPath, CSTPathSegment},
+    cst::{CSTGenericPath, CSTGenericPathSegment},
     data_type::generics::{lower_generic_data_types, try_parse_generic_data_types},
     parser::Parser,
-    span::span_of_cst_node,
+    span::{span_of_cst_node, text_range_to_span},
     syntax::SyntaxKind,
 };
 
 #[must_use]
-pub fn try_parse_path_segment(parser: &mut Parser, is_type: bool) -> bool {
+fn try_parse_generic_path_segment(parser: &mut Parser, is_type: bool) -> bool {
     let checkpoint = parser.checkpoint();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::PathIdentifier) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::PathSegment);
+    parser.start_node_at(checkpoint, SyntaxKind::GenericPathSegment);
 
     let state = parser.save_state();
 
@@ -41,14 +41,14 @@ pub fn try_parse_path_segment(parser: &mut Parser, is_type: bool) -> bool {
 }
 
 #[must_use]
-pub fn try_parse_path(parser: &mut Parser, is_type: bool) -> bool {
+pub fn try_parse_generic_path(parser: &mut Parser, is_type: bool) -> bool {
     let checkpoint = parser.checkpoint();
 
-    if !try_parse_path_segment(parser, is_type) {
+    if !try_parse_generic_path_segment(parser, is_type) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::Path);
+    parser.start_node_at(checkpoint, SyntaxKind::GenericPath);
 
     loop {
         parser.skip_inline_whitespace();
@@ -57,7 +57,7 @@ pub fn try_parse_path(parser: &mut Parser, is_type: bool) -> bool {
             break;
         }
 
-        if !try_parse_path_segment(parser, is_type) {
+        if !try_parse_generic_path_segment(parser, is_type) {
             parser.error("Expected path segment");
         }
     }
@@ -68,16 +68,17 @@ pub fn try_parse_path(parser: &mut Parser, is_type: bool) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_path_segment(node: CSTPathSegment) -> Option<PathSegment<UnresolvedDataType>> {
-    let span = span_of_cst_node(&node);
-
+fn lower_generic_path_segment(
+    node: CSTGenericPathSegment,
+) -> Option<GenericPathSegment<UnresolvedDataType>> {
     let name_token = node.path_identifier_token()?;
+    let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
 
     let generic_types = node.generic_data_types().and_then(lower_generic_data_types);
 
-    Some(PathSegment {
-        span,
+    Some(GenericPathSegment {
+        name_span,
         name: name.to_owned(),
         generic_types: generic_types.unwrap_or_default(),
     })
@@ -85,13 +86,13 @@ pub fn lower_path_segment(node: CSTPathSegment) -> Option<PathSegment<Unresolved
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_path(node: CSTPath) -> Option<Path<UnresolvedDataType>> {
+pub fn lower_generic_path(node: CSTGenericPath) -> Option<GenericPath<UnresolvedDataType>> {
     let span = span_of_cst_node(&node);
 
     let segments = node
-        .path_segments()
-        .filter_map(lower_path_segment)
+        .generic_path_segments()
+        .filter_map(lower_generic_path_segment)
         .collect();
 
-    Some(Path { span, segments })
+    Some(GenericPath { span, segments })
 }

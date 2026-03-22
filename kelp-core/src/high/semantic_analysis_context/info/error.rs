@@ -43,7 +43,8 @@ pub enum SemanticAnalysisError {
     MissingKey(String),
     UnexpectedKey(String),
     MissingField(String),
-    TypeIsAlreadyDefined(String),
+    TypeAlreadyDeclared(String),
+    ValueIsAlreadyDefined(String),
     PatternIsNotIrrefutable,
     TypeIsNotCondition(DataType),
     TypeIsNotScoreCompatible(DataType),
@@ -72,6 +73,7 @@ pub enum SemanticAnalysisError {
     NotAModule(String),
     UnknownType(String),
     UnknownValue(String),
+    UnknownItem(String),
     UnknownModule(String),
     ModuleDoesntContainType {
         module_name: String,
@@ -80,6 +82,10 @@ pub enum SemanticAnalysisError {
     ModuleDoesntContainValue {
         module_name: String,
         value_name: String,
+    },
+    ModuleDoesntContainItem {
+        module_name: String,
+        item_name: String,
     },
 }
 
@@ -179,11 +185,20 @@ impl SemanticAnalysisError {
             Self::MissingKey(key) => write!(output, "Missing key `{}`", key),
             Self::UnexpectedKey(key) => write!(output, "Unexpected key `{}`", key),
             Self::MissingField(field) => write!(output, "Missing field `{}`", field),
-            Self::TypeIsAlreadyDefined(name) => write!(
-                output,
-                "The type `{}` has already been declared in this scope",
-                name
-            ),
+            Self::TypeAlreadyDeclared(name) => {
+                write!(
+                    output,
+                    "A type with the name `{}` has already been declared",
+                    name
+                )
+            }
+            Self::ValueIsAlreadyDefined(name) => {
+                write!(
+                    output,
+                    "A value with the name `{}` has already been declared",
+                    name
+                )
+            }
             Self::PatternIsNotIrrefutable => output.write_str("This pattern is not irrefutable"),
             Self::TypeIsNotCondition(data_type) => {
                 output.write_str("The type `")?;
@@ -262,13 +277,14 @@ impl SemanticAnalysisError {
             Self::NotAModule(name) => write!(output, "`{}` is not a module", name),
             Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
             Self::UnknownValue(name) => write!(output, "Unknown value `{}`", name),
+            Self::UnknownItem(name) => write!(output, "Unknown item `{}`", name),
             Self::UnknownModule(name) => write!(output, "Unknown module `{}`", name),
             Self::ModuleDoesntContainType {
                 module_name,
                 type_name,
             } => write!(
                 output,
-                "The module `{}` does not contain the type `{}`",
+                "The module `{}` does not contain a type named `{}`",
                 module_name, type_name
             ),
             Self::ModuleDoesntContainValue {
@@ -276,8 +292,16 @@ impl SemanticAnalysisError {
                 value_name,
             } => write!(
                 output,
-                "The module `{}` does not contain the value `{}`",
+                "The module `{}` does not contain a value named `{}`",
                 module_name, value_name
+            ),
+            Self::ModuleDoesntContainItem {
+                module_name,
+                item_name,
+            } => write!(
+                output,
+                "The module `{}` does not contain an item named `{}`",
+                module_name, item_name
             ),
         }
     }

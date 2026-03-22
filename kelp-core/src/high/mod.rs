@@ -16,3 +16,4 @@ pub mod score_comparison;
 pub mod semantic_analysis_context;
 pub mod snbt_string;
 pub mod statement;
+pub mod use_tree;

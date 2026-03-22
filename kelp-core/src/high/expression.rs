@@ -18,7 +18,7 @@ use crate::{
         expression::{Expression as MiddleExpression, ExpressionKind as MiddleExpressionKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
-    path::Path,
+    path::generic::GenericPath,
     place::{PlaceType, PlaceTypeKind},
     runtime_storage_type::RuntimeStorageType,
     span::Span,
@@ -56,8 +56,11 @@ pub enum ExpressionKind {
     AsCast(Box<Expression>, UnresolvedDataType),
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
-    Path(Path<UnresolvedDataType>),
-    Struct(Path<UnresolvedDataType>, HashMap<SNBTString, Expression>),
+    Path(GenericPath<UnresolvedDataType>),
+    Struct(
+        GenericPath<UnresolvedDataType>,
+        HashMap<SNBTString, Expression>,
+    ),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -194,7 +197,7 @@ impl Expression {
             | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Path(path) => {
-                let id = ctx.resolve_value_path(path)?;
+                let id = ctx.resolve_value_generic_path(path)?;
 
                 PlaceTypeKind::Value(id)
             }
@@ -636,9 +639,10 @@ impl Expression {
                     .with(DataType::Tuple(expression_data_types))
             }
             ExpressionKind::Struct(path, field_values) => {
-                let path = path.resolve_fully(ctx)?;
+                let mut path = path.resolve_fully(ctx)?;
 
-                let (id, path_span, last_segment) = ctx.resolve_type_path(path)?;
+                let id = ctx.resolve_type_generic_path(&path)?;
+                let last_segment = path.segments.pop().unwrap();
 
                 let declaration = ctx.get_type(id).clone();
 
@@ -649,7 +653,7 @@ impl Expression {
 
                     if actual_generic_count != expected_generic_count {
                         return ctx.add_invalid_generics(
-                            last_segment.span,
+                            last_segment.name_span,
                             declaration.name().to_owned(),
                             expected_generic_count,
                             actual_generic_count,
@@ -658,10 +662,10 @@ impl Expression {
                 }
 
                 let DataType::Struct(id) =
-                    declaration.resolve_fully(ctx, id, generic_types, last_segment.span)?
+                    declaration.resolve_fully(ctx, id, generic_types, last_segment.name_span)?
                 else {
                     return ctx.add_error(
-                        path_span,
+                        path.span,
                         SemanticAnalysisError::TypeIsNotStruct(last_segment.name),
                     );
                 };
@@ -710,7 +714,7 @@ impl Expression {
                         has_error = true;
 
                         ctx.add_error::<()>(
-                            path_span,
+                            path.span,
                             SemanticAnalysisError::MissingField(declared_field_name.clone()),
                         );
                     }
@@ -725,7 +729,7 @@ impl Expression {
             ExpressionKind::Path(path) => {
                 let path = path.resolve_fully(ctx)?;
 
-                let id = ctx.resolve_value_path(&path)?;
+                let id = ctx.resolve_value_generic_path(&path)?;
 
                 let ValueDeclaration::Variable(declaration) = ctx.get_value(id);
 

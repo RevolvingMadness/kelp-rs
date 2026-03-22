@@ -81,6 +81,15 @@ impl<'a> Parser<'a> {
     }
 
     #[must_use]
+    pub fn try_bump_whole_value(&mut self) -> bool {
+        self.peek_whole_value().is_some_and(|whole_value| {
+            self.add_token(SyntaxKind::WholeValue, whole_value.len());
+
+            true
+        })
+    }
+
+    #[must_use]
     pub fn peek_fractional_value(&self) -> Option<(bool, &'a str)> {
         let s = &self.source[self.pos..];
         let mut len = 0;

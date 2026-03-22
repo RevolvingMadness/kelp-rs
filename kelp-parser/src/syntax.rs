@@ -6,9 +6,14 @@ pub enum SyntaxKind {
     Root,
 
     Identifier,
-    StructName,
-    StructFieldName,
+    TypeName,
     DataTypeName,
+
+    StructFields,
+    StructField,
+    StructFieldName,
+    TupleFields,
+    TupleField,
 
     WholeValue,
     FractionalValue,
@@ -142,8 +147,8 @@ pub enum SyntaxKind {
 
     ModuleDeclarationItem,
     MCFNDeclarationItem,
-    StructDeclarationItem,
-    StructDeclarationItemField,
+    StructStructDeclarationItem,
+    TupleStructDeclarationItem,
     TypeAliasDeclarationItem,
     UseItem,
 
@@ -189,8 +194,12 @@ pub enum SyntaxKind {
     StopwatchCommandExpressionRemove,
     StopwatchCommandExpressionRestart,
 
-    StructExpression,
-    StructExpressionField,
+    StructStructExpression,
+    StructStructExpressionFields,
+    StructStructExpressionField,
+    TupleStructExpression,
+    TupleStructExpressionFields,
+    TupleStructExpressionField,
     FieldAccessExpression,
     FieldName,
     AssignmentExpression,

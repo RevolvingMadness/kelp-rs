@@ -20,14 +20,16 @@ use crate::{
         path::lower_path_expression,
         score::{lower_score_expression, try_parse_score_expression},
         string::lower_string_expression,
-        r#struct::lower_struct_expression,
+        r#struct::{
+            lower_struct_struct_expression, lower_tuple_struct_expression,
+            try_parse_struct_struct_expression_fields, try_parse_tuple_struct_expression_fields,
+        },
         to_cast::lower_to_cast_expression,
         tuple::lower_tuple_expression,
         unary::lower_unary_expression,
         underscore::lower_underscore_expression,
         unit::lower_unit_expression,
     },
-    item::struct_declaration::bump_until_next_field_or_end,
     parser::Parser,
     path::generic::try_parse_generic_path,
     syntax::SyntaxKind,
@@ -634,62 +636,42 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                 let state = parser.save_state();
 
-                let parsed_struct = (|| {
-                    parser.skip_inline_whitespace();
+                parser.skip_inline_whitespace();
 
-                    if parser.peek_char() == Some('{') {
+                match parser.peek_char() {
+                    Some('{') => {
+                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
+                        parser.start_node_at(checkpoint, SyntaxKind::StructStructExpression);
+
                         parser.bump_char();
+
                         parser.skip_whitespace();
 
-                        while parser.peek_char() != Some('}') {
-                            parser.start_node(SyntaxKind::StructExpressionField);
+                        let _ = try_parse_struct_struct_expression_fields(parser);
 
-                            if !parser.expect_identifier_kind(
-                                SyntaxKind::StructFieldName,
-                                "Expected struct field name",
-                            ) {
-                                bump_until_next_field_or_end(parser);
-                                parser.finish_node();
+                        parser.skip_whitespace();
 
-                                continue;
-                            }
-
-                            parser.skip_whitespace();
-
-                            parser.expect_char(':', "Expected ':'");
-
-                            parser.skip_whitespace();
-
-                            if !try_parse_expression(parser) {
-                                parser.error("Expected expression");
-                                bump_until_next_field_or_end(parser);
-                                parser.finish_node();
-                                continue;
-                            }
-                            parser.finish_node();
-
-                            parser.skip_whitespace();
-
-                            if !parser.try_bump_char(',') {
-                                break;
-                            }
-
-                            parser.skip_whitespace();
-                        }
-
-                        if parser.expect_char('}', "Expected '}'") {
-                            return true;
-                        }
+                        parser.expect_char('}', "Expected '}'");
                     }
-                    false
-                })();
+                    Some('(') => {
+                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
+                        parser.start_node_at(checkpoint, SyntaxKind::TupleStructExpression);
 
-                if parsed_struct {
-                    parser.replace_token_at(checkpoint, SyntaxKind::StructName);
-                    parser.start_node_at(checkpoint, SyntaxKind::StructExpression);
-                } else {
-                    parser.restore_state(state);
-                    parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
+                        parser.bump_char();
+
+                        parser.skip_whitespace();
+
+                        let _ = try_parse_tuple_struct_expression_fields(parser);
+
+                        parser.skip_whitespace();
+
+                        parser.expect_char(')', "Expected ')'");
+                    }
+                    _ => {
+                        parser.restore_state(state);
+
+                        parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
+                    }
                 }
 
                 parser.finish_node();
@@ -726,7 +708,8 @@ pub fn lower_expression(
         CSTExpression::ParenthesizedExpression(node) => lower_parenthesized_expression(node, ctx),
         CSTExpression::AsCastExpression(node) => lower_as_cast_expression(node, ctx),
         CSTExpression::ToCastExpression(node) => lower_to_cast_expression(node, ctx),
-        CSTExpression::StructExpression(node) => lower_struct_expression(node, ctx),
+        CSTExpression::StructStructExpression(node) => lower_struct_struct_expression(node, ctx),
+        CSTExpression::TupleStructExpression(node) => lower_tuple_struct_expression(node, ctx),
         CSTExpression::IndexExpression(node) => lower_index_expression(node, ctx),
         CSTExpression::FieldAccessExpression(node) => lower_field_access_expression(node, ctx),
     }

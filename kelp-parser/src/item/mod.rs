@@ -6,9 +6,7 @@ use crate::{
     item::{
         mcfn_declaration::{lower_mcfn_declaration_item, try_parse_mcfn_declaration_item},
         module_declaration::{lower_module_declaration_item, try_parse_module_declaration_item},
-        struct_declaration::{
-            lower_struct_declaration_item_field, try_parse_struct_declaration_item,
-        },
+        struct_declaration::try_parse_struct_declaration_item,
         type_alias_declaration::{
             lower_type_alias_declaration_item, try_parse_type_alias_declaration_item,
         },
@@ -16,6 +14,7 @@ use crate::{
     },
     parser::Parser,
     span::text_range_to_span,
+    r#struct::{lower_struct_fields, lower_tuple_fields},
 };
 
 pub mod mcfn_declaration;
@@ -46,19 +45,32 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
     match node {
         CSTItem::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
         CSTItem::MCFNDeclarationItem(node) => lower_mcfn_declaration_item(node, ctx),
-        CSTItem::StructDeclarationItem(node) => {
+        CSTItem::StructStructDeclarationItem(node) => {
             let struct_name_token = node.name()?;
             let struct_name_span = text_range_to_span(struct_name_token.text_range());
             let struct_name = struct_name_token.text().to_owned();
 
             let generics = node.generic_names().and_then(lower_generic_names);
 
-            let fields = node
-                .fields()
-                .filter_map(lower_struct_declaration_item_field)
-                .collect();
+            let fields = lower_struct_fields(node.struct_fields()?)?;
 
-            Some(Item::StructDeclaration(
+            Some(Item::StructStructDeclaration(
+                struct_name_span,
+                struct_name,
+                generics.unwrap_or_default(),
+                fields,
+            ))
+        }
+        CSTItem::TupleStructDeclarationItem(node) => {
+            let struct_name_token = node.name()?;
+            let struct_name_span = text_range_to_span(struct_name_token.text_range());
+            let struct_name = struct_name_token.text().to_owned();
+
+            let generics = node.generic_names().and_then(lower_generic_names);
+
+            let fields = lower_tuple_fields(node.tuple_fields()?)?;
+
+            Some(Item::TupleStructDeclaration(
                 struct_name_span,
                 struct_name,
                 generics.unwrap_or_default(),

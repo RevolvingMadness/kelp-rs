@@ -469,7 +469,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "struct" => "StructKeyword",
         "data_type_name" => "DataTypeName",
         "struct_field_name" => "StructFieldName",
-        "struct_name" => "StructName",
+        "type_name" => "TypeName",
         "compound_key_name" => "CompoundKeyName",
         "compound_name" => "CompoundName",
         "binding_pattern_name" => "BindingPatternName",

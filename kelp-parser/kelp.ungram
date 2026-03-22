@@ -6,7 +6,8 @@ Item =
   ModuleDeclarationItem
 | UseItem
 | MCFNDeclarationItem
-| StructDeclarationItem
+| StructStructDeclarationItem
+| TupleStructDeclarationItem
 | TypeAliasDeclarationItem
 
 ModuleDeclarationItem = 'mod' 'module_name' '{' Item* '}'
@@ -26,20 +27,13 @@ PathUseTree = Path
 MCFNDeclarationItem =
   'mcfn' ResourceLocation Statement
 
-StructDeclarationItem =
-  'struct'
-  name:'struct_name'
-  GenericNames?
-  '{'
-  (
-    fields:StructDeclarationItemField
-    (',' fields:StructDeclarationItemField)*
-    ','?
-  )?
-  '}'
+StructStructDeclarationItem = 'struct' name:'type_name' GenericNames? '{' StructFields? '}'
+StructFields = (StructField (',' StructField)*) ','?
+StructField = name:'ident' ':' DataType
 
-StructDeclarationItemField =
-  name:'struct_field_name' ':' DataType
+TupleStructDeclarationItem = 'struct' name:'type_name' GenericNames? '(' TupleFields? ')'
+TupleFields = (TupleField (',' TupleField)*) ','?
+TupleField = DataType
 
 TypeAliasDeclarationItem =
   'type' name:'data_type_name' GenericNames? '=' DataType
@@ -117,7 +111,8 @@ Expression =
 | AsCastExpression
 | TupleExpression
 | ListExpression
-| StructExpression
+| StructStructExpression
+| TupleStructExpression
 | CompoundExpression
 | IndexExpression
 | FieldAccessExpression
@@ -192,10 +187,13 @@ TupleExpression =
 ListExpression =
   '[' (expressions:Expression (',' expressions:Expression)*)? ']'
 
-StructExpression = GenericPath '{' (fields:StructExpressionField (',' fields:StructExpressionField)* ','?)? '}'
+StructStructExpression = GenericPath '{' StructStructExpressionFields? '}'
+StructStructExpressionFields = StructStructExpressionField (',' StructStructExpressionField)* ','?
+StructStructExpressionField = name:('ident' | 'whole_value') ':' Expression
 
-StructExpressionField =
-  name:'struct_field_name' ':' value:Expression
+TupleStructExpression = GenericPath '(' TupleStructExpressionFields? ')'
+TupleStructExpressionFields = TupleStructExpressionField (',' TupleStructExpressionField)* ','?
+TupleStructExpressionField = Expression
 
 CompoundExpression =
   '{'

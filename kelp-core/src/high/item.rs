@@ -24,12 +24,13 @@ pub enum Item {
     ModuleDeclaration(Span, String, Vec<Self>),
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
-    StructDeclaration(
+    StructStructDeclaration(
         Span,
         String,
         Vec<String>,
         HashMap<String, UnresolvedDataType>,
     ),
+    TupleStructDeclaration(Span, String, Vec<String>, Vec<UnresolvedDataType>),
     Use(UseTree),
 }
 
@@ -90,7 +91,7 @@ impl Item {
 
                 MiddleItem::TypeAliasDeclaration
             }
-            Self::StructDeclaration(name_span, name, generic_names, field_types) => {
+            Self::StructStructDeclaration(name_span, name, generic_names, field_types) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
@@ -111,7 +112,31 @@ impl Item {
                     field_types,
                 }));
 
-                MiddleItem::StructDeclaration
+                MiddleItem::StructStructDeclaration
+            }
+            Self::TupleStructDeclaration(name_span, name, generic_names, field_types) => {
+                if ctx.type_is_declared_in_current_scope(&name) {
+                    return ctx
+                        .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+                }
+
+                let field_types = field_types
+                    .into_iter()
+                    .enumerate()
+                    .map(|(field_index, field_type)| {
+                        let field_type = field_type.resolve_partially(Some(&generic_names), ctx);
+
+                        (field_index.to_string(), field_type)
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration {
+                    name,
+                    generic_names,
+                    field_types,
+                }));
+
+                MiddleItem::TupleStructDeclaration
             }
             Self::Use(tree) => {
                 match tree {

@@ -7,7 +7,8 @@ pub enum Item {
     ModuleDeclaration,
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration,
-    StructDeclaration,
+    StructStructDeclaration,
+    TupleStructDeclaration,
     Use,
 }
 
@@ -34,7 +35,8 @@ impl Item {
             }
             Self::ModuleDeclaration
             | Self::TypeAliasDeclaration
-            | Self::StructDeclaration
+            | Self::StructStructDeclaration
+            | Self::TupleStructDeclaration
             | Self::Use => {}
         }
     }

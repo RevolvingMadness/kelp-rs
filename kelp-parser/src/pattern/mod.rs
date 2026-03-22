@@ -3,6 +3,7 @@ use kelp_core::high::{pattern::Pattern, semantic_analysis_context::SemanticAnaly
 use crate::{
     cst::CSTPattern,
     parser::Parser,
+    path::generic::try_parse_generic_path,
     pattern::{
         binding::lower_binding_pattern,
         compound::lower_compound_pattern,
@@ -110,7 +111,7 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 
                 true
             }
-            Some(name) => {
+            Some(_) => {
                 if try_parse_score_pattern(parser) {
                     return true;
                 }
@@ -121,14 +122,14 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 
                 let checkpoint = parser.checkpoint();
 
-                let pos = parser.bump_identifier_kind(SyntaxKind::BindingPatternName, name);
+                if !try_parse_generic_path(parser, false) {
+                    unreachable!();
+                }
 
                 parser.skip_whitespace();
 
                 if parser.peek_char() == Some('{') {
                     parser.start_node_at(checkpoint, SyntaxKind::StructPattern);
-
-                    parser.replace_token_at(pos, SyntaxKind::StructName);
 
                     parser.bump_char();
                     parser.skip_whitespace();

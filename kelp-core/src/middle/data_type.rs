@@ -3,9 +3,13 @@ use std::{collections::BTreeMap, fmt::Write};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
+    high::semantic_analysis_context::{
+        SemanticAnalysisContext, info::error::SemanticAnalysisError,
+    },
     middle::environment::{Environment, r#type::r#struct::StructId},
     operator::{ArithmeticOperator, ComparisonOperator},
     place::PlaceTypeKind,
+    span::Span,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -65,6 +69,23 @@ impl DataType {
     pub fn as_struct_id(self) -> Option<StructId> {
         let Self::Struct(id) = self else {
             return None;
+        };
+
+        Some(id)
+    }
+
+    #[must_use]
+    pub fn as_struct_id_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        name_span: Span,
+        name: &str,
+    ) -> Option<StructId> {
+        let Self::Struct(id) = self else {
+            return ctx.add_error(
+                name_span,
+                SemanticAnalysisError::NotAStruct(name.to_owned()),
+            );
         };
 
         Some(id)

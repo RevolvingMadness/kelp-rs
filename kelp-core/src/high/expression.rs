@@ -642,33 +642,23 @@ impl Expression {
                 let mut path = path.resolve_fully(ctx)?;
 
                 let id = ctx.resolve_type_generic_path(&path)?;
+
+                let type_declaration = ctx.get_type(id).clone();
+
                 let last_segment = path.segments.pop().unwrap();
 
-                let declaration = ctx.get_type(id).clone();
+                let data_type = type_declaration.resolve_fully(
+                    ctx,
+                    id,
+                    last_segment.generic_types,
+                    last_segment.name_span,
+                )?;
 
-                let generic_types = last_segment.generic_types;
-
-                if let Some(expected_generic_count) = declaration.generic_count() {
-                    let actual_generic_count = generic_types.len();
-
-                    if actual_generic_count != expected_generic_count {
-                        return ctx.add_invalid_generics(
-                            last_segment.name_span,
-                            declaration.name().to_owned(),
-                            expected_generic_count,
-                            actual_generic_count,
-                        );
-                    }
-                }
-
-                let DataType::Struct(id) =
-                    declaration.resolve_fully(ctx, id, generic_types, last_segment.name_span)?
-                else {
-                    return ctx.add_error(
-                        path.span,
-                        SemanticAnalysisError::TypeIsNotStruct(last_segment.name),
-                    );
-                };
+                let id = data_type.as_struct_id_semantic_analysis(
+                    ctx,
+                    last_segment.name_span,
+                    &last_segment.name,
+                )?;
 
                 let declaration = ctx.get_struct_type(id);
                 let declared_fields = declaration.field_types.clone();

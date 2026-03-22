@@ -1,7 +1,11 @@
 use std::{collections::HashMap, fmt::Display};
 
-use crate::high::{
-    data::DataTarget, nbt_path::NbtPath, player_score::PlayerScore, snbt_string::SNBTString,
+use crate::{
+    high::{
+        data::DataTarget, data_type::unresolved::UnresolvedDataType, nbt_path::NbtPath,
+        player_score::PlayerScore, snbt_string::SNBTString,
+    },
+    path::generic::GenericPath,
 };
 
 #[derive(Debug, Clone)]
@@ -17,7 +21,7 @@ pub enum PatternType {
     Score(PlayerScore),
     Data(DataTarget, NbtPath),
     Tuple(Vec<Self>),
-    Struct(String, HashMap<SNBTString, Self>),
+    Struct(GenericPath<UnresolvedDataType>, HashMap<SNBTString, Self>),
     Reference(Box<Self>),
     Compound(HashMap<SNBTString, Self>),
     Any,
@@ -55,8 +59,8 @@ impl Display for PatternType {
 
                 f.write_str(")")
             }
-            Self::Struct(name, fields) => {
-                write!(f, "{} {{", name)?;
+            Self::Struct(path, fields) => {
+                write!(f, "{} {{", path)?;
 
                 if !fields.is_empty() {
                     f.write_str(" ")?;

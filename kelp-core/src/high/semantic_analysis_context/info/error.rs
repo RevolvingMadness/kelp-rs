@@ -39,7 +39,6 @@ pub enum SemanticAnalysisError {
     ValueTooLarge(DataType),
     ValueTooSmall(DataType),
     CompiletimeValueMutationInRuntimeLoop,
-    TypeIsNotStruct(String),
     MissingKey(String),
     UnexpectedKey(String),
     MissingField(String),
@@ -70,6 +69,7 @@ pub enum SemanticAnalysisError {
     ControlFlowNotInLoop(ControlFlowKind),
 
     NotAType(String),
+    NotAStruct(String),
     NotAModule(String),
     UnknownType(String),
     UnknownValue(String),
@@ -181,7 +181,6 @@ impl SemanticAnalysisError {
             Self::CompiletimeValueMutationInRuntimeLoop => {
                 output.write_str("Cannot mutate a compile-time value in a runtime loop")
             }
-            Self::TypeIsNotStruct(name) => write!(output, "The type `{}` is not a struct", name),
             Self::MissingKey(key) => write!(output, "Missing key `{}`", key),
             Self::UnexpectedKey(key) => write!(output, "Unexpected key `{}`", key),
             Self::MissingField(field) => write!(output, "Missing field `{}`", field),
@@ -274,7 +273,8 @@ impl SemanticAnalysisError {
                 write!(output, "Cannot `{}` outside of a loop", kind.name())
             }
             Self::NotAType(name) => write!(output, "`{}` is not a type", name),
-            Self::NotAModule(name) => write!(output, "`{}` is not a module", name),
+            Self::NotAStruct(name) => write!(output, "The type `{}` is not a struct", name),
+            Self::NotAModule(name) => write!(output, "The type `{}` is not a module", name),
             Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
             Self::UnknownValue(name) => write!(output, "Unknown value `{}`", name),
             Self::UnknownItem(name) => write!(output, "Unknown item `{}`", name),

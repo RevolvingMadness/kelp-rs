@@ -1,3 +1,5 @@
+use std::fmt::{Display, Write};
+
 use crate::{
     high::{
         data_type::{
@@ -15,6 +17,28 @@ pub struct GenericPathSegment<T> {
     pub name: String,
     pub name_span: Span,
     pub generic_types: Vec<T>,
+}
+
+impl<T: Display> Display for GenericPathSegment<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)?;
+
+        if !self.generic_types.is_empty() {
+            f.write_str("::<")?;
+
+            for (i, data_type) in self.generic_types.iter().enumerate() {
+                if i != 0 {
+                    f.write_str(", ")?;
+                }
+
+                data_type.fmt(f)?;
+            }
+
+            f.write_char('>')?;
+        }
+
+        Ok(())
+    }
 }
 
 impl GenericPathSegment<PartiallyResolvedDataType> {
@@ -65,6 +89,20 @@ pub struct GenericPath<T> {
     pub segments: Vec<GenericPathSegment<T>>,
 }
 
+impl<T: Display> Display for GenericPath<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, segment) in self.segments.iter().enumerate() {
+            if i != 0 {
+                f.write_str("::")?;
+            }
+
+            segment.fmt(f)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl GenericPath<PartiallyResolvedDataType> {
     #[must_use]
     pub fn resolve_fully(
@@ -109,5 +147,17 @@ impl GenericPath<UnresolvedDataType> {
             span: self.span,
             segments,
         })
+    }
+
+    #[must_use]
+    pub fn single(span: Span, segment_name: &str) -> Self {
+        Self {
+            span,
+            segments: vec![GenericPathSegment {
+                name: segment_name.to_owned(),
+                name_span: span,
+                generic_types: Vec::new(),
+            }],
+        }
     }
 }

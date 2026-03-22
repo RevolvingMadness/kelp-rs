@@ -262,15 +262,14 @@ WildcardPattern =
 TuplePattern =
   '(' patterns:Pattern? (',' patterns:Pattern)* ')'
 
-BindingPattern =
-  'binding_pattern_name'
+BindingPattern = GenericPath
 
 ScorePattern = PlayerScore
 
 DataPattern = Data
 
 StructPattern =
-  name:'struct_name'
+  GenericPath
   '{'
   (fields:StructPatternField (',' fields:StructPatternField)* ','?)?
   '}'

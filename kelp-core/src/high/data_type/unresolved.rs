@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Write},
+};
 
 use crate::{
     high::{
@@ -19,6 +22,53 @@ pub enum UnresolvedDataType {
     Tuple(Vec<Self>),
     Unit,
     Inferred,
+}
+
+impl Display for UnresolvedDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Named(path) => path.fmt(f),
+            Self::TypedCompound(compound) => {
+                f.write_str("{")?;
+
+                if !compound.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                for (i, (key, data_type)) in compound.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    write!(f, "{}: {}", key.snbt_string.1, data_type)?;
+                }
+
+                if !compound.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                f.write_str("}")
+            }
+            Self::Reference(data_type) => write!(f, "&{}", data_type),
+            Self::Tuple(data_types) => {
+                f.write_char('(')?;
+
+                for (i, data_type) in data_types.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    data_type.fmt(f)?;
+                }
+
+                f.write_char(')')?;
+
+                Ok(())
+            }
+            Self::Unit => f.write_str("()"),
+            Self::Inferred => f.write_str("_"),
+        }
+    }
 }
 
 impl UnresolvedDataType {

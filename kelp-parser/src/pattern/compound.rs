@@ -1,7 +1,10 @@
-use kelp_core::high::{
-    pattern::{Pattern, PatternKind},
-    semantic_analysis_context::SemanticAnalysisContext,
-    snbt_string::SNBTString,
+use kelp_core::{
+    high::{
+        pattern::{Pattern, PatternKind},
+        semantic_analysis_context::SemanticAnalysisContext,
+        snbt_string::SNBTString,
+    },
+    path::generic::GenericPath,
 };
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
@@ -26,7 +29,7 @@ pub fn lower_compound_pattern_entry(
         .and_then(|pattern| lower_pattern(pattern, ctx))
         .unwrap_or_else(|| Pattern {
             span: entry_name_span,
-            kind: PatternKind::Binding(entry_name.to_owned()),
+            kind: PatternKind::Binding(GenericPath::single(entry_name_span, entry_name)),
         });
 
     Some((

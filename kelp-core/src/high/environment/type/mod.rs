@@ -32,7 +32,7 @@ impl HighTypeDeclaration {
     pub fn name(&self) -> &str {
         match self {
             Self::Module(declaration) => &declaration.name,
-            Self::Struct(declaration) => &declaration.name,
+            Self::Struct(declaration) => declaration.name(),
             Self::Alias(declaration) => &declaration.name,
             Self::Builtin(data_type) => data_type.name(),
         }
@@ -42,7 +42,7 @@ impl HighTypeDeclaration {
     pub const fn generic_count(&self) -> Option<usize> {
         Some(match self {
             Self::Module(_) => return None,
-            Self::Struct(declaration) => declaration.generic_names.len(),
+            Self::Struct(declaration) => declaration.generic_count(),
             Self::Alias(declaration) => declaration.generic_names.len(),
             Self::Builtin(builtin_type) => builtin_type.generic_count(),
         })
@@ -65,30 +65,60 @@ impl HighTypeDeclaration {
                     return Some(DataType::Struct(id));
                 }
 
-                let resolver = GenericResolver::create_semantic_analysis(
-                    ctx,
-                    &declaration.name,
-                    path_span,
-                    &declaration.generic_names,
-                    &generic_types,
-                )?;
+                let id = match declaration {
+                    HighStructDeclaration::Struct(declaration) => {
+                        let resolver = GenericResolver::create_semantic_analysis(
+                            ctx,
+                            &declaration.name,
+                            path_span,
+                            &declaration.generic_names,
+                            &generic_types,
+                        )?;
 
-                let field_types = declaration
-                    .field_types
-                    .into_iter()
-                    .map(|(field_name, field_type)| {
-                        let field_type = field_type?.resolve_fully(ctx, &resolver).unwrap();
+                        let field_types = declaration
+                            .field_types
+                            .into_iter()
+                            .map(|(field_name, field_type)| {
+                                let field_type = field_type?.resolve_fully(ctx, &resolver).unwrap();
 
-                        Some((field_name, field_type))
-                    })
-                    .collect::<Option<_>>()?;
+                                Some((field_name, field_type))
+                            })
+                            .collect::<Option<_>>()?;
 
-                let id = ctx.declare_monomorphized_struct(
-                    id,
-                    declaration.name,
-                    generic_types,
-                    field_types,
-                );
+                        ctx.declare_monomorphized_struct_struct(
+                            id,
+                            declaration.name,
+                            generic_types,
+                            field_types,
+                        )
+                    }
+                    HighStructDeclaration::Tuple(declaration) => {
+                        let resolver = GenericResolver::create_semantic_analysis(
+                            ctx,
+                            &declaration.name,
+                            path_span,
+                            &declaration.generic_names,
+                            &generic_types,
+                        )?;
+
+                        let field_types = declaration
+                            .field_types
+                            .into_iter()
+                            .map(|field_type| {
+                                let field_type = field_type?.resolve_fully(ctx, &resolver).unwrap();
+
+                                Some(field_type)
+                            })
+                            .collect::<Option<_>>()?;
+
+                        ctx.declare_monomorphized_tuple_struct(
+                            id,
+                            declaration.name,
+                            generic_types,
+                            field_types,
+                        )
+                    }
+                };
 
                 Some(DataType::Struct(id))
             }

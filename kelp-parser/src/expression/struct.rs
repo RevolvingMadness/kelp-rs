@@ -126,7 +126,7 @@ pub fn lower_struct_struct_expression(
     let fields =
         lower_struct_struct_expression_fields(node.struct_struct_expression_fields()?, ctx)?;
 
-    Some(ExpressionKind::Struct(path, fields).with_span(span))
+    Some(ExpressionKind::StructStruct(path, fields).with_span(span))
 }
 
 #[must_use]
@@ -189,10 +189,11 @@ pub fn try_parse_tuple_struct_expression_fields(parser: &mut Parser) -> bool {
 pub fn lower_tuple_struct_expression_fields(
     node: CSTTupleStructExpressionFields,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<impl Iterator<Item = Expression>> {
+) -> Option<Vec<Expression>> {
     let fields = node
         .tuple_struct_expression_fields()
-        .filter_map(|field| lower_tuple_struct_expression_field(field, ctx));
+        .filter_map(|field| lower_tuple_struct_expression_field(field, ctx))
+        .collect();
 
     Some(fields)
 }
@@ -207,18 +208,7 @@ pub fn lower_tuple_struct_expression(
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    let fields = lower_tuple_struct_expression_fields(node.tuple_struct_expression_fields()?, ctx)?
-        .enumerate()
-        .map(|(field_index, expression)| {
-            (
-                SNBTString {
-                    snbt_string: LowSNBTString(false, field_index.to_string()),
-                    span: expression.span,
-                },
-                expression,
-            )
-        })
-        .collect();
+    let fields = lower_tuple_struct_expression_fields(node.tuple_struct_expression_fields()?, ctx)?;
 
-    Some(ExpressionKind::Struct(path, fields).with_span(span))
+    Some(ExpressionKind::TupleStruct(path, fields).with_span(span))
 }

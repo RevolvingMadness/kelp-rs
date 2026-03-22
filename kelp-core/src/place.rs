@@ -325,7 +325,7 @@ pub enum PlaceTypeKind {
     Tuple(Vec<PlaceType>),
     Value(ValueId),
     Index(Box<PlaceType>),
-    FieldAccess(Box<PlaceType>, String),
+    FieldAccess(Box<PlaceType>, Span, String),
     Dereference(Box<PlaceType>),
     Underscore,
 }
@@ -353,7 +353,7 @@ impl PlaceTypeKind {
                 declaration.data_type.as_ref()?.clone()
             }
             Self::Index(place_type) => place_type.kind.get_index_result(environment)?,
-            Self::FieldAccess(place_type, field) => {
+            Self::FieldAccess(place_type, _, field) => {
                 place_type.kind.get_field_result(environment, field)?
             }
             Self::Dereference(place_type) => place_type
@@ -377,7 +377,7 @@ impl PlaceTypeKind {
                 .kind
                 .get_index_result(environment)?
                 .get_index_result(),
-            Self::FieldAccess(place_type, field) => place_type
+            Self::FieldAccess(place_type, _, field) => place_type
                 .kind
                 .get_field_result(environment, field)?
                 .get_index_result(),
@@ -409,7 +409,7 @@ impl PlaceTypeKind {
                 .kind
                 .get_index_result(environment)?
                 .get_field_result(environment, field),
-            Self::FieldAccess(place_type, field) => place_type
+            Self::FieldAccess(place_type, _, field) => place_type
                 .kind
                 .get_field_result(environment, field)?
                 .get_field_result(environment, field),
@@ -538,7 +538,7 @@ impl PlaceTypeKind {
                     }
                 }
             }
-            Self::FieldAccess(target, field) => {
+            Self::FieldAccess(target, _, field) => {
                 let Some(field_result) = target.kind.get_field_result(&ctx.environment, &field)
                 else {
                     let target_data_type = target.kind.get_data_type(&ctx.environment)?;
@@ -617,10 +617,12 @@ impl PlaceTypeKind {
                 );
             }
             Self::Index(target) => {
+                let target_type = target.kind.get_data_type(&ctx.environment)?;
+
                 let Some(index_result) = target.kind.get_index_result(&ctx.environment) else {
                     return ctx.add_error(
                         self_span,
-                        SemanticAnalysisError::CannotBeIndexed(value.data_type.clone()),
+                        SemanticAnalysisError::CannotBeIndexed(target_type),
                     );
                 };
 
@@ -656,13 +658,15 @@ impl PlaceTypeKind {
                     );
                 }
             }
-            Self::FieldAccess(target, field) => {
+            Self::FieldAccess(target, field_span, field) => {
+                let target_type = target.kind.get_data_type(&ctx.environment)?;
+
                 let Some(field_result) = target.kind.get_field_result(&ctx.environment, &field)
                 else {
                     return ctx.add_error(
-                        self_span,
+                        field_span,
                         SemanticAnalysisError::TypeDoesntHaveField {
-                            data_type: value.data_type.clone(),
+                            data_type: target_type,
                             field,
                         },
                     );

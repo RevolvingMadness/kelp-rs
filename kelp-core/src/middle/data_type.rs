@@ -84,7 +84,24 @@ impl DataType {
         let Self::Struct(id) = self else {
             return ctx.add_error(
                 name_span,
-                SemanticAnalysisError::NotAStruct(name.to_owned()),
+                SemanticAnalysisError::NotARegularStruct(name.to_owned()),
+            );
+        };
+
+        Some(id)
+    }
+
+    #[must_use]
+    pub fn as_struct_struct_id_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        name_span: Span,
+        name: &str,
+    ) -> Option<StructId> {
+        let Self::Struct(id) = self else {
+            return ctx.add_error(
+                name_span,
+                SemanticAnalysisError::NotARegularStruct(name.to_owned()),
             );
         };
 
@@ -107,7 +124,7 @@ impl DataType {
             Self::Struct(id) => {
                 let declaration = environment.get_struct(*id);
 
-                declaration.field_types.values().all(predicate)
+                declaration.field_types().all(predicate)
             }
             Self::Boolean
             | Self::Byte
@@ -340,12 +357,14 @@ impl DataType {
             Self::Struct(id) => {
                 let declaration = environment.get_struct(*id);
 
-                output.write_str(&declaration.name)?;
+                output.write_str(declaration.name())?;
 
-                if !declaration.generic_types.is_empty() {
+                let generic_types = declaration.generic_types();
+
+                if !generic_types.is_empty() {
                     output.write_str("<")?;
 
-                    for (i, data_type) in declaration.generic_types.iter().enumerate() {
+                    for (i, data_type) in generic_types.iter().enumerate() {
                         if i != 0 {
                             output.write_str(", ")?;
                         }
@@ -522,7 +541,7 @@ impl DataType {
             Self::Struct(id) => {
                 let declaration = environment.get_struct(*id);
 
-                declaration.field_types.values().all(|field_type| field_type.is_compiletime(environment))
+                declaration.field_types().all(|field_type| field_type.is_compiletime(environment))
             },
             Self::Boolean
             | Self::Byte
@@ -950,7 +969,7 @@ impl DataType {
             Self::Struct(id) => {
                 let declaration = environment.get_struct(*id);
 
-                declaration.field_types.get(field).cloned()?
+                declaration.get_field(field).cloned()?
             }
 
             Self::TypedCompound(compound) => {

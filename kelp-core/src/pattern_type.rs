@@ -21,7 +21,8 @@ pub enum PatternType {
     Score(PlayerScore),
     Data(DataTarget, NbtPath),
     Tuple(Vec<Self>),
-    Struct(GenericPath<UnresolvedDataType>, HashMap<SNBTString, Self>),
+    StructStruct(GenericPath<UnresolvedDataType>, HashMap<SNBTString, Self>),
+    TupleStruct(GenericPath<UnresolvedDataType>, Vec<Self>),
     Reference(Box<Self>),
     Compound(HashMap<SNBTString, Self>),
     Any,
@@ -59,22 +60,45 @@ impl Display for PatternType {
 
                 f.write_str(")")
             }
-            Self::Struct(path, fields) => {
+            Self::StructStruct(path, field_types) => {
                 write!(f, "{} {{", path)?;
 
-                if !fields.is_empty() {
+                if !field_types.is_empty() {
                     f.write_str(" ")?;
                 }
 
-                for (i, (key, pattern_type)) in fields.iter().enumerate() {
+                for (i, (field_name, field_type)) in field_types.iter().enumerate() {
                     if i != 0 {
                         f.write_str(", ")?;
                     }
 
-                    write!(f, "{}: {}", key.snbt_string.1, pattern_type)?;
+                    write!(f, "{}: {}", field_name.snbt_string.1, field_type)?;
                 }
 
-                if !fields.is_empty() {
+                if !field_types.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                f.write_str("}")?;
+
+                Ok(())
+            }
+            Self::TupleStruct(path, field_types) => {
+                write!(f, "{} (", path)?;
+
+                if !field_types.is_empty() {
+                    f.write_str(" ")?;
+                }
+
+                for (i, field_type) in field_types.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    field_type.fmt(f)?;
+                }
+
+                if !field_types.is_empty() {
                     f.write_str(" ")?;
                 }
 

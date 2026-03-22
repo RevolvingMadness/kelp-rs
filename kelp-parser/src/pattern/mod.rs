@@ -9,7 +9,10 @@ use crate::{
         compound::lower_compound_pattern,
         data::{lower_data_pattern, try_parse_data_pattern},
         score::{lower_score_pattern, try_parse_score_pattern},
-        r#struct::lower_struct_pattern,
+        r#struct::{
+            lower_struct_struct_pattern, lower_tuple_struct_pattern,
+            try_parse_struct_struct_pattern_fields, try_parse_tuple_struct_pattern_fields,
+        },
         tuple::lower_tuple_pattern,
         wildcard::lower_wildcard_pattern,
     },
@@ -126,42 +129,44 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
                     unreachable!();
                 }
 
+                let state = parser.save_state();
+
                 parser.skip_whitespace();
 
-                if parser.peek_char() == Some('{') {
-                    parser.start_node_at(checkpoint, SyntaxKind::StructPattern);
+                match parser.peek_char() {
+                    Some('{') => {
+                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
+                        parser.start_node_at(checkpoint, SyntaxKind::StructStructPattern);
 
-                    parser.bump_char();
-                    parser.skip_whitespace();
-
-                    while let Some(field_name) = parser.peek_identifier() {
-                        let field_checkpoint = parser.checkpoint();
-                        parser.bump_identifier_kind(SyntaxKind::StructFieldName, field_name);
-                        parser.skip_whitespace();
-
-                        if parser.try_bump_char(':') {
-                            parser.skip_whitespace();
-
-                            if !try_parse_pattern(parser) {
-                                parser.error("Expected pattern");
-                            }
-                        }
-
-                        parser.start_node_at(field_checkpoint, SyntaxKind::StructPatternField);
-                        parser.finish_node();
+                        parser.bump_char();
 
                         parser.skip_whitespace();
-                        if parser.peek_char() == Some(',') {
-                            parser.bump_char();
-                            parser.skip_whitespace();
-                        } else {
-                            break;
-                        }
+
+                        let _ = try_parse_struct_struct_pattern_fields(parser);
+
+                        parser.skip_whitespace();
+
+                        parser.expect_char('}', "Expected '}'");
                     }
+                    Some('(') => {
+                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
+                        parser.start_node_at(checkpoint, SyntaxKind::TupleStructPattern);
 
-                    parser.expect_char('}', "Expected closing brace after struct pattern");
-                } else {
-                    parser.start_node_at(checkpoint, SyntaxKind::BindingPattern);
+                        parser.bump_char();
+
+                        parser.skip_whitespace();
+
+                        let _ = try_parse_tuple_struct_pattern_fields(parser);
+
+                        parser.skip_whitespace();
+
+                        parser.expect_char(')', "Expected ')'");
+                    }
+                    _ => {
+                        parser.restore_state(state);
+
+                        parser.start_node_at(checkpoint, SyntaxKind::BindingPattern);
+                    }
                 }
 
                 parser.finish_node();
@@ -181,7 +186,8 @@ pub fn lower_pattern(node: CSTPattern, ctx: &mut SemanticAnalysisContext) -> Opt
         CSTPattern::BindingPattern(node) => lower_binding_pattern(node),
         CSTPattern::ScorePattern(node) => lower_score_pattern(node, ctx),
         CSTPattern::DataPattern(node) => lower_data_pattern(node, ctx),
-        CSTPattern::StructPattern(node) => lower_struct_pattern(node, ctx),
+        CSTPattern::StructStructPattern(node) => lower_struct_struct_pattern(node, ctx),
+        CSTPattern::TupleStructPattern(node) => lower_tuple_struct_pattern(node, ctx),
         CSTPattern::CompoundPattern(node) => lower_compound_pattern(node, ctx),
     }
 }

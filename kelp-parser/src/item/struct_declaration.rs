@@ -5,33 +5,6 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-fn bump_until_next_struct_field_or_end(parser: &mut Parser, end_char: char) {
-    let chars = parser.source[parser.pos..].chars();
-    let mut length = 0;
-
-    for char in chars {
-        if char == ',' || char == end_char || char.is_alphabetic() {
-            break;
-        }
-
-        length += char.len_utf8();
-    }
-
-    if length > 0 {
-        parser.add_token(SyntaxKind::Garbage, length);
-    }
-
-    parser.try_bump_char(',');
-}
-
-fn bump_until_next_struct_struct_field_or_end(parser: &mut Parser) {
-    bump_until_next_struct_field_or_end(parser, '}');
-}
-
-fn bump_until_next_tuple_struct_field_or_end(parser: &mut Parser) {
-    bump_until_next_struct_field_or_end(parser, ')');
-}
-
 #[must_use]
 pub fn try_parse_struct_declaration_item(parser: &mut Parser) -> bool {
     let beginning = parser.save_state();
@@ -58,9 +31,11 @@ pub fn try_parse_struct_declaration_item(parser: &mut Parser) -> bool {
 
             parser.bump_char();
 
-            bump_until_next_struct_struct_field_or_end(parser);
+            parser.skip_whitespace();
 
             let _ = try_parse_struct_fields(parser);
+
+            parser.skip_whitespace();
 
             parser.expect_char('}', "Expected '}'");
         }
@@ -69,9 +44,11 @@ pub fn try_parse_struct_declaration_item(parser: &mut Parser) -> bool {
 
             parser.bump_char();
 
-            bump_until_next_tuple_struct_field_or_end(parser);
+            parser.skip_whitespace();
 
             let _ = try_parse_tuple_fields(parser);
+
+            parser.skip_whitespace();
 
             parser.expect_char(')', "Expected ')'");
         }

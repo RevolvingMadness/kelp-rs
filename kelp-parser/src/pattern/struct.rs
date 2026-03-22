@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use kelp_core::{
     high::{
         pattern::{Pattern, PatternKind},
@@ -9,19 +11,24 @@ use kelp_core::{
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
-    cst::{CSTStructPattern, CSTStructPatternField},
+    cst::{
+        CSTStructStructPattern, CSTStructStructPatternField, CSTStructStructPatternFields,
+        CSTTupleStructPattern, CSTTupleStructPatternField, CSTTupleStructPatternFields,
+    },
+    parser::Parser,
     path::generic::lower_generic_path,
-    pattern::lower_pattern,
+    pattern::{lower_pattern, try_parse_pattern},
     span::{span_of_cst_node, text_range_to_span},
+    syntax::SyntaxKind,
 };
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_pattern_field(
-    node: CSTStructPatternField,
+pub fn lower_struct_struct_pattern_field(
+    node: CSTStructStructPatternField,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<(SNBTString, Pattern)> {
-    let field_name_token = node.name()?;
+    let field_name_token = node.struct_field_name_token()?;
     let field_name_span = text_range_to_span(field_name_token.text_range());
     let field_name = field_name_token.text();
 
@@ -43,19 +50,168 @@ pub fn lower_struct_pattern_field(
 }
 
 #[must_use]
+fn try_parse_struct_struct_pattern_field(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+
+    if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
+        && !parser.try_bump_whole_value()
+    {
+        return false;
+    }
+
+    parser.start_node_at(checkpoint, SyntaxKind::StructStructPatternField);
+
+    parser.skip_whitespace();
+
+    parser.expect_char(':', "Expected ':'");
+
+    parser.skip_whitespace();
+
+    if !try_parse_pattern(parser) {
+        parser.error("Expected pattern");
+    }
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_pattern(
-    node: CSTStructPattern,
+fn lower_struct_struct_pattern_fields(
+    node: CSTStructStructPatternFields,
+    ctx: &mut SemanticAnalysisContext,
+) -> HashMap<SNBTString, Pattern> {
+    node.struct_struct_pattern_fields()
+        .filter_map(|field| lower_struct_struct_pattern_field(field, ctx))
+        .collect()
+}
+
+#[must_use]
+pub fn try_parse_struct_struct_pattern_fields(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+
+    if !try_parse_struct_struct_pattern_field(parser) {
+        return false;
+    }
+
+    parser.start_node_at(checkpoint, SyntaxKind::StructStructPatternFields);
+
+    loop {
+        let state = parser.save_state();
+        parser.skip_whitespace();
+
+        if !parser.try_bump_char(',') {
+            parser.restore_state(state);
+            break;
+        }
+
+        parser.skip_whitespace();
+
+        if !try_parse_struct_struct_pattern_field(parser) {
+            break;
+        }
+    }
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_struct_struct_pattern(
+    node: CSTStructStructPattern,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    let fields = node
-        .fields()
-        .filter_map(|field| lower_struct_pattern_field(field, ctx))
-        .collect();
+    let fields = lower_struct_struct_pattern_fields(node.struct_struct_pattern_fields()?, ctx);
 
-    Some(PatternKind::Struct(path, fields).with_span(span))
+    Some(PatternKind::StructStruct(path, fields).with_span(span))
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_tuple_struct_pattern_field(
+    node: CSTTupleStructPatternField,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Pattern> {
+    let field_pattern = lower_pattern(node.pattern()?, ctx)?;
+
+    Some(field_pattern)
+}
+
+#[must_use]
+fn try_parse_tuple_struct_pattern_field(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+
+    if !try_parse_pattern(parser) {
+        return false;
+    }
+
+    parser.start_node_at(checkpoint, SyntaxKind::TupleStructPatternField);
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+fn lower_tuple_struct_pattern_fields(
+    node: CSTTupleStructPatternFields,
+    ctx: &mut SemanticAnalysisContext,
+) -> Vec<Pattern> {
+    node.tuple_struct_pattern_fields()
+        .filter_map(|field| lower_tuple_struct_pattern_field(field, ctx))
+        .collect()
+}
+
+#[must_use]
+pub fn try_parse_tuple_struct_pattern_fields(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+
+    if !try_parse_tuple_struct_pattern_field(parser) {
+        return false;
+    }
+
+    parser.start_node_at(checkpoint, SyntaxKind::TupleStructPatternFields);
+
+    loop {
+        let state = parser.save_state();
+        parser.skip_whitespace();
+
+        if !parser.try_bump_char(',') {
+            parser.restore_state(state);
+            break;
+        }
+
+        parser.skip_whitespace();
+
+        if !try_parse_tuple_struct_pattern_field(parser) {
+            break;
+        }
+    }
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_tuple_struct_pattern(
+    node: CSTTupleStructPattern,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Pattern> {
+    let span = span_of_cst_node(&node);
+
+    let path = lower_generic_path(node.generic_path()?)?;
+
+    let fields = lower_tuple_struct_pattern_fields(node.tuple_struct_pattern_fields()?, ctx);
+
+    Some(PatternKind::TupleStruct(path, fields).with_span(span))
 }

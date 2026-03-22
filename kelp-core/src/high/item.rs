@@ -6,8 +6,12 @@ use crate::{
     high::{
         data_type::unresolved::UnresolvedDataType,
         environment::r#type::{
-            HighTypeDeclaration, alias::HighAliasDeclaration, module::HighModuleDeclaration,
-            r#struct::HighStructDeclaration,
+            HighTypeDeclaration,
+            alias::HighAliasDeclaration,
+            module::HighModuleDeclaration,
+            r#struct::{
+                HighStructDeclaration, HighStructStructDeclaration, HighTupleStructDeclaration,
+            },
         },
         semantic_analysis_context::{
             ResolvedItem, SemanticAnalysisContext, info::error::SemanticAnalysisError,
@@ -104,13 +108,15 @@ impl Item {
 
                         (field_name, field_type)
                     })
-                    .collect::<HashMap<_, _>>();
+                    .collect();
 
-                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration {
-                    name,
-                    generic_names,
-                    field_types,
-                }));
+                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration::Struct(
+                    HighStructStructDeclaration {
+                        name,
+                        generic_names,
+                        field_types,
+                    },
+                )));
 
                 MiddleItem::StructStructDeclaration
             }
@@ -122,19 +128,16 @@ impl Item {
 
                 let field_types = field_types
                     .into_iter()
-                    .enumerate()
-                    .map(|(field_index, field_type)| {
-                        let field_type = field_type.resolve_partially(Some(&generic_names), ctx);
+                    .map(|field_type| field_type.resolve_partially(Some(&generic_names), ctx))
+                    .collect();
 
-                        (field_index.to_string(), field_type)
-                    })
-                    .collect::<HashMap<_, _>>();
-
-                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration {
-                    name,
-                    generic_names,
-                    field_types,
-                }));
+                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration::Tuple(
+                    HighTupleStructDeclaration {
+                        name,
+                        generic_names,
+                        field_types,
+                    },
+                )));
 
                 MiddleItem::TupleStructDeclaration
             }

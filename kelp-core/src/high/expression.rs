@@ -57,10 +57,11 @@ pub enum ExpressionKind {
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Path(GenericPath<UnresolvedDataType>),
-    Struct(
+    StructStruct(
         GenericPath<UnresolvedDataType>,
         HashMap<SNBTString, Expression>,
     ),
+    TupleStruct(GenericPath<UnresolvedDataType>, Vec<Expression>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -169,7 +170,11 @@ impl Expression {
             ExpressionKind::FieldAccess(target, field) => {
                 let target_place_type = target.get_place_type(ctx)?;
 
-                PlaceTypeKind::FieldAccess(Box::new(target_place_type), field.snbt_string.1.clone())
+                PlaceTypeKind::FieldAccess(
+                    Box::new(target_place_type),
+                    field.span,
+                    field.snbt_string.1.clone(),
+                )
             }
             ExpressionKind::Invalid
             | ExpressionKind::Boolean(_)
@@ -193,7 +198,8 @@ impl Expression {
             | ExpressionKind::Command(_)
             | ExpressionKind::AsCast(_, _)
             | ExpressionKind::ToCast(_, _)
-            | ExpressionKind::Struct(_, _)
+            | ExpressionKind::StructStruct(_, _)
+            | ExpressionKind::TupleStruct(_, _)
             | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Path(path) => {
@@ -638,7 +644,7 @@ impl Expression {
                 MiddleExpressionKind::Tuple(expressions)
                     .with(DataType::Tuple(expression_data_types))
             }
-            ExpressionKind::Struct(path, field_values) => {
+            ExpressionKind::StructStruct(path, field_values) => {
                 let mut path = path.resolve_fully(ctx)?;
 
                 let id = ctx.resolve_type_generic_path(&path)?;
@@ -660,15 +666,15 @@ impl Expression {
                     &last_segment.name,
                 )?;
 
-                let declaration = ctx.get_struct_type(id);
-                let declared_fields = declaration.field_types.clone();
+                let (specific_id, declaration) =
+                    ctx.get_struct_struct_type(last_segment.name_span, &last_segment.name, id)?;
 
-                let mut has_error = false;
+                let field_types = declaration.field_types.clone();
 
-                let given_field_values = field_values
+                let field_values = field_values
                     .into_iter()
                     .map(|(key, value)| {
-                        let Some(field_type) = declared_fields.get(&key.snbt_string.1) else {
+                        let Some(field_type) = field_types.get(&key.snbt_string.1) else {
                             return ctx.add_error(
                                 key.span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
@@ -681,8 +687,6 @@ impl Expression {
                         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
                         if !value.data_type.equals(field_type) {
-                            has_error = true;
-
                             return ctx.add_error(
                                 value_span,
                                 SemanticAnalysisError::MismatchedTypes {
@@ -696,8 +700,10 @@ impl Expression {
                     })
                     .collect_option_all::<HashMap<_, _>>()?;
 
-                for declared_field_name in declared_fields.into_keys() {
-                    if !given_field_values
+                let mut has_error = false;
+
+                for declared_field_name in field_types.into_keys() {
+                    if !field_values
                         .keys()
                         .any(|given_field_name| given_field_name.1 == declared_field_name)
                     {
@@ -714,7 +720,80 @@ impl Expression {
                     return None;
                 }
 
-                MiddleExpressionKind::Struct(id, given_field_values).with(DataType::Struct(id))
+                MiddleExpressionKind::StructStruct(specific_id, field_values)
+                    .with(DataType::Struct(id))
+            }
+            ExpressionKind::TupleStruct(path, field_values) => {
+                let mut path = path.resolve_fully(ctx)?;
+
+                let id = ctx.resolve_type_generic_path(&path)?;
+
+                let type_declaration = ctx.get_type(id).clone();
+
+                let last_segment = path.segments.pop().unwrap();
+
+                let data_type = type_declaration.resolve_fully(
+                    ctx,
+                    id,
+                    last_segment.generic_types,
+                    last_segment.name_span,
+                )?;
+
+                let id = data_type.as_struct_id_semantic_analysis(
+                    ctx,
+                    last_segment.name_span,
+                    &last_segment.name,
+                )?;
+
+                let (specific_id, declaration) =
+                    ctx.get_tuple_struct_type(last_segment.name_span, &last_segment.name, id)?;
+
+                let field_types = declaration.field_types.clone();
+
+                let expected_field_count = field_types.len();
+                let actual_field_count = field_values.len();
+
+                if expected_field_count != actual_field_count {
+                    return ctx.add_error(
+                        last_segment.name_span,
+                        SemanticAnalysisError::MismatchedTupleStructFieldCount(
+                            last_segment.name.clone(),
+                            expected_field_count,
+                            actual_field_count,
+                        ),
+                    );
+                }
+
+                let mut has_error = false;
+
+                let field_values = field_values
+                    .into_iter()
+                    .zip(field_types)
+                    .map(|(value, data_type)| {
+                        let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+
+                        if !value.data_type.equals(&data_type) {
+                            has_error = true;
+
+                            return ctx.add_error(
+                                value_span,
+                                SemanticAnalysisError::MismatchedTypes {
+                                    expected: data_type,
+                                    actual: value.data_type,
+                                },
+                            );
+                        }
+
+                        Some(value)
+                    })
+                    .collect_option_all::<Vec<_>>()?;
+
+                if has_error {
+                    return None;
+                }
+
+                MiddleExpressionKind::TupleStruct(specific_id, field_values)
+                    .with(DataType::Struct(id))
             }
             ExpressionKind::Path(path) => {
                 let path = path.resolve_fully(ctx)?;

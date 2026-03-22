@@ -1,5 +1,5 @@
 use hashbrown::{Equivalent, HashMap};
-use std::collections::HashMap as StdHashMap;
+use std::{collections::HashMap as StdHashMap, hint::unreachable_unchecked};
 
 use crate::{
     builtin_data_type::BuiltinDataType,
@@ -17,7 +17,10 @@ use crate::{
         data_type::DataType,
         environment::{
             Environment,
-            r#type::r#struct::{StructDeclaration, StructId},
+            r#type::r#struct::{
+                StructDeclaration, StructId, StructStructDeclaration, StructStructId,
+                TupleStructDeclaration, TupleStructId,
+            },
             value::{ValueDeclaration, ValueId, variable::VariableId},
         },
     },
@@ -173,7 +176,7 @@ impl SemanticAnalysisContext {
         })
     }
 
-    pub fn declare_monomorphized_struct(
+    pub fn declare_monomorphized_struct_struct(
         &mut self,
         original_id: HighTypeId,
         name: String,
@@ -182,7 +185,28 @@ impl SemanticAnalysisContext {
     ) -> StructId {
         let id = self
             .environment
-            .declare_struct(name, generic_types.clone(), field_types);
+            .declare_struct_struct(name, generic_types.clone(), field_types);
+
+        let key = MonomorphizedStructKey {
+            id: original_id,
+            generics: generic_types,
+        };
+
+        self.monomorphized_structs.insert(key, id);
+
+        id
+    }
+
+    pub fn declare_monomorphized_tuple_struct(
+        &mut self,
+        original_id: HighTypeId,
+        name: String,
+        generic_types: Vec<DataType>,
+        field_types: Vec<DataType>,
+    ) -> StructId {
+        let id = self
+            .environment
+            .declare_tuple_struct(name, generic_types.clone(), field_types);
 
         let key = MonomorphizedStructKey {
             id: original_id,
@@ -535,5 +559,52 @@ impl SemanticAnalysisContext {
     #[must_use]
     pub fn get_struct_type(&self, id: StructId) -> &StructDeclaration {
         self.environment.get_struct(id)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_struct_struct_type(
+        &mut self,
+        span: Span,
+        name: &str,
+        id: StructId,
+    ) -> Option<(StructStructId, &StructStructDeclaration)> {
+        if !matches!(
+            self.environment.get_struct(id),
+            StructDeclaration::Struct(_)
+        ) {
+            return self.add_error(
+                span,
+                SemanticAnalysisError::NotARegularStruct(name.to_owned()),
+            );
+        }
+
+        if let StructDeclaration::Struct(declaration) = self.environment.get_struct(id) {
+            Some((StructStructId(id.0), declaration))
+        } else {
+            unsafe { unreachable_unchecked() }
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_tuple_struct_type(
+        &mut self,
+        span: Span,
+        name: &str,
+        id: StructId,
+    ) -> Option<(TupleStructId, &TupleStructDeclaration)> {
+        if !matches!(self.environment.get_struct(id), StructDeclaration::Tuple(_)) {
+            return self.add_error(
+                span,
+                SemanticAnalysisError::NotATupleStruct(name.to_owned()),
+            );
+        }
+
+        if let StructDeclaration::Tuple(declaration) = self.environment.get_struct(id) {
+            Some((TupleStructId(id.0), declaration))
+        } else {
+            unsafe { unreachable_unchecked() }
+        }
     }
 }

@@ -28,10 +28,11 @@ pub enum PatternKind {
     Data(DataTarget, NbtPath),
 
     Tuple(Vec<Pattern>),
-    Struct(
+    StructStruct(
         GenericPath<UnresolvedDataType>,
         HashMap<SNBTString, Pattern>,
     ),
+    TupleStruct(GenericPath<UnresolvedDataType>, Vec<Pattern>),
 
     Compound(HashMap<SNBTString, Pattern>),
 }
@@ -52,8 +53,11 @@ impl PatternKind {
             | Self::Score(_)
             | Self::Data(_, _) => true,
             Self::Tuple(patterns) => patterns.iter().all(|pattern| pattern.kind.is_irrefutable()),
-            Self::Struct(_, field_patterns) => field_patterns
+            Self::StructStruct(_, field_patterns) => field_patterns
                 .values()
+                .all(|pattern| pattern.kind.is_irrefutable()),
+            Self::TupleStruct(_, field_patterns) => field_patterns
+                .iter()
                 .all(|pattern| pattern.kind.is_irrefutable()),
         }
     }
@@ -77,11 +81,18 @@ impl PatternKind {
                     .map(|(key, pattern)| (key.clone(), pattern.kind.get_type()))
                     .collect(),
             ),
-            Self::Struct(path, field_patterns) => PatternType::Struct(
+            Self::StructStruct(path, field_patterns) => PatternType::StructStruct(
                 path.clone(),
                 field_patterns
                     .iter()
                     .map(|(key, pattern)| (key.clone(), pattern.kind.get_type()))
+                    .collect(),
+            ),
+            Self::TupleStruct(path, field_patterns) => PatternType::TupleStruct(
+                path.clone(),
+                field_patterns
+                    .iter()
+                    .map(|pattern| pattern.kind.get_type())
                     .collect(),
             ),
         }
@@ -109,8 +120,13 @@ impl PatternKind {
                     pattern.kind.destructure_unknown(ctx);
                 }
             }
-            Self::Struct(_, field_patterns) => {
+            Self::StructStruct(_, field_patterns) => {
                 for pattern in field_patterns.into_values() {
+                    pattern.kind.destructure_unknown(ctx);
+                }
+            }
+            Self::TupleStruct(_, field_patterns) => {
+                for pattern in field_patterns {
                     pattern.kind.destructure_unknown(ctx);
                 }
             }
@@ -248,7 +264,7 @@ impl Pattern {
 
                 MiddlePattern::Compound(compound)
             }
-            (PatternKind::Struct(path, field_patterns), DataType::Struct(value_id)) => {
+            (PatternKind::StructStruct(path, field_patterns), DataType::Struct(value_id)) => {
                 let mut path = path.resolve_fully(ctx)?;
 
                 let pattern_id = ctx.resolve_type_generic_path(&path)?;
@@ -284,13 +300,17 @@ impl Pattern {
                     );
                 }
 
-                let pattern_declaration = ctx.get_struct_type(pattern_id);
-                let field_types = pattern_declaration.field_types.clone();
+                let (specific_id, pattern_declaration) = ctx.get_struct_struct_type(
+                    last_segment.name_span,
+                    &last_segment.name,
+                    pattern_id,
+                )?;
+                let mut field_types = pattern_declaration.field_types.clone();
 
                 let field_patterns = field_patterns
                     .into_iter()
                     .map(|(name, pattern)| {
-                        let Some(field_type) = field_types.get(&name.snbt_string.1) else {
+                        let Some(field_type) = field_types.remove(&name.snbt_string.1) else {
                             pattern.kind.destructure_unknown(ctx);
 
                             return ctx.add_error(
@@ -302,15 +322,86 @@ impl Pattern {
                             );
                         };
 
-                        let field_type = field_type.clone().wrap_all(&wrappers);
+                        let field_type = field_type.wrap_all(&wrappers);
 
                         let pattern = pattern.perform_semantic_analysis(ctx, field_type)?;
 
-                        Some((name.snbt_string.clone(), pattern))
+                        Some((name.snbt_string, pattern))
                     })
                     .collect_option_all()?;
 
-                MiddlePattern::Struct(pattern_id, field_patterns)
+                MiddlePattern::StructStruct(specific_id, field_patterns)
+            }
+            (PatternKind::TupleStruct(path, field_patterns), DataType::Struct(value_id)) => {
+                let mut path = path.resolve_fully(ctx)?;
+
+                let pattern_id = ctx.resolve_type_generic_path(&path)?;
+
+                let last_segment = path.segments.pop().unwrap();
+
+                let pattern_declaration = ctx.get_type(pattern_id).clone();
+
+                let pattern_type = pattern_declaration.resolve_fully(
+                    ctx,
+                    pattern_id,
+                    last_segment.generic_types,
+                    last_segment.name_span,
+                )?;
+
+                let pattern_id = pattern_type.as_struct_id_semantic_analysis(
+                    ctx,
+                    last_segment.name_span,
+                    &last_segment.name,
+                )?;
+
+                if pattern_id != value_id {
+                    for pattern in field_patterns {
+                        pattern.kind.destructure_unknown(ctx);
+                    }
+
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::MismatchedPatternTypes {
+                            expected: variable_type,
+                            actual: self_type,
+                        },
+                    );
+                }
+
+                let (specific_id, pattern_declaration) = ctx.get_tuple_struct_type(
+                    last_segment.name_span,
+                    &last_segment.name,
+                    pattern_id,
+                )?;
+                let field_types = pattern_declaration.field_types.clone();
+
+                let expected_field_count = field_types.len();
+                let actual_field_count = field_patterns.len();
+
+                if expected_field_count != actual_field_count {
+                    return ctx.add_error(
+                        last_segment.name_span,
+                        SemanticAnalysisError::MismatchedTupleStructFieldCount(
+                            last_segment.name.clone(),
+                            expected_field_count,
+                            actual_field_count,
+                        ),
+                    );
+                }
+
+                let field_patterns = field_patterns
+                    .into_iter()
+                    .zip(field_types)
+                    .map(|(field_pattern, field_type)| {
+                        let field_type = field_type.wrap_all(&wrappers);
+
+                        let pattern = field_pattern.perform_semantic_analysis(ctx, field_type)?;
+
+                        Some(pattern)
+                    })
+                    .collect_option_all()?;
+
+                MiddlePattern::TupleStruct(specific_id, field_patterns)
             }
             (kind, _) => {
                 kind.destructure_unknown(ctx);

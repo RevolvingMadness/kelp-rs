@@ -17,7 +17,10 @@ use crate::{
     middle::{
         data::DataTarget,
         data_type::DataType,
-        environment::{r#type::r#struct::StructId, value::ValueId},
+        environment::{
+            r#type::r#struct::{StructStructId, TupleStructId},
+            value::ValueId,
+        },
         expression::command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         nbt_path::NbtPath,
         player_score::PlayerScore,
@@ -61,7 +64,8 @@ pub enum ExpressionKind {
     ToCast(Option<NotNan<f32>>, Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Variable(ValueId),
-    Struct(StructId, HashMap<SNBTString, Expression>),
+    StructStruct(StructStructId, HashMap<SNBTString, Expression>),
+    TupleStruct(TupleStructId, Vec<Expression>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -171,7 +175,8 @@ impl ExpressionKind {
             | Self::Command(_)
             | Self::AsCast(_, _)
             | Self::ToCast(_, _, _)
-            | Self::Struct(_, _) => None,
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _) => None,
         }
     }
 
@@ -313,11 +318,18 @@ impl ExpressionKind {
                     .map(|expression| expression.kind.resolve(datapack, ctx))
                     .collect(),
             ),
-            Self::Struct(id, fields) => LowExpression::Struct(
+            Self::StructStruct(id, fields) => LowExpression::StructStruct(
                 id,
                 fields
                     .into_iter()
                     .map(|(key, field)| (key.1, field.kind.resolve(datapack, ctx)))
+                    .collect(),
+            ),
+            Self::TupleStruct(id, fields) => LowExpression::TupleStruct(
+                id,
+                fields
+                    .into_iter()
+                    .map(|field| field.kind.resolve(datapack, ctx))
                     .collect(),
             ),
             Self::Underscore => unreachable!(),
@@ -380,9 +392,14 @@ impl ExpressionKind {
                     element.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Struct(_, field_expressions) => {
-                for value in field_expressions.into_values() {
-                    value.kind.compile_as_statement(datapack, ctx);
+            Self::StructStruct(_, field_expressions) => {
+                for field_expression in field_expressions.into_values() {
+                    field_expression.kind.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::TupleStruct(_, field_expressions) => {
+                for field_expression in field_expressions {
+                    field_expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
             Self::Underscore => {

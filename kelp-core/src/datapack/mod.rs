@@ -7,7 +7,10 @@ use crate::high::nbt_path::{NbtPath, NbtPathNode};
 use crate::low::expression::Expression;
 use crate::middle::data_type::DataType;
 use crate::middle::environment::Environment;
-use crate::middle::environment::r#type::r#struct::{StructDeclaration, StructId};
+use crate::middle::environment::r#type::r#struct::{
+    StructDeclaration, StructId, StructStructDeclaration, StructStructId, TupleStructDeclaration,
+    TupleStructId,
+};
 use crate::middle::environment::r#type::{TypeDeclaration, TypeId};
 use crate::middle::environment::value::{ValueDeclaration, ValueId};
 use crate::player_score::GeneratedPlayerScore;
@@ -89,6 +92,18 @@ impl Datapack {
     #[must_use]
     pub fn get_struct_type(&self, id: StructId) -> &StructDeclaration {
         self.environment.get_struct(id)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_struct_struct_type(&self, id: StructStructId) -> &StructStructDeclaration {
+        self.environment.get_struct_struct(id)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_tuple_struct_type(&self, id: TupleStructId) -> &TupleStructDeclaration {
+        self.environment.get_tuple_struct(id)
     }
 
     #[inline]

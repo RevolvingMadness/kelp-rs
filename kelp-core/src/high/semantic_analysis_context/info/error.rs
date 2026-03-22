@@ -69,7 +69,9 @@ pub enum SemanticAnalysisError {
     ControlFlowNotInLoop(ControlFlowKind),
 
     NotAType(String),
-    NotAStruct(String),
+    NotARegularStruct(String),
+    NotATupleStruct(String),
+    MismatchedTupleStructFieldCount(String, usize, usize),
     NotAModule(String),
     UnknownType(String),
     UnknownValue(String),
@@ -258,12 +260,12 @@ impl SemanticAnalysisError {
                 expected,
                 actual,
             } => {
-                let arg_s = if *expected == 1 { "" } else { "s" };
+                let s = if *expected == 1 { "" } else { "s" };
                 let was_were = if *actual == 1 { "was" } else { "were" };
                 write!(
                     output,
-                    "The type `{}` takes {} generic argument{} but {} {} given",
-                    data_type_name, expected, arg_s, actual, was_were
+                    "The type `{}` requires {} generic argument{} but only {} {} given",
+                    data_type_name, expected, s, actual, was_were
                 )
             }
             Self::MacroConflict => {
@@ -273,7 +275,22 @@ impl SemanticAnalysisError {
                 write!(output, "Cannot `{}` outside of a loop", kind.name())
             }
             Self::NotAType(name) => write!(output, "`{}` is not a type", name),
-            Self::NotAStruct(name) => write!(output, "The type `{}` is not a struct", name),
+            Self::NotARegularStruct(name) => {
+                write!(output, "The type `{}` is not a regular struct", name)
+            }
+            Self::NotATupleStruct(name) => {
+                write!(output, "The type `{}` is not a tuple struct", name)
+            }
+            Self::MismatchedTupleStructFieldCount(name, expected, actual) => {
+                let s = if *expected == 1 { "" } else { "s" };
+                let was_were = if *actual == 1 { "was" } else { "were" };
+
+                write!(
+                    output,
+                    "The tuple struct `{}` requires {} field{} but only {} {} passed",
+                    name, expected, s, actual, was_were
+                )
+            }
             Self::NotAModule(name) => write!(output, "The type `{}` is not a module", name),
             Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
             Self::UnknownValue(name) => write!(output, "Unknown value `{}`", name),

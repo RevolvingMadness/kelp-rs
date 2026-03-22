@@ -31,7 +31,10 @@ use crate::{
     data::GeneratedDataTarget,
     datapack::Datapack,
     low::expression::utils::push_scoreboard_players,
-    middle::{data_type::DataType, environment::r#type::r#struct::StructId},
+    middle::{
+        data_type::DataType,
+        environment::r#type::r#struct::{StructStructId, TupleStructId},
+    },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
     player_score::GeneratedPlayerScore,
@@ -167,7 +170,8 @@ pub enum Expression {
     List(Vec<Self>),
     Compound(HashMap<SNBTString, Self>),
     Tuple(Vec<Self>),
-    Struct(StructId, HashMap<String, Self>),
+    StructStruct(StructStructId, HashMap<String, Self>),
+    TupleStruct(TupleStructId, Vec<Self>),
     Unit,
 
     PlayerScore(GeneratedPlayerScore),
@@ -193,8 +197,13 @@ impl Expression {
                     element.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Struct(_, field_expressions) => {
+            Self::StructStruct(_, field_expressions) => {
                 for value in field_expressions.into_values() {
+                    value.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::TupleStruct(_, field_expressions) => {
+                for value in field_expressions {
                     value.compile_as_statement(datapack, ctx);
                 }
             }
@@ -248,7 +257,8 @@ impl Expression {
             Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _)
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
             | Self::Unit
             | Self::Condition(_, _)
             | Self::Boolean(_)
@@ -300,9 +310,14 @@ impl Expression {
 
                 Some(expressions.remove(index as usize))
             }
-            Self::Struct(_, fields) => fields
+            Self::StructStruct(_, fields) => fields
                 .into_iter()
                 .find_map(|(key, value)| if key == field { Some(value) } else { None }),
+            Self::TupleStruct(_, fields) => {
+                let field = field.parse::<usize>().ok()?;
+
+                fields.get(field).cloned()
+            }
         }
     }
 
@@ -310,7 +325,7 @@ impl Expression {
     pub fn can_into_snbt(&self) -> bool {
         match self {
             Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => false,
-            Self::Struct(_, field_expressions) => {
+            Self::StructStruct(_, field_expressions) => {
                 field_expressions.values().all(Self::can_into_snbt)
             }
             Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
@@ -324,9 +339,9 @@ impl Expression {
             Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
                 return Err(self);
             }
-            Self::Struct(name, field_expressions) => {
+            Self::StructStruct(name, field_expressions) => {
                 if !field_expressions.values().all(Self::can_into_snbt) {
-                    return Err(Self::Struct(name, field_expressions));
+                    return Err(Self::StructStruct(name, field_expressions));
                 }
 
                 let mut compound = SNBTCompound::new();
@@ -339,6 +354,21 @@ impl Expression {
                 }
 
                 SNBT::compound(compound)
+            }
+            Self::TupleStruct(name, field_expressions) => {
+                if !field_expressions.iter().all(Self::can_into_snbt) {
+                    return Err(Self::TupleStruct(name, field_expressions));
+                }
+
+                let mut list = Vec::new();
+
+                for field_expression in field_expressions {
+                    list.push(Macroable::Regular(
+                        field_expression.try_into_snbt().unwrap(),
+                    ));
+                }
+
+                SNBT::list(list)
             }
             Self::Boolean(boolean) => SNBT::byte(i8::from(boolean)),
             Self::Byte(byte) => SNBT::byte(byte),
@@ -402,7 +432,8 @@ impl Expression {
             Self::PlayerScore(_)
             | Self::Data(_)
             | Self::Condition(_, _)
-            | Self::Struct(_, _)
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
             | Self::Boolean(_)
             | Self::String(_)
             | Self::List(_)
@@ -459,9 +490,11 @@ impl Expression {
                     .map(|(key, value)| (key, value.as_snbt_macros(ctx)))
                     .collect(),
             )),
-            Self::Struct(_, _) | Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
-                ctx.get_macro_snbt(self)
-            }
+            Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
+            | Self::PlayerScore(_)
+            | Self::Data(_)
+            | Self::Condition(_, _) => ctx.get_macro_snbt(self),
         }
     }
 
@@ -484,7 +517,8 @@ impl Expression {
             | Self::List(_)
             | Self::Tuple(_)
             | Self::Compound(_)
-            | Self::Struct(_, _)
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
             | Self::Condition(_, _) => return None,
         })
     }
@@ -526,7 +560,7 @@ impl Expression {
     #[must_use]
     pub fn to_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         match self {
-            Self::Struct(name, field_expressions) => {
+            Self::StructStruct(name, field_expressions) => {
                 let mut new_field_expressions = HashMap::new();
 
                 for (key, value) in field_expressions {
@@ -535,7 +569,7 @@ impl Expression {
                     new_field_expressions.insert(key, Self::PlayerScore(value_score));
                 }
 
-                Self::Struct(name, new_field_expressions)
+                Self::StructStruct(name, new_field_expressions)
             }
             Self::PlayerScore(player_score) if player_score.is_generated => {
                 Self::PlayerScore(player_score)
@@ -557,7 +591,7 @@ impl Expression {
     ) -> Self {
         #[allow(clippy::single_match_else)]
         match self {
-            Self::Struct(name, field_expressions) => {
+            Self::StructStruct(name, field_expressions) => {
                 let mut new_field_expressions = HashMap::new();
 
                 for (key, value) in field_expressions {
@@ -566,7 +600,7 @@ impl Expression {
                     new_field_expressions.insert(key, Self::PlayerScore(value_score));
                 }
 
-                Self::Struct(name, new_field_expressions)
+                Self::StructStruct(name, new_field_expressions)
             }
             _ => {
                 let unique_score = datapack.get_unique_score();
@@ -672,14 +706,27 @@ impl Expression {
                         );
                     }
                 }
-                Self::Struct(_, fields) => {
-                    for (key, value) in fields {
+                Self::StructStruct(_, field_expressions) => {
+                    for (key, value) in field_expressions {
                         value.assign_to_data(
                             datapack,
                             ctx,
                             target.clone(),
                             path.clone()
                                 .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                        );
+                    }
+                }
+                Self::TupleStruct(_, field_expressions) => {
+                    for (field_index, field_expression) in field_expressions.into_iter().enumerate()
+                    {
+                        field_expression.assign_to_data(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone().with_node(NbtPathNode::Index(Some(
+                                SNBT::macroable_integer(field_index as i32),
+                            ))),
                         );
                     }
                 }
@@ -821,7 +868,7 @@ impl Expression {
                         );
                     }
                 }
-                Self::Struct(_, fields) => {
+                Self::StructStruct(_, fields) => {
                     for (key, value) in fields {
                         value.assign_to_data_scale(
                             datapack,
@@ -829,6 +876,20 @@ impl Expression {
                             target.clone(),
                             path.clone()
                                 .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                            scale,
+                        );
+                    }
+                }
+                Self::TupleStruct(_, field_expressions) => {
+                    for (field_index, field_expression) in field_expressions.into_iter().enumerate()
+                    {
+                        field_expression.assign_to_data_scale(
+                            datapack,
+                            ctx,
+                            target.clone(),
+                            path.clone().with_node(NbtPathNode::Index(Some(
+                                SNBT::macroable_integer(field_index as i32),
+                            ))),
                             scale,
                         );
                     }
@@ -1409,7 +1470,8 @@ impl Expression {
             | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _)
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
             | Self::Unit => return None,
         })
     }
@@ -1548,9 +1610,9 @@ impl Expression {
                 SNBT::list(list)
             }
             Self::Unit => SNBT::string("()"),
-            Self::Struct(id, fields) => {
+            Self::StructStruct(id, fields) => {
                 if force_display {
-                    let declaration = datapack.get_struct_type(id);
+                    let declaration = datapack.get_struct_struct_type(id);
 
                     let mut output = Vec::new();
 
@@ -1600,15 +1662,60 @@ impl Expression {
                     for (field_name, field_value) in fields {
                         output.insert(
                             SNBTString(false, field_name),
-                            Macroable::Regular(field_value.as_text_component(
-                                datapack,
-                                ctx,
-                                force_display,
-                            )),
+                            Macroable::Regular(field_value.as_text_component(datapack, ctx, false)),
                         );
                     }
 
                     SNBT::compound(output)
+                }
+            }
+            Self::TupleStruct(id, fields) => {
+                if force_display {
+                    let declaration = datapack.get_tuple_struct_type(id);
+
+                    let mut output = Vec::new();
+
+                    output.push(SNBT::string(if declaration.generic_types.is_empty() {
+                        format!("{}(", declaration.name)
+                    } else {
+                        declaration.name.clone()
+                    }));
+
+                    if !declaration.generic_types.is_empty() {
+                        output.push(SNBT::string("<"));
+
+                        for (i, generic) in declaration.generic_types.iter().enumerate() {
+                            if i != 0 {
+                                output.push(SNBT::string(", "));
+                            }
+
+                            output.push(SNBT::string(generic.format_string(&datapack.environment)));
+                        }
+
+                        output.push(SNBT::string(">("));
+                    }
+
+                    for (i, value) in fields.iter().enumerate() {
+                        if i != 0 {
+                            output.push(SNBT::string(", "));
+                        }
+
+                        output.push(value.clone().as_text_component(datapack, ctx, true));
+                    }
+
+                    output.push(SNBT::string(")"));
+
+                    SNBT::list(output)
+                } else {
+                    let mut output = Vec::new();
+
+                    for field_value in fields {
+                        output.push(Macroable::Regular(
+                            field_value.as_text_component(datapack, ctx, false),
+                        ));
+                    }
+
+                    SNBT::list(output)
                 }
             }
         }
@@ -1648,7 +1755,8 @@ impl Expression {
             | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _)
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
             | Self::Unit
             | Self::Condition(_, _) => false,
         }
@@ -1688,7 +1796,8 @@ impl Expression {
             | Self::List(_)
             | Self::Compound(_)
             | Self::Tuple(_)
-            | Self::Struct(_, _)
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
             | Self::Unit
             | Self::Condition(_, _) => unreachable!(),
         }
@@ -1802,7 +1911,7 @@ impl Expression {
                     )),
                 );
             }
-            Self::Struct(_, _) | Self::Tuple(_) | Self::Unit => {
+            Self::StructStruct(_, _) | Self::TupleStruct(_, _) | Self::Tuple(_) | Self::Unit => {
                 unreachable!()
             }
         }
@@ -1897,7 +2006,8 @@ impl Expression {
             }
             Self::Condition(_, _)
             | Self::Boolean(_)
-            | Self::Struct(_, _)
+            | Self::StructStruct(_, _)
+            | Self::TupleStruct(_, _)
             | Self::Tuple(_)
             | Self::Unit
             | Self::String(_)

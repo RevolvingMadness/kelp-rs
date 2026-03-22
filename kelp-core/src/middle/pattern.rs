@@ -13,7 +13,7 @@ use crate::{
         data::DataTarget,
         data_type::DataType,
         environment::{
-            r#type::r#struct::StructId,
+            r#type::r#struct::{StructStructId, TupleStructId},
             value::{ValueId, variable::VariableId},
         },
         nbt_path::NbtPath,
@@ -101,17 +101,17 @@ fn destructure_compound(
     }
 }
 
-fn destructure_struct(
+fn destructure_struct_struct(
     field_patterns: HashMap<SNBTString, Pattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    id: StructId,
+    id: StructStructId,
     data_type: DataType,
     value: Expression,
 ) {
     match (data_type, value) {
-        (DataType::Struct(_), Expression::Struct(_, fields)) => {
-            let declaration = datapack.get_struct_type(id);
+        (DataType::Struct(_), Expression::StructStruct(_, fields)) => {
+            let declaration = datapack.get_struct_struct_type(id);
 
             let field_types = declaration.field_types.clone();
 
@@ -125,7 +125,7 @@ fn destructure_struct(
         (DataType::Struct(_), Expression::Data(target_path)) => {
             let (target, path) = *target_path;
 
-            let declaration = datapack.get_struct_type(id);
+            let declaration = datapack.get_struct_struct_type(id);
 
             let field_types = declaration.field_types.clone();
 
@@ -143,7 +143,7 @@ fn destructure_struct(
             }
         }
         (DataType::Reference(data_type), value) => {
-            destructure_struct(
+            destructure_struct_struct(
                 field_patterns,
                 datapack,
                 ctx,
@@ -153,7 +153,7 @@ fn destructure_struct(
             );
         }
         (DataType::Data(data_type), value) => {
-            destructure_struct(
+            destructure_struct_struct(
                 field_patterns,
                 datapack,
                 ctx,
@@ -163,7 +163,85 @@ fn destructure_struct(
             );
         }
         (DataType::Score(data_type), value) => {
-            destructure_struct(
+            destructure_struct_struct(
+                field_patterns,
+                datapack,
+                ctx,
+                id,
+                data_type.distribute_score(),
+                value,
+            );
+        }
+        (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
+    }
+}
+
+fn destructure_tuple_struct(
+    field_patterns: Vec<Pattern>,
+    datapack: &mut Datapack,
+    ctx: &mut CompileContext,
+    id: TupleStructId,
+    value_data_type: DataType,
+    value: Expression,
+) {
+    match (value, value_data_type) {
+        (Expression::TupleStruct(_, field_expressions), DataType::Struct(_)) => {
+            let declaration = datapack.get_tuple_struct_type(id);
+
+            let field_types = declaration.field_types.clone();
+
+            for ((field_pattern, field_expression), field_type) in field_patterns
+                .into_iter()
+                .zip(field_expressions)
+                .zip(field_types)
+            {
+                field_pattern.destructure(datapack, ctx, field_type, field_expression);
+            }
+        }
+        (Expression::Data(target_path), DataType::Struct(_)) => {
+            let (target, path) = *target_path;
+
+            let declaration = datapack.get_tuple_struct_type(id);
+
+            let field_types = declaration.field_types.clone();
+
+            for (field_index, (field_pattern, field_type)) in
+                field_patterns.into_iter().zip(field_types).enumerate()
+            {
+                let field_path =
+                    path.clone()
+                        .with_node(NbtPathNode::Index(Some(SNBT::macroable_integer(
+                            field_index as i32,
+                        ))));
+                let field_value = Expression::Data(Box::new((target.clone(), field_path)));
+
+                let data_wrapped_type = DataType::Data(Box::new(field_type));
+
+                field_pattern.destructure(datapack, ctx, data_wrapped_type, field_value);
+            }
+        }
+        (value, DataType::Reference(data_type)) => {
+            destructure_tuple_struct(
+                field_patterns,
+                datapack,
+                ctx,
+                id,
+                data_type.distribute_references(),
+                value,
+            );
+        }
+        (value, DataType::Data(data_type)) => {
+            destructure_tuple_struct(
+                field_patterns,
+                datapack,
+                ctx,
+                id,
+                data_type.distribute_data(),
+                value,
+            );
+        }
+        (value, DataType::Score(data_type)) => {
+            destructure_tuple_struct(
                 field_patterns,
                 datapack,
                 ctx,
@@ -187,7 +265,8 @@ pub enum Pattern {
     Data(DataTarget, NbtPath),
 
     Tuple(Vec<Self>),
-    Struct(StructId, HashMap<SNBTString, Self>),
+    StructStruct(StructStructId, HashMap<SNBTString, Self>),
+    TupleStruct(TupleStructId, Vec<Self>),
 
     Compound(HashMap<SNBTString, Self>),
 }
@@ -222,8 +301,11 @@ impl Pattern {
             Self::Compound(patterns) => {
                 destructure_compound(patterns, datapack, ctx, data_type, value);
             }
-            Self::Struct(id, field_patterns) => {
-                destructure_struct(field_patterns, datapack, ctx, id, data_type, value);
+            Self::StructStruct(id, field_patterns) => {
+                destructure_struct_struct(field_patterns, datapack, ctx, id, data_type, value);
+            }
+            Self::TupleStruct(id, field_patterns) => {
+                destructure_tuple_struct(field_patterns, datapack, ctx, id, data_type, value);
             }
         }
     }

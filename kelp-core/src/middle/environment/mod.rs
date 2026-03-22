@@ -5,7 +5,10 @@ use crate::middle::{
     environment::{
         r#type::{
             TypeDeclaration, TypeId,
-            r#struct::{StructDeclaration, StructId},
+            r#struct::{
+                StructDeclaration, StructId, StructStructDeclaration, StructStructId,
+                TupleStructDeclaration, TupleStructId,
+            },
         },
         value::{
             ValueDeclaration, ValueId,
@@ -40,7 +43,7 @@ impl Environment {
     }
 
     #[must_use]
-    pub fn declare_struct(
+    pub fn declare_struct_struct(
         &mut self,
         name: String,
         generic_types: Vec<DataType>,
@@ -48,11 +51,35 @@ impl Environment {
     ) -> StructId {
         let id = StructId(self.types.len());
 
-        self.types.push(TypeDeclaration::Struct(StructDeclaration {
-            name,
-            generic_types,
-            field_types,
-        }));
+        self.types
+            .push(TypeDeclaration::Struct(StructDeclaration::Struct(
+                StructStructDeclaration {
+                    name,
+                    generic_types,
+                    field_types,
+                },
+            )));
+
+        id
+    }
+
+    #[must_use]
+    pub fn declare_tuple_struct(
+        &mut self,
+        name: String,
+        generic_types: Vec<DataType>,
+        field_types: Vec<DataType>,
+    ) -> StructId {
+        let id = StructId(self.types.len());
+
+        self.types
+            .push(TypeDeclaration::Struct(StructDeclaration::Tuple(
+                TupleStructDeclaration {
+                    name,
+                    generic_types,
+                    field_types,
+                },
+            )));
 
         id
     }
@@ -60,6 +87,26 @@ impl Environment {
     #[must_use]
     pub fn get_struct(&self, id: StructId) -> &StructDeclaration {
         let TypeDeclaration::Struct(declaration) = &self.types[id.0] else {
+            unreachable!();
+        };
+
+        declaration
+    }
+
+    #[must_use]
+    pub fn get_struct_struct(&self, id: StructStructId) -> &StructStructDeclaration {
+        let TypeDeclaration::Struct(StructDeclaration::Struct(declaration)) = &self.types[id.0]
+        else {
+            unreachable!();
+        };
+
+        declaration
+    }
+
+    #[must_use]
+    pub fn get_tuple_struct(&self, id: TupleStructId) -> &TupleStructDeclaration {
+        let TypeDeclaration::Struct(StructDeclaration::Tuple(declaration)) = &self.types[id.0]
+        else {
             unreachable!();
         };
 

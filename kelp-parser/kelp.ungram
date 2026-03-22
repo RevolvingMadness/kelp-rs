@@ -29,7 +29,7 @@ MCFNDeclarationItem =
 
 StructStructDeclarationItem = 'struct' name:'type_name' GenericNames? '{' StructFields? '}'
 StructFields = (StructField (',' StructField)*) ','?
-StructField = name:'ident' ':' DataType
+StructField = name:'struct_field_name' ':' DataType
 
 TupleStructDeclarationItem = 'struct' name:'type_name' GenericNames? '(' TupleFields? ')'
 TupleFields = (TupleField (',' TupleField)*) ','?
@@ -189,7 +189,7 @@ ListExpression =
 
 StructStructExpression = GenericPath '{' StructStructExpressionFields? '}'
 StructStructExpressionFields = StructStructExpressionField (',' StructStructExpressionField)* ','?
-StructStructExpressionField = name:('ident' | 'whole_value') ':' Expression
+StructStructExpressionField = name:('struct_field_name' | 'whole_value') ':' Expression
 
 TupleStructExpression = GenericPath '(' TupleStructExpressionFields? ')'
 TupleStructExpressionFields = TupleStructExpressionField (',' TupleStructExpressionField)* ','?
@@ -251,7 +251,8 @@ Pattern =
 | BindingPattern
 | ScorePattern
 | DataPattern
-| StructPattern
+| StructStructPattern
+| TupleStructPattern
 | CompoundPattern
 
 WildcardPattern =
@@ -266,14 +267,13 @@ ScorePattern = PlayerScore
 
 DataPattern = Data
 
-StructPattern =
-  GenericPath
-  '{'
-  (fields:StructPatternField (',' fields:StructPatternField)* ','?)?
-  '}'
+StructStructPattern = GenericPath '{' StructStructPatternFields? '}'
+StructStructPatternFields = StructStructPatternField (',' StructStructPatternField)* ','?
+StructStructPatternField = 'struct_field_name' (':' pattern:Pattern)?
 
-StructPatternField =
-  name:'struct_field_name' (':' pattern:Pattern)?
+TupleStructPattern = GenericPath '(' TupleStructPatternFields? ')'
+TupleStructPatternFields = TupleStructPatternField (',' TupleStructPatternField)* ','?
+TupleStructPatternField = Pattern
 
 CompoundPattern =
   '{'

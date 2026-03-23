@@ -430,6 +430,20 @@ impl Parser<'_> {
         self.skip_whitespace_internal(false);
     }
 
+    pub fn expect_whitespace(&mut self) -> bool {
+        let start_pos = self.pos;
+
+        self.skip_whitespace_internal(false);
+
+        if self.pos > start_pos {
+            true
+        } else {
+            self.error("Expected whitespace");
+
+            false
+        }
+    }
+
     pub fn skip_inline_whitespace(&mut self) {
         self.skip_whitespace_internal(true);
     }

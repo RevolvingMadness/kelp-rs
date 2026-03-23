@@ -1,4 +1,4 @@
-use crate::middle::environment::value::variable::VariableDeclaration;
+use crate::{middle::environment::value::variable::VariableDeclaration, visibility::Visibility};
 
 pub mod variable;
 
@@ -6,15 +6,56 @@ pub mod variable;
 pub struct ValueId(pub usize);
 
 #[derive(Debug, Clone)]
-pub enum ValueDeclaration {
+pub enum ValueDeclarationKind {
     Variable(VariableDeclaration),
 }
 
-impl ValueDeclaration {
+impl ValueDeclarationKind {
+    #[inline]
+    #[must_use]
+    pub const fn with_visibility(
+        self,
+        module_path: Vec<String>,
+        visibility: Visibility,
+    ) -> ValueDeclaration {
+        ValueDeclaration {
+            visibility,
+            module_path,
+            kind: self,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn public(self, module_path: Vec<String>) -> ValueDeclaration {
+        self.with_visibility(module_path, Visibility::Public)
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn none_visibility(self, module_path: Vec<String>) -> ValueDeclaration {
+        self.with_visibility(module_path, Visibility::None)
+    }
+
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ValueDeclaration {
+    pub visibility: Visibility,
+    pub module_path: Vec<String>,
+    pub kind: ValueDeclarationKind,
+}
+
+impl ValueDeclaration {
+    #[inline]
+    #[must_use]
+    pub fn as_tuple(&self) -> (Visibility, &[String], &ValueDeclarationKind) {
+        (self.visibility, &self.module_path, &self.kind)
     }
 }

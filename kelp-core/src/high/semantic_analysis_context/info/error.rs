@@ -73,6 +73,8 @@ pub enum SemanticAnalysisError {
     NotATupleStruct(String),
     MismatchedTupleStructFieldCount(String, usize, usize),
     NotAModule(String),
+    TypeNotPublic(String),
+    ValueNotPublic(String),
     UnknownType(String),
     UnknownValue(String),
     UnknownItem(String),
@@ -292,6 +294,8 @@ impl SemanticAnalysisError {
                 )
             }
             Self::NotAModule(name) => write!(output, "The type `{}` is not a module", name),
+            Self::TypeNotPublic(name) => write!(output, "The type `{}` is not public", name),
+            Self::ValueNotPublic(name) => write!(output, "The value `{}` is not public", name),
             Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
             Self::UnknownValue(name) => write!(output, "Unknown value `{}`", name),
             Self::UnknownItem(name) => write!(output, "Unknown item `{}`", name),

@@ -1,0 +1,7 @@
+mod useful_structs {
+    struct Container<T> {
+        value: T
+    }
+}
+
+use useful_structs::Container

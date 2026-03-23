@@ -6,12 +6,9 @@ use crate::{
     high::{
         data_type::unresolved::UnresolvedDataType,
         environment::r#type::{
-            HighTypeDeclaration,
+            HighTypeDeclarationKind,
             alias::HighAliasDeclaration,
-            module::HighModuleDeclaration,
-            r#struct::{
-                HighStructDeclaration, HighStructStructDeclaration, HighTupleStructDeclaration,
-            },
+            r#struct::{HighStructStructDeclaration, HighTupleStructDeclaration},
         },
         semantic_analysis_context::{
             ResolvedItem, SemanticAnalysisContext, info::error::SemanticAnalysisError,
@@ -21,11 +18,12 @@ use crate::{
     },
     middle::item::Item as MiddleItem,
     span::Span,
+    visibility::Visibility,
 };
 
 #[derive(Debug, Clone)]
-pub enum Item {
-    ModuleDeclaration(Span, String, Vec<Self>),
+pub enum ItemKind {
+    ModuleDeclaration(Span, String, Vec<Item>),
     MCFNDeclaration(ResourceLocation, Box<Statement>),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
     StructStructDeclaration(
@@ -38,21 +36,27 @@ pub enum Item {
     Use(UseTree),
 }
 
+#[derive(Debug, Clone)]
+pub struct Item {
+    pub visibility: Visibility,
+    pub kind: ItemKind,
+}
+
 impl Item {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleItem> {
-        Some(match self {
-            Self::ModuleDeclaration(name_span, name, items) => {
+        Some(match self.kind {
+            ItemKind::ModuleDeclaration(name_span, name, items) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
                 }
 
-                ctx.start_scope();
-
                 let mut error = false;
+
+                ctx.enter_module(name);
 
                 for item in items {
                     if item.perform_semantic_analysis(ctx).is_none() {
@@ -60,13 +64,7 @@ impl Item {
                     }
                 }
 
-                let module_scope = ctx.end_scope();
-
-                ctx.declare_data_type(HighTypeDeclaration::Module(HighModuleDeclaration {
-                    name,
-                    types: module_scope.types,
-                    values: module_scope.values,
-                }));
+                ctx.exit_module_and_declare(self.visibility);
 
                 if error {
                     return None;
@@ -74,12 +72,12 @@ impl Item {
 
                 MiddleItem::ModuleDeclaration
             }
-            Self::MCFNDeclaration(resource_location, statement) => {
+            ItemKind::MCFNDeclaration(resource_location, statement) => {
                 let statement = statement.perform_semantic_analysis(ctx)?;
 
                 MiddleItem::MCFNDeclaration(resource_location, Box::new(statement))
             }
-            Self::TypeAliasDeclaration(name_span, name, generic_names, alias) => {
+            ItemKind::TypeAliasDeclaration(name_span, name, generic_names, alias) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
@@ -87,15 +85,18 @@ impl Item {
 
                 let alias = alias.resolve_partially(Some(&generic_names), ctx);
 
-                ctx.declare_data_type(HighTypeDeclaration::Alias(HighAliasDeclaration {
-                    name,
-                    generic_names,
-                    alias,
-                }));
+                ctx.declare_alias(
+                    self.visibility,
+                    HighAliasDeclaration {
+                        name,
+                        generic_names,
+                        alias,
+                    },
+                );
 
                 MiddleItem::TypeAliasDeclaration
             }
-            Self::StructStructDeclaration(name_span, name, generic_names, field_types) => {
+            ItemKind::StructStructDeclaration(name_span, name, generic_names, field_types) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
@@ -110,17 +111,18 @@ impl Item {
                     })
                     .collect();
 
-                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration::Struct(
+                ctx.declare_struct_struct(
+                    self.visibility,
                     HighStructStructDeclaration {
                         name,
                         generic_names,
                         field_types,
                     },
-                )));
+                );
 
                 MiddleItem::StructStructDeclaration
             }
-            Self::TupleStructDeclaration(name_span, name, generic_names, field_types) => {
+            ItemKind::TupleStructDeclaration(name_span, name, generic_names, field_types) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
@@ -131,22 +133,23 @@ impl Item {
                     .map(|field_type| field_type.resolve_partially(Some(&generic_names), ctx))
                     .collect();
 
-                ctx.declare_data_type(HighTypeDeclaration::Struct(HighStructDeclaration::Tuple(
+                ctx.declare_tuple_struct(
+                    self.visibility,
                     HighTupleStructDeclaration {
                         name,
                         generic_names,
                         field_types,
                     },
-                )));
+                );
 
                 MiddleItem::TupleStructDeclaration
             }
-            Self::Use(tree) => {
+            ItemKind::Use(tree) => {
                 match tree {
                     UseTree::Wildcard(mut path) => {
-                        let ResolvedItem::Type(id) = ctx.resolve_item_path(&path)? else {
-                            let last_segment = path.segments.pop().unwrap();
+                        let last_segment = path.segments.pop().unwrap();
 
+                        let ResolvedItem::Type(id) = ctx.get_visible_item(&path)? else {
                             return ctx.add_error(
                                 last_segment.span,
                                 SemanticAnalysisError::NotAType(last_segment.name),
@@ -155,9 +158,9 @@ impl Item {
 
                         let declaration = ctx.get_type(id).clone();
 
-                        let HighTypeDeclaration::Module(module) = declaration else {
-                            let last_segment = path.segments.pop().unwrap();
-
+                        let (_, _, HighTypeDeclarationKind::Module(module)) =
+                            declaration.as_tuple_owned()
+                        else {
                             return ctx.add_error(
                                 last_segment.span,
                                 SemanticAnalysisError::NotAModule(last_segment.name),
@@ -199,7 +202,10 @@ impl Item {
                                 }
                             }
 
-                            let item = Self::Use(tree);
+                            let item = Self {
+                                visibility: self.visibility,
+                                kind: ItemKind::Use(tree),
+                            };
 
                             if item.perform_semantic_analysis(ctx).is_none() {
                                 has_error = true;
@@ -211,7 +217,7 @@ impl Item {
                         }
                     }
                     UseTree::As(path, alias_span, alias) => {
-                        let item = ctx.resolve_item_path(&path)?;
+                        let item = ctx.get_visible_item(&path)?;
 
                         match item {
                             ResolvedItem::Type(id) => {
@@ -227,7 +233,7 @@ impl Item {
                         let last_segment_span = last_segment.span;
                         let last_segment_name = last_segment.name.clone();
 
-                        let item = ctx.resolve_item_path(&path)?;
+                        let item = ctx.get_visible_item(&path)?;
 
                         match item {
                             ResolvedItem::Type(id) => {

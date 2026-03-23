@@ -1,7 +1,4 @@
-use crate::{
-    builtin_data_type::BuiltinDataType,
-    high::environment::r#type::{HighTypeDeclaration, HighTypeId},
-};
+use crate::high::environment::r#type::{HighTypeDeclaration, HighTypeId};
 
 pub mod r#type;
 
@@ -18,11 +15,5 @@ impl HighEnvironment {
         self.types.push(declaration);
 
         id
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn declare_builtin_type(&mut self, data_type: BuiltinDataType) -> HighTypeId {
-        self.declare_type(HighTypeDeclaration::Builtin(data_type))
     }
 }

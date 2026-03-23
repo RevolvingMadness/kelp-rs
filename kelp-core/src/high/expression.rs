@@ -14,7 +14,7 @@ use crate::{
     },
     middle::{
         data_type::DataType,
-        environment::value::ValueDeclaration,
+        environment::value::ValueDeclarationKind,
         expression::{Expression as MiddleExpression, ExpressionKind as MiddleExpressionKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -203,7 +203,7 @@ impl Expression {
             | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Path(path) => {
-                let id = ctx.resolve_value_generic_path(path)?;
+                let id = ctx.get_visible_value_id(path)?;
 
                 PlaceTypeKind::Value(id)
             }
@@ -647,7 +647,7 @@ impl Expression {
             ExpressionKind::StructStruct(path, field_values) => {
                 let mut path = path.resolve_fully(ctx)?;
 
-                let id = ctx.resolve_type_generic_path(&path)?;
+                let id = ctx.get_visible_type_id(&path)?;
 
                 let type_declaration = ctx.get_type(id).clone();
 
@@ -666,8 +666,8 @@ impl Expression {
                     &last_segment.name,
                 )?;
 
-                let (specific_id, declaration) =
-                    ctx.get_struct_struct_type(last_segment.name_span, &last_segment.name, id)?;
+                let (specific_id, _, declaration) =
+                    ctx.get_visible_struct_struct(last_segment.name_span, &last_segment.name, id)?;
 
                 let field_types = declaration.field_types.clone();
 
@@ -726,7 +726,7 @@ impl Expression {
             ExpressionKind::TupleStruct(path, field_values) => {
                 let mut path = path.resolve_fully(ctx)?;
 
-                let id = ctx.resolve_type_generic_path(&path)?;
+                let id = ctx.get_visible_type_id(&path)?;
 
                 let type_declaration = ctx.get_type(id).clone();
 
@@ -745,8 +745,8 @@ impl Expression {
                     &last_segment.name,
                 )?;
 
-                let (specific_id, declaration) =
-                    ctx.get_tuple_struct_type(last_segment.name_span, &last_segment.name, id)?;
+                let (specific_id, _, declaration) =
+                    ctx.get_visible_tuple_struct(last_segment.name_span, &last_segment.name, id)?;
 
                 let field_types = declaration.field_types.clone();
 
@@ -798,9 +798,12 @@ impl Expression {
             ExpressionKind::Path(path) => {
                 let path = path.resolve_fully(ctx)?;
 
-                let id = ctx.resolve_value_generic_path(&path)?;
+                let id = ctx.get_visible_value_id(&path)?;
 
-                let ValueDeclaration::Variable(declaration) = ctx.get_value(id);
+                let value_name = path.segments.last().unwrap();
+
+                let ValueDeclarationKind::Variable(declaration) =
+                    ctx.get_visible_value(self.span, &value_name.name, id)?;
 
                 let data_type = declaration.data_type.as_ref()?.clone();
 

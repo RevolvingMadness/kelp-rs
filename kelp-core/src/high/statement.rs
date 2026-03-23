@@ -141,35 +141,35 @@ impl Statement {
                     );
                 };
 
-                ctx.start_scope();
+                ctx.enter_scope();
 
                 let Some(pattern) = pattern.perform_semantic_analysis(ctx, iterable_type) else {
-                    ctx.end_scope();
+                    ctx.exit_scope();
 
                     return None;
                 };
 
                 let Some(statement) = statement.perform_semantic_analysis(ctx) else {
-                    ctx.end_scope();
+                    ctx.exit_scope();
 
                     return None;
                 };
 
-                ctx.end_scope();
+                ctx.exit_scope();
 
                 // TODO: Reorder semantic analysis
 
                 MiddleStatement::For(is_reversed, pattern, iterable, Box::new(statement))
             }
             StatementKind::Block(statements) => {
-                ctx.start_scope();
+                ctx.enter_scope();
 
                 let statements = statements
                     .into_iter()
                     .map(|statement| statement.perform_semantic_analysis(ctx))
                     .collect_option_all();
 
-                ctx.end_scope();
+                ctx.exit_scope();
 
                 let statements = statements?;
 

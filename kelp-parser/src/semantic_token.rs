@@ -133,6 +133,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::AsKeyword
                     | SyntaxKind::ModKeyword
                     | SyntaxKind::UseKeyword
+                    | SyntaxKind::PubKeyword
                     | SyntaxKind::MCFNKeyword
                     | SyntaxKind::StructKeyword
                     | SyntaxKind::BreakKeyword

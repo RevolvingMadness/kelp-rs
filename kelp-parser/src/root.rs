@@ -2,7 +2,7 @@ use kelp_core::high::{item::Item, semantic_analysis_context::SemanticAnalysisCon
 
 use crate::{
     cst::CSTRoot,
-    item::{lower_item, try_parse_item},
+    item::{expect_item, lower_item},
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -27,7 +27,7 @@ pub fn parse_root(parser: &mut Parser) {
             continue;
         }
 
-        let _ = try_parse_item(parser);
+        expect_item(parser);
 
         is_first = false;
     }

@@ -500,6 +500,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "mod" => "ModKeyword",
         "module_name" => "ModuleName",
         "use" => "UseKeyword",
+        "pub" => "PubKeyword",
         _ => todo!("{:?}", token),
     }
 }

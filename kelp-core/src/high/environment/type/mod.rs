@@ -10,6 +10,7 @@ use crate::{
     },
     middle::data_type::DataType,
     span::Span,
+    visibility::Visibility,
 };
 
 pub mod alias;
@@ -20,14 +21,14 @@ pub mod r#struct;
 pub struct HighTypeId(pub usize);
 
 #[derive(Debug, Clone)]
-pub enum HighTypeDeclaration {
+pub enum HighTypeDeclarationKind {
     Module(HighModuleDeclaration),
     Struct(HighStructDeclaration),
     Alias(HighAliasDeclaration),
     Builtin(BuiltinDataType),
 }
 
-impl HighTypeDeclaration {
+impl HighTypeDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -47,6 +48,27 @@ impl HighTypeDeclaration {
             Self::Builtin(builtin_type) => builtin_type.generic_count(),
         })
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct HighTypeDeclaration {
+    pub visibility: Visibility,
+    pub module_path: Vec<String>,
+    pub kind: HighTypeDeclarationKind,
+}
+
+impl HighTypeDeclaration {
+    #[inline]
+    #[must_use]
+    pub fn as_tuple(&self) -> (Visibility, &[String], &HighTypeDeclarationKind) {
+        (self.visibility, &self.module_path, &self.kind)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn as_tuple_owned(self) -> (Visibility, Vec<String>, HighTypeDeclarationKind) {
+        (self.visibility, self.module_path, self.kind)
+    }
 
     pub fn resolve_fully(
         self,
@@ -55,12 +77,12 @@ impl HighTypeDeclaration {
         generic_types: Vec<DataType>,
         path_span: Span,
     ) -> Option<DataType> {
-        match self {
-            Self::Module(_) => ctx.add_error(
+        match self.kind {
+            HighTypeDeclarationKind::Module(_) => ctx.add_error(
                 path_span,
-                SemanticAnalysisError::NotAType(self.name().to_owned()),
+                SemanticAnalysisError::NotAType(self.kind.name().to_owned()),
             ),
-            Self::Struct(declaration) => {
+            HighTypeDeclarationKind::Struct(declaration) => {
                 if let Some(id) = ctx.get_monomorphized_struct_id(id, &generic_types) {
                     return Some(DataType::Struct(id));
                 }
@@ -86,6 +108,7 @@ impl HighTypeDeclaration {
                             .collect::<Option<_>>()?;
 
                         ctx.declare_monomorphized_struct_struct(
+                            self.visibility,
                             id,
                             declaration.name,
                             generic_types,
@@ -112,6 +135,7 @@ impl HighTypeDeclaration {
                             .collect::<Option<_>>()?;
 
                         ctx.declare_monomorphized_tuple_struct(
+                            self.visibility,
                             id,
                             declaration.name,
                             generic_types,
@@ -122,7 +146,7 @@ impl HighTypeDeclaration {
 
                 Some(DataType::Struct(id))
             }
-            Self::Alias(declaration) => {
+            HighTypeDeclarationKind::Alias(declaration) => {
                 let alias = declaration.alias?;
 
                 let resolver = GenericResolver::create_semantic_analysis(
@@ -135,7 +159,7 @@ impl HighTypeDeclaration {
 
                 alias.resolve_fully(ctx, &resolver)
             }
-            Self::Builtin(data_type) => data_type.to_data_type(generic_types),
+            HighTypeDeclarationKind::Builtin(data_type) => data_type.to_data_type(generic_types),
         }
     }
 
@@ -147,11 +171,11 @@ impl HighTypeDeclaration {
         generic_types: Vec<PartiallyResolvedDataType>,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<PartiallyResolvedDataType> {
-        if let Some(expected_generic_count) = self.generic_count() {
+        if let Some(expected_generic_count) = self.kind.generic_count() {
             let actual_generic_count = generic_types.len();
 
             if actual_generic_count != expected_generic_count {
-                let name = self.name().to_owned();
+                let name = self.kind.name().to_owned();
 
                 return ctx.add_invalid_generics(
                     name_span,
@@ -162,18 +186,20 @@ impl HighTypeDeclaration {
             }
         }
 
-        match self {
-            Self::Module(_) => ctx.add_error(
+        match self.kind {
+            HighTypeDeclarationKind::Module(_) => ctx.add_error(
                 name_span,
-                SemanticAnalysisError::NotAType(self.name().to_owned()),
+                SemanticAnalysisError::NotAType(self.kind.name().to_owned()),
             ),
-            Self::Struct(_) => Some(PartiallyResolvedDataType::Struct(
+            HighTypeDeclarationKind::Struct(_) => Some(PartiallyResolvedDataType::Struct(
                 name_span,
                 id,
                 generic_types,
             )),
-            Self::Alias(declaration) => declaration.alias,
-            Self::Builtin(data_type) => data_type.to_resolved_data_type(generic_types),
+            HighTypeDeclarationKind::Alias(declaration) => declaration.alias,
+            HighTypeDeclarationKind::Builtin(data_type) => {
+                data_type.to_resolved_data_type(generic_types)
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-use kelp_core::high::{item::Item, semantic_analysis_context::SemanticAnalysisContext};
+use kelp_core::high::{item::ItemKind, semantic_analysis_context::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTMCFNDeclarationItem,
@@ -9,23 +9,48 @@ use crate::{
 };
 
 #[must_use]
-pub fn try_parse_mcfn_declaration_item(parser: &mut Parser) -> bool {
+pub fn try_parse_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
     parser.start_node(SyntaxKind::MCFNDeclarationItem);
     parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
-    parser.expect_inline_whitespace();
 
-    if !try_parse_resource_location(parser) {
+    if !parser.expect_whitespace() || !try_parse_resource_location(parser) {
         parser.restore_state(state);
 
         return false;
     }
 
-    parser.skip_inline_whitespace();
+    parser.expect_whitespace();
+
     if !try_parse_statement(parser) {
         parser.error("Expected statement");
     }
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
+    parser.start_node(SyntaxKind::MCFNDeclarationItem);
+    parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
+
+    parser.expect_whitespace();
+
+    if !try_parse_resource_location(parser) {
+        parser.error("Expected resource location");
+
+        return false;
+    }
+
+    parser.expect_whitespace();
+
+    if !try_parse_statement(parser) {
+        parser.error("Expected statement");
+    }
+
     parser.finish_node();
 
     true
@@ -33,12 +58,12 @@ pub fn try_parse_mcfn_declaration_item(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_mcfn_declaration_item(
+pub fn lower_mcfn_declaration_item_kind(
     node: CSTMCFNDeclarationItem,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Item> {
+) -> Option<ItemKind> {
     let resource_location = lower_resource_location(node.resource_location()?)?;
     let body = lower_statement(node.statement()?, ctx)?;
 
-    Some(Item::MCFNDeclaration(resource_location, Box::new(body)))
+    Some(ItemKind::MCFNDeclaration(resource_location, Box::new(body)))
 }

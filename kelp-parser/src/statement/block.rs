@@ -12,12 +12,13 @@ use crate::{
 };
 
 pub fn try_parse_block_statement(parser: &mut Parser) -> bool {
-    if !parser.expect_no_bump('{', "Expected block statement") {
+    let checkpoint = parser.checkpoint();
+
+    if !parser.try_bump_char('{') {
         return false;
     }
 
-    parser.start_node(SyntaxKind::BlockStatement);
-    parser.bump_char();
+    parser.start_node_at(checkpoint, SyntaxKind::BlockStatement);
 
     let mut is_first = true;
 
@@ -30,8 +31,6 @@ pub fn try_parse_block_statement(parser: &mut Parser) -> bool {
 
         if !is_first && !parser.try_parse_newline_whitespace() {
             parser.recover_newline("Expected newline to mark end of statement");
-
-            is_first = false;
 
             continue;
         }

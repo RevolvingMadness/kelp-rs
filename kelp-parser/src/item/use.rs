@@ -1,4 +1,4 @@
-use kelp_core::high::item::Item;
+use kelp_core::high::item::ItemKind;
 
 use crate::{
     cst::CSTUseItem,
@@ -8,16 +8,30 @@ use crate::{
 };
 
 #[must_use]
-pub fn try_parse_use_item(parser: &mut Parser) -> bool {
+pub fn try_parse_use_item_kind(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
-
-    if parser.peek_identifier() != Some("use") {
-        return false;
-    }
 
     parser.start_node_at(checkpoint, SyntaxKind::UseItem);
     parser.bump_identifier_kind(SyntaxKind::UseKeyword, "use");
-    parser.skip_inline_whitespace();
+    let parsed_whitespace = parser.expect_whitespace();
+
+    if !try_parse_use_tree(parser) && parsed_whitespace {
+        parser.error("Expected use tree");
+    }
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+pub fn expect_use_item_kind(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+
+    parser.start_node_at(checkpoint, SyntaxKind::UseItem);
+    parser.bump_identifier_kind(SyntaxKind::UseKeyword, "use");
+
+    parser.expect_whitespace();
 
     if !try_parse_use_tree(parser) {
         parser.error("Expected use tree");
@@ -30,8 +44,8 @@ pub fn try_parse_use_item(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_use_item(node: CSTUseItem) -> Option<Item> {
+pub fn lower_use_item(node: CSTUseItem) -> Option<ItemKind> {
     let tree = lower_use_tree(node.use_tree()?)?;
 
-    Some(Item::Use(tree))
+    Some(ItemKind::Use(tree))
 }

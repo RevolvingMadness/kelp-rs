@@ -19,6 +19,7 @@ use crate::{
         nbt_path::NbtPath,
         player_score::PlayerScore,
     },
+    visibility::Visibility,
 };
 
 fn destructure_tuple(
@@ -111,7 +112,11 @@ fn destructure_struct_struct(
 ) {
     match (data_type, value) {
         (DataType::Struct(_), Expression::StructStruct(_, fields)) => {
-            let declaration = datapack.get_struct_struct_type(id);
+            let (visibility, _, declaration) = datapack.get_struct_struct_type(id);
+
+            if visibility != Visibility::Public {
+                return;
+            }
 
             let field_types = declaration.field_types.clone();
 
@@ -125,7 +130,11 @@ fn destructure_struct_struct(
         (DataType::Struct(_), Expression::Data(target_path)) => {
             let (target, path) = *target_path;
 
-            let declaration = datapack.get_struct_struct_type(id);
+            let (visibility, _, declaration) = datapack.get_struct_struct_type(id);
+
+            if visibility != Visibility::Public {
+                return;
+            }
 
             let field_types = declaration.field_types.clone();
 
@@ -186,7 +195,11 @@ fn destructure_tuple_struct(
 ) {
     match (value, value_data_type) {
         (Expression::TupleStruct(_, field_expressions), DataType::Struct(_)) => {
-            let declaration = datapack.get_tuple_struct_type(id);
+            let (visibility, _, declaration) = datapack.get_tuple_struct_type(id);
+
+            if visibility != Visibility::Public {
+                return;
+            }
 
             let field_types = declaration.field_types.clone();
 
@@ -201,7 +214,11 @@ fn destructure_tuple_struct(
         (Expression::Data(target_path), DataType::Struct(_)) => {
             let (target, path) = *target_path;
 
-            let declaration = datapack.get_tuple_struct_type(id);
+            let (visibility, _, declaration) = datapack.get_tuple_struct_type(id);
+
+            if visibility != Visibility::Public {
+                return;
+            }
 
             let field_types = declaration.field_types.clone();
 

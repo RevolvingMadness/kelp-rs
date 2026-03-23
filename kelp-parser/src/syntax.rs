@@ -118,6 +118,7 @@ pub enum SyntaxKind {
     ModuleName,
 
     UseKeyword,
+    PubKeyword,
     ScoreKeyword,
     EntityKeyword,
     BlockKeyword,
@@ -149,6 +150,8 @@ pub enum SyntaxKind {
     TrueKeyword,
     FalseKeyword,
 
+    Item,
+    ItemKind,
     ModuleDeclarationItem,
     MCFNDeclarationItem,
     StructStructDeclarationItem,

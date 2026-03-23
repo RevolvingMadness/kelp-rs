@@ -6,7 +6,14 @@ use crate::{
     high::{
         environment::{
             HighEnvironment,
-            r#type::{HighTypeDeclaration, HighTypeId, module::HighModuleDeclaration},
+            r#type::{
+                HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
+                alias::HighAliasDeclaration,
+                module::HighModuleDeclaration,
+                r#struct::{
+                    HighStructDeclaration, HighStructStructDeclaration, HighTupleStructDeclaration,
+                },
+            },
         },
         semantic_analysis_context::{
             info::{SemanticAnalysisInfo, SemanticAnalysisInfoKind, error::SemanticAnalysisError},
@@ -21,11 +28,12 @@ use crate::{
                 StructDeclaration, StructId, StructStructDeclaration, StructStructId,
                 TupleStructDeclaration, TupleStructId,
             },
-            value::{ValueDeclaration, ValueId, variable::VariableId},
+            value::{ValueDeclarationKind, ValueId, variable::VariableId},
         },
     },
     path::{generic::GenericPath, regular::Path},
     span::Span,
+    visibility::Visibility,
 };
 
 pub mod info;
@@ -61,6 +69,7 @@ pub struct SemanticAnalysisContext {
     pub scopes: Vec<Scope>,
     pub loop_depth: u32,
     pub is_lhs: bool,
+    pub current_module_path: Vec<String>,
     max_infos: usize,
     high_environment: HighEnvironment,
     monomorphized_structs: HashMap<MonomorphizedStructKey, StructId>,
@@ -78,40 +87,35 @@ impl SemanticAnalysisContext {
             monomorphized_structs: HashMap::new(),
             loop_depth: 0,
             is_lhs: false,
+            current_module_path: Vec::new(),
         };
 
         let builtins = [
-            ("boolean", BuiltinDataType::Boolean),
-            ("byte", BuiltinDataType::Byte),
-            ("short", BuiltinDataType::Short),
-            ("integer", BuiltinDataType::Integer),
-            ("long", BuiltinDataType::Long),
-            ("float", BuiltinDataType::Float),
-            ("double", BuiltinDataType::Double),
-            ("string", BuiltinDataType::String),
-            // ("unit", BuiltinDataType::Unit),
-            ("score", BuiltinDataType::Score),
-            ("list", BuiltinDataType::List),
-            ("compound", BuiltinDataType::Compound),
-            ("data", BuiltinDataType::Data),
-            ("snbt", BuiltinDataType::SNBT),
+            BuiltinDataType::Boolean,
+            BuiltinDataType::Byte,
+            BuiltinDataType::Short,
+            BuiltinDataType::Integer,
+            BuiltinDataType::Long,
+            BuiltinDataType::Float,
+            BuiltinDataType::Double,
+            BuiltinDataType::String,
+            // BuiltinDataType::Unit,
+            BuiltinDataType::Score,
+            BuiltinDataType::List,
+            BuiltinDataType::Compound,
+            BuiltinDataType::Data,
+            BuiltinDataType::SNBT,
         ];
 
-        let mut std_types = StdHashMap::new();
-        for (name, builtin) in builtins {
-            let id = self_.high_environment.declare_builtin_type(builtin);
-            std_types.insert(name.to_owned(), id);
+        self_.enter_module("std".to_owned());
+
+        for builtin in builtins {
+            self_.declare_builtin(builtin);
         }
 
-        let standard_module = HighModuleDeclaration {
-            name: "std".to_string(),
-            types: std_types,
-            values: StdHashMap::new(),
-        };
+        self_.exit_module_and_declare(Visibility::Public);
 
-        self_.declare_data_type(HighTypeDeclaration::Module(standard_module));
-
-        self_.start_scope();
+        self_.enter_module("mod".to_owned());
 
         self_
     }
@@ -132,13 +136,49 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn start_scope(&mut self) {
+    pub fn enter_scope(&mut self) {
         self.scopes.push(Scope::default());
     }
 
     #[inline]
-    pub fn end_scope(&mut self) -> Scope {
+    pub fn exit_scope(&mut self) -> Scope {
         self.scopes.pop().unwrap()
+    }
+
+    #[inline]
+    pub fn enter_module(&mut self, name: String) {
+        self.current_module_path.push(name);
+
+        self.enter_scope();
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn exit_module(&mut self) -> HighModuleDeclaration {
+        let name = self.current_module_path.pop().unwrap();
+
+        let scope = self.exit_scope();
+
+        HighModuleDeclaration {
+            name,
+            types: scope.types,
+            values: scope.values,
+        }
+    }
+
+    pub fn exit_module_and_declare(&mut self, visibility: Visibility) {
+        let module = self.exit_module();
+
+        self.declare_module(visibility, module);
+    }
+
+    #[must_use]
+    pub fn is_item_visible(&self, visibility: Visibility, target_module_path: &[String]) -> bool {
+        if visibility == Visibility::Public {
+            return true;
+        }
+
+        self.current_module_path.starts_with(target_module_path)
     }
 
     #[inline]
@@ -176,64 +216,75 @@ impl SemanticAnalysisContext {
         })
     }
 
+    pub fn declare_monomorphized_struct(
+        &mut self,
+        original_id: HighTypeId,
+        id: StructId,
+        generic_types: Vec<DataType>,
+    ) -> StructId {
+        let key = MonomorphizedStructKey {
+            id: original_id,
+            generics: generic_types,
+        };
+
+        self.monomorphized_structs.insert(key, id);
+
+        id
+    }
+
+    #[inline]
     pub fn declare_monomorphized_struct_struct(
         &mut self,
+        visibility: Visibility,
         original_id: HighTypeId,
         name: String,
         generic_types: Vec<DataType>,
         field_types: StdHashMap<String, DataType>,
     ) -> StructId {
-        let id = self
-            .environment
-            .declare_struct_struct(name, generic_types.clone(), field_types);
+        let id = self.environment.declare_struct_struct(
+            self.current_module_path.clone(),
+            visibility,
+            name,
+            generic_types.clone(),
+            field_types,
+        );
 
-        let key = MonomorphizedStructKey {
-            id: original_id,
-            generics: generic_types,
-        };
-
-        self.monomorphized_structs.insert(key, id);
-
-        id
+        self.declare_monomorphized_struct(original_id, id, generic_types)
     }
 
+    #[inline]
     pub fn declare_monomorphized_tuple_struct(
         &mut self,
+        visibility: Visibility,
         original_id: HighTypeId,
         name: String,
         generic_types: Vec<DataType>,
         field_types: Vec<DataType>,
     ) -> StructId {
-        let id = self
-            .environment
-            .declare_tuple_struct(name, generic_types.clone(), field_types);
+        let id = self.environment.declare_tuple_struct(
+            self.current_module_path.clone(),
+            visibility,
+            name,
+            generic_types.clone(),
+            field_types,
+        );
 
-        let key = MonomorphizedStructKey {
-            id: original_id,
-            generics: generic_types,
-        };
-
-        self.monomorphized_structs.insert(key, id);
-
-        id
-    }
-
-    pub fn declare_value(&mut self, declaration: ValueDeclaration) -> ValueId {
-        let name = declaration.name().to_owned();
-
-        let id = self.environment.declare_value(declaration);
-
-        self.scopes
-            .last_mut()
-            .expect("No scopes")
-            .declare_value(name, id);
-
-        id
+        self.declare_monomorphized_struct(original_id, id, generic_types)
     }
 
     #[must_use]
-    pub fn declare_variable(&mut self, name: String, data_type: Option<DataType>) -> VariableId {
-        let id = self.environment.declare_variable(name.clone(), data_type);
+    pub fn declare_variable(
+        &mut self,
+        visibility: Visibility,
+        name: String,
+        data_type: Option<DataType>,
+    ) -> VariableId {
+        let id = self.environment.declare_variable(
+            self.current_module_path.clone(),
+            visibility,
+            name.clone(),
+            data_type,
+        );
 
         self.scopes
             .last_mut()
@@ -245,14 +296,19 @@ impl SemanticAnalysisContext {
 
     #[inline]
     #[must_use]
-    pub fn declare_variable_known(&mut self, name: String, data_type: DataType) -> VariableId {
-        self.declare_variable(name, Some(data_type))
+    pub fn declare_variable_known(
+        &mut self,
+        visibility: Visibility,
+        name: String,
+        data_type: DataType,
+    ) -> VariableId {
+        self.declare_variable(visibility, name, Some(data_type))
     }
 
     #[inline]
     #[must_use]
-    pub fn declare_variable_unknown(&mut self, name: String) -> VariableId {
-        self.declare_variable(name, None)
+    pub fn declare_variable_unknown(&mut self, visibility: Visibility, name: String) -> VariableId {
+        self.declare_variable(visibility, name, None)
     }
 
     #[must_use]
@@ -265,8 +321,29 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn get_value(&self, id: ValueId) -> &ValueDeclaration {
-        &self.environment.values[id.0]
+    pub fn get_value(&self, id: ValueId) -> (Visibility, &[String], &ValueDeclarationKind) {
+        self.environment.values[id.0].as_tuple()
+    }
+
+    #[must_use]
+    pub fn get_visible_value(
+        &mut self,
+        name_span: Span,
+        name: &str,
+        id: ValueId,
+    ) -> Option<&ValueDeclarationKind> {
+        let (visibility, module_path, _) = self.get_value(id);
+
+        if !self.is_item_visible(visibility, module_path) {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::ValueNotPublic(name.to_owned()),
+            );
+        }
+
+        let (_, _, declaration) = self.get_value(id);
+
+        Some(declaration)
     }
 
     #[must_use]
@@ -327,23 +404,80 @@ impl SemanticAnalysisContext {
         scope.values.insert(name, id);
     }
 
-    pub fn declare_data_type(&mut self, declaration: HighTypeDeclaration) -> HighTypeId {
+    #[inline]
+    pub fn declare_module(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighModuleDeclaration,
+    ) -> HighTypeId {
+        self.declare_type(visibility, HighTypeDeclarationKind::Module(declaration))
+    }
+
+    #[inline]
+    pub fn declare_alias(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighAliasDeclaration,
+    ) -> HighTypeId {
+        self.declare_type(visibility, HighTypeDeclarationKind::Alias(declaration))
+    }
+
+    #[inline]
+    fn declare_struct(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighStructDeclaration,
+    ) -> HighTypeId {
+        self.declare_type(visibility, HighTypeDeclarationKind::Struct(declaration))
+    }
+
+    #[inline]
+    pub fn declare_struct_struct(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighStructStructDeclaration,
+    ) -> HighTypeId {
+        self.declare_struct(visibility, HighStructDeclaration::Struct(declaration))
+    }
+
+    #[inline]
+    pub fn declare_tuple_struct(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighTupleStructDeclaration,
+    ) -> HighTypeId {
+        self.declare_struct(visibility, HighStructDeclaration::Tuple(declaration))
+    }
+
+    #[inline]
+    pub fn declare_builtin(&mut self, data_type: BuiltinDataType) -> HighTypeId {
+        self.declare_type(
+            Visibility::Public,
+            HighTypeDeclarationKind::Builtin(data_type),
+        )
+    }
+
+    fn declare_type(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighTypeDeclarationKind,
+    ) -> HighTypeId {
         let name = declaration.name().to_owned();
 
-        let id = self.high_environment.declare_type(declaration);
+        let id = self.high_environment.declare_type(HighTypeDeclaration {
+            visibility,
+            module_path: self.current_module_path.clone(),
+            kind: declaration,
+        });
 
-        self.scopes
-            .last_mut()
-            .expect("No scopes")
-            .declare_type(name, id);
+        self.current_scope_mut().declare_type(name, id);
 
         id
     }
 
     #[must_use]
-    pub fn resolve_type_generic_path<T>(&mut self, path: &GenericPath<T>) -> Option<HighTypeId> {
-        let mut segments = path.segments.iter();
-        let mut current_segment = segments.next()?;
+    pub fn get_visible_type_id<T>(&mut self, path: &GenericPath<T>) -> Option<HighTypeId> {
+        let (mut current_segment, segments) = path.segments.split_first()?;
 
         let Some(mut current_type_id) = self.get_type_id(&current_segment.name) else {
             return self.add_error(
@@ -352,101 +486,123 @@ impl SemanticAnalysisContext {
             );
         };
 
-        for next_segment in segments {
-            let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
-                return self.add_error(
-                    current_segment.name_span,
-                    SemanticAnalysisError::NotAModule(current_segment.name.clone()),
-                );
-            };
-
-            let Some(next_type_id) = declaration.get_type_id(&next_segment.name) else {
-                return self.add_error(
-                    next_segment.name_span,
-                    SemanticAnalysisError::ModuleDoesntContainType {
-                        module_name: declaration.name.clone(),
-                        type_name: next_segment.name.clone(),
-                    },
-                );
-            };
-
-            current_type_id = next_type_id;
-            current_segment = next_segment;
-        }
-
-        Some(current_type_id)
-    }
-
-    #[must_use]
-    pub fn resolve_value_generic_path<T>(&mut self, path: &GenericPath<T>) -> Option<ValueId> {
-        let (first_segment, segments) = path.segments.split_first()?;
-
-        if segments.is_empty() {
-            let Some(resolved_value_id) = self.get_value_id(&first_segment.name) else {
-                return self.add_error(
-                    first_segment.name_span,
-                    SemanticAnalysisError::UnknownValue(first_segment.name.clone()),
-                );
-            };
-
-            return Some(resolved_value_id);
-        }
-
-        let (last_segment, segments) = segments.split_last().unwrap();
-
-        let Some(mut current_type_id) = self.get_type_id(&first_segment.name) else {
-            return self.add_error(
-                first_segment.name_span,
-                SemanticAnalysisError::UnknownModule(first_segment.name.clone()),
-            );
-        };
-
-        let mut previous_segment = first_segment;
-
         for segment in segments {
-            let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
-                return self.add_error(
-                    previous_segment.name_span,
-                    SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
-                );
-            };
+            let module = self.get_visible_module(
+                current_segment.name_span,
+                &current_segment.name,
+                current_type_id,
+            )?;
 
-            let Some(next_type_id) = declaration.get_type_id(&segment.name) else {
+            let Some(next_type_id) = module.get_type_id(&segment.name) else {
+                let module_name = module.name.clone();
                 return self.add_error(
                     segment.name_span,
                     SemanticAnalysisError::ModuleDoesntContainType {
-                        module_name: declaration.name.clone(),
+                        module_name,
                         type_name: segment.name.clone(),
                     },
                 );
             };
 
             current_type_id = next_type_id;
-            previous_segment = segment;
+            current_segment = segment;
         }
 
-        let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
+        let (visibility, module_path, _) = self.get_type(current_type_id).as_tuple();
+        let is_visible = self.is_item_visible(visibility, module_path);
+
+        if !is_visible {
             return self.add_error(
-                previous_segment.name_span,
-                SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
+                current_segment.name_span,
+                SemanticAnalysisError::TypeNotPublic(current_segment.name.clone()),
+            );
+        }
+
+        Some(current_type_id)
+    }
+
+    #[must_use]
+    pub fn get_visible_value_id<T>(&mut self, path: &GenericPath<T>) -> Option<ValueId> {
+        let (module_segment, segments) = path.segments.split_first()?;
+
+        if segments.is_empty() {
+            let Some(resolved_value_id) = self.get_value_id(&module_segment.name) else {
+                return self.add_error(
+                    module_segment.name_span,
+                    SemanticAnalysisError::UnknownValue(module_segment.name.clone()),
+                );
+            };
+
+            return Some(resolved_value_id);
+        }
+
+        let (target_value_segment, segments) = segments.split_last().unwrap();
+
+        let Some(mut current_type_id) = self.get_type_id(&module_segment.name) else {
+            return self.add_error(
+                module_segment.name_span,
+                SemanticAnalysisError::UnknownModule(module_segment.name.clone()),
             );
         };
 
-        let Some(resolved_value_id) = declaration.get_value_id(&last_segment.name) else {
+        let mut previous_segment = module_segment;
+
+        for type_segment in segments {
+            let module = self.get_visible_module(
+                previous_segment.name_span,
+                &previous_segment.name,
+                current_type_id,
+            )?;
+
+            let Some(next_type_id) = module.get_type_id(&type_segment.name) else {
+                let module_name = module.name.clone();
+
+                return self.add_error(
+                    type_segment.name_span,
+                    SemanticAnalysisError::ModuleDoesntContainType {
+                        module_name,
+                        type_name: type_segment.name.clone(),
+                    },
+                );
+            };
+
+            current_type_id = next_type_id;
+            previous_segment = type_segment;
+        }
+
+        let module = self.get_visible_module(
+            previous_segment.name_span,
+            &previous_segment.name,
+            current_type_id,
+        )?;
+
+        let Some(resolved_value_id) = module.get_value_id(&target_value_segment.name) else {
+            let module_name = module.name.clone();
+
             return self.add_error(
-                last_segment.name_span,
+                target_value_segment.name_span,
                 SemanticAnalysisError::ModuleDoesntContainValue {
-                    module_name: declaration.name.clone(),
-                    value_name: last_segment.name.clone(),
+                    module_name,
+                    value_name: target_value_segment.name.clone(),
                 },
             );
         };
+
+        let (visibility, module_path, _) = self.get_value(resolved_value_id);
+        let is_visible = self.is_item_visible(visibility, module_path);
+
+        if !is_visible {
+            return self.add_error(
+                target_value_segment.name_span,
+                SemanticAnalysisError::ValueNotPublic(target_value_segment.name.clone()),
+            );
+        }
 
         Some(resolved_value_id)
     }
 
     #[must_use]
-    pub fn resolve_item_path(&mut self, path: &Path) -> Option<ResolvedItem> {
+    pub fn get_visible_item(&mut self, path: &Path) -> Option<ResolvedItem> {
         let mut type_segments = path.segments.iter();
 
         if let Some(first_segment) = type_segments.next()
@@ -454,14 +610,25 @@ impl SemanticAnalysisContext {
         {
             let mut found_type = true;
 
-            for next_segment in type_segments {
-                let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id)
+            for segment in type_segments {
+                let (visibility, module_path, HighTypeDeclarationKind::Module(declaration)) =
+                    self.get_type(current_type_id).as_tuple()
                 else {
                     found_type = false;
+
                     break;
                 };
 
-                let Some(next_type_id) = declaration.get_type_id(&next_segment.name) else {
+                let is_visible = self.is_item_visible(visibility, module_path);
+
+                if !is_visible {
+                    return self.add_error(
+                        segment.span,
+                        SemanticAnalysisError::TypeNotPublic(segment.name.clone()),
+                    );
+                }
+
+                let Some(next_type_id) = declaration.get_type_id(&segment.name) else {
                     found_type = false;
 
                     break;
@@ -471,6 +638,18 @@ impl SemanticAnalysisContext {
             }
 
             if found_type {
+                let (visibility, module_path, _) = self.get_type(current_type_id).as_tuple();
+                let is_visible = self.is_item_visible(visibility, module_path);
+
+                if !is_visible {
+                    let last_segment = path.segments.last().unwrap();
+
+                    return self.add_error(
+                        last_segment.span,
+                        SemanticAnalysisError::TypeNotPublic(last_segment.name.clone()),
+                    );
+                }
+
                 return Some(ResolvedItem::Type(current_type_id));
             }
         }
@@ -500,18 +679,18 @@ impl SemanticAnalysisContext {
         let mut previous_segment = first_segment;
 
         for segment in segments {
-            let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
-                return self.add_error(
-                    previous_segment.span,
-                    SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
-                );
-            };
+            let declaration = self.get_visible_module(
+                previous_segment.span,
+                &previous_segment.name,
+                current_type_id,
+            )?;
 
             let Some(next_type_id) = declaration.get_type_id(&segment.name) else {
+                let module_name = declaration.name.clone();
                 return self.add_error(
                     segment.span,
                     SemanticAnalysisError::ModuleDoesntContainType {
-                        module_name: declaration.name.clone(),
+                        module_name,
                         type_name: segment.name.clone(),
                     },
                 );
@@ -521,28 +700,38 @@ impl SemanticAnalysisContext {
             previous_segment = segment;
         }
 
-        let HighTypeDeclaration::Module(declaration) = self.get_type(current_type_id) else {
-            return self.add_error(
-                previous_segment.span,
-                SemanticAnalysisError::NotAModule(previous_segment.name.clone()),
-            );
-        };
+        let declaration = self.get_visible_module(
+            previous_segment.span,
+            &previous_segment.name,
+            current_type_id,
+        )?;
 
         let Some(resolved_value_id) = declaration.get_value_id(&last_segment.name) else {
+            let module_name = declaration.name.clone();
             return self.add_error(
                 last_segment.span,
                 SemanticAnalysisError::ModuleDoesntContainItem {
-                    module_name: declaration.name.clone(),
+                    module_name,
                     item_name: last_segment.name.clone(),
                 },
             );
         };
 
+        let (visibility, module_path, _) = self.get_value(resolved_value_id);
+        let is_visible = self.is_item_visible(visibility, module_path);
+
+        if !is_visible {
+            return self.add_error(
+                last_segment.span,
+                SemanticAnalysisError::ValueNotPublic(last_segment.name.clone()),
+            );
+        }
+
         Some(ResolvedItem::Value(resolved_value_id))
     }
 
     #[must_use]
-    pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
+    fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
         self.scopes
             .iter()
             .rev()
@@ -555,56 +744,106 @@ impl SemanticAnalysisContext {
         &self.high_environment.types[id.0]
     }
 
-    #[inline]
     #[must_use]
-    pub fn get_struct_type(&self, id: StructId) -> &StructDeclaration {
-        self.environment.get_struct(id)
+    pub fn get_visible_module(
+        &mut self,
+        name_span: Span,
+        name: &str,
+        id: HighTypeId,
+    ) -> Option<&HighModuleDeclaration> {
+        let (visibility, module_path, HighTypeDeclarationKind::Module(_)) =
+            self.get_type(id).as_tuple()
+        else {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::NotAModule(name.to_owned()),
+            );
+        };
+
+        let is_visible = self.is_item_visible(visibility, module_path);
+
+        if !is_visible {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::TypeNotPublic(name.to_owned()),
+            );
+        }
+
+        let (_, _, HighTypeDeclarationKind::Module(declaration)) = self.get_type(id).as_tuple()
+        else {
+            unsafe { unreachable_unchecked() }
+        };
+
+        Some(declaration)
     }
 
     #[inline]
     #[must_use]
-    pub fn get_struct_struct_type(
+    pub fn get_visible_struct_struct(
         &mut self,
-        span: Span,
+        name_span: Span,
         name: &str,
         id: StructId,
-    ) -> Option<(StructStructId, &StructStructDeclaration)> {
-        if !matches!(
-            self.environment.get_struct(id),
-            StructDeclaration::Struct(_)
-        ) {
+    ) -> Option<(StructStructId, &[String], &StructStructDeclaration)> {
+        let (visibility, module_path, StructDeclaration::Struct(_)) =
+            self.environment.get_struct(id)
+        else {
             return self.add_error(
-                span,
+                name_span,
                 SemanticAnalysisError::NotARegularStruct(name.to_owned()),
             );
+        };
+
+        let is_visible = self.is_item_visible(visibility, module_path);
+
+        if !is_visible {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::TypeNotPublic(name.to_owned()),
+            );
         }
 
-        if let StructDeclaration::Struct(declaration) = self.environment.get_struct(id) {
-            Some((StructStructId(id.0), declaration))
-        } else {
+        let (_, module_path, StructDeclaration::Struct(declaration)) =
+            self.environment.get_struct(id)
+        else {
             unsafe { unreachable_unchecked() }
-        }
+        };
+
+        Some((StructStructId(id.0), module_path, declaration))
     }
 
     #[inline]
     #[must_use]
-    pub fn get_tuple_struct_type(
+    pub fn get_visible_tuple_struct(
         &mut self,
-        span: Span,
+        name_span: Span,
         name: &str,
         id: StructId,
-    ) -> Option<(TupleStructId, &TupleStructDeclaration)> {
-        if !matches!(self.environment.get_struct(id), StructDeclaration::Tuple(_)) {
+    ) -> Option<(TupleStructId, &[String], &TupleStructDeclaration)> {
+        let (visibility, module_path, StructDeclaration::Tuple(_)) =
+            self.environment.get_struct(id)
+        else {
             return self.add_error(
-                span,
+                name_span,
                 SemanticAnalysisError::NotATupleStruct(name.to_owned()),
+            );
+        };
+
+        let is_visible = self.is_item_visible(visibility, module_path);
+
+        if !is_visible {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::TypeNotPublic(name.to_owned()),
             );
         }
 
-        if let StructDeclaration::Tuple(declaration) = self.environment.get_struct(id) {
-            Some((TupleStructId(id.0), declaration))
-        } else {
+        let (_, module_path, StructDeclaration::Tuple(declaration)) =
+            self.environment.get_struct(id)
+        else {
             unsafe { unreachable_unchecked() }
-        }
+        };
+
+        Some((TupleStructId(id.0), module_path, declaration))
     }
 }

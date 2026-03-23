@@ -10,6 +10,7 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
     place::PlaceTypeKind,
     span::Span,
+    visibility::Visibility,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -122,7 +123,7 @@ impl DataType {
             | Self::Reference(data_type) => predicate(data_type),
             Self::Tuple(data_types) => data_types.iter().all(predicate),
             Self::Struct(id) => {
-                let declaration = environment.get_struct(*id);
+                let (_, _, declaration) = environment.get_struct(*id);
 
                 declaration.field_types().all(predicate)
             }
@@ -355,7 +356,9 @@ impl DataType {
             }
             Self::SNBT => output.write_str("snbt"),
             Self::Struct(id) => {
-                let declaration = environment.get_struct(*id);
+                // TODO: Maybe display full path?
+
+                let (_, _, declaration) = environment.get_struct(*id);
 
                 output.write_str(declaration.name())?;
 
@@ -539,7 +542,7 @@ impl DataType {
             Self::Score(_) | Self::Data(_) => false,
             Self::Reference(data_type) => data_type.is_compiletime(environment),
             Self::Struct(id) => {
-                let declaration = environment.get_struct(*id);
+                let (_, _, declaration) = environment.get_struct(*id);
 
                 declaration.field_types().all(|field_type| field_type.is_compiletime(environment))
             },
@@ -967,7 +970,11 @@ impl DataType {
             Self::Reference(self_) => self_.get_field_result(environment, field)?,
 
             Self::Struct(id) => {
-                let declaration = environment.get_struct(*id);
+                let (visibility, _, declaration) = environment.get_struct(*id);
+
+                if visibility != Visibility::Public {
+                    return None;
+                }
 
                 declaration.get_field(field).cloned()?
             }

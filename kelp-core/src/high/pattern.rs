@@ -15,6 +15,7 @@ use crate::{
     pattern_type::PatternType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
+    visibility::Visibility,
 };
 
 #[derive(Debug, Clone)]
@@ -108,7 +109,7 @@ impl PatternKind {
 
                 let name = path.segments[0].name.clone();
 
-                let _ = ctx.declare_variable_unknown(name);
+                let _ = ctx.declare_variable_unknown(Visibility::Public, name);
             }
             Self::Tuple(patterns) => {
                 for pattern in patterns {
@@ -169,7 +170,7 @@ impl Pattern {
                 if path.segments.len() == 1 {
                     let name = path.segments[0].name.clone();
 
-                    let id = ctx.declare_variable_known(name, variable_type);
+                    let id = ctx.declare_variable_known(Visibility::Public, name, variable_type);
 
                     MiddlePattern::Binding(id)
                 } else {
@@ -267,7 +268,7 @@ impl Pattern {
             (PatternKind::StructStruct(path, field_patterns), DataType::Struct(value_id)) => {
                 let mut path = path.resolve_fully(ctx)?;
 
-                let pattern_id = ctx.resolve_type_generic_path(&path)?;
+                let pattern_id = ctx.get_visible_type_id(&path)?;
 
                 let last_segment = path.segments.pop().unwrap();
 
@@ -300,7 +301,7 @@ impl Pattern {
                     );
                 }
 
-                let (specific_id, pattern_declaration) = ctx.get_struct_struct_type(
+                let (specific_id, _, pattern_declaration) = ctx.get_visible_struct_struct(
                     last_segment.name_span,
                     &last_segment.name,
                     pattern_id,
@@ -335,7 +336,7 @@ impl Pattern {
             (PatternKind::TupleStruct(path, field_patterns), DataType::Struct(value_id)) => {
                 let mut path = path.resolve_fully(ctx)?;
 
-                let pattern_id = ctx.resolve_type_generic_path(&path)?;
+                let pattern_id = ctx.get_visible_type_id(&path)?;
 
                 let last_segment = path.segments.pop().unwrap();
 
@@ -368,7 +369,7 @@ impl Pattern {
                     );
                 }
 
-                let (specific_id, pattern_declaration) = ctx.get_tuple_struct_type(
+                let (specific_id, _, pattern_declaration) = ctx.get_visible_tuple_struct(
                     last_segment.name_span,
                     &last_segment.name,
                     pattern_id,

@@ -307,7 +307,7 @@ impl Expression {
                 };
 
                 let node = if let DataType::Struct(id) = &**inner
-                    && let StructDeclaration::Tuple(_) = datapack.get_struct_type(*id)
+                    && let (_, _, StructDeclaration::Tuple(_)) = datapack.get_struct_type(*id)
                 {
                     let index = field.parse::<i32>().ok()?;
 
@@ -1625,9 +1625,15 @@ impl Expression {
             Self::Unit => SNBT::string("()"),
             Self::StructStruct(id, fields) => {
                 if force_display {
-                    let declaration = datapack.get_struct_struct_type(id);
+                    // TODO: Maybe isplay full path?
+
+                    let (visibility, _, declaration) = datapack.get_struct_struct_type(id);
 
                     let mut output = Vec::new();
+
+                    if visibility.should_display() {
+                        output.push(SNBT::string(format!("{} ", visibility)));
+                    }
 
                     output.push(SNBT::string(if declaration.generic_types.is_empty() {
                         if fields.is_empty() {
@@ -1684,9 +1690,15 @@ impl Expression {
             }
             Self::TupleStruct(id, fields) => {
                 if force_display {
-                    let declaration = datapack.get_tuple_struct_type(id);
+                    // TODO: Maybe display full path?
+
+                    let (visibility, _, declaration) = datapack.get_tuple_struct_type(id);
 
                     let mut output = Vec::new();
+
+                    if visibility.should_display() {
+                        output.push(SNBT::string(format!("{} ", visibility)));
+                    }
 
                     output.push(SNBT::string(if declaration.generic_types.is_empty() {
                         format!("{}(", declaration.name)

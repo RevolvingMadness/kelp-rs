@@ -1,7 +1,7 @@
 use std::string
 
 mod useful_structs {
-    struct Container<T> {
+    pub struct Container<T> {
         value: T
     }
 }

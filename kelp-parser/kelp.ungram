@@ -2,13 +2,14 @@ Root =
   Item*
 
 // ----- Item -----
-Item =
-  ModuleDeclarationItem
-| UseItem
-| MCFNDeclarationItem
-| StructStructDeclarationItem
-| TupleStructDeclarationItem
-| TypeAliasDeclarationItem
+Item = 'pub'? ItemKind
+
+ItemKind = ModuleDeclarationItem
+  | UseItem
+  | MCFNDeclarationItem
+  | StructStructDeclarationItem
+  | TupleStructDeclarationItem
+  | TypeAliasDeclarationItem
 
 ModuleDeclarationItem = 'mod' 'module_name' '{' Item* '}'
 

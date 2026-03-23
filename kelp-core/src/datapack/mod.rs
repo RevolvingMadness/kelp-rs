@@ -11,10 +11,10 @@ use crate::middle::environment::r#type::r#struct::{
     StructDeclaration, StructId, StructStructDeclaration, StructStructId, TupleStructDeclaration,
     TupleStructId,
 };
-use crate::middle::environment::r#type::{TypeDeclaration, TypeId};
 use crate::middle::environment::value::{ValueDeclaration, ValueId};
 use crate::player_score::GeneratedPlayerScore;
 use crate::span::Span;
+use crate::visibility::Visibility;
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
 use minecraft_command_types::command::scoreboard::{
@@ -84,25 +84,25 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_type(&self, id: TypeId) -> &TypeDeclaration {
-        self.environment.get_type(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_struct_type(&self, id: StructId) -> &StructDeclaration {
+    pub fn get_struct_type(&self, id: StructId) -> (Visibility, &[String], &StructDeclaration) {
         self.environment.get_struct(id)
     }
 
     #[inline]
     #[must_use]
-    pub fn get_struct_struct_type(&self, id: StructStructId) -> &StructStructDeclaration {
+    pub fn get_struct_struct_type(
+        &self,
+        id: StructStructId,
+    ) -> (Visibility, &[String], &StructStructDeclaration) {
         self.environment.get_struct_struct(id)
     }
 
     #[inline]
     #[must_use]
-    pub fn get_tuple_struct_type(&self, id: TupleStructId) -> &TupleStructDeclaration {
+    pub fn get_tuple_struct_type(
+        &self,
+        id: TupleStructId,
+    ) -> (Visibility, &[String], &TupleStructDeclaration) {
         self.environment.get_tuple_struct(id)
     }
 

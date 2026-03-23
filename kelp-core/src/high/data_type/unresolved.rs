@@ -97,7 +97,7 @@ impl UnresolvedDataType {
 
                 let mut path = path.resolve_partially(context_generic_names, ctx)?;
 
-                let id = ctx.resolve_type_generic_path(&path)?;
+                let id = ctx.get_visible_type_id(&path)?;
                 let last_segment = path.segments.pop().unwrap();
 
                 let declaration = ctx.get_type(id).clone();

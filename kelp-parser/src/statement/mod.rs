@@ -10,11 +10,9 @@ use crate::{
     span::span_of_cst_node,
     statement::{
         append::{lower_append_statement, try_parse_append_statement},
-        block::{lower_block_statement, try_parse_block_statement},
         r#break::{lower_break_statement, try_parse_break_statement},
         r#continue::{lower_continue_statement, try_parse_continue_statement},
         r#for::{lower_for_statement, try_parse_for_statement},
-        r#if::{lower_if_statement, try_parse_if_statement},
         item::{lower_item_statement, try_parse_item_statement},
         r#let::{lower_let_statement, try_parse_let_statement},
         r#loop::{lower_loop_statement, try_parse_loop_statement},
@@ -25,11 +23,9 @@ use crate::{
 };
 
 pub mod append;
-pub mod block;
 pub mod r#break;
 pub mod r#continue;
 pub mod r#for;
-pub mod r#if;
 pub mod item;
 pub mod r#let;
 pub mod r#loop;
@@ -43,94 +39,80 @@ pub fn is_statement_recovery(char: char) -> bool {
 
 #[must_use]
 pub fn try_parse_statement(parser: &mut Parser) -> bool {
-    let Some(c) = parser.peek_char() else {
-        return false;
-    };
-
-    #[allow(clippy::single_match_else)]
-    match c {
-        '{' => try_parse_block_statement(parser),
-        _ => {
-            if let Some(text) = parser.peek_identifier() {
-                match text {
-                    "if" => {
-                        if try_parse_if_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "let" => {
-                        if try_parse_let_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "while" => {
-                        if try_parse_while_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "for" => {
-                        if try_parse_for_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "loop" => {
-                        if try_parse_loop_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "break" => {
-                        if try_parse_break_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "continue" => {
-                        if try_parse_continue_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "append" => {
-                        if try_parse_append_statement(parser) {
-                            return true;
-                        }
-                    }
-                    "remove" => {
-                        if try_parse_remove_statement(parser) {
-                            return true;
-                        }
-                    }
-                    _ => {
-                        if try_parse_item_statement(parser) {
-                            return true;
-                        }
-                    }
+    if let Some(text) = parser.peek_identifier() {
+        match text {
+            "let" => {
+                if try_parse_let_statement(parser) {
+                    return true;
                 }
             }
-
-            parser.start_node(SyntaxKind::ExpressionStatement);
-
-            if !try_parse_expression(parser) {
-                let chars = parser.source[parser.pos..].chars();
-                let mut length = 0;
-
-                for char in chars {
-                    if is_statement_recovery(char) {
-                        break;
-                    }
-
-                    length += char.len_utf8();
-                }
-
-                if length > 0 {
-                    parser.error_with_len("Expected statement", length);
-
-                    parser.add_token(SyntaxKind::Garbage, length);
+            "while" => {
+                if try_parse_while_statement(parser) {
+                    return true;
                 }
             }
-            parser.finish_node();
-
-            true
+            "for" => {
+                if try_parse_for_statement(parser) {
+                    return true;
+                }
+            }
+            "loop" => {
+                if try_parse_loop_statement(parser) {
+                    return true;
+                }
+            }
+            "break" => {
+                if try_parse_break_statement(parser) {
+                    return true;
+                }
+            }
+            "continue" => {
+                if try_parse_continue_statement(parser) {
+                    return true;
+                }
+            }
+            "append" => {
+                if try_parse_append_statement(parser) {
+                    return true;
+                }
+            }
+            "remove" => {
+                if try_parse_remove_statement(parser) {
+                    return true;
+                }
+            }
+            _ => {
+                if try_parse_item_statement(parser) {
+                    return true;
+                }
+            }
         }
     }
+
+    parser.start_node(SyntaxKind::ExpressionStatement);
+
+    if !try_parse_expression(parser) {
+        let chars = parser.source[parser.pos..].chars();
+        let mut length = 0;
+
+        for char in chars {
+            if is_statement_recovery(char) {
+                break;
+            }
+
+            length += char.len_utf8();
+        }
+
+        if length > 0 {
+            parser.error_with_len("Expected statement", length);
+
+            parser.add_token(SyntaxKind::Garbage, length);
+        }
+    }
+
+    parser.finish_node();
+
+    true
 }
 
 #[must_use]
@@ -148,9 +130,7 @@ pub fn lower_expression_statement(
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_statement(node: CSTStatement, ctx: &mut SemanticAnalysisContext) -> Option<Statement> {
     match node {
-        CSTStatement::BlockStatement(statement) => lower_block_statement(statement, ctx),
         CSTStatement::ExpressionStatement(node) => lower_expression_statement(node, ctx),
-        CSTStatement::IfStatement(statement) => lower_if_statement(statement, ctx),
         CSTStatement::LetStatement(statement) => lower_let_statement(statement, ctx),
         CSTStatement::WhileStatement(node) => lower_while_statement(node, ctx),
         CSTStatement::ForStatement(node) => lower_for_statement(node, ctx),

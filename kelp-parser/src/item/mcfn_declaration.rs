@@ -2,9 +2,10 @@ use kelp_core::high::{item::ItemKind, semantic_analysis_context::SemanticAnalysi
 
 use crate::{
     cst::CSTMCFNDeclarationItem,
+    expression::block::{lower_block_expression, try_parse_block_expression},
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    statement::{lower_statement, try_parse_statement},
+    statement::try_parse_statement,
     syntax::SyntaxKind,
 };
 
@@ -47,8 +48,8 @@ pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
 
     parser.expect_whitespace();
 
-    if !try_parse_statement(parser) {
-        parser.error("Expected statement");
+    if !try_parse_block_expression(parser) {
+        parser.error("Expected block expression");
     }
 
     parser.finish_node();
@@ -63,7 +64,7 @@ pub fn lower_mcfn_declaration_item_kind(
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<ItemKind> {
     let resource_location = lower_resource_location(node.resource_location()?)?;
-    let body = lower_statement(node.statement()?, ctx)?;
+    let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ItemKind::MCFNDeclaration(resource_location, Box::new(body)))
+    Some(ItemKind::MCFNDeclaration(resource_location, body))
 }

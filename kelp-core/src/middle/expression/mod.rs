@@ -2,16 +2,23 @@ use std::collections::HashMap;
 
 use minecraft_command_types::{
     command::{
-        Command as LowCommand,
+        Command,
         enums::store_type::StoreType,
-        execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
+        execute::{
+            ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
+        },
+        r#return::ReturnCommand,
     },
+    nbt_path::NbtPath as LowNbtPath,
+    range::IntegerRange,
+    resource_location::ResourceLocation,
     snbt::SNBTString,
 };
 use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
+    data::GeneratedDataTarget,
     datapack::Datapack,
     low::expression::Expression as LowExpression,
     middle::{
@@ -21,9 +28,13 @@ use crate::{
             r#type::r#struct::{StructStructId, TupleStructId},
             value::ValueId,
         },
-        expression::command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
+        expression::command::{
+            Command as MiddleCommand,
+            execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
+        },
         nbt_path::NbtPath,
         player_score::PlayerScore,
+        statement::{ControlFlow, ControlFlowKind, Statement},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     place::Place,
@@ -31,6 +42,188 @@ use crate::{
 };
 
 pub mod command;
+
+fn compile_if(
+    datapack: &mut Datapack,
+    caller_ctx: &mut CompileContext,
+    control_flow: Option<ControlFlow>,
+    mut body_ctx: CompileContext,
+    inverted: bool,
+    condition: ExecuteIfSubcommand,
+) {
+    let should_inine = body_ctx.num_commands() <= 5;
+
+    if should_inine {
+        for command in body_ctx.commands {
+            caller_ctx.add_command(
+                datapack,
+                Command::Execute(ExecuteSubcommand::If(
+                    inverted,
+                    condition
+                        .clone()
+                        .then(ExecuteSubcommand::Run(Box::new(command))),
+                )),
+            );
+        }
+    } else {
+        let body_paths = datapack.get_unique_function_paths();
+        let body_function_resource_location = ResourceLocation::new_namespace_paths(
+            datapack.current_namespace_name(),
+            body_paths.clone(),
+        );
+
+        match control_flow {
+            Some(control_flow) => match control_flow.kind {
+                ControlFlowKind::Break | ControlFlowKind::Continue => {
+                    caller_ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::If(
+                            inverted,
+                            condition.then(ExecuteSubcommand::If(
+                                true,
+                                ExecuteIfSubcommand::Function(
+                                    body_function_resource_location,
+                                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
+                                        ReturnCommand::Fail,
+                                    )))),
+                                ),
+                            )),
+                        )),
+                    );
+                }
+            },
+            None => {
+                caller_ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
+                        ExecuteSubcommand::Run(Box::new(Command::Function(
+                            body_function_resource_location,
+                            None,
+                        ))),
+                    )),
+                );
+            }
+        }
+
+        body_ctx.add_command(datapack, Command::Return(ReturnCommand::Value(1)));
+
+        datapack.compile_and_add_to_function(&body_paths, &mut body_ctx);
+    }
+}
+
+fn compile_if_internal(
+    datapack: &mut Datapack,
+    ctx: &mut CompileContext,
+    condition: Expression,
+    body: Expression,
+    else_body: Option<Box<Expression>>,
+    output: Option<(GeneratedDataTarget, LowNbtPath)>,
+) {
+    let mut body_ctx = ctx.create_child_ctx();
+    let control_flow = body.kind.get_control_flow(ctx);
+    let body = body.kind.resolve(datapack, &mut body_ctx);
+
+    if let Some((output_target, output_path)) = &output {
+        body.assign_to_data(
+            datapack,
+            &mut body_ctx,
+            output_target.clone(),
+            output_path.clone(),
+        );
+    }
+
+    let (invert, condition) = condition
+        .kind
+        .resolve(datapack, ctx)
+        .to_execute_condition(datapack, ctx, false)
+        .unwrap();
+
+    if let Some(else_body) = else_body {
+        let mut else_body_ctx = ctx.create_child_ctx();
+        let else_control_flow = else_body.kind.get_control_flow(ctx);
+        let else_body = else_body.kind.resolve(datapack, &mut else_body_ctx);
+
+        if let Some((output_target, output_path)) = output {
+            else_body.assign_to_data(datapack, &mut else_body_ctx, output_target, output_path);
+        }
+
+        let should_add_condition = body_ctx.num_commands() > 1 || else_body_ctx.num_commands() > 1;
+
+        let (invert, condition) = if should_add_condition {
+            let unique_score = datapack.get_unique_score();
+
+            ctx.add_command(
+                datapack,
+                Command::Execute(ExecuteSubcommand::Store(
+                    StoreType::Result,
+                    ExecuteStoreSubcommand::Score(
+                        unique_score.score.clone(),
+                        Box::new(ExecuteSubcommand::If(invert, condition)),
+                    ),
+                )),
+            );
+
+            (
+                true,
+                ExecuteIfSubcommand::Score(
+                    unique_score.score,
+                    ScoreComparison::Range(IntegerRange::new_single(0)),
+                    None,
+                ),
+            )
+        } else {
+            (invert, condition)
+        };
+
+        compile_if(
+            datapack,
+            ctx,
+            control_flow,
+            body_ctx,
+            invert,
+            condition.clone(),
+        );
+
+        compile_if(
+            datapack,
+            ctx,
+            else_control_flow,
+            else_body_ctx,
+            !invert,
+            condition,
+        );
+    } else {
+        let should_add_condition = body_ctx.num_commands() > 1;
+
+        let (invert, condition) = if should_add_condition {
+            let unique_score = datapack.get_unique_score();
+
+            ctx.add_command(
+                datapack,
+                Command::Execute(ExecuteSubcommand::Store(
+                    StoreType::Result,
+                    ExecuteStoreSubcommand::Score(
+                        unique_score.score.clone(),
+                        Box::new(ExecuteSubcommand::If(invert, condition)),
+                    ),
+                )),
+            );
+
+            (
+                true,
+                ExecuteIfSubcommand::Score(
+                    unique_score.score,
+                    ScoreComparison::Range(IntegerRange::new_single(0)),
+                    None,
+                ),
+            )
+        } else {
+            (invert, condition)
+        };
+
+        compile_if(datapack, ctx, control_flow, body_ctx, invert, condition);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
@@ -56,8 +249,8 @@ pub enum ExpressionKind {
     Compound(HashMap<SNBTString, Expression>),
     PlayerScore(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
-    Condition(bool, Box<ExecuteIfSubcommand>),
-    Command(Box<Command>),
+    Condition(bool, Box<MiddleExecuteIfSubcommand>),
+    Command(Box<MiddleCommand>),
     Index(Box<Expression>, Box<Expression>),
     FieldAccess(Box<Expression>, SNBTString),
     AsCast(Box<Expression>, DataType),
@@ -66,6 +259,8 @@ pub enum ExpressionKind {
     Variable(ValueId),
     StructStruct(StructStructId, HashMap<SNBTString, Expression>),
     TupleStruct(TupleStructId, Vec<Expression>),
+    If(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
+    Block(Vec<Statement>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -78,6 +273,42 @@ impl ExpressionKind {
             kind: self,
             data_type,
         }
+    }
+
+    #[must_use]
+    pub fn get_control_flow_kind(&self) -> Option<ControlFlowKind> {
+        // match self {
+        //     Self::Expression(_)
+        //     | Self::Let(_, _, _)
+        //     | Self::Append(_, _)
+        //     | Self::Remove(_)
+        //     | Self::Item(_) => None,
+        //     Self::While(_, statement) | Self::Loop(statement) | Self::For(_, _, _, statement) => {
+        //         statement.get_control_flow_kind()
+        //     }
+        //     Self::Match(_, _) => todo!(),
+        //     Self::If(_, statement, else_statement) => {
+        //         statement.get_control_flow_kind().or_else(|| {
+        //             else_statement
+        //                 .as_ref()
+        //                 .and_then(|statement| statement.get_control_flow_kind())
+        //         })
+        //     }
+        //     Self::Block(statements) => statements.iter().find_map(Self::get_control_flow_kind),
+        //     Self::Break => Some(ControlFlowKind::Break),
+        //     Self::Continue => Some(ControlFlowKind::Continue),
+        // }
+        todo!()
+    }
+
+    #[must_use]
+    pub fn get_control_flow(&self, ctx: &mut CompileContext) -> Option<ControlFlow> {
+        let loop_info = ctx.loop_info.as_ref()?.clone();
+
+        Some(ControlFlow {
+            kind: self.get_control_flow_kind()?,
+            loop_info,
+        })
     }
 
     #[must_use]
@@ -176,7 +407,9 @@ impl ExpressionKind {
             | Self::AsCast(_, _)
             | Self::ToCast(_, _, _)
             | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _) => None,
+            | Self::TupleStruct(_, _)
+            | Self::Block(_)
+            | Self::If(_, _, _) => None,
         }
     }
 
@@ -263,7 +496,7 @@ impl ExpressionKind {
 
                 ctx.add_command(
                     datapack,
-                    LowCommand::Execute(ExecuteSubcommand::Store(
+                    Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Result,
                         ExecuteStoreSubcommand::Score(
                             unique_score.score.clone(),
@@ -345,6 +578,31 @@ impl ExpressionKind {
             Self::String(value) => LowExpression::String(value),
             Self::Unit => LowExpression::Unit,
             Self::Variable(id) => datapack.get_variable_value(id).1.clone(),
+            Self::Block(mut statements) => {
+                let last = statements.pop();
+
+                for statement in statements {
+                    statement.compile(datapack, ctx);
+                }
+
+                last.map_or(LowExpression::Unit, |last| {
+                    last.compile(datapack, ctx).unwrap_or(LowExpression::Unit)
+                })
+            }
+            Self::If(condition, body, else_body) => {
+                let (output_target, output_path) = datapack.get_unique_data();
+
+                compile_if_internal(
+                    datapack,
+                    ctx,
+                    *condition,
+                    *body,
+                    else_body,
+                    Some((output_target.clone(), output_path.clone())),
+                );
+
+                LowExpression::Data(Box::new((output_target, output_path)))
+            }
         }
     }
 
@@ -378,7 +636,7 @@ impl ExpressionKind {
 
                 ctx.add_command(
                     datapack,
-                    LowCommand::Execute(ExecuteSubcommand::If(false, condition)),
+                    Command::Execute(ExecuteSubcommand::If(false, condition)),
                 );
             }
             Self::Command(command) => {
@@ -403,6 +661,14 @@ impl ExpressionKind {
                 for field_expression in field_expressions {
                     field_expression.kind.compile_as_statement(datapack, ctx);
                 }
+            }
+            Self::Block(statements) => {
+                for statement in statements {
+                    statement.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::If(condition, body, else_body) => {
+                compile_if_internal(datapack, ctx, *condition, *body, else_body, None);
             }
             Self::Underscore => {
                 #[cfg(debug_assertions)]

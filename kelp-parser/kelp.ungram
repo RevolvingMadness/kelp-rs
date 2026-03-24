@@ -26,7 +26,7 @@ AsUseTree = Path 'as' 'ident'
 PathUseTree = Path
 
 MCFNDeclarationItem =
-  'mcfn' ResourceLocation Statement
+  'mcfn' ResourceLocation BlockExpression
 
 StructStructDeclarationItem = 'struct' name:'type_name' GenericNames? '{' StructFields? '}'
 StructFields = (StructField (',' StructField)*) ','?
@@ -41,9 +41,7 @@ TypeAliasDeclarationItem =
 
 // ----- Statement -----
 Statement =
-  BlockStatement
-| ExpressionStatement
-| IfStatement
+  ExpressionStatement
 | WhileStatement
 | ForStatement
 | LoopStatement
@@ -54,14 +52,8 @@ Statement =
 | RemoveStatement
 | ItemStatement
 
-BlockStatement =
-  '{' Statement* '}'
-
 ExpressionStatement =
   Expression
-
-IfStatement =
-  'if' condition:Expression body:Statement ('else' else_body:Statement)?
 
 WhileStatement =
   'while' condition:Expression body:Statement
@@ -94,7 +86,9 @@ GenericDataTypes =
 
 // ----- Expression -----
 Expression =
-  PathExpression
+  IfExpression
+| BlockExpression
+| PathExpression
 | UnderscoreExpression
 | UnaryExpression
 | AssignmentExpression
@@ -117,6 +111,12 @@ Expression =
 | CompoundExpression
 | IndexExpression
 | FieldAccessExpression
+
+IfExpression =
+  'if' condition:Expression body:BlockExpression ('else' (else_body_block:BlockExpression | else_body_if:IfExpression))?
+
+BlockExpression =
+  '{' Statement* '}'
 
 PathExpression = GenericPath
 

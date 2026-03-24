@@ -1,11 +1,11 @@
 use minecraft_command_types::resource_location::ResourceLocation;
 
-use crate::{compile_context::CompileContext, datapack::Datapack, middle::statement::Statement};
+use crate::{compile_context::CompileContext, datapack::Datapack, middle::expression::Expression};
 
 #[derive(Debug, Clone)]
 pub enum Item {
     ModuleDeclaration,
-    MCFNDeclaration(ResourceLocation, Box<Statement>),
+    MCFNDeclaration(ResourceLocation, Expression),
     TypeAliasDeclaration,
     StructStructDeclaration,
     TupleStructDeclaration,
@@ -15,13 +15,15 @@ pub enum Item {
 impl Item {
     pub fn compile(self, datapack: &mut Datapack, _ctx: &mut CompileContext) {
         match self {
-            Self::MCFNDeclaration(id, statement) => {
+            Self::MCFNDeclaration(id, expression) => {
                 datapack.within_namespace(id.namespace(), |datapack| {
                     datapack.push_function_to_current_namespace(id.paths.clone());
 
                     let mut function_ctx = CompileContext::default();
 
-                    statement.compile(datapack, &mut function_ctx);
+                    expression
+                        .kind
+                        .compile_as_statement(datapack, &mut function_ctx);
 
                     let function_commands = function_ctx.compile();
 

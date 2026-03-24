@@ -10,10 +10,10 @@ use crate::{
             alias::HighAliasDeclaration,
             r#struct::{HighStructStructDeclaration, HighTupleStructDeclaration},
         },
+        expression::Expression,
         semantic_analysis_context::{
             ResolvedItem, SemanticAnalysisContext, info::error::SemanticAnalysisError,
         },
-        statement::Statement,
         use_tree::UseTree,
     },
     middle::item::Item as MiddleItem,
@@ -24,7 +24,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ItemKind {
     ModuleDeclaration(Span, String, Vec<Item>),
-    MCFNDeclaration(ResourceLocation, Box<Statement>),
+    MCFNDeclaration(ResourceLocation, Expression),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
     StructStructDeclaration(
         Span,
@@ -72,10 +72,10 @@ impl Item {
 
                 MiddleItem::ModuleDeclaration
             }
-            ItemKind::MCFNDeclaration(resource_location, statement) => {
-                let statement = statement.perform_semantic_analysis(ctx)?;
+            ItemKind::MCFNDeclaration(resource_location, body) => {
+                let (_, body) = body.perform_semantic_analysis(ctx)?;
 
-                MiddleItem::MCFNDeclaration(resource_location, Box::new(statement))
+                MiddleItem::MCFNDeclaration(resource_location, body)
             }
             ItemKind::TypeAliasDeclaration(name_span, name, generic_names, alias) => {
                 if ctx.type_is_declared_in_current_scope(&name) {

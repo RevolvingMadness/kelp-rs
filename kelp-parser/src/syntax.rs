@@ -159,9 +159,7 @@ pub enum SyntaxKind {
     TypeAliasDeclarationItem,
     UseItem,
 
-    BlockStatement,
     ExpressionStatement,
-    IfStatement,
     LetStatement,
     WhileStatement,
     ForStatement,
@@ -207,6 +205,8 @@ pub enum SyntaxKind {
     TupleStructExpression,
     TupleStructExpressionFields,
     TupleStructExpressionField,
+    IfExpression,
+    BlockExpression,
     FieldAccessExpression,
     FieldName,
     AssignmentExpression,

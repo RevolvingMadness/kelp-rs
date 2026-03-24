@@ -1,24 +1,24 @@
 use kelp_core::high::{
+    expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
 };
 
 use crate::{
-    cst::CSTBlockStatement,
+    cst::CSTBlockExpression,
     parser::Parser,
     span::span_of_cst_node,
     statement::{lower_statement, try_parse_statement},
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_block_statement(parser: &mut Parser) -> bool {
+pub fn try_parse_block_expression(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
 
     if !parser.try_bump_char('{') {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::BlockStatement);
+    parser.start_node_at(checkpoint, SyntaxKind::BlockExpression);
 
     let mut is_first = true;
 
@@ -56,10 +56,10 @@ pub fn try_parse_block_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_block_statement(
-    node: CSTBlockStatement,
+pub fn lower_block_expression(
+    node: CSTBlockExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Statement> {
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
     let statements = node
@@ -67,5 +67,5 @@ pub fn lower_block_statement(
         .filter_map(|statment| lower_statement(statment, ctx))
         .collect();
 
-    Some(StatementKind::Block(statements).with_span(span))
+    Some(ExpressionKind::Block(statements).with_span(span))
 }

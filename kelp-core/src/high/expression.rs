@@ -11,11 +11,13 @@ use crate::{
         player_score::PlayerScore,
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
+        statement::Statement,
     },
     middle::{
         data_type::DataType,
         environment::value::ValueDeclarationKind,
         expression::{Expression as MiddleExpression, ExpressionKind as MiddleExpressionKind},
+        statement::Statement as MiddleStatement,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     path::generic::GenericPath,
@@ -62,6 +64,8 @@ pub enum ExpressionKind {
         HashMap<SNBTString, Expression>,
     ),
     TupleStruct(GenericPath<UnresolvedDataType>, Vec<Expression>),
+    If(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
+    Block(Vec<Statement>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -200,6 +204,8 @@ impl Expression {
             | ExpressionKind::ToCast(_, _)
             | ExpressionKind::StructStruct(_, _)
             | ExpressionKind::TupleStruct(_, _)
+            | ExpressionKind::Block(_)
+            | ExpressionKind::If(_, _, _)
             | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Path(path) => {
@@ -794,6 +800,80 @@ impl Expression {
 
                 MiddleExpressionKind::TupleStruct(specific_id, field_values)
                     .with(DataType::Struct(id))
+            }
+            ExpressionKind::If(condition, body, else_body) => {
+                let condition = condition.perform_semantic_analysis(ctx);
+                let body = body.perform_semantic_analysis(ctx);
+                let else_body = else_body.map(|else_body| else_body.perform_semantic_analysis(ctx));
+
+                let (condition_span, condition) = condition?;
+
+                if !condition.data_type.is_condition() {
+                    return ctx.add_error(
+                        condition_span,
+                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
+                    );
+                }
+
+                let (body_span, body) = body?;
+                let else_body = match else_body {
+                    Some(else_body) => Some(else_body?),
+                    None => None,
+                };
+
+                let else_type = if let Some((else_body_span, else_body)) = &else_body {
+                    if !else_body.data_type.equals(&body.data_type) {
+                        return ctx.add_error(
+                            *else_body_span,
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: body.data_type,
+                                actual: else_body.data_type.clone(),
+                            },
+                        );
+                    }
+
+                    &else_body.data_type
+                } else {
+                    if !body.data_type.equals(&DataType::Unit) {
+                        return ctx.add_error(
+                            body_span,
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: DataType::Unit,
+                                actual: body.data_type,
+                            },
+                        );
+                    }
+
+                    &DataType::Unit
+                };
+
+                let data_type = body.data_type.clone().reduce(else_type).unwrap();
+
+                MiddleExpressionKind::If(
+                    Box::new(condition),
+                    Box::new(body),
+                    else_body.map(|(_, else_body)| Box::new(else_body)),
+                )
+                .with(data_type)
+            }
+            ExpressionKind::Block(statements) => {
+                ctx.enter_scope();
+
+                let statements = statements
+                    .into_iter()
+                    .map(|statement| statement.perform_semantic_analysis(ctx))
+                    .collect_option_all::<Vec<_>>();
+
+                ctx.exit_scope();
+
+                let statements = statements?;
+
+                let last_statement_type = statements
+                    .last()
+                    .and_then(MiddleStatement::get_data_type)
+                    .unwrap_or(DataType::Unit);
+
+                MiddleExpressionKind::Block(statements).with(last_statement_type)
             }
             ExpressionKind::Path(path) => {
                 let path = path.resolve_fully(ctx)?;

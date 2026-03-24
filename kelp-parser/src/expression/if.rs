@@ -1,21 +1,23 @@
 use kelp_core::high::{
+    expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
 };
 
 use crate::{
-    cst::CSTIfStatement,
-    expression::{lower_expression, try_parse_expression},
+    cst::CSTIfExpression,
+    expression::{
+        block::{lower_block_expression, try_parse_block_expression},
+        lower_expression, try_parse_expression,
+    },
     parser::Parser,
     span::span_of_cst_node,
-    statement::{block::try_parse_block_statement, lower_statement},
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_if_statement(parser: &mut Parser) -> bool {
+pub fn try_parse_if_expression(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::IfStatement);
+    parser.start_node(SyntaxKind::IfExpression);
     parser.bump_str(SyntaxKind::IfKeyword, "if");
     parser.skip_inline_whitespace();
 
@@ -27,7 +29,7 @@ pub fn try_parse_if_statement(parser: &mut Parser) -> bool {
 
     parser.skip_inline_whitespace();
 
-    if !try_parse_block_statement(parser) {
+    if !try_parse_block_expression(parser) {
         parser.recover_newline("Expected block statement");
     }
 
@@ -39,11 +41,11 @@ pub fn try_parse_if_statement(parser: &mut Parser) -> bool {
         parser.skip_inline_whitespace();
 
         if parser.peek_char() == Some('{') {
-            if !try_parse_block_statement(parser) {
+            if !try_parse_block_expression(parser) {
                 parser.recover_newline("Expected block statement");
             }
         } else if parser.peek_identifier() == Some("if") {
-            if !try_parse_if_statement(parser) {
+            if !try_parse_if_expression(parser) {
                 parser.recover_newline("Expected if statement");
             }
         } else {
@@ -58,18 +60,19 @@ pub fn try_parse_if_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_if_statement(
-    node: CSTIfStatement,
+pub fn lower_if_expression(
+    node: CSTIfExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Statement> {
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
     let condition = lower_expression(node.condition()?, ctx)?;
-    let body = lower_statement(node.body()?, ctx)?;
+    let body = lower_block_expression(node.body()?, ctx)?;
     let else_body = node
-        .else_body()
-        .and_then(|statement| lower_statement(statement, ctx))
+        .else_body_block()
+        .and_then(|expression| lower_block_expression(expression, ctx))
+        .or_else(|| lower_if_expression(node.else_body_if()?, ctx))
         .map(Box::new);
 
-    Some(StatementKind::If(condition, Box::new(body), else_body).with_span(span))
+    Some(ExpressionKind::If(Box::new(condition), Box::new(body), else_body).with_span(span))
 }

@@ -7,12 +7,14 @@ use crate::{
         as_cast::lower_as_cast_expression,
         assignment::lower_assignment_expression,
         binary::lower_binary_expression,
+        block::{lower_block_expression, try_parse_block_expression},
         boolean::lower_boolean_expression,
         character::lower_character_expression,
         command::{lower_command_expression, try_parse_command_expression},
-        compound::{lower_compound_expression, try_parse_compound_expression},
+        compound::lower_compound_expression,
         data::{lower_data_expression, try_parse_data_expression},
         field_access::lower_field_access_expression,
+        r#if::{lower_if_expression, try_parse_if_expression},
         index::lower_index_expression,
         list::{lower_list_expression, try_parse_list_expression},
         numeric::lower_numeric_expression,
@@ -38,12 +40,14 @@ use crate::{
 pub mod as_cast;
 pub mod assignment;
 pub mod binary;
+pub mod block;
 pub mod boolean;
 pub mod character;
 pub mod command;
 pub mod compound;
 pub mod data;
 pub mod field_access;
+pub mod r#if;
 pub mod index;
 pub mod list;
 pub mod numeric;
@@ -487,7 +491,16 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
 
 pub fn try_parse_primary(parser: &mut Parser) -> bool {
     match parser.peek_char() {
-        Some('{') => try_parse_compound_expression(parser),
+        // Some('{') => try_parse_compound_expression(parser),
+        Some('{') => {
+            if try_parse_block_expression(parser) {
+                return true;
+            }
+
+            parser.error("Expected block expression");
+
+            false
+        }
         Some('[') => try_parse_list_expression(parser),
         Some('(') => {
             let checkpoint = parser.checkpoint();
@@ -582,40 +595,8 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
             true
         }
-        _ => parser.peek_identifier().is_some_and(|text| match text {
-            "true" => {
-                parser.start_node(SyntaxKind::BooleanExpression);
-                parser.bump_identifier_kind(SyntaxKind::TrueKeyword, "true");
-                parser.finish_node();
-
-                true
-            }
-            "false" => {
-                parser.start_node(SyntaxKind::BooleanExpression);
-                parser.bump_identifier_kind(SyntaxKind::FalseKeyword, "false");
-                parser.finish_node();
-
-                true
-            }
-            "score" => {
-                if !try_parse_score_expression(parser) {
-                    parser.start_node(SyntaxKind::PathExpression);
-                    parser.bump_identifier("score");
-                    parser.finish_node();
-                }
-
-                true
-            }
-            "entity" | "block" | "storage" => {
-                if !try_parse_data_expression(parser) {
-                    parser.start_node(SyntaxKind::PathExpression);
-                    parser.bump_identifier(text);
-                    parser.finish_node();
-                }
-
-                true
-            }
-            _ => {
+        _ => {
+            let default = |parser: &mut Parser, text: &str| {
                 if try_parse_command_expression(parser, text) {
                     return true;
                 }
@@ -677,8 +658,51 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 parser.finish_node();
 
                 true
-            }
-        }),
+            };
+
+            parser.peek_identifier().is_some_and(|text| match text {
+                "true" => {
+                    parser.start_node(SyntaxKind::BooleanExpression);
+                    parser.bump_identifier_kind(SyntaxKind::TrueKeyword, "true");
+                    parser.finish_node();
+
+                    true
+                }
+                "false" => {
+                    parser.start_node(SyntaxKind::BooleanExpression);
+                    parser.bump_identifier_kind(SyntaxKind::FalseKeyword, "false");
+                    parser.finish_node();
+
+                    true
+                }
+                "score" => {
+                    if !try_parse_score_expression(parser) {
+                        parser.start_node(SyntaxKind::PathExpression);
+                        parser.bump_identifier("score");
+                        parser.finish_node();
+                    }
+
+                    true
+                }
+                "entity" | "block" | "storage" => {
+                    if !try_parse_data_expression(parser) {
+                        parser.start_node(SyntaxKind::PathExpression);
+                        parser.bump_identifier(text);
+                        parser.finish_node();
+                    }
+
+                    true
+                }
+                "if" => {
+                    if try_parse_if_expression(parser) {
+                        return true;
+                    }
+
+                    default(parser, "if")
+                }
+                _ => default(parser, text),
+            })
+        }
     }
 }
 
@@ -689,6 +713,8 @@ pub fn lower_expression(
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Expression> {
     match node {
+        CSTExpression::BlockExpression(node) => lower_block_expression(node, ctx),
+        CSTExpression::IfExpression(node) => lower_if_expression(node, ctx),
         CSTExpression::UnaryExpression(node) => lower_unary_expression(node, ctx),
         CSTExpression::PathExpression(node) => lower_path_expression(node, ctx),
         CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node, ctx),

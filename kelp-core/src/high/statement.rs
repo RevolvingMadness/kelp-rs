@@ -7,7 +7,6 @@ use crate::high::semantic_analysis_context::SemanticAnalysisContext;
 use crate::high::semantic_analysis_context::info::error::SemanticAnalysisError;
 use crate::middle::statement::ControlFlowKind;
 use crate::span::Span;
-use crate::trait_ext::CollectOptionAllIterExt;
 use crate::{high::expression::Expression, middle::statement::Statement as MiddleStatement};
 use minecraft_command_types::range::IntegerRange;
 
@@ -18,9 +17,7 @@ pub enum StatementKind {
     While(Expression, Box<Statement>),
     Loop(Box<Statement>),
     Match(Expression, HashMap<IntegerRange, Box<Statement>>),
-    If(Expression, Box<Statement>, Option<Box<Statement>>),
     For(bool, Pattern, Expression, Box<Statement>),
-    Block(Vec<Statement>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
     Item(Box<Item>),
@@ -108,27 +105,6 @@ impl Statement {
                 MiddleStatement::Loop(Box::new(body))
             }
             StatementKind::Match(_, _) => todo!(),
-            StatementKind::If(condition, statement, else_statement) => {
-                let condition = condition.perform_semantic_analysis(ctx);
-                let statement = statement.perform_semantic_analysis(ctx);
-                let else_statement = match else_statement {
-                    Some(else_statement) => Some(else_statement.perform_semantic_analysis(ctx)?),
-                    None => None,
-                };
-
-                let (expression_span, condition) = condition?;
-
-                if !condition.data_type.is_condition() {
-                    return ctx.add_error(
-                        expression_span,
-                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
-                    );
-                }
-
-                let statement = statement?;
-
-                MiddleStatement::If(condition, Box::new(statement), else_statement.map(Box::new))
-            }
             StatementKind::For(is_reversed, pattern, iterable, statement) => {
                 let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
 
@@ -160,20 +136,6 @@ impl Statement {
                 // TODO: Reorder semantic analysis
 
                 MiddleStatement::For(is_reversed, pattern, iterable, Box::new(statement))
-            }
-            StatementKind::Block(statements) => {
-                ctx.enter_scope();
-
-                let statements = statements
-                    .into_iter()
-                    .map(|statement| statement.perform_semantic_analysis(ctx))
-                    .collect_option_all();
-
-                ctx.exit_scope();
-
-                let statements = statements?;
-
-                MiddleStatement::Block(statements)
             }
             StatementKind::Append(target, value) => {
                 let target = target.perform_semantic_analysis(ctx);

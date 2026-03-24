@@ -2,7 +2,7 @@ use minecraft_command_types::coordinate::Coordinates;
 
 use crate::{
     high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
-    middle::item_source::ItemSource as MiddleItemSource,
+    low::item_source::ItemSource as MiddleItemSource,
 };
 
 #[derive(Debug, Clone)]

@@ -5,7 +5,7 @@ use crate::{
         },
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::expression::command::scoreboard::ScoreboardCommand as MiddleScoreboardCommand,
+    low::expression::command::scoreboard::ScoreboardCommand as MiddleScoreboardCommand,
 };
 
 pub mod objectives;

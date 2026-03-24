@@ -9,7 +9,7 @@ use crate::{
         semantic_analysis_context::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
-    middle::data_type::DataType as MiddleDataType,
+    low::data_type::DataType as MiddleDataType,
     path::generic::GenericPath,
     trait_ext::CollectOptionAllIterExt,
 };

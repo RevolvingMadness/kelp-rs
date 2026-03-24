@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{high::environment::r#type::HighTypeId, middle::environment::value::ValueId};
+use crate::{high::environment::r#type::HighTypeId, low::environment::value::ValueId};
 
 #[derive(Debug, Default, Clone)]
 pub struct Scope {

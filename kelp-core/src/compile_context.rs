@@ -8,7 +8,9 @@ use minecraft_command_types::{
     resource_location::ResourceLocation,
 };
 
-use crate::{data::GeneratedDataTarget, datapack::Datapack, low::expression::Expression};
+use crate::{
+    data::GeneratedDataTarget, datapack::Datapack, low::expression::resolved::ResolvedExpression,
+};
 
 #[derive(Debug, Clone)]
 pub enum LoopType {
@@ -25,7 +27,7 @@ pub struct LoopInfo {
 #[derive(Debug, Default, Clone)]
 pub struct CompileContext {
     pub commands: Vec<Command>,
-    pub macro_arguments: HashMap<usize, Expression>,
+    pub macro_arguments: HashMap<usize, ResolvedExpression>,
     pub macro_data: Option<(GeneratedDataTarget, NbtPath)>,
     pub loop_info: Option<LoopInfo>,
     macro_counter: usize,
@@ -112,7 +114,7 @@ impl CompileContext {
         }
     }
 
-    pub fn get_macro_string(&mut self, expression: Expression) -> String {
+    pub fn get_macro_string(&mut self, expression: ResolvedExpression) -> String {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);
@@ -120,7 +122,7 @@ impl CompileContext {
         format!("$({})", id)
     }
 
-    pub fn get_macro_snbt<T: HasMacro>(&mut self, expression: Expression) -> Macroable<T> {
+    pub fn get_macro_snbt<T: HasMacro>(&mut self, expression: ResolvedExpression) -> Macroable<T> {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);

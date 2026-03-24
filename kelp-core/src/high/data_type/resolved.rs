@@ -4,7 +4,7 @@ use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
     high::{environment::r#type::HighTypeId, semantic_analysis_context::SemanticAnalysisContext},
-    middle::data_type::DataType,
+    low::data_type::DataType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };

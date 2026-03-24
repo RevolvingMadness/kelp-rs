@@ -3,7 +3,7 @@ use minecraft_command_types::range::IntegerRange;
 
 use crate::high::player_score::PlayerScore;
 use crate::high::semantic_analysis_context::SemanticAnalysisContext;
-use crate::middle::score_comparison::ScoreComparison as MiddleScoreComparison;
+use crate::low::score_comparison::ScoreComparison as MiddleScoreComparison;
 
 #[derive(Debug, Clone)]
 pub enum ScoreComparison {

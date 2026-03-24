@@ -5,9 +5,9 @@ use crate::high::item::Item;
 use crate::high::pattern::Pattern;
 use crate::high::semantic_analysis_context::SemanticAnalysisContext;
 use crate::high::semantic_analysis_context::info::error::SemanticAnalysisError;
-use crate::middle::statement::ControlFlowKind;
+use crate::low::statement::ControlFlowKind;
 use crate::span::Span;
-use crate::{high::expression::Expression, middle::statement::Statement as MiddleStatement};
+use crate::{high::expression::Expression, low::statement::Statement as MiddleStatement};
 use minecraft_command_types::range::IntegerRange;
 
 #[derive(Debug, Clone)]

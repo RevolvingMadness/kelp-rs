@@ -1,6 +1,6 @@
 use strum::{Display, EnumString};
 
-use crate::{high::data_type::resolved::PartiallyResolvedDataType, middle::data_type::DataType};
+use crate::{high::data_type::resolved::PartiallyResolvedDataType, low::data_type::DataType};
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]

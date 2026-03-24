@@ -10,7 +10,7 @@ use crate::{
         nbt_path::NbtPath, player_score::PlayerScore, score_comparison::ScoreComparison,
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
+    low::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
 };
 
 #[derive(Debug, Clone)]

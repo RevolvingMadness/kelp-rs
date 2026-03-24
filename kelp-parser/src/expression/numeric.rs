@@ -5,7 +5,7 @@ use kelp_core::{
         expression::{Expression, ExpressionKind},
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    middle::data_type::DataType,
+    low::data_type::DataType,
 };
 use ordered_float::NotNan;
 

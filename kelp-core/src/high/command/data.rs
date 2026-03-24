@@ -6,7 +6,7 @@ use crate::{
         data::DataTarget, expression::Expression, nbt_path::NbtPath,
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::expression::command::data::{
+    low::expression::command::data::{
         DataCommand as MiddleDataCommand, DataCommandModification as MiddleDataCommandModification,
     },
 };

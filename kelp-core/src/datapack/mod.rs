@@ -4,14 +4,14 @@ use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
 use crate::high::data::{DataTarget as HighDataTarget, DataTargetKind};
 use crate::high::nbt_path::{NbtPath, NbtPathNode};
-use crate::low::expression::Expression;
-use crate::middle::data_type::DataType;
-use crate::middle::environment::Environment;
-use crate::middle::environment::r#type::r#struct::{
+use crate::low::data_type::DataType;
+use crate::low::environment::Environment;
+use crate::low::environment::r#type::r#struct::{
     StructDeclaration, StructId, StructStructDeclaration, StructStructId, TupleStructDeclaration,
     TupleStructId,
 };
-use crate::middle::environment::value::{ValueDeclaration, ValueId};
+use crate::low::environment::value::{ValueDeclaration, ValueId};
+use crate::low::expression::resolved::ResolvedExpression;
 use crate::player_score::GeneratedPlayerScore;
 use crate::span::Span;
 use crate::visibility::Visibility;
@@ -56,7 +56,7 @@ pub struct Datapack {
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub value_values: HashMap<ValueId, (DataType, Expression)>,
+    pub value_values: HashMap<ValueId, (DataType, ResolvedExpression)>,
     namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
@@ -107,12 +107,12 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn declare_value(&mut self, id: ValueId, data_type: DataType, value: Expression) {
+    pub fn declare_value(&mut self, id: ValueId, data_type: DataType, value: ResolvedExpression) {
         self.value_values.insert(id, (data_type, value));
     }
 
     #[inline]
-    pub fn set_variable(&mut self, id: ValueId, value: Expression) {
+    pub fn set_variable(&mut self, id: ValueId, value: ResolvedExpression) {
         self.value_values.get_mut(&id).unwrap().1 = value;
     }
 
@@ -124,13 +124,13 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value(&self, id: ValueId) -> &(DataType, Expression) {
+    pub fn get_variable_value(&self, id: ValueId) -> &(DataType, ResolvedExpression) {
         self.value_values.get(&id).unwrap()
     }
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value_mut(&mut self, id: ValueId) -> &mut (DataType, Expression) {
+    pub fn get_variable_value_mut(&mut self, id: ValueId) -> &mut (DataType, ResolvedExpression) {
         self.value_values.get_mut(&id).unwrap()
     }
 

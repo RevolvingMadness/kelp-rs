@@ -21,7 +21,7 @@ use crate::{
         entity_selector::EntitySelector,
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::expression::command::execute::subcommand::ExecuteSubcommand as MiddleExecuteSubcommand,
+    low::expression::command::execute::subcommand::ExecuteSubcommand as MiddleExecuteSubcommand,
     trait_ext::CollectOptionAllIterExt,
 };
 

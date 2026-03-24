@@ -15,7 +15,7 @@ use crate::{
         expression::Expression,
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::expression::command::Command as MiddleCommand,
+    low::expression::command::Command as MiddleCommand,
 };
 
 pub mod data;

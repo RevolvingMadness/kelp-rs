@@ -16,7 +16,7 @@ use crate::{
         },
         use_tree::UseTree,
     },
-    middle::item::Item as MiddleItem,
+    low::item::Item as MiddleItem,
     span::Span,
     visibility::Visibility,
 };

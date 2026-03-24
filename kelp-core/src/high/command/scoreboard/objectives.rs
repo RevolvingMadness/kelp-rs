@@ -5,7 +5,7 @@ use crate::{
         command::scoreboard::players::ScoreboardNumberFormat, expression::Expression,
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::expression::command::scoreboard::objectives::{
+    low::expression::command::scoreboard::objectives::{
         ObjectivesScoreboardCommand as MiddleObjectivesScoreboardCommand,
         ScoreboardModification as MiddleScoreboardModification,
     },

@@ -4,7 +4,6 @@ pub mod data;
 pub mod datapack;
 pub mod high;
 pub mod low;
-pub mod middle;
 pub mod operator;
 pub mod path;
 pub mod pattern_type;

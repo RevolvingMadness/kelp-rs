@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::{
-    middle::{data_type::DataType, environment::Environment, statement::ControlFlowKind},
+    low::{data_type::DataType, environment::Environment, statement::ControlFlowKind},
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
 };

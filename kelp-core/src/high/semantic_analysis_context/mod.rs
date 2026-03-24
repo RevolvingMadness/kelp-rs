@@ -20,7 +20,7 @@ use crate::{
             scope::Scope,
         },
     },
-    middle::{
+    low::{
         data_type::DataType,
         environment::{
             Environment,

@@ -14,10 +14,10 @@ use crate::{
         snbt_string::SNBTString,
         statement::Statement,
     },
-    middle::{
+    low::{
         data_type::DataType,
         environment::value::ValueDeclarationKind,
-        expression::{Expression as MiddleExpression, ExpressionKind as MiddleExpressionKind},
+        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
         statement::Statement as MiddleStatement,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -251,7 +251,7 @@ impl Expression {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, MiddleExpression)> {
+    ) -> Option<(Span, UnresolvedExpression)> {
         let expression = match self.kind {
             ExpressionKind::Invalid => return None,
 
@@ -268,7 +268,7 @@ impl Expression {
                             );
                         };
 
-                        MiddleExpressionKind::Unary(UnaryOperator::Negate, Box::new(expression))
+                        UnresolvedExpressionKind::Unary(UnaryOperator::Negate, Box::new(expression))
                             .with(negation_result)
                     }
                     UnaryOperator::Reference => {
@@ -281,8 +281,11 @@ impl Expression {
 
                         let expression_data_type = expression.data_type.clone();
 
-                        MiddleExpressionKind::Unary(UnaryOperator::Reference, Box::new(expression))
-                            .with(DataType::Reference(Box::new(expression_data_type)))
+                        UnresolvedExpressionKind::Unary(
+                            UnaryOperator::Reference,
+                            Box::new(expression),
+                        )
+                        .with(DataType::Reference(Box::new(expression_data_type)))
                     }
                     UnaryOperator::Dereference => {
                         let Some(dereferenced_result) =
@@ -294,7 +297,7 @@ impl Expression {
                             );
                         };
 
-                        MiddleExpressionKind::Unary(
+                        UnresolvedExpressionKind::Unary(
                             UnaryOperator::Dereference,
                             Box::new(expression),
                         )
@@ -309,7 +312,7 @@ impl Expression {
                             );
                         };
 
-                        MiddleExpressionKind::Unary(UnaryOperator::Invert, Box::new(expression))
+                        UnresolvedExpressionKind::Unary(UnaryOperator::Invert, Box::new(expression))
                             .with(invered_result)
                     }
                 }
@@ -348,7 +351,7 @@ impl Expression {
                     );
                 }
 
-                MiddleExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
+                UnresolvedExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
                     .with(result_type)
             }
             ExpressionKind::Comparison(left, operator, right) => {
@@ -374,7 +377,7 @@ impl Expression {
                     );
                 }
 
-                MiddleExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
+                UnresolvedExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
                     .with(DataType::Boolean)
             }
             ExpressionKind::Logical(left, operator, right) => {
@@ -402,7 +405,7 @@ impl Expression {
                     );
                 }
 
-                MiddleExpressionKind::Logical(Box::new(left), operator, Box::new(right))
+                UnresolvedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
                     .with(DataType::Boolean)
             }
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
@@ -418,7 +421,7 @@ impl Expression {
 
                 let (_, target) = target.perform_semantic_analysis(ctx)?;
 
-                MiddleExpressionKind::AugmentedAssignment(
+                UnresolvedExpressionKind::AugmentedAssignment(
                     Box::new(target),
                     operator,
                     Box::new(value),
@@ -438,7 +441,7 @@ impl Expression {
                 let (_, target) = target.perform_semantic_analysis(ctx)?;
                 ctx.is_lhs = false;
 
-                MiddleExpressionKind::Assignment(Box::new(target), Box::new(value))
+                UnresolvedExpressionKind::Assignment(Box::new(target), Box::new(value))
                     .with(DataType::Unit)
             }
             ExpressionKind::List(expressions) => {
@@ -490,7 +493,8 @@ impl Expression {
                     .map(|(_, expression)| expression)
                     .collect();
 
-                MiddleExpressionKind::List(expressions).with(DataType::List(Box::new(element_type)))
+                UnresolvedExpressionKind::List(expressions)
+                    .with(DataType::List(Box::new(element_type)))
             }
             ExpressionKind::Compound(compound_values) => {
                 let compound_values = compound_values
@@ -507,13 +511,13 @@ impl Expression {
                     .map(|(key, value)| (key.clone(), value.data_type.clone()))
                     .collect();
 
-                MiddleExpressionKind::Compound(compound_values)
+                UnresolvedExpressionKind::Compound(compound_values)
                     .with(DataType::TypedCompound(compound_data_types))
             }
             ExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
-                MiddleExpressionKind::PlayerScore(score)
+                UnresolvedExpressionKind::PlayerScore(score)
                     .with(DataType::Score(Box::new(DataType::Integer)))
             }
             ExpressionKind::Data(target_path) => {
@@ -525,19 +529,19 @@ impl Expression {
                 let target = target?;
                 let path = path?;
 
-                MiddleExpressionKind::Data(Box::new((target, path)))
+                UnresolvedExpressionKind::Data(Box::new((target, path)))
                     .with(DataType::Data(Box::new(DataType::SNBT)))
             }
             ExpressionKind::Condition(inverted, condition) => {
                 let condition = condition.perform_semantic_analysis(ctx)?;
 
-                MiddleExpressionKind::Condition(inverted, Box::new(condition))
+                UnresolvedExpressionKind::Condition(inverted, Box::new(condition))
                     .with(DataType::Boolean)
             }
             ExpressionKind::Command(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleExpressionKind::Command(Box::new(command)).with(DataType::Integer)
+                UnresolvedExpressionKind::Command(Box::new(command)).with(DataType::Integer)
             }
             ExpressionKind::Index(target, index) => {
                 let target = target.perform_semantic_analysis(ctx);
@@ -558,7 +562,8 @@ impl Expression {
                     return ctx.add_error(index_span, SemanticAnalysisError::IndexOutOfBounds);
                 }
 
-                MiddleExpressionKind::Index(Box::new(target), Box::new(index)).with(index_result)
+                UnresolvedExpressionKind::Index(Box::new(target), Box::new(index))
+                    .with(index_result)
             }
             ExpressionKind::FieldAccess(expression, field) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
@@ -585,7 +590,8 @@ impl Expression {
                     );
                 };
 
-                MiddleExpressionKind::FieldAccess(Box::new(expression), field).with(field_result)
+                UnresolvedExpressionKind::FieldAccess(Box::new(expression), field)
+                    .with(field_result)
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.perform_semantic_analysis(ctx);
@@ -604,7 +610,7 @@ impl Expression {
                     );
                 }
 
-                MiddleExpressionKind::AsCast(Box::new(expression), data_type.clone())
+                UnresolvedExpressionKind::AsCast(Box::new(expression), data_type.clone())
                     .with(data_type)
             }
             ExpressionKind::ToCast(expression, runtime_storage_type) => {
@@ -634,7 +640,7 @@ impl Expression {
                     }
                 };
 
-                MiddleExpressionKind::ToCast(scale, Box::new(expression), runtime_storage_type)
+                UnresolvedExpressionKind::ToCast(scale, Box::new(expression), runtime_storage_type)
                     .with(data_type)
             }
             ExpressionKind::Tuple(expressions) => {
@@ -652,7 +658,7 @@ impl Expression {
                     .map(|expression| expression.data_type.clone())
                     .collect();
 
-                MiddleExpressionKind::Tuple(expressions)
+                UnresolvedExpressionKind::Tuple(expressions)
                     .with(DataType::Tuple(expression_data_types))
             }
             ExpressionKind::StructStruct(path, field_values) => {
@@ -731,7 +737,7 @@ impl Expression {
                     return None;
                 }
 
-                MiddleExpressionKind::StructStruct(specific_id, field_values)
+                UnresolvedExpressionKind::StructStruct(specific_id, field_values)
                     .with(DataType::Struct(id))
             }
             ExpressionKind::TupleStruct(path, field_values) => {
@@ -803,7 +809,7 @@ impl Expression {
                     return None;
                 }
 
-                MiddleExpressionKind::TupleStruct(specific_id, field_values)
+                UnresolvedExpressionKind::TupleStruct(specific_id, field_values)
                     .with(DataType::Struct(id))
             }
             ExpressionKind::If(condition, body, else_body) => {
@@ -854,7 +860,7 @@ impl Expression {
 
                 let data_type = body.data_type.clone().reduce(else_type).unwrap();
 
-                MiddleExpressionKind::If(
+                UnresolvedExpressionKind::If(
                     Box::new(condition),
                     Box::new(body),
                     else_body.map(|(_, else_body)| Box::new(else_body)),
@@ -878,7 +884,7 @@ impl Expression {
                     .and_then(MiddleStatement::get_data_type)
                     .unwrap_or(DataType::Unit);
 
-                MiddleExpressionKind::Block(statements).with(last_statement_type)
+                UnresolvedExpressionKind::Block(statements).with(last_statement_type)
             }
             ExpressionKind::Loop(expression) => {
                 return expression
@@ -886,7 +892,10 @@ impl Expression {
                     .map(|(span, expression)| {
                         let data_type = expression.data_type.clone();
 
-                        (span, MiddleExpressionKind::Loop(expression).with(data_type))
+                        (
+                            span,
+                            UnresolvedExpressionKind::Loop(expression).with(data_type),
+                        )
                     });
             }
             ExpressionKind::Path(path) => {
@@ -901,42 +910,46 @@ impl Expression {
 
                 let data_type = declaration.data_type.as_ref()?.clone();
 
-                MiddleExpressionKind::Variable(id).with(data_type)
+                UnresolvedExpressionKind::Variable(id).with(data_type)
             }
             ExpressionKind::Boolean(value) => {
-                MiddleExpressionKind::Boolean(value).with(DataType::Boolean)
+                UnresolvedExpressionKind::Boolean(value).with(DataType::Boolean)
             }
-            ExpressionKind::Byte(value) => MiddleExpressionKind::Byte(value).with(DataType::Byte),
+            ExpressionKind::Byte(value) => {
+                UnresolvedExpressionKind::Byte(value).with(DataType::Byte)
+            }
             ExpressionKind::Short(value) => {
-                MiddleExpressionKind::Short(value).with(DataType::Short)
+                UnresolvedExpressionKind::Short(value).with(DataType::Short)
             }
             ExpressionKind::Integer(value) => {
-                MiddleExpressionKind::Integer(value).with(DataType::Integer)
+                UnresolvedExpressionKind::Integer(value).with(DataType::Integer)
             }
             ExpressionKind::InferredInteger(value) => {
-                MiddleExpressionKind::InferredInteger(value).with(DataType::InferredInteger)
+                UnresolvedExpressionKind::InferredInteger(value).with(DataType::InferredInteger)
             }
-            ExpressionKind::Long(value) => MiddleExpressionKind::Long(value).with(DataType::Long),
+            ExpressionKind::Long(value) => {
+                UnresolvedExpressionKind::Long(value).with(DataType::Long)
+            }
             ExpressionKind::Float(value) => {
-                MiddleExpressionKind::Float(value).with(DataType::Float)
+                UnresolvedExpressionKind::Float(value).with(DataType::Float)
             }
             ExpressionKind::InferredFloat(value) => {
-                MiddleExpressionKind::InferredFloat(value).with(DataType::InferredFloat)
+                UnresolvedExpressionKind::InferredFloat(value).with(DataType::InferredFloat)
             }
             ExpressionKind::Double(value) => {
-                MiddleExpressionKind::Double(value).with(DataType::Double)
+                UnresolvedExpressionKind::Double(value).with(DataType::Double)
             }
             ExpressionKind::String(value) => {
-                MiddleExpressionKind::String(value.snbt_string).with(DataType::String)
+                UnresolvedExpressionKind::String(value.snbt_string).with(DataType::String)
             }
             ExpressionKind::Underscore => {
                 if !ctx.is_lhs {
                     return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
                 }
 
-                MiddleExpressionKind::Underscore.with(DataType::Inferred)
+                UnresolvedExpressionKind::Underscore.with(DataType::Inferred)
             }
-            ExpressionKind::Unit => MiddleExpressionKind::Unit.with(DataType::Unit),
+            ExpressionKind::Unit => UnresolvedExpressionKind::Unit.with(DataType::Unit),
         };
 
         Some((self.span, expression))

@@ -5,7 +5,7 @@ use crate::{
         data::DataTarget, expression::Expression, nbt_path::NbtPath,
         semantic_analysis_context::SemanticAnalysisContext, snbt_string::SNBTString,
     },
-    middle::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
+    low::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
     trait_ext::CollectOptionAllIterExt,
 };
 

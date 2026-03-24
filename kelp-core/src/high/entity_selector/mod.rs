@@ -7,7 +7,7 @@ use crate::{
         entity_selector::option::EntitySelectorOption,
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::entity_selector::EntitySelector as MiddleEntitySelector,
+    low::entity_selector::EntitySelector as MiddleEntitySelector,
     trait_ext::CollectOptionAllIterExt,
 };
 

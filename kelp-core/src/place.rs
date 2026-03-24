@@ -17,14 +17,16 @@ use crate::{
     high::semantic_analysis_context::{
         SemanticAnalysisContext, info::error::SemanticAnalysisError,
     },
-    low::expression::Expression,
-    middle::{
+    low::{
         data_type::DataType,
         environment::{
             Environment,
             value::{ValueDeclarationKind, ValueId},
         },
-        expression::{Expression as MiddleExpression, ExpressionKind},
+        expression::{
+            resolved::ResolvedExpression,
+            unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
+        },
     },
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,
@@ -41,7 +43,7 @@ pub enum Place {
     Tuple(Vec<Self>),
     Dereference(Box<Self>),
     Field(Box<Self>, String),
-    Index(Box<Self>, Box<Expression>),
+    Index(Box<Self>, Box<ResolvedExpression>),
     Underscore,
 }
 
@@ -108,7 +110,7 @@ impl Place {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        index: Expression,
+        index: ResolvedExpression,
     ) -> Option<Self> {
         Some(match self {
             Self::Data(target, path) => Self::Data(
@@ -138,7 +140,7 @@ impl Place {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        value: Expression,
+        value: ResolvedExpression,
     ) {
         match self {
             Self::Score(score) => {
@@ -152,7 +154,7 @@ impl Place {
             }
             Self::Underscore => {}
             Self::Tuple(places) => {
-                if let Expression::Tuple(values) = value {
+                if let ResolvedExpression::Tuple(values) = value {
                     for (place, value) in places.into_iter().zip(values) {
                         place.assign_resolved(datapack, ctx, value);
                     }
@@ -181,7 +183,12 @@ impl Place {
         }
     }
 
-    pub fn assign(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: Expression) {
+    pub fn assign(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        value: ResolvedExpression,
+    ) {
         match self {
             Self::Score(score) => {
                 value.assign_to_score(datapack, ctx, score);
@@ -194,22 +201,24 @@ impl Place {
             }
             Self::Underscore => {}
             Self::Tuple(places) => {
-                if let Expression::Tuple(values) = value {
+                if let ResolvedExpression::Tuple(values) = value {
                     assert!(places.len() == values.len());
 
-                    let safe_values: Vec<Expression> = values
+                    let safe_values: Vec<ResolvedExpression> = values
                         .into_iter()
                         .map(|value| match value {
-                            Expression::PlayerScore(score) => {
-                                Expression::PlayerScore(score.as_unique_score(datapack, ctx))
+                            ResolvedExpression::PlayerScore(score) => {
+                                ResolvedExpression::PlayerScore(
+                                    score.as_unique_score(datapack, ctx),
+                                )
                             }
-                            Expression::Data(target_path) => {
+                            ResolvedExpression::Data(target_path) => {
                                 let (target, path) = *target_path;
 
                                 let (unique_target, unique_path) =
                                     target.as_unique_data(datapack, ctx, path);
 
-                                Expression::Data(Box::new((unique_target, unique_path)))
+                                ResolvedExpression::Data(Box::new((unique_target, unique_path)))
                             }
                             _ => value,
                         })
@@ -248,7 +257,7 @@ impl Place {
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: Expression,
+        value: ResolvedExpression,
     ) {
         match self {
             Self::Score(score) => {
@@ -257,7 +266,7 @@ impl Place {
             Self::Data(target, path) => {
                 let unique_score = datapack.get_unique_score();
 
-                Expression::Data(Box::new((target.clone(), path.clone()))).assign_to_score(
+                ResolvedExpression::Data(Box::new((target.clone(), path.clone()))).assign_to_score(
                     datapack,
                     ctx,
                     unique_score.clone(),
@@ -444,7 +453,7 @@ impl PlaceTypeKind {
         self_span: Span,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
-        value: &MiddleExpression,
+        value: &UnresolvedExpression,
     ) -> Option<()> {
         match self {
             Self::Score(_) => {
@@ -457,7 +466,7 @@ impl PlaceTypeKind {
             }
             Self::Data(_) | Self::Underscore => {}
             Self::Tuple(place_types) => {
-                let ExpressionKind::Tuple(expressions) = &value.kind else {
+                let UnresolvedExpressionKind::Tuple(expressions) = &value.kind else {
                     unreachable!();
                 };
 
@@ -591,7 +600,7 @@ impl PlaceTypeKind {
         ctx: &mut SemanticAnalysisContext,
         operator: ArithmeticOperator,
         value_span: Span,
-        value: &MiddleExpression,
+        value: &UnresolvedExpression,
     ) -> Option<()> {
         match self {
             Self::Data(data_type) | Self::Score(data_type) => {
@@ -734,7 +743,7 @@ impl PlaceType {
         self,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
-        value: &MiddleExpression,
+        value: &UnresolvedExpression,
     ) -> Option<()> {
         self.kind
             .perform_assignment_semantic_analysis(self.span, ctx, value_span, value)
@@ -746,7 +755,7 @@ impl PlaceType {
         ctx: &mut SemanticAnalysisContext,
         operator: ArithmeticOperator,
         value_span: Span,
-        value: &MiddleExpression,
+        value: &UnresolvedExpression,
     ) -> Option<()> {
         self.kind.perform_augmented_assignment_semantic_analysis(
             self.span, ctx, operator, value_span, value,

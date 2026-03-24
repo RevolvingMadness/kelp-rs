@@ -8,7 +8,7 @@ use crate::{
         },
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    middle::data_type::DataType,
+    low::data_type::DataType,
     span::Span,
     visibility::Visibility,
 };

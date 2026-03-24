@@ -7,7 +7,7 @@ use crate::{
         coordinate::Coordinates, entity_selector::EntitySelector,
         semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
+    low::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
     span::Span,
 };
 

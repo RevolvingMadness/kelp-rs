@@ -9,7 +9,7 @@ use crate::{
         command::execute::subcommand::ExecuteSubcommand, data::DataTarget, nbt_path::NbtPath,
         player_score::PlayerScore, semantic_analysis_context::SemanticAnalysisContext,
     },
-    middle::expression::command::execute::subcommand::store::ExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
+    low::expression::command::execute::subcommand::store::ExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
 };
 
 #[derive(Debug, Clone)]

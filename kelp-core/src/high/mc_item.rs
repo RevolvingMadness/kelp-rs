@@ -2,7 +2,7 @@ use minecraft_command_types::{item::ItemType, resource_location::ResourceLocatio
 
 use crate::{
     high::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext},
-    middle::mc_item::{
+    low::mc_item::{
         ItemPredicate as MiddleItemPredicate, ItemTest as MiddleItemTest, OrGroup as MiddleOrGroup,
     },
     trait_ext::CollectOptionAllIterExt,

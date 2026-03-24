@@ -7,7 +7,7 @@ use crate::{
         expression::Expression, semantic_analysis_context::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
-    middle::block::BlockState as MiddleBlockState,
+    low::block::BlockState as MiddleBlockState,
     trait_ext::CollectOptionAllIterExt,
 };
 

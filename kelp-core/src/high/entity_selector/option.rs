@@ -10,7 +10,7 @@ use ordered_float::NotNan;
 
 use crate::{
     high::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext},
-    middle::entity_selector::option::EntitySelectorOption as MiddleEntitySelectorOption,
+    low::entity_selector::option::EntitySelectorOption as MiddleEntitySelectorOption,
 };
 
 #[derive(Debug, Clone)]

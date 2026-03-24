@@ -4,7 +4,7 @@ use crate::{
         pattern::Pattern,
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    middle::{
+    low::{
         data_type::DataType,
         expression::r#loop::{
             LoopExpression as MiddleLoopExpression, LoopExpressionKind as MiddleLoopExpressionKind,

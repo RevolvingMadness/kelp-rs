@@ -5,7 +5,7 @@ use crate::{
         expression::Expression,
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    middle::coordinate::{
+    low::coordinate::{
         Coordinates as MiddleCoordinates, WorldCoordinate as MiddleWorldCoordinate,
     },
 };

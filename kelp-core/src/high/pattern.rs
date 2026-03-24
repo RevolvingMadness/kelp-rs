@@ -9,8 +9,10 @@ use crate::{
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
-    low::expression::literal::LiteralExpression,
-    middle::{data_type::DataType, pattern::Pattern as MiddlePattern},
+    low::{
+        data_type::DataType, expression::literal::LiteralExpression,
+        pattern::Pattern as MiddlePattern,
+    },
     path::generic::GenericPath,
     pattern_type::PatternType,
     span::Span,

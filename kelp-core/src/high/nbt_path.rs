@@ -7,7 +7,7 @@ use crate::{
         expression::Expression, semantic_analysis_context::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
-    middle::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
+    low::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
     trait_ext::CollectOptionAllIterExt,
 };
 

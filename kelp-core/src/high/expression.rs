@@ -932,12 +932,15 @@ impl Expression {
                     return None;
                 };
 
+                ctx.loop_depth += 1;
                 let Some((_, body)) = body.perform_semantic_analysis(ctx) else {
+                    ctx.loop_depth -= 1;
+
                     ctx.exit_scope();
 
                     return None;
                 };
-
+                ctx.loop_depth -= 1;
                 ctx.exit_scope();
 
                 // TODO: Reorder semantic analysis

@@ -12,12 +12,9 @@ use crate::{
         append::{lower_append_statement, try_parse_append_statement},
         r#break::{lower_break_statement, try_parse_break_statement},
         r#continue::{lower_continue_statement, try_parse_continue_statement},
-        r#for::{lower_for_statement, try_parse_for_statement},
         item::{lower_item_statement, try_parse_item_statement},
         r#let::{lower_let_statement, try_parse_let_statement},
-        r#loop::{lower_loop_statement, try_parse_loop_statement},
         remove::{lower_remove_statement, try_parse_remove_statement},
-        r#while::{lower_while_statement, try_parse_while_statement},
     },
     syntax::SyntaxKind,
 };
@@ -25,12 +22,9 @@ use crate::{
 pub mod append;
 pub mod r#break;
 pub mod r#continue;
-pub mod r#for;
 pub mod item;
 pub mod r#let;
-pub mod r#loop;
 pub mod remove;
-pub mod r#while;
 
 #[must_use]
 pub fn is_statement_recovery(char: char) -> bool {
@@ -43,21 +37,6 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
         match text {
             "let" => {
                 if try_parse_let_statement(parser) {
-                    return true;
-                }
-            }
-            "while" => {
-                if try_parse_while_statement(parser) {
-                    return true;
-                }
-            }
-            "for" => {
-                if try_parse_for_statement(parser) {
-                    return true;
-                }
-            }
-            "loop" => {
-                if try_parse_loop_statement(parser) {
                     return true;
                 }
             }
@@ -132,9 +111,6 @@ pub fn lower_statement(node: CSTStatement, ctx: &mut SemanticAnalysisContext) ->
     match node {
         CSTStatement::ExpressionStatement(node) => lower_expression_statement(node, ctx),
         CSTStatement::LetStatement(statement) => lower_let_statement(statement, ctx),
-        CSTStatement::WhileStatement(node) => lower_while_statement(node, ctx),
-        CSTStatement::ForStatement(node) => lower_for_statement(node, ctx),
-        CSTStatement::LoopStatement(node) => lower_loop_statement(node, ctx),
         CSTStatement::BreakStatement(node) => lower_break_statement(node, ctx),
         CSTStatement::ContinueStatement(node) => lower_continue_statement(node, ctx),
         CSTStatement::AppendStatement(node) => lower_append_statement(node, ctx),

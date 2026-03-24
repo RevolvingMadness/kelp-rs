@@ -147,9 +147,9 @@ impl Item {
             ItemKind::Use(tree) => {
                 match tree {
                     UseTree::Wildcard(mut path) => {
-                        let last_segment = path.segments.pop().unwrap();
-
                         let ResolvedItem::Type(id) = ctx.get_visible_item(&path)? else {
+                            let last_segment = path.segments.pop().unwrap();
+
                             return ctx.add_error(
                                 last_segment.span,
                                 SemanticAnalysisError::NotAType(last_segment.name),
@@ -161,6 +161,8 @@ impl Item {
                         let (_, _, HighTypeDeclarationKind::Module(module)) =
                             declaration.as_tuple_owned()
                         else {
+                            let last_segment = path.segments.pop().unwrap();
+
                             return ctx.add_error(
                                 last_segment.span,
                                 SemanticAnalysisError::NotAModule(last_segment.name),

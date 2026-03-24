@@ -61,14 +61,18 @@ fn try_parse_struct_struct_pattern_field(parser: &mut Parser) -> bool {
 
     parser.start_node_at(checkpoint, SyntaxKind::StructStructPatternField);
 
-    parser.skip_whitespace();
-
-    parser.expect_char(':', "Expected ':'");
+    let state = parser.save_state();
 
     parser.skip_whitespace();
 
-    if !try_parse_pattern(parser) {
-        parser.error("Expected pattern");
+    if parser.try_bump_char(':') {
+        parser.skip_whitespace();
+
+        if !try_parse_pattern(parser) {
+            parser.error("Expected pattern");
+        }
+    } else {
+        parser.restore_state(state);
     }
 
     parser.finish_node();

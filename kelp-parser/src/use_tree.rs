@@ -29,9 +29,8 @@ pub fn try_parse_use_tree(parser: &mut Parser) -> bool {
     if parser.try_bump_str("::", SyntaxKind::ColonColon) {
         parser.skip_inline_whitespace();
 
-        if parser.peek_char() == Some('*') {
+        if parser.try_bump_char('*') {
             parser.start_node_at(checkpoint, SyntaxKind::WildcardUseTree);
-            parser.bump_char_kind(SyntaxKind::Star);
         } else if parser.peek_char() == Some('{') {
             parser.start_node_at(checkpoint, SyntaxKind::GroupUseTree);
             parse_use_tree_group(parser);

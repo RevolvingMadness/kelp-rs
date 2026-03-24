@@ -1,24 +1,26 @@
+use std::*
+
 struct Container<T> {
     value: T
 }
 
 mcfn namespace:main {
     let containers = [
-        Container<string> {
+        Container::<string> {
             value: "a"
         },
-        Container<string> {
+        Container::<string> {
             value: "b"
         },
-        Container<string> {
+        Container::<string> {
             value: "c"
         },
-        Container<string> {
+        Container::<string> {
             value: "d"
         }
     ]
 
-    for Container { value } in (containers) {
+    for Container::<string> { value } in (containers) {
         tellraw @a value
     }
 }

@@ -1,23 +1,25 @@
 use kelp_core::high::{
+    expression::{Expression, ExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
 };
 
 use crate::{
-    cst::CSTForStatement,
-    expression::{lower_expression, try_parse_expression},
+    cst::CSTIteratorLoopExpression,
+    expression::{
+        block::{lower_block_expression, try_parse_block_expression},
+        lower_expression, try_parse_expression,
+    },
     parser::Parser,
     pattern::{lower_pattern, try_parse_pattern},
     span::span_of_cst_node,
-    statement::{lower_statement, try_parse_statement},
     syntax::SyntaxKind,
 };
 
 #[must_use]
-pub fn try_parse_for_statement(parser: &mut Parser) -> bool {
+pub fn try_parse_iterator_loop_expression(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::ForStatement);
+    parser.start_node(SyntaxKind::IteratorLoopExpression);
     parser.bump_str(SyntaxKind::ForKeyword, "for");
     parser.skip_inline_whitespace();
 
@@ -41,8 +43,8 @@ pub fn try_parse_for_statement(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_statement(parser) {
-        parser.error("Expected statement");
+    if !try_parse_block_expression(parser) {
+        parser.error("Expected body");
     }
 
     parser.finish_node();
@@ -52,17 +54,20 @@ pub fn try_parse_for_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_for_statement(
-    node: CSTForStatement,
+pub fn lower_iterator_loop_expression(
+    node: CSTIteratorLoopExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Statement> {
+) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;
 
     let expression = lower_expression(node.expression()?, ctx)?;
 
-    let statement = lower_statement(node.statement()?, ctx)?;
+    let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(StatementKind::For(false, pattern, expression, Box::new(statement)).with_span(span))
+    Some(
+        ExpressionKind::IteratorLoop(false, pattern, Box::new(expression), Box::new(body))
+            .with_span(span),
+    )
 }

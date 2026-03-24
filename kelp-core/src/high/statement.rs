@@ -14,10 +14,7 @@ use minecraft_command_types::range::IntegerRange;
 pub enum StatementKind {
     Expression(Expression),
     Let(Option<UnresolvedDataType>, Pattern, Expression),
-    While(Expression, Box<Statement>),
-    Loop(Box<Statement>),
     Match(Expression, HashMap<IntegerRange, Box<Statement>>),
-    For(bool, Pattern, Expression, Box<Statement>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
     Item(Box<Item>),
@@ -75,68 +72,7 @@ impl Statement {
 
                 MiddleStatement::Let(variable_type, pattern, value)
             }
-            StatementKind::While(condition, body) => {
-                let condition = condition.perform_semantic_analysis(ctx);
-
-                ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx);
-                ctx.loop_depth -= 1;
-
-                let (condition_span, condition) = condition?;
-
-                if !condition.data_type.is_condition() {
-                    return ctx.add_error(
-                        condition_span,
-                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
-                    );
-                }
-
-                let body = body?;
-
-                MiddleStatement::While(condition, Box::new(body))
-            }
-            StatementKind::Loop(body) => {
-                ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx);
-                ctx.loop_depth -= 1;
-
-                let body = body?;
-
-                MiddleStatement::Loop(Box::new(body))
-            }
             StatementKind::Match(_, _) => todo!(),
-            StatementKind::For(is_reversed, pattern, iterable, statement) => {
-                let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
-
-                let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
-                    pattern.kind.destructure_unknown(ctx);
-
-                    return ctx.add_error(
-                        expression_span,
-                        SemanticAnalysisError::CannotIterateType(iterable.data_type),
-                    );
-                };
-
-                ctx.enter_scope();
-
-                let Some(pattern) = pattern.perform_semantic_analysis(ctx, iterable_type) else {
-                    ctx.exit_scope();
-
-                    return None;
-                };
-
-                let Some(statement) = statement.perform_semantic_analysis(ctx) else {
-                    ctx.exit_scope();
-
-                    return None;
-                };
-
-                ctx.exit_scope();
-
-                // TODO: Reorder semantic analysis
-
-                MiddleStatement::For(is_reversed, pattern, iterable, Box::new(statement))
-            }
             StatementKind::Append(target, value) => {
                 let target = target.perform_semantic_analysis(ctx);
                 let value = value.perform_semantic_analysis(ctx);

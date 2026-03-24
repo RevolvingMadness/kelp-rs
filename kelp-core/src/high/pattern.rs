@@ -26,7 +26,7 @@ pub enum PatternKind {
     Binding(GenericPath<UnresolvedDataType>),
 
     Score(PlayerScore),
-    Data(DataTarget, NbtPath),
+    Data(Box<(DataTarget, NbtPath)>),
 
     Tuple(Vec<Pattern>),
     StructStruct(
@@ -52,7 +52,7 @@ impl PatternKind {
             | Self::Binding(_)
             | Self::Compound(_)
             | Self::Score(_)
-            | Self::Data(_, _) => true,
+            | Self::Data(_) => true,
             Self::Tuple(patterns) => patterns.iter().all(|pattern| pattern.kind.is_irrefutable()),
             Self::StructStruct(_, field_patterns) => field_patterns
                 .values()
@@ -68,7 +68,11 @@ impl PatternKind {
         match self {
             Self::Literal(expression) => expression.get_pattern_type(),
             Self::Score(score) => PatternType::Score(score.clone()),
-            Self::Data(target, path) => PatternType::Data(target.clone(), path.clone()),
+            Self::Data(target_path) => {
+                let (target, path) = &**target_path;
+
+                PatternType::Data(target.clone(), path.clone())
+            }
             Self::Wildcard | Self::Binding(_) => PatternType::Any,
             Self::Tuple(patterns) => PatternType::Tuple(
                 patterns
@@ -101,7 +105,7 @@ impl PatternKind {
 
     pub fn destructure_unknown(self, ctx: &mut SemanticAnalysisContext) {
         match self {
-            Self::Literal(_) | Self::Score(_) | Self::Data(_, _) | Self::Wildcard => {}
+            Self::Literal(_) | Self::Score(_) | Self::Data(_) | Self::Wildcard => {}
             Self::Binding(path) => {
                 if path.segments.len() != 1 {
                     return;
@@ -195,7 +199,9 @@ impl Pattern {
 
                 MiddlePattern::Score(score)
             }
-            (PatternKind::Data(target, path), _) => {
+            (PatternKind::Data(target_path), _) => {
+                let (target, path) = *target_path;
+
                 let target = target.perform_semantic_analysis(ctx)?;
                 let path = path.perform_semantic_analysis(ctx)?;
 

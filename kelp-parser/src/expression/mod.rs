@@ -14,9 +14,11 @@ use crate::{
         compound::lower_compound_expression,
         data::{lower_data_expression, try_parse_data_expression},
         field_access::lower_field_access_expression,
+        r#for::{lower_iterator_loop_expression, try_parse_iterator_loop_expression},
         r#if::{lower_if_expression, try_parse_if_expression},
         index::lower_index_expression,
         list::{lower_list_expression, try_parse_list_expression},
+        r#loop::{lower_infinite_loop_expression, try_parse_infinite_loop_expression},
         numeric::lower_numeric_expression,
         parenthesized::lower_parenthesized_expression,
         path::lower_path_expression,
@@ -31,6 +33,7 @@ use crate::{
         unary::lower_unary_expression,
         underscore::lower_underscore_expression,
         unit::lower_unit_expression,
+        r#while::{lower_predicate_loop_expression, try_parse_predicate_loop_expression},
     },
     parser::Parser,
     path::generic::try_parse_generic_path,
@@ -47,9 +50,11 @@ pub mod command;
 pub mod compound;
 pub mod data;
 pub mod field_access;
+pub mod r#for;
 pub mod r#if;
 pub mod index;
 pub mod list;
+pub mod r#loop;
 pub mod numeric;
 pub mod parenthesized;
 pub mod path;
@@ -61,6 +66,7 @@ pub mod tuple;
 pub mod unary;
 pub mod underscore;
 pub mod unit;
+pub mod r#while;
 
 #[must_use]
 pub fn is_expression_recovery(char: char) -> bool {
@@ -700,6 +706,27 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                     default(parser, "if")
                 }
+                "while" => {
+                    if try_parse_predicate_loop_expression(parser) {
+                        return true;
+                    }
+
+                    default(parser, "while")
+                }
+                "loop" => {
+                    if try_parse_infinite_loop_expression(parser) {
+                        return true;
+                    }
+
+                    default(parser, "loop")
+                }
+                "for" => {
+                    if try_parse_iterator_loop_expression(parser) {
+                        return true;
+                    }
+
+                    default(parser, "for")
+                }
                 _ => default(parser, text),
             })
         }
@@ -715,6 +742,9 @@ pub fn lower_expression(
     match node {
         CSTExpression::BlockExpression(node) => lower_block_expression(node, ctx),
         CSTExpression::IfExpression(node) => lower_if_expression(node, ctx),
+        CSTExpression::PredicateLoopExpression(node) => lower_predicate_loop_expression(node, ctx),
+        CSTExpression::InfiniteLoopExpression(node) => lower_infinite_loop_expression(node, ctx),
+        CSTExpression::IteratorLoopExpression(node) => lower_iterator_loop_expression(node, ctx),
         CSTExpression::UnaryExpression(node) => lower_unary_expression(node, ctx),
         CSTExpression::PathExpression(node) => lower_path_expression(node, ctx),
         CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node, ctx),

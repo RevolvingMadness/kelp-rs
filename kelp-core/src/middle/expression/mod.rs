@@ -3,21 +3,23 @@ use std::collections::HashMap;
 use minecraft_command_types::{
     command::{
         Command,
+        data::{DataCommand, DataCommandModification, DataCommandModificationMode},
         enums::store_type::StoreType,
         execute::{
             ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
         },
         r#return::ReturnCommand,
     },
-    nbt_path::NbtPath as LowNbtPath,
+    nbt_path::{NbtPath as LowNbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
     resource_location::ResourceLocation,
-    snbt::SNBTString,
+    snbt::{SNBT, SNBTString},
 };
+use nonempty::nonempty;
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext,
+    compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedDataTarget,
     datapack::Datapack,
     low::expression::Expression as LowExpression,
@@ -33,6 +35,7 @@ use crate::{
             execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
         },
         nbt_path::NbtPath,
+        pattern::Pattern,
         player_score::PlayerScore,
         statement::{ControlFlow, ControlFlowKind, Statement},
     },
@@ -261,6 +264,9 @@ pub enum ExpressionKind {
     TupleStruct(TupleStructId, Vec<Expression>),
     If(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
     Block(Vec<Statement>),
+    PredicateLoop(Box<Expression>, Box<Expression>),
+    InfiniteLoop(Box<Expression>),
+    IteratorLoop(bool, Pattern, Box<Expression>, Box<Expression>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -277,28 +283,29 @@ impl ExpressionKind {
 
     #[must_use]
     pub fn get_control_flow_kind(&self) -> Option<ControlFlowKind> {
-        // match self {
-        //     Self::Expression(_)
-        //     | Self::Let(_, _, _)
-        //     | Self::Append(_, _)
-        //     | Self::Remove(_)
-        //     | Self::Item(_) => None,
-        //     Self::While(_, statement) | Self::Loop(statement) | Self::For(_, _, _, statement) => {
-        //         statement.get_control_flow_kind()
-        //     }
-        //     Self::Match(_, _) => todo!(),
-        //     Self::If(_, statement, else_statement) => {
-        //         statement.get_control_flow_kind().or_else(|| {
-        //             else_statement
-        //                 .as_ref()
-        //                 .and_then(|statement| statement.get_control_flow_kind())
-        //         })
-        //     }
-        //     Self::Block(statements) => statements.iter().find_map(Self::get_control_flow_kind),
-        //     Self::Break => Some(ControlFlowKind::Break),
-        //     Self::Continue => Some(ControlFlowKind::Continue),
-        // }
-        todo!()
+        match self {
+            Self::If(_, body, else_body) => body.kind.get_control_flow_kind().or_else(|| {
+                else_body
+                    .as_ref()
+                    .and_then(|else_body| else_body.kind.get_control_flow_kind())
+            }),
+
+            Self::Block(statements) => {
+                for statement in statements {
+                    if let Some(kind) = statement.get_control_flow_kind() {
+                        return Some(kind);
+                    }
+                }
+
+                None
+            }
+
+            Self::PredicateLoop(_, body)
+            | Self::InfiniteLoop(body)
+            | Self::IteratorLoop(_, _, _, body) => body.kind.get_control_flow_kind(),
+
+            _ => None,
+        }
     }
 
     #[must_use]
@@ -409,10 +416,14 @@ impl ExpressionKind {
             | Self::StructStruct(_, _)
             | Self::TupleStruct(_, _)
             | Self::Block(_)
-            | Self::If(_, _, _) => None,
+            | Self::If(_, _, _)
+            | Self::PredicateLoop(_, _)
+            | Self::InfiniteLoop(_)
+            | Self::IteratorLoop(_, _, _, _) => None,
         }
     }
 
+    #[must_use]
     pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowExpression {
         match self {
             Self::Unary(unary_operator, expression) => {
@@ -603,6 +614,237 @@ impl ExpressionKind {
 
                 LowExpression::Data(Box::new((output_target, output_path)))
             }
+            Self::PredicateLoop(condition, body) => {
+                let while_function_paths = datapack.get_unique_function_paths();
+                let while_function_resource_location = ResourceLocation::new_namespace_paths(
+                    datapack.current_namespace_name(),
+                    while_function_paths.clone(),
+                );
+
+                let mut condition_ctx = ctx.create_child_ctx();
+                let (should_be_inverted, condition) = condition
+                    .kind
+                    .resolve(datapack, &mut condition_ctx)
+                    .to_execute_condition(datapack, &mut condition_ctx, false)
+                    .unwrap();
+
+                condition_ctx.add_command(
+                    datapack,
+                    Command::Execute(
+                        ExecuteSubcommand::If(should_be_inverted, condition.clone()).then(
+                            ExecuteSubcommand::Run(Box::new(Command::Function(
+                                while_function_resource_location.clone(),
+                                None,
+                            ))),
+                        ),
+                    ),
+                );
+
+                let mut while_body_ctx = ctx.create_child_ctx();
+                while_body_ctx.loop_info = Some(LoopInfo {
+                    resource_location: while_function_resource_location,
+                    type_: LoopType::While(should_be_inverted, Box::new(condition)),
+                });
+
+                body.kind
+                    .compile_as_statement(datapack, &mut while_body_ctx);
+
+                while_body_ctx.extend_context(condition_ctx.clone());
+                ctx.extend_context(condition_ctx);
+
+                datapack.compile_and_add_to_function(&while_function_paths, &mut while_body_ctx);
+
+                LowExpression::Unit
+            }
+            Self::InfiniteLoop(body) => {
+                let loop_function_paths = datapack.get_unique_function_paths();
+                let loop_function_resource_location = ResourceLocation::new_namespace_paths(
+                    datapack.current_namespace_name(),
+                    loop_function_paths.clone(),
+                );
+
+                let iteration_command =
+                    Command::Function(loop_function_resource_location.clone(), None);
+
+                let mut loop_body_ctx = ctx.create_child_ctx();
+                loop_body_ctx.loop_info = Some(LoopInfo {
+                    resource_location: loop_function_resource_location,
+                    type_: LoopType::Loop,
+                });
+
+                body.kind.compile_as_statement(datapack, &mut loop_body_ctx);
+
+                loop_body_ctx.add_command(datapack, iteration_command.clone());
+                ctx.add_command(datapack, iteration_command);
+
+                datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
+
+                LowExpression::Unit
+            }
+            Self::IteratorLoop(is_reversed, pattern, iterable, body) => {
+                let iterable_data_type = iterable.data_type.get_iterable_type().unwrap();
+
+                let iterable = iterable.kind.resolve(datapack, ctx);
+
+                if iterable_data_type.equals(&DataType::String) {
+                    let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
+                    let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
+
+                    iterable.assign_to_data(
+                        datapack,
+                        ctx,
+                        unique_data_target.clone(),
+                        unique_path.clone(),
+                    );
+
+                    let mut for_body_ctx = CompileContext::default();
+
+                    pattern.destructure(
+                        datapack,
+                        &mut for_body_ctx,
+                        iterable_data_type,
+                        LowExpression::Data(Box::new((
+                            unique_data_target_2.clone(),
+                            unique_path_2.clone(),
+                        ))),
+                    );
+
+                    for_body_ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            unique_data_target_2.target,
+                            unique_path_2,
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::String(
+                                unique_data_target.target.clone(),
+                                Some(unique_path.clone()),
+                                Some(if is_reversed { -1 } else { 0 }),
+                                if is_reversed { None } else { Some(1) },
+                            ),
+                        )),
+                    );
+
+                    body.kind.compile_as_statement(datapack, &mut for_body_ctx);
+
+                    let current_namespace_name = datapack.current_namespace_name().to_string();
+
+                    let for_function_paths = datapack.get_unique_function_paths();
+
+                    let mut condition_ctx = CompileContext::default();
+
+                    for_body_ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            unique_data_target.target.clone(),
+                            unique_path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::String(
+                                unique_data_target.target.clone(),
+                                Some(unique_path),
+                                Some(i32::from(!is_reversed)),
+                                if is_reversed { Some(-1) } else { None },
+                            ),
+                        )),
+                    );
+
+                    let mut map = SNBTCompound::new();
+                    map.insert(SNBTString(false, name), SNBT::macroable_string(""));
+                    let unique_path = LowNbtPath(nonempty![NbtPathNode::RootCompound(map)]);
+
+                    condition_ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::If(
+                            true,
+                            ExecuteIfSubcommand::Data(
+                                unique_data_target.target,
+                                unique_path,
+                                Some(Box::new(ExecuteSubcommand::Run(Box::new(
+                                    Command::Function(
+                                        ResourceLocation::new_namespace_paths(
+                                            current_namespace_name,
+                                            for_function_paths.clone(),
+                                        ),
+                                        None,
+                                    ),
+                                )))),
+                            ),
+                        )),
+                    );
+
+                    for_body_ctx.extend_context(condition_ctx.clone());
+                    ctx.extend_context(condition_ctx);
+
+                    datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
+                } else {
+                    let (unique_data_target, unique_path) = datapack.get_unique_data();
+
+                    iterable.assign_to_data(
+                        datapack,
+                        ctx,
+                        unique_data_target.clone(),
+                        unique_path.clone(),
+                    );
+
+                    let mut for_body_ctx = CompileContext::default();
+
+                    let unique_path = unique_path.with_node(NbtPathNode::Index(Some(
+                        SNBT::macroable_integer(if is_reversed { -1 } else { 0 }),
+                    )));
+
+                    pattern.destructure(
+                        datapack,
+                        &mut for_body_ctx,
+                        iterable_data_type,
+                        LowExpression::Data(Box::new((
+                            unique_data_target.clone(),
+                            unique_path.clone(),
+                        ))),
+                    );
+
+                    body.kind.compile_as_statement(datapack, &mut for_body_ctx);
+
+                    let current_namespace_name = datapack.current_namespace_name().to_string();
+
+                    let for_function_paths = datapack.get_unique_function_paths();
+
+                    let mut condition_ctx = CompileContext::default();
+
+                    for_body_ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Remove(
+                            unique_data_target.target.clone(),
+                            unique_path.clone(),
+                        )),
+                    );
+
+                    condition_ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::If(
+                            false,
+                            ExecuteIfSubcommand::Data(
+                                unique_data_target.target,
+                                unique_path,
+                                Some(Box::new(ExecuteSubcommand::Run(Box::new(
+                                    Command::Function(
+                                        ResourceLocation::new_namespace_paths(
+                                            current_namespace_name,
+                                            for_function_paths.clone(),
+                                        ),
+                                        None,
+                                    ),
+                                )))),
+                            ),
+                        )),
+                    );
+
+                    for_body_ctx.extend_context(condition_ctx.clone());
+                    ctx.extend_context(condition_ctx);
+
+                    datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
+                }
+
+                LowExpression::Unit
+            }
         }
     }
 
@@ -669,6 +911,230 @@ impl ExpressionKind {
             }
             Self::If(condition, body, else_body) => {
                 compile_if_internal(datapack, ctx, *condition, *body, else_body, None);
+            }
+            Self::PredicateLoop(condition, body) => {
+                let while_function_paths = datapack.get_unique_function_paths();
+                let while_function_resource_location = ResourceLocation::new_namespace_paths(
+                    datapack.current_namespace_name(),
+                    while_function_paths.clone(),
+                );
+
+                let mut condition_ctx = ctx.create_child_ctx();
+                let (should_be_inverted, condition) = condition
+                    .kind
+                    .resolve(datapack, &mut condition_ctx)
+                    .to_execute_condition(datapack, &mut condition_ctx, false)
+                    .unwrap();
+
+                condition_ctx.add_command(
+                    datapack,
+                    Command::Execute(
+                        ExecuteSubcommand::If(should_be_inverted, condition.clone()).then(
+                            ExecuteSubcommand::Run(Box::new(Command::Function(
+                                while_function_resource_location.clone(),
+                                None,
+                            ))),
+                        ),
+                    ),
+                );
+
+                let mut while_body_ctx = ctx.create_child_ctx();
+                while_body_ctx.loop_info = Some(LoopInfo {
+                    resource_location: while_function_resource_location,
+                    type_: LoopType::While(should_be_inverted, Box::new(condition)),
+                });
+
+                body.kind
+                    .compile_as_statement(datapack, &mut while_body_ctx);
+
+                while_body_ctx.extend_context(condition_ctx.clone());
+                ctx.extend_context(condition_ctx);
+
+                datapack.compile_and_add_to_function(&while_function_paths, &mut while_body_ctx);
+            }
+            Self::InfiniteLoop(body) => {
+                let loop_function_paths = datapack.get_unique_function_paths();
+                let loop_function_resource_location = ResourceLocation::new_namespace_paths(
+                    datapack.current_namespace_name(),
+                    loop_function_paths.clone(),
+                );
+
+                let iteration_command =
+                    Command::Function(loop_function_resource_location.clone(), None);
+
+                let mut loop_body_ctx = ctx.create_child_ctx();
+                loop_body_ctx.loop_info = Some(LoopInfo {
+                    resource_location: loop_function_resource_location,
+                    type_: LoopType::Loop,
+                });
+
+                body.kind.compile_as_statement(datapack, &mut loop_body_ctx);
+
+                loop_body_ctx.add_command(datapack, iteration_command.clone());
+                ctx.add_command(datapack, iteration_command);
+
+                datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
+            }
+            Self::IteratorLoop(is_reversed, pattern, iterable, body) => {
+                let iterable_data_type = iterable.data_type.get_iterable_type().unwrap();
+
+                let iterable = iterable.kind.resolve(datapack, ctx);
+
+                if iterable_data_type.equals(&DataType::String) {
+                    let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
+                    let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
+
+                    iterable.assign_to_data(
+                        datapack,
+                        ctx,
+                        unique_data_target.clone(),
+                        unique_path.clone(),
+                    );
+
+                    let mut for_body_ctx = CompileContext::default();
+
+                    pattern.destructure(
+                        datapack,
+                        &mut for_body_ctx,
+                        iterable_data_type,
+                        LowExpression::Data(Box::new((
+                            unique_data_target_2.clone(),
+                            unique_path_2.clone(),
+                        ))),
+                    );
+
+                    for_body_ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            unique_data_target_2.target,
+                            unique_path_2,
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::String(
+                                unique_data_target.target.clone(),
+                                Some(unique_path.clone()),
+                                Some(if is_reversed { -1 } else { 0 }),
+                                if is_reversed { None } else { Some(1) },
+                            ),
+                        )),
+                    );
+                    body.kind.compile_as_statement(datapack, &mut for_body_ctx);
+
+                    let current_namespace_name = datapack.current_namespace_name().to_string();
+
+                    let for_function_paths = datapack.get_unique_function_paths();
+
+                    let mut condition_ctx = CompileContext::default();
+
+                    for_body_ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Modify(
+                            unique_data_target.target.clone(),
+                            unique_path.clone(),
+                            DataCommandModificationMode::Set,
+                            DataCommandModification::String(
+                                unique_data_target.target.clone(),
+                                Some(unique_path),
+                                Some(i32::from(!is_reversed)),
+                                if is_reversed { Some(-1) } else { None },
+                            ),
+                        )),
+                    );
+
+                    let mut map = SNBTCompound::new();
+                    map.insert(SNBTString(false, name), SNBT::macroable_string(""));
+                    let unique_path = LowNbtPath(nonempty![NbtPathNode::RootCompound(map)]);
+
+                    condition_ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::If(
+                            true,
+                            ExecuteIfSubcommand::Data(
+                                unique_data_target.target,
+                                unique_path,
+                                Some(Box::new(ExecuteSubcommand::Run(Box::new(
+                                    Command::Function(
+                                        ResourceLocation::new_namespace_paths(
+                                            current_namespace_name,
+                                            for_function_paths.clone(),
+                                        ),
+                                        None,
+                                    ),
+                                )))),
+                            ),
+                        )),
+                    );
+
+                    for_body_ctx.extend_context(condition_ctx.clone());
+                    ctx.extend_context(condition_ctx);
+
+                    datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
+                } else {
+                    let (unique_data_target, unique_path) = datapack.get_unique_data();
+
+                    iterable.assign_to_data(
+                        datapack,
+                        ctx,
+                        unique_data_target.clone(),
+                        unique_path.clone(),
+                    );
+
+                    let mut for_body_ctx = CompileContext::default();
+
+                    let unique_path = unique_path.with_node(NbtPathNode::Index(Some(
+                        SNBT::macroable_integer(if is_reversed { -1 } else { 0 }),
+                    )));
+
+                    pattern.destructure(
+                        datapack,
+                        &mut for_body_ctx,
+                        iterable_data_type,
+                        LowExpression::Data(Box::new((
+                            unique_data_target.clone(),
+                            unique_path.clone(),
+                        ))),
+                    );
+
+                    body.kind.compile_as_statement(datapack, &mut for_body_ctx);
+
+                    let current_namespace_name = datapack.current_namespace_name().to_string();
+
+                    let for_function_paths = datapack.get_unique_function_paths();
+
+                    let mut condition_ctx = CompileContext::default();
+
+                    for_body_ctx.add_command(
+                        datapack,
+                        Command::Data(DataCommand::Remove(
+                            unique_data_target.target.clone(),
+                            unique_path.clone(),
+                        )),
+                    );
+
+                    condition_ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::If(
+                            false,
+                            ExecuteIfSubcommand::Data(
+                                unique_data_target.target,
+                                unique_path,
+                                Some(Box::new(ExecuteSubcommand::Run(Box::new(
+                                    Command::Function(
+                                        ResourceLocation::new_namespace_paths(
+                                            current_namespace_name,
+                                            for_function_paths.clone(),
+                                        ),
+                                        None,
+                                    ),
+                                )))),
+                            ),
+                        )),
+                    );
+
+                    for_body_ctx.extend_context(condition_ctx.clone());
+                    ctx.extend_context(condition_ctx);
+
+                    datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
+                }
             }
             Self::Underscore => {
                 #[cfg(debug_assertions)]

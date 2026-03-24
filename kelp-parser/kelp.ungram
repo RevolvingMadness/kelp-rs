@@ -42,9 +42,6 @@ TypeAliasDeclarationItem =
 // ----- Statement -----
 Statement =
   ExpressionStatement
-| WhileStatement
-| ForStatement
-| LoopStatement
 | LetStatement
 | BreakStatement
 | ContinueStatement
@@ -54,15 +51,6 @@ Statement =
 
 ExpressionStatement =
   Expression
-
-WhileStatement =
-  'while' condition:Expression body:Statement
-
-ForStatement =
-  'for' Pattern 'in' Expression Statement
-
-LoopStatement =
-  'loop' body:Statement
 
 LetStatement =
   'let' Pattern (':' DataType)? '=' Expression
@@ -88,6 +76,9 @@ GenericDataTypes =
 Expression =
   IfExpression
 | BlockExpression
+| PredicateLoopExpression
+| InfiniteLoopExpression
+| IteratorLoopExpression
 | PathExpression
 | UnderscoreExpression
 | UnaryExpression
@@ -117,6 +108,15 @@ IfExpression =
 
 BlockExpression =
   '{' Statement* '}'
+
+PredicateLoopExpression =
+  'while' Expression BlockExpression
+
+InfiniteLoopExpression =
+  'loop' BlockExpression
+
+IteratorLoopExpression =
+  'for' Pattern 'in' Expression BlockExpression
 
 PathExpression = GenericPath
 

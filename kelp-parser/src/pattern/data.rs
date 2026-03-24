@@ -36,5 +36,5 @@ pub fn lower_data_pattern(
 
     let (target, path) = lower_data(node.data()?, ctx)?;
 
-    Some(PatternKind::Data(target, path).with_span(span))
+    Some(PatternKind::Data(Box::new((target, path))).with_span(span))
 }

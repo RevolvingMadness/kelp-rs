@@ -1,3 +1,5 @@
+use std::*;
+
 struct Person {
     name: data<string>,
     age: score<integer>
@@ -7,7 +9,7 @@ mcfn namespace:main {
     let person = Person {
         name: "Bob" to data,
         age: 1 to score,
-    }
+    };
 
-    tellraw @a ["Person: ", person to data]
+    tellraw @a ["Person: ", person to data];
 }

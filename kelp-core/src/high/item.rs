@@ -10,13 +10,13 @@ use crate::{
             alias::HighAliasDeclaration,
             r#struct::{HighStructStructDeclaration, HighTupleStructDeclaration},
         },
-        expression::Expression,
-        semantic_analysis_context::{
+        expression::block::BlockExpression,
+        semantic_analysis::{
             ResolvedItem, SemanticAnalysisContext, info::error::SemanticAnalysisError,
         },
         use_tree::UseTree,
     },
-    low::item::Item as MiddleItem,
+    low::{data_type::DataType, item::Item as MiddleItem},
     span::Span,
     visibility::Visibility,
 };
@@ -24,7 +24,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ItemKind {
     ModuleDeclaration(Span, String, Vec<Item>),
-    MCFNDeclaration(ResourceLocation, Expression),
+    MCFNDeclaration(ResourceLocation, BlockExpression),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
     StructStructDeclaration(
         Span,
@@ -38,6 +38,7 @@ pub enum ItemKind {
 
 #[derive(Debug, Clone)]
 pub struct Item {
+    pub span: Span,
     pub visibility: Visibility,
     pub kind: ItemKind,
 }
@@ -73,7 +74,18 @@ impl Item {
                 MiddleItem::ModuleDeclaration
             }
             ItemKind::MCFNDeclaration(resource_location, body) => {
-                let (_, body) = body.perform_semantic_analysis(ctx)?;
+                let (body_span, tail_expression_span, body) =
+                    body.perform_semantic_analysis(ctx)?;
+
+                if !body.data_type.equals(&DataType::Unit) {
+                    return ctx.add_error(
+                        tail_expression_span.unwrap_or(body_span),
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: DataType::Unit,
+                            actual: body.data_type,
+                        },
+                    );
+                }
 
                 MiddleItem::MCFNDeclaration(resource_location, body)
             }
@@ -205,6 +217,7 @@ impl Item {
                             }
 
                             let item = Self {
+                                span: self.span,
                                 visibility: self.visibility,
                                 kind: ItemKind::Use(tree),
                             };

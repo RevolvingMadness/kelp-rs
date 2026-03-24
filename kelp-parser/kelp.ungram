@@ -50,7 +50,8 @@ Statement =
 | ItemStatement
 
 ExpressionStatement =
-  Expression
+  (ExpressionWithoutBlock ';')
+| (ExpressionWithBlock ';'?)
 
 LetStatement =
   'let' Pattern (':' DataType)? '=' Expression
@@ -74,10 +75,11 @@ GenericDataTypes =
 
 // ----- Expression -----
 Expression =
-  IfExpression
-| BlockExpression
-| LoopExpression
-| PathExpression
+  ExpressionWithoutBlock
+| ExpressionWithBlock
+
+ExpressionWithoutBlock =
+  PathExpression
 | UnderscoreExpression
 | UnaryExpression
 | AssignmentExpression
@@ -101,8 +103,10 @@ Expression =
 | IndexExpression
 | FieldAccessExpression
 
-IfExpression =
-  'if' condition:Expression body:BlockExpression ('else' (else_body_block:BlockExpression | else_body_if:IfExpression))?
+ExpressionWithBlock =
+  BlockExpression
+| LoopExpression
+| IfExpression
 
 BlockExpression =
   '{' Statement* '}'
@@ -120,6 +124,9 @@ InfiniteLoopExpression =
 
 IteratorLoopExpression =
   'for' Pattern 'in' Expression BlockExpression
+
+IfExpression =
+  'if' condition:Expression body:BlockExpression ('else' (else_body_block:BlockExpression | else_body_if:IfExpression))?
 
 PathExpression = GenericPath
 

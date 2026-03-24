@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     high::{
         data::DataTarget, expression::Expression, nbt_path::NbtPath,
-        semantic_analysis_context::SemanticAnalysisContext, snbt_string::SNBTString,
+        semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
     },
     low::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
     trait_ext::CollectOptionAllIterExt,

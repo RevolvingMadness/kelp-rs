@@ -9,7 +9,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    high::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext},
+    high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
     low::entity_selector::option::EntitySelectorOption as MiddleEntitySelectorOption,
 };
 

@@ -1,7 +1,7 @@
 use minecraft_command_types::{item::ItemType, resource_location::ResourceLocation};
 
 use crate::{
-    high::{expression::Expression, semantic_analysis_context::SemanticAnalysisContext},
+    high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
     low::mc_item::{
         ItemPredicate as MiddleItemPredicate, ItemTest as MiddleItemTest, OrGroup as MiddleOrGroup,
     },

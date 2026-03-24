@@ -4,15 +4,15 @@ use crate::{
         index::try_parse_index_nbt_path_node, named::try_parse_named_nbt_path_node,
     },
     expression::{
-        compound::{lower_compound_expression_inner, try_parse_compound_expression},
         lower_expression,
+        without_block::compound::{lower_compound_expression_inner, try_parse_compound_expression},
     },
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 use kelp_core::high::{
-    nbt_path::NbtPathNode, semantic_analysis_context::SemanticAnalysisContext,
+    nbt_path::NbtPathNode, semantic_analysis::SemanticAnalysisContext,
     snbt_string::SNBTString,
 };
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;

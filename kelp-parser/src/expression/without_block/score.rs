@@ -1,0 +1,40 @@
+use kelp_core::high::{
+    expression::{Expression, ExpressionKind},
+    semantic_analysis::SemanticAnalysisContext,
+};
+
+use crate::{
+    cst::CSTScoreExpression,
+    parser::Parser,
+    player_score::{lower_player_score, try_parse_player_score},
+    span::span_of_cst_node,
+    syntax::SyntaxKind,
+};
+
+#[must_use]
+pub fn try_parse_score_expression(parser: &mut Parser) -> bool {
+    let checkpoint = parser.checkpoint();
+
+    if !try_parse_player_score(parser) {
+        return false;
+    }
+
+    parser.start_node_at(checkpoint, SyntaxKind::ScoreExpression);
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_score_expression(
+    node: CSTScoreExpression,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Expression> {
+    let span = span_of_cst_node(&node);
+
+    let player_score = lower_player_score(node.player_score()?, ctx)?;
+
+    Some(ExpressionKind::PlayerScore(player_score).with_span(span))
+}

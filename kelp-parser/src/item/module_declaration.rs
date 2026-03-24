@@ -1,4 +1,4 @@
-use kelp_core::high::{item::ItemKind, semantic_analysis_context::SemanticAnalysisContext};
+use kelp_core::high::{item::ItemKind, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTModuleDeclarationItem,
@@ -35,10 +35,6 @@ pub fn try_parse_module_declaration_item_kind(parser: &mut Parser) -> bool {
         }
 
         expect_item(parser);
-
-        if !parser.try_parse_newline_whitespace() {
-            parser.recover_newline("Expected newline to mark end of item");
-        }
     }
 
     parser.expect_char('}', "Expected '}'");
@@ -69,10 +65,6 @@ pub fn expect_module_declaration_item_kind(parser: &mut Parser) -> bool {
         }
 
         expect_item(parser);
-
-        if !parser.try_parse_newline_whitespace() {
-            parser.recover_newline("Expected newline to mark end of item");
-        }
     }
 
     parser.expect_char('}', "Expected '}'");

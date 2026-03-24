@@ -1,7 +1,7 @@
 use std::fmt::{Display, Write};
 
 use crate::{
-    high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
+    high::{entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext},
     low::player_score::PlayerScore as MiddlePlayerScore,
 };
 

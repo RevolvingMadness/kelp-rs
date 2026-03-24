@@ -3,7 +3,7 @@ use minecraft_command_types::command::enums::score_operation_operator::ScoreOper
 use crate::{
     high::{
         entity_selector::EntitySelector, expression::Expression, player_score::PlayerScore,
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::scoreboard::players::{
         PlayersDisplayScoreboardCommand as MiddlePlayersDisplayScoreboardCommand,

@@ -1,11 +1,15 @@
 use kelp_core::high::{
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis::SemanticAnalysisContext,
     statement::{Statement, StatementKind},
 };
 
 use crate::{
     cst::{CSTExpressionStatement, CSTStatement},
-    expression::{is_expression_recovery, lower_expression, try_parse_expression},
+    expression::{
+        is_expression_recovery, try_parse_expression_with_block,
+        try_parse_expression_without_block, with_block::lower_expression_with_block,
+        without_block::lower_expression_without_block,
+    },
     parser::Parser,
     span::span_of_cst_node,
     statement::{
@@ -29,6 +33,21 @@ pub mod remove;
 #[must_use]
 pub fn is_statement_recovery(char: char) -> bool {
     is_expression_recovery(char) || char == '\n' || char == '{'
+}
+
+pub fn expect_semicolon_ending(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
+
+    parser.skip_whitespace();
+
+    if parser.try_bump_char(';') {
+        return true;
+    }
+
+    parser.restore_state(state);
+    parser.error("Expected ';'");
+
+    false
 }
 
 #[must_use]
@@ -70,7 +89,27 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
 
     parser.start_node(SyntaxKind::ExpressionStatement);
 
-    if !try_parse_expression(parser) {
+    if try_parse_expression_with_block(parser) {
+        let state = parser.save_state();
+        parser.skip_whitespace();
+
+        if !parser.try_bump_char(';') {
+            parser.restore_state(state);
+        }
+    } else if try_parse_expression_without_block(parser) {
+        let state = parser.save_state();
+        parser.skip_whitespace();
+
+        if !parser.try_bump_char(';') {
+            let next_char = parser.peek_char();
+
+            parser.restore_state(state);
+
+            if next_char != Some('}') && next_char.is_some() {
+                parser.error("Expected ';'");
+            }
+        }
+    } else {
         let chars = parser.source[parser.pos..].chars();
         let mut length = 0;
 
@@ -100,7 +139,13 @@ pub fn lower_expression_statement(
     node: CSTExpressionStatement,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Statement> {
-    let expression = lower_expression(node.expression()?, ctx)?;
+    let expression = if let Some(without_block) = node.expression_without_block() {
+        lower_expression_without_block(without_block, ctx)?
+    } else if let Some(with_block) = node.expression_with_block() {
+        lower_expression_with_block(with_block, ctx)?
+    } else {
+        unreachable!()
+    };
 
     Some(StatementKind::Expression(expression).with_span(span_of_cst_node(&node)))
 }

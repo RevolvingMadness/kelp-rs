@@ -6,7 +6,7 @@ use crate::{
             resolved::{GenericResolver, PartiallyResolvedDataType},
             unresolved::UnresolvedDataType,
         },
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::data_type::DataType,
     span::Span,

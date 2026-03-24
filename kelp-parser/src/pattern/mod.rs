@@ -1,4 +1,4 @@
-use kelp_core::high::{pattern::Pattern, semantic_analysis_context::SemanticAnalysisContext};
+use kelp_core::high::{pattern::Pattern, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTPattern,

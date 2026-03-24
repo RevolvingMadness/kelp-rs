@@ -13,7 +13,7 @@ use crate::{
         },
         entity_selector::EntitySelector,
         expression::Expression,
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::Command as MiddleCommand,
 };

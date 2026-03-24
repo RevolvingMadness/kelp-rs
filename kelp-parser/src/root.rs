@@ -1,4 +1,4 @@
-use kelp_core::high::{item::Item, semantic_analysis_context::SemanticAnalysisContext};
+use kelp_core::high::{item::Item, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTRoot,
@@ -10,26 +10,14 @@ use crate::{
 pub fn parse_root(parser: &mut Parser) {
     parser.start_node(SyntaxKind::Root);
 
-    parser.skip_whitespace();
-
-    let mut is_first = true;
-
     loop {
+        parser.skip_whitespace();
+
         if parser.is_eof() {
             break;
         }
 
-        if !is_first && !parser.try_parse_newline_whitespace() {
-            parser.recover_newline("Expected newline to mark end of item");
-
-            is_first = false;
-
-            continue;
-        }
-
         expect_item(parser);
-
-        is_first = false;
     }
 
     parser.finish_node();

@@ -1,5 +1,5 @@
 use crate::{
-    high::{command::Command, semantic_analysis_context::SemanticAnalysisContext},
+    high::{command::Command, semantic_analysis::SemanticAnalysisContext},
     low::expression::command::r#return::ReturnCommand as MiddleReturnCommand,
 };
 

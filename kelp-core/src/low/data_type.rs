@@ -3,14 +3,11 @@ use std::{collections::BTreeMap, fmt::Write};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
-    high::semantic_analysis_context::{
-        SemanticAnalysisContext, info::error::SemanticAnalysisError,
-    },
+    high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     low::environment::{Environment, r#type::r#struct::StructId},
     operator::{ArithmeticOperator, ComparisonOperator},
     place::PlaceTypeKind,
     span::Span,
-    visibility::Visibility,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -970,11 +967,7 @@ impl DataType {
             Self::Reference(self_) => self_.get_field_result(environment, field)?,
 
             Self::Struct(id) => {
-                let (visibility, _, declaration) = environment.get_struct(*id);
-
-                if visibility != Visibility::Public {
-                    return None;
-                }
+                let (_, _, declaration) = environment.get_struct(*id);
 
                 declaration.get_field(field).cloned()?
             }
@@ -1065,6 +1058,7 @@ impl DataType {
 
             (Self::List(data_types), Self::List(other_data_types))
             | (Self::Compound(data_types), Self::Compound(other_data_types))
+            | (Self::Score(data_types), Self::Score(other_data_types))
             | (Self::Data(data_types), Self::Data(other_data_types)) => {
                 data_types.equals(other_data_types)
             }

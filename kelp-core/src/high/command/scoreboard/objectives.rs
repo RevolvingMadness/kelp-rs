@@ -3,7 +3,7 @@ use minecraft_command_types::command::enums::scoreboard_render_type::ScoreboardR
 use crate::{
     high::{
         command::scoreboard::players::ScoreboardNumberFormat, expression::Expression,
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::scoreboard::objectives::{
         ObjectivesScoreboardCommand as MiddleObjectivesScoreboardCommand,

@@ -1,7 +1,7 @@
 use kelp_core::{
     high::{
         item::{Item, ItemKind},
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     visibility::Visibility,
 };
@@ -28,7 +28,7 @@ use crate::{
         r#use::{expect_use_item_kind, lower_use_item, try_parse_use_item_kind},
     },
     parser::Parser,
-    span::text_range_to_span,
+    span::{span_of_cst_node, text_range_to_span},
     r#struct::{lower_struct_fields, lower_tuple_fields},
     syntax::SyntaxKind,
 };
@@ -178,6 +178,8 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
+    let span = span_of_cst_node(&node);
+
     let visibility = if node.pub_keyword_token().is_some() {
         Visibility::Public
     } else {
@@ -186,5 +188,9 @@ pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<It
 
     let kind = lower_item_kind(node.item_kind()?, ctx)?;
 
-    Some(Item { visibility, kind })
+    Some(Item {
+        span,
+        visibility,
+        kind,
+    })
 }

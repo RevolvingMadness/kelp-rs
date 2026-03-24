@@ -1,7 +1,7 @@
 use minecraft_command_types::{has_macro::HasMacro, snbt::SNBTString as LowSNBTString};
 
 use crate::{
-    high::semantic_analysis_context::{
+    high::semantic_analysis::{
         SemanticAnalysisContext, info::error::SemanticAnalysisError,
     },
     span::Span,

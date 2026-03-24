@@ -5,7 +5,7 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use crate::{
     high::{
         coordinate::Coordinates, entity_selector::EntitySelector,
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
     span::Span,

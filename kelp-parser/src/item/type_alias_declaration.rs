@@ -8,6 +8,7 @@ use crate::{
     },
     parser::Parser,
     span::text_range_to_span,
+    statement::expect_semicolon_ending,
     syntax::SyntaxKind,
 };
 
@@ -39,6 +40,8 @@ pub fn try_parse_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
         parser.error("Expected data type");
     }
 
+    expect_semicolon_ending(parser);
+
     parser.finish_node();
 
     true
@@ -65,6 +68,8 @@ pub fn expect_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
     if !try_parse_data_type(parser) {
         parser.error("Expected data type");
     }
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 

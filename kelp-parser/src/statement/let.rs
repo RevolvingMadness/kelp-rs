@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis::SemanticAnalysisContext,
     statement::{Statement, StatementKind},
 };
 
@@ -10,6 +10,7 @@ use crate::{
     parser::Parser,
     pattern::{lower_pattern, try_parse_pattern},
     span::span_of_cst_node,
+    statement::expect_semicolon_ending,
     syntax::SyntaxKind,
 };
 
@@ -46,8 +47,10 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
     parser.skip_whitespace();
 
     if !try_parse_expression(parser) && parsed_equals {
-        parser.recover_newline("Expected expression");
+        parser.recover_not_whitespace("Expected expression");
     }
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 

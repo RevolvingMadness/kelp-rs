@@ -1,15 +1,20 @@
 use kelp_core::high::{
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis::SemanticAnalysisContext,
     statement::{Statement, StatementKind},
 };
 
-use crate::{cst::CSTBreakStatement, parser::Parser, span::span_of_cst_node, syntax::SyntaxKind};
+use crate::{
+    cst::CSTBreakStatement, parser::Parser, span::span_of_cst_node,
+    statement::expect_semicolon_ending, syntax::SyntaxKind,
+};
 
 #[must_use]
 pub fn try_parse_break_statement(parser: &mut Parser) -> bool {
     parser.start_node(SyntaxKind::BreakStatement);
 
     parser.bump_str(SyntaxKind::BreakKeyword, "break");
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 

@@ -6,7 +6,7 @@ use std::{
 use crate::{
     high::{
         data_type::resolved::{GenericResolver, PartiallyResolvedDataType},
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
     low::data_type::DataType as MiddleDataType,

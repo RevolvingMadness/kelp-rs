@@ -4,7 +4,7 @@ use nonempty::NonEmpty;
 
 use crate::{
     high::{
-        expression::Expression, semantic_analysis_context::SemanticAnalysisContext,
+        expression::Expression, semantic_analysis::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
     low::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},

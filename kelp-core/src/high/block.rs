@@ -4,7 +4,7 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     high::{
-        expression::Expression, semantic_analysis_context::SemanticAnalysisContext,
+        expression::Expression, semantic_analysis::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
     low::block::BlockState as MiddleBlockState,

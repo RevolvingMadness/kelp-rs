@@ -1,8 +1,8 @@
-use kelp_core::high::{item::ItemKind, semantic_analysis_context::SemanticAnalysisContext};
+use kelp_core::high::{item::ItemKind, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTMCFNDeclarationItem,
-    expression::block::{lower_block_expression, try_parse_block_expression},
+    expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
     statement::try_parse_statement,

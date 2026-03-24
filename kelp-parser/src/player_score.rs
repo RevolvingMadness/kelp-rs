@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    player_score::PlayerScore, semantic_analysis_context::SemanticAnalysisContext,
+    player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{

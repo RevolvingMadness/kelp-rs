@@ -5,7 +5,7 @@ use minecraft_command_types::entity_selector::EntitySelectorVariable;
 use crate::{
     high::{
         entity_selector::option::EntitySelectorOption,
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::entity_selector::EntitySelector as MiddleEntitySelector,
     trait_ext::CollectOptionAllIterExt,

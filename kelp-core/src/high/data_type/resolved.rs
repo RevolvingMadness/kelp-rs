@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use minecraft_command_types::snbt::SNBTString;
 
 use crate::{
-    high::{environment::r#type::HighTypeId, semantic_analysis_context::SemanticAnalysisContext},
+    high::{environment::r#type::HighTypeId, semantic_analysis::SemanticAnalysisContext},
     low::data_type::DataType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,

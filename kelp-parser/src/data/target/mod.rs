@@ -1,6 +1,6 @@
 use kelp_core::high::{
     data::{DataTarget, DataTargetKind},
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{

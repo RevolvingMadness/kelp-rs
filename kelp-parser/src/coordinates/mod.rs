@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    coordinate::Coordinates, semantic_analysis_context::SemanticAnalysisContext,
+    coordinate::Coordinates, semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{

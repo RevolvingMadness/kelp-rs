@@ -1,7 +1,7 @@
 use minecraft_command_types::{command::enums::heightmap::Heightmap, coordinate::Coordinates};
 
 use crate::{
-    high::{entity_selector::EntitySelector, semantic_analysis_context::SemanticAnalysisContext},
+    high::{entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext},
     low::expression::command::execute::positioned::Positioned as MiddlePositioned,
 };
 

@@ -15,7 +15,7 @@ pub fn try_parse_reference_data_type(parser: &mut Parser) -> bool {
     parser.bump_char();
 
     if !try_parse_data_type(parser) {
-        parser.recover_newline("Expected data type after '&'");
+        parser.recover_not_whitespace("Expected data type after '&'");
     }
 
     parser.finish_node();

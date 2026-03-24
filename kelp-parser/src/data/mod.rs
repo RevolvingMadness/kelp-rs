@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    data::DataTarget, nbt_path::NbtPath, semantic_analysis_context::SemanticAnalysisContext,
+    data::DataTarget, nbt_path::NbtPath, semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{

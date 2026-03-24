@@ -1,10 +1,11 @@
 use kelp_core::high::{
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis::SemanticAnalysisContext,
     statement::{Statement, StatementKind},
 };
 
 use crate::{
-    cst::CSTContinueStatement, parser::Parser, span::span_of_cst_node, syntax::SyntaxKind,
+    cst::CSTContinueStatement, parser::Parser, span::span_of_cst_node,
+    statement::expect_semicolon_ending, syntax::SyntaxKind,
 };
 
 #[must_use]
@@ -12,6 +13,8 @@ pub fn try_parse_continue_statement(parser: &mut Parser) -> bool {
     parser.start_node(SyntaxKind::ContinueStatement);
 
     parser.bump_str(SyntaxKind::ContinueKeyword, "continue");
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 

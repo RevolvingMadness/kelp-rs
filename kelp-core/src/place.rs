@@ -14,9 +14,7 @@ use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
     datapack::Datapack,
-    high::semantic_analysis_context::{
-        SemanticAnalysisContext, info::error::SemanticAnalysisError,
-    },
+    high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     low::{
         data_type::DataType,
         environment::{
@@ -32,7 +30,6 @@ use crate::{
     player_score::GeneratedPlayerScore,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
-    visibility::Visibility,
 };
 
 #[derive(Debug, Clone)]
@@ -358,12 +355,8 @@ impl PlaceTypeKind {
                     .collect::<Option<_>>()?,
             ),
             Self::Value(id) => {
-                let (visibility, _, ValueDeclarationKind::Variable(declaration)) =
+                let (_, _, ValueDeclarationKind::Variable(declaration)) =
                     environment.get_value(*id).as_tuple();
-
-                if visibility != Visibility::Public {
-                    return None;
-                }
 
                 declaration.data_type.as_ref()?.clone()
             }
@@ -384,12 +377,8 @@ impl PlaceTypeKind {
     pub fn get_index_result(&self, environment: &Environment) -> Option<DataType> {
         match self {
             Self::Value(id) => {
-                let (visibility, _, ValueDeclarationKind::Variable(declaration)) =
+                let (_, _, ValueDeclarationKind::Variable(declaration)) =
                     environment.get_value(*id).as_tuple();
-
-                if visibility != Visibility::Public {
-                    return None;
-                }
 
                 declaration.data_type.as_ref()?.clone().get_index_result()
             }
@@ -417,12 +406,8 @@ impl PlaceTypeKind {
                 data_type.get_field_result(environment, field)
             }
             Self::Value(id) => {
-                let (visibility, _, ValueDeclarationKind::Variable(declaration)) =
+                let (_, _, ValueDeclarationKind::Variable(declaration)) =
                     environment.get_value(*id).as_tuple();
-
-                if visibility != Visibility::Public {
-                    return None;
-                }
 
                 declaration
                     .data_type
@@ -481,12 +466,7 @@ impl PlaceTypeKind {
                     .run_all_succeeded()?;
             }
             Self::Value(id) => {
-                let (visibility, _, ValueDeclarationKind::Variable(declaration)) =
-                    ctx.get_value(id);
-
-                if visibility != Visibility::Public {
-                    return None;
-                }
+                let (_, _, ValueDeclarationKind::Variable(declaration)) = ctx.get_value(id);
 
                 let data_type = declaration.data_type.as_ref()?;
 
@@ -616,12 +596,7 @@ impl PlaceTypeKind {
                 }
             }
             Self::Value(id) => {
-                let (visibility, _, ValueDeclarationKind::Variable(declaration)) =
-                    ctx.get_value(id);
-
-                if visibility != Visibility::Public {
-                    return None;
-                }
+                let (_, _, ValueDeclarationKind::Variable(declaration)) = ctx.get_value(id);
 
                 let data_type = declaration.data_type.as_ref()?;
 

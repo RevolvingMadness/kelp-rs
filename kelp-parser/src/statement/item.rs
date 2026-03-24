@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis::SemanticAnalysisContext,
     statement::{Statement, StatementKind},
 };
 

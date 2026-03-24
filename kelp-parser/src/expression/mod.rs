@@ -1,76 +1,37 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis_context::SemanticAnalysisContext,
-};
+use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTExpression,
     data_type::try_parse_data_type,
     expression::{
-        as_cast::lower_as_cast_expression,
-        assignment::lower_assignment_expression,
-        binary::lower_binary_expression,
-        block::{lower_block_expression, try_parse_block_expression},
-        boolean::lower_boolean_expression,
-        character::lower_character_expression,
-        command::{lower_command_expression, try_parse_command_expression},
-        compound::lower_compound_expression,
-        data::{lower_data_expression, try_parse_data_expression},
-        field_access::lower_field_access_expression,
-        r#if::{lower_if_expression, try_parse_if_expression},
-        index::lower_index_expression,
-        list::{lower_list_expression, try_parse_list_expression},
-        r#loop::{
-            infinite::try_parse_infinite_loop_expression,
-            iterator::try_parse_iterator_loop_expression, lower_loop_expression,
-            predicate::try_parse_predicate_loop_expression,
+        with_block::{
+            block::try_parse_block_expression,
+            r#if::try_parse_if_expression,
+            r#loop::{
+                infinite::try_parse_infinite_loop_expression,
+                iterator::try_parse_iterator_loop_expression,
+                predicate::try_parse_predicate_loop_expression,
+            },
+            lower_expression_with_block,
         },
-        numeric::lower_numeric_expression,
-        parenthesized::lower_parenthesized_expression,
-        path::lower_path_expression,
-        score::{lower_score_expression, try_parse_score_expression},
-        string::lower_string_expression,
-        r#struct::{
-            lower_struct_struct_expression, lower_tuple_struct_expression,
-            try_parse_struct_struct_expression_fields, try_parse_tuple_struct_expression_fields,
+        without_block::{
+            command::try_parse_command_expression,
+            data::try_parse_data_expression,
+            list::try_parse_list_expression,
+            lower_expression_without_block,
+            score::try_parse_score_expression,
+            r#struct::{
+                try_parse_struct_struct_expression_fields, try_parse_tuple_struct_expression_fields,
+            },
         },
-        to_cast::lower_to_cast_expression,
-        tuple::lower_tuple_expression,
-        unary::lower_unary_expression,
-        underscore::lower_underscore_expression,
-        unit::lower_unit_expression,
     },
     parser::Parser,
     path::generic::try_parse_generic_path,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
-pub mod as_cast;
-pub mod assignment;
-pub mod binary;
-pub mod block;
-pub mod boolean;
-pub mod character;
-pub mod command;
-pub mod compound;
-pub mod data;
-pub mod field_access;
-pub mod r#if;
-pub mod index;
-pub mod list;
-pub mod r#loop;
-pub mod numeric;
-pub mod parenthesized;
-pub mod path;
-pub mod score;
-pub mod string;
-pub mod r#struct;
-pub mod to_cast;
-pub mod tuple;
-pub mod unary;
-pub mod underscore;
-pub mod unit;
+pub mod with_block;
+pub mod without_block;
 
 #[must_use]
 pub fn is_expression_recovery(char: char) -> bool {
@@ -78,6 +39,10 @@ pub fn is_expression_recovery(char: char) -> bool {
 }
 
 pub fn try_parse_expression(parser: &mut Parser) -> bool {
+    try_parse_expression_with_block(parser) || try_parse_expression_without_block(parser)
+}
+
+pub fn try_parse_expression_without_block(parser: &mut Parser) -> bool {
     try_parse_assignment(parser)
 }
 
@@ -88,7 +53,7 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
     }
 
     let state = parser.save_state();
-    parser.skip_inline_whitespace();
+    parser.skip_whitespace();
 
     let op_info = match (
         parser.peek_char(),
@@ -114,10 +79,14 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
 
         parser.add_token(kind, len);
 
-        parser.skip_inline_whitespace();
+        let state = parser.save_state();
+
+        parser.skip_whitespace();
 
         if !try_parse_assignment(parser) {
-            parser.recover_newline("Expected expression after assignment operator");
+            parser.restore_state(state);
+
+            parser.recover_not_whitespace("Expected expression after assignment operator");
         }
 
         parser.finish_node();
@@ -136,12 +105,12 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         if parser.peek_identifier() == Some("to") {
             parser.start_node_at(checkpoint, SyntaxKind::ToCastExpression);
             parser.bump_str(SyntaxKind::ToKeyword, "to");
-            parser.expect_inline_whitespace();
+            parser.expect_whitespace();
             parser.expect_identifier_kind(
                 SyntaxKind::RuntimeStorageType,
                 "Expected runtime storage type",
@@ -153,7 +122,7 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
         if parser.peek_identifier() == Some("as") {
             parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
             parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
-            parser.expect_inline_whitespace();
+            parser.expect_whitespace();
             if !try_parse_data_type(parser) {
                 parser.error("Expected data type");
             }
@@ -176,12 +145,12 @@ pub fn try_parse_logical_or(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         if parser.peek_char() == Some('|') && parser.peek_nth_char(1) == Some('|') {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::PipePipe, 2);
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             try_parse_logical_and(parser);
             parser.finish_node();
         } else {
@@ -200,12 +169,12 @@ pub fn try_parse_logical_and(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         if parser.peek_char() == Some('&') && parser.peek_nth_char(1) == Some('&') {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::AmpersandAmpersand, 2);
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             try_parse_bitwise_or(parser);
             parser.finish_node();
         } else {
@@ -224,7 +193,7 @@ pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         if parser.peek_char() == Some('|')
             && parser.peek_nth_char(1) != Some('|')
@@ -232,7 +201,7 @@ pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
         {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::Pipe, 1);
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             try_parse_bitwise_and(parser);
             parser.finish_node();
         } else {
@@ -251,7 +220,7 @@ pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         if parser.peek_char() == Some('&')
             && parser.peek_nth_char(1) != Some('&')
@@ -259,7 +228,7 @@ pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
         {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::Ampersand, 1);
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             try_parse_equality(parser);
             parser.finish_node();
         } else {
@@ -278,7 +247,7 @@ pub fn try_parse_equality(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         let op_info = match (parser.peek_char(), parser.peek_nth_char(1)) {
             (Some('='), Some('=')) => Some((2, SyntaxKind::EqualEqual)),
@@ -289,7 +258,7 @@ pub fn try_parse_equality(parser: &mut Parser) -> bool {
         if let Some((len, kind)) = op_info {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(kind, len);
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             try_parse_comparison(parser);
             parser.finish_node();
         } else {
@@ -308,7 +277,7 @@ pub fn try_parse_comparison(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         let op_info = match (parser.peek_char(), parser.peek_nth_char(1)) {
             (Some('>'), Some('=')) => Some((2, SyntaxKind::RightArrowEqual)),
@@ -323,7 +292,7 @@ pub fn try_parse_comparison(parser: &mut Parser) -> bool {
         if let Some((len, kind)) = op_info {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(kind, len);
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             try_parse_shift(parser);
             parser.finish_node();
         } else {
@@ -342,7 +311,7 @@ pub fn try_parse_shift(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         let op_info = match (
             parser.peek_char(),
@@ -361,7 +330,7 @@ pub fn try_parse_shift(parser: &mut Parser) -> bool {
         if let Some((len, kind)) = op_info {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.add_token(kind, len);
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             try_parse_term(parser);
             parser.finish_node();
         } else {
@@ -380,7 +349,7 @@ pub fn try_parse_term(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         if let Some(c) = parser.peek_char()
             && (c == '+' || c == '-')
@@ -388,9 +357,9 @@ pub fn try_parse_term(parser: &mut Parser) -> bool {
         {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.bump_char();
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             if !try_parse_factor(parser) {
-                parser.recover_newline("Expected expression after operator");
+                parser.recover_not_whitespace("Expected expression after operator");
             }
             parser.finish_node();
         } else {
@@ -410,7 +379,7 @@ pub fn try_parse_factor(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         if let Some(c) = parser.peek_char()
             && (c == '*' || c == '/' || c == '%')
@@ -418,9 +387,9 @@ pub fn try_parse_factor(parser: &mut Parser) -> bool {
         {
             parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
             parser.bump_char();
-            parser.skip_inline_whitespace();
+            parser.skip_whitespace();
             if !try_parse_unary(parser) {
-                parser.recover_newline("Expected expression after operator");
+                parser.recover_not_whitespace("Expected expression after operator");
             }
             parser.finish_node();
         } else {
@@ -435,7 +404,7 @@ pub fn try_parse_unary(parser: &mut Parser) -> bool {
     if matches!(parser.peek_char(), Some('!' | '-' | '*' | '&')) {
         parser.start_node(SyntaxKind::UnaryExpression);
         parser.bump_char();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
         try_parse_unary(parser);
         parser.finish_node();
 
@@ -453,7 +422,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
 
     loop {
         let state = parser.save_state();
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
 
         match parser.peek_char() {
             Some('[') => {
@@ -461,7 +430,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.bump_char();
                 parser.skip_whitespace();
                 if !try_parse_expression(parser) {
-                    parser.recover_newline("Expected index expression");
+                    parser.recover_not_whitespace("Expected index expression");
                 }
                 parser.skip_whitespace();
                 parser.expect_char(']', "Expected closing bracket ']'");
@@ -484,7 +453,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 if parser.peek_identifier() == Some("as") {
                     parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
                     parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
-                    parser.expect_inline_whitespace();
+                    parser.expect_whitespace();
                     if !try_parse_data_type(parser) {
                         parser.error("Expected data type");
                     }
@@ -496,21 +465,17 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
             }
         }
     }
+
     true
 }
 
 pub fn try_parse_primary(parser: &mut Parser) -> bool {
+    if try_parse_expression_with_block(parser) {
+        return true;
+    }
+
     match parser.peek_char() {
         // Some('{') => try_parse_compound_expression(parser),
-        Some('{') => {
-            if try_parse_block_expression(parser) {
-                return true;
-            }
-
-            parser.error("Expected block expression");
-
-            false
-        }
         Some('[') => try_parse_list_expression(parser),
         Some('(') => {
             let checkpoint = parser.checkpoint();
@@ -627,7 +592,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                 let state = parser.save_state();
 
-                parser.skip_inline_whitespace();
+                parser.skip_whitespace();
 
                 match parser.peek_char() {
                     Some('{') => {
@@ -703,37 +668,43 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                     true
                 }
-                "if" => {
-                    if try_parse_if_expression(parser) {
-                        return true;
-                    }
-
-                    default(parser, "if")
-                }
-                "while" => {
-                    if try_parse_predicate_loop_expression(parser) {
-                        return true;
-                    }
-
-                    default(parser, "while")
-                }
-                "loop" => {
-                    if try_parse_infinite_loop_expression(parser) {
-                        return true;
-                    }
-
-                    default(parser, "loop")
-                }
-                "for" => {
-                    if try_parse_iterator_loop_expression(parser) {
-                        return true;
-                    }
-
-                    default(parser, "for")
-                }
                 _ => default(parser, text),
             })
         }
+    }
+}
+
+pub fn try_parse_expression_with_block(parser: &mut Parser) -> bool {
+    if parser.peek_char() == Some('{') {
+        if !try_parse_block_expression(parser) {
+            parser.error("Expected block expression");
+
+            return false;
+        }
+
+        true
+    } else {
+        let state = parser.save_state();
+
+        let Some(identifier) = parser.peek_identifier() else {
+            parser.restore_state(state);
+
+            return false;
+        };
+
+        let is_block_expression = match identifier {
+            "if" => try_parse_if_expression(parser),
+            "while" => try_parse_predicate_loop_expression(parser),
+            "loop" => try_parse_infinite_loop_expression(parser),
+            "for" => try_parse_iterator_loop_expression(parser),
+            _ => false,
+        };
+
+        if !is_block_expression {
+            parser.restore_state(state);
+        }
+
+        is_block_expression
     }
 }
 
@@ -744,37 +715,7 @@ pub fn lower_expression(
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Expression> {
     match node {
-        CSTExpression::BlockExpression(node) => lower_block_expression(node, ctx),
-        CSTExpression::IfExpression(node) => lower_if_expression(node, ctx),
-        CSTExpression::LoopExpression(node) => {
-            let span = span_of_cst_node(&node);
-
-            let expression = lower_loop_expression(node, ctx)?;
-
-            Some(ExpressionKind::Loop(Box::new(expression)).with_span(span))
-        }
-        CSTExpression::UnaryExpression(node) => lower_unary_expression(node, ctx),
-        CSTExpression::PathExpression(node) => lower_path_expression(node, ctx),
-        CSTExpression::UnderscoreExpression(node) => lower_underscore_expression(node, ctx),
-        CSTExpression::BooleanExpression(node) => lower_boolean_expression(node, ctx),
-        CSTExpression::NumericExpression(node) => lower_numeric_expression(node, ctx),
-        CSTExpression::CharacterExpression(node) => lower_character_expression(node, ctx),
-        CSTExpression::StringExpression(node) => lower_string_expression(node, ctx),
-        CSTExpression::AssignmentExpression(node) => lower_assignment_expression(node, ctx),
-        CSTExpression::BinaryExpression(node) => lower_binary_expression(node, ctx),
-        CSTExpression::DataExpression(node) => lower_data_expression(node, ctx),
-        CSTExpression::ScoreExpression(node) => lower_score_expression(node, ctx),
-        CSTExpression::CommandExpression(node) => lower_command_expression(node, ctx),
-        CSTExpression::UnitExpression(node) => lower_unit_expression(node, ctx),
-        CSTExpression::CompoundExpression(node) => lower_compound_expression(node, ctx),
-        CSTExpression::ListExpression(node) => lower_list_expression(node, ctx),
-        CSTExpression::TupleExpression(node) => lower_tuple_expression(node, ctx),
-        CSTExpression::ParenthesizedExpression(node) => lower_parenthesized_expression(node, ctx),
-        CSTExpression::AsCastExpression(node) => lower_as_cast_expression(node, ctx),
-        CSTExpression::ToCastExpression(node) => lower_to_cast_expression(node, ctx),
-        CSTExpression::StructStructExpression(node) => lower_struct_struct_expression(node, ctx),
-        CSTExpression::TupleStructExpression(node) => lower_tuple_struct_expression(node, ctx),
-        CSTExpression::IndexExpression(node) => lower_index_expression(node, ctx),
-        CSTExpression::FieldAccessExpression(node) => lower_field_access_expression(node, ctx),
+        CSTExpression::ExpressionWithBlock(node) => lower_expression_with_block(node, ctx),
+        CSTExpression::ExpressionWithoutBlock(node) => lower_expression_without_block(node, ctx),
     }
 }

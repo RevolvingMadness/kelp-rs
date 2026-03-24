@@ -3,7 +3,7 @@ use crate::{
         command::scoreboard::{
             objectives::ObjectivesScoreboardCommand, players::PlayersScoreboardCommand,
         },
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::scoreboard::ScoreboardCommand as MiddleScoreboardCommand,
 };

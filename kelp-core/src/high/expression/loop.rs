@@ -1,8 +1,8 @@
 use crate::{
     high::{
-        expression::Expression,
+        expression::{Expression, block::BlockExpression},
         pattern::Pattern,
-        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::{
         data_type::DataType,
@@ -15,9 +15,9 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum LoopExpressionKind {
-    Predicate(Box<Expression>, Box<Expression>),
-    Infinite(Box<Expression>),
-    Iterator(bool, Pattern, Box<Expression>, Box<Expression>),
+    Predicate(Box<Expression>, Box<BlockExpression>),
+    Infinite(Box<BlockExpression>),
+    Iterator(bool, Pattern, Box<Expression>, Box<BlockExpression>),
 }
 
 impl LoopExpressionKind {
@@ -56,7 +56,7 @@ impl LoopExpression {
                     );
                 }
 
-                let (_, body) = body?;
+                let (_, _, body) = body?;
 
                 MiddleLoopExpressionKind::Predicate(Box::new(condition), Box::new(body))
                     .with(DataType::Unit)
@@ -66,7 +66,7 @@ impl LoopExpression {
                 let body = body.perform_semantic_analysis(ctx);
                 ctx.loop_depth -= 1;
 
-                let (_, body) = body?;
+                let (_, _, body) = body?;
 
                 MiddleLoopExpressionKind::Infinite(Box::new(body)).with(DataType::Unit)
             }
@@ -91,7 +91,7 @@ impl LoopExpression {
                 };
 
                 ctx.loop_depth += 1;
-                let Some((_, body)) = body.perform_semantic_analysis(ctx) else {
+                let Some((_, _, body)) = body.perform_semantic_analysis(ctx) else {
                     ctx.loop_depth -= 1;
 
                     ctx.exit_scope();

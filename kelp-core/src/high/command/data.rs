@@ -4,7 +4,7 @@ use ordered_float::NotNan;
 use crate::{
     high::{
         data::DataTarget, expression::Expression, nbt_path::NbtPath,
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::data::{
         DataCommand as MiddleDataCommand, DataCommandModification as MiddleDataCommandModification,

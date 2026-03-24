@@ -2,7 +2,7 @@ use minecraft_command_types::command::execute::ScoreComparisonOperator;
 use minecraft_command_types::range::IntegerRange;
 
 use crate::high::player_score::PlayerScore;
-use crate::high::semantic_analysis_context::SemanticAnalysisContext;
+use crate::high::semantic_analysis::SemanticAnalysisContext;
 use crate::low::score_comparison::ScoreComparison as MiddleScoreComparison;
 
 #[derive(Debug, Clone)]

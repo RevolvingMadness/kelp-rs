@@ -7,18 +7,16 @@ use crate::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         data::DataTarget,
         data_type::unresolved::UnresolvedDataType,
-        expression::r#loop::LoopExpression,
+        expression::{block::BlockExpression, r#loop::LoopExpression},
         nbt_path::NbtPath,
         player_score::PlayerScore,
-        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
-        statement::Statement,
     },
     low::{
         data_type::DataType,
         environment::value::ValueDeclarationKind,
         expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
-        statement::Statement as MiddleStatement,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     path::generic::GenericPath,
@@ -28,6 +26,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
+pub mod block;
 pub mod r#loop;
 
 #[derive(Debug, Clone)]
@@ -67,8 +66,12 @@ pub enum ExpressionKind {
         HashMap<SNBTString, Expression>,
     ),
     TupleStruct(GenericPath<UnresolvedDataType>, Vec<Expression>),
-    If(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
-    Block(Vec<Statement>),
+    If(
+        Box<Expression>,
+        Box<BlockExpression>,
+        Option<Box<Expression>>,
+    ),
+    Block(BlockExpression),
     Loop(Box<LoopExpression>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
@@ -150,19 +153,26 @@ pub struct Expression {
 
 impl Expression {
     #[must_use]
-    pub fn get_place_type(&self, ctx: &mut SemanticAnalysisContext) -> Option<PlaceType> {
+    pub fn get_place_type(&self, ctx: &mut SemanticAnalysisContext) -> Option<Option<PlaceType>> {
         let place_type_kind = match &self.kind {
-            ExpressionKind::Tuple(expressions) => PlaceTypeKind::Tuple(
-                expressions
+            ExpressionKind::Tuple(expressions) => {
+                let Some(place_types) = expressions
                     .iter()
                     .map(|expression| expression.get_place_type(ctx))
-                    .collect::<Option<_>>()?,
-            ),
+                    .collect::<Option<Option<_>>>()?
+                else {
+                    return Some(None);
+                };
+
+                PlaceTypeKind::Tuple(place_types)
+            }
             ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataType::Integer),
             ExpressionKind::Data(_) => PlaceTypeKind::Data(DataType::SNBT),
             ExpressionKind::Unary(operator, expression) => match operator {
                 UnaryOperator::Dereference => {
-                    let place_type = expression.get_place_type(ctx)?;
+                    let Some(place_type) = expression.get_place_type(ctx)? else {
+                        return Some(None);
+                    };
 
                     PlaceTypeKind::Dereference(Box::new(place_type))
                 }
@@ -171,12 +181,16 @@ impl Expression {
                 }
             },
             ExpressionKind::Index(target, _) => {
-                let target_place_type = target.get_place_type(ctx)?;
+                let Some(target_place_type) = target.get_place_type(ctx)? else {
+                    return Some(None);
+                };
 
                 PlaceTypeKind::Index(Box::new(target_place_type))
             }
             ExpressionKind::FieldAccess(target, field) => {
-                let target_place_type = target.get_place_type(ctx)?;
+                let Some(target_place_type) = target.get_place_type(ctx)? else {
+                    return Some(None);
+                };
 
                 PlaceTypeKind::FieldAccess(
                     Box::new(target_place_type),
@@ -214,13 +228,15 @@ impl Expression {
             | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Path(path) => {
-                let id = ctx.get_visible_value_id(path)?;
+                let Some(id) = ctx.get_visible_value_id(path) else {
+                    return Some(None);
+                };
 
                 PlaceTypeKind::Value(id)
             }
         };
 
-        Some(place_type_kind.with_span(self.span))
+        Some(Some(place_type_kind.with_span(self.span)))
     }
 
     #[allow(clippy::result_large_err)]
@@ -413,6 +429,8 @@ impl Expression {
                     return ctx.add_error(target.span, SemanticAnalysisError::CannotBeAssignedTo);
                 };
 
+                let place = place?;
+
                 let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
                 place.perform_augmented_assignment_semantic_analysis(
@@ -432,6 +450,8 @@ impl Expression {
                 let Some(place) = target.get_place_type(ctx) else {
                     return ctx.add_error(target.span, SemanticAnalysisError::CannotBeAssignedTo);
                 };
+
+                let place = place?;
 
                 let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
@@ -826,7 +846,7 @@ impl Expression {
                     );
                 }
 
-                let (body_span, body) = body?;
+                let (body_span, tail_expression_span, body) = body?;
                 let else_body = match else_body {
                     Some(else_body) => Some(else_body?),
                     None => None,
@@ -847,7 +867,7 @@ impl Expression {
                 } else {
                     if !body.data_type.equals(&DataType::Unit) {
                         return ctx.add_error(
-                            body_span,
+                            tail_expression_span.unwrap_or(body_span),
                             SemanticAnalysisError::MismatchedTypes {
                                 expected: DataType::Unit,
                                 actual: body.data_type,
@@ -867,24 +887,10 @@ impl Expression {
                 )
                 .with(data_type)
             }
-            ExpressionKind::Block(statements) => {
-                ctx.enter_scope();
+            ExpressionKind::Block(expression) => {
+                let (_, _, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                let statements = statements
-                    .into_iter()
-                    .map(|statement| statement.perform_semantic_analysis(ctx))
-                    .collect_option_all::<Vec<_>>();
-
-                ctx.exit_scope();
-
-                let statements = statements?;
-
-                let last_statement_type = statements
-                    .last()
-                    .and_then(MiddleStatement::get_data_type)
-                    .unwrap_or(DataType::Unit);
-
-                UnresolvedExpressionKind::Block(statements).with(last_statement_type)
+                expression
             }
             ExpressionKind::Loop(expression) => {
                 return expression

@@ -6,7 +6,7 @@ use crate::{
         data_type::unresolved::UnresolvedDataType,
         nbt_path::NbtPath,
         player_score::PlayerScore,
-        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
     low::{

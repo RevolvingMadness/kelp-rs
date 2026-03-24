@@ -484,21 +484,21 @@ impl Parser<'_> {
         ParseResult { root, errors }
     }
 
-    pub fn bump_until_newline(&mut self) {
+    pub fn bump_until_not_whitespace(&mut self) {
         let bytes = &self.source.as_bytes()[self.pos..];
 
         let length = bytes
             .iter()
-            .position(|&b| b == b'\n')
+            .position(|&b| !b.is_ascii_whitespace())
             .unwrap_or(bytes.len());
 
         self.add_token(SyntaxKind::Garbage, length);
     }
 
-    pub fn recover_newline(&mut self, message: &str) {
+    pub fn recover_not_whitespace(&mut self, message: &str) {
         self.error(message);
 
-        self.bump_until_newline();
+        self.bump_until_not_whitespace();
     }
 
     pub fn bump_until_whitespace(&mut self) {

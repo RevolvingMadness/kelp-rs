@@ -3,7 +3,7 @@ use std::fmt::{Display, Write};
 use crate::{
     high::{
         expression::Expression,
-        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::coordinate::{
         Coordinates as MiddleCoordinates, WorldCoordinate as MiddleWorldCoordinate,

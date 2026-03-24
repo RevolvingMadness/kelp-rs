@@ -285,7 +285,7 @@ pub enum UnresolvedExpressionKind {
         Box<UnresolvedExpression>,
         Option<Box<UnresolvedExpression>>,
     ),
-    Block(Vec<Statement>),
+    Block(Vec<Statement>, Option<Box<UnresolvedExpression>>),
     Loop(LoopExpression),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -310,11 +310,17 @@ impl UnresolvedExpressionKind {
                     .and_then(|else_body| else_body.kind.get_control_flow_kind())
             }),
 
-            Self::Block(statements) => {
+            Self::Block(statements, tail_expression) => {
                 for statement in statements {
                     if let Some(kind) = statement.get_control_flow_kind() {
                         return Some(kind);
                     }
+                }
+
+                if let Some(tail_expression) = tail_expression
+                    && let Some(kind) = tail_expression.kind.get_control_flow_kind()
+                {
+                    return Some(kind);
                 }
 
                 None
@@ -433,7 +439,7 @@ impl UnresolvedExpressionKind {
             | Self::ToCast(_, _, _)
             | Self::StructStruct(_, _)
             | Self::TupleStruct(_, _)
-            | Self::Block(_)
+            | Self::Block(_, _)
             | Self::If(_, _, _)
             | Self::Loop(_) => None,
         }
@@ -607,16 +613,13 @@ impl UnresolvedExpressionKind {
             Self::String(value) => ResolvedExpression::String(value),
             Self::Unit => ResolvedExpression::Unit,
             Self::Variable(id) => datapack.get_variable_value(id).1.clone(),
-            Self::Block(mut statements) => {
-                let last = statements.pop();
-
+            Self::Block(statements, tail_expression) => {
                 for statement in statements {
                     statement.compile_as_statement(datapack, ctx);
                 }
 
-                last.map_or(ResolvedExpression::Unit, |last| {
-                    last.resolve_as_expression(datapack, ctx)
-                        .unwrap_or(ResolvedExpression::Unit)
+                tail_expression.map_or(ResolvedExpression::Unit, |tail_expression| {
+                    tail_expression.kind.resolve(datapack, ctx)
                 })
             }
             Self::If(condition, body, else_body) => {
@@ -693,9 +696,13 @@ impl UnresolvedExpressionKind {
                     field_expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Block(statements) => {
+            Self::Block(statements, tail_expression) => {
                 for statement in statements {
                     statement.compile_as_statement(datapack, ctx);
+                }
+
+                if let Some(tail_expression) = tail_expression {
+                    tail_expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
             Self::If(condition, body, else_body) => {

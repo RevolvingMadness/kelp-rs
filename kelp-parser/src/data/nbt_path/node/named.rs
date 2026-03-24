@@ -1,5 +1,6 @@
 use crate::{
-    expression::compound::try_parse_compound_expression, parser::Parser, syntax::SyntaxKind,
+    expression::without_block::compound::try_parse_compound_expression, parser::Parser,
+    syntax::SyntaxKind,
 };
 
 pub fn try_parse_named_nbt_path_node(parser: &mut Parser) -> bool {

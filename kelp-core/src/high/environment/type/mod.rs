@@ -6,7 +6,7 @@ use crate::{
             alias::HighAliasDeclaration, module::HighModuleDeclaration,
             r#struct::HighStructDeclaration,
         },
-        semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::data_type::DataType,
     span::Span,

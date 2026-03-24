@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use kelp_core::{
     high::{
         pattern::{Pattern, PatternKind},
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
     path::generic::GenericPath,

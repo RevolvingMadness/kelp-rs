@@ -8,7 +8,7 @@ use crate::{
         block::BlockState, command::execute::subcommand::ExecuteSubcommand, data::DataTarget,
         entity_selector::EntitySelector, item_source::ItemSource, mc_item::ItemPredicate,
         nbt_path::NbtPath, player_score::PlayerScore, score_comparison::ScoreComparison,
-        semantic_analysis_context::SemanticAnalysisContext,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
 };

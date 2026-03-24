@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    semantic_analysis_context::SemanticAnalysisContext,
+    semantic_analysis::SemanticAnalysisContext,
     statement::{Statement, StatementKind},
 };
 
@@ -8,6 +8,7 @@ use crate::{
     expression::{lower_expression, try_parse_expression},
     parser::Parser,
     span::span_of_cst_node,
+    statement::expect_semicolon_ending,
     syntax::SyntaxKind,
 };
 
@@ -26,6 +27,8 @@ pub fn try_parse_remove_statement(parser: &mut Parser) -> bool {
 
         return false;
     }
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 

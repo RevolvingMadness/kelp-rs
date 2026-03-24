@@ -1,10 +1,14 @@
-use kelp_core::high::{semantic_analysis_context::SemanticAnalysisContext, statement::{Statement, StatementKind}};
+use kelp_core::high::{
+    semantic_analysis::SemanticAnalysisContext,
+    statement::{Statement, StatementKind},
+};
 
 use crate::{
     cst::CSTAppendStatement,
     expression::{lower_expression, try_parse_expression},
     parser::Parser,
     span::span_of_cst_node,
+    statement::expect_semicolon_ending,
     syntax::SyntaxKind,
 };
 
@@ -29,6 +33,8 @@ pub fn try_parse_append_statement(parser: &mut Parser) -> bool {
     if !try_parse_expression(parser) {
         parser.error("Expected expression");
     }
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 

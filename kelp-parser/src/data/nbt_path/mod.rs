@@ -1,4 +1,4 @@
-use kelp_core::high::{nbt_path::NbtPath, semantic_analysis_context::SemanticAnalysisContext};
+use kelp_core::high::{nbt_path::NbtPath, semantic_analysis::SemanticAnalysisContext};
 use nonempty::NonEmpty;
 
 use crate::{

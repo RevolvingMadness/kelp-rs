@@ -3,6 +3,7 @@ use kelp_core::high::item::ItemKind;
 use crate::{
     cst::CSTUseItem,
     parser::Parser,
+    statement::expect_semicolon_ending,
     syntax::SyntaxKind,
     use_tree::{lower_use_tree, try_parse_use_tree},
 };
@@ -18,6 +19,8 @@ pub fn try_parse_use_item_kind(parser: &mut Parser) -> bool {
     if !try_parse_use_tree(parser) && parsed_whitespace {
         parser.error("Expected use tree");
     }
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 
@@ -36,6 +39,8 @@ pub fn expect_use_item_kind(parser: &mut Parser) -> bool {
     if !try_parse_use_tree(parser) {
         parser.error("Expected use tree");
     }
+
+    expect_semicolon_ending(parser);
 
     parser.finish_node();
 

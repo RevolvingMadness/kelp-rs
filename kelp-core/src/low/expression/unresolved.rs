@@ -611,7 +611,7 @@ impl UnresolvedExpressionKind {
                 let last = statements.pop();
 
                 for statement in statements {
-                    statement.resolve_as_expression(datapack, ctx);
+                    statement.compile_as_statement(datapack, ctx);
                 }
 
                 last.map_or(ResolvedExpression::Unit, |last| {

@@ -76,9 +76,7 @@ GenericDataTypes =
 Expression =
   IfExpression
 | BlockExpression
-| PredicateLoopExpression
-| InfiniteLoopExpression
-| IteratorLoopExpression
+| LoopExpression
 | PathExpression
 | UnderscoreExpression
 | UnaryExpression
@@ -108,6 +106,11 @@ IfExpression =
 
 BlockExpression =
   '{' Statement* '}'
+
+LoopExpression =
+  PredicateLoopExpression
+| InfiniteLoopExpression
+| IteratorLoopExpression
 
 PredicateLoopExpression =
   'while' Expression BlockExpression

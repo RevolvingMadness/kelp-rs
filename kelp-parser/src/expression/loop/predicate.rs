@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
+    expression::r#loop::{LoopExpression, LoopExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -44,11 +44,11 @@ pub fn try_parse_predicate_loop_expression(parser: &mut Parser) -> bool {
 pub fn lower_predicate_loop_expression(
     node: CSTPredicateLoopExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Expression> {
+) -> Option<LoopExpression> {
     let span = span_of_cst_node(&node);
 
     let condition = lower_expression(node.expression()?, ctx)?;
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ExpressionKind::PredicateLoop(Box::new(condition), Box::new(body)).with_span(span))
+    Some(LoopExpressionKind::Predicate(Box::new(condition), Box::new(body)).with_span(span))
 }

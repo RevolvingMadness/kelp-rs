@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
+    expression::r#loop::{LoopExpression, LoopExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -35,10 +35,10 @@ pub fn try_parse_infinite_loop_expression(parser: &mut Parser) -> bool {
 pub fn lower_infinite_loop_expression(
     node: CSTInfiniteLoopExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Expression> {
+) -> Option<LoopExpression> {
     let span = span_of_cst_node(&node);
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ExpressionKind::InfiniteLoop(Box::new(body)).with_span(span))
+    Some(LoopExpressionKind::Infinite(Box::new(body)).with_span(span))
 }

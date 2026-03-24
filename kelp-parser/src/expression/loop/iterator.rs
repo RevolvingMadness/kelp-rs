@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
+    expression::r#loop::{LoopExpression, LoopExpressionKind},
     semantic_analysis_context::SemanticAnalysisContext,
 };
 
@@ -57,7 +57,7 @@ pub fn try_parse_iterator_loop_expression(parser: &mut Parser) -> bool {
 pub fn lower_iterator_loop_expression(
     node: CSTIteratorLoopExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Expression> {
+) -> Option<LoopExpression> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;
@@ -67,7 +67,7 @@ pub fn lower_iterator_loop_expression(
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
     Some(
-        ExpressionKind::IteratorLoop(false, pattern, Box::new(expression), Box::new(body))
+        LoopExpressionKind::Iterator(false, pattern, Box::new(expression), Box::new(body))
             .with_span(span),
     )
 }

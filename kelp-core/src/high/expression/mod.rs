@@ -7,8 +7,8 @@ use crate::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         data::DataTarget,
         data_type::unresolved::UnresolvedDataType,
+        expression::r#loop::LoopExpression,
         nbt_path::NbtPath,
-        pattern::Pattern,
         player_score::PlayerScore,
         semantic_analysis_context::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
@@ -27,6 +27,8 @@ use crate::{
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };
+
+pub mod r#loop;
 
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
@@ -67,9 +69,7 @@ pub enum ExpressionKind {
     TupleStruct(GenericPath<UnresolvedDataType>, Vec<Expression>),
     If(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
     Block(Vec<Statement>),
-    PredicateLoop(Box<Expression>, Box<Expression>),
-    InfiniteLoop(Box<Expression>),
-    IteratorLoop(bool, Pattern, Box<Expression>, Box<Expression>),
+    Loop(Box<LoopExpression>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -210,9 +210,7 @@ impl Expression {
             | ExpressionKind::TupleStruct(_, _)
             | ExpressionKind::Block(_)
             | ExpressionKind::If(_, _, _)
-            | ExpressionKind::PredicateLoop(_, _)
-            | ExpressionKind::InfiniteLoop(_)
-            | ExpressionKind::IteratorLoop(_, _, _, _)
+            | ExpressionKind::Loop(_)
             | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Path(path) => {
@@ -254,7 +252,7 @@ impl Expression {
         self,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<(Span, MiddleExpression)> {
-        let expression: MiddleExpression = match self.kind {
+        let expression = match self.kind {
             ExpressionKind::Invalid => return None,
 
             ExpressionKind::Unary(operator, expression) => {
@@ -882,76 +880,14 @@ impl Expression {
 
                 MiddleExpressionKind::Block(statements).with(last_statement_type)
             }
-            ExpressionKind::PredicateLoop(condition, body) => {
-                let condition = condition.perform_semantic_analysis(ctx);
+            ExpressionKind::Loop(expression) => {
+                return expression
+                    .perform_semantic_analysis(ctx)
+                    .map(|(span, expression)| {
+                        let data_type = expression.data_type.clone();
 
-                ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx);
-                ctx.loop_depth -= 1;
-
-                let (condition_span, condition) = condition?;
-
-                if !condition.data_type.is_condition() {
-                    return ctx.add_error(
-                        condition_span,
-                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
-                    );
-                }
-
-                let (_, body) = body?;
-
-                MiddleExpressionKind::PredicateLoop(Box::new(condition), Box::new(body))
-                    .with(DataType::Unit)
-            }
-            ExpressionKind::InfiniteLoop(body) => {
-                ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx);
-                ctx.loop_depth -= 1;
-
-                let (_, body) = body?;
-
-                MiddleExpressionKind::InfiniteLoop(Box::new(body)).with(DataType::Unit)
-            }
-            ExpressionKind::IteratorLoop(reversed, pattern, iterable, body) => {
-                let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
-
-                let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
-                    pattern.kind.destructure_unknown(ctx);
-
-                    return ctx.add_error(
-                        expression_span,
-                        SemanticAnalysisError::CannotIterateType(iterable.data_type),
-                    );
-                };
-
-                ctx.enter_scope();
-
-                let Some(pattern) = pattern.perform_semantic_analysis(ctx, iterable_type) else {
-                    ctx.exit_scope();
-
-                    return None;
-                };
-
-                ctx.loop_depth += 1;
-                let Some((_, body)) = body.perform_semantic_analysis(ctx) else {
-                    ctx.loop_depth -= 1;
-
-                    ctx.exit_scope();
-
-                    return None;
-                };
-                ctx.loop_depth -= 1;
-                ctx.exit_scope();
-
-                // TODO: Reorder semantic analysis
-
-                MiddleExpressionKind::IteratorLoop(
-                    reversed,
-                    pattern,
-                    Box::new(iterable),
-                    Box::new(body),
-                )
-                .with(DataType::Unit)
+                        (span, MiddleExpressionKind::Loop(expression).with(data_type))
+                    });
             }
             ExpressionKind::Path(path) => {
                 let path = path.resolve_fully(ctx)?;

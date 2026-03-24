@@ -55,11 +55,11 @@ fn try_parse_struct_struct_expression_field(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    parser.expect_char(':', "Expected ':'");
+    let parsed_colon = parser.expect_char(':', "Expected ':'");
 
     parser.skip_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !try_parse_expression(parser) && parsed_colon {
         parser.error("Expected expression");
     }
 

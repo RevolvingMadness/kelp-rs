@@ -44,8 +44,7 @@ pub fn try_parse_module_declaration_item_kind(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-pub fn expect_module_declaration_item_kind(parser: &mut Parser) -> bool {
+pub fn expect_module_declaration_item_kind(parser: &mut Parser) {
     parser.start_node(SyntaxKind::ModuleDeclarationItem);
     parser.bump_str(SyntaxKind::ModKeyword, "mod");
 
@@ -70,8 +69,6 @@ pub fn expect_module_declaration_item_kind(parser: &mut Parser) -> bool {
     parser.expect_char('}', "Expected '}'");
 
     parser.finish_node();
-
-    true
 }
 
 #[must_use]

@@ -36,6 +36,7 @@ pub fn try_parse_block_expression(parser: &mut Parser) -> bool {
     }
 
     parser.expect_char('}', "Expected '}'");
+
     parser.finish_node();
 
     true

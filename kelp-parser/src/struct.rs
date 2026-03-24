@@ -32,11 +32,11 @@ pub fn try_parse_struct_field(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    parser.expect_char(':', "Expected ':'");
+    let parsed_colon = parser.expect_char(':', "Expected ':'");
 
     parser.skip_whitespace();
 
-    if !try_parse_data_type(parser) {
+    if !try_parse_data_type(parser) && parsed_colon {
         parser.error("Expected data type");
     }
 

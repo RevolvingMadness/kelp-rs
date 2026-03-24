@@ -55,10 +55,11 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
     }
 }
 
-#[must_use]
-pub fn expect_item_kind(parser: &mut Parser) -> bool {
+pub fn expect_item_kind(parser: &mut Parser) {
     let Some(identifier) = parser.peek_identifier() else {
-        return false;
+        parser.error("Expected item");
+
+        return;
     };
 
     match identifier {
@@ -67,7 +68,9 @@ pub fn expect_item_kind(parser: &mut Parser) -> bool {
         "mcfn" => expect_mcfn_declaration_item_kind(parser),
         "struct" => expect_struct_declaration_item_kind(parser),
         "type" => expect_type_alias_declaration_item_kind(parser),
-        _ => false,
+        _ => {
+            parser.error("Expected item");
+        }
     }
 }
 
@@ -105,7 +108,7 @@ pub fn try_parse_item(parser: &mut Parser) -> bool {
 }
 
 pub fn expect_item(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    parser.start_node(SyntaxKind::Item);
 
     if parser.peek_identifier() == Some("pub") {
         parser.bump_str(SyntaxKind::PubKeyword, "pub");
@@ -115,11 +118,7 @@ pub fn expect_item(parser: &mut Parser) -> bool {
         None
     };
 
-    if !expect_item_kind(parser) {
-        parser.error("Expected item");
-    }
-
-    parser.start_node_at(checkpoint, SyntaxKind::Item);
+    expect_item_kind(parser);
 
     parser.finish_node();
 

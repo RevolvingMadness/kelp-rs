@@ -21,10 +21,10 @@ pub fn try_parse_typed_compound_data_type(parser: &mut Parser) -> bool {
         }
 
         parser.skip_whitespace();
-        parser.expect_char(':', "Expected ':' after field name");
+        let parsed_colon = parser.expect_char(':', "Expected ':' after field name");
         parser.skip_whitespace();
 
-        if !try_parse_data_type(parser) {
+        if !try_parse_data_type(parser) && parsed_colon {
             parser.error("Expected data type");
         }
 

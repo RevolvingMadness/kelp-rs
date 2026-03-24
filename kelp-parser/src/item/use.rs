@@ -27,8 +27,7 @@ pub fn try_parse_use_item_kind(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-pub fn expect_use_item_kind(parser: &mut Parser) -> bool {
+pub fn expect_use_item_kind(parser: &mut Parser) {
     let checkpoint = parser.checkpoint();
 
     parser.start_node_at(checkpoint, SyntaxKind::UseItem);
@@ -43,8 +42,6 @@ pub fn expect_use_item_kind(parser: &mut Parser) -> bool {
     expect_semicolon_ending(parser);
 
     parser.finish_node();
-
-    true
 }
 
 #[must_use]

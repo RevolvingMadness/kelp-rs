@@ -64,8 +64,7 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-pub fn expect_struct_declaration_item_kind(parser: &mut Parser) -> bool {
+pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
     let checkpoint = parser.checkpoint();
     parser.bump_str(SyntaxKind::StructKeyword, "struct");
     parser.expect_inline_whitespace();
@@ -113,6 +112,4 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) -> bool {
     }
 
     parser.finish_node();
-
-    true
 }

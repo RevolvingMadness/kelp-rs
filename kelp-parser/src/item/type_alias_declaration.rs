@@ -47,8 +47,7 @@ pub fn try_parse_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-pub fn expect_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
+pub fn expect_type_alias_declaration_item_kind(parser: &mut Parser) {
     parser.start_node(SyntaxKind::TypeAliasDeclarationItem);
     parser.bump_str(SyntaxKind::TypeKeyword, "type");
     parser.skip_inline_whitespace();
@@ -72,8 +71,6 @@ pub fn expect_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
     expect_semicolon_ending(parser);
 
     parser.finish_node();
-
-    true
 }
 
 #[must_use]

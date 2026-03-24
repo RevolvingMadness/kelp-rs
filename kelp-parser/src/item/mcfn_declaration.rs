@@ -33,8 +33,7 @@ pub fn try_parse_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
+pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) {
     parser.start_node(SyntaxKind::MCFNDeclarationItem);
     parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
 
@@ -42,8 +41,6 @@ pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
 
     if !try_parse_resource_location(parser) {
         parser.error("Expected resource location");
-
-        return false;
     }
 
     parser.expect_whitespace();
@@ -53,8 +50,6 @@ pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
     }
 
     parser.finish_node();
-
-    true
 }
 
 #[must_use]

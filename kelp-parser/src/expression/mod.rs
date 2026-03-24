@@ -607,7 +607,11 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                         parser.skip_whitespace();
 
-                        parser.expect_char('}', "Expected '}'");
+                        if !parser.expect_char('}', "Expected '}'") {
+                            parser.bump_until_char(&['}']);
+
+                            parser.bump_char();
+                        }
                     }
                     Some('(') => {
                         parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
@@ -617,11 +621,17 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
                         parser.skip_whitespace();
 
-                        let _ = try_parse_tuple_struct_expression_fields(parser);
+                        if !try_parse_tuple_struct_expression_fields(parser) {
+                            parser.bump_until_char(&['}']);
+                        }
 
                         parser.skip_whitespace();
 
-                        parser.expect_char(')', "Expected ')'");
+                        if !parser.expect_char(')', "Expected ')'") {
+                            parser.bump_until_char(&[')']);
+
+                            parser.bump_char();
+                        }
                     }
                     _ => {
                         parser.restore_state(state);

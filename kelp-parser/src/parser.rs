@@ -704,10 +704,21 @@ impl Parser<'_> {
     }
 
     pub fn bump_until_char(&mut self, stop_chars: &[char]) {
-        while let Some(c) = self.peek_char()
-            && !stop_chars.contains(&c)
-        {
-            self.bump_char();
+        let start_pos = self.pos;
+        let mut current_pos = self.pos;
+
+        let remainder = &self.source[current_pos..];
+        for c in remainder.chars() {
+            if stop_chars.contains(&c) {
+                break;
+            }
+            current_pos += c.len_utf8();
+        }
+
+        let len = current_pos - start_pos;
+
+        if len > 0 {
+            self.add_token(SyntaxKind::Garbage, len);
         }
     }
 

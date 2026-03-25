@@ -18,7 +18,7 @@ pub fn try_parse_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
 
     parser.start_node(SyntaxKind::TypeAliasDeclarationItem);
     parser.bump_str(SyntaxKind::TypeKeyword, "type");
-    parser.skip_inline_whitespace();
+    parser.skip_whitespace();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::DataTypeName) {
         parser.restore_state(state);
@@ -26,15 +26,15 @@ pub fn try_parse_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
         return false;
     }
 
-    parser.skip_inline_whitespace();
+    parser.skip_whitespace();
 
     if try_parse_generic_names(parser) {
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
     }
 
     parser.expect_char('=', "Expected '='");
 
-    parser.skip_inline_whitespace();
+    parser.skip_whitespace();
 
     if !try_parse_data_type(parser) {
         parser.error("Expected data type");
@@ -50,19 +50,20 @@ pub fn try_parse_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
 pub fn expect_type_alias_declaration_item_kind(parser: &mut Parser) {
     parser.start_node(SyntaxKind::TypeAliasDeclarationItem);
     parser.bump_str(SyntaxKind::TypeKeyword, "type");
-    parser.skip_inline_whitespace();
+
+    parser.expect_whitespace();
 
     parser.expect_identifier_kind(SyntaxKind::DataTypeName, "Expected type name");
 
-    parser.skip_inline_whitespace();
+    parser.skip_whitespace();
 
     if try_parse_generic_names(parser) {
-        parser.skip_inline_whitespace();
+        parser.skip_whitespace();
     }
 
     parser.expect_char('=', "Expected '='");
 
-    parser.skip_inline_whitespace();
+    parser.skip_whitespace();
 
     if !try_parse_data_type(parser) {
         parser.error("Expected data type");

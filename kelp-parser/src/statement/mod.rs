@@ -46,7 +46,6 @@ pub fn expect_semicolon_ending(parser: &mut Parser) -> bool {
 
     parser.restore_state(state);
     parser.error("Expected ';'");
-    parser.bump_until_newline();
 
     false
 }

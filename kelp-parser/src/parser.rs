@@ -495,17 +495,6 @@ impl Parser<'_> {
         self.add_token(SyntaxKind::Garbage, length);
     }
 
-    pub fn bump_until_newline(&mut self) {
-        let bytes = &self.source.as_bytes()[self.pos..];
-
-        let length = bytes
-            .iter()
-            .position(|&b| b == b'\n')
-            .unwrap_or(bytes.len());
-
-        self.add_token(SyntaxKind::Garbage, length);
-    }
-
     pub fn recover_not_whitespace(&mut self, message: &str) {
         self.error(message);
 
@@ -743,6 +732,11 @@ impl Parser<'_> {
         if let Some(char) = self.peek_char() {
             self.add_token(kind, char.len_utf8());
         }
+    }
+
+    #[inline]
+    pub fn bump_garbage(&mut self) {
+        self.bump_char_kind(SyntaxKind::Garbage);
     }
 
     #[inline]

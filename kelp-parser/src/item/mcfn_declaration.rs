@@ -36,15 +36,15 @@ pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) {
     parser.start_node(SyntaxKind::MCFNDeclarationItem);
     parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
 
-    parser.expect_whitespace();
+    let mut succeeded = parser.expect_whitespace();
 
-    if !try_parse_resource_location(parser) {
+    if !try_parse_resource_location(parser) && succeeded {
         parser.error("Expected resource location");
     }
 
-    parser.expect_whitespace();
+    succeeded = parser.expect_whitespace() || succeeded;
 
-    if !try_parse_block_expression(parser) {
+    if !try_parse_block_expression(parser) && succeeded {
         parser.error("Expected block expression");
     }
 

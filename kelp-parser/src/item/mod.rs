@@ -55,9 +55,22 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
     }
 }
 
+fn recover_item(parser: &mut Parser) {
+    let bytes = &parser.source.as_bytes()[parser.pos..];
+
+    let length = bytes
+        .iter()
+        .position(|&b| b == b'\n' || b == b';')
+        .unwrap_or(bytes.len());
+
+    parser.add_token(SyntaxKind::Garbage, length + 1);
+}
+
 pub fn expect_item_kind(parser: &mut Parser) {
     let Some(identifier) = parser.peek_identifier() else {
         parser.error("Expected item");
+
+        recover_item(parser);
 
         return;
     };
@@ -69,7 +82,9 @@ pub fn expect_item_kind(parser: &mut Parser) {
         "struct" => expect_struct_declaration_item_kind(parser),
         "type" => expect_type_alias_declaration_item_kind(parser),
         _ => {
-            parser.error("Expected item");
+            parser.error_with_len("Expected item", identifier.len());
+
+            parser.add_token(SyntaxKind::Garbage, identifier.len());
         }
     }
 }

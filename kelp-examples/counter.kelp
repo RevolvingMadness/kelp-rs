@@ -1,36 +1,38 @@
+use std::*;
+
 struct Counter<T> {
     number_of_twos: T,
     number_of_fives: integer
 }
 
-type DefaultCounter = Counter<integer>
+type DefaultCounter = Counter<integer>;
 
 mcfn namespace:main {
     let counter = DefaultCounter {
         number_of_twos: 0,
         number_of_fives: 0
-    } to score
+    } to score;
 
-    let i = 0 to score
+    let i = 0 to score;
 
     while i < 100 {
         if i % 2 == 0 {
-            counter.number_of_twos += 1
+            counter.number_of_twos += 1;
         }
 
         if i % 5 == 0 {
-            counter.number_of_fives += 1
+            counter.number_of_fives += 1;
         }
 
-        i += 1
+        i += 1;
     }
 
-    tellraw @a counter to data
+    tellraw @a counter to data;
 
-    let Counter { number_of_twos, number_of_fives } = counter
+    let DefaultCounter { number_of_twos, number_of_fives } = counter;
 
-    tellraw @a counter.number_of_twos  // 50
-    tellraw @a number_of_twos          // 50
-    tellraw @a counter.number_of_fives // 20
-    tellraw @a number_of_fives         // 20
+    tellraw @a counter.number_of_twos;  // 50
+    tellraw @a number_of_twos;          // 50
+    tellraw @a counter.number_of_fives; // 20
+    tellraw @a number_of_fives;         // 20
 }

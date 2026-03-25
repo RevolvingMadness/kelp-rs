@@ -1,22 +1,22 @@
 mcfn namespace:main {
-    let a = 10 to score
-    let b = 3 to score
+    let a = 10 to score;
+    let b = 3 to score;
 
-    let result = 0 to score
-    let place_value = 1 to score
+    let result = 0 to score;
+    let place_value = 1 to score;
 
     while a > 0 && b > 0 {
-        let bit_a = a % 2
-        let bit_b = b % 2
+        let bit_a = a % 2;
+        let bit_b = b % 2;
 
-        if bit_a == 1 && bit_b == 1{
-            result += place_value
+        if bit_a == 1 && bit_b == 1 {
+            result += place_value;
         }
 
-        a /= 2
-        b /= 2
-        place_value *= 2
+        a /= 2;
+        b /= 2;
+        place_value *= 2;
     }
 
-    tellraw @a result
+    tellraw @a result;
 }

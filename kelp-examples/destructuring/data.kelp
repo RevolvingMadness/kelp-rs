@@ -1,5 +1,7 @@
-mcfn namespace:main {
-    let { OnGround: on_ground } = entity @s {} as data<{ OnGround: byte }>
+use std::*;
 
-    tellraw @a on_ground
+mcfn namespace:main {
+    let { OnGround: on_ground } = entity @s {} as data<{ OnGround: byte }>;
+
+    tellraw @a on_ground;
 }

@@ -74,7 +74,7 @@ pub fn lower_block_expression(
                 continue;
             }
 
-            unreachable!();
+            continue;
         }
 
         if let Some(stmt) = lower_statement(cst_statement, ctx) {

@@ -1,11 +1,11 @@
 mcfn namespace:main {
-    score a foo = 0
+    score a foo = 0;
 
-    let value = score a foo
+    let value = score a foo;
 
-    tellraw @a value // 0
+    tellraw @a value; // 0
 
-    *value = 5
+    *value = 5;
 
-    tellraw @a value // 5
+    tellraw @a value; // 5
 }

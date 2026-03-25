@@ -46,6 +46,7 @@ pub fn expect_semicolon_ending(parser: &mut Parser) -> bool {
 
     parser.restore_state(state);
     parser.error("Expected ';'");
+    parser.bump_until_newline();
 
     false
 }
@@ -144,7 +145,7 @@ pub fn lower_expression_statement(
     } else if let Some(with_block) = node.expression_with_block() {
         lower_expression_with_block(with_block, ctx)?
     } else {
-        unreachable!()
+        return None;
     };
 
     Some(StatementKind::Expression(expression).with_span(span_of_cst_node(&node)))

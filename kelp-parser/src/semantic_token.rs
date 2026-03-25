@@ -101,7 +101,6 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
             NodeOrToken::Node(node) => {
                 let semantic_token_type = match node.kind() {
                     SyntaxKind::ResourceLocation => Some(SemanticTokenType::Function),
-                    SyntaxKind::PathExpression => Some(SemanticTokenType::Variable),
                     _ => None,
                 };
 

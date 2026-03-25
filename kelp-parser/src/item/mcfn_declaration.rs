@@ -5,7 +5,6 @@ use crate::{
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    statement::try_parse_statement,
     syntax::SyntaxKind,
 };
 
@@ -24,8 +23,8 @@ pub fn try_parse_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
 
     parser.expect_whitespace();
 
-    if !try_parse_statement(parser) {
-        parser.error("Expected statement");
+    if !try_parse_block_expression(parser) {
+        parser.error("Expected block expression");
     }
 
     parser.finish_node();

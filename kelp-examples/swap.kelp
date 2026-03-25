@@ -1,14 +1,14 @@
 mcfn namespace:main {
-    let a = 1 to score
-    let b = 2 to score
+    let a = 1 to score;
+    let b = 2 to score;
 
-    tellraw @a ["a: ", a]
-    tellraw @a ["b: ", b]
+    tellraw @a ["a: ", a];
+    tellraw @a ["b: ", b];
 
-    (a, b) = (b, a)
+    (a, b) = (b, a);
 
-    tellraw @a "--- Swapped ---"
+    tellraw @a "--- Swapped ---";
 
-    tellraw @a ["a: ", a]
-    tellraw @a ["b: ", b]
+    tellraw @a ["a: ", a];
+    tellraw @a ["b: ", b];
 }

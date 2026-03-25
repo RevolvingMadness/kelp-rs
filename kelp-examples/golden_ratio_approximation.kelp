@@ -1,42 +1,42 @@
 mcfn namespace:fibonacci {
-    let output = score output fibonacci
-    let terms = score terms fibonacci
+    let output = score output fibonacci;
+    let terms = score terms fibonacci;
 
-    let a = 0 to score
-    let b = 1 to score
-    let count = 0 to score
+    let a = 0 to score;
+    let b = 1 to score;
+    let count = 0 to score;
 
     while (count < terms) {
-        (*a, *b) = (b, a + b)
-        count += 1
-    }
+        (*a, *b) = (b, a + b);
+        count += 1;
+    };
 
-    *output = a
+    *output = a;
 }
 
 mcfn namespace:golden_ratio_approximation {
-    let output = storage namespace:golden_ratio_approximation output
-    let terms = score terms golden_ratio_approximation
+    let output = storage namespace:golden_ratio_approximation output;
+    let terms = score terms golden_ratio_approximation;
 
-    let fibonacci_terms = score terms fibonacci
-    let fibonacci_output = score output fibonacci
+    let fibonacci_terms = score terms fibonacci;
+    let fibonacci_output = score output fibonacci;
     
-    *fibonacci_terms = terms - 1
-    function namespace:fibonacci
-    let fib_1 = *fibonacci_output
+    *fibonacci_terms = terms - 1;
+    function namespace:fibonacci;
+    let fib_1 = *fibonacci_output;
 
-    *fibonacci_terms = terms
-    function namespace:fibonacci
-    let fib_2 = *fibonacci_output * 100000
+    *fibonacci_terms = terms;
+    function namespace:fibonacci;
+    let fib_2 = *fibonacci_output * 100000;
 
-    *output = (fib_2 / fib_1) * 0.00001
+    *output = (fib_2 / fib_1) * 0.00001;
 }
 
 mcfn namespace:main {
-    let golden_ratio_approximation_terms = score terms golden_ratio_approximation
-    let golden_ratio_approximation_output = storage namespace:golden_ratio_approximation output
+    let golden_ratio_approximation_terms = score terms golden_ratio_approximation;
+    let golden_ratio_approximation_output = storage namespace:golden_ratio_approximation output;
 
-    *golden_ratio_approximation_terms = 15
-    function namespace:golden_ratio_approximation
-    tellraw @a golden_ratio_approximation_output
+    *golden_ratio_approximation_terms = 15;
+    function namespace:golden_ratio_approximation;
+    tellraw @a golden_ratio_approximation_output;
 }

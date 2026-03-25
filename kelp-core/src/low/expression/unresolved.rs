@@ -398,15 +398,23 @@ impl UnresolvedExpressionKind {
                 Some(Place::Data(target, path))
             }
             Self::Index(target, index) => {
-                let target = target.kind.resolve(datapack, ctx).as_place()?;
+                let target = target.kind.resolve(datapack, ctx);
                 let index = index.kind.resolve(datapack, ctx);
 
-                Some(Place::Index(Box::new(target), Box::new(index)))
+                let index_result = target.index(datapack, ctx, index).unwrap();
+                let place = index_result.as_place()?;
+
+                Some(place)
             }
             Self::FieldAccess(target, field) => {
-                let target = target.kind.resolve(datapack, ctx).as_place()?;
+                let data_type = &target.data_type;
 
-                Some(Place::Field(Box::new(target), field.1))
+                let target = target.kind.resolve(datapack, ctx);
+
+                let field_result = target.access_field(data_type, datapack, &field.1).unwrap();
+                let place = field_result.as_place()?;
+
+                Some(place)
             }
             Self::Tuple(tuple) => Some(Place::Tuple(
                 tuple

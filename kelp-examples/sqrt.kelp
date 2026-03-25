@@ -1,42 +1,42 @@
 mcfn namespace:sqrt {
-    let n = score n sqrt
-    let precision = score precision sqrt
-    let output = score output sqrt
+    let n = score n sqrt;
+    let precision = score precision sqrt;
+    let output = score output sqrt;
 
     if n == 0 {
-        *output = 0
+        *output = 0;
     } else {
-        let x = n * precision to score
-        let target = x * precision to score
+        let x = n * precision to score;
+        let target = x * precision to score;
 
         loop {
-            let better_x = (x + (target / x)) / 2
+            let better_x = (x + (target / x)) / 2;
             
             if (better_x >= x) {
-                *output = x
+                *output = x;
 
-                break
+                break;
             }
 
-            *x = better_x
+            *x = better_x;
         }
     }
 }
 
 mcfn namespace:main {
-    let sqrt_n = score n sqrt
-    let sqrt_precision = score precision sqrt
-    let sqrt_output = score output sqrt
+    let sqrt_n = score n sqrt;
+    let sqrt_precision = score precision sqrt;
+    let sqrt_output = score output sqrt;
 
-    let x = 0 to score
+    let x = 0 to score;
 
     while x < 10 {
-        *sqrt_n = x
-        *sqrt_precision = 10000
+        *sqrt_n = x;
+        *sqrt_precision = 10000;
 
-        function namespace:sqrt
-        tellraw @a ["sqrt(", x, ") = ", sqrt_output * 0.0001 to data]
+        function namespace:sqrt;
+        tellraw @a ["sqrt(", x, ") = ", sqrt_output * 0.0001 to data];
 
-        x += 1
+        x += 1;
     }
 }

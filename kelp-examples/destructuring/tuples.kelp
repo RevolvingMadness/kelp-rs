@@ -1,11 +1,11 @@
 mcfn namespace:main {
-    let (x, y) = (1 to score, 2 to score)
+    let (x, y) = (1 to score, 2 to score);
 
-    tellraw @a x // 1
-    tellraw @a y // 2
+    tellraw @a x; // 1
+    tellraw @a y; // 2
 
-    (x, y) = (y, x)
+    (x, y) = (y, x);
 
-    tellraw @a x // 2
-    tellraw @a y // 1
+    tellraw @a x; // 2
+    tellraw @a y; // 1
 }

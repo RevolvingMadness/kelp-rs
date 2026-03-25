@@ -1,3 +1,5 @@
+use std::*;
+
 struct Abilities {
     invulnerable: boolean,
     mayfly: boolean,
@@ -23,19 +25,19 @@ mcfn namespace:main {
             flying: is_flying,
             flySpeed: fly_speed
         }
-    } = entity @s {} as data<Entity>
+    } = entity @s {} as data<Entity>;
 
-    tellraw @a ["is_invulnerable: ", is_invulnerable]
-    tellraw @a ["can_fly: ", can_fly]
-    tellraw @a ["can_instabuild: ", can_instabuild]
-    tellraw @a ["walk_speed: ", walk_speed]
-    tellraw @a ["may_build: ", may_build]
-    tellraw @a ["is_flying: ", is_flying]
-    tellraw @a ["fly_speed: ", fly_speed]
+    tellraw @a ["is_invulnerable: ", is_invulnerable];
+    tellraw @a ["can_fly: ", can_fly];
+    tellraw @a ["can_instabuild: ", can_instabuild];
+    tellraw @a ["walk_speed: ", walk_speed];
+    tellraw @a ["may_build: ", may_build];
+    tellraw @a ["is_flying: ", is_flying];
+    tellraw @a ["fly_speed: ", fly_speed];
 
     if (is_invulnerable) {
-        tellraw @a "You are invulnerable"
+        tellraw @a "You are invulnerable";
     } else {
-        tellraw @a "You are not invulnerable"
+        tellraw @a "You are not invulnerable";
     }
 }

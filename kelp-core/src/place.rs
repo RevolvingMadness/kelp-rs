@@ -5,8 +5,7 @@ use minecraft_command_types::{
         execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
-    nbt_path::{NbtPath, NbtPathNode},
-    snbt::SNBTString,
+    nbt_path::NbtPath,
 };
 use ordered_float::NotNan;
 
@@ -39,97 +38,17 @@ pub enum Place {
     Value(ValueId),
     Tuple(Vec<Self>),
     Dereference(Box<Self>),
-    Field(Box<Self>, String),
-    Index(Box<Self>, Box<ResolvedExpression>),
     Underscore,
 }
 
 impl Place {
-    pub fn dereference(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
+    pub fn dereference(self, datapack: &mut Datapack) -> Option<Self> {
         Some(match self {
             Self::Score(score) => Self::Score(score),
             Self::Data(target, path) => Self::Data(target, path),
             Self::Value(id) => datapack.get_variable_value(id).1.clone().as_place()?,
-            Self::Dereference(place) => place
-                .dereference(datapack, ctx)?
-                .dereference(datapack, ctx)?,
-            Self::Field(expression, field) => expression
-                .access_field(datapack, ctx, &field)?
-                .dereference(datapack, ctx)?,
-            Self::Index(target, index) => target
-                .index(datapack, ctx, *index)?
-                .dereference(datapack, ctx)?,
+            Self::Dereference(place) => place.dereference(datapack)?.dereference(datapack)?,
             Self::Tuple(_) | Self::Underscore => return None,
-        })
-    }
-
-    #[must_use]
-    pub fn access_field(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        field: &str,
-    ) -> Option<Self> {
-        Some(match self {
-            Self::Data(target, path) => Self::Data(
-                target,
-                path.with_node(NbtPathNode::Named(
-                    SNBTString(false, field.to_owned()),
-                    None,
-                )),
-            ),
-            Self::Value(id) => datapack
-                .get_variable_value(id)
-                .1
-                .clone()
-                .as_place()?
-                .access_field(datapack, ctx, field)?,
-            Self::Tuple(mut places) => {
-                let index = field.parse::<i32>().ok()?;
-
-                places.swap_remove(index as usize)
-            }
-            Self::Dereference(place) => place
-                .dereference(datapack, ctx)?
-                .access_field(datapack, ctx, field)?,
-            Self::Field(place, inner_field) => place
-                .access_field(datapack, ctx, &inner_field)?
-                .access_field(datapack, ctx, field)?,
-            Self::Index(place, index) => place
-                .index(datapack, ctx, *index)?
-                .access_field(datapack, ctx, field)?,
-            Self::Score(_) | Self::Underscore => return None,
-        })
-    }
-
-    #[must_use]
-    pub fn index(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        index: ResolvedExpression,
-    ) -> Option<Self> {
-        Some(match self {
-            Self::Data(target, path) => Self::Data(
-                target,
-                path.with_node(NbtPathNode::Index(Some(index.as_snbt_macros(ctx)))),
-            ),
-            Self::Value(id) => datapack
-                .get_variable_value(id)
-                .1
-                .clone()
-                .as_place()?
-                .index(datapack, ctx, index)?,
-            Self::Dereference(place) => place
-                .dereference(datapack, ctx)?
-                .index(datapack, ctx, index)?,
-            Self::Field(place, inner_field) => place
-                .access_field(datapack, ctx, &inner_field)?
-                .index(datapack, ctx, index)?,
-            Self::Index(place, inner_index) => place
-                .index(datapack, ctx, *inner_index)?
-                .index(datapack, ctx, index)?,
-            Self::Score(_) | Self::Tuple(_) | Self::Underscore => return None,
         })
     }
 
@@ -161,19 +80,7 @@ impl Place {
             }
             Self::Dereference(place) => {
                 place
-                    .dereference(datapack, ctx)
-                    .unwrap()
-                    .assign_resolved(datapack, ctx, value);
-            }
-            Self::Field(target, field) => {
-                target
-                    .access_field(datapack, ctx, &field)
-                    .unwrap()
-                    .assign_resolved(datapack, ctx, value);
-            }
-            Self::Index(target, index) => {
-                target
-                    .index(datapack, ctx, *index)
+                    .dereference(datapack)
                     .unwrap()
                     .assign_resolved(datapack, ctx, value);
             }
@@ -230,19 +137,7 @@ impl Place {
             }
             Self::Dereference(place) => {
                 place
-                    .dereference(datapack, ctx)
-                    .unwrap()
-                    .assign(datapack, ctx, value);
-            }
-            Self::Field(target, field) => {
-                target
-                    .access_field(datapack, ctx, &field)
-                    .unwrap()
-                    .assign(datapack, ctx, value);
-            }
-            Self::Index(target, index) => {
-                target
-                    .index(datapack, ctx, *index)
+                    .dereference(datapack)
                     .unwrap()
                     .assign(datapack, ctx, value);
             }
@@ -303,18 +198,8 @@ impl Place {
                     datapack.set_variable(id, new_value);
                 }
             }
-            Self::Field(target, field) => {
-                let target = target.access_field(datapack, ctx, &field).unwrap();
-
-                target.augmented_assign(datapack, ctx, operator, value);
-            }
-            Self::Index(target, index) => {
-                let target = target.index(datapack, ctx, *index).unwrap();
-
-                target.augmented_assign(datapack, ctx, operator, value);
-            }
             Self::Dereference(place) => {
-                let place = place.dereference(datapack, ctx).unwrap();
+                let place = place.dereference(datapack).unwrap();
 
                 place.augmented_assign(datapack, ctx, operator, value);
             }

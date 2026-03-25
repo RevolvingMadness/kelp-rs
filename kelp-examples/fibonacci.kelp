@@ -1,16 +1,18 @@
+use std::*;
+
 mcfn namespace:main {
-    let n = 10
+    let n = 10;
 
-    let a = 0 to score
-    let b = 1 to score
-    let count = 0 to score
+    let a = 0 to score;
+    let b = 1 to score;
+    let count = 0 to score;
 
-    while count < n {
-        tellraw @a a
+    while count < (n) {
+        tellraw @a a;
         
-        (*a, *b) = (b, a + b)
-        count += 1
+        (*a, *b) = (b, a + b);
+        count += 1;
     }
 
-    tellraw @a a
+    tellraw @a a;
 }

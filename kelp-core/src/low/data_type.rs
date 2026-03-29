@@ -6,7 +6,6 @@ use crate::{
     high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     low::environment::{Environment, r#type::r#struct::StructId},
     operator::{ArithmeticOperator, ComparisonOperator},
-    place::PlaceTypeKind,
     span::Span,
 };
 
@@ -82,24 +81,7 @@ impl DataType {
         let Self::Struct(id) = self else {
             return ctx.add_error(
                 name_span,
-                SemanticAnalysisError::NotARegularStruct(name.to_owned()),
-            );
-        };
-
-        Some(id)
-    }
-
-    #[must_use]
-    pub fn as_struct_struct_id_semantic_analysis(
-        self,
-        ctx: &mut SemanticAnalysisContext,
-        name_span: Span,
-        name: &str,
-    ) -> Option<StructId> {
-        let Self::Struct(id) = self else {
-            return ctx.add_error(
-                name_span,
-                SemanticAnalysisError::NotARegularStruct(name.to_owned()),
+                SemanticAnalysisError::NotAStruct(name.to_owned()),
             );
         };
 
@@ -387,35 +369,6 @@ impl DataType {
 impl DataType {
     #[must_use]
     #[allow(clippy::type_complexity)]
-    pub fn unwrap(self) -> Self {
-        match self {
-            Self::Score(data_type) | Self::Data(data_type) | Self::Reference(data_type) => {
-                *data_type
-            }
-
-            Self::SNBT
-            | Self::Boolean
-            | Self::Byte
-            | Self::Short
-            | Self::Integer
-            | Self::Long
-            | Self::Float
-            | Self::Double
-            | Self::String
-            | Self::Unit
-            | Self::List(_)
-            | Self::TypedCompound(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::Struct(_)
-            | Self::Inferred
-            | Self::InferredInteger
-            | Self::InferredFloat => self,
-        }
-    }
-
-    #[must_use]
-    #[allow(clippy::type_complexity)]
     pub fn unwrap_single(self) -> (Option<fn(Box<Self>) -> Self>, Self) {
         match self {
             Self::Score(data_type) => (Some(Self::Score), *data_type),
@@ -471,16 +424,6 @@ impl DataType {
     }
 
     #[must_use]
-    pub fn distribute(self) -> Self {
-        match self {
-            Self::Data(_) => self.distribute_data(),
-            Self::Reference(_) => self.distribute_references(),
-            Self::Score(_) => self.distribute_score(),
-            _ => self,
-        }
-    }
-
-    #[must_use]
     pub const fn is_integer_like(&self) -> bool {
         self.is_restrictied_integer_like() || matches!(self, Self::Long)
     }
@@ -494,11 +437,6 @@ impl DataType {
     }
 
     #[must_use]
-    pub const fn is_restrictied_float_like(&self) -> bool {
-        matches!(self, Self::Float | Self::InferredFloat)
-    }
-
-    #[must_use]
     pub const fn is_float_like(&self) -> bool {
         matches!(self, Self::Float | Self::Double | Self::InferredFloat)
     }
@@ -506,31 +444,6 @@ impl DataType {
     #[must_use]
     pub const fn is_numeric(&self) -> bool {
         self.is_integer_like() || self.is_float_like()
-    }
-
-    #[must_use]
-    pub fn try_infer(self, other: Option<Self>) -> Self {
-        let Some(other) = other else {
-            return self;
-        };
-
-        match (self, other) {
-            (Self::Inferred, other) | (other, Self::Inferred) => other,
-
-            (Self::InferredInteger, other) | (other, Self::InferredInteger)
-                if other.is_integer_like() =>
-            {
-                other
-            }
-
-            (Self::InferredFloat, other) | (other, Self::InferredFloat)
-                if other.is_float_like() =>
-            {
-                other
-            }
-
-            (self_, _) => self_,
-        }
     }
 
     #[must_use]
@@ -563,66 +476,6 @@ impl DataType {
         }
     }
 
-    #[must_use]
-    pub fn to_data(self) -> Self {
-        match self {
-            Self::Boolean => Self::Boolean,
-            Self::Byte => Self::Byte,
-            Self::Short => Self::Short,
-            Self::Integer | Self::InferredInteger => Self::Integer,
-            Self::Long => Self::Long,
-            Self::Float | Self::InferredFloat => Self::Float,
-            Self::Double => Self::Double,
-            Self::String => Self::String,
-            Self::Unit => Self::Unit,
-            Self::List(data_type) => Self::List(Box::new(data_type.to_data())),
-            Self::TypedCompound(compound) => Self::TypedCompound(
-                compound
-                    .into_iter()
-                    .map(|(key, value)| (key, value.to_data()))
-                    .collect(),
-            ),
-            Self::Compound(data_type) => Self::Compound(Box::new(data_type.to_data())),
-            Self::Data(data_type) | Self::Score(data_type) | Self::Reference(data_type) => {
-                data_type.to_data()
-            }
-            Self::Tuple(data_types) => {
-                Self::Tuple(data_types.into_iter().map(Self::to_data).collect())
-            }
-            Self::SNBT => Self::SNBT,
-            Self::Struct(id) => Self::Struct(id),
-            Self::Inferred => Self::Inferred,
-        }
-    }
-
-    #[must_use]
-    pub fn to_score(self) -> Option<Self> {
-        Some(match self {
-            Self::InferredInteger
-            | Self::Byte
-            | Self::Short
-            | Self::Integer
-            | Self::Long
-            | Self::InferredFloat
-            | Self::Float
-            | Self::Double => Self::Integer,
-            Self::Boolean => Self::Boolean,
-            Self::TypedCompound(compound) => Self::TypedCompound(
-                compound
-                    .into_iter()
-                    .map(|(key, value)| value.to_score().map(|value| (key, value)))
-                    .collect::<Option<_>>()?,
-            ),
-            Self::Compound(data_type) => Self::Compound(Box::new(data_type.to_score()?)),
-            Self::Score(data_type) | Self::Reference(data_type) | Self::Data(data_type) => {
-                data_type.to_score()?
-            }
-            Self::Struct(id) => Self::Struct(id),
-            _ => return None,
-        })
-    }
-
-    #[inline]
     #[must_use]
     fn reference(self) -> Self {
         Self::Reference(Box::new(self))
@@ -714,23 +567,6 @@ impl DataType {
             Self::Data(data_type) => data_type.get_iterable_type()?,
             Self::String => Self::String,
             _ => return None,
-        })
-    }
-
-    pub fn as_place_type(self) -> Result<PlaceTypeKind, Self> {
-        Ok(match self {
-            Self::Score(inner_type) => PlaceTypeKind::Score(*inner_type),
-            Self::Data(inner_type) => PlaceTypeKind::Data(*inner_type),
-            _ => return Err(self),
-        })
-    }
-
-    pub fn as_dereferenced_place_type(self) -> Result<PlaceTypeKind, Self> {
-        Ok(match self {
-            Self::Reference(data_type) => data_type.as_place_type()?,
-            Self::Score(inner_type) => PlaceTypeKind::Score(*inner_type),
-            Self::Data(inner_type) => PlaceTypeKind::Data(*inner_type),
-            _ => return Err(self),
         })
     }
 
@@ -992,11 +828,6 @@ impl DataType {
 
             _ => return None,
         })
-    }
-
-    #[must_use]
-    pub const fn can_be_referenced(&self) -> bool {
-        false
     }
 
     #[must_use]

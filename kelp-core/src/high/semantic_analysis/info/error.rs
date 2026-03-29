@@ -69,6 +69,7 @@ pub enum SemanticAnalysisError {
     ControlFlowNotInLoop(ControlFlowKind),
 
     NotAType(String),
+    NotAStruct(String),
     NotARegularStruct(String),
     NotATupleStruct(String),
     MismatchedTupleStructFieldCount(String, usize, usize),
@@ -277,6 +278,9 @@ impl SemanticAnalysisError {
                 write!(output, "Cannot `{}` outside of a loop", kind.name())
             }
             Self::NotAType(name) => write!(output, "`{}` is not a type", name),
+            Self::NotAStruct(name) => {
+                write!(output, "The type `{}` is not a struct", name)
+            }
             Self::NotARegularStruct(name) => {
                 write!(output, "The type `{}` is not a regular struct", name)
             }

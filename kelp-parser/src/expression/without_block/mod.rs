@@ -17,6 +17,7 @@ use crate::{
         numeric::lower_numeric_expression,
         parenthesized::lower_parenthesized_expression,
         path::lower_path_expression,
+        resource_location::lower_resource_location_expression,
         score::lower_score_expression,
         string::lower_string_expression,
         r#struct::{lower_struct_struct_expression, lower_tuple_struct_expression},
@@ -42,6 +43,7 @@ pub mod list;
 pub mod numeric;
 pub mod parenthesized;
 pub mod path;
+pub mod resource_location;
 pub mod score;
 pub mod string;
 pub mod r#struct;
@@ -94,6 +96,9 @@ pub fn lower_expression_without_block(
         CSTExpressionWithoutBlock::IndexExpression(node) => lower_index_expression(node, ctx),
         CSTExpressionWithoutBlock::FieldAccessExpression(node) => {
             lower_field_access_expression(node, ctx)
+        }
+        CSTExpressionWithoutBlock::ResourceLocationExpression(node) => {
+            lower_resource_location_expression(node, ctx)
         }
     }
 }

@@ -4,6 +4,7 @@ use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
 use crate::high::data::{DataTarget as HighDataTarget, DataTargetKind};
 use crate::high::nbt_path::{NbtPath, NbtPathNode};
+use crate::high::supports_expression_sigil::RegularSupportsExpressionSigilExt;
 use crate::low::data_type::DataType;
 use crate::low::environment::Environment;
 use crate::low::environment::r#type::r#struct::{
@@ -253,7 +254,7 @@ impl Datapack {
         );
 
         (
-            DataTargetKind::Storage(storage_location.clone()).with_generated_span(),
+            DataTargetKind::Storage(storage_location.clone().regular_sigil()).with_generated_span(),
             DataTarget::Storage(storage_location),
             LowNbtPath(nonempty![LowNbtPathNode::named_string(name.clone())]),
             name,
@@ -285,10 +286,13 @@ impl Datapack {
             HighDataTarget {
                 is_generated: true,
                 span: Span::dummy(),
-                kind: DataTargetKind::Storage(ResourceLocation::new_namespace_path(
-                    "__kelp_storages__",
-                    format!("__kelp_{}_storage__", current_namespace_name),
-                )),
+                kind: DataTargetKind::Storage(
+                    ResourceLocation::new_namespace_path(
+                        "__kelp_storages__",
+                        format!("__kelp_{}_storage__", current_namespace_name),
+                    )
+                    .regular_sigil(),
+                ),
             },
             NbtPath(nonempty![NbtPathNode::Named(
                 format!(

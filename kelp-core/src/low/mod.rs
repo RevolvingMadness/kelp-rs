@@ -13,3 +13,4 @@ pub mod pattern;
 pub mod player_score;
 pub mod score_comparison;
 pub mod statement;
+pub mod supports_expression_sigil;

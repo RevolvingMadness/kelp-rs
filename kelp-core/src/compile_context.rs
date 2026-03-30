@@ -122,7 +122,7 @@ impl CompileContext {
         format!("$({})", id)
     }
 
-    pub fn get_macro_snbt<T: HasMacro>(&mut self, expression: ResolvedExpression) -> Macroable<T> {
+    pub fn get_macro_snbt<T>(&mut self, expression: ResolvedExpression) -> Macroable<T> {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);

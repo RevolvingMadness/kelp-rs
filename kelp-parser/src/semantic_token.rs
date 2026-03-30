@@ -100,7 +100,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
         match node_or_token {
             NodeOrToken::Node(node) => {
                 let semantic_token_type = match node.kind() {
-                    SyntaxKind::ResourceLocation => Some(SemanticTokenType::Function),
+                    SyntaxKind::ActualResourceLocation => Some(SemanticTokenType::Function),
                     _ => None,
                 };
 
@@ -142,6 +142,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::CreateKeyword
                     | SyntaxKind::QueryKeyword
                     | SyntaxKind::RestartKeyword
+                    | SyntaxKind::ResourceLocationKeyword
                     | SyntaxKind::RemoveKeyword => Some(SemanticTokenType::Keyword),
                     SyntaxKind::TypeName => Some(SemanticTokenType::Struct),
                     SyntaxKind::StructFieldName

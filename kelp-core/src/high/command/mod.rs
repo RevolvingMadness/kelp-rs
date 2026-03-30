@@ -1,6 +1,5 @@
 use minecraft_command_types::{
-    command::{enums::difficulty::Difficulty, stopwatch::StopwatchCommand},
-    coordinate::Coordinates,
+    command::enums::difficulty::Difficulty, coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
 
@@ -9,13 +8,14 @@ use crate::{
         command::{
             data::DataCommand, execute::subcommand::ExecuteSubcommand,
             function::FunctionCommandArguments, r#return::ReturnCommand,
-            scoreboard::ScoreboardCommand,
+            scoreboard::ScoreboardCommand, stopwatch::StopwatchCommand,
         },
         entity_selector::EntitySelector,
         expression::Expression,
         semantic_analysis::SemanticAnalysisContext,
+        supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::expression::command::Command as MiddleCommand,
+    low::{data_type::DataType, expression::command::Command as MiddleCommand},
 };
 
 pub mod data;
@@ -23,6 +23,7 @@ pub mod execute;
 pub mod function;
 pub mod r#return;
 pub mod scoreboard;
+pub mod stopwatch;
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -30,7 +31,10 @@ pub enum Command {
     Difficulty(Option<Difficulty>),
     Enchant(EntitySelector, ResourceLocation, Option<i32>),
     Execute(ExecuteSubcommand),
-    Function(ResourceLocation, Option<FunctionCommandArguments>),
+    Function(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<FunctionCommandArguments>,
+    ),
     Tellraw(EntitySelector, Expression),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
@@ -50,7 +54,11 @@ impl Command {
                 MiddleCommand::Data(command)
             }
             Self::Difficulty(difficulty) => MiddleCommand::Difficulty(difficulty),
-            Self::Stopwatch(command) => MiddleCommand::Stopwatch(command),
+            Self::Stopwatch(command) => {
+                let command = command.perform_semantic_analysis(ctx)?;
+
+                MiddleCommand::Stopwatch(command)
+            }
             Self::Enchant(selector, enchantment, level) => {
                 let selector = selector.perform_semantic_analysis(ctx)?;
 
@@ -62,10 +70,15 @@ impl Command {
                 MiddleCommand::Execute(subcommand)
             }
             Self::Function(resource_location, arguments) => {
+                let resource_location =
+                    resource_location.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+
                 let arguments = match arguments {
                     Some(arguments) => Some(arguments.perform_semantic_analysis(ctx))?,
                     None => None,
                 };
+
+                let resource_location = resource_location?;
 
                 MiddleCommand::Function(resource_location, arguments)
             }

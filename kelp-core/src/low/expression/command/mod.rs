@@ -1,7 +1,7 @@
 use minecraft_command_types::{
     command::{
         Command as LowCommand, enums::difficulty::Difficulty,
-        r#return::ReturnCommand as LowReturnCommand, stopwatch::StopwatchCommand,
+        r#return::ReturnCommand as LowReturnCommand,
     },
     coordinate::Coordinates,
     resource_location::ResourceLocation,
@@ -16,10 +16,11 @@ use crate::{
             command::{
                 data::DataCommand, execute::subcommand::ExecuteSubcommand,
                 function::FunctionCommandArguments, r#return::ReturnCommand,
-                scoreboard::ScoreboardCommand,
+                scoreboard::ScoreboardCommand, stopwatch::StopwatchCommand,
             },
             unresolved::UnresolvedExpression,
         },
+        supports_expression_sigil::SupportsExpressionSigil,
     },
 };
 
@@ -28,6 +29,7 @@ pub mod execute;
 pub mod function;
 pub mod r#return;
 pub mod scoreboard;
+pub mod stopwatch;
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -35,7 +37,10 @@ pub enum Command {
     Difficulty(Option<Difficulty>),
     Enchant(EntitySelector, ResourceLocation, Option<i32>),
     Execute(ExecuteSubcommand),
-    Function(ResourceLocation, Option<FunctionCommandArguments>),
+    Function(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<FunctionCommandArguments>,
+    ),
     Tellraw(EntitySelector, UnresolvedExpression),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
@@ -59,8 +64,11 @@ impl Command {
                 LowCommand::Execute(execute_subcommand.compile(datapack, ctx))
             }
             Self::Function(id, arguments) => {
+                let id = id.compile(datapack, ctx);
+
                 let compiled_arguments =
                     arguments.map(|arguments| arguments.compile(datapack, ctx));
+
                 LowCommand::Function(id, compiled_arguments)
             }
             Self::Tellraw(selector, expression) => {
@@ -81,7 +89,11 @@ impl Command {
                 ))),
             },
             Self::Scoreboard(command) => LowCommand::Scoreboard(command.compile(datapack, ctx)),
-            Self::Stopwatch(command) => LowCommand::Stopwatch(command),
+            Self::Stopwatch(command) => {
+                let command = command.compile(datapack, ctx);
+
+                LowCommand::Stopwatch(command)
+            }
             Self::Summon(entity, position, nbt) => LowCommand::Summon(
                 entity,
                 position,

@@ -29,6 +29,7 @@ pub enum BuiltinDataType {
         serialize = "NBT"
     )]
     SNBT,
+    ResourceLocation,
 }
 
 impl BuiltinDataType {
@@ -60,6 +61,7 @@ impl BuiltinDataType {
                     _ => unreachable!(),
                 }
             }
+            Self::ResourceLocation => DataType::ResourceLocation,
         })
     }
 
@@ -94,6 +96,7 @@ impl BuiltinDataType {
                     _ => unreachable!(),
                 }
             }
+            Self::ResourceLocation => PartiallyResolvedDataType::ResourceLocation,
         })
     }
 
@@ -109,7 +112,8 @@ impl BuiltinDataType {
             | Self::Double
             | Self::String
             | Self::Unit
-            | Self::SNBT => 0,
+            | Self::SNBT
+            | Self::ResourceLocation => 0,
             Self::List | Self::Compound | Self::Data | Self::Score => 1,
         }
     }
@@ -131,6 +135,7 @@ impl BuiltinDataType {
             Self::Compound => "compound",
             Self::Data => "data",
             Self::SNBT => "snbt",
+            Self::ResourceLocation => "resource_location",
         }
     }
 }

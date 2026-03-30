@@ -78,6 +78,7 @@ pub enum PartiallyResolvedDataType {
     Inferred,
     InferredInteger,
     InferredFloat,
+    ResourceLocation,
 }
 
 impl PartiallyResolvedDataType {
@@ -160,6 +161,7 @@ impl PartiallyResolvedDataType {
             Self::Inferred => DataType::Inferred,
             Self::InferredInteger => DataType::InferredInteger,
             Self::InferredFloat => DataType::InferredFloat,
+            Self::ResourceLocation => DataType::ResourceLocation,
         })
     }
 }

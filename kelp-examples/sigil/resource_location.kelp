@@ -1,0 +1,13 @@
+use std::*;
+
+struct ResourceLocationContainer {
+    resource_location: resource_location,
+}
+
+mcfn namespace:main {
+    let container = ResourceLocationContainer {
+        resource_location: resource_location: namespace:main,
+    };
+
+    function $container.resource_location;
+}

@@ -194,7 +194,7 @@ impl Pattern {
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type,
-                            actual: self_type,
+                            actual: Box::new(self_type),
                         },
                     );
                 }
@@ -207,7 +207,7 @@ impl Pattern {
                 let target = target.perform_semantic_analysis(ctx)?;
                 let path = path.perform_semantic_analysis(ctx)?;
 
-                MiddlePattern::Data(target, path)
+                MiddlePattern::Data(Box::new((target, path)))
             }
             (PatternKind::Tuple(patterns), DataType::Tuple(data_types))
                 if patterns.len() == data_types.len() =>
@@ -304,7 +304,7 @@ impl Pattern {
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type,
-                            actual: self_type,
+                            actual: Box::new(self_type),
                         },
                     );
                 }
@@ -372,7 +372,7 @@ impl Pattern {
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type,
-                            actual: self_type,
+                            actual: Box::new(self_type),
                         },
                     );
                 }
@@ -419,7 +419,7 @@ impl Pattern {
                     self.span,
                     SemanticAnalysisError::MismatchedPatternTypes {
                         expected: variable_type,
-                        actual: self_type,
+                        actual: Box::new(self_type),
                     },
                 );
             }

@@ -82,7 +82,7 @@ pub fn lower_data_target(
                 DataTargetKind::Block(Box::new(coordinates))
             }
             CSTDataTarget::StorageDataTarget(node) => {
-                let resource_location = lower_resource_location(node.resource_location()?)?;
+                let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
                 DataTargetKind::Storage(resource_location)
             }

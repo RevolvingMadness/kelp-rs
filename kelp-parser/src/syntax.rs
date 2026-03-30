@@ -86,6 +86,7 @@ pub enum SyntaxKind {
     WorldCoordinate,
 
     ResourceLocation,
+    ActualResourceLocation,
     ResourceLocationTag,
     ResourceLocationNamespace,
     ResourceLocationPath,
@@ -129,6 +130,7 @@ pub enum SyntaxKind {
     CreateKeyword,
     QueryKeyword,
     RestartKeyword,
+    ResourceLocationKeyword,
     ReturnKeyword,
     IfKeyword,
     WhileKeyword,
@@ -186,6 +188,8 @@ pub enum SyntaxKind {
 
     RuntimeStorageType,
 
+    ExpressionSigil,
+
     TellrawCommandExpression,
     FunctionCommandExpression,
     ReturnCommandExpression,
@@ -196,6 +200,7 @@ pub enum SyntaxKind {
     StopwatchCommandExpressionRemove,
     StopwatchCommandExpressionRestart,
 
+    ResourceLocationExpression,
     StructStructExpression,
     StructStructExpressionFields,
     StructStructExpressionField,

@@ -9,15 +9,19 @@ use crate::{
         entity_selector::EntitySelector, item_source::ItemSource, mc_item::ItemPredicate,
         nbt_path::NbtPath, player_score::PlayerScore, score_comparison::ScoreComparison,
         semantic_analysis::SemanticAnalysisContext,
+        supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
+    low::{
+        data_type::DataType,
+        expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
+    },
 };
 
 #[derive(Debug, Clone)]
 pub enum ExecuteIfSubcommand {
     Biome(
         Coordinates,
-        ResourceLocation,
+        SupportsExpressionSigil<ResourceLocation>,
         Option<Box<ExecuteSubcommand>>,
     ),
     Block(Coordinates, BlockState, Option<Box<ExecuteSubcommand>>),
@@ -29,9 +33,15 @@ pub enum ExecuteIfSubcommand {
         Option<Box<ExecuteSubcommand>>,
     ),
     Data(DataTarget, NbtPath, Option<Box<ExecuteSubcommand>>),
-    Dimension(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Dimension(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<Box<ExecuteSubcommand>>,
+    ),
     Entity(EntitySelector, Option<Box<ExecuteSubcommand>>),
-    Function(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Function(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<Box<ExecuteSubcommand>>,
+    ),
     Items(
         ItemSource,
         String,
@@ -39,7 +49,10 @@ pub enum ExecuteIfSubcommand {
         Option<Box<ExecuteSubcommand>>,
     ),
     Loaded(ColumnPosition, Option<Box<ExecuteSubcommand>>),
-    Predicate(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Predicate(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<Box<ExecuteSubcommand>>,
+    ),
     Score(PlayerScore, ScoreComparison, Option<Box<ExecuteSubcommand>>),
 }
 
@@ -50,13 +63,17 @@ impl ExecuteIfSubcommand {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleExecuteIfSubcommand> {
         Some(match self {
-            Self::Biome(coordinates, resource_location, next) => {
+            Self::Biome(coordinates, biome, next) => {
+                let biome = biome.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
-                MiddleExecuteIfSubcommand::Biome(coordinates, resource_location, next.map(Box::new))
+                let biome = biome?;
+
+                MiddleExecuteIfSubcommand::Biome(coordinates, biome, next.map(Box::new))
             }
             Self::Block(coordinates, block_state, next) => {
                 let block_state = block_state.perform_semantic_analysis(ctx);
@@ -90,13 +107,18 @@ impl ExecuteIfSubcommand {
 
                 MiddleExecuteIfSubcommand::Data(target, path, next.map(Box::new))
             }
-            Self::Dimension(resource_location, next) => {
+            Self::Dimension(dimension, next) => {
+                let dimension =
+                    dimension.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
-                MiddleExecuteIfSubcommand::Dimension(resource_location, next.map(Box::new))
+                let dimension = dimension?;
+
+                MiddleExecuteIfSubcommand::Dimension(dimension, next.map(Box::new))
             }
             Self::Entity(selector, next) => {
                 let selector = selector.perform_semantic_analysis(ctx);
@@ -109,13 +131,17 @@ impl ExecuteIfSubcommand {
 
                 MiddleExecuteIfSubcommand::Entity(selector, next.map(Box::new))
             }
-            Self::Function(resource_location, next) => {
+            Self::Function(function, next) => {
+                let function = function.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
-                MiddleExecuteIfSubcommand::Function(resource_location, next.map(Box::new))
+                let function = function?;
+
+                MiddleExecuteIfSubcommand::Function(function, next.map(Box::new))
             }
             Self::Items(item_source, slot, item_predicate, next) => {
                 let item_source = item_source.perform_semantic_analysis(ctx);
@@ -143,13 +169,18 @@ impl ExecuteIfSubcommand {
 
                 MiddleExecuteIfSubcommand::Loaded(column_position, next.map(Box::new))
             }
-            Self::Predicate(resource_location, next) => {
+            Self::Predicate(predicate, next) => {
+                let predicate =
+                    predicate.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),
                     None => None,
                 };
 
-                MiddleExecuteIfSubcommand::Predicate(resource_location, next.map(Box::new))
+                let predicate = predicate?;
+
+                MiddleExecuteIfSubcommand::Predicate(predicate, next.map(Box::new))
             }
             Self::Score(score, score_comparison, next) => {
                 let score = score.perform_semantic_analysis(ctx);

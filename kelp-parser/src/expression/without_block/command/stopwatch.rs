@@ -1,9 +1,8 @@
 use kelp_core::high::{
-    command::Command,
+    command::{Command, stopwatch::StopwatchCommand},
     expression::{Expression, ExpressionKind},
     semantic_analysis::SemanticAnalysisContext,
 };
-use minecraft_command_types::command::stopwatch::StopwatchCommand;
 
 use crate::{
     cst::{
@@ -115,8 +114,9 @@ pub fn try_parse_stopwatch_command_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_create(
     node: CSTStopwatchCommandExpressionCreate,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<StopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?)?;
+    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     Some(StopwatchCommand::Create(resource_location))
 }
@@ -125,8 +125,9 @@ fn lower_stopwatch_command_expression_create(
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_query(
     node: CSTStopwatchCommandExpressionQuery,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<StopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?)?;
+    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     let scale = node
         .fractional_value_token()
@@ -139,8 +140,9 @@ fn lower_stopwatch_command_expression_query(
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_remove(
     node: CSTStopwatchCommandExpressionRemove,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<StopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?)?;
+    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     Some(StopwatchCommand::Remove(resource_location))
 }
@@ -149,8 +151,9 @@ fn lower_stopwatch_command_expression_remove(
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_restart(
     node: CSTStopwatchCommandExpressionRestart,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<StopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?)?;
+    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     Some(StopwatchCommand::Restart(resource_location))
 }
@@ -158,19 +161,20 @@ fn lower_stopwatch_command_expression_restart(
 #[must_use]
 fn lower_stopwatch_command_expression_options(
     node: CSTStopwatchCommandExpressionOptions,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<StopwatchCommand> {
     match node {
         CSTStopwatchCommandExpressionOptions::StopwatchCommandExpressionCreate(node) => {
-            lower_stopwatch_command_expression_create(node)
+            lower_stopwatch_command_expression_create(node, ctx)
         }
         CSTStopwatchCommandExpressionOptions::StopwatchCommandExpressionQuery(node) => {
-            lower_stopwatch_command_expression_query(node)
+            lower_stopwatch_command_expression_query(node, ctx)
         }
         CSTStopwatchCommandExpressionOptions::StopwatchCommandExpressionRemove(node) => {
-            lower_stopwatch_command_expression_remove(node)
+            lower_stopwatch_command_expression_remove(node, ctx)
         }
         CSTStopwatchCommandExpressionOptions::StopwatchCommandExpressionRestart(node) => {
-            lower_stopwatch_command_expression_restart(node)
+            lower_stopwatch_command_expression_restart(node, ctx)
         }
     }
 }
@@ -179,12 +183,14 @@ fn lower_stopwatch_command_expression_options(
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_stopwatch_command_expression(
     node: CSTStopwatchCommandExpression,
-    _ctx: &mut SemanticAnalysisContext,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let command =
-        lower_stopwatch_command_expression_options(node.stopwatch_command_expression_options()?)?;
+    let command = lower_stopwatch_command_expression_options(
+        node.stopwatch_command_expression_options()?,
+        ctx,
+    )?;
 
     Some(ExpressionKind::Command(Box::new(Command::Stopwatch(command))).with_span(span))
 }

@@ -16,4 +16,5 @@ pub mod score_comparison;
 pub mod semantic_analysis;
 pub mod snbt_string;
 pub mod statement;
+pub mod supports_expression_sigil;
 pub mod use_tree;

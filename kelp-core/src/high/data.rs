@@ -6,8 +6,12 @@ use crate::{
     high::{
         coordinate::Coordinates, entity_selector::EntitySelector,
         semantic_analysis::SemanticAnalysisContext,
+        supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
+    low::{
+        data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
+        data_type::DataType,
+    },
     span::Span,
 };
 
@@ -15,7 +19,7 @@ use crate::{
 pub enum DataTargetKind {
     Block(Box<Coordinates>),
     Entity(EntitySelector),
-    Storage(ResourceLocation),
+    Storage(SupportsExpressionSigil<ResourceLocation>),
 }
 
 impl DataTargetKind {
@@ -74,6 +78,9 @@ impl DataTarget {
                     MiddleDataTargetKind::Entity(selector)
                 }
                 DataTargetKind::Storage(resource_location) => {
+                    let resource_location = resource_location
+                        .perform_semantic_analysis(ctx, &DataType::ResourceLocation)?;
+
                     MiddleDataTargetKind::Storage(resource_location)
                 }
             },

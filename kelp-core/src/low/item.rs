@@ -1,6 +1,9 @@
 use minecraft_command_types::resource_location::ResourceLocation;
 
-use crate::{compile_context::CompileContext, datapack::Datapack, low::expression::unresolved::UnresolvedExpression};
+use crate::{
+    compile_context::CompileContext, datapack::Datapack,
+    low::expression::unresolved::UnresolvedExpression,
+};
 
 #[derive(Debug, Clone)]
 pub enum Item {

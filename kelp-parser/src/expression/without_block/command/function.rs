@@ -33,11 +33,11 @@ pub fn try_parse_function_command_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_function_command_expression(
     node: CSTFunctionCommandExpression,
-    _ctx: &mut SemanticAnalysisContext,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let resource_location = lower_resource_location(node.resource_location()?)?;
+    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     Some(
         ExpressionKind::Command(Box::new(Command::Function(resource_location, None)))

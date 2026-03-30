@@ -1,7 +1,13 @@
 use minecraft_command_types::{
-    column_position::ColumnPosition, command::enums::if_blocks_mode::IfBlocksMode,
-    command::execute::ExecuteIfSubcommand as LowExecuteIfSubcommand,
-    command::execute::ExecuteSubcommand as LowExecuteSubcommand, coordinate::Coordinates,
+    column_position::ColumnPosition,
+    command::{
+        enums::if_blocks_mode::IfBlocksMode,
+        execute::{
+            ExecuteIfSubcommand as LowExecuteIfSubcommand,
+            ExecuteSubcommand as LowExecuteSubcommand,
+        },
+    },
+    coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
 
@@ -12,7 +18,7 @@ use crate::{
         block::BlockState, data::DataTarget, entity_selector::EntitySelector,
         expression::command::execute::subcommand::ExecuteSubcommand, item_source::ItemSource,
         mc_item::ItemPredicate, nbt_path::NbtPath, player_score::PlayerScore,
-        score_comparison::ScoreComparison,
+        score_comparison::ScoreComparison, supports_expression_sigil::SupportsExpressionSigil,
     },
 };
 
@@ -20,7 +26,7 @@ use crate::{
 pub enum ExecuteIfSubcommand {
     Biome(
         Coordinates,
-        ResourceLocation,
+        SupportsExpressionSigil<ResourceLocation>,
         Option<Box<ExecuteSubcommand>>,
     ),
     Block(Coordinates, BlockState, Option<Box<ExecuteSubcommand>>),
@@ -32,9 +38,15 @@ pub enum ExecuteIfSubcommand {
         Option<Box<ExecuteSubcommand>>,
     ),
     Data(DataTarget, NbtPath, Option<Box<ExecuteSubcommand>>),
-    Dimension(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Dimension(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<Box<ExecuteSubcommand>>,
+    ),
     Entity(EntitySelector, Option<Box<ExecuteSubcommand>>),
-    Function(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Function(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<Box<ExecuteSubcommand>>,
+    ),
     Items(
         ItemSource,
         String,
@@ -42,7 +54,10 @@ pub enum ExecuteIfSubcommand {
         Option<Box<ExecuteSubcommand>>,
     ),
     Loaded(ColumnPosition, Option<Box<ExecuteSubcommand>>),
-    Predicate(ResourceLocation, Option<Box<ExecuteSubcommand>>),
+    Predicate(
+        SupportsExpressionSigil<ResourceLocation>,
+        Option<Box<ExecuteSubcommand>>,
+    ),
     Score(PlayerScore, ScoreComparison, Option<Box<ExecuteSubcommand>>),
 }
 
@@ -152,7 +167,10 @@ impl ExecuteIfSubcommand {
     ) -> LowExecuteIfSubcommand {
         match self {
             Self::Biome(coords, biome, next) => {
+                let biome = biome.compile(datapack, ctx);
+
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+
                 LowExecuteIfSubcommand::Biome(coords, biome, next)
             }
             Self::Block(coordinates, state, next) => {
@@ -173,7 +191,10 @@ impl ExecuteIfSubcommand {
                 LowExecuteIfSubcommand::Data(target.target, path, next)
             }
             Self::Dimension(location, next) => {
+                let location = location.compile(datapack, ctx);
+
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+
                 LowExecuteIfSubcommand::Dimension(location, next)
             }
             Self::Entity(selector, next) => {
@@ -184,6 +205,8 @@ impl ExecuteIfSubcommand {
                 LowExecuteIfSubcommand::Entity(selector, next)
             }
             Self::Function(location, next) => {
+                let location = location.compile(datapack, ctx);
+
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
                 if let Some(next) = next {
@@ -218,7 +241,10 @@ impl ExecuteIfSubcommand {
                 LowExecuteIfSubcommand::Loaded(position, next)
             }
             Self::Predicate(location, next) => {
+                let location = location.compile(datapack, ctx);
+
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+
                 LowExecuteIfSubcommand::Predicate(location, next)
             }
             Self::Score(score, comparison, next) => {

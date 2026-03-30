@@ -4,6 +4,7 @@ pub mod data;
 pub mod data_type;
 pub mod entity_selector;
 pub mod expression;
+pub mod expression_sigil;
 pub mod item;
 pub mod parser;
 pub mod path;

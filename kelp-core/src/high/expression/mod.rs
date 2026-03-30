@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
 use crate::{
@@ -12,6 +13,7 @@ use crate::{
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
+        supports_expression_sigil::SupportsExpressionSigil,
     },
     low::{
         data_type::DataType,
@@ -73,6 +75,7 @@ pub enum ExpressionKind {
     ),
     Block(BlockExpression),
     Loop(Box<LoopExpression>),
+    ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -198,34 +201,6 @@ impl Expression {
                     field.snbt_string.1.clone(),
                 )
             }
-            ExpressionKind::Invalid
-            | ExpressionKind::Boolean(_)
-            | ExpressionKind::Byte(_)
-            | ExpressionKind::Short(_)
-            | ExpressionKind::Integer(_)
-            | ExpressionKind::InferredInteger(_)
-            | ExpressionKind::Long(_)
-            | ExpressionKind::Float(_)
-            | ExpressionKind::InferredFloat(_)
-            | ExpressionKind::Double(_)
-            | ExpressionKind::String(_)
-            | ExpressionKind::Arithmetic(_, _, _)
-            | ExpressionKind::Comparison(_, _, _)
-            | ExpressionKind::Logical(_, _, _)
-            | ExpressionKind::AugmentedAssignment(_, _, _)
-            | ExpressionKind::Assignment(_, _)
-            | ExpressionKind::List(_)
-            | ExpressionKind::Compound(_)
-            | ExpressionKind::Condition(_, _)
-            | ExpressionKind::Command(_)
-            | ExpressionKind::AsCast(_, _)
-            | ExpressionKind::ToCast(_, _)
-            | ExpressionKind::StructStruct(_, _)
-            | ExpressionKind::TupleStruct(_, _)
-            | ExpressionKind::Block(_)
-            | ExpressionKind::If(_, _, _)
-            | ExpressionKind::Loop(_)
-            | ExpressionKind::Unit => return None,
             ExpressionKind::Underscore => PlaceTypeKind::Underscore,
             ExpressionKind::Path(path) => {
                 let Some(id) = ctx.get_visible_value_id(path) else {
@@ -234,6 +209,7 @@ impl Expression {
 
                 PlaceTypeKind::Value(id)
             }
+            _ => return None,
         };
 
         Some(Some(place_type_kind.with_span(self.span)))
@@ -956,6 +932,15 @@ impl Expression {
                 UnresolvedExpressionKind::Underscore.with(DataType::Inferred)
             }
             ExpressionKind::Unit => UnresolvedExpressionKind::Unit.with(DataType::Unit),
+            ExpressionKind::ResourceLocation(resource_location) => {
+                let data_type = DataType::ResourceLocation;
+
+                let resource_location =
+                    resource_location.perform_semantic_analysis(ctx, &data_type)?;
+
+                UnresolvedExpressionKind::ResourceLocation(Box::new(resource_location))
+                    .with(data_type)
+            }
         };
 
         Some((self.span, expression))

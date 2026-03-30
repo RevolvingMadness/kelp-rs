@@ -1,11 +1,15 @@
+use kelp_core::high::{
+    semantic_analysis::SemanticAnalysisContext, supports_expression_sigil::SupportsExpressionSigil,
+};
 use minecraft_command_types::resource_location::ResourceLocation;
 use nonempty::NonEmpty;
 
 use crate::{
     cst::{
-        CSTResourceLocation, CSTResourceLocationNamespace, CSTResourceLocationPath,
-        CSTResourceLocationPathSegment,
+        CSTActualResourceLocation, CSTResourceLocation, CSTResourceLocationNamespace,
+        CSTResourceLocationPath, CSTResourceLocationPathSegment,
     },
+    expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -28,7 +32,11 @@ fn expect_paths(parser: &mut Parser) {
 
 #[must_use]
 pub fn try_parse_resource_location(parser: &mut Parser) -> bool {
-    parser.start_node(SyntaxKind::ResourceLocation);
+    if try_parse_expression_sigil(parser) {
+        return true;
+    }
+
+    parser.start_node(SyntaxKind::ActualResourceLocation);
 
     if parser.peek_char() == Some('#') {
         parser.add_token(SyntaxKind::ResourceLocationTag, 1);
@@ -75,7 +83,7 @@ pub fn lower_resource_location_path(node: CSTResourceLocationPath) -> Vec<String
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_resource_location(node: CSTResourceLocation) -> Option<ResourceLocation> {
+pub fn lower_actual_resource_location(node: CSTActualResourceLocation) -> Option<ResourceLocation> {
     let is_tag = node.pound_token().is_some();
 
     let namespace = match node.namespace().map(lower_resource_location_namespace) {
@@ -88,4 +96,18 @@ pub fn lower_resource_location(node: CSTResourceLocation) -> Option<ResourceLoca
     let paths = NonEmpty::from_vec(paths)?;
 
     Some(ResourceLocation::new(is_tag, namespace, paths))
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_resource_location(
+    node: CSTResourceLocation,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<SupportsExpressionSigil<ResourceLocation>> {
+    match node {
+        CSTResourceLocation::ActualResourceLocation(node) => {
+            lower_actual_resource_location(node).map(SupportsExpressionSigil::Regular)
+        }
+        CSTResourceLocation::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
+    }
 }

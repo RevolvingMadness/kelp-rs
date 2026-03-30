@@ -105,6 +105,7 @@ impl SemanticAnalysisContext {
             BuiltinDataType::Compound,
             BuiltinDataType::Data,
             BuiltinDataType::SNBT,
+            BuiltinDataType::ResourceLocation,
         ];
 
         self_.enter_module("std".to_owned());

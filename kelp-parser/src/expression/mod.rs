@@ -27,6 +27,7 @@ use crate::{
     },
     parser::Parser,
     path::generic::try_parse_generic_path,
+    resource_location::try_parse_resource_location,
     syntax::SyntaxKind,
 };
 
@@ -469,6 +470,32 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
     true
 }
 
+pub fn try_parse_resource_location_expression(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
+
+    parser.start_node(SyntaxKind::ResourceLocationExpression);
+
+    parser.bump_identifier_kind(SyntaxKind::ResourceLocationKeyword, "resource_location");
+
+    parser.skip_whitespace();
+
+    if !parser.try_bump_char(':') {
+        parser.restore_state(state);
+
+        return false;
+    }
+
+    parser.skip_whitespace();
+
+    if !try_parse_resource_location(parser) {
+        parser.error("Expected resource location");
+    }
+
+    parser.finish_node();
+
+    true
+}
+
 pub fn try_parse_primary(parser: &mut Parser) -> bool {
     if try_parse_expression_with_block(parser) {
         return true;
@@ -571,115 +598,114 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             true
         }
         _ => {
-            let default = |parser: &mut Parser, text: &str| {
-                if try_parse_command_expression(parser, text) {
-                    return true;
-                }
-
-                if text == "_" {
-                    parser.start_node(SyntaxKind::UnderscoreExpression);
-                    parser.bump_identifier("_");
-                    parser.finish_node();
-
-                    return true;
-                }
-
-                let checkpoint = parser.checkpoint();
-
-                if !try_parse_generic_path(parser, false) {
-                    unreachable!();
-                }
-
-                let state = parser.save_state();
-
-                parser.skip_whitespace();
-
-                match parser.peek_char() {
-                    Some('{') => {
-                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                        parser.start_node_at(checkpoint, SyntaxKind::StructStructExpression);
-
-                        parser.bump_char();
-
-                        parser.skip_whitespace();
-
-                        let _ = try_parse_struct_struct_expression_fields(parser);
-
-                        parser.skip_whitespace();
-
-                        if !parser.expect_char('}', "Expected '}'") {
-                            parser.bump_until_char(&['}']);
-
-                            parser.bump_char();
-                        }
-                    }
-                    Some('(') => {
-                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                        parser.start_node_at(checkpoint, SyntaxKind::TupleStructExpression);
-
-                        parser.bump_char();
-
-                        parser.skip_whitespace();
-
-                        if !try_parse_tuple_struct_expression_fields(parser) {
-                            parser.bump_until_char(&['}']);
-                        }
-
-                        parser.skip_whitespace();
-
-                        if !parser.expect_char(')', "Expected ')'") {
-                            parser.bump_until_char(&[')']);
-
-                            parser.bump_char();
-                        }
-                    }
-                    _ => {
-                        parser.restore_state(state);
-
-                        parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
-                    }
-                }
-
-                parser.finish_node();
-
-                true
+            let Some(identifier) = parser.peek_identifier() else {
+                return false;
             };
 
-            parser.peek_identifier().is_some_and(|text| match text {
+            match identifier {
                 "true" => {
                     parser.start_node(SyntaxKind::BooleanExpression);
                     parser.bump_identifier_kind(SyntaxKind::TrueKeyword, "true");
                     parser.finish_node();
 
-                    true
+                    return true;
                 }
                 "false" => {
                     parser.start_node(SyntaxKind::BooleanExpression);
                     parser.bump_identifier_kind(SyntaxKind::FalseKeyword, "false");
                     parser.finish_node();
 
-                    true
+                    return true;
                 }
                 "score" => {
-                    if !try_parse_score_expression(parser) {
-                        parser.start_node(SyntaxKind::PathExpression);
-                        parser.bump_identifier("score");
-                        parser.finish_node();
+                    if try_parse_score_expression(parser) {
+                        return true;
                     }
-
-                    true
                 }
                 "entity" | "block" | "storage" => {
-                    if !try_parse_data_expression(parser) {
-                        parser.start_node(SyntaxKind::PathExpression);
-                        parser.bump_identifier(text);
-                        parser.finish_node();
+                    if try_parse_data_expression(parser) {
+                        return true;
+                    }
+                }
+                "resource_location" => {
+                    if try_parse_resource_location_expression(parser) {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+
+            if try_parse_command_expression(parser, identifier) {
+                return true;
+            }
+
+            if identifier == "_" {
+                parser.start_node(SyntaxKind::UnderscoreExpression);
+                parser.bump_identifier("_");
+                parser.finish_node();
+
+                return true;
+            }
+
+            let checkpoint = parser.checkpoint();
+
+            if !try_parse_generic_path(parser, false) {
+                unreachable!();
+            }
+
+            let state = parser.save_state();
+
+            parser.skip_whitespace();
+
+            match parser.peek_char() {
+                Some('{') => {
+                    parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
+                    parser.start_node_at(checkpoint, SyntaxKind::StructStructExpression);
+
+                    parser.bump_char();
+
+                    parser.skip_whitespace();
+
+                    let _ = try_parse_struct_struct_expression_fields(parser);
+
+                    parser.skip_whitespace();
+
+                    if !parser.expect_char('}', "Expected '}'") {
+                        parser.bump_until_char(&['}']);
+
+                        parser.bump_char();
+                    }
+                }
+                Some('(') => {
+                    parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
+                    parser.start_node_at(checkpoint, SyntaxKind::TupleStructExpression);
+
+                    parser.bump_char();
+
+                    parser.skip_whitespace();
+
+                    if !try_parse_tuple_struct_expression_fields(parser) {
+                        parser.bump_until_char(&['}']);
                     }
 
-                    true
+                    parser.skip_whitespace();
+
+                    if !parser.expect_char(')', "Expected ')'") {
+                        parser.bump_until_char(&[')']);
+
+                        parser.bump_char();
+                    }
                 }
-                _ => default(parser, text),
-            })
+                _ => {
+                    parser.restore_state(state);
+
+                    parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
+                }
+            }
+
+            parser.finish_node();
+
+            true
         }
     }
 }

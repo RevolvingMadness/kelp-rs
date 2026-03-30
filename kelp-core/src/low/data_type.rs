@@ -32,6 +32,7 @@ pub enum DataType {
     Inferred,
     InferredInteger,
     InferredFloat,
+    ResourceLocation,
 }
 
 impl DataType {
@@ -49,16 +50,7 @@ impl DataType {
             | Self::Double
             | Self::InferredInteger
             | Self::InferredFloat => true,
-            Self::Boolean
-            | Self::String
-            | Self::Unit
-            | Self::List(_)
-            | Self::TypedCompound(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::SNBT
-            | Self::Struct(_)
-            | Self::Inferred => false,
+            _ => false,
         }
     }
 
@@ -106,19 +98,7 @@ impl DataType {
 
                 declaration.field_types().all(predicate)
             }
-            Self::Boolean
-            | Self::Byte
-            | Self::Short
-            | Self::Integer
-            | Self::Long
-            | Self::Float
-            | Self::Double
-            | Self::String
-            | Self::Unit
-            | Self::SNBT
-            | Self::Inferred
-            | Self::InferredInteger
-            | Self::InferredFloat => predicate(self),
+            _ => predicate(self),
         }
     }
 
@@ -362,6 +342,7 @@ impl DataType {
             Self::Inferred => output.write_char('_'),
             Self::InferredInteger => output.write_str("{integer}"),
             Self::InferredFloat => output.write_str("{float}"),
+            Self::ResourceLocation => output.write_str("resource_location"),
         }
     }
 }
@@ -375,24 +356,7 @@ impl DataType {
             Self::Data(data_type) => (Some(Self::Data), *data_type),
             Self::Reference(data_type) => (Some(Self::Reference), *data_type),
 
-            Self::SNBT
-            | Self::Boolean
-            | Self::Byte
-            | Self::Short
-            | Self::Integer
-            | Self::Long
-            | Self::Float
-            | Self::Double
-            | Self::String
-            | Self::Unit
-            | Self::List(_)
-            | Self::TypedCompound(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::Struct(_)
-            | Self::Inferred
-            | Self::InferredInteger
-            | Self::InferredFloat => (None, self),
+            _ => (None, self),
         }
     }
 
@@ -470,6 +434,7 @@ impl DataType {
             | Self::Compound(_)
             | Self::Tuple(_)
             | Self::SNBT
+            | Self::ResourceLocation
             | Self::Inferred // TODO
             | Self::InferredInteger
             | Self::InferredFloat => true,

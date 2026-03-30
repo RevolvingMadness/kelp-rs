@@ -262,7 +262,7 @@ pub enum Pattern {
     Binding(VariableId),
 
     Score(PlayerScore),
-    Data(DataTarget, NbtPath),
+    Data(Box<(DataTarget, NbtPath)>),
 
     Tuple(Vec<Self>),
     StructStruct(StructStructId, HashMap<SNBTString, Self>),
@@ -289,7 +289,9 @@ impl Pattern {
 
                 value.assign_to_score(datapack, ctx, score);
             }
-            Self::Data(target, path) => {
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 

@@ -21,7 +21,7 @@ pub enum SemanticAnalysisError {
     CannotPerformAugmentedAssignment(DataType),
     MismatchedPatternTypes {
         expected: DataType,
-        actual: PatternType,
+        actual: Box<PatternType>,
     },
     UnderscoreExpression,
     CannotIterateType(DataType),
@@ -34,6 +34,7 @@ pub enum SemanticAnalysisError {
         from: DataType,
         to: DataType,
     },
+    ExpressionSigilNotAllowed,
     CannotBeRepresentedAsFloat(DataType),
     UnknownRuntimeStorageType,
     ValueTooLarge(DataType),
@@ -143,6 +144,9 @@ impl SemanticAnalysisError {
                 output.write_str("Cannot iterate over type `")?;
                 data_type.write_string(output, environment)?;
                 output.write_str("`")
+            }
+            Self::ExpressionSigilNotAllowed => {
+                output.write_str("An expression sigil is not allowed here")
             }
             Self::MismatchedTypes { expected, actual } => {
                 output.write_str("Expected type `")?;

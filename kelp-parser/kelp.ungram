@@ -102,6 +102,7 @@ ExpressionWithoutBlock =
 | CompoundExpression
 | IndexExpression
 | FieldAccessExpression
+| ResourceLocationExpression
 
 ExpressionWithBlock =
   BlockExpression
@@ -215,12 +216,14 @@ CompoundExpression =
   )?
   '}'
 
+CompoundExpressionEntry =
+  name:'compound_key' ':' value:Expression
+
 IndexExpression = Expression '[' Expression ']'
 
 FieldAccessExpression = Expression '.' 'field_name'
 
-CompoundExpressionEntry =
-  name:'compound_key' ':' value:Expression
+ResourceLocationExpression = 'resource_location' ':' ResourceLocation
 
 // ----- Command Expression -----
 
@@ -254,6 +257,10 @@ StopwatchCommandExpressionQuery = 'query' ResourceLocation 'fractional_value'?
 StopwatchCommandExpressionRemove = 'remove' ResourceLocation
 
 StopwatchCommandExpressionRestart = 'restart' ResourceLocation
+
+// ----- Expression Sigil -----
+
+ExpressionSigil = '$' Expression
 
 // ----- Pattern -----
 Pattern =
@@ -369,7 +376,9 @@ NameEntitySelector =
 
 // ----- Resource Location -----
 ResourceLocation =
-  '#'? (namespace:ResourceLocationNamespace ':')? path:ResourceLocationPath
+  ActualResourceLocation | ExpressionSigil
+
+ActualResourceLocation = '#'? (namespace:ResourceLocationNamespace ':')? path:ResourceLocationPath
 
 ResourceLocationNamespace =
   'ident'

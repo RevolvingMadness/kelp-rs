@@ -172,6 +172,7 @@ pub enum ResolvedExpression {
     StructStruct(StructStructId, HashMap<String, Self>),
     TupleStruct(TupleStructId, Vec<Self>),
     Unit,
+    ResourceLocation(ResourceLocation),
 
     PlayerScore(GeneratedPlayerScore),
     Data(Box<(GeneratedDataTarget, NbtPath)>),
@@ -212,17 +213,7 @@ impl ResolvedExpression {
                     Command::Execute(ExecuteSubcommand::If(inverted, *execute_if_subcommand)),
                 );
             }
-            Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_)
-            | Self::String(_)
-            | Self::Unit
-            | Self::PlayerScore(_)
-            | Self::Data(_) => {}
+            _ => {}
         }
     }
 
@@ -253,21 +244,7 @@ impl ResolvedExpression {
 
                 Some(Self::Data(Box::new((unique_target, unique_path))))
             }
-            Self::List(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Unit
-            | Self::Condition(_, _)
-            | Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_)
-            | Self::String(_) => None,
+            _ => None,
         }
     }
 
@@ -279,18 +256,6 @@ impl ResolvedExpression {
         field: &str,
     ) -> Option<Self> {
         match self {
-            Self::List(_)
-            | Self::Condition(_, _)
-            | Self::Unit
-            | Self::PlayerScore(_)
-            | Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_)
-            | Self::String(_) => None,
             Self::Compound(compound) => compound.into_iter().find_map(|(actual_field, value)| {
                 if actual_field.1 == field {
                     Some(value)
@@ -330,6 +295,7 @@ impl ResolvedExpression {
 
                 fields.get(field).cloned()
             }
+            _ => None,
         }
     }
 
@@ -436,24 +402,12 @@ impl ResolvedExpression {
 
                 SNBT::compound(compound)
             }
+            Self::ResourceLocation(_) => return Err(self),
         })
     }
 
     pub fn try_into_snbt_scale(self, scale: NotNan<f32>) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::PlayerScore(_)
-            | Self::Data(_)
-            | Self::Condition(_, _)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Boolean(_)
-            | Self::String(_)
-            | Self::List(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::Unit => {
-                return Err(self);
-            }
             Self::Byte(byte) => {
                 SNBT::float(NotNan::new(f32::from(byte) * scale.into_inner()).unwrap())
             }
@@ -470,6 +424,9 @@ impl ResolvedExpression {
             Self::Double(double) => SNBT::double(
                 NotNan::new(f64::from(double.into_inner() as f32 * scale.into_inner())).unwrap(),
             ),
+            _ => {
+                return Err(self);
+            }
         })
     }
 
@@ -506,7 +463,8 @@ impl ResolvedExpression {
             | Self::TupleStruct(_, _)
             | Self::PlayerScore(_)
             | Self::Data(_)
-            | Self::Condition(_, _) => ctx.get_macro_snbt(self),
+            | Self::Condition(_, _)
+            | Self::ResourceLocation(_) => ctx.get_macro_snbt(self),
         }
     }
 
@@ -523,15 +481,7 @@ impl ResolvedExpression {
 
             Self::PlayerScore(_) | Self::Data(_) => ctx.get_macro_snbt(self),
 
-            Self::Unit
-            | Self::Boolean(_)
-            | Self::String(_)
-            | Self::List(_)
-            | Self::Tuple(_)
-            | Self::Compound(_)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Condition(_, _) => return None,
+            _ => return None,
         })
     }
 
@@ -781,16 +731,8 @@ impl ResolvedExpression {
                         )),
                     );
                 }
-                Self::Unit
-                | Self::Boolean(_)
-                | Self::Byte(_)
-                | Self::Short(_)
-                | Self::Integer(_)
-                | Self::Long(_)
-                | Self::Float(_)
-                | Self::Double(_)
-                | Self::String(_) => {
-                    unreachable!("Checked by ResolvedExpression::try_into_snbt")
+                value => {
+                    unreachable!("{:?}", value)
                 }
             },
         }
@@ -946,15 +888,7 @@ impl ResolvedExpression {
                         )),
                     );
                 }
-                Self::Unit
-                | Self::Boolean(_)
-                | Self::Byte(_)
-                | Self::Short(_)
-                | Self::Integer(_)
-                | Self::Long(_)
-                | Self::Float(_)
-                | Self::Double(_)
-                | Self::String(_) => {
+                _ => {
                     unreachable!("Checked by ResolvedExpression::try_into_snbt")
                 }
             },
@@ -1472,19 +1406,7 @@ impl ResolvedExpression {
                 unique_score.to_execute_condition(inverted)
             }
             Self::Condition(inner_inverted, condition) => (inverted ^ inner_inverted, *condition),
-            Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_)
-            | Self::String(_)
-            | Self::List(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Unit => return None,
+            _ => return None,
         })
     }
 
@@ -1742,6 +1664,7 @@ impl ResolvedExpression {
                     SNBT::list(output)
                 }
             }
+            Self::ResourceLocation(_) => todo!(),
         }
     }
 
@@ -1766,24 +1689,7 @@ impl ResolvedExpression {
 
     #[must_use]
     pub const fn is_lvalue(&self) -> bool {
-        match self {
-            Self::PlayerScore(_) | Self::Data(_) => true,
-            Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_)
-            | Self::String(_)
-            | Self::List(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Unit
-            | Self::Condition(_, _) => false,
-        }
+        matches!(self, Self::PlayerScore(_) | Self::Data(_))
     }
 
     pub fn compile_augmented_assignment(
@@ -1809,21 +1715,7 @@ impl ResolvedExpression {
 
                 unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
             }
-            Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_)
-            | Self::String(_)
-            | Self::List(_)
-            | Self::Compound(_)
-            | Self::Tuple(_)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Unit
-            | Self::Condition(_, _) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -1935,8 +1827,8 @@ impl ResolvedExpression {
                     )),
                 );
             }
-            Self::StructStruct(_, _) | Self::TupleStruct(_, _) | Self::Tuple(_) | Self::Unit => {
-                unreachable!()
+            _ => {
+                unreachable!("{:?}", self)
             }
         }
     }
@@ -2028,15 +1920,7 @@ impl ResolvedExpression {
                     )),
                 );
             }
-            Self::Condition(_, _)
-            | Self::Boolean(_)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Tuple(_)
-            | Self::Unit
-            | Self::String(_)
-            | Self::List(_)
-            | Self::Compound(_) => {
+            _ => {
                 unreachable!("{:?}", self)
             }
         }

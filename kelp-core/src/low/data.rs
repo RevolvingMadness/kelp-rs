@@ -6,7 +6,10 @@ use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
     datapack::Datapack,
-    low::{coordinate::Coordinates, entity_selector::EntitySelector},
+    low::{
+        coordinate::Coordinates, entity_selector::EntitySelector,
+        supports_expression_sigil::SupportsExpressionSigil,
+    },
     span::Span,
 };
 
@@ -14,7 +17,7 @@ use crate::{
 pub enum DataTargetKind {
     Block(Box<Coordinates>),
     Entity(EntitySelector),
-    Storage(ResourceLocation),
+    Storage(SupportsExpressionSigil<ResourceLocation>),
 }
 
 impl DataTargetKind {
@@ -56,6 +59,8 @@ impl DataTarget {
                     LowDataTarget::Entity(entity_selector.compile(datapack, ctx))
                 }
                 DataTargetKind::Storage(resource_location) => {
+                    let resource_location = resource_location.compile(datapack, ctx);
+
                     LowDataTarget::Storage(resource_location)
                 }
             },

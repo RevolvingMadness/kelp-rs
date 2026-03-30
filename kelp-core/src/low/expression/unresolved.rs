@@ -38,6 +38,7 @@ use crate::{
         nbt_path::NbtPath,
         player_score::PlayerScore,
         statement::{ControlFlow, ControlFlowKind, Statement},
+        supports_expression_sigil::SupportsExpressionSigil,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     place::Place,
@@ -287,6 +288,7 @@ pub enum UnresolvedExpressionKind {
     ),
     Block(Vec<Statement>, Option<Box<UnresolvedExpression>>),
     Loop(LoopExpression),
+    ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -423,33 +425,7 @@ impl UnresolvedExpressionKind {
                     .collect::<Option<_>>()?,
             )),
             Self::Variable(name) => Some(Place::Value(name)),
-            Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::InferredInteger(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::InferredFloat(_)
-            | Self::Double(_)
-            | Self::String(_)
-            | Self::Unit
-            | Self::Arithmetic(_, _, _)
-            | Self::Comparison(_, _, _)
-            | Self::Logical(_, _, _)
-            | Self::AugmentedAssignment(_, _, _)
-            | Self::Assignment(_, _)
-            | Self::List(_)
-            | Self::Compound(_)
-            | Self::Condition(_, _)
-            | Self::Command(_)
-            | Self::AsCast(_, _)
-            | Self::ToCast(_, _, _)
-            | Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::Block(_, _)
-            | Self::If(_, _, _)
-            | Self::Loop(_) => None,
+            _ => None,
         }
     }
 
@@ -645,6 +621,11 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Data(Box::new((output_target, output_path)))
             }
             Self::Loop(expression) => expression.kind.resolve(datapack, ctx),
+            Self::ResourceLocation(resource_location) => {
+                let resource_location = resource_location.compile(datapack, ctx);
+
+                ResolvedExpression::ResourceLocation(resource_location)
+            }
         }
     }
 
@@ -740,6 +721,7 @@ impl UnresolvedExpressionKind {
             | Self::Data(_)
             | Self::Index(_, _)
             | Self::FieldAccess(_, _)
+            | Self::ResourceLocation(_)
             | Self::Variable(_) => {}
         }
     }

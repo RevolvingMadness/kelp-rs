@@ -501,6 +501,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "module_name" => "ModuleName",
         "use" => "UseKeyword",
         "pub" => "PubKeyword",
+        "resource_location" => "ResourceLocationKeyword",
         _ => todo!("{:?}", token),
     }
 }

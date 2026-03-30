@@ -1,14 +1,17 @@
 use std::fmt::{Display, Write};
 
 use crate::{
-    high::{entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext},
+    high::{
+        entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext,
+        supports_expression_sigil::SupportsExpressionSigil,
+    },
     low::player_score::PlayerScore as MiddlePlayerScore,
 };
 
 #[derive(Debug, Clone)]
 pub struct PlayerScore {
     pub is_generated: bool,
-    pub selector: EntitySelector,
+    pub selector: Box<SupportsExpressionSigil<EntitySelector>>,
     pub objective: String,
 }
 
@@ -28,15 +31,6 @@ impl Display for PlayerScore {
 
 impl PlayerScore {
     #[must_use]
-    pub const fn new(selector: EntitySelector, objective: String) -> Self {
-        Self {
-            is_generated: false,
-            selector,
-            objective,
-        }
-    }
-
-    #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -45,7 +39,7 @@ impl PlayerScore {
 
         Some(MiddlePlayerScore {
             is_generated: self.is_generated,
-            selector,
+            selector: Box::new(selector),
             objective: self.objective,
         })
     }

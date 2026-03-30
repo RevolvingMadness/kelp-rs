@@ -103,6 +103,7 @@ ExpressionWithoutBlock =
 | IndexExpression
 | FieldAccessExpression
 | ResourceLocationExpression
+| EntitySelectorExpression
 
 ExpressionWithBlock =
   BlockExpression
@@ -224,6 +225,8 @@ IndexExpression = Expression '[' Expression ']'
 FieldAccessExpression = Expression '.' 'field_name'
 
 ResourceLocationExpression = 'resource_location' ':' ResourceLocation
+
+EntitySelectorExpression = 'entity_selector' ':' EntitySelector
 
 // ----- Command Expression -----
 
@@ -365,7 +368,9 @@ StorageDataTarget =
   'storage' ResourceLocation
 
 // ----- Entity Selector -----
-EntitySelector =
+EntitySelector = ActualEntitySelector | ExpressionSigil
+
+ActualEntitySelector =
   VariableEntitySelector | NameEntitySelector
 
 VariableEntitySelector =

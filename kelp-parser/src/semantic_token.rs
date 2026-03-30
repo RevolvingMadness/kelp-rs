@@ -143,6 +143,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::QueryKeyword
                     | SyntaxKind::RestartKeyword
                     | SyntaxKind::ResourceLocationKeyword
+                    | SyntaxKind::EntitySelectorKeyword
                     | SyntaxKind::RemoveKeyword => Some(SemanticTokenType::Keyword),
                     SyntaxKind::TypeName => Some(SemanticTokenType::Struct),
                     SyntaxKind::StructFieldName

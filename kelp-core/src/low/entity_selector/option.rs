@@ -78,4 +78,32 @@ impl EntitySelectorOption {
             Self::Sort(sort) => LowEntitySelectorOption::Sort(sort),
         }
     }
+
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+        match self {
+            Self::Nbt(_, expression) => {
+                expression.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::X(_)
+            | Self::Y(_)
+            | Self::Z(_)
+            | Self::Distance(_)
+            | Self::DistanceX(_)
+            | Self::DistanceY(_)
+            | Self::DistanceZ(_)
+            | Self::XRotation(_)
+            | Self::YRotation(_)
+            | Self::Scores(_)
+            | Self::Tag(_, _)
+            | Self::Team(_, _)
+            | Self::Name(_, _)
+            | Self::Type(_, _)
+            | Self::Predicate(_, _)
+            | Self::Gamemode(_, _)
+            | Self::Level(_)
+            | Self::Advancements(_)
+            | Self::Limit(_)
+            | Self::Sort(_) => {}
+        }
+    }
 }

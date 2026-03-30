@@ -1,13 +1,24 @@
-use kelp_core::high::entity_selector::EntitySelector;
+use kelp_core::high::{
+    entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext,
+    supports_expression_sigil::SupportsExpressionSigil,
+};
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
-    cst::{CSTEntitySelector, CSTNameEntitySelector, CSTVariableEntitySelector},
+    cst::{
+        CSTActualEntitySelector, CSTEntitySelector, CSTNameEntitySelector,
+        CSTVariableEntitySelector,
+    },
+    expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
     parser::Parser,
     syntax::SyntaxKind,
 };
 
 pub fn try_parse_entity_selector(parser: &mut Parser) -> bool {
+    if try_parse_expression_sigil(parser) {
+        return true;
+    }
+
     if parser.try_start_node_bump('@', SyntaxKind::VariableEntitySelector) {
         if let Some(text) = parser.peek_identifier() {
             parser.add_token(SyntaxKind::EntitySelectorVariable, text.len());
@@ -20,17 +31,17 @@ pub fn try_parse_entity_selector(parser: &mut Parser) -> bool {
         }
 
         parser.finish_node();
+
+        true
     } else if let Some(name) = parser.peek_identifier() {
         parser.start_node(SyntaxKind::NameEntitySelector);
         parser.add_token(SyntaxKind::Identifier, name.len());
         parser.finish_node();
+
+        true
     } else {
-        parser.error("Expected entity selector");
-
-        return false;
+        false
     }
-
-    true
 }
 
 #[must_use]
@@ -178,9 +189,24 @@ pub fn lower_name_entity_selector(node: CSTNameEntitySelector) -> Option<EntityS
 }
 
 #[must_use]
-pub fn lower_entity_selector(node: CSTEntitySelector) -> Option<EntitySelector> {
+pub fn lower_actual_entity_selector(node: CSTActualEntitySelector) -> Option<EntitySelector> {
     match node {
-        CSTEntitySelector::VariableEntitySelector(node) => lower_variable_entity_selector(node),
-        CSTEntitySelector::NameEntitySelector(node) => lower_name_entity_selector(node),
+        CSTActualEntitySelector::VariableEntitySelector(node) => {
+            lower_variable_entity_selector(node)
+        }
+        CSTActualEntitySelector::NameEntitySelector(node) => lower_name_entity_selector(node),
+    }
+}
+
+#[must_use]
+pub fn lower_entity_selector(
+    node: CSTEntitySelector,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<SupportsExpressionSigil<EntitySelector>> {
+    match node {
+        CSTEntitySelector::ActualEntitySelector(node) => {
+            lower_actual_entity_selector(node).map(SupportsExpressionSigil::Regular)
+        }
+        CSTEntitySelector::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
     }
 }

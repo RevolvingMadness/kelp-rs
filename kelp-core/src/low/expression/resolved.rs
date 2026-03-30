@@ -15,6 +15,7 @@ use minecraft_command_types::{
         r#return::ReturnCommand,
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
+    entity_selector::EntitySelector,
     macroable::Macroable,
     nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
@@ -173,6 +174,7 @@ pub enum ResolvedExpression {
     TupleStruct(TupleStructId, Vec<Self>),
     Unit,
     ResourceLocation(ResourceLocation),
+    EntitySelector(EntitySelector),
 
     PlayerScore(GeneratedPlayerScore),
     Data(Box<(GeneratedDataTarget, NbtPath)>),
@@ -402,7 +404,7 @@ impl ResolvedExpression {
 
                 SNBT::compound(compound)
             }
-            Self::ResourceLocation(_) => return Err(self),
+            Self::ResourceLocation(_) | Self::EntitySelector(_) => return Err(self),
         })
     }
 
@@ -459,12 +461,7 @@ impl ResolvedExpression {
                     .map(|(key, value)| (key, value.as_snbt_macros(ctx)))
                     .collect(),
             )),
-            Self::StructStruct(_, _)
-            | Self::TupleStruct(_, _)
-            | Self::PlayerScore(_)
-            | Self::Data(_)
-            | Self::Condition(_, _)
-            | Self::ResourceLocation(_) => ctx.get_macro_snbt(self),
+            _ => ctx.get_macro_snbt(self),
         }
     }
 
@@ -1665,6 +1662,7 @@ impl ResolvedExpression {
                 }
             }
             Self::ResourceLocation(resource_location) => SNBT::string(resource_location),
+            Self::EntitySelector(selector) => SNBT::string(selector),
         }
     }
 

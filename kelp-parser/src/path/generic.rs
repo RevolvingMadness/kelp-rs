@@ -51,9 +51,13 @@ pub fn try_parse_generic_path(parser: &mut Parser, is_type: bool) -> bool {
     parser.start_node_at(checkpoint, SyntaxKind::GenericPath);
 
     loop {
+        let state = parser.save_state();
+
         parser.skip_inline_whitespace();
 
         if !parser.try_bump_str("::", SyntaxKind::ColonColon) {
+            parser.restore_state(state);
+
             break;
         }
 
@@ -63,6 +67,7 @@ pub fn try_parse_generic_path(parser: &mut Parser, is_type: bool) -> bool {
     }
 
     parser.finish_node();
+
     true
 }
 

@@ -1,0 +1,8 @@
+use std::*;
+
+mcfn namespace:main {
+    let all = entity_selector: @a;
+    let message = "Hello, World!";
+
+    tellraw $all message;
+}

@@ -6,10 +6,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::{
-        data_type::DataType,
-        expression::command::stopwatch::StopwatchCommand as LowStopwatchCommand,
-    },
+    low::expression::command::stopwatch::StopwatchCommand as LowStopwatchCommand,
 };
 
 #[derive(Debug, Clone)]
@@ -30,26 +27,22 @@ impl StopwatchCommand {
     ) -> Option<LowStopwatchCommand> {
         Some(match self {
             Self::Create(resource_location) => {
-                let resource_location = resource_location
-                    .perform_semantic_analysis(ctx, &DataType::ResourceLocation)?;
+                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                 LowStopwatchCommand::Create(resource_location)
             }
             Self::Query(resource_location, scale) => {
-                let resource_location = resource_location
-                    .perform_semantic_analysis(ctx, &DataType::ResourceLocation)?;
+                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                 LowStopwatchCommand::Query(resource_location, scale)
             }
             Self::Restart(resource_location) => {
-                let resource_location = resource_location
-                    .perform_semantic_analysis(ctx, &DataType::ResourceLocation)?;
+                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                 LowStopwatchCommand::Restart(resource_location)
             }
             Self::Remove(resource_location) => {
-                let resource_location = resource_location
-                    .perform_semantic_analysis(ctx, &DataType::ResourceLocation)?;
+                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                 LowStopwatchCommand::Remove(resource_location)
             }

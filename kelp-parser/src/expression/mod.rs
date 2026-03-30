@@ -3,6 +3,7 @@ use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysi
 use crate::{
     cst::CSTExpression,
     data_type::try_parse_data_type,
+    entity_selector::try_parse_entity_selector,
     expression::{
         with_block::{
             block::try_parse_block_expression,
@@ -496,6 +497,32 @@ pub fn try_parse_resource_location_expression(parser: &mut Parser) -> bool {
     true
 }
 
+pub fn try_parse_entity_selector_expression(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
+
+    parser.start_node(SyntaxKind::EntitySelectorExpression);
+
+    parser.bump_identifier_kind(SyntaxKind::EntitySelectorKeyword, "entity_selector");
+
+    parser.skip_whitespace();
+
+    if !parser.try_bump_char(':') {
+        parser.restore_state(state);
+
+        return false;
+    }
+
+    parser.skip_whitespace();
+
+    if !try_parse_entity_selector(parser) {
+        parser.error("Expected entity selector");
+    }
+
+    parser.finish_node();
+
+    true
+}
+
 pub fn try_parse_primary(parser: &mut Parser) -> bool {
     if try_parse_expression_with_block(parser) {
         return true;
@@ -629,6 +656,11 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 }
                 "resource_location" => {
                     if try_parse_resource_location_expression(parser) {
+                        return true;
+                    }
+                }
+                "entity_selector" => {
+                    if try_parse_entity_selector_expression(parser) {
                         return true;
                     }
                 }

@@ -11,6 +11,7 @@ use crate::{
         command::lower_command_expression,
         compound::lower_compound_expression,
         data::lower_data_expression,
+        entity_selector::lower_entity_selector_expression,
         field_access::lower_field_access_expression,
         index::lower_index_expression,
         list::lower_list_expression,
@@ -37,6 +38,7 @@ pub mod character;
 pub mod command;
 pub mod compound;
 pub mod data;
+pub mod entity_selector;
 pub mod field_access;
 pub mod index;
 pub mod list;
@@ -99,6 +101,9 @@ pub fn lower_expression_without_block(
         }
         CSTExpressionWithoutBlock::ResourceLocationExpression(node) => {
             lower_resource_location_expression(node, ctx)
+        }
+        CSTExpressionWithoutBlock::EntitySelectorExpression(node) => {
+            lower_entity_selector_expression(node, ctx)
         }
     }
 }

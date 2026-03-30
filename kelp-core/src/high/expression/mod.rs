@@ -8,6 +8,7 @@ use crate::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         data::DataTarget,
         data_type::unresolved::UnresolvedDataType,
+        entity_selector::EntitySelector,
         expression::{block::BlockExpression, r#loop::LoopExpression},
         nbt_path::NbtPath,
         player_score::PlayerScore,
@@ -76,6 +77,7 @@ pub enum ExpressionKind {
     Block(BlockExpression),
     Loop(Box<LoopExpression>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
+    EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -933,13 +935,16 @@ impl Expression {
             }
             ExpressionKind::Unit => UnresolvedExpressionKind::Unit.with(DataType::Unit),
             ExpressionKind::ResourceLocation(resource_location) => {
-                let data_type = DataType::ResourceLocation;
-
-                let resource_location =
-                    resource_location.perform_semantic_analysis(ctx, &data_type)?;
+                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                 UnresolvedExpressionKind::ResourceLocation(Box::new(resource_location))
-                    .with(data_type)
+                    .with(DataType::ResourceLocation)
+            }
+            ExpressionKind::EntitySelector(selector) => {
+                let selector = selector.perform_semantic_analysis(ctx)?;
+
+                UnresolvedExpressionKind::EntitySelector(Box::new(selector))
+                    .with(DataType::EntitySelector)
             }
         };
 

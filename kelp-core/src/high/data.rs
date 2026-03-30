@@ -8,17 +8,14 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::{
-        data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
-        data_type::DataType,
-    },
+    low::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
     span::Span,
 };
 
 #[derive(Debug, Clone)]
 pub enum DataTargetKind {
     Block(Box<Coordinates>),
-    Entity(EntitySelector),
+    Entity(SupportsExpressionSigil<EntitySelector>),
     Storage(SupportsExpressionSigil<ResourceLocation>),
 }
 
@@ -78,8 +75,7 @@ impl DataTarget {
                     MiddleDataTargetKind::Entity(selector)
                 }
                 DataTargetKind::Storage(resource_location) => {
-                    let resource_location = resource_location
-                        .perform_semantic_analysis(ctx, &DataType::ResourceLocation)?;
+                    let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                     MiddleDataTargetKind::Storage(resource_location)
                 }

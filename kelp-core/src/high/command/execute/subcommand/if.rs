@@ -11,10 +11,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::{
-        data_type::DataType,
-        expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
-    },
+    low::expression::command::execute::subcommand::r#if::ExecuteIfSubcommand as MiddleExecuteIfSubcommand,
 };
 
 #[derive(Debug, Clone)]
@@ -64,7 +61,7 @@ impl ExecuteIfSubcommand {
     ) -> Option<MiddleExecuteIfSubcommand> {
         Some(match self {
             Self::Biome(coordinates, biome, next) => {
-                let biome = biome.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+                let biome = biome.perform_semantic_analysis(ctx);
 
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),
@@ -108,8 +105,7 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Data(target, path, next.map(Box::new))
             }
             Self::Dimension(dimension, next) => {
-                let dimension =
-                    dimension.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+                let dimension = dimension.perform_semantic_analysis(ctx);
 
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),
@@ -132,7 +128,7 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Entity(selector, next.map(Box::new))
             }
             Self::Function(function, next) => {
-                let function = function.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+                let function = function.perform_semantic_analysis(ctx);
 
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),
@@ -170,8 +166,7 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Loaded(column_position, next.map(Box::new))
             }
             Self::Predicate(predicate, next) => {
-                let predicate =
-                    predicate.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+                let predicate = predicate.perform_semantic_analysis(ctx);
 
                 let next = match next {
                     Some(next) => Some(next.perform_semantic_analysis(ctx)?),

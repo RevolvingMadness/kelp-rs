@@ -48,7 +48,7 @@ pub fn lower_tellraw_command_expression(
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
-    let selector = lower_entity_selector(node.entity_selector()?)?;
+    let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
     let value = lower_expression(node.expression()?, ctx)?;
 
     Some(ExpressionKind::Command(Box::new(Command::Tellraw(selector, value))).with_span(span))

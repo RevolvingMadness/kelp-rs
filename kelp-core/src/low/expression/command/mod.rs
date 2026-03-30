@@ -35,13 +35,20 @@ pub mod stopwatch;
 pub enum Command {
     Data(DataCommand),
     Difficulty(Option<Difficulty>),
-    Enchant(EntitySelector, ResourceLocation, Option<i32>),
+    Enchant(
+        SupportsExpressionSigil<EntitySelector>,
+        ResourceLocation,
+        Option<i32>,
+    ),
     Execute(ExecuteSubcommand),
     Function(
         SupportsExpressionSigil<ResourceLocation>,
         Option<FunctionCommandArguments>,
     ),
-    Tellraw(EntitySelector, UnresolvedExpression),
+    Tellraw(
+        SupportsExpressionSigil<EntitySelector>,
+        UnresolvedExpression,
+    ),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
     Stopwatch(StopwatchCommand),

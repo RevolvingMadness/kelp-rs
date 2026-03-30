@@ -23,6 +23,7 @@ use crate::{
     low::{
         data::DataTarget,
         data_type::DataType,
+        entity_selector::EntitySelector,
         environment::{
             r#type::r#struct::{StructStructId, TupleStructId},
             value::ValueId,
@@ -289,6 +290,7 @@ pub enum UnresolvedExpressionKind {
     Block(Vec<Statement>, Option<Box<UnresolvedExpression>>),
     Loop(LoopExpression),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
+    EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -626,6 +628,11 @@ impl UnresolvedExpressionKind {
 
                 ResolvedExpression::ResourceLocation(resource_location)
             }
+            Self::EntitySelector(selector) => {
+                let selector = selector.compile(datapack, ctx);
+
+                ResolvedExpression::EntitySelector(selector)
+            }
         }
     }
 
@@ -701,6 +708,9 @@ impl UnresolvedExpressionKind {
             Self::Underscore => {
                 #[cfg(debug_assertions)]
                 unreachable!();
+            }
+            Self::EntitySelector(selector) => {
+                selector.compile_as_statement(datapack, ctx);
             }
             Self::Boolean(_)
             | Self::Byte(_)

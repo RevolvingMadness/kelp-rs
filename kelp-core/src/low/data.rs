@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum DataTargetKind {
     Block(Box<Coordinates>),
-    Entity(EntitySelector),
+    Entity(SupportsExpressionSigil<EntitySelector>),
     Storage(SupportsExpressionSigil<ResourceLocation>),
 }
 

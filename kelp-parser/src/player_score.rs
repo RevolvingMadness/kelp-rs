@@ -1,6 +1,4 @@
-use kelp_core::high::{
-    player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::{player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTPlayerScore,
@@ -48,16 +46,16 @@ pub fn try_parse_player_score(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_player_score(
     node: CSTPlayerScore,
-    _ctx: &mut SemanticAnalysisContext,
+    ctx: &mut SemanticAnalysisContext,
 ) -> Option<PlayerScore> {
-    let selector = lower_entity_selector(node.entity_selector()?)?;
+    let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
 
     let objective_token = node.scoreboard_objective_token()?;
     let objective = objective_token.text();
 
     Some(PlayerScore {
         is_generated: false,
-        selector,
+        selector: Box::new(selector),
         objective: objective.to_owned(),
     })
 }

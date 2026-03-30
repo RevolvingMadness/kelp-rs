@@ -15,7 +15,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::{data_type::DataType, expression::command::Command as MiddleCommand},
+    low::expression::command::Command as MiddleCommand,
 };
 
 pub mod data;
@@ -29,13 +29,17 @@ pub mod stopwatch;
 pub enum Command {
     Data(DataCommand),
     Difficulty(Option<Difficulty>),
-    Enchant(EntitySelector, ResourceLocation, Option<i32>),
+    Enchant(
+        SupportsExpressionSigil<EntitySelector>,
+        ResourceLocation,
+        Option<i32>,
+    ),
     Execute(ExecuteSubcommand),
     Function(
         SupportsExpressionSigil<ResourceLocation>,
         Option<FunctionCommandArguments>,
     ),
-    Tellraw(EntitySelector, Expression),
+    Tellraw(SupportsExpressionSigil<EntitySelector>, Expression),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
     Stopwatch(StopwatchCommand),
@@ -70,8 +74,7 @@ impl Command {
                 MiddleCommand::Execute(subcommand)
             }
             Self::Function(resource_location, arguments) => {
-                let resource_location =
-                    resource_location.perform_semantic_analysis(ctx, &DataType::ResourceLocation);
+                let resource_location = resource_location.perform_semantic_analysis(ctx);
 
                 let arguments = match arguments {
                     Some(arguments) => Some(arguments.perform_semantic_analysis(ctx))?,

@@ -1,12 +1,15 @@
 use std::fmt::Display;
 
+use minecraft_command_types::resource_location::ResourceLocation;
+
 use crate::{
     high::{
+        entity_selector::EntitySelector,
         expression::Expression,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::{
-        data_type::DataType,
+        data_type::DataType, entity_selector::EntitySelector as LowEntitySelector,
         supports_expression_sigil::SupportsExpressionSigil as LowSupportsExpressionSigil,
     },
 };
@@ -36,23 +39,53 @@ impl<T: Display> Display for SupportsExpressionSigil<T> {
     }
 }
 
-impl<T> SupportsExpressionSigil<T> {
+impl SupportsExpressionSigil<EntitySelector> {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        expected_data_type: &DataType,
-    ) -> Option<LowSupportsExpressionSigil<T>> {
+    ) -> Option<LowSupportsExpressionSigil<LowEntitySelector>> {
+        Some(match self {
+            Self::Regular(value) => {
+                let value = value.perform_semantic_analysis(ctx)?;
+
+                LowSupportsExpressionSigil::Regular(value)
+            }
+            Self::Sigil(expression) => {
+                let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
+
+                if !expression.data_type.equals(&DataType::EntitySelector) {
+                    return ctx.add_error(
+                        expression_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: DataType::EntitySelector,
+                            actual: expression.data_type,
+                        },
+                    );
+                }
+
+                LowSupportsExpressionSigil::Sigil(expression)
+            }
+        })
+    }
+}
+
+impl SupportsExpressionSigil<ResourceLocation> {
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<LowSupportsExpressionSigil<ResourceLocation>> {
         Some(match self {
             Self::Regular(value) => LowSupportsExpressionSigil::Regular(value),
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                if !expression.data_type.equals(expected_data_type) {
+                if !expression.data_type.equals(&DataType::ResourceLocation) {
                     return ctx.add_error(
                         expression_span,
                         SemanticAnalysisError::MismatchedTypes {
-                            expected: expected_data_type.clone(),
+                            expected: DataType::ResourceLocation,
                             actual: expression.data_type,
                         },
                     );

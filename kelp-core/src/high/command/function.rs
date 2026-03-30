@@ -12,7 +12,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
     Compound(HashMap<SNBTString, Expression>),
-    DataTarget(DataTarget, Option<NbtPath>),
+    DataTarget(Box<(DataTarget, Option<NbtPath>)>),
 }
 
 impl FunctionCommandArguments {
@@ -36,7 +36,9 @@ impl FunctionCommandArguments {
 
                 MiddleFunctionCommandArguments::Compound(compound)
             }
-            Self::DataTarget(target, path) => {
+            Self::DataTarget(target_path) => {
+                let (target, path) = *target_path;
+
                 let target = target.perform_semantic_analysis(ctx);
                 let path = match path {
                     Some(path) => Some(path.perform_semantic_analysis(ctx)?),

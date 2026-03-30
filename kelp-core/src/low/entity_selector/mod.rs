@@ -28,4 +28,15 @@ impl EntitySelector {
             Self::Name(name) => LowEntitySelector::Name(name),
         }
     }
+
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+        match self {
+            Self::Variable(_, options) => {
+                for option in options {
+                    option.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Name(_) => {}
+        }
+    }
 }

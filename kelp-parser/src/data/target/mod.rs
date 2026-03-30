@@ -72,7 +72,7 @@ pub fn lower_data_target(
     Some(
         (match node {
             CSTDataTarget::EntityDataTarget(node) => {
-                let selector = lower_entity_selector(node.entity_selector()?)?;
+                let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
 
                 DataTargetKind::Entity(selector)
             }

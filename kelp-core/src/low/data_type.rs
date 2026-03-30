@@ -33,6 +33,7 @@ pub enum DataType {
     InferredInteger,
     InferredFloat,
     ResourceLocation,
+    EntitySelector,
 }
 
 impl DataType {
@@ -343,6 +344,7 @@ impl DataType {
             Self::InferredInteger => output.write_str("{integer}"),
             Self::InferredFloat => output.write_str("{float}"),
             Self::ResourceLocation => output.write_str("resource_location"),
+            Self::EntitySelector => output.write_str("entity_selector"),
         }
     }
 }
@@ -435,6 +437,7 @@ impl DataType {
             | Self::Tuple(_)
             | Self::SNBT
             | Self::ResourceLocation
+            | Self::EntitySelector
             | Self::Inferred // TODO
             | Self::InferredInteger
             | Self::InferredFloat => true,

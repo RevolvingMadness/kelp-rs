@@ -92,6 +92,15 @@ pub enum SyntaxKind {
     ResourceLocationPath,
     ResourceLocationPathSegment,
 
+    EntitySelector,
+    ActualEntitySelector,
+    NameEntitySelector,
+    VariableEntitySelector,
+    EntitySelectorVariable,
+    VariableEntitySelectorOptions,
+    VariableEntitySelectorOption,
+    VariableEntitySelectorOptionValue,
+
     NBTCompound,
     NBTCompoundEntry,
     NamedNBTPathNode,
@@ -131,6 +140,7 @@ pub enum SyntaxKind {
     QueryKeyword,
     RestartKeyword,
     ResourceLocationKeyword,
+    EntitySelectorKeyword,
     ReturnKeyword,
     IfKeyword,
     WhileKeyword,
@@ -175,13 +185,6 @@ pub enum SyntaxKind {
     Range,
     RangeBound,
 
-    NameEntitySelector,
-    VariableEntitySelector,
-    EntitySelectorVariable,
-    VariableEntitySelectorOptions,
-    VariableEntitySelectorOption,
-    VariableEntitySelectorOptionValue,
-
     BlockDataTarget,
     StorageDataTarget,
     EntityDataTarget,
@@ -201,6 +204,7 @@ pub enum SyntaxKind {
     StopwatchCommandExpressionRestart,
 
     ResourceLocationExpression,
+    EntitySelectorExpression,
     StructStructExpression,
     StructStructExpressionFields,
     StructStructExpressionField,

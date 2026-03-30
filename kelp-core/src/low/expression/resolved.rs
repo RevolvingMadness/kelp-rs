@@ -1664,7 +1664,7 @@ impl ResolvedExpression {
                     SNBT::list(output)
                 }
             }
-            Self::ResourceLocation(_) => todo!(),
+            Self::ResourceLocation(resource_location) => SNBT::string(resource_location),
         }
     }
 

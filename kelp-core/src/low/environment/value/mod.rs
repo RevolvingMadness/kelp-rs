@@ -1,4 +1,7 @@
-use crate::{low::environment::value::variable::VariableDeclaration, visibility::Visibility};
+use crate::{
+    low::{data_type::DataType, environment::value::variable::VariableDeclaration},
+    visibility::Visibility,
+};
 
 pub mod variable;
 
@@ -41,6 +44,13 @@ impl ValueDeclarationKind {
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
+        }
+    }
+
+    #[must_use]
+    pub const fn data_type(&self) -> Option<&DataType> {
+        match self {
+            Self::Variable(declaration) => declaration.data_type.as_ref(),
         }
     }
 }

@@ -159,27 +159,43 @@ pub struct Expression {
 impl Expression {
     #[must_use]
     pub fn get_place_type(&self, ctx: &mut SemanticAnalysisContext) -> Option<Option<PlaceType>> {
-        let place_type_kind = match &self.kind {
+        let (data_type, place_type_kind) = match &self.kind {
             ExpressionKind::Tuple(expressions) => {
                 let Some(place_types) = expressions
                     .iter()
                     .map(|expression| expression.get_place_type(ctx))
-                    .collect::<Option<Option<_>>>()?
+                    .collect::<Option<Option<Vec<_>>>>()?
                 else {
                     return Some(None);
                 };
 
-                PlaceTypeKind::Tuple(place_types)
+                let data_types = place_types
+                    .iter()
+                    .map(|place_type| place_type.data_type.clone())
+                    .collect();
+
+                (
+                    DataType::Tuple(data_types),
+                    PlaceTypeKind::Tuple(place_types),
+                )
             }
-            ExpressionKind::PlayerScore(_) => PlaceTypeKind::Score(DataType::Integer),
-            ExpressionKind::Data(_) => PlaceTypeKind::Data(DataType::SNBT),
+            ExpressionKind::PlayerScore(_) => (
+                DataType::Score(Box::new(DataType::Integer)),
+                PlaceTypeKind::Score(DataType::Integer),
+            ),
+            ExpressionKind::Data(_) => (
+                DataType::Data(Box::new(DataType::SNBT)),
+                PlaceTypeKind::Data(DataType::SNBT),
+            ),
             ExpressionKind::Unary(operator, expression) => match operator {
                 UnaryOperator::Dereference => {
                     let Some(place_type) = expression.get_place_type(ctx)? else {
                         return Some(None);
                     };
 
-                    PlaceTypeKind::Dereference(Box::new(place_type))
+                    let data_type = place_type.data_type.get_dereferenced_result()?;
+
+                    (data_type, PlaceTypeKind::Dereference(Box::new(place_type)))
                 }
                 UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => {
                     return None;
@@ -190,31 +206,48 @@ impl Expression {
                     return Some(None);
                 };
 
-                PlaceTypeKind::Index(Box::new(target_place_type))
+                let data_type = target_place_type.data_type.get_index_result()?;
+
+                (data_type, PlaceTypeKind::Index(Box::new(target_place_type)))
             }
             ExpressionKind::FieldAccess(target, field) => {
                 let Some(target_place_type) = target.get_place_type(ctx)? else {
                     return Some(None);
                 };
 
-                PlaceTypeKind::FieldAccess(
-                    Box::new(target_place_type),
-                    field.span,
-                    field.snbt_string.1.clone(),
+                let data_type = target_place_type
+                    .data_type
+                    .get_field_result(&ctx.environment, &field.snbt_string.1)?;
+
+                (
+                    data_type,
+                    PlaceTypeKind::FieldAccess(
+                        Box::new(target_place_type),
+                        field.span,
+                        field.snbt_string.1.clone(),
+                    ),
                 )
             }
-            ExpressionKind::Underscore => PlaceTypeKind::Underscore,
+            ExpressionKind::Underscore => (DataType::Inferred, PlaceTypeKind::Underscore),
             ExpressionKind::Path(path) => {
                 let Some(id) = ctx.get_visible_value_id(path) else {
                     return Some(None);
                 };
 
-                PlaceTypeKind::Value(id)
+                let (_, _, declaration) = ctx.get_value(id);
+
+                let data_type = declaration.data_type()?.clone();
+
+                (data_type, PlaceTypeKind::Value)
             }
             _ => return None,
         };
 
-        Some(Some(place_type_kind.with_span(self.span)))
+        Some(Some(PlaceType {
+            span: self.span,
+            data_type,
+            kind: place_type_kind,
+        }))
     }
 
     #[allow(clippy::result_large_err)]
@@ -412,7 +445,10 @@ impl Expression {
                 let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
                 place.perform_augmented_assignment_semantic_analysis(
-                    ctx, operator, value_span, &value,
+                    ctx,
+                    operator,
+                    value_span,
+                    &value.data_type,
                 )?;
 
                 let (_, target) = target.perform_semantic_analysis(ctx)?;
@@ -433,7 +469,7 @@ impl Expression {
 
                 let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
-                place.perform_assignment_semantic_analysis(ctx, value_span, &value)?;
+                place.perform_assignment_semantic_analysis(ctx, value_span, &value.data_type)?;
 
                 ctx.is_lhs = true;
                 let (_, target) = target.perform_semantic_analysis(ctx)?;

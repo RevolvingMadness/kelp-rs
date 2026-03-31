@@ -15,15 +15,7 @@ use crate::{
     datapack::Datapack,
     high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     low::{
-        data_type::DataType,
-        environment::{
-            Environment,
-            value::{ValueDeclarationKind, ValueId},
-        },
-        expression::{
-            resolved::ResolvedExpression,
-            unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
-        },
+        data_type::DataType, environment::value::ValueId, expression::resolved::ResolvedExpression,
     },
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,
@@ -215,385 +207,17 @@ pub enum PlaceTypeKind {
     Score(DataType),
     Data(DataType),
     Tuple(Vec<PlaceType>),
-    Value(ValueId),
+    Value,
     Index(Box<PlaceType>),
     FieldAccess(Box<PlaceType>, Span, String),
     Dereference(Box<PlaceType>),
     Underscore,
 }
 
-impl PlaceTypeKind {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> PlaceType {
-        PlaceType { span, kind: self }
-    }
-
-    #[must_use]
-    pub fn get_data_type(&self, environment: &Environment) -> Option<DataType> {
-        Some(match self {
-            Self::Score(data_type) => DataType::Score(Box::new(data_type.clone())),
-            Self::Data(data_type) => DataType::Data(Box::new(data_type.clone())),
-            Self::Tuple(place_types) => DataType::Tuple(
-                place_types
-                    .iter()
-                    .map(|place_type| place_type.kind.get_data_type(environment))
-                    .collect::<Option<_>>()?,
-            ),
-            Self::Value(id) => {
-                let (_, _, ValueDeclarationKind::Variable(declaration)) =
-                    environment.get_value(*id).as_tuple();
-
-                declaration.data_type.as_ref()?.clone()
-            }
-            Self::Index(place_type) => place_type.kind.get_index_result(environment)?,
-            Self::FieldAccess(place_type, _, field) => {
-                place_type.kind.get_field_result(environment, field)?
-            }
-            Self::Dereference(place_type) => place_type
-                .kind
-                .get_data_type(environment)?
-                .dereference()
-                .ok()?,
-            Self::Underscore => DataType::Inferred,
-        })
-    }
-
-    #[must_use]
-    pub fn get_index_result(&self, environment: &Environment) -> Option<DataType> {
-        match self {
-            Self::Value(id) => {
-                let (_, _, ValueDeclarationKind::Variable(declaration)) =
-                    environment.get_value(*id).as_tuple();
-
-                declaration.data_type.as_ref()?.clone().get_index_result()
-            }
-            Self::Index(place_type) => place_type
-                .kind
-                .get_index_result(environment)?
-                .get_index_result(),
-            Self::FieldAccess(place_type, _, field) => place_type
-                .kind
-                .get_field_result(environment, field)?
-                .get_index_result(),
-            Self::Dereference(place_type) => place_type
-                .kind
-                .get_data_type(environment)?
-                .get_dereferenced_result()?
-                .get_index_result(),
-            Self::Score(_) | Self::Data(_) | Self::Tuple(_) | Self::Underscore => None,
-        }
-    }
-
-    #[must_use]
-    pub fn get_field_result(&self, environment: &Environment, field: &str) -> Option<DataType> {
-        match self {
-            Self::Score(data_type) | Self::Data(data_type) => {
-                data_type.get_field_result(environment, field)
-            }
-            Self::Value(id) => {
-                let (_, _, ValueDeclarationKind::Variable(declaration)) =
-                    environment.get_value(*id).as_tuple();
-
-                declaration
-                    .data_type
-                    .as_ref()?
-                    .clone()
-                    .get_field_result(environment, field)
-            }
-            Self::Index(place_type) => place_type
-                .kind
-                .get_index_result(environment)?
-                .get_field_result(environment, field),
-            Self::FieldAccess(place_type, _, field) => place_type
-                .kind
-                .get_field_result(environment, field)?
-                .get_field_result(environment, field),
-            Self::Dereference(place_type) => place_type
-                .kind
-                .get_data_type(environment)?
-                .dereference()
-                .ok()?
-                .get_field_result(environment, field),
-            Self::Tuple(_) | Self::Underscore => None,
-        }
-    }
-
-    pub fn perform_assignment_semantic_analysis(
-        self,
-        self_span: Span,
-        ctx: &mut SemanticAnalysisContext,
-        value_span: Span,
-        value: &UnresolvedExpression,
-    ) -> Option<()> {
-        match self {
-            Self::Score(_) => {
-                if !value.data_type.is_score_compatible() {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::TypeIsNotScoreCompatible(value.data_type.clone()),
-                    );
-                }
-            }
-            Self::Data(_) | Self::Underscore => {}
-            Self::Tuple(place_types) => {
-                let UnresolvedExpressionKind::Tuple(expressions) = &value.kind else {
-                    unreachable!();
-                };
-
-                assert!(expressions.len() == place_types.len());
-
-                place_types
-                    .into_iter()
-                    .zip(expressions)
-                    .map(|(place_type, value)| {
-                        place_type.perform_assignment_semantic_analysis(ctx, value_span, value)
-                    })
-                    .run_all_succeeded()?;
-            }
-            Self::Value(id) => {
-                let (_, _, ValueDeclarationKind::Variable(declaration)) = ctx.get_value(id);
-
-                let data_type = declaration.data_type.as_ref()?;
-
-                if !value.data_type.equals(data_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: data_type.clone(),
-                            actual: value.data_type.clone(),
-                        },
-                    );
-                }
-
-                if ctx.loop_depth != 0 && data_type.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self_span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
-            }
-            Self::Index(target) => {
-                let Some(index_result) = target.kind.get_index_result(&ctx.environment) else {
-                    let target_data_type = target.kind.get_data_type(&ctx.environment)?;
-
-                    return ctx.add_error(
-                        target.span,
-                        SemanticAnalysisError::CannotBeIndexed(target_data_type),
-                    );
-                };
-
-                if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self_span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
-            }
-            Self::Dereference(place_type) => {
-                let place_data_type = place_type.kind.get_data_type(&ctx.environment)?;
-
-                match place_data_type {
-                    DataType::Score(_) => {
-                        if !value.data_type.is_score_compatible() {
-                            return ctx.add_error(
-                                value_span,
-                                SemanticAnalysisError::TypeIsNotScoreCompatible(
-                                    value.data_type.clone(),
-                                ),
-                            );
-                        }
-                    }
-
-                    DataType::Data(_) => {}
-
-                    DataType::Reference(inner_type) => {
-                        if !value.data_type.equals(&inner_type) {
-                            return ctx.add_error(
-                                value_span,
-                                SemanticAnalysisError::MismatchedTypes {
-                                    expected: *inner_type,
-                                    actual: value.data_type.clone(),
-                                },
-                            );
-                        }
-
-                        if ctx.loop_depth != 0 && inner_type.is_compiletime(&ctx.environment) {
-                            return ctx.add_error(
-                                self_span,
-                                SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                            );
-                        }
-                    }
-
-                    _ => {
-                        return ctx.add_error(
-                            place_type.span,
-                            SemanticAnalysisError::CannotBeDereferenced(place_data_type),
-                        );
-                    }
-                }
-            }
-            Self::FieldAccess(target, _, field) => {
-                let Some(field_result) = target.kind.get_field_result(&ctx.environment, &field)
-                else {
-                    let target_data_type = target.kind.get_data_type(&ctx.environment)?;
-
-                    return ctx.add_error(
-                        target.span,
-                        SemanticAnalysisError::TypeDoesntHaveField {
-                            data_type: target_data_type,
-                            field,
-                        },
-                    );
-                };
-
-                if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self_span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
-            }
-        }
-
-        Some(())
-    }
-
-    pub fn perform_augmented_assignment_semantic_analysis(
-        self,
-        self_span: Span,
-        ctx: &mut SemanticAnalysisContext,
-        operator: ArithmeticOperator,
-        value_span: Span,
-        value: &UnresolvedExpression,
-    ) -> Option<()> {
-        match self {
-            Self::Data(data_type) | Self::Score(data_type) => {
-                if !data_type.can_perform_augmented_assignment(operator, &value.data_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            data_type,
-                            value.data_type.clone(),
-                        ),
-                    );
-                }
-            }
-            Self::Value(id) => {
-                let (_, _, ValueDeclarationKind::Variable(declaration)) = ctx.get_value(id);
-
-                let data_type = declaration.data_type.as_ref()?;
-
-                if ctx.loop_depth != 0 && data_type.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self_span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
-
-                if !data_type.can_perform_augmented_assignment(operator, &value.data_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            data_type.clone(),
-                            value.data_type.clone(),
-                        ),
-                    );
-                }
-            }
-            Self::Tuple(_) | Self::Underscore => {
-                let self_data_type = self.get_data_type(&ctx.environment)?;
-
-                return ctx.add_error(
-                    self_span,
-                    SemanticAnalysisError::CannotPerformAugmentedAssignment(self_data_type),
-                );
-            }
-            Self::Index(target) => {
-                let target_type = target.kind.get_data_type(&ctx.environment)?;
-
-                let Some(index_result) = target.kind.get_index_result(&ctx.environment) else {
-                    return ctx.add_error(
-                        self_span,
-                        SemanticAnalysisError::CannotBeIndexed(target_type),
-                    );
-                };
-
-                if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self_span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
-
-                if !index_result.can_perform_augmented_assignment(operator, &value.data_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            index_result,
-                            value.data_type.clone(),
-                        ),
-                    );
-                }
-            }
-            Self::Dereference(place_type) => {
-                let place_data_type = place_type.kind.get_data_type(&ctx.environment)?;
-
-                if !place_data_type.can_perform_augmented_assignment(operator, &value.data_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            place_data_type,
-                            value.data_type.clone(),
-                        ),
-                    );
-                }
-            }
-            Self::FieldAccess(target, field_span, field) => {
-                let target_type = target.kind.get_data_type(&ctx.environment)?;
-
-                let Some(field_result) = target.kind.get_field_result(&ctx.environment, &field)
-                else {
-                    return ctx.add_error(
-                        field_span,
-                        SemanticAnalysisError::TypeDoesntHaveField {
-                            data_type: target_type,
-                            field,
-                        },
-                    );
-                };
-
-                if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self_span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
-
-                if !field_result.can_perform_augmented_assignment(operator, &value.data_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            field_result,
-                            value.data_type.clone(),
-                        ),
-                    );
-                }
-            }
-        }
-
-        Some(())
-    }
-}
-
 #[derive(Debug)]
 pub struct PlaceType {
     pub span: Span,
+    pub data_type: DataType,
     pub kind: PlaceTypeKind,
 }
 
@@ -603,10 +227,141 @@ impl PlaceType {
         self,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
-        value: &UnresolvedExpression,
+        value_type: &DataType,
     ) -> Option<()> {
-        self.kind
-            .perform_assignment_semantic_analysis(self.span, ctx, value_span, value)
+        match self.kind {
+            PlaceTypeKind::Score(_) => {
+                if !value_type.is_score_compatible() {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),
+                    );
+                }
+            }
+            PlaceTypeKind::Data(_) | PlaceTypeKind::Underscore => {}
+            PlaceTypeKind::Tuple(place_types) => {
+                let DataType::Tuple(data_types) = value_type else {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: self.data_type,
+                            actual: value_type.clone(),
+                        },
+                    );
+                };
+
+                if data_types.len() != place_types.len() {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: self.data_type,
+                            actual: value_type.clone(),
+                        },
+                    );
+                }
+
+                place_types
+                    .into_iter()
+                    .zip(data_types)
+                    .map(|(place_type, data_type)| {
+                        place_type.perform_assignment_semantic_analysis(ctx, value_span, data_type)
+                    })
+                    .run_all_succeeded()?;
+            }
+            PlaceTypeKind::Value => {
+                if !value_type.equals(&self.data_type) {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: self.data_type,
+                            actual: value_type.clone(),
+                        },
+                    );
+                }
+
+                if ctx.loop_depth != 0 && self.data_type.is_compiletime(&ctx.environment) {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                    );
+                }
+            }
+            PlaceTypeKind::Index(place_type) => {
+                let Some(index_result) = place_type.data_type.get_index_result() else {
+                    return ctx.add_error(
+                        place_type.span,
+                        SemanticAnalysisError::CannotBeIndexed(place_type.data_type),
+                    );
+                };
+
+                if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                    );
+                }
+            }
+            PlaceTypeKind::Dereference(place_type) => match place_type.data_type {
+                DataType::Score(_) => {
+                    if !value_type.is_score_compatible() {
+                        return ctx.add_error(
+                            value_span,
+                            SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),
+                        );
+                    }
+                }
+
+                DataType::Data(_) => {}
+
+                DataType::Reference(inner_type) => {
+                    if !value_type.equals(&inner_type) {
+                        return ctx.add_error(
+                            value_span,
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: *inner_type,
+                                actual: value_type.clone(),
+                            },
+                        );
+                    }
+
+                    if ctx.loop_depth != 0 && inner_type.is_compiletime(&ctx.environment) {
+                        return ctx.add_error(
+                            self.span,
+                            SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                        );
+                    }
+                }
+
+                place_data_type => {
+                    return ctx.add_error(
+                        place_type.span,
+                        SemanticAnalysisError::CannotBeDereferenced(place_data_type),
+                    );
+                }
+            },
+            PlaceTypeKind::FieldAccess(target, _, field) => {
+                let Some(field_result) =
+                    target.data_type.get_field_result(&ctx.environment, &field)
+                else {
+                    return ctx.add_error(
+                        target.span,
+                        SemanticAnalysisError::TypeDoesntHaveField {
+                            data_type: target.data_type,
+                            field,
+                        },
+                    );
+                };
+
+                if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                    );
+                }
+            }
+        }
+
+        Some(())
     }
 
     #[inline]
@@ -615,10 +370,123 @@ impl PlaceType {
         ctx: &mut SemanticAnalysisContext,
         operator: ArithmeticOperator,
         value_span: Span,
-        value: &UnresolvedExpression,
+        value_type: &DataType,
     ) -> Option<()> {
-        self.kind.perform_augmented_assignment_semantic_analysis(
-            self.span, ctx, operator, value_span, value,
-        )
+        match self.kind {
+            PlaceTypeKind::Data(data_type) | PlaceTypeKind::Score(data_type) => {
+                if !data_type.can_perform_augmented_assignment(operator, value_type) {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                            operator,
+                            data_type,
+                            value_type.clone(),
+                        ),
+                    );
+                }
+            }
+            PlaceTypeKind::Value => {
+                if ctx.loop_depth != 0 && self.data_type.is_compiletime(&ctx.environment) {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                    );
+                }
+
+                if !self
+                    .data_type
+                    .can_perform_augmented_assignment(operator, value_type)
+                {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                            operator,
+                            self.data_type.clone(),
+                            value_type.clone(),
+                        ),
+                    );
+                }
+            }
+            PlaceTypeKind::Tuple(_) | PlaceTypeKind::Underscore => {
+                return ctx.add_error(
+                    self.span,
+                    SemanticAnalysisError::CannotPerformAugmentedAssignment(self.data_type),
+                );
+            }
+            PlaceTypeKind::Index(target) => {
+                let Some(index_result) = target.data_type.get_index_result() else {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CannotBeIndexed(target.data_type),
+                    );
+                };
+
+                if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                    );
+                }
+
+                if !index_result.can_perform_augmented_assignment(operator, value_type) {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                            operator,
+                            index_result,
+                            value_type.clone(),
+                        ),
+                    );
+                }
+            }
+            PlaceTypeKind::Dereference(place_type) => {
+                if !place_type
+                    .data_type
+                    .can_perform_augmented_assignment(operator, value_type)
+                {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                            operator,
+                            place_type.data_type,
+                            value_type.clone(),
+                        ),
+                    );
+                }
+            }
+            PlaceTypeKind::FieldAccess(target, field_span, field) => {
+                let Some(field_result) =
+                    target.data_type.get_field_result(&ctx.environment, &field)
+                else {
+                    return ctx.add_error(
+                        field_span,
+                        SemanticAnalysisError::TypeDoesntHaveField {
+                            data_type: target.data_type,
+                            field,
+                        },
+                    );
+                };
+
+                if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                    );
+                }
+
+                if !field_result.can_perform_augmented_assignment(operator, value_type) {
+                    return ctx.add_error(
+                        value_span,
+                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                            operator,
+                            field_result,
+                            value_type.clone(),
+                        ),
+                    );
+                }
+            }
+        }
+
+        Some(())
     }
 }

@@ -58,12 +58,12 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
 fn recover_item(parser: &mut Parser) {
     let bytes = &parser.source.as_bytes()[parser.pos..];
 
-    let length = bytes
+    let (not_end, length) = bytes
         .iter()
         .position(|&b| b == b'\n' || b == b';')
-        .unwrap_or(bytes.len());
+        .map_or((false, bytes.len()), |value| (true, value));
 
-    parser.add_token(SyntaxKind::Garbage, length + 1);
+    parser.add_token(SyntaxKind::Garbage, length + usize::from(not_end));
 }
 
 pub fn expect_item_kind(parser: &mut Parser) {

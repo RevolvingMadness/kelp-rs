@@ -44,41 +44,6 @@ impl Place {
         })
     }
 
-    pub fn assign_resolved(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        value: ResolvedExpression,
-    ) {
-        match self {
-            Self::Score(score) => {
-                value.assign_to_score(datapack, ctx, score);
-            }
-            Self::Data(target, path) => {
-                value.assign_to_data(datapack, ctx, target, path);
-            }
-            Self::Value(id) => {
-                datapack.set_variable(id, value);
-            }
-            Self::Underscore => {}
-            Self::Tuple(places) => {
-                if let ResolvedExpression::Tuple(values) = value {
-                    for (place, value) in places.into_iter().zip(values) {
-                        place.assign_resolved(datapack, ctx, value);
-                    }
-                } else {
-                    unreachable!("{:?}", value)
-                }
-            }
-            Self::Dereference(place) => {
-                place
-                    .dereference(datapack)
-                    .unwrap()
-                    .assign_resolved(datapack, ctx, value);
-            }
-        }
-    }
-
     pub fn assign(
         self,
         datapack: &mut Datapack,
@@ -97,34 +62,14 @@ impl Place {
             }
             Self::Underscore => {}
             Self::Tuple(places) => {
-                if let ResolvedExpression::Tuple(values) = value {
-                    assert!(places.len() == values.len());
+                let ResolvedExpression::Tuple(expressions) = value else {
+                    unreachable!();
+                };
 
-                    let safe_values: Vec<ResolvedExpression> = values
-                        .into_iter()
-                        .map(|value| match value {
-                            ResolvedExpression::PlayerScore(score) => {
-                                ResolvedExpression::PlayerScore(
-                                    score.as_unique_score(datapack, ctx),
-                                )
-                            }
-                            ResolvedExpression::Data(target_path) => {
-                                let (target, path) = *target_path;
+                assert!(places.len() == expressions.len());
 
-                                let (unique_target, unique_path) =
-                                    target.as_unique_data(datapack, ctx, path);
-
-                                ResolvedExpression::Data(Box::new((unique_target, unique_path)))
-                            }
-                            _ => value,
-                        })
-                        .collect();
-
-                    for (place, safe_value) in places.into_iter().zip(safe_values) {
-                        place.assign_resolved(datapack, ctx, safe_value);
-                    }
-                } else {
-                    unreachable!("{:?}", value)
+                for (place, expression) in places.into_iter().zip(expressions) {
+                    place.assign(datapack, ctx, expression);
                 }
             }
             Self::Dereference(place) => {

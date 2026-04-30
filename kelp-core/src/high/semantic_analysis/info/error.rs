@@ -1,10 +1,307 @@
-use std::fmt::Write;
+use std::fmt::Display;
 
 use crate::{
     low::{data_type::DataType, environment::Environment, statement::ControlFlowKind},
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
 };
+
+pub struct SemanticAnalysisErrorDisplay<'a> {
+    pub error: &'a SemanticAnalysisError,
+    pub environment: &'a Environment,
+}
+
+impl Display for SemanticAnalysisErrorDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.error {
+            SemanticAnalysisError::CannotPerformArithmeticOperation {
+                left,
+                operator,
+                right,
+            } => {
+                write!(
+                    f,
+                    "Cannot perform: `{}` {} `{}`",
+                    left.display(self.environment),
+                    operator,
+                    right.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotPerformComparisonOperation {
+                left,
+                operator,
+                right,
+            } => {
+                write!(
+                    f,
+                    "Cannot perform: `{}` {} `{}`",
+                    left.display(self.environment),
+                    operator,
+                    right.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotPerformAugmentedAssignment(data_type) => {
+                write!(
+                    f,
+                    "Cannot perform augmented assignment on type `{}`",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::MismatchedPatternTypes { expected, actual } => {
+                write!(
+                    f,
+                    "Expected type `{}` but got `{}`",
+                    expected.display(self.environment),
+                    actual
+                )
+            }
+            SemanticAnalysisError::UnderscoreExpression => write!(
+                f,
+                "The underscore expression can only be used on the left hand side of assignments"
+            ),
+            SemanticAnalysisError::CannotIterateType(data_type) => {
+                write!(
+                    f,
+                    "Cannot iterate over type `{}`",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::ExpressionSigilNotAllowed => {
+                write!(f, "An expression sigil is not allowed here")
+            }
+            SemanticAnalysisError::MismatchedTypes { expected, actual } => {
+                write!(
+                    f,
+                    "Expected type `{}` but got `{}`",
+                    expected.display(self.environment),
+                    actual.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::InvalidAugmentedAssignmentType(op, target, value) => {
+                write!(
+                    f,
+                    "Cannot {}-assign type `{}` to type `{}`",
+                    op.name(),
+                    value.display(self.environment),
+                    target.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotCastType { from, to } => {
+                write!(
+                    f,
+                    "Cannot cast type `{}` to `{}`",
+                    from.display(self.environment),
+                    to.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotBeRepresentedAsFloat(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be represented as a float",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::UnknownRuntimeStorageType => {
+                write!(f, "Unknown runtime storage type")
+            }
+            SemanticAnalysisError::ValueTooLarge(data_type) => {
+                write!(
+                    f,
+                    "This value is too big to fit in the type `{}`",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::ValueTooSmall(data_type) => {
+                write!(
+                    f,
+                    "This value is too small to fit in the type `{}`",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop => {
+                write!(f, "Cannot mutate a compile-time value in a runtime loop")
+            }
+            SemanticAnalysisError::MissingKey(key) => write!(f, "Missing key `{}`", key),
+            SemanticAnalysisError::UnexpectedKey(key) => write!(f, "Unexpected key `{}`", key),
+            SemanticAnalysisError::MissingField(field) => {
+                write!(f, "Missing field `{}`", field)
+            }
+            SemanticAnalysisError::TypeAlreadyDeclared(name) => {
+                write!(
+                    f,
+                    "A type with the name `{}` has already been declared",
+                    name
+                )
+            }
+            SemanticAnalysisError::ValueIsAlreadyDefined(name) => {
+                write!(
+                    f,
+                    "A value with the name `{}` has already been declared",
+                    name
+                )
+            }
+            SemanticAnalysisError::PatternIsNotIrrefutable => {
+                write!(f, "This pattern is not irrefutable")
+            }
+            SemanticAnalysisError::TypeIsNotCondition(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be used in conditions",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::TypeIsNotScoreCompatible(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` is not score compatible",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotBeAssignedToData(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be assigned to data storage",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotBeIndexed(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be indexed",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::IndexOutOfBounds => write!(f, "Index out of bounds"),
+            SemanticAnalysisError::CannotBeDereferenced(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be dereferenced",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotBeReferenced(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be referenced",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotBeAssignedTo => {
+                write!(f, "Cannot assign a value to this expression")
+            }
+            SemanticAnalysisError::TypeDoesntHaveFields(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` does not have any fields",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotNegateType(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be negated",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::CannotInvertType(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` cannot be inverted",
+                    data_type.display(self.environment)
+                )
+            }
+            SemanticAnalysisError::TypeDoesntHaveField { data_type, field } => {
+                write!(
+                    f,
+                    "The type `{}` does not have a field named `{}`",
+                    data_type.display(self.environment),
+                    field
+                )
+            }
+            SemanticAnalysisError::InvalidGenerics {
+                data_type_name,
+                expected,
+                actual,
+            } => {
+                let s = if *expected == 1 { "" } else { "s" };
+                let was_were = if *actual == 1 { "was" } else { "were" };
+                write!(
+                    f,
+                    "The type `{}` requires {} generic argument{} but only {} {} given",
+                    data_type_name, expected, s, actual, was_were
+                )
+            }
+            SemanticAnalysisError::MacroConflict => {
+                write!(
+                    f,
+                    "This string conflicts with the compiler-generated command macros"
+                )
+            }
+            SemanticAnalysisError::ControlFlowNotInLoop(kind) => {
+                write!(f, "Cannot `{}` outside of a loop", kind.name())
+            }
+            SemanticAnalysisError::NotAType(name) => write!(f, "`{}` is not a type", name),
+            SemanticAnalysisError::NotAStruct(name) => {
+                write!(f, "The type `{}` is not a struct", name)
+            }
+            SemanticAnalysisError::NotARegularStruct(name) => {
+                write!(f, "The type `{}` is not a regular struct", name)
+            }
+            SemanticAnalysisError::NotATupleStruct(name) => {
+                write!(f, "The type `{}` is not a tuple struct", name)
+            }
+            SemanticAnalysisError::MismatchedTupleStructFieldCount(name, expected, actual) => {
+                let s = if *expected == 1 { "" } else { "s" };
+                let was_were = if *actual == 1 { "was" } else { "were" };
+
+                write!(
+                    f,
+                    "The tuple struct `{}` requires {} field{} but only {} {} passed",
+                    name, expected, s, actual, was_were
+                )
+            }
+            SemanticAnalysisError::NotAModule(name) => {
+                write!(f, "The type `{}` is not a module", name)
+            }
+            SemanticAnalysisError::TypeNotPublic(name) => {
+                write!(f, "The type `{}` is not public", name)
+            }
+            SemanticAnalysisError::ValueNotPublic(name) => {
+                write!(f, "The value `{}` is not public", name)
+            }
+            SemanticAnalysisError::UnknownType(name) => write!(f, "Unknown type `{}`", name),
+            SemanticAnalysisError::UnknownValue(name) => write!(f, "Unknown value `{}`", name),
+            SemanticAnalysisError::UnknownItem(name) => write!(f, "Unknown item `{}`", name),
+            SemanticAnalysisError::UnknownModule(name) => {
+                write!(f, "Unknown module `{}`", name)
+            }
+            SemanticAnalysisError::ModuleDoesntContainType {
+                module_name,
+                type_name,
+            } => write!(
+                f,
+                "The module `{}` does not contain a type named `{}`",
+                module_name, type_name
+            ),
+            SemanticAnalysisError::ModuleDoesntContainValue {
+                module_name,
+                value_name,
+            } => write!(
+                f,
+                "The module `{}` does not contain a value named `{}`",
+                module_name, value_name
+            ),
+            SemanticAnalysisError::ModuleDoesntContainItem {
+                module_name,
+                item_name,
+            } => write!(
+                f,
+                "The module `{}` does not contain an item named `{}`",
+                module_name, item_name
+            ),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
@@ -97,241 +394,13 @@ pub enum SemanticAnalysisError {
 
 impl SemanticAnalysisError {
     #[must_use]
-    pub fn format_string(&self, environment: &Environment) -> String {
-        let mut output = String::new();
-        let _ = self.write_string(&mut output, environment);
-        output
-    }
-
-    pub fn write_string(&self, output: &mut String, environment: &Environment) -> std::fmt::Result {
-        match self {
-            Self::CannotPerformArithmeticOperation {
-                left,
-                operator,
-                right,
-            } => {
-                output.write_str("Cannot perform: `")?;
-                left.write_string(output, environment)?;
-                write!(output, "` {} `", operator)?;
-                right.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::CannotPerformComparisonOperation {
-                left,
-                operator,
-                right,
-            } => {
-                output.write_str("Cannot perform: `")?;
-                left.write_string(output, environment)?;
-                write!(output, "` {} `", operator)?;
-                right.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::CannotPerformAugmentedAssignment(data_type) => {
-                output.write_str("Cannot perform augmented assignment on type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::MismatchedPatternTypes { expected, actual } => {
-                output.write_str("Expected type `")?;
-                expected.write_string(output, environment)?;
-                write!(output, "` but got `{}`", actual)
-            }
-            Self::UnderscoreExpression => output.write_str(
-                "The underscore expression can only be used on the left hand side of assignments",
-            ),
-            Self::CannotIterateType(data_type) => {
-                output.write_str("Cannot iterate over type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::ExpressionSigilNotAllowed => {
-                output.write_str("An expression sigil is not allowed here")
-            }
-            Self::MismatchedTypes { expected, actual } => {
-                output.write_str("Expected type `")?;
-                expected.write_string(output, environment)?;
-                output.write_str("` but got `")?;
-                actual.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::InvalidAugmentedAssignmentType(op, target, value) => {
-                write!(output, "Cannot {}-assign type `", op.name())?;
-                value.write_string(output, environment)?;
-                output.write_str("` to type `")?;
-                target.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::CannotCastType { from, to } => {
-                output.write_str("Cannot cast type `")?;
-                from.write_string(output, environment)?;
-                output.write_str("` to `")?;
-                to.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::CannotBeRepresentedAsFloat(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be represented as a float")?;
-
-                Ok(())
-            }
-            Self::UnknownRuntimeStorageType => output.write_str("Unknown runtime storage type"),
-            Self::ValueTooLarge(data_type) => {
-                output.write_str("This value is too big to fit in the type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::ValueTooSmall(data_type) => {
-                output.write_str("This value is too small to fit in the type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("`")
-            }
-            Self::CompiletimeValueMutationInRuntimeLoop => {
-                output.write_str("Cannot mutate a compile-time value in a runtime loop")
-            }
-            Self::MissingKey(key) => write!(output, "Missing key `{}`", key),
-            Self::UnexpectedKey(key) => write!(output, "Unexpected key `{}`", key),
-            Self::MissingField(field) => write!(output, "Missing field `{}`", field),
-            Self::TypeAlreadyDeclared(name) => {
-                write!(
-                    output,
-                    "A type with the name `{}` has already been declared",
-                    name
-                )
-            }
-            Self::ValueIsAlreadyDefined(name) => {
-                write!(
-                    output,
-                    "A value with the name `{}` has already been declared",
-                    name
-                )
-            }
-            Self::PatternIsNotIrrefutable => output.write_str("This pattern is not irrefutable"),
-            Self::TypeIsNotCondition(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be used in conditions")
-            }
-            Self::TypeIsNotScoreCompatible(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` is not score compatible")
-            }
-            Self::CannotBeAssignedToData(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be assigned to data storage")
-            }
-            Self::CannotBeIndexed(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be indexed")
-            }
-            Self::IndexOutOfBounds => output.write_str("Index out of bounds"),
-            Self::CannotBeDereferenced(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be dereferenced")
-            }
-            Self::CannotBeReferenced(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be referenced")
-            }
-            Self::CannotBeAssignedTo => {
-                output.write_str("Cannot assign a value to this expression")
-            }
-            Self::TypeDoesntHaveFields(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` does not have any fields")
-            }
-            Self::CannotNegateType(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be negated")
-            }
-            Self::CannotInvertType(data_type) => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                output.write_str("` cannot be inverted")
-            }
-            Self::TypeDoesntHaveField { data_type, field } => {
-                output.write_str("The type `")?;
-                data_type.write_string(output, environment)?;
-                write!(output, "` does not have a field named `{}`", field)
-            }
-            Self::InvalidGenerics {
-                data_type_name,
-                expected,
-                actual,
-            } => {
-                let s = if *expected == 1 { "" } else { "s" };
-                let was_were = if *actual == 1 { "was" } else { "were" };
-                write!(
-                    output,
-                    "The type `{}` requires {} generic argument{} but only {} {} given",
-                    data_type_name, expected, s, actual, was_were
-                )
-            }
-            Self::MacroConflict => {
-                output.write_str("This string conflicts with the compiler-generated command macros")
-            }
-            Self::ControlFlowNotInLoop(kind) => {
-                write!(output, "Cannot `{}` outside of a loop", kind.name())
-            }
-            Self::NotAType(name) => write!(output, "`{}` is not a type", name),
-            Self::NotAStruct(name) => {
-                write!(output, "The type `{}` is not a struct", name)
-            }
-            Self::NotARegularStruct(name) => {
-                write!(output, "The type `{}` is not a regular struct", name)
-            }
-            Self::NotATupleStruct(name) => {
-                write!(output, "The type `{}` is not a tuple struct", name)
-            }
-            Self::MismatchedTupleStructFieldCount(name, expected, actual) => {
-                let s = if *expected == 1 { "" } else { "s" };
-                let was_were = if *actual == 1 { "was" } else { "were" };
-
-                write!(
-                    output,
-                    "The tuple struct `{}` requires {} field{} but only {} {} passed",
-                    name, expected, s, actual, was_were
-                )
-            }
-            Self::NotAModule(name) => write!(output, "The type `{}` is not a module", name),
-            Self::TypeNotPublic(name) => write!(output, "The type `{}` is not public", name),
-            Self::ValueNotPublic(name) => write!(output, "The value `{}` is not public", name),
-            Self::UnknownType(name) => write!(output, "Unknown type `{}`", name),
-            Self::UnknownValue(name) => write!(output, "Unknown value `{}`", name),
-            Self::UnknownItem(name) => write!(output, "Unknown item `{}`", name),
-            Self::UnknownModule(name) => write!(output, "Unknown module `{}`", name),
-            Self::ModuleDoesntContainType {
-                module_name,
-                type_name,
-            } => write!(
-                output,
-                "The module `{}` does not contain a type named `{}`",
-                module_name, type_name
-            ),
-            Self::ModuleDoesntContainValue {
-                module_name,
-                value_name,
-            } => write!(
-                output,
-                "The module `{}` does not contain a value named `{}`",
-                module_name, value_name
-            ),
-            Self::ModuleDoesntContainItem {
-                module_name,
-                item_name,
-            } => write!(
-                output,
-                "The module `{}` does not contain an item named `{}`",
-                module_name, item_name
-            ),
+    pub const fn display<'a>(
+        &'a self,
+        environment: &'a Environment,
+    ) -> SemanticAnalysisErrorDisplay<'a> {
+        SemanticAnalysisErrorDisplay {
+            error: self,
+            environment,
         }
     }
 }

@@ -232,9 +232,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
                 Report::build(ReportKind::Error, span.clone())
                     .with_label(
                         Label::new(span)
-                            .with_message(
-                                error.format_string(&semantic_analysis_context.environment),
-                            )
+                            .with_message(error.display(&semantic_analysis_context.environment))
                             .with_color(Color::Red),
                     )
                     .finish()

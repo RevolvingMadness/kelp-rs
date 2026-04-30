@@ -1,6 +1,4 @@
-use kelp_core::high::semantic_analysis::{
-    SemanticAnalysisContext, info::SemanticAnalysisInfoKind,
-};
+use kelp_core::high::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfoKind};
 use kelp_parser::cst::CSTRoot;
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
 use kelp_parser::root::lower_root;
@@ -165,9 +163,9 @@ impl Backend {
                             }),
                             source: Some("kelp-lsp".to_string()),
                             message: match &info.kind {
-                                SemanticAnalysisInfoKind::Error(error) => {
-                                    error.format_string(&semantic_analysis_context.environment)
-                                }
+                                SemanticAnalysisInfoKind::Error(error) => error
+                                    .display(&semantic_analysis_context.environment)
+                                    .to_string(),
                             },
                             ..Default::default()
                         });

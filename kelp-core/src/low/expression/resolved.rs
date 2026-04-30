@@ -221,13 +221,13 @@ impl ResolvedExpression {
 
     #[must_use]
     pub fn dereference(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
-        match self {
+        Some(match self {
             Self::PlayerScore(score) => {
                 let unique_score = datapack.get_unique_score();
 
                 score.assign_to_score(datapack, ctx, unique_score.clone());
 
-                Some(Self::PlayerScore(unique_score))
+                Self::PlayerScore(unique_score)
             }
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -244,10 +244,10 @@ impl ResolvedExpression {
                     )),
                 );
 
-                Some(Self::Data(Box::new((unique_target, unique_path))))
+                Self::Data(Box::new((unique_target, unique_path)))
             }
-            _ => None,
-        }
+            _ => return None,
+        })
     }
 
     #[must_use]
@@ -1571,7 +1571,7 @@ impl ResolvedExpression {
                                 output.push(SNBT::string(", "));
                             }
 
-                            output.push(SNBT::string(generic.format_string(&datapack.environment)));
+                            output.push(SNBT::string(generic.display(&datapack.environment)));
                         }
 
                         output.push(SNBT::string(if fields.is_empty() { "> {" } else { "> { " }));
@@ -1632,7 +1632,7 @@ impl ResolvedExpression {
                                 output.push(SNBT::string(", "));
                             }
 
-                            output.push(SNBT::string(generic.format_string(&datapack.environment)));
+                            output.push(SNBT::string(generic.display(&datapack.environment)));
                         }
 
                         output.push(SNBT::string(">("));
@@ -1925,17 +1925,17 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn invert(self) -> Self {
-        match self {
+    pub fn invert(self) -> Option<Self> {
+        Some(match self {
             Self::Boolean(value) => Self::Boolean(!value),
             Self::Condition(inverted, subcommand) => Self::Condition(!inverted, subcommand),
-            _ => unreachable!("Cannot invert expression {:?}", self),
-        }
+            _ => return None,
+        })
     }
 
     #[must_use]
-    pub fn negate(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
-        match self {
+    pub fn negate(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
+        Some(match self {
             Self::Byte(value) => Self::Byte(-value),
             Self::Short(value) => Self::Short(-value),
             Self::Integer(value) => Self::Integer(-value),
@@ -1982,8 +1982,8 @@ impl ResolvedExpression {
 
                 Self::PlayerScore(unique_score)
             }
-            _ => unreachable!("Cannot negate expression {:?}", self),
-        }
+            _ => return None,
+        })
     }
 
     #[must_use]
@@ -2136,82 +2136,5 @@ impl ResolvedExpression {
             }
             _ => return None,
         })
-    }
-
-    pub fn assign_field(
-        &mut self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        field: &str,
-        value: Self,
-    ) {
-        match self {
-            Self::Compound(compound) => {
-                *compound
-                    .iter_mut()
-                    .find_map(|(actual_field, value)| {
-                        if actual_field.1 == field {
-                            Some(value)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap() = value;
-            }
-            Self::Data(target_path) => {
-                let (target, path) = &mut **target_path;
-
-                value.assign_to_data(
-                    datapack,
-                    ctx,
-                    target.clone(),
-                    path.clone().with_node(NbtPathNode::Named(
-                        SNBTString(false, field.to_owned()),
-                        None,
-                    )),
-                );
-            }
-            Self::Tuple(expressions) => {
-                let field = field.parse::<i32>().unwrap();
-
-                *expressions.get_mut(field as usize).unwrap() = value;
-            }
-            _ => unreachable!("{:?}", self),
-        }
-    }
-
-    pub fn assign_index(
-        &mut self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        index: Self,
-        value: Self,
-    ) {
-        match self {
-            Self::List(items) => {
-                let Self::Integer(index) = index else {
-                    unreachable!();
-                };
-
-                if index >= 0 && (index as usize) < items.len() {
-                    *items.get_mut(index as usize).unwrap() = value;
-                } else {
-                    unreachable!("Index is out of range");
-                }
-            }
-            Self::Data(target_path) => {
-                let (target, path) = &mut **target_path;
-
-                let index = index.as_snbt_macros(ctx);
-
-                value.assign_to_data(
-                    datapack,
-                    ctx,
-                    target.clone(),
-                    path.clone().with_node(NbtPathNode::Index(Some(index))),
-                );
-            }
-            _ => unreachable!("The expression cannot be indexed {:?}", self),
-        }
     }
 }

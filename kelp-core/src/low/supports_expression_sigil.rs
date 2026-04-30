@@ -19,49 +19,72 @@ pub enum SupportsExpressionSigil<T> {
     Sigil(UnresolvedExpression),
 }
 
-impl SupportsExpressionSigil<ResourceLocation> {
-    #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ResourceLocation {
-        match self {
-            Self::Regular(value) => value,
-            Self::Sigil(expression) => {
-                let ResolvedExpression::ResourceLocation(resource_location) =
-                    expression.kind.resolve(datapack, ctx)
-                else {
-                    unreachable!();
-                };
+macro_rules! impl_supports_expression_sigil {
+    (no_compile, $ty:ty, $resolved_expression_variant:ident) => {
+        impl SupportsExpressionSigil<$ty> {
+            #[must_use]
+            pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> $ty {
+                match self {
+                    Self::Regular(value) => value,
+                    Self::Sigil(expression) => {
+                        let expression = expression.kind.resolve(datapack, ctx);
 
-                resource_location
+                        let ResolvedExpression::$resolved_expression_variant(value) = expression
+                        else {
+                            unreachable!();
+                        };
+
+                        value
+                    }
+                }
             }
         }
-    }
+    };
+
+    (compile_as_statement, $ty:ty, $ret_ty:ty, $resolved_expression_variant:ident) => {
+        impl_supports_expression_sigil!($ty, $ret_ty, $resolved_expression_variant);
+
+        impl SupportsExpressionSigil<$ty> {
+            pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+                match self {
+                    Self::Regular(value) => {
+                        value.compile_as_statement(datapack, ctx);
+                    }
+                    Self::Sigil(expression) => {
+                        expression.kind.compile_as_statement(datapack, ctx);
+                    }
+                }
+            }
+        }
+    };
+
+    ($ty:ty, $ret_ty:ty, $resolved_expression_variant:ident) => {
+        impl SupportsExpressionSigil<$ty> {
+            #[must_use]
+            pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> $ret_ty {
+                match self {
+                    Self::Regular(value) => value.compile(datapack, ctx),
+                    Self::Sigil(expression) => {
+                        let expression = expression.kind.resolve(datapack, ctx);
+
+                        let ResolvedExpression::$resolved_expression_variant(value) = expression
+                        else {
+                            unreachable!();
+                        };
+
+                        value
+                    }
+                }
+            }
+        }
+    };
 }
 
-impl SupportsExpressionSigil<EntitySelector> {
-    #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowEntitySelector {
-        match self {
-            Self::Regular(selector) => selector.compile(datapack, ctx),
-            Self::Sigil(expression) => {
-                let ResolvedExpression::EntitySelector(selector) =
-                    expression.kind.resolve(datapack, ctx)
-                else {
-                    unreachable!();
-                };
+impl_supports_expression_sigil!(no_compile, ResourceLocation, ResourceLocation);
 
-                selector
-            }
-        }
-    }
-
-    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
-        match self {
-            Self::Regular(selector) => {
-                selector.compile_as_statement(datapack, ctx);
-            }
-            Self::Sigil(expression) => {
-                expression.kind.compile_as_statement(datapack, ctx);
-            }
-        }
-    }
-}
+impl_supports_expression_sigil!(
+    compile_as_statement,
+    EntitySelector,
+    LowEntitySelector,
+    EntitySelector
+);

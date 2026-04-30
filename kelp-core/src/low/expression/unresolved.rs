@@ -449,8 +449,8 @@ impl UnresolvedExpressionKind {
                 let expression = expression.kind.resolve(datapack, ctx);
 
                 match unary_operator {
-                    UnaryOperator::Negate => expression.negate(datapack, ctx),
-                    UnaryOperator::Invert => expression.invert(),
+                    UnaryOperator::Negate => expression.negate(datapack, ctx).unwrap(),
+                    UnaryOperator::Invert => expression.invert().unwrap(),
                     UnaryOperator::Reference => expression,
                     UnaryOperator::Dereference => expression.dereference(datapack, ctx).unwrap(),
                 }

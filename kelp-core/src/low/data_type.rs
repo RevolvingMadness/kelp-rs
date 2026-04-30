@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt::Write};
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Write},
+};
 
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
@@ -8,6 +11,150 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
     span::Span,
 };
+
+pub struct DataTypeDisplay<'a> {
+    pub data_type: &'a DataType,
+    pub environment: &'a Environment,
+}
+
+impl Display for DataTypeDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.data_type {
+            DataType::Boolean => f.write_str("boolean"),
+            DataType::Byte => f.write_str("byte"),
+            DataType::Short => f.write_str("short"),
+            DataType::Integer => f.write_str("integer"),
+            DataType::Long => f.write_str("long"),
+            DataType::Float => f.write_str("float"),
+            DataType::Double => f.write_str("double"),
+            DataType::String => f.write_str("string"),
+            DataType::Unit => f.write_str("()"),
+            DataType::Score(data_type) => {
+                f.write_str("score<")?;
+                data_type.display(self.environment).fmt(f)?;
+                f.write_char('>')?;
+
+                Ok(())
+            }
+            DataType::List(data_type) => {
+                f.write_str("list<")?;
+                data_type.display(self.environment).fmt(f)?;
+                f.write_char('>')?;
+
+                Ok(())
+            }
+            DataType::TypedCompound(compound) => {
+                f.write_char('{')?;
+
+                if !compound.is_empty() {
+                    f.write_char(' ')?;
+                }
+
+                for (i, (key, value_data_type)) in compound.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    write!(f, "{}: ", key.1)?;
+
+                    value_data_type.display(self.environment).fmt(f)?;
+                }
+
+                if !compound.is_empty() {
+                    f.write_char(' ')?;
+                }
+
+                f.write_char('}')?;
+
+                Ok(())
+            }
+            DataType::Compound(data_type) => {
+                f.write_str("compound<")?;
+                data_type.display(self.environment).fmt(f)?;
+                f.write_char('>')?;
+
+                Ok(())
+            }
+            DataType::Data(data_type) => {
+                f.write_str("data<")?;
+                data_type.display(self.environment).fmt(f)?;
+                f.write_char('>')?;
+
+                Ok(())
+            }
+            DataType::Reference(data_type) => {
+                f.write_char('&')?;
+                data_type.display(self.environment).fmt(f)?;
+
+                Ok(())
+            }
+            DataType::Tuple(data_types) => {
+                f.write_char('(')?;
+
+                for (i, data_type) in data_types.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    data_type.display(self.environment).fmt(f)?;
+                }
+
+                f.write_char(')')?;
+
+                Ok(())
+            }
+            DataType::SNBT => f.write_str("snbt"),
+            DataType::Struct(id) => {
+                // TODO: Maybe display full path?
+
+                let (_, _, declaration) = self.environment.get_struct(*id);
+
+                f.write_str(declaration.name())?;
+
+                let generic_types = declaration.generic_types();
+
+                if !generic_types.is_empty() {
+                    f.write_str("<")?;
+
+                    for (i, data_type) in generic_types.iter().enumerate() {
+                        if i != 0 {
+                            f.write_str(", ")?;
+                        }
+
+                        data_type.display(self.environment).fmt(f)?;
+                    }
+
+                    f.write_str(">")?;
+                }
+
+                Ok(())
+            }
+            DataType::Inferred => f.write_char('_'),
+            DataType::InferredInteger => f.write_str("{integer}"),
+            DataType::InferredFloat => f.write_str("{float}"),
+            DataType::ResourceLocation => f.write_str("resource_location"),
+            DataType::EntitySelector => f.write_str("entity_selector"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TypeWrapper {
+    Reference,
+    Score,
+    Data,
+}
+
+impl TypeWrapper {
+    #[must_use]
+    pub fn wrap(self, inner: DataType) -> DataType {
+        match self {
+            Self::Reference => DataType::Reference(Box::new(inner)),
+            Self::Score => DataType::Score(Box::new(inner)),
+            Self::Data => DataType::Data(Box::new(inner)),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DataType {
@@ -222,168 +369,46 @@ impl DataType {
     }
 
     #[must_use]
-    pub fn format_string(&self, environment: &Environment) -> String {
-        let mut output = String::new();
-
-        let _ = self.write_string(&mut output, environment);
-
-        output
-    }
-
-    pub fn write_string(&self, output: &mut String, environment: &Environment) -> std::fmt::Result {
-        match self {
-            Self::Boolean => output.write_str("boolean"),
-            Self::Byte => output.write_str("byte"),
-            Self::Short => output.write_str("short"),
-            Self::Integer => output.write_str("integer"),
-            Self::Long => output.write_str("long"),
-            Self::Float => output.write_str("float"),
-            Self::Double => output.write_str("double"),
-            Self::String => output.write_str("string"),
-            Self::Unit => output.write_str("()"),
-            Self::Score(data_type) => {
-                output.write_str("score<")?;
-                data_type.write_string(output, environment)?;
-                output.write_char('>')?;
-
-                Ok(())
-            }
-            Self::List(data_type) => {
-                output.write_str("list<")?;
-                data_type.write_string(output, environment)?;
-                output.write_char('>')?;
-
-                Ok(())
-            }
-            Self::TypedCompound(compound) => {
-                output.write_char('{')?;
-
-                if !compound.is_empty() {
-                    output.write_char(' ')?;
-                }
-
-                for (i, (key, value_data_type)) in compound.iter().enumerate() {
-                    if i != 0 {
-                        output.write_str(", ")?;
-                    }
-
-                    write!(output, "{}: ", key.1)?;
-                    value_data_type.write_string(output, environment)?;
-                }
-
-                if !compound.is_empty() {
-                    output.write_char(' ')?;
-                }
-
-                output.write_char('}')?;
-
-                Ok(())
-            }
-            Self::Compound(data_type) => {
-                output.write_str("compound<")?;
-                data_type.write_string(output, environment)?;
-                output.write_char('>')?;
-
-                Ok(())
-            }
-            Self::Data(data_type) => {
-                output.write_str("data<")?;
-                data_type.write_string(output, environment)?;
-                output.write_char('>')?;
-
-                Ok(())
-            }
-            Self::Reference(data_type) => {
-                output.write_char('&')?;
-                data_type.write_string(output, environment)?;
-
-                Ok(())
-            }
-            Self::Tuple(data_types) => {
-                output.write_char('(')?;
-
-                for (i, data_type) in data_types.iter().enumerate() {
-                    if i != 0 {
-                        output.write_str(", ")?;
-                    }
-
-                    data_type.write_string(output, environment)?;
-                }
-
-                output.write_char(')')?;
-
-                Ok(())
-            }
-            Self::SNBT => output.write_str("snbt"),
-            Self::Struct(id) => {
-                // TODO: Maybe display full path?
-
-                let (_, _, declaration) = environment.get_struct(*id);
-
-                output.write_str(declaration.name())?;
-
-                let generic_types = declaration.generic_types();
-
-                if !generic_types.is_empty() {
-                    output.write_str("<")?;
-
-                    for (i, data_type) in generic_types.iter().enumerate() {
-                        if i != 0 {
-                            output.write_str(", ")?;
-                        }
-
-                        data_type.write_string(output, environment)?;
-                    }
-
-                    output.write_str(">")?;
-                }
-
-                Ok(())
-            }
-            Self::Inferred => output.write_char('_'),
-            Self::InferredInteger => output.write_str("{integer}"),
-            Self::InferredFloat => output.write_str("{float}"),
-            Self::ResourceLocation => output.write_str("resource_location"),
-            Self::EntitySelector => output.write_str("entity_selector"),
+    pub const fn display<'a>(&'a self, environment: &'a Environment) -> DataTypeDisplay<'a> {
+        DataTypeDisplay {
+            data_type: self,
+            environment,
         }
     }
 }
 
 impl DataType {
     #[must_use]
-    #[allow(clippy::type_complexity)]
-    pub fn unwrap_single(self) -> (Option<fn(Box<Self>) -> Self>, Self) {
+    pub fn unwrap_single(self) -> (Option<TypeWrapper>, Self) {
         match self {
-            Self::Score(data_type) => (Some(Self::Score), *data_type),
-            Self::Data(data_type) => (Some(Self::Data), *data_type),
-            Self::Reference(data_type) => (Some(Self::Reference), *data_type),
-
+            Self::Reference(inner) => (Some(TypeWrapper::Reference), *inner),
+            Self::Score(inner) => (Some(TypeWrapper::Score), *inner),
+            Self::Data(inner) => (Some(TypeWrapper::Data), *inner),
             _ => (None, self),
         }
     }
 
-    #[allow(clippy::type_complexity)]
     #[must_use]
-    pub fn unwrap_all(mut self) -> (Vec<fn(Box<Self>) -> Self>, Self) {
+    pub fn unwrap_all(mut self) -> (Vec<TypeWrapper>, Self) {
         let mut wrappers = Vec::new();
 
         loop {
             let (wrapper, inner) = self.unwrap_single();
 
-            if let Some(wrapper) = wrapper {
-                wrappers.push(wrapper);
-
-                self = inner;
-            } else {
+            let Some(wrapper) = wrapper else {
                 return (wrappers, inner);
-            }
+            };
+
+            wrappers.push(wrapper);
+
+            self = inner;
         }
     }
 
     #[must_use]
-    pub fn wrap_all(mut self, wrappers: &[fn(Box<Self>) -> Self]) -> Self {
+    pub fn wrap_all(mut self, wrappers: &[TypeWrapper]) -> Self {
         for wrapper in wrappers.iter().rev() {
-            self = wrapper(Box::new(self));
+            self = wrapper.wrap(self);
         }
 
         self

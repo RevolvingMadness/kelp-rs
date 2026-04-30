@@ -470,80 +470,74 @@ impl DataType {
     }
 
     #[must_use]
-    fn reference(self) -> Self {
-        Self::Reference(Box::new(self))
+    pub fn distribute_wrapper(self, wrapper: TypeWrapper) -> Self {
+        let (outer, inner) = self.unwrap_single();
+
+        if Some(wrapper) != outer {
+            return inner;
+        }
+
+        let distributed_inner = inner.distribute_wrapper(wrapper);
+
+        match distributed_inner {
+            Self::List(data_type) => Self::List(Box::new(wrapper.wrap(*data_type))),
+            Self::Tuple(data_types) => {
+                let data_types = data_types
+                    .into_iter()
+                    .map(|data_type| wrapper.wrap(data_type))
+                    .collect();
+
+                Self::Tuple(data_types)
+            }
+            Self::TypedCompound(compound) => {
+                let compound = compound
+                    .into_iter()
+                    .map(|(key, dt)| (key, wrapper.wrap(dt)))
+                    .collect();
+
+                Self::TypedCompound(compound)
+            }
+            Self::Compound(data_type) => {
+                let data_type = wrapper.wrap(*data_type);
+
+                Self::Compound(Box::new(data_type))
+            }
+            Self::Reference(data_type) if wrapper != TypeWrapper::Reference => {
+                let data_type = wrapper.wrap(*data_type);
+
+                Self::Reference(Box::new(data_type))
+            }
+            Self::Data(data_type) if wrapper != TypeWrapper::Data => {
+                let data_type = wrapper.wrap(*data_type);
+
+                Self::Data(Box::new(data_type))
+            }
+            Self::Score(data_type) if wrapper != TypeWrapper::Score => {
+                let data_type = wrapper.wrap(*data_type);
+
+                Self::Score(Box::new(data_type))
+            }
+            Self::Struct(id) if wrapper == TypeWrapper::Reference => Self::Struct(id),
+            other => wrapper.wrap(other),
+        }
     }
 
+    #[inline]
     #[must_use]
     pub fn distribute_references(self) -> Self {
-        match self {
-            Self::Reference(inner) => match inner.distribute_references() {
-                Self::List(data_type) => Self::List(Box::new(data_type.reference())),
-                Self::Tuple(data_types) => {
-                    Self::Tuple(data_types.into_iter().map(Self::reference).collect())
-                }
-                Self::Struct(id) => Self::Struct(id),
-                Self::TypedCompound(compound) => Self::TypedCompound(
-                    compound
-                        .into_iter()
-                        .map(|(key, data_type)| (key, data_type.reference()))
-                        .collect(),
-                ),
-                Self::Compound(data_type) => Self::Compound(Box::new(data_type.reference())),
-                Self::Data(data_type) => Self::Data(Box::new(data_type.reference())),
-                inner => inner.reference(),
-            },
-            _ => self,
-        }
+        self.distribute_wrapper(TypeWrapper::Reference)
     }
 
-    #[must_use]
-    pub fn distribute_data(self) -> Self {
-        match self {
-            Self::Data(inner) => match inner.distribute_data() {
-                Self::Reference(data_type) => {
-                    Self::Reference(Box::new(data_type.distribute_data()))
-                }
-                Self::List(data_type) => Self::List(Box::new(data_type.distribute_data())),
-                Self::Tuple(data_types) => {
-                    Self::Tuple(data_types.into_iter().map(Self::distribute_data).collect())
-                }
-                Self::TypedCompound(compound) => Self::TypedCompound(
-                    compound
-                        .into_iter()
-                        .map(|(key, data_type)| (key, data_type.distribute_data()))
-                        .collect(),
-                ),
-                Self::Compound(data_type) => Self::Compound(Box::new(data_type.distribute_data())),
-                inner => Self::Data(Box::new(inner)),
-            },
-            _ => self,
-        }
-    }
-
+    #[inline]
     #[must_use]
     pub fn distribute_score(self) -> Self {
-        match self {
-            Self::Score(inner) => match inner.distribute_score() {
-                Self::Reference(data_type) => {
-                    Self::Reference(Box::new(data_type.distribute_score()))
-                }
-                Self::List(data_type) => Self::List(Box::new(data_type.distribute_score())),
-                Self::Tuple(data_types) => {
-                    Self::Tuple(data_types.into_iter().map(Self::distribute_score).collect())
-                }
-                Self::TypedCompound(compound) => Self::TypedCompound(
-                    compound
-                        .into_iter()
-                        .map(|(key, data_type)| (key, data_type.distribute_score()))
-                        .collect(),
-                ),
-                Self::Compound(data_type) => Self::Compound(Box::new(data_type.distribute_score())),
-                Self::Data(inner) => Self::Data(Box::new(inner.distribute_score())),
-                inner => Self::Score(Box::new(inner)),
-            },
-            _ => self,
-        }
+        self.distribute_wrapper(TypeWrapper::Score)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn distribute_data(self) -> Self {
+        self.distribute_wrapper(TypeWrapper::Data)
     }
 
     #[must_use]

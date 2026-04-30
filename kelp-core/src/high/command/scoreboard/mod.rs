@@ -13,7 +13,7 @@ pub mod players;
 
 #[derive(Debug, Clone)]
 pub enum ScoreboardCommand {
-    Objectives(Box<ObjectivesScoreboardCommand>), // TODO: Remove box
+    Objectives(ObjectivesScoreboardCommand),
     Players(PlayersScoreboardCommand),
 }
 

@@ -14,8 +14,8 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
-    DisplayName(Expression),
-    NumberFormat(Option<ScoreboardNumberFormat>),
+    DisplayName(Box<Expression>),
+    NumberFormat(Option<Box<ScoreboardNumberFormat>>),
     RenderType(ScoreboardRenderType),
 }
 
@@ -50,10 +50,10 @@ impl ScoreboardModification {
 #[derive(Debug, Clone)]
 pub enum ObjectivesScoreboardCommand {
     List,
-    Add(String, String, Option<Expression>), // TODO: box
+    Add(String, String, Option<Box<Expression>>),
     Remove(String),
     SetDisplay(String, Option<String>),
-    Modify(String, ScoreboardModification), // TODO: box
+    Modify(String, ScoreboardModification),
 }
 
 impl ObjectivesScoreboardCommand {

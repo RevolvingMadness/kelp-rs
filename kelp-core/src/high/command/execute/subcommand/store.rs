@@ -13,14 +13,17 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+pub struct ExecuteStoreDataSubcommand {
+    pub target: DataTarget,
+    pub path: NbtPath,
+    pub snbt_type: NumericSNBTType,
+    pub scale: NotNan<f32>,
+    pub next: Box<ExecuteSubcommand>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ExecuteStoreSubcommand {
-    Data(
-        DataTarget,
-        NbtPath,
-        NumericSNBTType,
-        NotNan<f32>,
-        Box<ExecuteSubcommand>,
-    ),
+    Data(Box<ExecuteStoreDataSubcommand>),
     Bossbar(ResourceLocation, BossbarStoreType, Box<ExecuteSubcommand>),
     Score(PlayerScore, Box<ExecuteSubcommand>),
 }
@@ -32,7 +35,15 @@ impl ExecuteStoreSubcommand {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleExecuteStoreSubcommand> {
         Some(match self {
-            Self::Data(target, path, snbt_type, scale, next) => {
+            Self::Data(subcommand) => {
+                let ExecuteStoreDataSubcommand {
+                    target,
+                    path,
+                    snbt_type,
+                    scale,
+                    next,
+                } = *subcommand;
+
                 let target = target.perform_semantic_analysis(ctx);
                 let path = path.perform_semantic_analysis(ctx);
                 let next = next.perform_semantic_analysis(ctx);

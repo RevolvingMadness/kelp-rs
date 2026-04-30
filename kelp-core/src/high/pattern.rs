@@ -73,7 +73,7 @@ impl PatternKind {
             Self::Data(target_path) => {
                 let (target, path) = &**target_path;
 
-                PatternType::Data(target.clone(), path.clone())
+                PatternType::Data(Box::new((target.clone(), path.clone())))
             }
             Self::Wildcard | Self::Binding(_) => PatternType::Any,
             Self::Tuple(patterns) => PatternType::Tuple(

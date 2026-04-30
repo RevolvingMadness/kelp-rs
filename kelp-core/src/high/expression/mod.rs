@@ -9,8 +9,9 @@ use crate::{
         data::DataTarget,
         data_type::unresolved::UnresolvedDataType,
         entity_selector::EntitySelector,
-        expression::{block::BlockExpression, r#loop::LoopExpression},
+        expression::block::BlockExpression,
         nbt_path::NbtPath,
+        pattern::Pattern,
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
@@ -30,7 +31,6 @@ use crate::{
 };
 
 pub mod block;
-pub mod r#loop;
 
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
@@ -75,7 +75,9 @@ pub enum ExpressionKind {
         Option<Box<Expression>>,
     ),
     Block(BlockExpression),
-    Loop(Box<LoopExpression>),
+    WhileLoop(Box<Expression>, Box<BlockExpression>),
+    Loop(Box<BlockExpression>),
+    ForLoop(bool, Pattern, Box<Expression>, Box<BlockExpression>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
     Invalid,
@@ -906,17 +908,76 @@ impl Expression {
 
                 expression
             }
-            ExpressionKind::Loop(expression) => {
-                return expression
-                    .perform_semantic_analysis(ctx)
-                    .map(|(span, expression)| {
-                        let data_type = expression.data_type.clone();
+            ExpressionKind::WhileLoop(condition, body) => {
+                let condition = condition.perform_semantic_analysis(ctx);
 
-                        (
-                            span,
-                            UnresolvedExpressionKind::Loop(expression).with(data_type),
-                        )
-                    });
+                ctx.loop_depth += 1;
+                let body = body.perform_semantic_analysis(ctx);
+                ctx.loop_depth -= 1;
+
+                let (condition_span, condition) = condition?;
+
+                if !condition.data_type.is_condition() {
+                    return ctx.add_error(
+                        condition_span,
+                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
+                    );
+                }
+
+                let (_, _, body) = body?;
+
+                UnresolvedExpressionKind::WhileLoop(Box::new(condition), Box::new(body))
+                    .with(DataType::Unit)
+            }
+            ExpressionKind::Loop(body) => {
+                ctx.loop_depth += 1;
+                let body = body.perform_semantic_analysis(ctx);
+                ctx.loop_depth -= 1;
+
+                let (_, _, body) = body?;
+
+                UnresolvedExpressionKind::Loop(Box::new(body)).with(DataType::Unit)
+            }
+            ExpressionKind::ForLoop(reversed, pattern, iterable, body) => {
+                let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
+
+                let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
+                    pattern.kind.destructure_unknown(ctx);
+
+                    return ctx.add_error(
+                        expression_span,
+                        SemanticAnalysisError::CannotIterateType(iterable.data_type),
+                    );
+                };
+
+                ctx.enter_scope();
+
+                let Some(pattern) = pattern.perform_semantic_analysis(ctx, iterable_type) else {
+                    ctx.exit_scope();
+
+                    return None;
+                };
+
+                ctx.loop_depth += 1;
+                let Some((_, _, body)) = body.perform_semantic_analysis(ctx) else {
+                    ctx.loop_depth -= 1;
+
+                    ctx.exit_scope();
+
+                    return None;
+                };
+                ctx.loop_depth -= 1;
+                ctx.exit_scope();
+
+                // TODO: Reorder semantic analysis
+
+                UnresolvedExpressionKind::ForLoop(
+                    reversed,
+                    Box::new(pattern),
+                    Box::new(iterable),
+                    Box::new(body),
+                )
+                .with(DataType::Unit)
             }
             ExpressionKind::Path(path) => {
                 let path = path.resolve_fully(ctx)?;

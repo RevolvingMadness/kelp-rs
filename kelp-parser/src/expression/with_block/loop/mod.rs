@@ -1,6 +1,4 @@
-use kelp_core::high::{
-    expression::r#loop::LoopExpression, semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTLoopExpression,
@@ -19,7 +17,7 @@ pub mod predicate;
 pub fn lower_loop_expression(
     node: CSTLoopExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<LoopExpression> {
+) -> Option<Expression> {
     match node {
         CSTLoopExpression::PredicateLoopExpression(node) => {
             lower_predicate_loop_expression(node, ctx)

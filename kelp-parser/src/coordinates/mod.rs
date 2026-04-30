@@ -1,6 +1,4 @@
-use kelp_core::high::{
-    coordinate::Coordinates, semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::{coordinate::Coordinates, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     coordinates::{
@@ -66,9 +64,9 @@ pub fn lower_coordinates(
                 .local_coordinates()
                 .map(|coordinate| lower_local_coordinate(coordinate, ctx));
 
-            let x = coordinates.next()?.unwrap();
-            let y = coordinates.next()?.unwrap();
-            let z = coordinates.next()?.unwrap();
+            let x = coordinates.next().unwrap()?;
+            let y = coordinates.next().unwrap()?;
+            let z = coordinates.next().unwrap()?;
 
             Coordinates::Local(x, y, z)
         }

@@ -30,12 +30,6 @@ pub fn lower_expression_with_block(
             Some(ExpressionKind::Block(expression).with_span(span))
         }
         CSTExpressionWithBlock::IfExpression(node) => lower_if_expression(node, ctx),
-        CSTExpressionWithBlock::LoopExpression(node) => {
-            let span = span_of_cst_node(&node);
-
-            let expression = lower_loop_expression(node, ctx)?;
-
-            Some(ExpressionKind::Loop(Box::new(expression)).with_span(span))
-        }
+        CSTExpressionWithBlock::LoopExpression(node) => lower_loop_expression(node, ctx),
     }
 }

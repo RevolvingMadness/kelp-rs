@@ -40,7 +40,7 @@ pub enum ExecuteSubcommand {
     Positioned(Positioned, Box<Self>),
     Rotated(Rotated, Box<Self>),
     Summon(ResourceLocation, Box<Self>),
-    If(bool, ExecuteIfSubcommand),
+    If(bool, Box<ExecuteIfSubcommand>),
     Store(StoreType, ExecuteStoreSubcommand),
     Run(Vec<Command>),
     Multiple(Vec<Self>),

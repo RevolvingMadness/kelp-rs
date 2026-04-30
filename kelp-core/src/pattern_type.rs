@@ -22,7 +22,7 @@ pub enum PatternType {
     Double,
     String,
     Score(PlayerScore),
-    Data(DataTarget, NbtPath),
+    Data(Box<(DataTarget, NbtPath)>),
     Tuple(Vec<Self>),
     StructStruct(GenericPath<UnresolvedDataType>, HashMap<SNBTString, Self>),
     TupleStruct(GenericPath<UnresolvedDataType>, Vec<Self>),
@@ -43,7 +43,9 @@ impl Display for PatternType {
             Self::Double => f.write_str("double"),
             Self::String => f.write_str("string"),
             Self::Score(score) => score.fmt(f),
-            Self::Data(target, _) => {
+            Self::Data(target_path) => {
+                let (target, _) = &**target_path;
+
                 target.fmt(f)?;
 
                 f.write_str(" ...")?;

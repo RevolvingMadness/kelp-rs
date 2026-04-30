@@ -84,7 +84,7 @@ pub fn lower_block_expression(
 
     Some(
         BlockExpressionInfo {
-            body: statements,
+            statements,
             tail_expression: tail_expression.map(Box::new),
         }
         .with_span(span),

@@ -1,7 +1,6 @@
 use crate::{
     high::{
-        expression::Expression, semantic_analysis::SemanticAnalysisContext,
-        statement::Statement,
+        expression::Expression, semantic_analysis::SemanticAnalysisContext, statement::Statement,
     },
     low::{
         data_type::DataType,
@@ -13,7 +12,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct BlockExpressionInfo {
-    pub body: Vec<Statement>,
+    pub statements: Vec<Statement>,
     pub tail_expression: Option<Box<Expression>>,
 }
 
@@ -40,7 +39,7 @@ impl BlockExpression {
 
         let body = self
             .info
-            .body
+            .statements
             .into_iter()
             .map(|statement| statement.perform_semantic_analysis(ctx))
             .collect_option_all::<Vec<_>>();

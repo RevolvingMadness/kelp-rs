@@ -16,14 +16,9 @@ use crate::{
             lower_expression_with_block,
         },
         without_block::{
-            command::try_parse_command_expression,
-            data::try_parse_data_expression,
-            list::try_parse_list_expression,
-            lower_expression_without_block,
-            score::try_parse_score_expression,
-            r#struct::{
-                try_parse_struct_struct_expression_fields, try_parse_tuple_struct_expression_fields,
-            },
+            command::try_parse_command_expression, data::try_parse_data_expression,
+            list::try_parse_list_expression, lower_expression_without_block,
+            score::try_parse_score_expression, r#struct::try_parse_struct_expression_fields,
         },
     },
     parser::Parser,
@@ -438,6 +433,34 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.expect_char(']', "Expected closing bracket ']'");
                 parser.finish_node();
             }
+            Some('(') => {
+                parser.start_node_at(checkpoint, SyntaxKind::CallExpression);
+                parser.bump_char();
+                parser.skip_whitespace();
+
+                if parser.peek_char() != Some(')') {
+                    loop {
+                        if !try_parse_expression(parser) {
+                            break;
+                        }
+
+                        parser.skip_whitespace();
+
+                        if !parser.try_bump_char(',') {
+                            break;
+                        }
+
+                        parser.skip_whitespace();
+
+                        if parser.peek_char() == Some(')') {
+                            break;
+                        }
+                    }
+                }
+
+                parser.expect_char(')', "Expected closing parenthesis ')'");
+                parser.finish_node();
+            }
             Some('.') => {
                 parser.start_node_at(checkpoint, SyntaxKind::FieldAccessExpression);
                 parser.bump_char();
@@ -540,56 +563,21 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 parser.start_node_at(checkpoint, SyntaxKind::UnitExpression);
                 parser.bump_char();
                 parser.finish_node();
+
                 return true;
             }
 
-            let should_emit_error = try_parse_expression(parser);
-            let first_expression_pos = parser.pos;
+            if !try_parse_expression(parser) {
+                parser.error("Expected expression");
+            }
 
             parser.skip_whitespace();
+            parser.start_node_at(checkpoint, SyntaxKind::ParenthesizedExpression);
 
-            let mut is_tuple = false;
-
-            let mut emitted_error = !should_emit_error;
-
-            if parser.peek_char() == Some(',') {
-                is_tuple = true;
-
-                while parser.try_bump_char(',') {
-                    parser.skip_whitespace();
-
-                    if parser.peek_char() == Some(')') {
-                        break;
-                    }
-
-                    if !try_parse_expression(parser) {
-                        if !emitted_error {
-                            parser.error_at(first_expression_pos, "Expected expression");
-
-                            emitted_error = true;
-                        }
-
-                        parser.error("Expected expression");
-                    }
-
-                    parser.skip_whitespace();
-                }
-            }
-
-            let kind = if is_tuple {
-                SyntaxKind::TupleExpression
-            } else {
-                SyntaxKind::ParenthesizedExpression
-            };
-
-            parser.start_node_at(checkpoint, kind);
             if !parser.try_bump_char(')') {
-                if emitted_error {
-                    parser.error("Expected ')'");
-                } else {
-                    parser.error("Expected expression or ')'");
-                }
+                parser.error("Expected ')'");
             }
+
             parser.finish_node();
 
             true
@@ -685,54 +673,27 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 unreachable!();
             }
 
-            let state = parser.save_state();
-
             parser.skip_whitespace();
 
-            match parser.peek_char() {
-                Some('{') => {
-                    parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                    parser.start_node_at(checkpoint, SyntaxKind::StructStructExpression);
+            if parser.try_bump_char('{') {
+                parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
+                parser.start_node_at(checkpoint, SyntaxKind::StructExpression);
+
+                parser.bump_char();
+
+                parser.skip_whitespace();
+
+                let _ = try_parse_struct_expression_fields(parser);
+
+                parser.skip_whitespace();
+
+                if !parser.expect_char('}', "Expected '}'") {
+                    parser.bump_until_char(&['}']);
 
                     parser.bump_char();
-
-                    parser.skip_whitespace();
-
-                    let _ = try_parse_struct_struct_expression_fields(parser);
-
-                    parser.skip_whitespace();
-
-                    if !parser.expect_char('}', "Expected '}'") {
-                        parser.bump_until_char(&['}']);
-
-                        parser.bump_char();
-                    }
                 }
-                Some('(') => {
-                    parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                    parser.start_node_at(checkpoint, SyntaxKind::TupleStructExpression);
-
-                    parser.bump_char();
-
-                    parser.skip_whitespace();
-
-                    if !try_parse_tuple_struct_expression_fields(parser) {
-                        parser.bump_until_char(&['}']);
-                    }
-
-                    parser.skip_whitespace();
-
-                    if !parser.expect_char(')', "Expected ')'") {
-                        parser.bump_until_char(&[')']);
-
-                        parser.bump_char();
-                    }
-                }
-                _ => {
-                    parser.restore_state(state);
-
-                    parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
-                }
+            } else {
+                parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
             }
 
             parser.finish_node();

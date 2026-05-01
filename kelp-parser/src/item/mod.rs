@@ -10,6 +10,10 @@ use crate::{
     cst::{CSTItem, CSTItemKind},
     data_type::generics::lower_generic_names,
     item::{
+        function_declaration::{
+            expect_function_declaration_item_kind, lower_function_declaration_item_kind,
+            try_parse_function_declaration_item_kind,
+        },
         mcfn_declaration::{
             expect_mcfn_declaration_item_kind, lower_mcfn_declaration_item_kind,
             try_parse_mcfn_declaration_item_kind,
@@ -33,6 +37,7 @@ use crate::{
     syntax::SyntaxKind,
 };
 
+pub mod function_declaration;
 pub mod mcfn_declaration;
 pub mod module_declaration;
 pub mod struct_declaration;
@@ -48,6 +53,7 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
     match identifier {
         "use" => try_parse_use_item_kind(parser),
         "mod" => try_parse_module_declaration_item_kind(parser),
+        "fn" => try_parse_function_declaration_item_kind(parser),
         "mcfn" => try_parse_mcfn_declaration_item_kind(parser),
         "struct" => try_parse_struct_declaration_item_kind(parser),
         "type" => try_parse_type_alias_declaration_item_kind(parser),
@@ -78,6 +84,7 @@ pub fn expect_item_kind(parser: &mut Parser) {
     match identifier {
         "use" => expect_use_item_kind(parser),
         "mod" => expect_module_declaration_item_kind(parser),
+        "fn" => expect_function_declaration_item_kind(parser),
         "mcfn" => expect_mcfn_declaration_item_kind(parser),
         "struct" => expect_struct_declaration_item_kind(parser),
         "type" => expect_type_alias_declaration_item_kind(parser),
@@ -145,6 +152,9 @@ pub fn expect_item(parser: &mut Parser) -> bool {
 fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Option<ItemKind> {
     match node {
         CSTItemKind::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
+        CSTItemKind::FunctionDeclarationItem(node) => {
+            lower_function_declaration_item_kind(node, ctx)
+        }
         CSTItemKind::MCFNDeclarationItem(node) => lower_mcfn_declaration_item_kind(node, ctx),
         CSTItemKind::StructStructDeclarationItem(node) => {
             let struct_name_token = node.name()?;

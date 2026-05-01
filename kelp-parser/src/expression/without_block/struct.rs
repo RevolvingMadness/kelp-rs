@@ -9,10 +9,7 @@ use kelp_core::high::{
 };
 
 use crate::{
-    cst::{
-        CSTStructStructExpression, CSTStructStructExpressionField, CSTStructStructExpressionFields,
-        CSTTupleStructExpression, CSTTupleStructExpressionField, CSTTupleStructExpressionFields,
-    },
+    cst::{CSTStructExpression, CSTStructExpressionField, CSTStructExpressionFields},
     expression::{lower_expression, try_parse_expression},
     parser::Parser,
     path::generic::lower_generic_path,
@@ -22,8 +19,8 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-fn lower_struct_struct_expression_field(
-    node: CSTStructStructExpressionField,
+fn lower_struct_expression_field(
+    node: CSTStructExpressionField,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<(SNBTString, Expression)> {
     let name_token = node.name()?;
@@ -42,7 +39,7 @@ fn lower_struct_struct_expression_field(
 }
 
 #[must_use]
-fn try_parse_struct_struct_expression_field(parser: &mut Parser) -> bool {
+fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
@@ -51,7 +48,7 @@ fn try_parse_struct_struct_expression_field(parser: &mut Parser) -> bool {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructStructExpressionField);
+    parser.start_node_at(checkpoint, SyntaxKind::StructExpressionField);
 
     parser.skip_whitespace();
 
@@ -70,27 +67,27 @@ fn try_parse_struct_struct_expression_field(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_struct_expression_fields(
-    node: CSTStructStructExpressionFields,
+pub fn lower_struct_expression_fields(
+    node: CSTStructExpressionFields,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<HashMap<SNBTString, Expression>> {
     let fields = node
-        .struct_struct_expression_fields()
-        .filter_map(|field| lower_struct_struct_expression_field(field, ctx))
+        .struct_expression_fields()
+        .filter_map(|field| lower_struct_expression_field(field, ctx))
         .collect::<_>();
 
     Some(fields)
 }
 
 #[must_use]
-pub fn try_parse_struct_struct_expression_fields(parser: &mut Parser) -> bool {
+pub fn try_parse_struct_expression_fields(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
 
-    if !try_parse_struct_struct_expression_field(parser) {
+    if !try_parse_struct_expression_field(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructStructExpressionFields);
+    parser.start_node_at(checkpoint, SyntaxKind::StructExpressionFields);
 
     loop {
         let state = parser.save_state();
@@ -103,7 +100,7 @@ pub fn try_parse_struct_struct_expression_fields(parser: &mut Parser) -> bool {
 
         parser.skip_whitespace();
 
-        if !try_parse_struct_struct_expression_field(parser) {
+        if !try_parse_struct_expression_field(parser) {
             break;
         }
     }
@@ -115,8 +112,8 @@ pub fn try_parse_struct_struct_expression_fields(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_struct_expression(
-    node: CSTStructStructExpression,
+pub fn lower_struct_expression(
+    node: CSTStructExpression,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
@@ -124,96 +121,9 @@ pub fn lower_struct_struct_expression(
     let path = lower_generic_path(node.generic_path()?)?;
 
     let fields = node
-        .struct_struct_expression_fields()
-        .and_then(|fields| lower_struct_struct_expression_fields(fields, ctx))
+        .struct_expression_fields()
+        .and_then(|fields| lower_struct_expression_fields(fields, ctx))
         .unwrap_or_default();
 
     Some(ExpressionKind::StructStruct(path, fields).with_span(span))
-}
-
-#[must_use]
-fn try_parse_tuple_struct_expression_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
-
-    if !try_parse_expression(parser) {
-        return false;
-    }
-
-    parser.start_node_at(checkpoint, SyntaxKind::TupleStructExpressionField);
-
-    parser.finish_node();
-
-    true
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-fn lower_tuple_struct_expression_field(
-    node: CSTTupleStructExpressionField,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<Expression> {
-    let expression = lower_expression(node.expression()?, ctx)?;
-
-    Some(expression)
-}
-
-#[must_use]
-pub fn try_parse_tuple_struct_expression_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
-
-    if !try_parse_tuple_struct_expression_field(parser) {
-        return false;
-    }
-
-    parser.start_node_at(checkpoint, SyntaxKind::TupleStructExpressionFields);
-
-    loop {
-        let state = parser.save_state();
-        parser.skip_whitespace();
-
-        if !parser.try_bump_char(',') {
-            parser.restore_state(state);
-            break;
-        }
-
-        parser.skip_whitespace();
-        if !try_parse_tuple_struct_expression_field(parser) {
-            break;
-        }
-    }
-
-    parser.finish_node();
-    true
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_struct_expression_fields(
-    node: CSTTupleStructExpressionFields,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<Vec<Expression>> {
-    let fields = node
-        .tuple_struct_expression_fields()
-        .filter_map(|field| lower_tuple_struct_expression_field(field, ctx))
-        .collect();
-
-    Some(fields)
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_struct_expression(
-    node: CSTTupleStructExpression,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<Expression> {
-    let span = span_of_cst_node(&node);
-
-    let path = lower_generic_path(node.generic_path()?)?;
-
-    let fields = node
-        .tuple_struct_expression_fields()
-        .and_then(|fields| lower_tuple_struct_expression_fields(fields, ctx))
-        .unwrap_or_default();
-
-    Some(ExpressionKind::TupleStruct(path, fields).with_span(span))
 }

@@ -58,6 +58,7 @@ pub enum SyntaxKind {
     Semicolon,                 // ;
     LeftArrow,                 // <
     LeftArrowLeftArrow,        // <<
+    MinusRightArrow,           // ->
     RightArrow,                // >
     RightArrowRightArrow,      // >>
     QuestionMark,              // ?
@@ -134,6 +135,7 @@ pub enum SyntaxKind {
     BlockKeyword,
     StorageKeyword,
     TellrawKeyword,
+    FNKeyword,
     FunctionKeyword,
     StopwatchKeyword,
     CreateKeyword,
@@ -165,6 +167,7 @@ pub enum SyntaxKind {
     Item,
     ItemKind,
     ModuleDeclarationItem,
+    FunctionDeclarationItem,
     MCFNDeclarationItem,
     StructStructDeclarationItem,
     TupleStructDeclarationItem,
@@ -205,12 +208,9 @@ pub enum SyntaxKind {
 
     ResourceLocationExpression,
     EntitySelectorExpression,
-    StructStructExpression,
-    StructStructExpressionFields,
-    StructStructExpressionField,
-    TupleStructExpression,
-    TupleStructExpressionFields,
-    TupleStructExpressionField,
+    StructExpression,
+    StructExpressionFields,
+    StructExpressionField,
     IfExpression,
     BlockExpression,
     PredicateLoopExpression,
@@ -240,6 +240,7 @@ pub enum SyntaxKind {
     TupleExpression,
     ToCastExpression,
     AsCastExpression,
+    CallExpression,
     ParenthesizedExpression,
 
     UnitDataType,

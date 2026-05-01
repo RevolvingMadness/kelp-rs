@@ -10,8 +10,8 @@ use crate::{
         data::{lower_data_pattern, try_parse_data_pattern},
         score::{lower_score_pattern, try_parse_score_pattern},
         r#struct::{
-            lower_struct_struct_pattern, lower_tuple_struct_pattern,
-            try_parse_struct_struct_pattern_fields, try_parse_tuple_struct_pattern_fields,
+            lower_struct_pattern, lower_tuple_struct_pattern, try_parse_struct_pattern_fields,
+            try_parse_tuple_struct_pattern_fields,
         },
         tuple::lower_tuple_pattern,
         wildcard::lower_wildcard_pattern,
@@ -142,7 +142,7 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 
                         parser.skip_whitespace();
 
-                        let _ = try_parse_struct_struct_pattern_fields(parser);
+                        let _ = try_parse_struct_pattern_fields(parser);
 
                         parser.skip_whitespace();
 
@@ -186,7 +186,7 @@ pub fn lower_pattern(node: CSTPattern, ctx: &mut SemanticAnalysisContext) -> Opt
         CSTPattern::BindingPattern(node) => lower_binding_pattern(node),
         CSTPattern::ScorePattern(node) => lower_score_pattern(node, ctx),
         CSTPattern::DataPattern(node) => lower_data_pattern(node, ctx),
-        CSTPattern::StructStructPattern(node) => lower_struct_struct_pattern(node, ctx),
+        CSTPattern::StructStructPattern(node) => lower_struct_pattern(node, ctx),
         CSTPattern::TupleStructPattern(node) => lower_tuple_struct_pattern(node, ctx),
         CSTPattern::CompoundPattern(node) => lower_compound_pattern(node, ctx),
     }

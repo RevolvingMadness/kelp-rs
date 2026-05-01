@@ -503,6 +503,8 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "pub" => "PubKeyword",
         "resource_location" => "ResourceLocationKeyword",
         "entity_selector" => "EntitySelectorKeyword",
+        "fn" => "FNKeyword",
+        "->" => "MinusRightArrow",
         _ => todo!("{:?}", token),
     }
 }

@@ -24,6 +24,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ItemKind {
     ModuleDeclaration(Span, String, Vec<Item>),
+    FunctionDeclaration(String, UnresolvedDataType, BlockExpression),
     MCFNDeclaration(ResourceLocation, BlockExpression),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
     StructStructDeclaration(
@@ -72,6 +73,26 @@ impl Item {
                 }
 
                 MiddleItem::ModuleDeclaration
+            }
+            ItemKind::FunctionDeclaration(name, return_type, body) => {
+                let return_type = return_type.resolve_fully(ctx)?;
+
+                let (body_span, tail_expression_span, body) =
+                    body.perform_semantic_analysis(ctx)?;
+
+                if !body.data_type.equals(&return_type) {
+                    return ctx.add_error(
+                        tail_expression_span.unwrap_or(body_span),
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: return_type,
+                            actual: body.data_type,
+                        },
+                    );
+                }
+
+                // TODO
+
+                MiddleItem::FunctionDeclaration
             }
             ItemKind::MCFNDeclaration(resource_location, body) => {
                 let (body_span, tail_expression_span, body) =

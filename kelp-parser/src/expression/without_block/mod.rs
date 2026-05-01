@@ -3,29 +3,18 @@ use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysi
 use crate::{
     cst::CSTExpressionWithoutBlock,
     expression::without_block::{
-        as_cast::lower_as_cast_expression,
-        assignment::lower_assignment_expression,
-        binary::lower_binary_expression,
-        boolean::lower_boolean_expression,
-        character::lower_character_expression,
-        command::lower_command_expression,
-        compound::lower_compound_expression,
-        data::lower_data_expression,
-        entity_selector::lower_entity_selector_expression,
-        field_access::lower_field_access_expression,
-        index::lower_index_expression,
-        list::lower_list_expression,
-        numeric::lower_numeric_expression,
-        parenthesized::lower_parenthesized_expression,
-        path::lower_path_expression,
-        resource_location::lower_resource_location_expression,
-        score::lower_score_expression,
-        string::lower_string_expression,
-        r#struct::{lower_struct_struct_expression, lower_tuple_struct_expression},
-        to_cast::lower_to_cast_expression,
-        tuple::lower_tuple_expression,
-        unary::lower_unary_expression,
-        underscore::lower_underscore_expression,
+        as_cast::lower_as_cast_expression, assignment::lower_assignment_expression,
+        binary::lower_binary_expression, boolean::lower_boolean_expression,
+        call::lower_call_expression, character::lower_character_expression,
+        command::lower_command_expression, compound::lower_compound_expression,
+        data::lower_data_expression, entity_selector::lower_entity_selector_expression,
+        field_access::lower_field_access_expression, index::lower_index_expression,
+        list::lower_list_expression, numeric::lower_numeric_expression,
+        parenthesized::lower_parenthesized_expression, path::lower_path_expression,
+        resource_location::lower_resource_location_expression, score::lower_score_expression,
+        string::lower_string_expression, r#struct::lower_struct_expression,
+        to_cast::lower_to_cast_expression, tuple::lower_tuple_expression,
+        unary::lower_unary_expression, underscore::lower_underscore_expression,
         unit::lower_unit_expression,
     },
 };
@@ -34,6 +23,7 @@ pub mod as_cast;
 pub mod assignment;
 pub mod binary;
 pub mod boolean;
+pub mod call;
 pub mod character;
 pub mod command;
 pub mod compound;
@@ -84,17 +74,13 @@ pub fn lower_expression_without_block(
         CSTExpressionWithoutBlock::CompoundExpression(node) => lower_compound_expression(node, ctx),
         CSTExpressionWithoutBlock::ListExpression(node) => lower_list_expression(node, ctx),
         CSTExpressionWithoutBlock::TupleExpression(node) => lower_tuple_expression(node, ctx),
+        CSTExpressionWithoutBlock::CallExpression(node) => lower_call_expression(node, ctx),
         CSTExpressionWithoutBlock::ParenthesizedExpression(node) => {
             lower_parenthesized_expression(node, ctx)
         }
         CSTExpressionWithoutBlock::AsCastExpression(node) => lower_as_cast_expression(node, ctx),
         CSTExpressionWithoutBlock::ToCastExpression(node) => lower_to_cast_expression(node, ctx),
-        CSTExpressionWithoutBlock::StructStructExpression(node) => {
-            lower_struct_struct_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::TupleStructExpression(node) => {
-            lower_tuple_struct_expression(node, ctx)
-        }
+        CSTExpressionWithoutBlock::StructExpression(node) => lower_struct_expression(node, ctx),
         CSTExpressionWithoutBlock::IndexExpression(node) => lower_index_expression(node, ctx),
         CSTExpressionWithoutBlock::FieldAccessExpression(node) => {
             lower_field_access_expression(node, ctx)

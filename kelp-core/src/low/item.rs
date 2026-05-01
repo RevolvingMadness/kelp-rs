@@ -8,6 +8,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum Item {
     ModuleDeclaration,
+    FunctionDeclaration,
     MCFNDeclaration(ResourceLocation, UnresolvedExpression),
     TypeAliasDeclaration,
     StructStructDeclaration,
@@ -18,6 +19,8 @@ pub enum Item {
 impl Item {
     pub fn compile(self, datapack: &mut Datapack, _ctx: &mut CompileContext) {
         match self {
+            Self::ModuleDeclaration => {}
+            Self::FunctionDeclaration => {}
             Self::MCFNDeclaration(id, expression) => {
                 datapack.within_namespace(id.namespace(), |datapack| {
                     datapack.push_function_to_current_namespace(id.paths.clone());
@@ -38,11 +41,10 @@ impl Item {
                     datapack.pop_function_from_current_namespace();
                 });
             }
-            Self::ModuleDeclaration
-            | Self::TypeAliasDeclaration
-            | Self::StructStructDeclaration
-            | Self::TupleStructDeclaration
-            | Self::Use => {}
+            Self::TypeAliasDeclaration => {}
+            Self::StructStructDeclaration => {}
+            Self::TupleStructDeclaration => {}
+            Self::Use => {}
         }
     }
 }

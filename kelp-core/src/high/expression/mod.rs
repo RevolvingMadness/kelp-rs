@@ -68,7 +68,10 @@ pub enum ExpressionKind {
         GenericPath<UnresolvedDataType>,
         HashMap<SNBTString, Expression>,
     ),
-    TupleStruct(GenericPath<UnresolvedDataType>, Vec<Expression>),
+    Call {
+        callee: Box<Expression>,
+        arguments: Vec<Expression>,
+    },
     If(
         Box<Expression>,
         Box<BlockExpression>,
@@ -776,77 +779,79 @@ impl Expression {
                 UnresolvedExpressionKind::StructStruct(specific_id, field_values)
                     .with(DataType::Struct(id))
             }
-            ExpressionKind::TupleStruct(path, field_values) => {
-                let mut path = path.resolve_fully(ctx)?;
+            ExpressionKind::Call { callee, arguments } => {
+                // let mut path = path.resolve_fully(ctx)?;
 
-                let id = ctx.get_visible_type_id(&path)?;
+                // let id = ctx.get_visible_type_id(&path)?;
 
-                let type_declaration = ctx.get_type(id).clone();
+                // let type_declaration = ctx.get_type(id).clone();
 
-                let last_segment = path.segments.pop().unwrap();
+                // let last_segment = path.segments.pop().unwrap();
 
-                let data_type = type_declaration.resolve_fully(
-                    ctx,
-                    id,
-                    last_segment.generic_types,
-                    last_segment.name_span,
-                )?;
+                // let data_type = type_declaration.resolve_fully(
+                //     ctx,
+                //     id,
+                //     last_segment.generic_types,
+                //     last_segment.name_span,
+                // )?;
 
-                let id = data_type.as_struct_id_semantic_analysis(
-                    ctx,
-                    last_segment.name_span,
-                    &last_segment.name,
-                )?;
+                // let id = data_type.as_struct_id_semantic_analysis(
+                //     ctx,
+                //     last_segment.name_span,
+                //     &last_segment.name,
+                // )?;
 
-                let (specific_id, _, declaration) =
-                    ctx.get_visible_tuple_struct(last_segment.name_span, &last_segment.name, id)?;
+                // let (specific_id, _, declaration) =
+                //     ctx.get_visible_tuple_struct(last_segment.name_span, &last_segment.name, id)?;
 
-                let field_types = declaration.field_types.clone();
+                // let field_types = declaration.field_types.clone();
 
-                let expected_field_count = field_types.len();
-                let actual_field_count = field_values.len();
+                // let expected_field_count = field_types.len();
+                // let actual_field_count = field_values.len();
 
-                if expected_field_count != actual_field_count {
-                    return ctx.add_error(
-                        last_segment.name_span,
-                        SemanticAnalysisError::MismatchedTupleStructFieldCount(
-                            last_segment.name.clone(),
-                            expected_field_count,
-                            actual_field_count,
-                        ),
-                    );
-                }
+                // if expected_field_count != actual_field_count {
+                //     return ctx.add_error(
+                //         last_segment.name_span,
+                //         SemanticAnalysisError::MismatchedTupleStructFieldCount(
+                //             last_segment.name.clone(),
+                //             expected_field_count,
+                //             actual_field_count,
+                //         ),
+                //     );
+                // }
 
-                let mut has_error = false;
+                // let mut has_error = false;
 
-                let field_values = field_values
-                    .into_iter()
-                    .zip(field_types)
-                    .map(|(value, data_type)| {
-                        let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+                // let field_values = field_values
+                //     .into_iter()
+                //     .zip(field_types)
+                //     .map(|(value, data_type)| {
+                //         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
-                        if !value.data_type.equals(&data_type) {
-                            has_error = true;
+                //         if !value.data_type.equals(&data_type) {
+                //             has_error = true;
 
-                            return ctx.add_error(
-                                value_span,
-                                SemanticAnalysisError::MismatchedTypes {
-                                    expected: data_type,
-                                    actual: value.data_type,
-                                },
-                            );
-                        }
+                //             return ctx.add_error(
+                //                 value_span,
+                //                 SemanticAnalysisError::MismatchedTypes {
+                //                     expected: data_type,
+                //                     actual: value.data_type,
+                //                 },
+                //             );
+                //         }
 
-                        Some(value)
-                    })
-                    .collect_option_all::<Vec<_>>()?;
+                //         Some(value)
+                //     })
+                //     .collect_option_all::<Vec<_>>()?;
 
-                if has_error {
-                    return None;
-                }
+                // if has_error {
+                //     return None;
+                // }
 
-                UnresolvedExpressionKind::TupleStruct(specific_id, field_values)
-                    .with(DataType::Struct(id))
+                // UnresolvedExpressionKind::TupleStruct(specific_id, field_values)
+                //     .with(DataType::Struct(id))
+
+                todo!()
             }
             ExpressionKind::If(condition, body, else_body) => {
                 let condition = condition.perform_semantic_analysis(ctx);

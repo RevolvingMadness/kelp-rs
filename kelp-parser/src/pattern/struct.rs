@@ -24,7 +24,7 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_struct_pattern_field(
+pub fn lower_struct_pattern_field(
     node: CSTStructStructPatternField,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<(SNBTString, Pattern)> {
@@ -50,7 +50,7 @@ pub fn lower_struct_struct_pattern_field(
 }
 
 #[must_use]
-fn try_parse_struct_struct_pattern_field(parser: &mut Parser) -> bool {
+fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
@@ -82,20 +82,20 @@ fn try_parse_struct_struct_pattern_field(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-fn lower_struct_struct_pattern_fields(
+fn lower_struct_pattern_fields(
     node: CSTStructStructPatternFields,
     ctx: &mut SemanticAnalysisContext,
 ) -> HashMap<SNBTString, Pattern> {
     node.struct_struct_pattern_fields()
-        .filter_map(|field| lower_struct_struct_pattern_field(field, ctx))
+        .filter_map(|field| lower_struct_pattern_field(field, ctx))
         .collect()
 }
 
 #[must_use]
-pub fn try_parse_struct_struct_pattern_fields(parser: &mut Parser) -> bool {
+pub fn try_parse_struct_pattern_fields(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
 
-    if !try_parse_struct_struct_pattern_field(parser) {
+    if !try_parse_struct_pattern_field(parser) {
         return false;
     }
 
@@ -112,7 +112,7 @@ pub fn try_parse_struct_struct_pattern_fields(parser: &mut Parser) -> bool {
 
         parser.skip_whitespace();
 
-        if !try_parse_struct_struct_pattern_field(parser) {
+        if !try_parse_struct_pattern_field(parser) {
             break;
         }
     }
@@ -124,7 +124,7 @@ pub fn try_parse_struct_struct_pattern_fields(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_struct_pattern(
+pub fn lower_struct_pattern(
     node: CSTStructStructPattern,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Pattern> {
@@ -134,7 +134,7 @@ pub fn lower_struct_struct_pattern(
 
     let fields = node
         .struct_struct_pattern_fields()
-        .map(|fields| lower_struct_struct_pattern_fields(fields, ctx))
+        .map(|fields| lower_struct_pattern_fields(fields, ctx))
         .unwrap_or_default();
 
     Some(PatternKind::StructStruct(path, fields).with_span(span))

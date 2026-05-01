@@ -6,6 +6,7 @@ Item = 'pub'? ItemKind
 
 ItemKind = ModuleDeclarationItem
   | UseItem
+  | FunctionDeclarationItem
   | MCFNDeclarationItem
   | StructStructDeclarationItem
   | TupleStructDeclarationItem
@@ -24,6 +25,8 @@ WildcardUseTree = Path '::' '*'
 GroupUseTree = (Path? '::')? '{' (UseTree (',' UseTree)* ','?)? '}'
 AsUseTree = Path 'as' 'ident'
 PathUseTree = Path
+
+FunctionDeclarationItem = 'fn' name:'ident' '(' ')' ('->' DataType)? BlockExpression
 
 MCFNDeclarationItem =
   'mcfn' ResourceLocation BlockExpression
@@ -90,6 +93,7 @@ ExpressionWithoutBlock =
 | BooleanExpression
 | NumericExpression
 | UnitExpression
+| CallExpression
 | ParenthesizedExpression
 | StringExpression
 | CharacterExpression
@@ -97,8 +101,7 @@ ExpressionWithoutBlock =
 | AsCastExpression
 | TupleExpression
 | ListExpression
-| StructStructExpression
-| TupleStructExpression
+| StructExpression
 | CompoundExpression
 | IndexExpression
 | FieldAccessExpression
@@ -179,6 +182,8 @@ NumericExpression =
 UnitExpression =
   '(' ')'
 
+CallExpression = callee:Expression '(' (arguments:Expression (',' arguments:Expression)* ','?)? ')'
+
 ParenthesizedExpression =
   '(' Expression ')'
 
@@ -200,13 +205,9 @@ TupleExpression =
 ListExpression =
   '[' (expressions:Expression (',' expressions:Expression)*)? ']'
 
-StructStructExpression = GenericPath '{' StructStructExpressionFields? '}'
-StructStructExpressionFields = StructStructExpressionField (',' StructStructExpressionField)* ','?
-StructStructExpressionField = name:('struct_field_name' | 'whole_value') ':' Expression
-
-TupleStructExpression = GenericPath '(' TupleStructExpressionFields? ')'
-TupleStructExpressionFields = TupleStructExpressionField (',' TupleStructExpressionField)* ','?
-TupleStructExpressionField = Expression
+StructExpression = GenericPath '{' StructExpressionFields? '}'
+StructExpressionFields = StructExpressionField (',' StructExpressionField)* ','?
+StructExpressionField = name:('struct_field_name' | 'whole_value') ':' Expression
 
 CompoundExpression =
   '{'

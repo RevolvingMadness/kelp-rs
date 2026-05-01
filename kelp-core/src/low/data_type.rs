@@ -389,6 +389,16 @@ impl DataType {
     }
 
     #[must_use]
+    pub fn unwrap_single_reference(&self) -> Option<&Self> {
+        Some(match self {
+            Self::Reference(inner) => inner,
+            Self::Score(inner) => inner,
+            Self::Data(inner) => inner,
+            _ => return None,
+        })
+    }
+
+    #[must_use]
     pub fn unwrap_all(mut self) -> (Vec<TypeWrapper>, Self) {
         let mut wrappers = Vec::new();
 
@@ -402,6 +412,21 @@ impl DataType {
             wrappers.push(wrapper);
 
             self = inner;
+        }
+    }
+
+    #[must_use]
+    pub fn unwrap_all_reference(&self) -> &Self {
+        let mut current = self;
+
+        loop {
+            let inner = current.unwrap_single_reference();
+
+            let Some(inner) = inner else {
+                return current;
+            };
+
+            current = inner;
         }
     }
 
@@ -596,45 +621,35 @@ impl DataType {
 
     #[must_use]
     pub fn is_condition(&self) -> bool {
-        match self {
-            Self::Boolean => true,
+        let data_type = self.unwrap_all_reference();
 
-            Self::Data(data_type) | Self::Score(data_type) | Self::Reference(data_type) => {
-                data_type.is_condition()
-            }
-
-            _ => false,
-        }
+        matches!(data_type, Self::Boolean)
     }
 
     #[must_use]
     pub fn is_score_compatible(&self) -> bool {
-        match self {
+        let data_type = self.unwrap_all_reference();
+
+        match data_type {
             Self::Boolean => true,
-            t if t.is_numeric() => true,
-
-            Self::Data(data_type) | Self::Score(data_type) | Self::Reference(data_type) => {
-                data_type.is_score_compatible()
-            }
-
+            data_type if data_type.is_numeric() => true,
             _ => false,
         }
     }
 
     #[must_use]
     pub fn has_fields(&self) -> bool {
-        match self {
-            Self::Reference(data_type) | Self::Score(data_type) => data_type.has_fields(),
+        let data_type = self.unwrap_all_reference();
 
+        matches!(
+            data_type,
             Self::Struct(_)
-            | Self::TypedCompound(_)
-            | Self::Compound(_)
-            | Self::Data(_)
-            | Self::Tuple(_)
-            | Self::SNBT => true,
-
-            _ => false,
-        }
+                | Self::TypedCompound(_)
+                | Self::Compound(_)
+                | Self::Data(_)
+                | Self::Tuple(_)
+                | Self::SNBT
+        )
     }
 
     fn raw_get_arithmetic_result(

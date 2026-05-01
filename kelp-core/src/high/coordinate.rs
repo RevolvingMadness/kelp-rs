@@ -9,22 +9,25 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct WorldCoordinate {
-    pub relative: bool,
-    pub value: Option<Expression>,
+pub enum WorldCoordinate {
+    Relative(Option<Expression>),
+    Absolute(Expression),
 }
 
 impl Display for WorldCoordinate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.relative {
-            f.write_str("~")?;
-        }
+        match self {
+            Self::Relative(expression) => {
+                f.write_char('~')?;
 
-        if self.value.is_some() {
-            f.write_str("...")?;
-        }
+                if expression.is_some() {
+                    f.write_str("...")?;
+                }
 
-        Ok(())
+                Ok(())
+            }
+            Self::Absolute(_) => f.write_str("..."),
+        }
     }
 }
 
@@ -33,26 +36,25 @@ impl WorldCoordinate {
         self,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleWorldCoordinate> {
-        let value = match self.value {
-            Some(value) => {
-                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+        match self {
+            Self::Relative(expression) => {
+                let expression = match expression {
+                    Some(expression) => {
+                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                if !value.data_type.can_be_represented_as_snbt_float_macro() {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::CannotBeRepresentedAsFloat(value.data_type),
-                    );
-                }
+                        Some(expression)
+                    }
+                    None => None,
+                };
 
-                Some(value)
+                Some(MiddleWorldCoordinate::Relative(expression))
             }
-            None => None,
-        };
+            Self::Absolute(expression) => {
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-        Some(MiddleWorldCoordinate {
-            relative: self.relative,
-            value,
-        })
+                Some(MiddleWorldCoordinate::Absolute(expression))
+            }
+        }
     }
 }
 

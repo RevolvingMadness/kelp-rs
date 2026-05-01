@@ -1,6 +1,4 @@
-use kelp_core::high::{
-    coordinate::WorldCoordinate, semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::{coordinate::WorldCoordinate, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
     cst::CSTWorldCoordinate,
@@ -47,8 +45,9 @@ pub fn lower_world_coordinate(
         .expression()
         .and_then(|expression| lower_expression(expression, ctx));
 
-    Some(WorldCoordinate {
-        relative: is_relative,
-        value,
+    Some(if is_relative {
+        WorldCoordinate::Relative(value)
+    } else {
+        WorldCoordinate::Absolute(value.unwrap())
     })
 }

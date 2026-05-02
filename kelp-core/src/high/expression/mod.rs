@@ -786,11 +786,7 @@ impl Expression {
 
                 let arguments = arguments
                     .into_iter()
-                    .map(|argument| {
-                        let (_, argument) = argument.perform_semantic_analysis(ctx)?;
-
-                        Some(argument)
-                    })
+                    .map(|argument| argument.perform_semantic_analysis(ctx))
                     .collect_option_all::<Vec<_>>()?;
 
                 let Some(call_info) = callee.data_type.get_call_info(&ctx.environment) else {
@@ -798,7 +794,7 @@ impl Expression {
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
 
-                let parameter_count = call_info.parameter_count;
+                let parameter_count = call_info.parameters.len();
                 let argument_count = arguments.len();
 
                 if argument_count != parameter_count {
@@ -811,7 +807,35 @@ impl Expression {
                     );
                 }
 
-                UnresolvedExpressionKind::Call(Box::new(callee), arguments)
+                let mut failed = false;
+
+                let mut new_arguments = Vec::with_capacity(arguments.len());
+
+                for ((_, data_type), (argument_span, argument)) in
+                    call_info.parameters.into_iter().zip(arguments.into_iter())
+                {
+                    if argument.data_type.equals(&data_type) {
+                        if !failed {
+                            new_arguments.push(argument);
+                        }
+                    } else {
+                        ctx.add_error::<()>(
+                            argument_span,
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: data_type,
+                                actual: argument.data_type,
+                            },
+                        );
+
+                        failed = true;
+                    }
+                }
+
+                if failed {
+                    return None;
+                }
+
+                UnresolvedExpressionKind::Call(Box::new(callee), new_arguments)
                     .with(call_info.return_type)
             }
             ExpressionKind::If(condition, body, else_body) => {

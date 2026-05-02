@@ -10,7 +10,10 @@ use crate::{
         data_type::resolved::GenericResolver,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    low::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
+    low::{
+        environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
+        pattern::Pattern,
+    },
     operator::{ArithmeticOperator, ComparisonOperator},
     runtime_storage::RuntimeStorageType,
     span::Span,
@@ -19,7 +22,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct CallInfo {
     pub return_type: DataType,
-    pub parameter_count: usize,
+    pub parameters: Vec<(Pattern, DataType)>,
 }
 
 pub struct DataTypeDisplay<'a> {
@@ -281,12 +284,12 @@ impl DataType {
 
                 CallInfo {
                     return_type: declaration.return_type.clone(),
-                    parameter_count: declaration.parameters.as_ref().map_or(0, Vec::len),
+                    parameters: declaration.parameters.clone().unwrap_or_default(),
                 }
             }
             Self::ResourceLocation => CallInfo {
                 return_type: Self::Integer,
-                parameter_count: 0,
+                parameters: Vec::new(),
             },
             _ => return None,
         })

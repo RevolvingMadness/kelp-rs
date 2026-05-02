@@ -9,7 +9,7 @@ pub mod path;
 pub mod pattern_type;
 pub mod place;
 pub mod player_score;
-pub mod runtime_storage_type;
+pub mod runtime_storage;
 pub mod span;
 pub mod trait_ext;
 pub mod visibility;

@@ -15,7 +15,11 @@ use crate::{
     datapack::Datapack,
     high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     low::{
-        data_type::DataType, environment::value::ValueId, expression::resolved::ResolvedExpression,
+        data_type::DataType,
+        environment::value::{
+            ValueDeclaration, ValueDeclarationKind, ValueId, variable::VariableId,
+        },
+        expression::resolved::ResolvedExpression,
     },
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,
@@ -38,7 +42,18 @@ impl Place {
         Some(match self {
             Self::Score(score) => Self::Score(score),
             Self::Data(target, path) => Self::Data(target, path),
-            Self::Value(id) => datapack.get_variable_value(id).1.clone().as_place()?,
+            Self::Value(id) => {
+                let declaration = datapack.get_value(id);
+
+                match &declaration.kind {
+                    ValueDeclarationKind::Variable(_) => datapack
+                        .get_variable_value(VariableId(id.0))
+                        .1
+                        .clone()
+                        .as_place()?,
+                    ValueDeclarationKind::Function(_) => return None,
+                }
+            }
             Self::Dereference(place) => place.dereference(datapack)?.dereference(datapack)?,
             Self::Tuple(_) | Self::Underscore => return None,
         })
@@ -58,7 +73,15 @@ impl Place {
                 value.assign_to_data(datapack, ctx, target, path);
             }
             Self::Value(id) => {
-                datapack.set_variable(id, value);
+                let ValueDeclaration {
+                    kind: ValueDeclarationKind::Variable(_),
+                    ..
+                } = datapack.get_value(id)
+                else {
+                    return;
+                };
+
+                datapack.set_variable(VariableId(id.0), value);
             }
             Self::Underscore => {}
             Self::Tuple(places) => {
@@ -124,6 +147,16 @@ impl Place {
                 );
             }
             Self::Value(id) => {
+                let ValueDeclaration {
+                    kind: ValueDeclarationKind::Variable(_),
+                    ..
+                } = datapack.get_value(id)
+                else {
+                    return;
+                };
+
+                let id = VariableId(id.0);
+
                 let variable_value = datapack.get_variable_value(id).1.clone();
 
                 if variable_value.is_lvalue() {

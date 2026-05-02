@@ -18,7 +18,6 @@ use crate::{
     },
     low::{data_type::DataType, item::Item as MiddleItem},
     span::Span,
-    trait_ext::CollectOptionAllIterExt,
     visibility::Visibility,
 };
 
@@ -93,30 +92,37 @@ impl Item {
                 let parameter_types = parameter_types
                     .into_iter()
                     .map(|parameter_type| parameter_type.resolve_partially(None, ctx))
-                    .collect_option_all()?;
+                    .collect();
 
-                let return_type = return_type.resolve_partially(None, ctx)?;
+                let return_type = return_type.resolve_fully(ctx);
 
-                let (body_span, tail_expression_span, body) =
-                    body.perform_semantic_analysis(ctx)?;
-
-                if !body.data_type.equals(&return_type) {
-                    return ctx.add_error(
-                        tail_expression_span.unwrap_or(body_span),
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: return_type,
-                            actual: body.data_type,
-                        },
-                    );
-                }
-
-                ctx.declare_function(
+                let id = ctx.declare_function(
                     self.visibility,
                     name,
                     generic_names,
                     parameter_types,
-                    return_type,
+                    return_type.clone(),
+                    None,
                 );
+
+                let body = body.perform_semantic_analysis(ctx);
+
+                if let Some(return_type) = return_type
+                    && let Some((body_span, tail_expression_span, body)) = body.as_ref()
+                    && !body.data_type.equals(&return_type)
+                {
+                    return ctx.add_error(
+                        tail_expression_span.unwrap_or(*body_span),
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: return_type,
+                            actual: body.data_type.clone(),
+                        },
+                    );
+                }
+
+                if let Some((_, _, body)) = body {
+                    ctx.update_function_body(id, body);
+                }
 
                 // TODO
 

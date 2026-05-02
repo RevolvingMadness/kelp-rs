@@ -19,12 +19,7 @@ impl<'a> GenericResolver<'a> {
         let actual_generics = types.len();
 
         if actual_generics != expected_generics {
-            return ctx.add_invalid_generics(
-                name_span,
-                name.to_owned(),
-                expected_generics,
-                actual_generics,
-            );
+            return ctx.add_invalid_generics(name_span, name, expected_generics, actual_generics);
         }
 
         Some(Self { names, types })

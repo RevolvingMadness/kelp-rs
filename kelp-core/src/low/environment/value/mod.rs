@@ -72,11 +72,3 @@ pub struct ValueDeclaration {
     pub module_path: Vec<String>,
     pub kind: ValueDeclarationKind,
 }
-
-impl ValueDeclaration {
-    #[inline]
-    #[must_use]
-    pub fn as_tuple(&self) -> (Visibility, &[String], &ValueDeclarationKind) {
-        (self.visibility, &self.module_path, &self.kind)
-    }
-}

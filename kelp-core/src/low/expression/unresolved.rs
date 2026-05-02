@@ -15,7 +15,6 @@ use minecraft_command_types::{
     resource_location::ResourceLocation,
     snbt::{SNBT, SNBTString},
 };
-use nonempty::nonempty;
 use ordered_float::NotNan;
 
 use crate::{
@@ -28,7 +27,7 @@ use crate::{
         entity_selector::EntitySelector,
         environment::{
             r#type::r#struct::{StructStructId, TupleStructId},
-            value::ValueId,
+            value::{ValueDeclarationKind, ValueId, function::FunctionId, variable::VariableId},
         },
         expression::{
             command::{
@@ -45,7 +44,7 @@ use crate::{
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     place::Place,
-    runtime_storage_type::RuntimeStorageType,
+    runtime_storage::RuntimeStorageType,
 };
 
 fn compile_if(
@@ -281,6 +280,7 @@ pub enum UnresolvedExpressionKind {
         RuntimeStorageType,
     ),
     Tuple(Vec<UnresolvedExpression>),
+    Call(Box<UnresolvedExpression>, Vec<UnresolvedExpression>),
     Value(ValueId),
     StructStruct(StructStructId, HashMap<SNBTString, UnresolvedExpression>),
     TupleStruct(TupleStructId, Vec<UnresolvedExpression>),
@@ -609,7 +609,20 @@ impl UnresolvedExpressionKind {
             Self::Double(value) => ResolvedExpression::Double(value),
             Self::String(value) => ResolvedExpression::String(value),
             Self::Unit => ResolvedExpression::Unit,
-            Self::Value(id) => datapack.get_variable_value(id).1.clone(),
+            Self::Value(id) => {
+                let declaration = datapack.get_value(id);
+
+                match &declaration.kind {
+                    ValueDeclarationKind::Variable(_) => {
+                        let (_, value) = datapack.get_variable_value(VariableId(id.0));
+
+                        value.clone()
+                    }
+                    ValueDeclarationKind::Function(_) => {
+                        ResolvedExpression::Function(FunctionId(id.0))
+                    }
+                }
+            }
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
                     statement.compile_as_statement(datapack, ctx);
@@ -632,6 +645,16 @@ impl UnresolvedExpressionKind {
                 );
 
                 ResolvedExpression::Data(Box::new((output_target, output_path)))
+            }
+            Self::Call(callee, arguments) => {
+                let callee = callee.kind.resolve(datapack, ctx);
+
+                let arguments = arguments
+                    .into_iter()
+                    .map(|argument| argument.kind.resolve(datapack, ctx))
+                    .collect::<Vec<_>>();
+
+                callee.call_to_value(datapack, ctx, &arguments)
             }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -768,7 +791,7 @@ impl UnresolvedExpressionKind {
 
                     let mut map = SNBTCompound::new();
                     map.insert(SNBTString(false, name), SNBT::macroable_string(""));
-                    let unique_path = LowNbtPath(nonempty![NbtPathNode::RootCompound(map)]);
+                    let unique_path = LowNbtPath(vec![NbtPathNode::RootCompound(map)]);
 
                     condition_ctx.add_command(
                         datapack,
@@ -780,7 +803,7 @@ impl UnresolvedExpressionKind {
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
                                         ResourceLocation::new_namespace_paths(
-                                            current_namespace_name,
+                                            &current_namespace_name,
                                             for_function_paths.clone(),
                                         ),
                                         None,
@@ -846,7 +869,7 @@ impl UnresolvedExpressionKind {
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
                                         ResourceLocation::new_namespace_paths(
-                                            current_namespace_name,
+                                            &current_namespace_name,
                                             for_function_paths.clone(),
                                         ),
                                         None,
@@ -945,6 +968,16 @@ impl UnresolvedExpressionKind {
             Self::If(condition, body, else_body) => {
                 compile_if_internal(datapack, ctx, *condition, *body, else_body, None);
             }
+            Self::Call(callee, arguments) => {
+                let callee = callee.kind.resolve(datapack, ctx);
+
+                let arguments = arguments
+                    .into_iter()
+                    .map(|argument| argument.kind.resolve(datapack, ctx))
+                    .collect::<Vec<_>>();
+
+                callee.call(datapack, ctx, &arguments);
+            }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
                 let while_function_resource_location = ResourceLocation::new_namespace_paths(
@@ -1075,7 +1108,7 @@ impl UnresolvedExpressionKind {
 
                     let mut map = SNBTCompound::new();
                     map.insert(SNBTString(false, name), SNBT::macroable_string(""));
-                    let unique_path = LowNbtPath(nonempty![NbtPathNode::RootCompound(map)]);
+                    let unique_path = LowNbtPath(vec![NbtPathNode::RootCompound(map)]);
 
                     condition_ctx.add_command(
                         datapack,
@@ -1087,7 +1120,7 @@ impl UnresolvedExpressionKind {
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
                                         ResourceLocation::new_namespace_paths(
-                                            current_namespace_name,
+                                            &current_namespace_name,
                                             for_function_paths.clone(),
                                         ),
                                         None,
@@ -1153,7 +1186,7 @@ impl UnresolvedExpressionKind {
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
                                         ResourceLocation::new_namespace_paths(
-                                            current_namespace_name,
+                                            &current_namespace_name,
                                             for_function_paths.clone(),
                                         ),
                                         None,

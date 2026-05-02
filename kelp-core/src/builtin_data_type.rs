@@ -1,6 +1,8 @@
 use strum::{Display, EnumString};
 
-use crate::low::data_type::DataType;
+use crate::{
+    high::semantic_analysis::SemanticAnalysisContext, low::data_type::DataType, span::Span,
+};
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
@@ -34,9 +36,22 @@ pub enum BuiltinDataType {
 
 impl BuiltinDataType {
     #[must_use]
-    pub fn to_data_type(self, mut generic_types: Vec<DataType>) -> Option<DataType> {
-        if generic_types.len() != self.generic_count() {
-            return None;
+    pub fn to_data_type_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+        mut generic_types: Vec<DataType>,
+    ) -> Option<DataType> {
+        let expected_generic_count = self.generic_count();
+        let actual_generic_count = generic_types.len();
+
+        if actual_generic_count != expected_generic_count {
+            return ctx.add_invalid_generics(
+                span,
+                self.name(),
+                expected_generic_count,
+                actual_generic_count,
+            );
         }
 
         Some(match self {

@@ -159,6 +159,7 @@ pub enum SyntaxKind {
     TypeKeyword,
     BreakKeyword,
     ContinueKeyword,
+    ConstKeyword,
     AppendKeyword,
     RemoveKeyword,
     TrueKeyword,

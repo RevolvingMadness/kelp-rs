@@ -60,12 +60,6 @@ pub struct HighTypeDeclaration {
 impl HighTypeDeclaration {
     #[inline]
     #[must_use]
-    pub fn as_tuple(&self) -> (Visibility, &[String], &HighTypeDeclarationKind) {
-        (self.visibility, &self.module_path, &self.kind)
-    }
-
-    #[inline]
-    #[must_use]
     pub fn as_tuple_owned(self) -> (Visibility, Vec<String>, HighTypeDeclarationKind) {
         (self.visibility, self.module_path, self.kind)
     }
@@ -157,7 +151,9 @@ impl HighTypeDeclaration {
 
                 declaration.alias.resolve_fully(&resolver)
             }
-            HighTypeDeclarationKind::Builtin(data_type) => data_type.to_data_type(generic_types),
+            HighTypeDeclarationKind::Builtin(data_type) => {
+                data_type.to_data_type_semantic_analysis(ctx, path_span, generic_types)
+            }
         }
     }
 }

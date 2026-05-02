@@ -11,6 +11,8 @@ use crate::low::environment::r#type::r#struct::{
     StructDeclaration, StructId, StructStructDeclaration, StructStructId, TupleStructDeclaration,
     TupleStructId,
 };
+use crate::low::environment::value::function::{FunctionDeclaration, FunctionId};
+use crate::low::environment::value::variable::VariableId;
 use crate::low::environment::value::{ValueDeclaration, ValueId};
 use crate::low::expression::resolved::ResolvedExpression;
 use crate::player_score::GeneratedPlayerScore;
@@ -30,7 +32,6 @@ use minecraft_command_types::entity_selector::EntitySelector;
 use minecraft_command_types::nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::SNBTString;
-use nonempty::{NonEmpty, nonempty};
 use serde_json::json;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -51,13 +52,21 @@ pub struct DatapackSettings {
     pub num_match_cases_to_split: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct CompiledFunction {
+    pub resource_location: ResourceLocation,
+    pub result_expression: Option<ResolvedExpression>,
+}
+
 pub struct Datapack {
     pub name: String,
     pub description: Option<String>,
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub value_values: HashMap<ValueId, (DataType, ResolvedExpression)>,
+    pub variable_values: HashMap<VariableId, (DataType, ResolvedExpression)>,
+    pub function_values: HashMap<FunctionId, FunctionDeclaration>,
+    pub compiled_functions: HashMap<FunctionId, CompiledFunction>,
     namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
@@ -74,7 +83,9 @@ impl Datapack {
             requirements: Cell::new(DatapackRequirements::default()),
             settings: DatapackSettings::default(),
             environment,
-            value_values: HashMap::new(),
+            variable_values: HashMap::new(),
+            function_values: HashMap::new(),
+            compiled_functions: HashMap::new(),
             namespaces: HashMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),
@@ -108,13 +119,18 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn declare_value(&mut self, id: ValueId, data_type: DataType, value: ResolvedExpression) {
-        self.value_values.insert(id, (data_type, value));
+    pub fn declare_value(
+        &mut self,
+        id: VariableId,
+        data_type: DataType,
+        value: ResolvedExpression,
+    ) {
+        self.variable_values.insert(id, (data_type, value));
     }
 
     #[inline]
-    pub fn set_variable(&mut self, id: ValueId, value: ResolvedExpression) {
-        self.value_values.get_mut(&id).unwrap().1 = value;
+    pub fn set_variable(&mut self, id: VariableId, value: ResolvedExpression) {
+        self.variable_values.get_mut(&id).unwrap().1 = value;
     }
 
     #[inline]
@@ -125,21 +141,35 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value(&self, id: ValueId) -> &(DataType, ResolvedExpression) {
-        self.value_values.get(&id).unwrap()
+    pub fn get_variable_value(&self, id: VariableId) -> &(DataType, ResolvedExpression) {
+        self.variable_values.get(&id).unwrap()
     }
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value_mut(&mut self, id: ValueId) -> &mut (DataType, ResolvedExpression) {
-        self.value_values.get_mut(&id).unwrap()
+    pub fn get_function_value(&self, id: FunctionId) -> &FunctionDeclaration {
+        self.function_values.get(&id).unwrap()
     }
 
-    pub fn compile_and_add_to_function(
+    #[inline]
+    #[must_use]
+    pub fn get_function_declaration(
+        &self,
+        id: FunctionId,
+    ) -> (Visibility, &[String], &FunctionDeclaration) {
+        self.environment.get_function(id)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_variable_value_mut(
         &mut self,
-        paths: &NonEmpty<String>,
-        ctx: &mut CompileContext,
-    ) {
+        id: VariableId,
+    ) -> &mut (DataType, ResolvedExpression) {
+        self.variable_values.get_mut(&id).unwrap()
+    }
+
+    pub fn compile_and_add_to_function(&mut self, paths: &Vec<String>, ctx: &mut CompileContext) {
         let commands = ctx.compile();
 
         self.get_function_mut(paths).add_commands(commands);
@@ -178,7 +208,7 @@ impl Datapack {
         val
     }
 
-    pub fn get_unique_function_paths(&self) -> NonEmpty<String> {
+    pub fn get_unique_function_paths(&self) -> Vec<String> {
         self.current_namespace().get_unique_function_paths()
     }
 
@@ -203,7 +233,7 @@ impl Datapack {
             format!("__kelp_{}_storage__", current_namespace_name),
         ));
 
-        let path = LowNbtPath(nonempty![LowNbtPathNode::named_string(format!(
+        let path = LowNbtPath(vec![LowNbtPathNode::named_string(format!(
             "__kelp_{}_storage_{}__",
             current_namespace_name,
             self.increment_counter()
@@ -236,7 +266,7 @@ impl Datapack {
                     format!("__kelp_{}_storage__", current_namespace_name),
                 )),
             },
-            LowNbtPath(nonempty![LowNbtPathNode::named_string(name.clone())]),
+            LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
             name,
         )
     }
@@ -256,7 +286,7 @@ impl Datapack {
         (
             DataTargetKind::Storage(storage_location.clone().regular_sigil()).with_generated_span(),
             DataTarget::Storage(storage_location),
-            LowNbtPath(nonempty![LowNbtPathNode::named_string(name.clone())]),
+            LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
             name,
         )
     }
@@ -274,7 +304,7 @@ impl Datapack {
                 "__kelp_storages__",
                 format!("__kelp_{}_storage__", current_namespace_name),
             )),
-            LowNbtPath(nonempty![LowNbtPathNode::named_string(name.clone())]),
+            LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
             SNBTString(false, name),
         )
     }
@@ -294,7 +324,7 @@ impl Datapack {
                     .regular_sigil(),
                 ),
             },
-            NbtPath(nonempty![NbtPathNode::Named(
+            NbtPath(vec![NbtPathNode::Named(
                 format!(
                     "__kelp_{}_storage_{}__",
                     current_namespace_name,
@@ -356,11 +386,11 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn get_function_mut(&mut self, paths: &NonEmpty<String>) -> &mut MCFunction {
+    pub fn get_function_mut(&mut self, paths: &Vec<String>) -> &mut MCFunction {
         self.current_namespace_mut().get_function_mut(paths)
     }
 
-    pub fn push_function_to_current_namespace(&mut self, paths: NonEmpty<String>) {
+    pub fn push_function_to_current_namespace(&mut self, paths: Vec<String>) {
         self.current_namespace_mut().push_function(paths);
     }
 
@@ -376,7 +406,7 @@ impl Datapack {
         let loop_function_paths = self.get_unique_function_paths();
         let current_namespace_name = self.current_namespace_name().to_string();
         let loop_function_location = ResourceLocation::new_namespace_paths(
-            current_namespace_name,
+            &current_namespace_name,
             loop_function_paths.clone(),
         );
 
@@ -518,12 +548,12 @@ impl Datapack {
             let load_function_commands = load_function_ctx.compile();
 
             let kelp_namespace = self.get_namespace_mut("kelp");
-            let load_function = kelp_namespace.get_function_mut(&nonempty!["load".to_string()]);
+            let load_function = kelp_namespace.get_function_mut(&vec!["load".to_string()]);
             load_function.add_commands(load_function_commands);
 
             output_datapack.get_namespace_mut("minecraft").add_tag(
                 TagType::Function,
-                &nonempty!["load".to_string()],
+                &vec!["load".to_string()],
                 Tag {
                     replace: None,
                     values: vec![TagValue::ResourceLocation(
@@ -548,7 +578,7 @@ impl Datapack {
 
         if self.requirements.get().always_succeed_predicate {
             output_datapack.get_namespace_mut("kelp").predicates.insert(
-                nonempty!["always_succeed".to_string()],
+                vec!["always_succeed".to_string()],
                 json!({"condition":"minecraft:random_chance","chance":1.0}),
             );
         }

@@ -12,7 +12,6 @@ use minecraft_command_types::{
     entity_selector::EntitySelector,
     resource_location::ResourceLocation,
 };
-use nonempty::{NonEmpty, nonempty};
 
 use crate::datapack::mcfunction::MCFunction;
 
@@ -20,21 +19,9 @@ use crate::datapack::mcfunction::MCFunction;
 pub struct DatapackNamespace {
     pub name: String,
     uses_scores_objective: Cell<bool>,
-    functions: HashMap<NonEmpty<String>, MCFunction>,
-    function_stack: Vec<NonEmpty<String>>,
+    functions: HashMap<Vec<String>, MCFunction>,
+    function_stack: Vec<Vec<String>>,
     counter: Cell<usize>,
-}
-
-#[inline]
-fn join_non_empty(non_empty: &NonEmpty<String>, separator: &str) -> String {
-    let mut out = non_empty.head.clone();
-
-    for s in &non_empty.tail {
-        out.push_str(separator);
-        out.push_str(s);
-    }
-
-    out
 }
 
 impl DatapackNamespace {
@@ -63,7 +50,7 @@ impl DatapackNamespace {
             .sum()
     }
 
-    pub fn within_function<F>(&mut self, paths: NonEmpty<String>, function: F)
+    pub fn within_function<F>(&mut self, paths: Vec<String>, function: F)
     where
         F: FnOnce(&mut Self),
     {
@@ -75,17 +62,17 @@ impl DatapackNamespace {
     }
 
     #[inline]
-    pub fn add_default_function_if_missing(&mut self, name: &NonEmpty<String>) {
-        if !self.functions.contains_key(name) {
-            self.functions.insert(name.clone(), MCFunction::default());
+    pub fn add_default_function_if_missing(&mut self, paths: &Vec<String>) {
+        if !self.functions.contains_key(paths) {
+            self.functions.insert(paths.clone(), MCFunction::default());
         }
     }
 
     #[inline]
-    pub fn push_function(&mut self, name: NonEmpty<String>) {
-        self.add_default_function_if_missing(&name);
+    pub fn push_function(&mut self, paths: Vec<String>) {
+        self.add_default_function_if_missing(&paths);
 
-        self.function_stack.push(name);
+        self.function_stack.push(paths);
     }
 
     #[inline]
@@ -112,7 +99,7 @@ impl DatapackNamespace {
             "{}_{}_{}",
             name,
             scope,
-            join_non_empty(self.current_function_paths(), "_")
+            self.current_function_paths().join("_")
         ))
     }
 
@@ -122,15 +109,15 @@ impl DatapackNamespace {
         format!("__{}_scores__", self.name)
     }
 
-    pub fn get_unique_function_paths(&self) -> NonEmpty<String> {
+    pub fn get_unique_function_paths(&self) -> Vec<String> {
         let id = self.increment_counter();
-        let paths = nonempty![format!("__{}_function_{}__", self.name, id)];
+        let paths = vec![format!("__{}_function_{}__", self.name, id)];
 
         paths
     }
 
     #[inline]
-    pub fn current_function_paths(&self) -> &NonEmpty<String> {
+    pub fn current_function_paths(&self) -> &Vec<String> {
         self.function_stack.last().expect("No current function")
     }
 
@@ -141,7 +128,7 @@ impl DatapackNamespace {
         self.functions.get_mut(&paths).expect("No current function")
     }
 
-    pub fn get_function_mut(&mut self, paths: &NonEmpty<String>) -> &mut MCFunction {
+    pub fn get_function_mut(&mut self, paths: &Vec<String>) -> &mut MCFunction {
         self.add_default_function_if_missing(paths);
 
         self.functions.get_mut(paths).unwrap()
@@ -154,12 +141,12 @@ impl DatapackNamespace {
 
     pub fn get_new_function_mut(&mut self) -> &mut MCFunction {
         let name = self.next_function_name();
-        self.get_function_mut(&nonempty![name])
+        self.get_function_mut(&vec![name])
     }
 
     pub fn ensure_load_function(&mut self, datapack: &mut Datapack) {
         if self.uses_scores_objective.get() {
-            let load_paths = nonempty!["load".to_string()];
+            let load_paths = vec!["load".to_string()];
 
             let scores_objective = self.get_scores_objective();
 
@@ -170,11 +157,11 @@ impl DatapackNamespace {
 
             datapack.get_namespace_mut("minecraft").add_tag(
                 TagType::Function,
-                &nonempty!["load".to_string()],
+                &vec!["load".to_string()],
                 Tag {
                     replace: None,
                     values: vec![TagValue::ResourceLocation(
-                        ResourceLocation::new_namespace_paths(self.name.clone(), load_paths),
+                        ResourceLocation::new_namespace_paths(&self.name, load_paths),
                     )],
                 },
             );

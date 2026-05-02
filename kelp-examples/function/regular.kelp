@@ -1,0 +1,38 @@
+use std::*;
+
+fn one() -> score<integer> {
+    tellraw @a "start of one";
+
+    let result = 1 to score;
+
+    tellraw @a "end of one";
+
+    result
+}
+
+
+fn two() -> integer {
+    tellraw @a "start of two";
+
+    let result = 2;
+
+    tellraw @a "end of two";
+
+    result
+}
+
+
+fn three() -> score<integer> {
+    tellraw @a "start of three";
+
+    let result = one() + two();
+
+    tellraw @a "end of three";
+
+    result
+}
+
+
+mcfn namespace:main {
+    tellraw @a three();
+}

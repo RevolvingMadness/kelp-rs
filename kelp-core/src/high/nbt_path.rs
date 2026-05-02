@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 
-use nonempty::NonEmpty;
-
 use crate::{
     high::{
-        expression::Expression, semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
+        expression::Expression, semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
     },
     low::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
     trait_ext::CollectOptionAllIterExt,
@@ -73,7 +70,7 @@ impl NbtPathNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct NbtPath(pub NonEmpty<NbtPathNode>);
+pub struct NbtPath(pub Vec<NbtPathNode>);
 
 impl NbtPath {
     pub fn perform_semantic_analysis(
@@ -81,13 +78,10 @@ impl NbtPath {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleNbtPath> {
         Some(MiddleNbtPath(
-            NonEmpty::from_vec(
-                self.0
-                    .into_iter()
-                    .map(|node| node.perform_semantic_analysis(ctx))
-                    .collect_option_all()?,
-            )
-            .unwrap(),
+            self.0
+                .into_iter()
+                .map(|node| node.perform_semantic_analysis(ctx))
+                .collect_option_all()?,
         ))
     }
 

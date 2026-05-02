@@ -9,7 +9,6 @@ use kelp_core::low::item::Item;
 use kelp_parser::cst::CSTRoot;
 use kelp_parser::parser::{ParseResult, Parser};
 use kelp_parser::root::lower_root;
-use nonempty::nonempty;
 use serde::Deserialize;
 use std::fs::{self};
 use std::path::{Path, PathBuf};
@@ -116,8 +115,7 @@ fn handle_new(input: &str) {
 #[derive(Deserialize)]
 struct Project {
     name: String,
-    #[allow(unused)]
-    id: Option<String>,
+    id: String,
     description: Option<String>,
     #[allow(unused)]
     version: String,
@@ -211,7 +209,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
             .unwrap();
     }
 
-    let mut semantic_analysis_context = SemanticAnalysisContext::new(10);
+    let mut semantic_analysis_context = SemanticAnalysisContext::new(&kelp_toml.project.id, 10);
 
     let lower_start = Instant::now();
     let items = lower_root(&root, &mut semantic_analysis_context);
@@ -287,7 +285,7 @@ fn process_success(
     let mut datapack = Datapack::new(environment, project_name.clone(), project_description);
     datapack.settings.num_match_cases_to_split = 5;
     datapack.push_namespace("main");
-    datapack.push_function_to_current_namespace(nonempty!["main".to_string()]);
+    datapack.push_function_to_current_namespace(vec!["main".to_string()]);
 
     let mut ctx = CompileContext::default();
     let start_compile = Instant::now();

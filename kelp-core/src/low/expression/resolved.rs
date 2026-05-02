@@ -27,15 +27,19 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
-    datapack::Datapack,
+    datapack::{CompiledFunction, Datapack},
     low::{
         data_type::DataType,
-        environment::r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
+        environment::{
+            r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
+            value::function::FunctionId,
+        },
         expression::utils::push_scoreboard_players,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
     player_score::GeneratedPlayerScore,
+    runtime_storage::RuntimeStorageTarget,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -120,6 +124,68 @@ fn integer_range_from_comparison_operator(
     }
 }
 
+fn compile_function(
+    datapack: &mut Datapack,
+    ctx: &mut CompileContext,
+    original_id: FunctionId,
+) -> ResolvedExpression {
+    let (_, _, original_declaration) = datapack.get_function_declaration(original_id);
+    let original_body = original_declaration.body.clone().unwrap();
+    let return_type_is_compiletime = original_declaration
+        .return_type
+        .is_compiletime(&datapack.environment);
+
+    let mut paths = original_declaration.module_path.clone();
+
+    let namespace = paths.remove(0);
+
+    paths.push(original_declaration.name.clone());
+
+    let compiled_resource_location = ResourceLocation::new_namespace_paths(&namespace, &paths);
+
+    if return_type_is_compiletime {
+        datapack.compiled_functions.insert(
+            original_id,
+            CompiledFunction {
+                resource_location: compiled_resource_location,
+                result_expression: None,
+            },
+        );
+
+        original_body.kind.resolve(datapack, ctx)
+    } else {
+        let unique_target = original_declaration
+            .return_type
+            .get_runtime_storage_type()
+            .get_unique(datapack);
+
+        datapack.compiled_functions.insert(
+            original_id,
+            CompiledFunction {
+                resource_location: compiled_resource_location.clone(),
+                result_expression: Some(unique_target.clone().to_expression()),
+            },
+        );
+
+        let mut compiled_body_ctx = CompileContext::default();
+
+        let result = original_body.kind.resolve(datapack, &mut compiled_body_ctx);
+        result.assign_to_target(datapack, &mut compiled_body_ctx, unique_target.clone());
+
+        let function = datapack
+            .get_namespace_mut(&namespace)
+            .get_function_mut(&paths);
+        compiled_body_ctx.compile_to_function(function);
+
+        ctx.add_command(
+            datapack,
+            Command::Function(compiled_resource_location, None),
+        );
+
+        unique_target.to_expression()
+    }
+}
+
 macro_rules! compute_int {
     ($l:expr, $r:expr, $op:expr, $t:ty) => {
         match $op {
@@ -175,6 +241,7 @@ pub enum ResolvedExpression {
     Unit,
     ResourceLocation(ResourceLocation),
     EntitySelector(EntitySelector),
+    Function(FunctionId),
 
     PlayerScore(GeneratedPlayerScore),
     Data(Box<(GeneratedDataTarget, NbtPath)>),
@@ -216,6 +283,81 @@ impl ResolvedExpression {
                 );
             }
             _ => {}
+        }
+    }
+
+    #[must_use]
+    pub fn call_to_value(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        arguments: &[Self],
+    ) -> Self {
+        match self {
+            Self::ResourceLocation(resource_location) => {
+                assert!(arguments.is_empty());
+
+                let unique_score = datapack.get_unique_score();
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Result,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.score.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
+                                resource_location,
+                                None,
+                            )))),
+                        ),
+                    )),
+                );
+
+                Self::PlayerScore(unique_score)
+            }
+            Self::Function(original_id) => {
+                if let Some(compiled_function) = datapack.compiled_functions.get(&original_id)
+                    && let Some(result_expression) = &compiled_function.result_expression
+                {
+                    let compiled_resource_location = compiled_function.resource_location.clone();
+                    let result_expression = result_expression.clone();
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Function(compiled_resource_location, None),
+                    );
+
+                    return result_expression;
+                }
+
+                compile_function(datapack, ctx, original_id)
+            }
+            _ => unreachable!("The expression '{:?}' is not callable", self),
+        }
+    }
+
+    pub fn call(self, datapack: &mut Datapack, ctx: &mut CompileContext, arguments: &[Self]) {
+        match self {
+            Self::ResourceLocation(resource_location) => {
+                assert!(arguments.is_empty());
+
+                ctx.add_command(datapack, Command::Function(resource_location, None));
+            }
+            Self::Function(original_id) => {
+                if let Some(compiled_function) = datapack.compiled_functions.get(&original_id) {
+                    let compiled_resource_location = compiled_function.resource_location.clone();
+
+                    ctx.add_command(
+                        datapack,
+                        Command::Function(compiled_resource_location, None),
+                    );
+
+                    return;
+                }
+
+                compile_function(datapack, ctx, original_id);
+            }
+            _ => unreachable!("The expression '{:?}' is not callable", self),
         }
     }
 
@@ -404,6 +546,7 @@ impl ResolvedExpression {
 
                 SNBT::compound(compound)
             }
+            Self::Function(_) => todo!(),
             Self::ResourceLocation(_) | Self::EntitySelector(_) => return Err(self),
         })
     }
@@ -1415,6 +1558,7 @@ impl ResolvedExpression {
         force_display: bool,
     ) -> SNBT {
         match self {
+            Self::Function(_) => todo!(),
             Self::PlayerScore(player_score) => player_score.to_text_component(),
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -1717,85 +1861,99 @@ impl ResolvedExpression {
         }
     }
 
+    pub fn assign_to_target(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        value: RuntimeStorageTarget,
+    ) {
+        match value {
+            RuntimeStorageTarget::Score(score) => self.assign_to_score(datapack, ctx, score),
+            RuntimeStorageTarget::Data(target, path) => {
+                self.assign_to_data(datapack, ctx, target, path);
+            }
+        }
+    }
+
     pub fn assign_to_score(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        target: GeneratedPlayerScore,
+        score: GeneratedPlayerScore,
     ) {
         match self {
             Self::Boolean(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                    PlayersScoreboardCommand::Set(score.score, i32::from(value)),
                 );
             }
             Self::Byte(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                    PlayersScoreboardCommand::Set(score.score, i32::from(value)),
                 );
             }
             Self::Short(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, i32::from(value)),
+                    PlayersScoreboardCommand::Set(score.score, i32::from(value)),
                 );
             }
             Self::Integer(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, value),
+                    PlayersScoreboardCommand::Set(score.score, value),
                 );
             }
             Self::Long(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, value as i32),
+                    PlayersScoreboardCommand::Set(score.score, value as i32),
                 );
             }
             Self::Float(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
+                    PlayersScoreboardCommand::Set(score.score, value.into_inner() as i32),
                 );
             }
             Self::Double(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.into_inner() as i32),
+                    PlayersScoreboardCommand::Set(score.score, value.into_inner() as i32),
                 );
             }
             Self::String(SNBTString(_, value)) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                    PlayersScoreboardCommand::Set(score.score, value.len() as i32),
                 );
             }
             Self::List(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                    PlayersScoreboardCommand::Set(score.score, value.len() as i32),
                 );
             }
             Self::Compound(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,
-                    PlayersScoreboardCommand::Set(target.score, value.len() as i32),
+                    PlayersScoreboardCommand::Set(score.score, value.len() as i32),
                 );
             }
             Self::PlayerScore(source) => {
-                source.assign_to_score(datapack, ctx, target);
+                source.assign_to_score(datapack, ctx, score);
             }
             Self::Data(data_target_path) => {
                 let (data_target, path) = *data_target_path;
@@ -1805,7 +1963,7 @@ impl ResolvedExpression {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Result,
                         ExecuteStoreSubcommand::Score(
-                            target.score,
+                            score.score,
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
                                 DataCommand::Get(data_target.target, Some(path), None),
                             )))),
@@ -1819,7 +1977,7 @@ impl ResolvedExpression {
                     Command::Execute(ExecuteSubcommand::Store(
                         StoreType::Success,
                         ExecuteStoreSubcommand::Score(
-                            target.score,
+                            score.score,
                             Box::new(ExecuteSubcommand::If(inverted, *condition)),
                         ),
                     )),

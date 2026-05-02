@@ -4,7 +4,6 @@ use minecraft_command_types::{
     nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode, SNBTCompound},
     snbt::SNBTString,
 };
-use nonempty::NonEmpty;
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack,
@@ -56,11 +55,16 @@ impl NbtPathNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct NbtPath(pub NonEmpty<NbtPathNode>);
+pub struct NbtPath(pub Vec<NbtPathNode>);
 
 impl NbtPath {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPath {
-        LowNbtPath(self.0.map(|node| node.compile(datapack, ctx)))
+        LowNbtPath(
+            self.0
+                .into_iter()
+                .map(|node| node.compile(datapack, ctx))
+                .collect(),
+        )
     }
 
     #[must_use]

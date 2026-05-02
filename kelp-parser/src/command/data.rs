@@ -11,7 +11,6 @@ use kelp_core::high::nbt_path::{HighNbtPath, HighNbtPathNode};
 use kelp_core::high::snbt_string::HighSNBTString;
 use minecraft_command_types::command::data::DataCommandModificationMode;
 use minecraft_command_types::snbt::SNBTString;
-use nonempty::nonempty;
 use parser_rs::{
     combinators::{char, choice::choice, literal, suggest_literal},
     fn_parser::FnParser,

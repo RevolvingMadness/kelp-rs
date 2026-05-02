@@ -16,6 +16,7 @@ use minecraft_command_types::range::IntegerRange;
 #[derive(Debug, Clone)]
 pub enum Statement {
     Expression(UnresolvedExpression),
+    FunctionDeclaration,
     Let(DataType, Pattern, UnresolvedExpression),
     Match(UnresolvedExpression, HashMap<IntegerRange, Box<Self>>),
     Append(UnresolvedExpression, Box<UnresolvedExpression>),
@@ -60,23 +61,10 @@ impl Statement {
         }
     }
 
-    #[must_use]
-    pub fn get_data_type(&self) -> Option<DataType> {
-        match self {
-            Self::Expression(expression) => Some(expression.data_type.clone()),
-            Self::Let(_, _, _)
-            | Self::Match(_, _)
-            | Self::Append(_, _)
-            | Self::Remove(_)
-            | Self::Item(_)
-            | Self::Break
-            | Self::Continue => None,
-        }
-    }
-
     pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::Expression(expression) => expression.kind.compile_as_statement(datapack, ctx),
+            Self::FunctionDeclaration => todo!(),
             Self::Let(data_type, pattern, value) => {
                 let value = value.kind.resolve(datapack, ctx);
 
@@ -148,6 +136,7 @@ impl Statement {
     ) -> Option<ResolvedExpression> {
         match self {
             Self::Expression(expression) => Some(expression.kind.resolve(datapack, ctx)),
+            Self::FunctionDeclaration => todo!(),
             Self::Let(data_type, pattern, value) => {
                 let value = value.kind.resolve(datapack, ctx);
 

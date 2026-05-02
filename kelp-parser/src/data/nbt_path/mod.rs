@@ -1,5 +1,4 @@
 use kelp_core::high::{nbt_path::NbtPath, semantic_analysis::SemanticAnalysisContext};
-use nonempty::NonEmpty;
 
 use crate::{
     cst::CSTNBTPath,
@@ -56,5 +55,5 @@ pub fn lower_nbt_path(node: CSTNBTPath, ctx: &mut SemanticAnalysisContext) -> Op
         .filter_map(|nbt_path_node| lower_nbt_path_node(nbt_path_node, ctx))
         .collect();
 
-    Some(NbtPath(NonEmpty::from_vec(nodes)?))
+    Some(NbtPath(nodes))
 }

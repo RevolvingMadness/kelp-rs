@@ -3,7 +3,7 @@ use kelp_core::{
         expression::{Expression, ExpressionKind},
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    runtime_storage_type::RuntimeStorageType,
+    runtime_storage::RuntimeStorageType,
 };
 
 use crate::{

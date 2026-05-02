@@ -17,6 +17,7 @@ use crate::{
                 variable::{VariableDeclaration, VariableId},
             },
         },
+        expression::unresolved::UnresolvedExpression,
     },
     visibility::Visibility,
 };
@@ -191,21 +192,12 @@ impl Environment {
         &mut self,
         module_path: Vec<String>,
         visibility: Visibility,
-        name: String,
-        generic_types: Vec<DataType>,
-        parameter_types: Vec<DataType>,
-        return_type: DataType,
+        declaration: FunctionDeclaration,
     ) -> FunctionId {
         let id = FunctionId(self.values.len());
 
         self.values.push(
-            ValueDeclarationKind::Function(FunctionDeclaration {
-                name,
-                generic_types,
-                parameter_types,
-                return_type,
-            })
-            .with_visibility(module_path, visibility),
+            ValueDeclarationKind::Function(declaration).with_visibility(module_path, visibility),
         );
 
         id
@@ -213,12 +205,27 @@ impl Environment {
 
     #[must_use]
     pub fn get_function(&self, id: FunctionId) -> (Visibility, &[String], &FunctionDeclaration) {
-        let (visibility, module_path, ValueDeclarationKind::Function(declaration)) =
-            self.values[id.0].as_tuple()
+        let ValueDeclaration {
+            visibility,
+            module_path,
+            kind: ValueDeclarationKind::Function(declaration),
+        } = &self.values[id.0]
         else {
             unreachable!();
         };
 
-        (visibility, module_path, declaration)
+        (*visibility, module_path, declaration)
+    }
+
+    pub fn update_function_body(&mut self, id: FunctionId, new_body: UnresolvedExpression) {
+        let ValueDeclaration {
+            kind: ValueDeclarationKind::Function(FunctionDeclaration { body: old_body, .. }),
+            ..
+        } = &mut self.values[id.0]
+        else {
+            unreachable!("Value is not a function");
+        };
+
+        *old_body = Some(new_body);
     }
 }

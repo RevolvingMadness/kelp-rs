@@ -10,8 +10,8 @@ use crate::{
         snbt_string::SNBTString,
     },
     low::{
-        data_type::DataType, expression::literal::LiteralExpression,
-        pattern::Pattern as MiddlePattern,
+        data_type::DataType, environment::value::variable::VariableId,
+        expression::literal::LiteralExpression, pattern::Pattern as MiddlePattern,
     },
     path::generic::GenericPath,
     pattern_type::PatternType,
@@ -179,12 +179,12 @@ impl Pattern {
 
                     let id = ctx.declare_variable_known(Visibility::Public, name, variable_type);
 
-                    let declaration = ctx.get_value(id).clone();
+                    let declaration = ctx.get_value(id.into()).clone();
 
                     let (resolved_id, _) =
-                        declaration.resolve_fully(ctx, id, Vec::new(), segment.name_span)?;
+                        declaration.resolve_fully(ctx, id.into(), Vec::new(), segment.name_span)?;
 
-                    MiddlePattern::Binding(resolved_id)
+                    MiddlePattern::Binding(VariableId(resolved_id.0))
                 } else {
                     return ctx.add_error(
                         self.span,

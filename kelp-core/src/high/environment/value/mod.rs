@@ -2,11 +2,15 @@ use crate::{
     high::{
         data_type::resolved::GenericResolver,
         environment::value::{
-            function::HighFunctionDeclaration, variable::HighVariableDeclaration,
+            function::{HighFunctionDeclaration, HighFunctionId},
+            variable::{HighVariableDeclaration, HighVariableId},
         },
         semantic_analysis::SemanticAnalysisContext,
     },
-    low::{data_type::DataType, environment::value::ValueId},
+    low::{
+        data_type::DataType,
+        environment::value::{ValueId, function::FunctionDeclaration},
+    },
     span::Span,
     visibility::Visibility,
 };
@@ -16,6 +20,18 @@ pub mod variable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighValueId(pub usize);
+
+impl From<HighVariableId> for HighValueId {
+    fn from(value: HighVariableId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighFunctionId> for HighValueId {
+    fn from(value: HighFunctionId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum HighValueDeclarationKind {
@@ -68,10 +84,11 @@ impl HighValueDeclaration {
                 Some((resolved_id.into(), data_type))
             }
             HighValueDeclarationKind::Function(declaration) => {
+                let original_id = HighFunctionId(original_id.0);
+
                 if let Some(id) = ctx.get_monomorphized_function_id(original_id, &generic_types) {
                     return Some((id.into(), DataType::Function(id)));
                 }
-
                 let resolver = GenericResolver::create_semantic_analysis(
                     ctx,
                     &declaration.name,
@@ -83,18 +100,22 @@ impl HighValueDeclaration {
                 let parameter_types = declaration
                     .parameter_types
                     .into_iter()
-                    .map(|parameter_type| parameter_type.resolve_fully(&resolver).unwrap())
-                    .collect();
+                    .map(|parameter_type| Some(parameter_type?.resolve_fully(&resolver).unwrap()))
+                    .collect::<Option<_>>()?;
 
-                let return_type = declaration.return_type.resolve_fully(&resolver).unwrap();
+                let return_type = declaration.return_type?.resolve_fully(&resolver).unwrap();
 
                 let monomorphized_id = ctx.declare_monomorphized_function(
                     original_id,
                     self.visibility,
-                    declaration.name,
-                    generic_types,
-                    parameter_types,
-                    return_type,
+                    FunctionDeclaration {
+                        module_path: self.module_path,
+                        name: declaration.name,
+                        generic_types,
+                        parameter_types,
+                        return_type,
+                        body: declaration.body,
+                    },
                 );
 
                 Some((

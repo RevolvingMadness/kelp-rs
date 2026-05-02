@@ -502,7 +502,6 @@ dependencies = [
  "dirs",
  "kelp-core",
  "kelp-parser",
- "nonempty",
  "serde",
  "toml",
  "yansi",
@@ -515,7 +514,6 @@ dependencies = [
  "hashbrown 0.16.1",
  "minecraft-command-types",
  "minecraft-command-types_derive",
- "nonempty",
  "ordered-float",
  "serde_json",
  "strum",
@@ -539,7 +537,6 @@ version = "0.1.0"
 dependencies = [
  "kelp-core",
  "minecraft-command-types",
- "nonempty",
  "ordered-float",
  "paste",
  "phf",
@@ -608,7 +605,6 @@ version = "0.1.0"
 dependencies = [
  "itertools",
  "minecraft-command-types_derive",
- "nonempty",
  "ordered-float",
  "serde",
  "serde_json",
@@ -623,12 +619,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "nonempty"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9737e026353e5cd0736f98eddae28665118eb6f6600902a7f50db585621fecb6"
 
 [[package]]
 name = "num-traits"

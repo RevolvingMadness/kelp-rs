@@ -2,7 +2,6 @@ use kelp_core::high::{
     semantic_analysis::SemanticAnalysisContext, supports_expression_sigil::SupportsExpressionSigil,
 };
 use minecraft_command_types::resource_location::ResourceLocation;
-use nonempty::NonEmpty;
 
 use crate::{
     cst::{
@@ -93,7 +92,6 @@ pub fn lower_actual_resource_location(node: CSTActualResourceLocation) -> Option
     };
 
     let paths = lower_resource_location_path(node.path()?);
-    let paths = NonEmpty::from_vec(paths)?;
 
     Some(ResourceLocation::new(is_tag, namespace, paths))
 }

@@ -13,7 +13,7 @@ use crate::{
         data_type::DataType,
         environment::{
             r#type::r#struct::{StructStructId, TupleStructId},
-            value::ValueId,
+            value::variable::VariableId,
         },
         expression::{literal::LiteralExpression, resolved::ResolvedExpression},
         nbt_path::NbtPath,
@@ -259,7 +259,7 @@ pub enum Pattern {
     Literal(LiteralExpression),
 
     Wildcard,
-    Binding(ValueId),
+    Binding(VariableId),
 
     Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),

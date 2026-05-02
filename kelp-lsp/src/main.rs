@@ -144,7 +144,8 @@ impl Backend {
 
             let root_syntax = match CSTRoot::cast(root) {
                 Ok(cst_root) => {
-                    let mut semantic_analysis_context = SemanticAnalysisContext::new(usize::MAX);
+                    let mut semantic_analysis_context =
+                        SemanticAnalysisContext::new("mod", usize::MAX);
 
                     let statements = lower_root(&cst_root, &mut semantic_analysis_context);
 

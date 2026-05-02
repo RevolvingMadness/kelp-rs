@@ -12,7 +12,9 @@ struct VM {
     program: list<Instruction>,
 }
 
-mcfn vm:run {
+fn vm_run() -> data<integer> {
+    let result = -1 to data;
+
     let op_push = 1;
     let op_load = 2;
     let op_store = 3;
@@ -31,7 +33,6 @@ mcfn vm:run {
     let op_halt = 255;
 
     let vm = storage vm:vm vm as data<VM>;
-    let vm_run_output = score output vm;
 
     loop {
         let instruction = *vm.program[vm.ip];
@@ -128,7 +129,7 @@ mcfn vm:run {
         } else if instruction.opcode == (op_halt) {
             tellraw @a "halt";
 
-            *vm_run_output = vm.stack[-1];
+            result = vm.stack[-1];
             remove vm.stack[-1];
             break;
         } else {
@@ -136,6 +137,8 @@ mcfn vm:run {
             break;
         }
     }
+
+    result
 }
 
 mcfn namespace:main {
@@ -157,7 +160,6 @@ mcfn namespace:main {
     let op_halt = 255;
 
     let vm = storage vm:vm vm as data<VM>;
-    let vm_run_output = score output vm;
 
     let n = 10;
 
@@ -205,7 +207,7 @@ mcfn namespace:main {
         program: program,
     };
 
-    function vm:run;
+    let output = vm_run();
 
-    tellraw @a ["fib(10) = ", vm_run_output];
+    tellraw @a ["fib(10) = ", output];
 }

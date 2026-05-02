@@ -24,7 +24,7 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     path::generic::GenericPath,
     place::{PlaceType, PlaceTypeKind},
-    runtime_storage_type::RuntimeStorageType,
+    runtime_storage::RuntimeStorageType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
 };
@@ -781,83 +781,24 @@ impl Expression {
                     .with(DataType::Struct(id))
             }
             ExpressionKind::Call { callee, arguments } => {
-                let (_, callee) = callee.perform_semantic_analysis(ctx)?;
+                let (callee_span, callee) = callee.perform_semantic_analysis(ctx)?;
 
-                println!("{:?}", callee);
-                println!("{:?}", arguments);
+                let arguments = arguments
+                    .into_iter()
+                    .map(|argument| {
+                        let (_, argument) = argument.perform_semantic_analysis(ctx)?;
 
-                // let mut path = path.resolve_fully(ctx)?;
+                        Some(argument)
+                    })
+                    .collect_option_all::<Vec<_>>()?;
 
-                // let id = ctx.get_visible_type_id(&path)?;
+                let Some(return_type) = callee.data_type.get_call_return_type(&ctx.environment)
+                else {
+                    return ctx
+                        .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
+                };
 
-                // let type_declaration = ctx.get_type(id).clone();
-
-                // let last_segment = path.segments.pop().unwrap();
-
-                // let data_type = type_declaration.resolve_fully(
-                //     ctx,
-                //     id,
-                //     last_segment.generic_types,
-                //     last_segment.name_span,
-                // )?;
-
-                // let id = data_type.as_struct_id_semantic_analysis(
-                //     ctx,
-                //     last_segment.name_span,
-                //     &last_segment.name,
-                // )?;
-
-                // let (specific_id, _, declaration) =
-                //     ctx.get_visible_tuple_struct(last_segment.name_span, &last_segment.name, id)?;
-
-                // let field_types = declaration.field_types.clone();
-
-                // let expected_field_count = field_types.len();
-                // let actual_field_count = field_values.len();
-
-                // if expected_field_count != actual_field_count {
-                //     return ctx.add_error(
-                //         last_segment.name_span,
-                //         SemanticAnalysisError::MismatchedTupleStructFieldCount(
-                //             last_segment.name.clone(),
-                //             expected_field_count,
-                //             actual_field_count,
-                //         ),
-                //     );
-                // }
-
-                // let mut has_error = false;
-
-                // let field_values = field_values
-                //     .into_iter()
-                //     .zip(field_types)
-                //     .map(|(value, data_type)| {
-                //         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
-
-                //         if !value.data_type.equals(&data_type) {
-                //             has_error = true;
-
-                //             return ctx.add_error(
-                //                 value_span,
-                //                 SemanticAnalysisError::MismatchedTypes {
-                //                     expected: data_type,
-                //                     actual: value.data_type,
-                //                 },
-                //             );
-                //         }
-
-                //         Some(value)
-                //     })
-                //     .collect_option_all::<Vec<_>>()?;
-
-                // if has_error {
-                //     return None;
-                // }
-
-                // UnresolvedExpressionKind::TupleStruct(specific_id, field_values)
-                //     .with(DataType::Struct(id))
-
-                todo!()
+                UnresolvedExpressionKind::Call(Box::new(callee), arguments).with(return_type)
             }
             ExpressionKind::If(condition, body, else_body) => {
                 let condition = condition.perform_semantic_analysis(ctx);

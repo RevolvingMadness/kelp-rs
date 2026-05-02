@@ -481,7 +481,7 @@ pub fn compile_shift_operation_score(
     let loop_function_paths = datapack.get_unique_function_paths();
     let current_namespace_name = datapack.current_namespace_name().to_string();
     let loop_function_location =
-        ResourceLocation::new_namespace_paths(current_namespace_name, loop_function_paths.clone());
+        ResourceLocation::new_namespace_paths(&current_namespace_name, loop_function_paths.clone());
 
     ctx.add_command(
         datapack,

@@ -505,6 +505,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "entity_selector" => "EntitySelectorKeyword",
         "fn" => "FNKeyword",
         "->" => "MinusRightArrow",
+        "const" => "ConstKeyword",
         _ => todo!("{:?}", token),
     }
 }

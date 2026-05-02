@@ -219,7 +219,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 )
             }
             SemanticAnalysisError::InvalidGenerics {
-                data_type_name,
+                type_name,
                 expected,
                 actual,
             } => {
@@ -227,8 +227,8 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 let was_were = if *actual == 1 { "was" } else { "were" };
                 write!(
                     f,
-                    "The type `{}` requires {} generic argument{} but only {} {} given",
-                    data_type_name, expected, s, actual, was_were
+                    "The type `{}` takes {} generic argument{} but {} {} given",
+                    type_name, expected, s, actual, was_were
                 )
             }
             SemanticAnalysisError::MacroConflict => {
@@ -240,6 +240,10 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
             SemanticAnalysisError::ControlFlowNotInLoop(kind) => {
                 write!(f, "Cannot `{}` outside of a loop", kind.name())
             }
+            SemanticAnalysisError::ExpressionIsNotCallable => {
+                f.write_str("This expression is not callable")
+            }
+            SemanticAnalysisError::NotAFunction(name) => write!(f, "`{}` is not a function", name),
             SemanticAnalysisError::NotAType(name) => write!(f, "`{}` is not a type", name),
             SemanticAnalysisError::NotAStruct(name) => {
                 write!(f, "The type `{}` is not a struct", name)
@@ -359,13 +363,14 @@ pub enum SemanticAnalysisError {
         field: String,
     },
     InvalidGenerics {
-        data_type_name: String,
+        type_name: String,
         expected: usize,
         actual: usize,
     },
     MacroConflict,
     ControlFlowNotInLoop(ControlFlowKind),
-
+    ExpressionIsNotCallable,
+    NotAFunction(String),
     NotAType(String),
     NotAStruct(String),
     NotARegularStruct(String),

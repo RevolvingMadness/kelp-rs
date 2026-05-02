@@ -12,6 +12,7 @@ use crate::{
     },
     low::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
     operator::{ArithmeticOperator, ComparisonOperator},
+    runtime_storage::RuntimeStorageType,
     span::Span,
 };
 
@@ -260,6 +261,33 @@ impl DataType {
             Self::Generic(name) => resolver.resolve(&name)?.clone(),
             _ => self,
         })
+    }
+
+    #[must_use]
+    pub fn get_call_return_type(&self, environment: &Environment) -> Option<Self> {
+        Some(match self {
+            Self::Function(id) => {
+                let (_, _, declaration) = environment.get_function(*id);
+
+                declaration.return_type.clone()
+            }
+            Self::ResourceLocation => Self::Integer,
+            _ => return None,
+        })
+    }
+
+    #[must_use]
+    pub fn get_runtime_storage_type(&self) -> RuntimeStorageType {
+        match self {
+            Self::Boolean
+            | Self::Byte
+            | Self::Short
+            | Self::Integer
+            | Self::InferredInteger
+            | Self::Score(_) => RuntimeStorageType::Score,
+            Self::Reference(data_type) => data_type.get_runtime_storage_type(),
+            _ => RuntimeStorageType::Data,
+        }
     }
 
     #[must_use]

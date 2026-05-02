@@ -9,7 +9,9 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    data::GeneratedDataTarget, datapack::Datapack, low::expression::resolved::ResolvedExpression,
+    data::GeneratedDataTarget,
+    datapack::{Datapack, mcfunction::MCFunction},
+    low::expression::resolved::ResolvedExpression,
 };
 
 #[derive(Debug, Clone)]
@@ -43,6 +45,13 @@ impl CompileContext {
             loop_info: self.loop_info.clone(),
             ..Default::default()
         }
+    }
+
+    #[inline]
+    pub fn compile_to_function(mut self, function: &mut MCFunction) {
+        let commands = self.compile();
+
+        function.add_commands(commands);
     }
 
     #[inline]

@@ -129,7 +129,7 @@ fn vm_run() -> data<integer> {
         } else if instruction.opcode == (op_halt) {
             tellraw @a "halt";
 
-            result = vm.stack[-1];
+            *result = vm.stack[-1];
             remove vm.stack[-1];
             break;
         } else {

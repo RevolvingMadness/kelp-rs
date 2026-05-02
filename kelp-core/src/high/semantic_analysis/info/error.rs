@@ -218,6 +218,16 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     field
                 )
             }
+            SemanticAnalysisError::InvalidParameterCount { expected, actual } => {
+                let s = if *expected == 1 { "" } else { "s" };
+                let was_were = if *actual == 1 { "was" } else { "were" };
+
+                write!(
+                    f,
+                    "Expected {} parameter{} but {} {} given",
+                    expected, s, actual, was_were
+                )
+            }
             SemanticAnalysisError::InvalidGenerics {
                 type_name,
                 expected,
@@ -361,6 +371,10 @@ pub enum SemanticAnalysisError {
     TypeDoesntHaveField {
         data_type: DataType,
         field: String,
+    },
+    InvalidParameterCount {
+        expected: usize,
+        actual: usize,
     },
     InvalidGenerics {
         type_name: String,

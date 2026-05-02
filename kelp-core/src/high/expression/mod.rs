@@ -793,13 +793,26 @@ impl Expression {
                     })
                     .collect_option_all::<Vec<_>>()?;
 
-                let Some(return_type) = callee.data_type.get_call_return_type(&ctx.environment)
-                else {
+                let Some(call_info) = callee.data_type.get_call_info(&ctx.environment) else {
                     return ctx
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
 
-                UnresolvedExpressionKind::Call(Box::new(callee), arguments).with(return_type)
+                let parameter_count = call_info.parameter_count;
+                let argument_count = arguments.len();
+
+                if argument_count != parameter_count {
+                    return ctx.add_error(
+                        callee_span,
+                        SemanticAnalysisError::InvalidParameterCount {
+                            expected: parameter_count,
+                            actual: argument_count,
+                        },
+                    );
+                }
+
+                UnresolvedExpressionKind::Call(Box::new(callee), arguments)
+                    .with(call_info.return_type)
             }
             ExpressionKind::If(condition, body, else_body) => {
                 let condition = condition.perform_semantic_analysis(ctx);

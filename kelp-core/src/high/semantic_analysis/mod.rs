@@ -1,6 +1,6 @@
 use hashbrown::{Equivalent, HashMap};
 use smallvec::SmallVec;
-use std::{collections::HashMap as StdHashMap, hint::unreachable_unchecked};
+use std::collections::HashMap as StdHashMap;
 
 use crate::{
     builtin_data_type::BuiltinDataType,
@@ -40,6 +40,7 @@ use crate::{
             },
         },
         expression::unresolved::UnresolvedExpression,
+        pattern::Pattern,
     },
     path::{generic::GenericPath, regular::Path},
     span::Span,
@@ -565,7 +566,7 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         name: String,
         generic_names: Vec<String>,
-        parameter_types: Vec<Option<DataType>>,
+        parameters: Vec<(Option<Pattern>, Option<DataType>)>,
         return_type: Option<DataType>,
         body: Option<UnresolvedExpression>,
     ) -> HighFunctionId {
@@ -574,7 +575,7 @@ impl SemanticAnalysisContext {
             HighValueDeclarationKind::Function(HighFunctionDeclaration {
                 name,
                 generic_names,
-                parameter_types,
+                parameters,
                 return_type,
                 body,
             }),
@@ -583,7 +584,12 @@ impl SemanticAnalysisContext {
         HighFunctionId(id.0)
     }
 
-    pub fn update_function_body(&mut self, id: HighFunctionId, body: UnresolvedExpression) {
+    pub fn update_function(
+        &mut self,
+        id: HighFunctionId,
+        parameters: Vec<(Pattern, DataType)>,
+        body: UnresolvedExpression,
+    ) {
         let mut monomorphized_functions_to_update = Vec::new();
 
         for (key, func_id) in &self.monomorphized_functions {
@@ -593,11 +599,14 @@ impl SemanticAnalysisContext {
         }
 
         for monomorphized_function_id in monomorphized_functions_to_update {
-            self.environment
-                .update_function_body(monomorphized_function_id, body.clone());
+            self.environment.update_function(
+                monomorphized_function_id,
+                parameters.clone(),
+                body.clone(),
+            );
         }
 
-        self.high_environment.update_function_body(id, body);
+        self.high_environment.update_function(id, parameters, body);
     }
 
     #[must_use]
@@ -916,7 +925,7 @@ impl SemanticAnalysisContext {
         }
 
         let HighTypeDeclarationKind::Module(declaration) = &self.get_type(id).kind else {
-            unsafe { unreachable_unchecked() }
+            unreachable!();
         };
 
         Some(declaration)
@@ -951,7 +960,7 @@ impl SemanticAnalysisContext {
         let (_, module_path, StructDeclaration::Struct(declaration)) =
             self.environment.get_struct(id)
         else {
-            unsafe { unreachable_unchecked() }
+            unreachable!();
         };
 
         Some((StructStructId(id.0), module_path, declaration))
@@ -986,7 +995,7 @@ impl SemanticAnalysisContext {
         let (_, module_path, StructDeclaration::Tuple(declaration)) =
             self.environment.get_struct(id)
         else {
-            unsafe { unreachable_unchecked() }
+            unreachable!();
         };
 
         Some((TupleStructId(id.0), module_path, declaration))

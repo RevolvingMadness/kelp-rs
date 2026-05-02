@@ -129,12 +129,15 @@ fn compile_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     original_id: FunctionId,
+    arguments: &[ResolvedExpression],
 ) -> ResolvedExpression {
     let (_, _, original_declaration) = datapack.get_function_declaration(original_id);
+
     let original_body = original_declaration.body.clone().unwrap();
     let return_type_is_compiletime = original_declaration
         .return_type
         .is_compiletime(&datapack.environment);
+    let return_storage_type = original_declaration.return_type.get_runtime_storage_type();
 
     let mut paths = original_declaration.module_path.clone();
 
@@ -143,6 +146,12 @@ fn compile_function(
     paths.push(original_declaration.name.clone());
 
     let compiled_resource_location = ResourceLocation::new_namespace_paths(&namespace, &paths);
+
+    let parameters = original_declaration.parameters.clone().unwrap_or_default();
+
+    for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
+        pattern.destructure(datapack, ctx, data_type, argument);
+    }
 
     if return_type_is_compiletime {
         original_body.kind.resolve(datapack, ctx)
@@ -156,16 +165,13 @@ fn compile_function(
             return result_expression;
         }
 
-        let unique_target = original_declaration
-            .return_type
-            .get_runtime_storage_type()
-            .get_unique(datapack);
+        let return_target = return_storage_type.get_unique(datapack);
 
         datapack.compiled_functions.insert(
             original_id,
             CompiledFunction {
                 resource_location: compiled_resource_location.clone(),
-                result_expression: unique_target.clone().to_expression(),
+                result_expression: return_target.clone().to_expression(),
             },
         );
 
@@ -173,7 +179,7 @@ fn compile_function(
 
         datapack
             .function_return_expressions
-            .push(unique_target.clone());
+            .push(return_target.clone());
 
         if original_body.kind.definitely_diverges() {
             original_body
@@ -181,7 +187,7 @@ fn compile_function(
                 .compile_as_statement(datapack, &mut compiled_body_ctx);
         } else {
             let result = original_body.kind.resolve(datapack, &mut compiled_body_ctx);
-            result.assign_to_target(datapack, &mut compiled_body_ctx, unique_target.clone());
+            result.assign_to_target(datapack, &mut compiled_body_ctx, return_target.clone());
         }
 
         datapack.function_return_expressions.pop();
@@ -196,7 +202,7 @@ fn compile_function(
             Command::Function(compiled_resource_location, None),
         );
 
-        unique_target.to_expression()
+        return_target.to_expression()
     }
 }
 
@@ -348,7 +354,7 @@ impl ResolvedExpression {
 
                 Self::PlayerScore(unique_score)
             }
-            Self::Function(original_id) => compile_function(datapack, ctx, original_id),
+            Self::Function(original_id) => compile_function(datapack, ctx, original_id, arguments),
             _ => unreachable!("The expression '{:?}' is not callable", self),
         }
     }
@@ -361,7 +367,7 @@ impl ResolvedExpression {
                 ctx.add_command(datapack, Command::Function(resource_location, None));
             }
             Self::Function(original_id) => {
-                compile_function(datapack, ctx, original_id);
+                compile_function(datapack, ctx, original_id, arguments);
             }
             _ => unreachable!("The expression '{:?}' is not callable", self),
         }
@@ -1714,12 +1720,14 @@ impl ResolvedExpression {
 
                 output.push('(');
 
-                for (i, data_type) in declaration.parameter_types.iter().enumerate() {
-                    if i != 0 {
-                        output.push_str(", ");
-                    }
+                if let Some(parameters) = &declaration.parameters {
+                    for (i, (_, data_type)) in parameters.iter().enumerate() {
+                        if i != 0 {
+                            output.push_str(", ");
+                        }
 
-                    let _ = write!(output, "{}", data_type.display(&datapack.environment));
+                        let _ = write!(output, "{}", data_type.display(&datapack.environment));
+                    }
                 }
 
                 output.push(')');

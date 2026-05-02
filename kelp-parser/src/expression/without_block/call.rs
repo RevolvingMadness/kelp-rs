@@ -3,7 +3,22 @@ use kelp_core::high::{
     semantic_analysis::SemanticAnalysisContext,
 };
 
-use crate::{cst::CSTCallExpression, expression::lower_expression, span::span_of_cst_node};
+use crate::{
+    cst::{CSTCallArguments, CSTCallExpression},
+    expression::lower_expression,
+    span::span_of_cst_node,
+};
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_call_arguments(
+    node: CSTCallArguments,
+    ctx: &mut SemanticAnalysisContext,
+) -> Vec<Expression> {
+    node.expressions()
+        .filter_map(|expression| lower_expression(expression, ctx))
+        .collect()
+}
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
@@ -16,14 +31,13 @@ pub fn lower_call_expression(
     let callee = lower_expression(node.callee()?, ctx)?;
 
     let arguments = node
-        .arguments()
-        .filter_map(|argument| lower_expression(argument, ctx))
-        .collect();
+        .call_arguments()
+        .map(|arguments| lower_call_arguments(arguments, ctx));
 
     Some(
         ExpressionKind::Call {
             callee: Box::new(callee),
-            arguments,
+            arguments: arguments.unwrap_or_default(),
         }
         .with_span(span),
     )

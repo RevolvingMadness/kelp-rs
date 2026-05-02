@@ -89,6 +89,7 @@ impl HighValueDeclaration {
                 if let Some(id) = ctx.get_monomorphized_function_id(original_id, &generic_types) {
                     return Some((id.into(), DataType::Function(id)));
                 }
+
                 let resolver = GenericResolver::create_semantic_analysis(
                     ctx,
                     &declaration.name,
@@ -97,13 +98,15 @@ impl HighValueDeclaration {
                     &generic_types,
                 )?;
 
-                let parameter_types = declaration
-                    .parameter_types
+                let parameters = declaration
+                    .parameters
                     .into_iter()
-                    .map(|parameter_type| Some(parameter_type?.resolve_fully(&resolver).unwrap()))
-                    .collect::<Option<_>>()?;
+                    .map(|(pattern, data_type)| {
+                        Some((pattern?, data_type?.resolve_fully(&resolver)?))
+                    })
+                    .collect::<Option<Vec<_>>>();
 
-                let return_type = declaration.return_type?.resolve_fully(&resolver).unwrap();
+                let return_type = declaration.return_type?.resolve_fully(&resolver)?;
 
                 let monomorphized_id = ctx.declare_monomorphized_function(
                     original_id,
@@ -112,7 +115,7 @@ impl HighValueDeclaration {
                         module_path: self.module_path,
                         name: declaration.name,
                         generic_types,
-                        parameter_types,
+                        parameters,
                         return_type,
                         body: declaration.body,
                     },

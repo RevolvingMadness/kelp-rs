@@ -28,7 +28,7 @@ PathUseTree = Path
 
 FunctionDeclarationItem = 'fn' name:'ident' '(' (parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?)? ')' ('->' DataType)? BlockExpression
 
-FunctionParameter = name:'ident' ':' DataType
+FunctionParameter = Pattern ':' DataType
 
 MCFNDeclarationItem =
   'mcfn' ResourceLocation BlockExpression
@@ -185,7 +185,9 @@ NumericExpression =
 UnitExpression =
   '(' ')'
 
-CallExpression = callee:Expression '(' (arguments:Expression (',' arguments:Expression)* ','?)? ')'
+CallExpression = callee:Expression '(' CallArguments ')'
+
+CallArguments = (Expression (',' Expression)* ','?)?
 
 ParenthesizedExpression =
   '(' Expression ')'

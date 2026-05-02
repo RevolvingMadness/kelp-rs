@@ -243,6 +243,7 @@ pub enum SyntaxKind {
     ToCastExpression,
     AsCastExpression,
     CallExpression,
+    CallArguments,
     ParenthesizedExpression,
 
     UnitDataType,

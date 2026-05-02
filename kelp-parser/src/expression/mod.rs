@@ -440,6 +440,8 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.skip_whitespace();
 
                 if parser.peek_char() != Some(')') {
+                    parser.start_node(SyntaxKind::CallArguments);
+
                     loop {
                         if !try_parse_expression(parser) {
                             break;
@@ -457,6 +459,8 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                             break;
                         }
                     }
+
+                    parser.finish_node();
                 }
 
                 parser.expect_char(')', "Expected closing parenthesis ')'");

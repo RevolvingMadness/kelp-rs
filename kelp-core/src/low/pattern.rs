@@ -36,6 +36,11 @@ fn destructure_tuple(
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
         }
+        (DataType::Tuple(data_types), score @ ResolvedExpression::PlayerScore(_)) => {
+            for (pattern, data_type) in patterns.into_iter().zip(data_types) {
+                pattern.destructure(datapack, ctx, data_type, score.clone());
+            }
+        }
         (DataType::Tuple(data_types), ResolvedExpression::Data(target_path)) => {
             let (target, path) = *target_path;
 

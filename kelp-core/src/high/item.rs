@@ -11,6 +11,7 @@ use crate::{
             r#struct::{HighStructStructDeclaration, HighTupleStructDeclaration},
         },
         expression::block::BlockExpression,
+        pattern::Pattern,
         semantic_analysis::{
             ResolvedItem, SemanticAnalysisContext, info::error::SemanticAnalysisError,
         },
@@ -28,7 +29,7 @@ pub enum ItemKind {
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
-        parameter_types: Vec<UnresolvedDataType>,
+        parameters: Vec<(Pattern, UnresolvedDataType)>,
         return_type: UnresolvedDataType,
         body: BlockExpression,
     },
@@ -84,15 +85,19 @@ impl Item {
             ItemKind::FunctionDeclaration {
                 name,
                 generic_names,
-                parameter_types,
+                parameters,
                 return_type,
                 body,
                 ..
             } => {
-                let parameter_types = parameter_types
-                    .into_iter()
-                    .map(|parameter_type| parameter_type.resolve_partially(None, ctx))
-                    .collect();
+                let parameter_types = parameters
+                    .iter()
+                    .map(|(_, data_type)| {
+                        data_type
+                            .clone()
+                            .resolve_partially(Some(&generic_names), ctx)
+                    })
+                    .collect::<Vec<_>>();
 
                 let return_type = return_type.resolve_fully(ctx);
 
@@ -100,14 +105,45 @@ impl Item {
                     self.visibility,
                     name,
                     generic_names,
-                    parameter_types,
+                    parameter_types
+                        .iter()
+                        .cloned()
+                        .map(|parameter| (None, parameter))
+                        .collect(),
                     return_type.clone(),
                     None,
                 );
 
+                ctx.enter_scope();
                 ctx.function_return_types.push(return_type);
+
+                let mut resolved_parameters = Vec::with_capacity(parameters.len());
+                let mut resolved_all_parameters = true;
+
+                for ((pattern, _), data_type) in
+                    parameters.into_iter().zip(parameter_types.into_iter())
+                {
+                    let Some(data_type) = data_type else {
+                        resolved_all_parameters = false;
+                        continue;
+                    };
+
+                    let Some(resolved_pattern) =
+                        pattern.perform_semantic_analysis(ctx, data_type.clone())
+                    else {
+                        resolved_all_parameters = false;
+                        continue;
+                    };
+
+                    if resolved_all_parameters {
+                        resolved_parameters.push((resolved_pattern, data_type));
+                    }
+                }
+
                 let body = body.perform_semantic_analysis(ctx);
+
                 let return_type = ctx.function_return_types.pop().unwrap();
+                ctx.exit_scope();
 
                 if let Some(return_type) = return_type
                     && let Some((body_span, tail_expression_span, body)) = body.as_ref()
@@ -123,11 +159,9 @@ impl Item {
                     );
                 }
 
-                if let Some((_, _, body)) = body {
-                    ctx.update_function_body(id, body);
+                if resolved_all_parameters && let Some((_, _, body_expr)) = body {
+                    ctx.update_function(id, resolved_parameters, body_expr);
                 }
-
-                // TODO
 
                 MiddleItem::FunctionDeclaration
             }

@@ -55,9 +55,9 @@ fn compile_if(
     inverted: bool,
     condition: ExecuteIfSubcommand,
 ) {
-    let should_inine = body_ctx.num_commands() <= 5;
+    let should_inline = body_ctx.num_commands() <= 5;
 
-    if should_inine {
+    if should_inline {
         for command in body_ctx.commands {
             caller_ctx.add_command(
                 datapack,

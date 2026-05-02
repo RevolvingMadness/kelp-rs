@@ -1,0 +1,15 @@
+use std::*;
+
+fn add((a, b): (score<integer>, score<integer>), c: score<integer>) -> score<integer> {
+    a + b + c
+}
+
+mcfn namespace:main {
+    let a = 1 to score;
+    let b = 2 to score;
+    let c = 3 to score;
+
+    let result = add((a, b), c);
+
+    tellraw @a [a, " + ", b, " + ", c, " = ", result];
+}

@@ -18,6 +18,7 @@ use crate::{
             },
         },
         expression::unresolved::UnresolvedExpression,
+        pattern::Pattern,
     },
     visibility::Visibility,
 };
@@ -217,15 +218,26 @@ impl Environment {
         (*visibility, module_path, declaration)
     }
 
-    pub fn update_function_body(&mut self, id: FunctionId, new_body: UnresolvedExpression) {
+    pub fn update_function(
+        &mut self,
+        id: FunctionId,
+        new_parameters: Vec<(Pattern, DataType)>,
+        new_body: UnresolvedExpression,
+    ) {
         let ValueDeclaration {
-            kind: ValueDeclarationKind::Function(FunctionDeclaration { body: old_body, .. }),
+            kind:
+                ValueDeclarationKind::Function(FunctionDeclaration {
+                    parameters: old_parameters,
+                    body: old_body,
+                    ..
+                }),
             ..
         } = &mut self.values[id.0]
         else {
             unreachable!("Value is not a function");
         };
 
+        *old_parameters = Some(new_parameters);
         *old_body = Some(new_body);
     }
 }

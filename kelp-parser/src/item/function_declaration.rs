@@ -8,6 +8,7 @@ use crate::{
     data_type::{lower_data_type, try_parse_data_type},
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     parser::Parser,
+    pattern::{lower_pattern, try_parse_pattern},
     span::text_range_to_span,
     syntax::SyntaxKind,
 };
@@ -35,9 +36,10 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
         loop {
             parser.start_node(SyntaxKind::FunctionParameter);
 
-            if !parser.try_bump_identifier() {
-                parser.error("Expected parameter name");
+            if !try_parse_pattern(parser) {
+                parser.error("Expected parameter pattern");
                 parser.finish_node();
+
                 break;
             }
 
@@ -108,9 +110,10 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
         loop {
             parser.start_node(SyntaxKind::FunctionParameter);
 
-            if !parser.try_bump_identifier() {
-                parser.error("Expected parameter name");
+            if !try_parse_pattern(parser) {
+                parser.error("Expected parameter pattern");
                 parser.finish_node();
+
                 break;
             }
 
@@ -169,13 +172,13 @@ pub fn lower_function_declaration_item_kind(
     let name_span = name_token.text_range();
     let name = name_token.text();
 
-    let parameter_types = node
+    let parameters = node
         .parameters()
-        .map(|param| {
-            param
-                .data_type()
-                .and_then(lower_data_type)
-                .unwrap_or(UnresolvedDataType::Unit)
+        .filter_map(|parameter| {
+            let pattern = lower_pattern(parameter.pattern()?, ctx)?;
+            let data_type = lower_data_type(parameter.data_type()?)?;
+
+            Some((pattern, data_type))
         })
         .collect();
 
@@ -190,7 +193,7 @@ pub fn lower_function_declaration_item_kind(
         name_span: text_range_to_span(name_span),
         name: name.to_owned(),
         generic_names: Vec::new(),
-        parameter_types,
+        parameters,
         return_type,
         body,
     })

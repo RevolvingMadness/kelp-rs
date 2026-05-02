@@ -16,6 +16,12 @@ use crate::{
     span::Span,
 };
 
+#[derive(Debug, Clone)]
+pub struct CallInfo {
+    pub return_type: DataType,
+    pub parameter_count: usize,
+}
+
 pub struct DataTypeDisplay<'a> {
     pub data_type: &'a DataType,
     pub environment: &'a Environment,
@@ -133,12 +139,14 @@ impl Display for DataTypeDisplay<'_> {
 
                 f.write_char('(')?;
 
-                for (i, data_type) in declaration.parameter_types.iter().enumerate() {
-                    if i != 0 {
-                        f.write_str(", ")?;
-                    }
+                if let Some(parameters) = &declaration.parameters {
+                    for (i, (_, data_type)) in parameters.iter().enumerate() {
+                        if i != 0 {
+                            f.write_str(", ")?;
+                        }
 
-                    data_type.display(self.environment).fmt(f)?;
+                        data_type.display(self.environment).fmt(f)?;
+                    }
                 }
 
                 write!(
@@ -266,14 +274,20 @@ impl DataType {
     }
 
     #[must_use]
-    pub fn get_call_return_type(&self, environment: &Environment) -> Option<Self> {
+    pub fn get_call_info(&self, environment: &Environment) -> Option<CallInfo> {
         Some(match self {
             Self::Function(id) => {
                 let (_, _, declaration) = environment.get_function(*id);
 
-                declaration.return_type.clone()
+                CallInfo {
+                    return_type: declaration.return_type.clone(),
+                    parameter_count: declaration.parameters.as_ref().map_or(0, Vec::len),
+                }
             }
-            Self::ResourceLocation => Self::Integer,
+            Self::ResourceLocation => CallInfo {
+                return_type: Self::Integer,
+                parameter_count: 0,
+            },
             _ => return None,
         })
     }

@@ -7,7 +7,7 @@ use crate::{
             variable::{HighVariableDeclaration, HighVariableId},
         },
     },
-    low::{data_type::DataType, expression::unresolved::UnresolvedExpression},
+    low::{data_type::DataType, expression::unresolved::UnresolvedExpression, pattern::Pattern},
     visibility::Visibility,
 };
 
@@ -57,12 +57,19 @@ impl HighEnvironment {
         f(self.values.get_mut(id.0).unwrap());
     }
 
-    pub fn update_function_body(&mut self, id: HighFunctionId, new_body: UnresolvedExpression) {
+    pub fn update_function(
+        &mut self,
+        id: HighFunctionId,
+        new_parameters: Vec<(Pattern, DataType)>,
+        new_body: UnresolvedExpression,
+    ) {
         self.update_declaration(id.into(), |declaration| {
             let HighValueDeclaration {
                 kind:
                     HighValueDeclarationKind::Function(HighFunctionDeclaration {
-                        body: old_body, ..
+                        parameters: old_parameters,
+                        body: old_body,
+                        ..
                     }),
                 ..
             } = declaration
@@ -70,6 +77,10 @@ impl HighEnvironment {
                 unreachable!("Value is not a function");
             };
 
+            *old_parameters = new_parameters
+                .into_iter()
+                .map(|(pattern, data_type)| (Some(pattern), Some(data_type)))
+                .collect();
             *old_body = Some(new_body);
         });
     }

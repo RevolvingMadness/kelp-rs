@@ -33,6 +33,7 @@ impl Display for DataTypeDisplay<'_> {
             DataType::Double => f.write_str("double"),
             DataType::String => f.write_str("string"),
             DataType::Unit => f.write_str("()"),
+            DataType::Never => f.write_char('!'),
             DataType::Score(data_type) => {
                 f.write_str("score<")?;
                 data_type.display(self.environment).fmt(f)?;
@@ -211,6 +212,7 @@ pub enum DataType {
     Double,
     String,
     Unit,
+    Never,
     Score(Box<Self>),
     List(Box<Self>),
     TypedCompound(BTreeMap<LowSNBTString, Self>),
@@ -586,6 +588,7 @@ impl DataType {
             | Self::Float
             | Self::Double
             | Self::String
+            | Self::Never
             | Self::Unit
             | Self::List(_)
             | Self::TypedCompound(_)

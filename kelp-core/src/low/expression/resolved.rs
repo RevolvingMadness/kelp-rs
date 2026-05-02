@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::BuildHasher};
+use std::{collections::HashMap, fmt::Write, hash::BuildHasher};
 
 use minecraft_command_types::{
     command::{
@@ -31,6 +31,7 @@ use crate::{
     low::{
         data_type::DataType,
         environment::{
+            Environment,
             r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
             value::function::FunctionId,
         },
@@ -144,16 +145,17 @@ fn compile_function(
     let compiled_resource_location = ResourceLocation::new_namespace_paths(&namespace, &paths);
 
     if return_type_is_compiletime {
-        datapack.compiled_functions.insert(
-            original_id,
-            CompiledFunction {
-                resource_location: compiled_resource_location,
-                result_expression: None,
-            },
-        );
-
         original_body.kind.resolve(datapack, ctx)
     } else {
+        if let Some(compiled_function) = datapack.compiled_functions.get(&original_id) {
+            let resource_location = compiled_function.resource_location.clone();
+            let result_expression = compiled_function.result_expression.clone();
+
+            ctx.add_command(datapack, Command::Function(resource_location, None));
+
+            return result_expression;
+        }
+
         let unique_target = original_declaration
             .return_type
             .get_runtime_storage_type()
@@ -163,14 +165,26 @@ fn compile_function(
             original_id,
             CompiledFunction {
                 resource_location: compiled_resource_location.clone(),
-                result_expression: Some(unique_target.clone().to_expression()),
+                result_expression: unique_target.clone().to_expression(),
             },
         );
 
         let mut compiled_body_ctx = CompileContext::default();
 
-        let result = original_body.kind.resolve(datapack, &mut compiled_body_ctx);
-        result.assign_to_target(datapack, &mut compiled_body_ctx, unique_target.clone());
+        datapack
+            .function_return_expressions
+            .push(unique_target.clone());
+
+        if original_body.kind.definitely_diverges() {
+            original_body
+                .kind
+                .compile_as_statement(datapack, &mut compiled_body_ctx);
+        } else {
+            let result = original_body.kind.resolve(datapack, &mut compiled_body_ctx);
+            result.assign_to_target(datapack, &mut compiled_body_ctx, unique_target.clone());
+        }
+
+        datapack.function_return_expressions.pop();
 
         let function = datapack
             .get_namespace_mut(&namespace)
@@ -223,6 +237,24 @@ macro_rules! compute_float {
     };
 }
 
+fn format_generics(output: &mut String, generics: &[DataType], environment: &Environment) {
+    if generics.is_empty() {
+        return;
+    }
+
+    output.push('<');
+
+    for (i, data_type) in generics.iter().enumerate() {
+        if i != 0 {
+            output.push_str(", ");
+        }
+
+        let _ = write!(output, "{}", data_type.display(environment));
+    }
+
+    output.push('>');
+}
+
 #[derive(Debug, Clone)]
 pub enum ResolvedExpression {
     Boolean(bool),
@@ -239,6 +271,7 @@ pub enum ResolvedExpression {
     StructStruct(StructStructId, HashMap<String, Self>),
     TupleStruct(TupleStructId, Vec<Self>),
     Unit,
+    Never,
     ResourceLocation(ResourceLocation),
     EntitySelector(EntitySelector),
     Function(FunctionId),
@@ -315,23 +348,7 @@ impl ResolvedExpression {
 
                 Self::PlayerScore(unique_score)
             }
-            Self::Function(original_id) => {
-                if let Some(compiled_function) = datapack.compiled_functions.get(&original_id)
-                    && let Some(result_expression) = &compiled_function.result_expression
-                {
-                    let compiled_resource_location = compiled_function.resource_location.clone();
-                    let result_expression = result_expression.clone();
-
-                    ctx.add_command(
-                        datapack,
-                        Command::Function(compiled_resource_location, None),
-                    );
-
-                    return result_expression;
-                }
-
-                compile_function(datapack, ctx, original_id)
-            }
+            Self::Function(original_id) => compile_function(datapack, ctx, original_id),
             _ => unreachable!("The expression '{:?}' is not callable", self),
         }
     }
@@ -344,17 +361,6 @@ impl ResolvedExpression {
                 ctx.add_command(datapack, Command::Function(resource_location, None));
             }
             Self::Function(original_id) => {
-                if let Some(compiled_function) = datapack.compiled_functions.get(&original_id) {
-                    let compiled_resource_location = compiled_function.resource_location.clone();
-
-                    ctx.add_command(
-                        datapack,
-                        Command::Function(compiled_resource_location, None),
-                    );
-
-                    return;
-                }
-
                 compile_function(datapack, ctx, original_id);
             }
             _ => unreachable!("The expression '{:?}' is not callable", self),
@@ -541,6 +547,16 @@ impl ResolvedExpression {
 
                 compound.insert(
                     SNBTString(false, "__kelp_rs_unit__".to_string()),
+                    Macroable::Regular(SNBT::byte(1)),
+                );
+
+                SNBT::compound(compound)
+            }
+            Self::Never => {
+                let mut compound = SNBTCompound::new();
+
+                compound.insert(
+                    SNBTString(false, "__kelp_rs_never__".to_string()),
                     Macroable::Regular(SNBT::byte(1)),
                 );
 
@@ -1558,7 +1574,6 @@ impl ResolvedExpression {
         force_display: bool,
     ) -> SNBT {
         match self {
-            Self::Function(_) => todo!(),
             Self::PlayerScore(player_score) => player_score.to_text_component(),
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -1684,7 +1699,42 @@ impl ResolvedExpression {
 
                 SNBT::list(list)
             }
+            Self::Never => SNBT::string('!'),
             Self::Unit => SNBT::string("()"),
+            Self::Function(id) => {
+                let (_, _, declaration) = datapack.get_function_declaration(id);
+
+                let mut output = format!("fn {}", declaration.name);
+
+                format_generics(
+                    &mut output,
+                    &declaration.generic_types,
+                    &datapack.environment,
+                );
+
+                output.push('(');
+
+                for (i, data_type) in declaration.parameter_types.iter().enumerate() {
+                    if i != 0 {
+                        output.push_str(", ");
+                    }
+
+                    let _ = write!(output, "{}", data_type.display(&datapack.environment));
+                }
+
+                output.push(')');
+
+                if declaration.return_type != DataType::Unit {
+                    let _ = write!(
+                        output,
+                        " -> {}",
+                        declaration.return_type.display(&datapack.environment)
+                    );
+                }
+
+                SNBT::string(output)
+            }
+
             Self::StructStruct(id, fields) => {
                 if force_display {
                     // TODO: Maybe display full path?
@@ -1865,9 +1915,9 @@ impl ResolvedExpression {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        value: RuntimeStorageTarget,
+        target: RuntimeStorageTarget,
     ) {
-        match value {
+        match target {
             RuntimeStorageTarget::Score(score) => self.assign_to_score(datapack, ctx, score),
             RuntimeStorageTarget::Data(target, path) => {
                 self.assign_to_data(datapack, ctx, target, path);

@@ -11,11 +11,11 @@ use crate::{
         field_access::lower_field_access_expression, index::lower_index_expression,
         list::lower_list_expression, numeric::lower_numeric_expression,
         parenthesized::lower_parenthesized_expression, path::lower_path_expression,
-        resource_location::lower_resource_location_expression, score::lower_score_expression,
-        string::lower_string_expression, r#struct::lower_struct_expression,
-        to_cast::lower_to_cast_expression, tuple::lower_tuple_expression,
-        unary::lower_unary_expression, underscore::lower_underscore_expression,
-        unit::lower_unit_expression,
+        resource_location::lower_resource_location_expression, r#return::lower_return_expression,
+        score::lower_score_expression, string::lower_string_expression,
+        r#struct::lower_struct_expression, to_cast::lower_to_cast_expression,
+        tuple::lower_tuple_expression, unary::lower_unary_expression,
+        underscore::lower_underscore_expression, unit::lower_unit_expression,
     },
 };
 
@@ -36,6 +36,7 @@ pub mod numeric;
 pub mod parenthesized;
 pub mod path;
 pub mod resource_location;
+pub mod r#return;
 pub mod score;
 pub mod string;
 pub mod r#struct;
@@ -91,5 +92,6 @@ pub fn lower_expression_without_block(
         CSTExpressionWithoutBlock::EntitySelectorExpression(node) => {
             lower_entity_selector_expression(node, ctx)
         }
+        CSTExpressionWithoutBlock::ReturnExpression(node) => lower_return_expression(node, ctx),
     }
 }

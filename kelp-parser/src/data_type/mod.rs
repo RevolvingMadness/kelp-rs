@@ -25,6 +25,13 @@ pub fn try_parse_data_type(parser: &mut Parser) -> bool {
     match parser.peek_char() {
         Some('&') => try_parse_reference_data_type(parser),
         Some('(') => try_parse_tuple_or_unit_data_type(parser),
+        Some('!') => {
+            parser.start_node(SyntaxKind::NeverDataType);
+            parser.bump_char();
+            parser.finish_node();
+
+            true
+        }
         Some('{') => try_parse_typed_compound_data_type(parser),
         _ => parser.peek_identifier().is_some_and(|identifier| {
             if identifier == "_" {
@@ -103,6 +110,7 @@ pub fn lower_data_type(node: CSTDataType) -> Option<UnresolvedDataType> {
             Some(UnresolvedDataType::Tuple(data_types))
         }
         CSTDataType::UnitDataType(_) => Some(UnresolvedDataType::Unit),
+        CSTDataType::NeverDataType(_) => Some(UnresolvedDataType::Never),
         CSTDataType::TypedCompoundDataType(data_type) => {
             let fields = data_type
                 .fields()

@@ -39,7 +39,7 @@ use crate::{
         nbt_path::NbtPath,
         pattern::Pattern,
         player_score::PlayerScore,
-        statement::{ControlFlow, ControlFlowKind, Statement},
+        statement::{EarlyReturnType, Statement},
         supports_expression_sigil::SupportsExpressionSigil,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -50,7 +50,7 @@ use crate::{
 fn compile_if(
     datapack: &mut Datapack,
     caller_ctx: &mut CompileContext,
-    control_flow: Option<ControlFlow>,
+    contains_early_return: bool,
     mut body_ctx: CompileContext,
     inverted: bool,
     condition: ExecuteIfSubcommand,
@@ -76,37 +76,32 @@ fn compile_if(
             body_paths.clone(),
         );
 
-        match control_flow {
-            Some(control_flow) => match control_flow.kind {
-                ControlFlowKind::Break | ControlFlowKind::Continue => {
-                    caller_ctx.add_command(
-                        datapack,
-                        Command::Execute(ExecuteSubcommand::If(
-                            inverted,
-                            condition.then(ExecuteSubcommand::If(
-                                true,
-                                ExecuteIfSubcommand::Function(
-                                    body_function_resource_location,
-                                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
-                                        ReturnCommand::Fail,
-                                    )))),
-                                ),
-                            )),
-                        )),
-                    );
-                }
-            },
-            None => {
-                caller_ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
-                        ExecuteSubcommand::Run(Box::new(Command::Function(
+        if contains_early_return {
+            caller_ctx.add_command(
+                datapack,
+                Command::Execute(ExecuteSubcommand::If(
+                    inverted,
+                    condition.then(ExecuteSubcommand::If(
+                        true,
+                        ExecuteIfSubcommand::Function(
                             body_function_resource_location,
-                            None,
-                        ))),
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
+                                ReturnCommand::Fail,
+                            )))),
+                        ),
                     )),
-                );
-            }
+                )),
+            );
+        } else {
+            caller_ctx.add_command(
+                datapack,
+                Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
+                    ExecuteSubcommand::Run(Box::new(Command::Function(
+                        body_function_resource_location,
+                        None,
+                    ))),
+                )),
+            );
         }
 
         body_ctx.add_command(datapack, Command::Return(ReturnCommand::Value(1)));
@@ -124,7 +119,7 @@ fn compile_if_internal(
     output: Option<(GeneratedDataTarget, LowNbtPath)>,
 ) {
     let mut body_ctx = ctx.create_child_ctx();
-    let control_flow = body.kind.get_control_flow(ctx);
+    let main_body_returns_early = body.kind.returns_early();
     let body = body.kind.resolve(datapack, &mut body_ctx);
 
     if let Some((output_target, output_path)) = &output {
@@ -144,7 +139,7 @@ fn compile_if_internal(
 
     if let Some(else_body) = else_body {
         let mut else_body_ctx = ctx.create_child_ctx();
-        let else_control_flow = else_body.kind.get_control_flow(ctx);
+        let else_body_returns_early = else_body.kind.returns_early();
         let else_body = else_body.kind.resolve(datapack, &mut else_body_ctx);
 
         if let Some((output_target, output_path)) = output {
@@ -182,7 +177,7 @@ fn compile_if_internal(
         compile_if(
             datapack,
             ctx,
-            control_flow,
+            main_body_returns_early,
             body_ctx,
             invert,
             condition.clone(),
@@ -191,7 +186,7 @@ fn compile_if_internal(
         compile_if(
             datapack,
             ctx,
-            else_control_flow,
+            else_body_returns_early,
             else_body_ctx,
             !invert,
             condition,
@@ -225,7 +220,14 @@ fn compile_if_internal(
             (invert, condition)
         };
 
-        compile_if(datapack, ctx, control_flow, body_ctx, invert, condition);
+        compile_if(
+            datapack,
+            ctx,
+            main_body_returns_early,
+            body_ctx,
+            invert,
+            condition,
+        );
     }
 }
 
@@ -300,6 +302,7 @@ pub enum UnresolvedExpressionKind {
     ),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
+    Return(Box<UnresolvedExpression>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -315,23 +318,93 @@ impl UnresolvedExpressionKind {
     }
 
     #[must_use]
-    pub fn get_control_flow_kind(&self) -> Option<ControlFlowKind> {
+    pub fn definitely_diverges(&self) -> bool {
         match self {
-            Self::If(_, body, else_body) => body.kind.get_control_flow_kind().or_else(|| {
+            Self::Return(_) => true,
+
+            Self::Block(statements, tail_expression) => {
+                for statement in statements {
+                    if statement.definitely_diverges() {
+                        return true;
+                    }
+                }
+
+                tail_expression
+                    .as_ref()
+                    .is_some_and(|expression| expression.kind.definitely_diverges())
+            }
+
+            Self::If(expression, body, else_body) => {
+                if expression.kind.definitely_diverges() {
+                    return true;
+                }
+
+                if let Some(else_body) = else_body {
+                    body.kind.definitely_diverges() && else_body.kind.definitely_diverges()
+                } else {
+                    false
+                }
+            }
+
+            Self::Loop(body) => !body.kind.contains_break(),
+
+            Self::Arithmetic(left, _, right)
+            | Self::Comparison(left, _, right)
+            | Self::Logical(left, _, right)
+            | Self::AugmentedAssignment(left, _, right)
+            | Self::Assignment(left, right)
+            | Self::Index(left, right) => {
+                left.kind.definitely_diverges() || right.kind.definitely_diverges()
+            }
+            Self::Unary(_, expression)
+            | Self::FieldAccess(expression, _)
+            | Self::AsCast(expression, _)
+            | Self::ToCast(_, expression, _) => expression.kind.definitely_diverges(),
+            Self::Call(callee, arguments) => {
+                callee.kind.definitely_diverges()
+                    || arguments
+                        .iter()
+                        .any(|expression| expression.kind.definitely_diverges())
+            }
+            Self::List(expressions)
+            | Self::Tuple(expressions)
+            | Self::TupleStruct(_, expressions) => expressions
+                .iter()
+                .any(|expression| expression.kind.definitely_diverges()),
+            Self::Compound(compound) | Self::StructStruct(_, compound) => compound
+                .values()
+                .any(|expression| expression.kind.definitely_diverges()),
+            Self::WhileLoop(expression, _) => expression.kind.definitely_diverges(),
+            Self::ForLoop(_, _, expression, _) => expression.kind.definitely_diverges(),
+
+            _ => false,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn contains_break(&self) -> bool {
+        matches!(self.get_early_return_type(), Some(EarlyReturnType::Break))
+    }
+
+    #[must_use]
+    pub fn get_early_return_type(&self) -> Option<EarlyReturnType> {
+        match self {
+            Self::If(_, body, else_body) => body.kind.get_early_return_type().or_else(|| {
                 else_body
                     .as_ref()
-                    .and_then(|else_body| else_body.kind.get_control_flow_kind())
+                    .and_then(|else_body| else_body.kind.get_early_return_type())
             }),
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    if let Some(kind) = statement.get_control_flow_kind() {
+                    if let Some(kind) = statement.get_early_return_type() {
                         return Some(kind);
                     }
                 }
 
                 if let Some(tail_expression) = tail_expression
-                    && let Some(kind) = tail_expression.kind.get_control_flow_kind()
+                    && let Some(kind) = tail_expression.kind.get_early_return_type()
                 {
                     return Some(kind);
                 }
@@ -339,22 +412,20 @@ impl UnresolvedExpressionKind {
                 None
             }
 
-            Self::WhileLoop(_, body) => body.kind.get_control_flow_kind(),
-            Self::Loop(body) => body.kind.get_control_flow_kind(),
-            Self::ForLoop(_, _, _, body) => body.kind.get_control_flow_kind(),
+            Self::WhileLoop(_, body) => body.kind.get_early_return_type(),
+            Self::Loop(body) => body.kind.get_early_return_type(),
+            Self::ForLoop(_, _, _, body) => body.kind.get_early_return_type(),
+
+            Self::Return(_) => Some(EarlyReturnType::Return),
 
             _ => None,
         }
     }
 
+    #[inline]
     #[must_use]
-    pub fn get_control_flow(&self, ctx: &mut CompileContext) -> Option<ControlFlow> {
-        let loop_info = ctx.loop_info.as_ref()?.clone();
-
-        Some(ControlFlow {
-            kind: self.get_control_flow_kind()?,
-            loop_info,
-        })
+    pub fn returns_early(&self) -> bool {
+        self.get_early_return_type().is_some()
     }
 
     #[must_use]
@@ -670,15 +741,28 @@ impl UnresolvedExpressionKind {
                     .to_execute_condition(datapack, &mut condition_ctx, false)
                     .unwrap();
 
+                let subcommand = if body.kind.returns_early() {
+                    ExecuteSubcommand::If(
+                        true,
+                        ExecuteIfSubcommand::Function(
+                            while_function_resource_location.clone(),
+                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
+                                ReturnCommand::Fail,
+                            )))),
+                        ),
+                    )
+                } else {
+                    ExecuteSubcommand::Run(Box::new(Command::Function(
+                        while_function_resource_location.clone(),
+                        None,
+                    )))
+                };
+
                 condition_ctx.add_command(
                     datapack,
                     Command::Execute(
-                        ExecuteSubcommand::If(should_be_inverted, condition.clone()).then(
-                            ExecuteSubcommand::Run(Box::new(Command::Function(
-                                while_function_resource_location.clone(),
-                                None,
-                            ))),
-                        ),
+                        ExecuteSubcommand::If(should_be_inverted, condition.clone())
+                            .then(subcommand),
                     ),
                 );
 
@@ -897,6 +981,17 @@ impl UnresolvedExpressionKind {
 
                 ResolvedExpression::EntitySelector(selector)
             }
+            Self::Return(expression) => {
+                let expression = expression.kind.resolve(datapack, ctx);
+
+                let target = datapack.function_return_expressions.last().unwrap().clone();
+
+                expression.assign_to_target(datapack, ctx, target);
+
+                ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
+
+                ResolvedExpression::Never
+            }
         }
     }
 
@@ -992,15 +1087,26 @@ impl UnresolvedExpressionKind {
                     .to_execute_condition(datapack, &mut condition_ctx, false)
                     .unwrap();
 
+                let subcommand = if body.kind.returns_early() {
+                    ExecuteSubcommand::If(
+                        true,
+                        ExecuteIfSubcommand::Function(
+                            while_function_resource_location.clone(),
+                            Box::new(ExecuteSubcommand::run_return_fail()),
+                        ),
+                    )
+                } else {
+                    ExecuteSubcommand::Run(Box::new(Command::Function(
+                        while_function_resource_location.clone(),
+                        None,
+                    )))
+                };
+
                 condition_ctx.add_command(
                     datapack,
                     Command::Execute(
-                        ExecuteSubcommand::If(should_be_inverted, condition.clone()).then(
-                            ExecuteSubcommand::Run(Box::new(Command::Function(
-                                while_function_resource_location.clone(),
-                                None,
-                            ))),
-                        ),
+                        ExecuteSubcommand::If(should_be_inverted, condition.clone())
+                            .then(subcommand),
                     ),
                 );
 
@@ -1209,6 +1315,49 @@ impl UnresolvedExpressionKind {
             Self::EntitySelector(selector) => {
                 selector.compile_as_statement(datapack, ctx);
             }
+            Self::Return(expression) => {
+                let expression = expression.kind.resolve(datapack, ctx);
+
+                let target = datapack.function_return_expressions.last().unwrap().clone();
+
+                expression.assign_to_target(datapack, ctx, target);
+
+                ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
+            }
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                target.compile(datapack, ctx);
+                path.compile(datapack, ctx);
+            }
+            Self::Unary(_, expression) => {
+                expression.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::Arithmetic(left, _, right) => {
+                left.kind.compile_as_statement(datapack, ctx);
+                right.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::Comparison(left, _, right) => {
+                left.kind.compile_as_statement(datapack, ctx);
+                right.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::Logical(left, _, right) => {
+                left.kind.compile_as_statement(datapack, ctx);
+                right.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::PlayerScore(score) => {
+                score.compile(datapack, ctx);
+            }
+            Self::Index(target, index) => {
+                target.kind.compile_as_statement(datapack, ctx);
+                index.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::FieldAccess(target, _) => {
+                target.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::ResourceLocation(resource_location) => {
+                resource_location.compile_as_statement(datapack, ctx);
+            }
             Self::Boolean(_)
             | Self::Byte(_)
             | Self::Short(_)
@@ -1220,15 +1369,6 @@ impl UnresolvedExpressionKind {
             | Self::Double(_)
             | Self::String(_)
             | Self::Unit
-            | Self::Unary(_, _)
-            | Self::Arithmetic(_, _, _)
-            | Self::Comparison(_, _, _)
-            | Self::Logical(_, _, _)
-            | Self::PlayerScore(_)
-            | Self::Data(_)
-            | Self::Index(_, _)
-            | Self::FieldAccess(_, _)
-            | Self::ResourceLocation(_)
             | Self::Value(_) => {}
         }
     }

@@ -16,6 +16,7 @@ use crate::low::environment::value::variable::VariableId;
 use crate::low::environment::value::{ValueDeclaration, ValueId};
 use crate::low::expression::resolved::ResolvedExpression;
 use crate::player_score::GeneratedPlayerScore;
+use crate::runtime_storage::RuntimeStorageTarget;
 use crate::span::Span;
 use crate::visibility::Visibility;
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
@@ -33,6 +34,7 @@ use minecraft_command_types::nbt_path::{NbtPath as LowNbtPath, NbtPathNode as Lo
 use minecraft_command_types::resource_location::ResourceLocation;
 use minecraft_command_types::snbt::SNBTString;
 use serde_json::json;
+use smallvec::SmallVec;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::mem::take;
@@ -55,7 +57,7 @@ pub struct DatapackSettings {
 #[derive(Debug, Clone)]
 pub struct CompiledFunction {
     pub resource_location: ResourceLocation,
-    pub result_expression: Option<ResolvedExpression>,
+    pub result_expression: ResolvedExpression,
 }
 
 pub struct Datapack {
@@ -67,6 +69,7 @@ pub struct Datapack {
     pub variable_values: HashMap<VariableId, (DataType, ResolvedExpression)>,
     pub function_values: HashMap<FunctionId, FunctionDeclaration>,
     pub compiled_functions: HashMap<FunctionId, CompiledFunction>,
+    pub function_return_expressions: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
@@ -86,6 +89,7 @@ impl Datapack {
             variable_values: HashMap::new(),
             function_values: HashMap::new(),
             compiled_functions: HashMap::new(),
+            function_return_expressions: SmallVec::new(),
             namespaces: HashMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),

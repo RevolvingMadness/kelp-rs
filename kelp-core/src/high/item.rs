@@ -105,10 +105,13 @@ impl Item {
                     None,
                 );
 
+                ctx.function_return_types.push(return_type);
                 let body = body.perform_semantic_analysis(ctx);
+                let return_type = ctx.function_return_types.pop().unwrap();
 
                 if let Some(return_type) = return_type
                     && let Some((body_span, tail_expression_span, body)) = body.as_ref()
+                    && !body.kind.definitely_diverges()
                     && !body.data_type.equals(&return_type)
                 {
                     return ctx.add_error(

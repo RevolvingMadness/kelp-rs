@@ -18,7 +18,8 @@ use crate::{
         without_block::{
             command::try_parse_command_expression, data::try_parse_data_expression,
             list::try_parse_list_expression, lower_expression_without_block,
-            score::try_parse_score_expression, r#struct::try_parse_struct_expression_fields,
+            r#return::try_parse_return_expression, score::try_parse_score_expression,
+            r#struct::try_parse_struct_expression_fields,
         },
     },
     parser::Parser,
@@ -670,6 +671,11 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 }
                 "entity_selector" => {
                     if try_parse_entity_selector_expression(parser) {
+                        return true;
+                    }
+                }
+                "return" => {
+                    if try_parse_return_expression(parser) {
                         return true;
                     }
                 }

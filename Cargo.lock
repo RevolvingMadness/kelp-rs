@@ -516,6 +516,7 @@ dependencies = [
  "minecraft-command-types_derive",
  "ordered-float",
  "serde_json",
+ "smallvec",
  "strum",
  "strum_macros",
 ]

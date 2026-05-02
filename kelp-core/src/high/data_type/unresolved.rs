@@ -20,6 +20,7 @@ pub enum UnresolvedDataType {
     Reference(Box<Self>),
     Tuple(Vec<Self>),
     Unit,
+    Never,
     Inferred,
 }
 
@@ -65,6 +66,7 @@ impl Display for UnresolvedDataType {
                 Ok(())
             }
             Self::Unit => f.write_str("()"),
+            Self::Never => f.write_char('!'),
             Self::Inferred => f.write_str("_"),
         }
     }
@@ -109,6 +111,7 @@ impl UnresolvedDataType {
                 )?
             }
             Self::Unit => DataType::Unit,
+            Self::Never => DataType::Never,
             Self::Inferred => DataType::Inferred,
             Self::Tuple(data_types) => {
                 let data_types = data_types

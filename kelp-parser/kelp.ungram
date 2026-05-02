@@ -107,6 +107,7 @@ ExpressionWithoutBlock =
 | FieldAccessExpression
 | ResourceLocationExpression
 | EntitySelectorExpression
+| ReturnExpression
 
 ExpressionWithBlock =
   BlockExpression
@@ -229,19 +230,17 @@ ResourceLocationExpression = 'resource_location' ':' ResourceLocation
 
 EntitySelectorExpression = 'entity_selector' ':' EntitySelector
 
+ReturnExpression = 'return' Expression?
+
 // ----- Command Expression -----
 
 CommandExpression = 
   TellrawCommandExpression
-| ReturnCommandExpression
 | FunctionCommandExpression
 | StopwatchCommandExpression
 
 TellrawCommandExpression =
   'tellraw' EntitySelector Expression
-
-ReturnCommandExpression =
-  'return' 'whole_value'
 
 FunctionCommandExpression =
   'function' ResourceLocation
@@ -311,6 +310,7 @@ DataType =
 | TupleDataType
 | TypedCompoundDataType
 | UnitDataType
+| NeverDataType
 | PathDataType
 | InferredDataType
 
@@ -322,6 +322,8 @@ TupleDataType =
 
 UnitDataType =
   '(' ')'
+
+NeverDataType = '!'
 
 TypedCompoundDataType =
   '{'

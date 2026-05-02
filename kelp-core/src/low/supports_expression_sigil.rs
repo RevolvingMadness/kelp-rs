@@ -38,18 +38,10 @@ macro_rules! impl_supports_expression_sigil {
                     }
                 }
             }
-        }
-    };
 
-    (compile_as_statement, $ty:ty, $ret_ty:ty, $resolved_expression_variant:ident) => {
-        impl_supports_expression_sigil!($ty, $ret_ty, $resolved_expression_variant);
-
-        impl SupportsExpressionSigil<$ty> {
             pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
                 match self {
-                    Self::Regular(value) => {
-                        value.compile_as_statement(datapack, ctx);
-                    }
+                    Self::Regular(_) => {}
                     Self::Sigil(expression) => {
                         expression.kind.compile_as_statement(datapack, ctx);
                     }
@@ -76,15 +68,21 @@ macro_rules! impl_supports_expression_sigil {
                     }
                 }
             }
+
+            pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+                match self {
+                    Self::Regular(value) => {
+                        value.compile_as_statement(datapack, ctx);
+                    }
+                    Self::Sigil(expression) => {
+                        expression.kind.compile_as_statement(datapack, ctx);
+                    }
+                }
+            }
         }
     };
 }
 
 impl_supports_expression_sigil!(no_compile, ResourceLocation, ResourceLocation);
 
-impl_supports_expression_sigil!(
-    compile_as_statement,
-    EntitySelector,
-    LowEntitySelector,
-    EntitySelector
-);
+impl_supports_expression_sigil!(EntitySelector, LowEntitySelector, EntitySelector);

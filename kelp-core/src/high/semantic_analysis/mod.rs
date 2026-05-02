@@ -1,4 +1,5 @@
 use hashbrown::{Equivalent, HashMap};
+use smallvec::SmallVec;
 use std::{collections::HashMap as StdHashMap, hint::unreachable_unchecked};
 
 use crate::{
@@ -97,6 +98,7 @@ pub struct SemanticAnalysisContext {
     pub loop_depth: u32,
     pub is_lhs: bool,
     pub current_module_path: Vec<String>,
+    pub function_return_types: SmallVec<[Option<DataType>; 5]>,
     max_infos: usize,
     pub environment: Environment,
     high_environment: HighEnvironment,
@@ -120,6 +122,7 @@ impl SemanticAnalysisContext {
             loop_depth: 0,
             is_lhs: false,
             current_module_path: Vec::new(),
+            function_return_types: SmallVec::new(),
         };
 
         let builtins = [

@@ -1,20 +1,16 @@
-use std::collections::HashMap;
-
 use crate::high::data_type::unresolved::UnresolvedDataType;
 use crate::high::item::Item;
 use crate::high::pattern::Pattern;
 use crate::high::semantic_analysis::SemanticAnalysisContext;
 use crate::high::semantic_analysis::info::error::SemanticAnalysisError;
-use crate::low::statement::ControlFlowKind;
+use crate::low::statement::LoopControlFlowKind;
 use crate::span::Span;
 use crate::{high::expression::Expression, low::statement::Statement as MiddleStatement};
-use minecraft_command_types::range::IntegerRange;
 
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
     Let(Option<UnresolvedDataType>, Pattern, Expression),
-    Match(Expression, HashMap<IntegerRange, Box<Statement>>),
     Append(Expression, Box<Expression>),
     Remove(Expression),
     Item(Box<Item>),
@@ -70,9 +66,8 @@ impl Statement {
 
                 let pattern = pattern.perform_semantic_analysis(ctx, variable_type.clone())?;
 
-                MiddleStatement::Let(variable_type, pattern, value)
+                MiddleStatement::Let(variable_type, pattern, Box::new(value))
             }
-            StatementKind::Match(_, _) => todo!(),
             StatementKind::Append(target, value) => {
                 let target = target.perform_semantic_analysis(ctx);
                 let value = value.perform_semantic_analysis(ctx);
@@ -91,7 +86,7 @@ impl Statement {
                 if ctx.loop_depth == 0 {
                     return ctx.add_error(
                         self.span,
-                        SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Break),
+                        SemanticAnalysisError::ControlFlowNotInLoop(LoopControlFlowKind::Break),
                     );
                 }
 
@@ -101,7 +96,7 @@ impl Statement {
                 if ctx.loop_depth == 0 {
                     return ctx.add_error(
                         self.span,
-                        SemanticAnalysisError::ControlFlowNotInLoop(ControlFlowKind::Continue),
+                        SemanticAnalysisError::ControlFlowNotInLoop(LoopControlFlowKind::Continue),
                     );
                 }
 

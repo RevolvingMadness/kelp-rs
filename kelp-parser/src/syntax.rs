@@ -199,7 +199,6 @@ pub enum SyntaxKind {
 
     TellrawCommandExpression,
     FunctionCommandExpression,
-    ReturnCommandExpression,
     StopwatchCommandExpression,
     StopwatchCommandExpressionOptions,
     StopwatchCommandExpressionCreate,
@@ -209,6 +208,7 @@ pub enum SyntaxKind {
 
     ResourceLocationExpression,
     EntitySelectorExpression,
+    ReturnExpression,
     StructExpression,
     StructExpressionFields,
     StructExpressionField,
@@ -245,6 +245,7 @@ pub enum SyntaxKind {
     ParenthesizedExpression,
 
     UnitDataType,
+    NeverDataType,
     TupleDataType,
     ReferenceDataType,
     TypedCompoundDataType,

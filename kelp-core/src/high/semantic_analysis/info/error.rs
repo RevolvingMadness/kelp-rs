@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    low::{data_type::DataType, environment::Environment, statement::ControlFlowKind},
+    low::{data_type::DataType, environment::Environment, statement::LoopControlFlowKind},
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
 };
@@ -368,7 +368,7 @@ pub enum SemanticAnalysisError {
         actual: usize,
     },
     MacroConflict,
-    ControlFlowNotInLoop(ControlFlowKind),
+    ControlFlowNotInLoop(LoopControlFlowKind),
     ExpressionIsNotCallable,
     NotAFunction(String),
     NotAType(String),

@@ -82,6 +82,7 @@ pub enum ExpressionKind {
     ForLoop(bool, Pattern, Box<Expression>, Box<BlockExpression>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
+    Return(Span, Option<Box<Expression>>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -998,6 +999,30 @@ impl Expression {
 
                 UnresolvedExpressionKind::EntitySelector(Box::new(selector))
                     .with(DataType::EntitySelector)
+            }
+            ExpressionKind::Return(span, expression) => {
+                let expression = match expression {
+                    Some(expression) => {
+                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+
+                        expression
+                    }
+                    None => UnresolvedExpressionKind::Unit.with(DataType::Unit),
+                };
+
+                if let Some(Some(return_type)) = ctx.function_return_types.last()
+                    && !expression.data_type.equals(return_type)
+                {
+                    return ctx.add_error(
+                        span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: return_type.clone(),
+                            actual: expression.data_type,
+                        },
+                    );
+                }
+
+                UnresolvedExpressionKind::Return(Box::new(expression)).with(DataType::Never)
             }
         };
 

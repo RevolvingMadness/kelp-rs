@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::low::data_type::DataType;
 use crate::low::expression::resolved::ResolvedExpression;
@@ -11,14 +9,11 @@ use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{DataCommand, DataCommandModificationMode};
 use minecraft_command_types::command::execute::ExecuteSubcommand;
 use minecraft_command_types::command::r#return::ReturnCommand;
-use minecraft_command_types::range::IntegerRange;
 
 #[derive(Debug, Clone)]
 pub enum Statement {
     Expression(UnresolvedExpression),
-    FunctionDeclaration,
-    Let(DataType, Pattern, UnresolvedExpression),
-    Match(UnresolvedExpression, HashMap<IntegerRange, Box<Self>>),
+    Let(DataType, Pattern, Box<UnresolvedExpression>),
     Append(UnresolvedExpression, Box<UnresolvedExpression>),
     Remove(UnresolvedExpression),
     Item(Box<Item>),
@@ -28,17 +23,17 @@ pub enum Statement {
 
 #[derive(Debug, Clone)]
 pub struct ControlFlow {
-    pub kind: ControlFlowKind,
+    pub kind: LoopControlFlowKind,
     pub loop_info: LoopInfo,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum ControlFlowKind {
+pub enum LoopControlFlowKind {
     Break,
     Continue,
 }
 
-impl ControlFlowKind {
+impl LoopControlFlowKind {
     #[must_use]
     pub const fn name(&self) -> &str {
         match self {
@@ -48,30 +43,43 @@ impl ControlFlowKind {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum EarlyReturnType {
+    Break,
+    Return,
+}
+
 impl Statement {
     #[must_use]
-    pub fn get_control_flow_kind(&self) -> Option<ControlFlowKind> {
+    pub fn get_early_return_type(&self) -> Option<EarlyReturnType> {
         match self {
-            Self::Expression(expression) => expression.kind.get_control_flow_kind(),
+            Self::Expression(expression) => expression.kind.get_early_return_type(),
 
-            Self::Break => Some(ControlFlowKind::Break),
-            Self::Continue => Some(ControlFlowKind::Continue),
+            Self::Break => Some(EarlyReturnType::Break),
 
             _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn definitely_diverges(&self) -> bool {
+        match self {
+            Self::Expression(expression) => expression.kind.definitely_diverges(),
+            Self::Break | Self::Continue => true,
+            Self::Let(_, _, value) => value.kind.definitely_diverges(),
+            Self::Append(_, value) => value.kind.definitely_diverges(),
+            Self::Remove(expr) => expr.kind.definitely_diverges(),
+            Self::Item(_) => false,
         }
     }
 
     pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::Expression(expression) => expression.kind.compile_as_statement(datapack, ctx),
-            Self::FunctionDeclaration => todo!(),
             Self::Let(data_type, pattern, value) => {
                 let value = value.kind.resolve(datapack, ctx);
 
                 pattern.destructure(datapack, ctx, data_type, value);
-            }
-            Self::Match(_, _) => {
-                todo!()
             }
             Self::Append(target, value) => {
                 let target = target.kind.resolve(datapack, ctx);
@@ -136,16 +144,12 @@ impl Statement {
     ) -> Option<ResolvedExpression> {
         match self {
             Self::Expression(expression) => Some(expression.kind.resolve(datapack, ctx)),
-            Self::FunctionDeclaration => todo!(),
             Self::Let(data_type, pattern, value) => {
                 let value = value.kind.resolve(datapack, ctx);
 
                 pattern.destructure(datapack, ctx, data_type, value);
 
                 None
-            }
-            Self::Match(_, _) => {
-                todo!()
             }
             Self::Append(target, value) => {
                 let target = target.kind.resolve(datapack, ctx);

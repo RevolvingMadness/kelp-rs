@@ -134,9 +134,17 @@ fn compile_function(
     let (_, _, original_declaration) = datapack.get_function_declaration(original_id);
 
     let original_body = original_declaration.body.clone().unwrap();
-    let return_type_is_compiletime = original_declaration
-        .return_type
-        .is_compiletime(&datapack.environment);
+    let should_inline = original_declaration
+        .parameters
+        .as_ref()
+        .is_some_and(|parameters| {
+            parameters
+                .iter()
+                .any(|(_, parameter)| parameter.is_compiletime(&datapack.environment))
+        })
+        || original_declaration
+            .return_type
+            .is_compiletime(&datapack.environment);
     let return_storage_type = original_declaration.return_type.get_runtime_storage_type();
 
     let mut paths = original_declaration.module_path.clone();
@@ -153,7 +161,7 @@ fn compile_function(
         pattern.destructure(datapack, ctx, data_type, argument);
     }
 
-    if return_type_is_compiletime {
+    if should_inline {
         original_body.kind.resolve(datapack, ctx)
     } else {
         if let Some(compiled_function) = datapack.compiled_functions.get(&original_id) {

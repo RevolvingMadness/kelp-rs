@@ -281,7 +281,7 @@ pub enum UnresolvedExpressionKind {
         RuntimeStorageType,
     ),
     Tuple(Vec<UnresolvedExpression>),
-    Variable(ValueId),
+    Value(ValueId),
     StructStruct(StructStructId, HashMap<SNBTString, UnresolvedExpression>),
     TupleStruct(TupleStructId, Vec<UnresolvedExpression>),
     If(
@@ -366,7 +366,7 @@ impl UnresolvedExpressionKind {
                 | Self::Data(_)
                 | Self::Index(_, _)
                 | Self::FieldAccess(_, _)
-                | Self::Variable(_)
+                | Self::Value(_)
         )
     }
 
@@ -437,7 +437,7 @@ impl UnresolvedExpressionKind {
                     .map(|expression| expression.kind.as_place(datapack, ctx))
                     .collect::<Option<_>>()?,
             )),
-            Self::Variable(name) => Some(Place::Value(name)),
+            Self::Value(name) => Some(Place::Value(name)),
             _ => None,
         }
     }
@@ -553,7 +553,7 @@ impl UnresolvedExpressionKind {
             Self::AsCast(expression, data_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                expression.cast_to(data_type)
+                expression.cast_to(data_type).unwrap()
             }
             Self::ToCast(scale, expression, runtime_storage_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
@@ -609,7 +609,7 @@ impl UnresolvedExpressionKind {
             Self::Double(value) => ResolvedExpression::Double(value),
             Self::String(value) => ResolvedExpression::String(value),
             Self::Unit => ResolvedExpression::Unit,
-            Self::Variable(id) => datapack.get_variable_value(id).1.clone(),
+            Self::Value(id) => datapack.get_variable_value(id).1.clone(),
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
                     statement.compile_as_statement(datapack, ctx);
@@ -1196,7 +1196,7 @@ impl UnresolvedExpressionKind {
             | Self::Index(_, _)
             | Self::FieldAccess(_, _)
             | Self::ResourceLocation(_)
-            | Self::Variable(_) => {}
+            | Self::Value(_) => {}
         }
     }
 }

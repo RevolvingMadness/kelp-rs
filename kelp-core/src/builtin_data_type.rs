@@ -1,6 +1,6 @@
 use strum::{Display, EnumString};
 
-use crate::{high::data_type::resolved::PartiallyResolvedDataType, low::data_type::DataType};
+use crate::low::data_type::DataType;
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
@@ -66,37 +66,34 @@ impl BuiltinDataType {
     }
 
     #[must_use]
-    pub fn to_resolved_data_type(
-        &self,
-        mut generic_types: Vec<PartiallyResolvedDataType>,
-    ) -> Option<PartiallyResolvedDataType> {
+    pub fn to_resolved_data_type(&self, mut generic_types: Vec<DataType>) -> Option<DataType> {
         if generic_types.len() != self.generic_count() {
             return None;
         }
 
         Some(match self {
-            Self::Unit => PartiallyResolvedDataType::Unit,
-            Self::Boolean => PartiallyResolvedDataType::Boolean,
-            Self::Byte => PartiallyResolvedDataType::Byte,
-            Self::Short => PartiallyResolvedDataType::Short,
-            Self::Integer => PartiallyResolvedDataType::Integer,
-            Self::Long => PartiallyResolvedDataType::Long,
-            Self::Float => PartiallyResolvedDataType::Float,
-            Self::Double => PartiallyResolvedDataType::Double,
-            Self::String => PartiallyResolvedDataType::String,
-            Self::SNBT => PartiallyResolvedDataType::SNBT,
+            Self::Unit => DataType::Unit,
+            Self::Boolean => DataType::Boolean,
+            Self::Byte => DataType::Byte,
+            Self::Short => DataType::Short,
+            Self::Integer => DataType::Integer,
+            Self::Long => DataType::Long,
+            Self::Float => DataType::Float,
+            Self::Double => DataType::Double,
+            Self::String => DataType::String,
+            Self::SNBT => DataType::SNBT,
             Self::List | Self::Compound | Self::Data | Self::Score => {
                 let element_type = generic_types.remove(0);
 
                 match self {
-                    Self::List => PartiallyResolvedDataType::List(Box::new(element_type)),
-                    Self::Compound => PartiallyResolvedDataType::Compound(Box::new(element_type)),
-                    Self::Data => PartiallyResolvedDataType::Data(Box::new(element_type)),
-                    Self::Score => PartiallyResolvedDataType::Score(Box::new(element_type)),
+                    Self::List => DataType::List(Box::new(element_type)),
+                    Self::Compound => DataType::Compound(Box::new(element_type)),
+                    Self::Data => DataType::Data(Box::new(element_type)),
+                    Self::Score => DataType::Score(Box::new(element_type)),
                     _ => unreachable!(),
                 }
             }
-            Self::ResourceLocation => PartiallyResolvedDataType::ResourceLocation,
+            Self::ResourceLocation => DataType::ResourceLocation,
         })
     }
 

@@ -15,15 +15,15 @@ pub fn lower_call_expression(
 
     let callee = lower_expression(node.callee()?, ctx)?;
 
-    let arguments = node
-        .arguments()
-        .filter_map(|argument| lower_expression(argument, ctx))
-        .collect();
+    // let arguments = node
+    //     .arguments()
+    //     .filter_map(|argument| lower_expression(argument, ctx))
+    //     .collect();
 
     Some(
         ExpressionKind::Call {
             callee: Box::new(callee),
-            arguments,
+            arguments: Vec::new(),
         }
         .with_span(span),
     )

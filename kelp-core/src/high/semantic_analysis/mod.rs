@@ -14,6 +14,10 @@ use crate::{
                     HighStructDeclaration, HighStructStructDeclaration, HighTupleStructDeclaration,
                 },
             },
+            value::{
+                HighValueDeclaration, HighValueDeclarationKind, HighValueId,
+                function::HighFunctionDeclaration, variable::HighVariableDeclaration,
+            },
         },
         semantic_analysis::{
             info::{SemanticAnalysisInfo, SemanticAnalysisInfoKind, error::SemanticAnalysisError},
@@ -28,7 +32,7 @@ use crate::{
                 StructDeclaration, StructId, StructStructDeclaration, StructStructId,
                 TupleStructDeclaration, TupleStructId,
             },
-            value::{ValueDeclarationKind, ValueId, variable::VariableId},
+            value::{function::FunctionId, variable::VariableId},
         },
     },
     path::{generic::GenericPath, regular::Path},
@@ -41,7 +45,7 @@ pub mod scope;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct MonomorphizedStructKey {
-    pub id: HighTypeId,
+    pub original_id: HighTypeId,
     pub generics: Vec<DataType>,
 }
 
@@ -53,26 +57,47 @@ struct MonomorphizedStructKeyRef<'a> {
 
 impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
     fn equivalent(&self, key: &MonomorphizedStructKey) -> bool {
-        self.id == key.id && self.generics == key.generics.as_slice()
+        self.id == key.original_id && self.generics == key.generics.as_slice()
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct MonomorphizedFunctionKey {
+    pub original_id: HighValueId,
+    pub generics: Vec<DataType>,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct MonomorphizedFunctionKeyRef<'a> {
+    pub id: HighValueId,
+    pub generics: &'a [DataType],
+}
+
+impl Equivalent<MonomorphizedFunctionKey> for MonomorphizedFunctionKeyRef<'_> {
+    fn equivalent(&self, key: &MonomorphizedFunctionKey) -> bool {
+        self.id == key.original_id && self.generics == key.generics.as_slice()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ResolvedItem {
     Type(HighTypeId),
-    Value(ValueId),
+    Value(HighValueId),
 }
 
 #[derive(Debug, Clone)]
 pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
-    pub environment: Environment,
     pub scopes: Vec<Scope>,
     pub loop_depth: u32,
     pub is_lhs: bool,
     pub current_module_path: Vec<String>,
     max_infos: usize,
+    pub environment: Environment,
     high_environment: HighEnvironment,
     monomorphized_structs: HashMap<MonomorphizedStructKey, StructId>,
+    monomorphized_functions: HashMap<MonomorphizedFunctionKey, FunctionId>,
+    resolved_variables: HashMap<HighValueId, VariableId>,
 }
 
 impl SemanticAnalysisContext {
@@ -85,6 +110,8 @@ impl SemanticAnalysisContext {
             high_environment: HighEnvironment::default(),
             scopes: vec![Scope::default()],
             monomorphized_structs: HashMap::new(),
+            monomorphized_functions: HashMap::new(),
+            resolved_variables: HashMap::new(),
             loop_depth: 0,
             is_lhs: false,
             current_module_path: Vec::new(),
@@ -134,6 +161,21 @@ impl SemanticAnalysisContext {
         };
 
         self.monomorphized_structs.get(&key).copied()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_monomorphized_function_id(
+        &self,
+        id: HighValueId,
+        generic_types: &[DataType],
+    ) -> Option<FunctionId> {
+        let key = MonomorphizedFunctionKeyRef {
+            id,
+            generics: generic_types,
+        };
+
+        self.monomorphized_functions.get(&key).copied()
     }
 
     #[inline]
@@ -220,17 +262,17 @@ impl SemanticAnalysisContext {
     pub fn declare_monomorphized_struct(
         &mut self,
         original_id: HighTypeId,
-        id: StructId,
+        monomorphized_id: StructId,
         generic_types: Vec<DataType>,
     ) -> StructId {
         let key = MonomorphizedStructKey {
-            id: original_id,
+            original_id,
             generics: generic_types,
         };
 
-        self.monomorphized_structs.insert(key, id);
+        self.monomorphized_structs.insert(key, monomorphized_id);
 
-        id
+        monomorphized_id
     }
 
     #[inline]
@@ -262,7 +304,7 @@ impl SemanticAnalysisContext {
         generic_types: Vec<DataType>,
         field_types: Vec<DataType>,
     ) -> StructId {
-        let id = self.environment.declare_tuple_struct(
+        let monomorphized_id = self.environment.declare_tuple_struct(
             self.current_module_path.clone(),
             visibility,
             name,
@@ -270,7 +312,35 @@ impl SemanticAnalysisContext {
             field_types,
         );
 
-        self.declare_monomorphized_struct(original_id, id, generic_types)
+        self.declare_monomorphized_struct(original_id, monomorphized_id, generic_types)
+    }
+
+    pub fn declare_monomorphized_function(
+        &mut self,
+        original_id: HighValueId,
+        visibility: Visibility,
+        name: String,
+        generic_types: Vec<DataType>,
+        parameter_types: Vec<DataType>,
+        return_type: DataType,
+    ) -> FunctionId {
+        let monomorphized_id = self.environment.declare_function(
+            self.current_module_path.clone(),
+            visibility,
+            name,
+            generic_types.clone(),
+            parameter_types,
+            return_type,
+        );
+
+        let key = MonomorphizedFunctionKey {
+            original_id,
+            generics: generic_types,
+        };
+
+        self.monomorphized_functions.insert(key, monomorphized_id);
+
+        monomorphized_id
     }
 
     #[must_use]
@@ -279,18 +349,20 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         name: String,
         data_type: Option<DataType>,
-    ) -> VariableId {
-        let id = self.environment.declare_variable(
-            self.current_module_path.clone(),
+    ) -> HighValueId {
+        let id = self.high_environment.declare_value(HighValueDeclaration {
             visibility,
-            name.clone(),
-            data_type,
-        );
+            module_path: self.current_module_path.clone(),
+            kind: HighValueDeclarationKind::Variable(HighVariableDeclaration {
+                name: name.clone(),
+                data_type,
+            }),
+        });
 
         self.scopes
             .last_mut()
             .expect("No scopes")
-            .declare_value(name, ValueId(id.0));
+            .declare_value(name, id);
 
         id
     }
@@ -302,49 +374,27 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         name: String,
         data_type: DataType,
-    ) -> VariableId {
+    ) -> HighValueId {
         self.declare_variable(visibility, name, Some(data_type))
     }
 
     #[inline]
     #[must_use]
-    pub fn declare_variable_unknown(&mut self, visibility: Visibility, name: String) -> VariableId {
+    pub fn declare_variable_unknown(
+        &mut self,
+        visibility: Visibility,
+        name: String,
+    ) -> HighValueId {
         self.declare_variable(visibility, name, None)
     }
 
     #[must_use]
-    pub fn get_value_id(&self, name: &str) -> Option<ValueId> {
+    pub fn get_value_id(&self, name: &str) -> Option<HighValueId> {
         self.scopes
             .iter()
             .rev()
             .find_map(|scope| scope.values.get(name))
             .copied()
-    }
-
-    #[must_use]
-    pub fn get_value(&self, id: ValueId) -> (Visibility, &[String], &ValueDeclarationKind) {
-        self.environment.values[id.0].as_tuple()
-    }
-
-    #[must_use]
-    pub fn get_visible_value(
-        &mut self,
-        name_span: Span,
-        name: &str,
-        id: ValueId,
-    ) -> Option<&ValueDeclarationKind> {
-        let (visibility, module_path, _) = self.get_value(id);
-
-        if !self.is_item_visible(visibility, module_path) {
-            return self.add_error(
-                name_span,
-                SemanticAnalysisError::ValueNotPublic(name.to_owned()),
-            );
-        }
-
-        let (_, _, declaration) = self.get_value(id);
-
-        Some(declaration)
     }
 
     #[must_use]
@@ -370,7 +420,12 @@ impl SemanticAnalysisContext {
         scope.types.insert(name, id);
     }
 
-    pub fn declare_value_in_current_scope(&mut self, name_span: Span, name: String, id: ValueId) {
+    pub fn declare_value_in_current_scope(
+        &mut self,
+        name_span: Span,
+        name: String,
+        id: HighValueId,
+    ) {
         let scope = self.current_scope_mut();
 
         if scope.values.contains_key(&name) {
@@ -395,7 +450,7 @@ impl SemanticAnalysisContext {
         scope.types.insert(name, id);
     }
 
-    pub fn declare_value_if_not_defined(&mut self, name: String, id: ValueId) {
+    pub fn declare_value_if_not_defined(&mut self, name: String, id: HighValueId) {
         let scope = self.current_scope_mut();
 
         if scope.values.contains_key(&name) {
@@ -476,6 +531,54 @@ impl SemanticAnalysisContext {
         id
     }
 
+    #[inline]
+    #[must_use]
+    pub fn get_resolved_variable(&self, original_id: HighValueId) -> Option<VariableId> {
+        self.resolved_variables.get(&original_id).copied()
+    }
+
+    #[inline]
+    pub fn declare_resolved_variable(&mut self, original_id: HighValueId, resolved_id: VariableId) {
+        self.resolved_variables.insert(original_id, resolved_id);
+    }
+
+    fn declare_value(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighValueDeclarationKind,
+    ) -> HighValueId {
+        let name = declaration.name().to_owned();
+
+        let id = self.high_environment.declare_value(HighValueDeclaration {
+            visibility,
+            module_path: self.current_module_path.clone(),
+            kind: declaration,
+        });
+
+        self.current_scope_mut().declare_value(name, id);
+
+        id
+    }
+
+    pub fn declare_function(
+        &mut self,
+        visibility: Visibility,
+        name: String,
+        generic_names: Vec<String>,
+        parameter_types: Vec<DataType>,
+        return_type: DataType,
+    ) -> HighValueId {
+        self.declare_value(
+            visibility,
+            HighValueDeclarationKind::Function(HighFunctionDeclaration {
+                name,
+                generic_names,
+                parameter_types,
+                return_type,
+            }),
+        )
+    }
+
     #[must_use]
     pub fn get_visible_type_id<T>(&mut self, path: &GenericPath<T>) -> Option<HighTypeId> {
         let (mut current_segment, segments) = path.segments.split_first()?;
@@ -523,7 +626,7 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn get_visible_value_id<T>(&mut self, path: &GenericPath<T>) -> Option<ValueId> {
+    pub fn get_visible_value_id<T>(&mut self, path: &GenericPath<T>) -> Option<HighValueId> {
         let (module_segment, segments) = path.segments.split_first()?;
 
         if segments.is_empty() {
@@ -589,8 +692,8 @@ impl SemanticAnalysisContext {
             );
         };
 
-        let (visibility, module_path, _) = self.get_value(resolved_value_id);
-        let is_visible = self.is_item_visible(visibility, module_path);
+        let declaration = self.get_value(resolved_value_id);
+        let is_visible = self.is_item_visible(declaration.visibility, &declaration.module_path);
 
         if !is_visible {
             return self.add_error(
@@ -718,8 +821,8 @@ impl SemanticAnalysisContext {
             );
         };
 
-        let (visibility, module_path, _) = self.get_value(resolved_value_id);
-        let is_visible = self.is_item_visible(visibility, module_path);
+        let declaration = self.get_value(resolved_value_id);
+        let is_visible = self.is_item_visible(declaration.visibility, &declaration.module_path);
 
         if !is_visible {
             return self.add_error(
@@ -743,6 +846,11 @@ impl SemanticAnalysisContext {
     #[must_use]
     pub fn get_type(&self, id: HighTypeId) -> &HighTypeDeclaration {
         &self.high_environment.types[id.0]
+    }
+
+    #[must_use]
+    pub fn get_value(&self, id: HighValueId) -> &HighValueDeclaration {
+        &self.high_environment.values[id.0]
     }
 
     #[must_use]

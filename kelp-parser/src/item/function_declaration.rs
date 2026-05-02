@@ -8,25 +8,42 @@ use crate::{
     data_type::{lower_data_type, try_parse_data_type},
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     parser::Parser,
-    resource_location::try_parse_resource_location,
+    span::text_range_to_span,
     syntax::SyntaxKind,
 };
 
 #[must_use]
 pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
-    todo!();
     let state = parser.save_state();
 
     parser.start_node(SyntaxKind::FunctionDeclarationItem);
     parser.bump_str(SyntaxKind::FNKeyword, "fn");
 
-    if !parser.expect_whitespace() || !try_parse_resource_location(parser) {
+    if !parser.expect_whitespace() || !parser.try_bump_identifier() {
         parser.restore_state(state);
 
         return false;
     }
 
-    parser.expect_whitespace();
+    parser.skip_whitespace();
+
+    parser.expect_char('(', "Expected '('");
+
+    parser.skip_whitespace();
+
+    parser.expect_char(')', "Expected ')'");
+
+    parser.skip_whitespace();
+
+    if parser.try_bump_str("->", SyntaxKind::MinusRightArrow) {
+        parser.skip_whitespace();
+
+        if !try_parse_data_type(parser) {
+            parser.error("Expected function return type");
+        }
+
+        parser.skip_whitespace();
+    }
 
     if !try_parse_block_expression(parser) {
         parser.error("Expected block expression");
@@ -41,9 +58,9 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
     parser.start_node(SyntaxKind::FunctionDeclarationItem);
     parser.bump_str(SyntaxKind::FNKeyword, "fn");
 
-    let succeeded = parser.expect_whitespace();
+    parser.expect_whitespace();
 
-    if !parser.try_bump_identifier() && succeeded {
+    if !parser.try_bump_identifier() {
         parser.error("Expected function name");
     }
 
@@ -67,7 +84,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
         parser.skip_whitespace();
     }
 
-    if !try_parse_block_expression(parser) && succeeded {
+    if !try_parse_block_expression(parser) {
         parser.error("Expected block expression");
     }
 
@@ -91,9 +108,12 @@ pub fn lower_function_declaration_item_kind(
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ItemKind::FunctionDeclaration(
-        name.to_owned(),
+    Some(ItemKind::FunctionDeclaration {
+        name_span: text_range_to_span(name_span),
+        name: name.to_owned(),
+        generic_names: Vec::new(),
+        parameter_types: Vec::new(),
         return_type,
         body,
-    ))
+    })
 }

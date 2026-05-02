@@ -767,19 +767,12 @@ impl Parser<'_> {
         self.events.insert(checkpoint, Event::StartNode(kind));
     }
 
-    pub fn replace_token_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
-        let Some(event) = self.events.get_mut(checkpoint) else {
+    pub fn replace_token_at(&mut self, checkpoint: usize, new_kind: SyntaxKind) {
+        let Some(Event::Token { kind: old_kind, .. }) = self.events.get_mut(checkpoint) else {
             return;
         };
 
-        let Event::Token {
-            kind: token_kind, ..
-        } = event
-        else {
-            return;
-        };
-
-        *token_kind = kind;
+        *old_kind = new_kind;
     }
 
     pub fn finish_node_at(&mut self, checkpoint: usize) {

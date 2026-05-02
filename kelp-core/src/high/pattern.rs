@@ -174,11 +174,17 @@ impl Pattern {
             (PatternKind::Wildcard, _) => MiddlePattern::Wildcard,
             (PatternKind::Binding(path), _) => {
                 if path.segments.len() == 1 {
-                    let name = path.segments[0].name.clone();
+                    let segment = &path.segments[0];
+                    let name = segment.name.clone();
 
                     let id = ctx.declare_variable_known(Visibility::Public, name, variable_type);
 
-                    MiddlePattern::Binding(id)
+                    let declaration = ctx.get_value(id).clone();
+
+                    let (resolved_id, _) =
+                        declaration.resolve_fully(ctx, id, Vec::new(), segment.name_span)?;
+
+                    MiddlePattern::Binding(resolved_id)
                 } else {
                     return ctx.add_error(
                         self.span,

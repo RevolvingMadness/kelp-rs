@@ -6,5 +6,5 @@ pub struct VariableId(pub usize);
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration {
     pub name: String,
-    pub data_type: Option<DataType>,
+    pub data_type: DataType,
 }

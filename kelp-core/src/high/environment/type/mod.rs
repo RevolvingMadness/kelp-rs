@@ -1,7 +1,7 @@
 use crate::{
     builtin_data_type::BuiltinDataType,
     high::{
-        data_type::resolved::{GenericResolver, PartiallyResolvedDataType},
+        data_type::resolved::GenericResolver,
         environment::r#type::{
             alias::HighAliasDeclaration, module::HighModuleDeclaration,
             r#struct::HighStructDeclaration,
@@ -101,7 +101,7 @@ impl HighTypeDeclaration {
                             .field_types
                             .into_iter()
                             .map(|(field_name, field_type)| {
-                                let field_type = field_type?.resolve_fully(ctx, &resolver).unwrap();
+                                let field_type = field_type?.resolve_fully(&resolver).unwrap();
 
                                 Some((field_name, field_type))
                             })
@@ -128,7 +128,7 @@ impl HighTypeDeclaration {
                             .field_types
                             .into_iter()
                             .map(|field_type| {
-                                let field_type = field_type?.resolve_fully(ctx, &resolver).unwrap();
+                                let field_type = field_type?.resolve_fully(&resolver).unwrap();
 
                                 Some(field_type)
                             })
@@ -147,8 +147,6 @@ impl HighTypeDeclaration {
                 Some(DataType::Struct(id))
             }
             HighTypeDeclarationKind::Alias(declaration) => {
-                let alias = declaration.alias?;
-
                 let resolver = GenericResolver::create_semantic_analysis(
                     ctx,
                     &declaration.name,
@@ -157,49 +155,9 @@ impl HighTypeDeclaration {
                     &generic_types,
                 )?;
 
-                alias.resolve_fully(ctx, &resolver)
+                declaration.alias.resolve_fully(&resolver)
             }
             HighTypeDeclarationKind::Builtin(data_type) => data_type.to_data_type(generic_types),
-        }
-    }
-
-    #[must_use]
-    pub fn resolve_partially(
-        self,
-        id: HighTypeId,
-        name_span: Span,
-        generic_types: Vec<PartiallyResolvedDataType>,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> Option<PartiallyResolvedDataType> {
-        if let Some(expected_generic_count) = self.kind.generic_count() {
-            let actual_generic_count = generic_types.len();
-
-            if actual_generic_count != expected_generic_count {
-                let name = self.kind.name().to_owned();
-
-                return ctx.add_invalid_generics(
-                    name_span,
-                    name,
-                    expected_generic_count,
-                    actual_generic_count,
-                );
-            }
-        }
-
-        match self.kind {
-            HighTypeDeclarationKind::Module(_) => ctx.add_error(
-                name_span,
-                SemanticAnalysisError::NotAType(self.kind.name().to_owned()),
-            ),
-            HighTypeDeclarationKind::Struct(_) => Some(PartiallyResolvedDataType::Struct(
-                name_span,
-                id,
-                generic_types,
-            )),
-            HighTypeDeclarationKind::Alias(declaration) => declaration.alias,
-            HighTypeDeclarationKind::Builtin(data_type) => {
-                data_type.to_resolved_data_type(generic_types)
-            }
         }
     }
 }

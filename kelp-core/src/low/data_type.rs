@@ -6,8 +6,11 @@ use std::{
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
-    high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-    low::environment::{Environment, r#type::r#struct::StructId},
+    high::{
+        data_type::resolved::GenericResolver,
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    },
+    low::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
     operator::{ArithmeticOperator, ComparisonOperator},
     span::Span,
 };
@@ -104,6 +107,46 @@ impl Display for DataTypeDisplay<'_> {
                 Ok(())
             }
             DataType::SNBT => f.write_str("snbt"),
+            DataType::Generic(name) => name.fmt(f),
+            DataType::Function(id) => {
+                // TODO: Maybe display full path?
+
+                let (_, _, declaration) = self.environment.get_function(*id);
+
+                write!(f, "fn {}", declaration.name)?;
+
+                if !declaration.generic_types.is_empty() {
+                    f.write_str("<")?;
+
+                    for (i, data_type) in declaration.generic_types.iter().enumerate() {
+                        if i != 0 {
+                            f.write_str(", ")?;
+                        }
+
+                        data_type.display(self.environment).fmt(f)?;
+                    }
+
+                    f.write_str(">")?;
+                }
+
+                f.write_char('(')?;
+
+                for (i, data_type) in declaration.parameter_types.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(", ")?;
+                    }
+
+                    data_type.display(self.environment).fmt(f)?;
+                }
+
+                write!(
+                    f,
+                    ") -> {}",
+                    declaration.return_type.display(self.environment)
+                )?;
+
+                Ok(())
+            }
             DataType::Struct(id) => {
                 // TODO: Maybe display full path?
 
@@ -175,6 +218,8 @@ pub enum DataType {
     Reference(Box<Self>),
     Tuple(Vec<Self>),
     SNBT,
+    Generic(String),
+    Function(FunctionId),
     Struct(StructId),
     Inferred,
     InferredInteger,
@@ -184,6 +229,39 @@ pub enum DataType {
 }
 
 impl DataType {
+    #[must_use]
+    pub fn resolve_fully(self, resolver: &GenericResolver) -> Option<Self> {
+        Some(match self {
+            Self::Score(data_type) => Self::Score(Box::new(data_type.resolve_fully(resolver)?)),
+            Self::List(data_type) => Self::List(Box::new(data_type.resolve_fully(resolver)?)),
+            Self::TypedCompound(compound) => {
+                let compound = compound
+                    .into_iter()
+                    .map(|(key, data_type)| Some((key, data_type.resolve_fully(resolver)?)))
+                    .collect::<Option<_>>()?;
+
+                Self::TypedCompound(compound)
+            }
+            Self::Compound(data_type) => {
+                Self::Compound(Box::new(data_type.resolve_fully(resolver)?))
+            }
+            Self::Data(data_type) => Self::Data(Box::new(data_type.resolve_fully(resolver)?)),
+            Self::Reference(data_type) => {
+                Self::Reference(Box::new(data_type.resolve_fully(resolver)?))
+            }
+            Self::Tuple(data_types) => {
+                let data_types = data_types
+                    .into_iter()
+                    .map(|data_type| data_type.resolve_fully(resolver))
+                    .collect::<Option<_>>()?;
+
+                Self::Tuple(data_types)
+            }
+            Self::Generic(name) => resolver.resolve(&name)?.clone(),
+            _ => self,
+        })
+    }
+
     #[must_use]
     pub fn can_be_represented_as_snbt_float_macro(&self) -> bool {
         match self {
@@ -485,6 +563,8 @@ impl DataType {
             | Self::TypedCompound(_)
             | Self::Compound(_)
             | Self::Tuple(_)
+            | Self::Generic(_)
+            | Self::Function(_)
             | Self::SNBT
             | Self::ResourceLocation
             | Self::EntitySelector

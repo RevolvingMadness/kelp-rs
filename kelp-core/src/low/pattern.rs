@@ -13,7 +13,7 @@ use crate::{
         data_type::DataType,
         environment::{
             r#type::r#struct::{StructStructId, TupleStructId},
-            value::{ValueId, variable::VariableId},
+            value::ValueId,
         },
         expression::{literal::LiteralExpression, resolved::ResolvedExpression},
         nbt_path::NbtPath,
@@ -259,7 +259,7 @@ pub enum Pattern {
     Literal(LiteralExpression),
 
     Wildcard,
-    Binding(VariableId),
+    Binding(ValueId),
 
     Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
@@ -282,7 +282,7 @@ impl Pattern {
         match self {
             Self::Literal(_) | Self::Wildcard => {}
             Self::Binding(id) => {
-                datapack.declare_value(ValueId(id.0), data_type, value);
+                datapack.declare_value(id, data_type, value);
             }
             Self::Score(score) => {
                 let score = score.compile(datapack, ctx);

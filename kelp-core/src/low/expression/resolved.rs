@@ -1299,8 +1299,8 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn cast_to(self, data_type: DataType) -> Self {
-        match (self, data_type) {
+    pub fn cast_to(self, data_type: DataType) -> Option<Self> {
+        Some(match (self, data_type) {
             (Self::Byte(value), DataType::Short) => Self::Short(i16::from(value)),
             (Self::Byte(value), DataType::Integer) => Self::Integer(i32::from(value)),
             (Self::Byte(value), DataType::Long) => Self::Long(i64::from(value)),
@@ -1363,8 +1363,8 @@ impl ResolvedExpression {
             | (self_ @ Self::Data(_), DataType::Data(_))
             | (self_ @ Self::PlayerScore(_), DataType::Score(_)) => self_,
 
-            _ => unreachable!(""),
-        }
+            _ => return None,
+        })
     }
 
     pub fn to_execute_condition(
@@ -1543,7 +1543,7 @@ impl ResolvedExpression {
             Self::Unit => SNBT::string("()"),
             Self::StructStruct(id, fields) => {
                 if force_display {
-                    // TODO: Maybe isplay full path?
+                    // TODO: Maybe display full path?
 
                     let (visibility, _, declaration) = datapack.get_struct_struct_type(id);
 

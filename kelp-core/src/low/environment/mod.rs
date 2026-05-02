@@ -13,6 +13,7 @@ use crate::{
             },
             value::{
                 ValueDeclaration, ValueDeclarationKind, ValueId,
+                function::{FunctionDeclaration, FunctionId},
                 variable::{VariableDeclaration, VariableId},
             },
         },
@@ -173,7 +174,7 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        data_type: Option<DataType>,
+        data_type: DataType,
     ) -> VariableId {
         let id = VariableId(self.values.len());
 
@@ -183,5 +184,41 @@ impl Environment {
         );
 
         id
+    }
+
+    #[must_use]
+    pub fn declare_function(
+        &mut self,
+        module_path: Vec<String>,
+        visibility: Visibility,
+        name: String,
+        generic_types: Vec<DataType>,
+        parameter_types: Vec<DataType>,
+        return_type: DataType,
+    ) -> FunctionId {
+        let id = FunctionId(self.values.len());
+
+        self.values.push(
+            ValueDeclarationKind::Function(FunctionDeclaration {
+                name,
+                generic_types,
+                parameter_types,
+                return_type,
+            })
+            .with_visibility(module_path, visibility),
+        );
+
+        id
+    }
+
+    #[must_use]
+    pub fn get_function(&self, id: FunctionId) -> (Visibility, &[String], &FunctionDeclaration) {
+        let (visibility, module_path, ValueDeclarationKind::Function(declaration)) =
+            self.values[id.0].as_tuple()
+        else {
+            unreachable!();
+        };
+
+        (visibility, module_path, declaration)
     }
 }

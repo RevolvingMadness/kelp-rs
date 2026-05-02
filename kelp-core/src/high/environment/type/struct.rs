@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::high::data_type::resolved::PartiallyResolvedDataType;
+use crate::low::data_type::DataType;
 
 #[derive(Debug, Clone)]
 pub enum HighStructDeclaration {
@@ -38,12 +38,12 @@ impl HighStructDeclaration {
 pub struct HighStructStructDeclaration {
     pub name: String,
     pub generic_names: Vec<String>,
-    pub field_types: HashMap<String, Option<PartiallyResolvedDataType>>,
+    pub field_types: HashMap<String, Option<DataType>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct HighTupleStructDeclaration {
     pub name: String,
     pub generic_names: Vec<String>,
-    pub field_types: Vec<Option<PartiallyResolvedDataType>>,
+    pub field_types: Vec<Option<DataType>>,
 }

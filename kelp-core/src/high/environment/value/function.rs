@@ -1,8 +1,9 @@
 use crate::low::data_type::DataType;
 
 #[derive(Debug, Clone)]
-pub struct HighAliasDeclaration {
+pub struct HighFunctionDeclaration {
     pub name: String,
     pub generic_names: Vec<String>,
-    pub alias: DataType,
+    pub parameter_types: Vec<DataType>,
+    pub return_type: DataType,
 }

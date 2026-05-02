@@ -1,16 +1,33 @@
 use crate::{
-    low::{data_type::DataType, environment::value::variable::VariableDeclaration},
+    low::environment::value::{
+        function::{FunctionDeclaration, FunctionId},
+        variable::{VariableDeclaration, VariableId},
+    },
     visibility::Visibility,
 };
 
+pub mod function;
 pub mod variable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ValueId(pub usize);
 
+impl From<VariableId> for ValueId {
+    fn from(value: VariableId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<FunctionId> for ValueId {
+    fn from(value: FunctionId) -> Self {
+        Self(value.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ValueDeclarationKind {
     Variable(VariableDeclaration),
+    Function(FunctionDeclaration),
 }
 
 impl ValueDeclarationKind {
@@ -44,13 +61,7 @@ impl ValueDeclarationKind {
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
-        }
-    }
-
-    #[must_use]
-    pub const fn data_type(&self) -> Option<&DataType> {
-        match self {
-            Self::Variable(declaration) => declaration.data_type.as_ref(),
+            Self::Function(declaration) => &declaration.name,
         }
     }
 }

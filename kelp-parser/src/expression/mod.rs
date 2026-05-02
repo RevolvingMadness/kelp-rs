@@ -438,25 +438,25 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.bump_char();
                 parser.skip_whitespace();
 
-                if parser.peek_char() != Some(')') {
-                    loop {
-                        if !try_parse_expression(parser) {
-                            break;
-                        }
+                // if parser.peek_char() != Some(')') {
+                //     loop {
+                //         if !try_parse_expression(parser) {
+                //             break;
+                //         }
 
-                        parser.skip_whitespace();
+                //         parser.skip_whitespace();
 
-                        if !parser.try_bump_char(',') {
-                            break;
-                        }
+                //         if !parser.try_bump_char(',') {
+                //             break;
+                //         }
 
-                        parser.skip_whitespace();
+                //         parser.skip_whitespace();
 
-                        if parser.peek_char() == Some(')') {
-                            break;
-                        }
-                    }
-                }
+                //         if parser.peek_char() == Some(')') {
+                //             break;
+                //         }
+                //     }
+                // }
 
                 parser.expect_char(')', "Expected closing parenthesis ')'");
                 parser.finish_node();
@@ -552,18 +552,16 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
     }
 
     match parser.peek_char() {
-        // Some('{') => try_parse_compound_expression(parser),
         Some('[') => try_parse_list_expression(parser),
         Some('(') => {
             let checkpoint = parser.checkpoint();
-            parser.bump_char();
+            parser.bump_char(); // Bump '('
             parser.skip_whitespace();
 
             if parser.peek_char() == Some(')') {
                 parser.start_node_at(checkpoint, SyntaxKind::UnitExpression);
                 parser.bump_char();
                 parser.finish_node();
-
                 return true;
             }
 
@@ -572,12 +570,35 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             }
 
             parser.skip_whitespace();
-            parser.start_node_at(checkpoint, SyntaxKind::ParenthesizedExpression);
 
-            if !parser.try_bump_char(')') {
-                parser.error("Expected ')'");
+            let mut is_tuple = false;
+            if parser.peek_char() == Some(',') {
+                is_tuple = true;
+
+                while parser.try_bump_char(',') {
+                    parser.skip_whitespace();
+
+                    if parser.peek_char() == Some(')') {
+                        break;
+                    }
+
+                    if !try_parse_expression(parser) {
+                        parser.error("Expected expression after ','");
+                    }
+                    parser.skip_whitespace();
+                }
             }
 
+            let kind = if is_tuple {
+                SyntaxKind::TupleExpression
+            } else {
+                SyntaxKind::ParenthesizedExpression
+            };
+
+            parser.start_node_at(checkpoint, kind);
+            if !parser.try_bump_char(')') {
+                parser.error("Expected closing parenthesis ')'");
+            }
             parser.finish_node();
 
             true

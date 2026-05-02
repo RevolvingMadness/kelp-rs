@@ -18,13 +18,21 @@ use crate::{
     },
     low::{data_type::DataType, item::Item as MiddleItem},
     span::Span,
+    trait_ext::CollectOptionAllIterExt,
     visibility::Visibility,
 };
 
 #[derive(Debug, Clone)]
 pub enum ItemKind {
     ModuleDeclaration(Span, String, Vec<Item>),
-    FunctionDeclaration(String, UnresolvedDataType, BlockExpression),
+    FunctionDeclaration {
+        name_span: Span,
+        name: String,
+        generic_names: Vec<String>,
+        parameter_types: Vec<UnresolvedDataType>,
+        return_type: UnresolvedDataType,
+        body: BlockExpression,
+    },
     MCFNDeclaration(ResourceLocation, BlockExpression),
     TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
     StructStructDeclaration(
@@ -74,8 +82,20 @@ impl Item {
 
                 MiddleItem::ModuleDeclaration
             }
-            ItemKind::FunctionDeclaration(name, return_type, body) => {
-                let return_type = return_type.resolve_fully(ctx)?;
+            ItemKind::FunctionDeclaration {
+                name,
+                generic_names,
+                parameter_types,
+                return_type,
+                body,
+                ..
+            } => {
+                let parameter_types = parameter_types
+                    .into_iter()
+                    .map(|parameter_type| parameter_type.resolve_partially(None, ctx))
+                    .collect_option_all()?;
+
+                let return_type = return_type.resolve_partially(None, ctx)?;
 
                 let (body_span, tail_expression_span, body) =
                     body.perform_semantic_analysis(ctx)?;
@@ -89,6 +109,14 @@ impl Item {
                         },
                     );
                 }
+
+                ctx.declare_function(
+                    self.visibility,
+                    name,
+                    generic_names,
+                    parameter_types,
+                    return_type,
+                );
 
                 // TODO
 
@@ -116,7 +144,7 @@ impl Item {
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
                 }
 
-                let alias = alias.resolve_partially(Some(&generic_names), ctx);
+                let alias = alias.resolve_partially(Some(&generic_names), ctx)?;
 
                 ctx.declare_alias(
                     self.visibility,

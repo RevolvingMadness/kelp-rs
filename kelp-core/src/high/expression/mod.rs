@@ -19,7 +19,6 @@ use crate::{
     },
     low::{
         data_type::DataType,
-        environment::value::ValueDeclarationKind,
         expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -239,11 +238,13 @@ impl Expression {
                     return Some(None);
                 };
 
-                let (_, _, declaration) = ctx.get_value(id);
+                let declaration = ctx.get_value(id);
 
-                let data_type = declaration.data_type()?.clone();
+                let Some(data_type) = declaration.data_type()? else {
+                    return Some(None);
+                };
 
-                (data_type, PlaceTypeKind::Value)
+                (data_type.clone(), PlaceTypeKind::Value)
             }
             _ => return None,
         };
@@ -780,6 +781,11 @@ impl Expression {
                     .with(DataType::Struct(id))
             }
             ExpressionKind::Call { callee, arguments } => {
+                let (_, callee) = callee.perform_semantic_analysis(ctx)?;
+
+                println!("{:?}", callee);
+                println!("{:?}", arguments);
+
                 // let mut path = path.resolve_fully(ctx)?;
 
                 // let id = ctx.get_visible_type_id(&path)?;
@@ -985,18 +991,22 @@ impl Expression {
                 .with(DataType::Unit)
             }
             ExpressionKind::Path(path) => {
-                let path = path.resolve_fully(ctx)?;
+                let mut path = path.resolve_fully(ctx)?;
 
                 let id = ctx.get_visible_value_id(&path)?;
 
-                let value_name = path.segments.last().unwrap();
+                let value_declaration = ctx.get_value(id).clone();
 
-                let ValueDeclarationKind::Variable(declaration) =
-                    ctx.get_visible_value(self.span, &value_name.name, id)?;
+                let last_segment = path.segments.pop().unwrap();
 
-                let data_type = declaration.data_type.as_ref()?.clone();
+                let (id, data_type) = value_declaration.resolve_fully(
+                    ctx,
+                    id,
+                    last_segment.generic_types,
+                    last_segment.name_span,
+                )?;
 
-                UnresolvedExpressionKind::Variable(id).with(data_type)
+                UnresolvedExpressionKind::Value(id).with(data_type)
             }
             ExpressionKind::Boolean(value) => {
                 UnresolvedExpressionKind::Boolean(value).with(DataType::Boolean)

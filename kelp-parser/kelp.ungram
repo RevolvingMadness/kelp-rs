@@ -182,7 +182,7 @@ NumericExpression =
 UnitExpression =
   '(' ')'
 
-CallExpression = callee:Expression '(' (arguments:Expression (',' arguments:Expression)* ','?)? ')'
+CallExpression = callee:Expression '(' ')'
 
 ParenthesizedExpression =
   '(' Expression ')'

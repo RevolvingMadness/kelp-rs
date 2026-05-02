@@ -320,7 +320,7 @@ fn process_success(
 
     let datapack_dir = dirs::home_dir()
         .unwrap()
-        .join(".local/share/PandoraLauncher/instances/1.21.11/.minecraft/saves/1_21_11/datapacks/")
+        .join(".local/share/PandoraLauncher/instances/26.1.2/.minecraft/saves/26_1_2/datapacks/")
         .join(project_name);
 
     if datapack_dir.exists() {

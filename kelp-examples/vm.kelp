@@ -13,8 +13,6 @@ struct VM {
 }
 
 fn vm_run() -> data<integer> {
-    let result = -1 to data;
-
     let op_push = 1;
     let op_load = 2;
     let op_store = 3;
@@ -129,16 +127,18 @@ fn vm_run() -> data<integer> {
         } else if instruction.opcode == (op_halt) {
             tellraw @a "halt";
 
-            *result = vm.stack[-1];
+            let value = *vm.stack[-1];
+            
             remove vm.stack[-1];
-            break;
+
+            return value;
         } else {
             tellraw @a ["Unknown opcode: ", instruction.opcode];
             break;
         }
     }
 
-    result
+    0 to data
 }
 
 mcfn namespace:main {

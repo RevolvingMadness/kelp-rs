@@ -26,7 +26,9 @@ GroupUseTree = (Path? '::')? '{' (UseTree (',' UseTree)* ','?)? '}'
 AsUseTree = Path 'as' 'ident'
 PathUseTree = Path
 
-FunctionDeclarationItem = 'fn' name:'ident' '(' ')' ('->' DataType)? BlockExpression
+FunctionDeclarationItem = 'fn' name:'ident' '(' (parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?)? ')' ('->' DataType)? BlockExpression
+
+FunctionParameter = name:'ident' ':' DataType
 
 MCFNDeclarationItem =
   'mcfn' ResourceLocation BlockExpression
@@ -183,7 +185,7 @@ NumericExpression =
 UnitExpression =
   '(' ')'
 
-CallExpression = callee:Expression '(' ')'
+CallExpression = callee:Expression '(' (arguments:Expression (',' arguments:Expression)* ','?)? ')'
 
 ParenthesizedExpression =
   '(' Expression ')'

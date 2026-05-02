@@ -31,6 +31,40 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
+    if parser.peek_char() != Some(')') {
+        loop {
+            parser.start_node(SyntaxKind::FunctionParameter);
+
+            if !parser.try_bump_identifier() {
+                parser.error("Expected parameter name");
+                parser.finish_node();
+                break;
+            }
+
+            parser.skip_whitespace();
+            parser.expect_char(':', "Expected ':'");
+            parser.skip_whitespace();
+
+            if !try_parse_data_type(parser) {
+                parser.error("Expected data type");
+            }
+
+            parser.finish_node();
+
+            parser.skip_whitespace();
+
+            if !parser.try_bump_char(',') {
+                break;
+            }
+
+            parser.skip_whitespace();
+
+            if parser.peek_char() == Some(')') {
+                break;
+            }
+        }
+    }
+
     parser.expect_char(')', "Expected ')'");
 
     parser.skip_whitespace();
@@ -70,6 +104,40 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 
     parser.skip_whitespace();
 
+    if parser.peek_char() != Some(')') {
+        loop {
+            parser.start_node(SyntaxKind::FunctionParameter);
+
+            if !parser.try_bump_identifier() {
+                parser.error("Expected parameter name");
+                parser.finish_node();
+                break;
+            }
+
+            parser.skip_whitespace();
+            parser.expect_char(':', "Expected ':'");
+            parser.skip_whitespace();
+
+            if !try_parse_data_type(parser) {
+                parser.error("Expected data type");
+            }
+
+            parser.finish_node();
+
+            parser.skip_whitespace();
+
+            if !parser.try_bump_char(',') {
+                break;
+            }
+
+            parser.skip_whitespace();
+
+            if parser.peek_char() == Some(')') {
+                break;
+            }
+        }
+    }
+
     parser.expect_char(')', "Expected ')'");
 
     parser.skip_whitespace();
@@ -101,6 +169,16 @@ pub fn lower_function_declaration_item_kind(
     let name_span = name_token.text_range();
     let name = name_token.text();
 
+    let parameter_types = node
+        .parameters()
+        .map(|param| {
+            param
+                .data_type()
+                .and_then(lower_data_type)
+                .unwrap_or(UnresolvedDataType::Unit)
+        })
+        .collect();
+
     let return_type = node
         .data_type()
         .and_then(lower_data_type)
@@ -112,7 +190,7 @@ pub fn lower_function_declaration_item_kind(
         name_span: text_range_to_span(name_span),
         name: name.to_owned(),
         generic_names: Vec::new(),
-        parameter_types: Vec::new(),
+        parameter_types,
         return_type,
         body,
     })

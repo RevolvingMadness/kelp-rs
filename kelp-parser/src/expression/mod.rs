@@ -439,25 +439,25 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.bump_char();
                 parser.skip_whitespace();
 
-                // if parser.peek_char() != Some(')') {
-                //     loop {
-                //         if !try_parse_expression(parser) {
-                //             break;
-                //         }
+                if parser.peek_char() != Some(')') {
+                    loop {
+                        if !try_parse_expression(parser) {
+                            break;
+                        }
 
-                //         parser.skip_whitespace();
+                        parser.skip_whitespace();
 
-                //         if !parser.try_bump_char(',') {
-                //             break;
-                //         }
+                        if !parser.try_bump_char(',') {
+                            break;
+                        }
 
-                //         parser.skip_whitespace();
+                        parser.skip_whitespace();
 
-                //         if parser.peek_char() == Some(')') {
-                //             break;
-                //         }
-                //     }
-                // }
+                        if parser.peek_char() == Some(')') {
+                            break;
+                        }
+                    }
+                }
 
                 parser.expect_char(')', "Expected closing parenthesis ')'");
                 parser.finish_node();

@@ -169,6 +169,7 @@ pub enum SyntaxKind {
     ItemKind,
     ModuleDeclarationItem,
     FunctionDeclarationItem,
+    FunctionParameter,
     MCFNDeclarationItem,
     StructStructDeclarationItem,
     TupleStructDeclarationItem,

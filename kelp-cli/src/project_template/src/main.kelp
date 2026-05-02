@@ -1,0 +1,5 @@
+use std::*;
+
+mcfn {project_id}:main {{
+    tellraw @a "Hello, World!";
+}}

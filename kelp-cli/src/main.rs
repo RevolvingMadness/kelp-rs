@@ -15,6 +15,50 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use yansi::Paint;
 
+fn to_identifier(input: &str) -> String {
+    let mut result = String::new();
+
+    for (i, c) in input.chars().enumerate() {
+        let valid = if i == 0 {
+            c.is_ascii_alphabetic() || c == '_' || c == '-'
+        } else {
+            c.is_ascii_alphanumeric() || c == '_' || c == '-'
+        };
+
+        if valid {
+            result.push(c);
+        }
+    }
+
+    if result.is_empty()
+        || !matches!(
+            result.chars().next().unwrap(),
+            'A'..='Z' | 'a'..='z' | '_' | '-'
+        )
+    {
+        result.insert(0, '_');
+    }
+
+    result
+}
+
+fn identifier_to_name(input: &str) -> String {
+    input
+        .split(['-', '_'])
+        .filter(|s| !s.is_empty())
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => {
+                    first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[derive(ClapParser)]
 #[command(name = "kelp")]
 struct Cli {
@@ -56,23 +100,12 @@ fn handle_new(input: &str) {
     let root = Path::new(input);
     let src = root.join("src");
 
-    let project_id = input;
+    let project_id = to_identifier(input);
 
-    let project_name = input
-        .split(['-', '_'])
-        .filter(|word| !word.is_empty())
-        .map(|word| {
-            let mut chars = word.chars();
-
-            chars.next().map_or_else(String::new, |first| {
-                first.to_uppercase().collect::<String>() + chars.as_str()
-            })
-        })
-        .collect::<Vec<String>>()
-        .join(" ");
+    let project_name = identifier_to_name(&project_id);
 
     println!(
-        "{} Creating project \"{}\" (id: {})...",
+        r#"{} Creating project "{}" (id: {})..."#,
         "Info:".green(),
         project_name,
         project_id
@@ -84,13 +117,13 @@ fn handle_new(input: &str) {
     }
 
     let main_kelp_content = format!(
-        "mcfn {}:main {{\n    tellraw @a \"Hello, World!\"\n}}\n",
-        project_id
+        include_str!("project_template/src/main.kelp"),
+        project_id = project_id,
     );
-
     let kelp_toml_content = format!(
-        "[project]\nname = \"{}\"\nid = \"{}\"\nversion = \"0.1.0\"\n",
-        project_name, project_id
+        include_str!("project_template/Kelp.toml"),
+        project_name = project_name,
+        project_id = project_id,
     );
 
     if let Err(e) = fs::write(src.join("main.kelp"), main_kelp_content) {

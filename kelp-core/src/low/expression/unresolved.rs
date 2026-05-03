@@ -602,15 +602,7 @@ impl UnresolvedExpressionKind {
 
     #[must_use]
     pub const fn can_be_referenced(&self) -> bool {
-        matches!(
-            self,
-            Self::Unary(UnaryOperator::Dereference, _)
-                | Self::PlayerScore(_)
-                | Self::Data(_)
-                | Self::Index(_, _)
-                | Self::FieldAccess(_, _)
-                | Self::Value(_)
-        )
+        matches!(self, Self::Value(_))
     }
 
     #[must_use]
@@ -697,7 +689,7 @@ impl UnresolvedExpressionKind {
                 match unary_operator {
                     UnaryOperator::Negate => expression.negate(datapack, ctx).unwrap(),
                     UnaryOperator::Invert => expression.invert(datapack).unwrap(),
-                    UnaryOperator::Reference => expression,
+                    UnaryOperator::Reference => ResolvedExpression::Reference(Box::new(expression)),
                     UnaryOperator::Dereference => expression.dereference(datapack, ctx).unwrap(),
                 }
             }

@@ -265,6 +265,7 @@ pub enum ResolvedExpression {
     Coordinates(Coordinates),
     Variable(VariableId),
     Function(FunctionId),
+    Reference(Box<Self>),
 
     PlayerScore(GeneratedPlayerScore),
     Data(Box<(GeneratedDataTarget, NbtPath)>),
@@ -276,6 +277,10 @@ impl ResolvedExpression {
         match self {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, compile_as_statement(datapack, ctx))
+            }
+
+            Self::Reference(expression) => {
+                expression.compile_as_statement(datapack, ctx);
             }
 
             Self::List(list) => {
@@ -324,6 +329,8 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, call_to_value(datapack, ctx, arguments))
             }
+            Self::Reference(expression) => expression.call_to_value(datapack, ctx, arguments),
+
             Self::ResourceLocation(resource_location) => {
                 assert!(arguments.is_empty());
 
@@ -355,6 +362,10 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, call(datapack, ctx, arguments))
             }
+            Self::Reference(expression) => {
+                expression.call(datapack, ctx, arguments);
+            }
+
             Self::ResourceLocation(resource_location) => {
                 assert!(arguments.is_empty());
 
@@ -373,6 +384,8 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, dereference(datapack, ctx))
             }
+
+            Self::Reference(expression) => *expression,
 
             Self::PlayerScore(score) => {
                 let unique_score = datapack.get_unique_score();
@@ -407,6 +420,7 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, try_into_iter(datapack, reverse))
             }
+
             Self::List(items) => items,
             Self::String(string) => string
                 .1
@@ -434,6 +448,11 @@ impl ResolvedExpression {
         field: &str,
     ) -> Option<Self> {
         match self {
+            Self::Variable(id) => {
+                handle_variable!(datapack, id, access_field(datapack, data_type, field))
+            }
+            Self::Reference(expression) => expression.access_field(datapack, data_type, field),
+
             Self::Compound(compound) => compound.into_iter().find_map(|(actual_field, value)| {
                 if actual_field.1 == field {
                     Some(value)
@@ -486,9 +505,7 @@ impl ResolvedExpression {
 
                 fields.get(field).cloned()
             }
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, access_field(datapack, data_type, field))
-            }
+
             Self::Boolean(..)
             | Self::Byte(..)
             | Self::Short(..)
@@ -512,6 +529,11 @@ impl ResolvedExpression {
     #[must_use]
     pub fn can_into_snbt(&self, datapack: &Datapack) -> bool {
         match self {
+            Self::Variable(id) => {
+                handle_variable!(datapack, *id, can_into_snbt(datapack))
+            }
+            Self::Reference(expression) => expression.can_into_snbt(datapack),
+
             Self::StructStruct(_, field_expressions) => field_expressions
                 .values()
                 .all(|expression| expression.can_into_snbt(datapack)),
@@ -521,9 +543,6 @@ impl ResolvedExpression {
             Self::Compound(compound) => compound
                 .values()
                 .all(|expression| expression.can_into_snbt(datapack)),
-            Self::Variable(id) => {
-                handle_variable!(datapack, *id, can_into_snbt(datapack))
-            }
             Self::Boolean(..)
             | Self::Byte(..)
             | Self::Short(..)
@@ -547,6 +566,11 @@ impl ResolvedExpression {
 
     pub fn try_into_snbt(self, datapack: &Datapack) -> Result<SNBT, Self> {
         Ok(match self {
+            Self::Variable(id) => {
+                handle_variable!(datapack, id, try_into_snbt(datapack))
+            }
+            Self::Reference(expression) => return expression.try_into_snbt(datapack),
+
             Self::StructStruct(name, field_expressions) => {
                 if !field_expressions
                     .values()
@@ -657,9 +681,6 @@ impl ResolvedExpression {
 
                 SNBT::compound(compound)
             }
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, try_into_snbt(datapack))
-            }
             _ => return Err(self),
         })
     }
@@ -673,6 +694,7 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, try_into_snbt_scale(datapack, scale))
             }
+            Self::Reference(expression) => return expression.try_into_snbt_scale(datapack, scale),
 
             Self::Byte(byte) => {
                 SNBT::float(NotNan::new(f32::from(byte) * scale.into_inner()).unwrap())
@@ -738,6 +760,7 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, as_snbt_double(datapack, ctx))
             }
+            Self::Reference(expression) => return expression.as_snbt_double(datapack, ctx),
 
             Self::Byte(_)
             | Self::Short(_)
@@ -760,6 +783,7 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, *id, try_as_f32(datapack))
             }
+            Self::Reference(expression) => return expression.try_as_f32(datapack),
 
             Self::Byte(v) => f64::from(*v),
             Self::Short(v) => f64::from(*v),
@@ -840,6 +864,9 @@ impl ResolvedExpression {
             Err(self_) => match self_ {
                 Self::Variable(id) => {
                     handle_variable!(datapack, id, assign_to_data(datapack, ctx, target, path))
+                }
+                Self::Reference(expression) => {
+                    expression.assign_to_data(datapack, ctx, target, path);
                 }
 
                 Self::PlayerScore(score) => {
@@ -1001,6 +1028,9 @@ impl ResolvedExpression {
                         id,
                         assign_to_data_scale(datapack, ctx, target, path, scale)
                     )
+                }
+                Self::Reference(expression) => {
+                    expression.assign_to_data_scale(datapack, ctx, target, path, scale);
                 }
 
                 Self::PlayerScore(score) => {
@@ -1195,6 +1225,7 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, *id, try_as_i32(datapack, force))
             }
+            Self::Reference(expression) => return expression.try_as_i32(datapack, force),
 
             Self::Byte(v) => i32::from(*v),
             Self::Short(v) => i32::from(*v),
@@ -1582,6 +1613,10 @@ impl ResolvedExpression {
                 handle_variable!(datapack, id, cast_to(datapack, data_type))
             }
 
+            (Self::Reference(expression), DataType::Reference(data_type)) => {
+                return expression.cast_to(datapack, *data_type);
+            }
+
             (Self::Byte(value), DataType::Short) => Self::Short(i16::from(value)),
             (Self::Byte(value), DataType::Integer) => Self::Integer(i32::from(value)),
             (Self::Byte(value), DataType::Long) => Self::Long(i64::from(value)),
@@ -1671,6 +1706,9 @@ impl ResolvedExpression {
         Some(match self {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, to_execute_condition(datapack, ctx, inverted))
+            }
+            Self::Reference(expression) => {
+                return expression.to_execute_condition(datapack, ctx, inverted);
             }
 
             Self::Boolean(value) => (
@@ -1835,6 +1873,11 @@ impl ResolvedExpression {
                     id,
                     as_text_component(datapack, ctx, force_display)
                 )
+            }
+            Self::Reference(expression) => {
+                // Should '&' be displayed?
+
+                expression.as_text_component(datapack, ctx, force_display)
             }
             Self::Function(id) => {
                 let (_, _, declaration) = datapack.get_function_declaration(id);
@@ -2005,6 +2048,8 @@ impl ResolvedExpression {
         Some(match self {
             Self::Variable(id) => Place::Value(id.into()),
 
+            Self::Reference(inner) => inner.as_place()?,
+
             Self::PlayerScore(score) => Place::Score(score),
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -2073,6 +2118,9 @@ impl ResolvedExpression {
         match self {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, assign_to_score(datapack, ctx, score))
+            }
+            Self::Reference(expression) => {
+                expression.assign_to_score(datapack, ctx, score);
             }
 
             Self::Boolean(value) => {
@@ -2204,6 +2252,9 @@ impl ResolvedExpression {
                     id,
                     assign_to_score_scale(datapack, ctx, score, scale)
                 )
+            }
+            Self::Reference(expression) => {
+                expression.assign_to_score_scale(datapack, ctx, score, scale);
             }
 
             Self::Byte(value) => {
@@ -2480,6 +2531,7 @@ impl ResolvedExpression {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, index(datapack, ctx, index))
             }
+            Self::Reference(expression) => return expression.index(datapack, ctx, index),
 
             Self::List(ref mut items) => {
                 if let Self::Integer(index) = index {

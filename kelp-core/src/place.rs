@@ -45,11 +45,11 @@ impl Place {
                 let declaration = datapack.get_value(id);
 
                 match &declaration.kind {
-                    ValueDeclarationKind::Variable(_) => datapack
-                        .get_variable_value(VariableId(id.0))
-                        .1
-                        .clone()
-                        .as_place()?,
+                    ValueDeclarationKind::Variable(_) => {
+                        let (_, value) = datapack.get_variable_value(VariableId(id.0));
+
+                        value.clone().as_place()?
+                    }
                     ValueDeclarationKind::Function(_) => return None,
                 }
             }

@@ -23,4 +23,8 @@ mcfn namespace:main {
     for Container::<string> { value } in (containers) {
         tellraw @a value;
     }
+
+    for { value } in containers to data {
+        tellraw @a value;
+    }
 }

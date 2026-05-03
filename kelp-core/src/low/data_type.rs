@@ -686,8 +686,9 @@ impl DataType {
             Self::Reference(inner) => return inner.get_iterable_type(),
 
             Self::List(data_type) => *data_type.clone(),
-            Self::Data(data_type) => data_type.get_iterable_type()?,
             Self::String => Self::String,
+
+            Self::Data(data_type) => data_type.get_iterable_type()?,
             _ => return Err(SemanticAnalysisError::CannotIterateType(self.clone())),
         })
     }

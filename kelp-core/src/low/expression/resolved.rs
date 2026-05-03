@@ -374,6 +374,27 @@ impl ResolvedExpression {
         })
     }
 
+    pub fn try_into_iter(self, reverse: bool) -> Result<Vec<Self>, Self> {
+        let mut vec = match self {
+            Self::List(items) => items,
+            Self::String(string) => string
+                .1
+                .chars()
+                .map(|char| {
+                    let string = SNBTString(false, char.to_string());
+                    Self::String(string)
+                })
+                .collect(),
+            _ => return Err(self),
+        };
+
+        if reverse {
+            vec.reverse();
+        }
+
+        Ok(vec)
+    }
+
     #[must_use]
     pub fn access_field(
         self,

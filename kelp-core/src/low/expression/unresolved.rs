@@ -672,7 +672,7 @@ impl UnresolvedExpressionKind {
 
                 let target = target.kind.resolve(datapack, ctx);
 
-                let field_result = target.access_field(data_type, datapack, &field.1).unwrap();
+                let field_result = target.access_field(datapack, data_type, &field.1).unwrap();
                 let place = field_result.as_place()?;
 
                 Some(place)
@@ -696,7 +696,7 @@ impl UnresolvedExpressionKind {
 
                 match unary_operator {
                     UnaryOperator::Negate => expression.negate(datapack, ctx).unwrap(),
-                    UnaryOperator::Invert => expression.invert().unwrap(),
+                    UnaryOperator::Invert => expression.invert(datapack).unwrap(),
                     UnaryOperator::Reference => expression,
                     UnaryOperator::Dereference => expression.dereference(datapack, ctx).unwrap(),
                 }
@@ -794,12 +794,12 @@ impl UnresolvedExpressionKind {
 
                 let target = target.kind.resolve(datapack, ctx);
 
-                target.access_field(&data_type, datapack, &field.1).unwrap()
+                target.access_field(datapack, &data_type, &field.1).unwrap()
             }
             Self::AsCast(expression, data_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                expression.cast_to(data_type).unwrap()
+                expression.cast_to(datapack, data_type).unwrap()
             }
             Self::ToCast(scale, expression, runtime_storage_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
@@ -860,9 +860,7 @@ impl UnresolvedExpressionKind {
 
                 match &declaration.kind {
                     ValueDeclarationKind::Variable(_) => {
-                        let (_, value) = datapack.get_variable_value(VariableId(id.0));
-
-                        value.clone()
+                        ResolvedExpression::Variable(VariableId(id.0))
                     }
                     ValueDeclarationKind::Function(_) => {
                         ResolvedExpression::Function(FunctionId(id.0))
@@ -996,7 +994,7 @@ impl UnresolvedExpressionKind {
 
                 let iterable = iterable.kind.resolve(datapack, ctx);
 
-                match iterable.try_into_iter(is_reversed) {
+                match iterable.try_into_iter(datapack, is_reversed) {
                     Ok(expressions) => {
                         let pattern = *pattern;
 
@@ -1225,7 +1223,7 @@ impl UnresolvedExpressionKind {
 
                 let iterable = iterable.kind.resolve(datapack, ctx);
 
-                match iterable.try_into_iter(is_reversed) {
+                match iterable.try_into_iter(datapack, is_reversed) {
                     Ok(expressions) => {
                         let pattern = *pattern;
 

@@ -23,12 +23,18 @@ impl ItemTest {
         match self {
             Self::Component(resource_location) => LowItemTest::Component(resource_location),
             Self::ComponentMatches(resource_location, expression) => {
-                let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                let expression = expression
+                    .kind
+                    .resolve(datapack, ctx)
+                    .as_snbt_macros(datapack, ctx);
 
                 LowItemTest::ComponentMatches(resource_location, expression)
             }
             Self::Predicate(resource_location, expression) => {
-                let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                let expression = expression
+                    .kind
+                    .resolve(datapack, ctx)
+                    .as_snbt_macros(datapack, ctx);
 
                 LowItemTest::Predicate(resource_location, expression)
             }

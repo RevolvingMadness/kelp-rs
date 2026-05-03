@@ -27,7 +27,7 @@ impl FunctionCommandArguments {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx);
 
                         (key, value)
                     })

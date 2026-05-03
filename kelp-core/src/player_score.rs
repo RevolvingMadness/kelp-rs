@@ -248,7 +248,7 @@ impl GeneratedPlayerScore {
     ) {
         match operator {
             ArithmeticOperator::Add => {
-                if let Some(constant) = value.try_as_i32(true) {
+                if let Some(constant) = value.try_as_i32(datapack, true) {
                     ctx.add_command(
                         datapack,
                         Command::Scoreboard(ScoreboardCommand::Players(
@@ -271,7 +271,7 @@ impl GeneratedPlayerScore {
                 }
             }
             ArithmeticOperator::Subtract => {
-                if let Some(constant) = value.try_as_i32(true) {
+                if let Some(constant) = value.try_as_i32(datapack, true) {
                     ctx.add_command(
                         datapack,
                         Command::Scoreboard(ScoreboardCommand::Players(

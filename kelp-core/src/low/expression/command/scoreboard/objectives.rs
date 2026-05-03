@@ -34,7 +34,7 @@ impl ScoreboardModification {
                 LowScoreboardModification::DisplayAutoUpdate(auto_update)
             }
             Self::DisplayName(expression) => {
-                let snbt = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                let snbt = expression.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx);
 
                 LowScoreboardModification::DisplayName(snbt)
             }
@@ -69,7 +69,7 @@ impl ObjectivesScoreboardCommand {
             Self::List => LowObjectivesScoreboardCommand::List,
             Self::Add(objective, criterion, expression) => {
                 let expression = expression
-                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx));
+                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx));
 
                 LowObjectivesScoreboardCommand::Add(objective, criterion, expression)
             }

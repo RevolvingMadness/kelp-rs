@@ -4,7 +4,10 @@ use minecraft_command_types::{
     block::BlockState as LowBlockState, resource_location::ResourceLocation, snbt::SNBTString,
 };
 
-use crate::{compile_context::CompileContext, datapack::Datapack, low::expression::unresolved::UnresolvedExpression};
+use crate::{
+    compile_context::CompileContext, datapack::Datapack,
+    low::expression::unresolved::UnresolvedExpression,
+};
 
 #[derive(Debug, Clone)]
 pub struct BlockState {
@@ -22,7 +25,10 @@ impl BlockState {
                 value
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
+                        let value = value
+                            .kind
+                            .resolve(datapack, ctx)
+                            .as_snbt_macros(datapack, ctx);
 
                         (key, value)
                     })

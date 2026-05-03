@@ -20,7 +20,7 @@ impl WorldCoordinate {
                     expression
                         .kind
                         .resolve(datapack, ctx)
-                        .as_snbt_double(ctx)
+                        .as_snbt_double(datapack, ctx)
                         .unwrap()
                 });
 
@@ -30,7 +30,7 @@ impl WorldCoordinate {
                 let expression = expression
                     .kind
                     .resolve(datapack, ctx)
-                    .as_snbt_double(ctx)
+                    .as_snbt_double(datapack, ctx)
                     .unwrap();
 
                 LowWorldCoordinate::Absolute(expression)
@@ -73,9 +73,24 @@ impl Coordinates {
                 LowCoordinates::World(x, y, z)
             }
             Self::Local(x, y, z) => {
-                let x = x.map(|x| x.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
-                let y = y.map(|y| y.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
-                let z = z.map(|z| z.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
+                let x = x.map(|x| {
+                    x.kind
+                        .resolve(datapack, ctx)
+                        .as_snbt_double(datapack, ctx)
+                        .unwrap()
+                });
+                let y = y.map(|y| {
+                    y.kind
+                        .resolve(datapack, ctx)
+                        .as_snbt_double(datapack, ctx)
+                        .unwrap()
+                });
+                let z = z.map(|z| {
+                    z.kind
+                        .resolve(datapack, ctx)
+                        .as_snbt_double(datapack, ctx)
+                        .unwrap()
+                });
 
                 LowCoordinates::Local(x, y, z)
             }

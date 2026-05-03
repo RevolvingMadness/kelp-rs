@@ -31,10 +31,10 @@ impl ScoreboardNumberFormat {
         match self {
             Self::Blank => LowScoreboardNumberFormat::Blank,
             Self::Fixed(expression) => LowScoreboardNumberFormat::Fixed(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
+                expression.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx),
             ),
             Self::Styled(expression) => LowScoreboardNumberFormat::Styled(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
+                expression.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx),
             ),
         }
     }
@@ -57,7 +57,7 @@ impl PlayersDisplayScoreboardCommand {
             Self::Name(score, expression) => {
                 let score = score.compile(datapack, ctx).score;
                 let snbt = expression
-                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx));
+                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx));
 
                 LowPlayersDisplayScoreboardCommand::Name(score, snbt)
             }

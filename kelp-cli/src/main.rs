@@ -280,17 +280,17 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let part_1_elapsed = parse_elapsed + lower_elapsed + semantic_elapsed;
 
     println!(
-        "{}     Parsed kelp code in              {:?}",
+        "{}     Parsed kelp code in              {:.2?}",
         "Done:".cyan(),
         parse_elapsed.green()
     );
     println!(
-        "{}     Lowered kelp code in             {:?}",
+        "{}     Lowered kelp code in             {:.2?}",
         "Done:".cyan(),
         lower_elapsed.green()
     );
     println!(
-        "{}     Performed semantic analysis in   {:?}",
+        "{}     Performed semantic analysis in   {:.2?}",
         "Done:".cyan(),
         if semantic_analysis_succeeded {
             semantic_elapsed.green()
@@ -299,7 +299,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         }
     );
     println!(
-        "{}     Part 1 complete in               {:?}\n",
+        "{}     Part 1 complete in               {:.4?}\n",
         "Done:".cyan(),
         part_1_elapsed.green()
     );
@@ -356,24 +356,24 @@ fn process_success(
     let total_elapsed = part_1_elapsed + part_2_elapsed;
 
     println!(
-        "{}     Compiled kelp code in {:?}",
+        "{}     Compiled kelp code in {:.2?}",
         "Done:".cyan(),
         compile_elapsed.green()
     );
     println!(
-        "{}     Compiled datapack in  {:?}",
+        "{}     Compiled datapack in  {:.2?}",
         "Done:".cyan(),
         datapack_compile_elapsed.green()
     );
 
     println!(
-        "{}     Part 2 complete in    {:?}\n",
+        "{}     Part 2 complete in    {:.4?}\n",
         "Done:".cyan(),
         part_2_elapsed.green()
     );
 
     println!(
-        "{} Finished in {:?}",
+        "{} Finished in {:.4?}",
         "Finished:".bold().green(),
         total_elapsed.green()
     );

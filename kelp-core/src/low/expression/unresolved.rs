@@ -789,8 +789,17 @@ impl UnresolvedExpressionKind {
                     loop_function_paths.clone(),
                 );
 
-                let iteration_command =
-                    Command::Function(loop_function_resource_location.clone(), None);
+                let iteration_command = if body.kind.returns_early() {
+                    Command::Execute(ExecuteSubcommand::If(
+                        true,
+                        ExecuteIfSubcommand::Function(
+                            loop_function_resource_location.clone(),
+                            Box::new(ExecuteSubcommand::run_return_fail()),
+                        ),
+                    ))
+                } else {
+                    Command::Function(loop_function_resource_location.clone(), None)
+                };
 
                 let mut loop_body_ctx = ctx.create_child_ctx();
                 loop_body_ctx.loop_info = Some(LoopInfo {
@@ -811,6 +820,8 @@ impl UnresolvedExpressionKind {
                 let iterable_data_type = iterable.data_type.get_iterable_type().unwrap();
 
                 let iterable = iterable.kind.resolve(datapack, ctx);
+
+                let for_function_paths = datapack.get_unique_function_paths();
 
                 if iterable_data_type.equals(&DataType::String) {
                     let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
@@ -852,10 +863,6 @@ impl UnresolvedExpressionKind {
 
                     body.kind.compile_as_statement(datapack, &mut for_body_ctx);
 
-                    let current_namespace_name = datapack.current_namespace_name().to_string();
-
-                    let for_function_paths = datapack.get_unique_function_paths();
-
                     let mut condition_ctx = CompileContext::default();
 
                     for_body_ctx.add_command(
@@ -886,10 +893,8 @@ impl UnresolvedExpressionKind {
                                 unique_path,
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
-                                        ResourceLocation::new_namespace_paths(
-                                            &current_namespace_name,
-                                            for_function_paths.clone(),
-                                        ),
+                                        datapack
+                                            .create_resource_location(for_function_paths.clone()),
                                         None,
                                     ),
                                 )))),
@@ -929,10 +934,6 @@ impl UnresolvedExpressionKind {
 
                     body.kind.compile_as_statement(datapack, &mut for_body_ctx);
 
-                    let current_namespace_name = datapack.current_namespace_name().to_string();
-
-                    let for_function_paths = datapack.get_unique_function_paths();
-
                     let mut condition_ctx = CompileContext::default();
 
                     for_body_ctx.add_command(
@@ -952,10 +953,8 @@ impl UnresolvedExpressionKind {
                                 unique_path,
                                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                                     Command::Function(
-                                        ResourceLocation::new_namespace_paths(
-                                            &current_namespace_name,
-                                            for_function_paths.clone(),
-                                        ),
+                                        datapack
+                                            .create_resource_location(for_function_paths.clone()),
                                         None,
                                     ),
                                 )))),
@@ -1131,8 +1130,17 @@ impl UnresolvedExpressionKind {
                     loop_function_paths.clone(),
                 );
 
-                let iteration_command =
-                    Command::Function(loop_function_resource_location.clone(), None);
+                let iteration_command = if body.kind.returns_early() {
+                    Command::Execute(ExecuteSubcommand::If(
+                        true,
+                        ExecuteIfSubcommand::Function(
+                            loop_function_resource_location.clone(),
+                            Box::new(ExecuteSubcommand::run_return_fail()),
+                        ),
+                    ))
+                } else {
+                    Command::Function(loop_function_resource_location.clone(), None)
+                };
 
                 let mut loop_body_ctx = ctx.create_child_ctx();
                 loop_body_ctx.loop_info = Some(LoopInfo {

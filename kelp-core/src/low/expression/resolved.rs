@@ -133,11 +133,15 @@ fn compile_function(
 ) -> ResolvedExpression {
     let (_, _, original_declaration) = datapack.get_function_declaration(original_id);
 
+    let paths = datapack.get_unique_function_paths();
+
     let parameters = original_declaration.parameters.clone();
 
     let original_body = original_declaration.body.clone().unwrap();
 
     let return_runtime_storage_type = original_declaration.return_type.get_runtime_storage_type();
+
+    let mut function_body_ctx = CompileContext::default();
 
     for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
         let Some(pattern) = pattern else {
@@ -148,15 +152,25 @@ fn compile_function(
             continue;
         };
 
-        pattern.destructure(datapack, ctx, data_type, argument);
+        pattern.destructure(datapack, &mut function_body_ctx, data_type, argument);
     }
 
     let return_target = return_runtime_storage_type.instantiate(datapack);
 
     datapack.function_return_targets.push(return_target);
-    let result = original_body.kind.resolve(datapack, ctx);
+    let result = original_body.kind.resolve(datapack, &mut function_body_ctx);
     let return_target = datapack.function_return_targets.pop().unwrap();
-    result.assign_to_target(datapack, ctx, return_target.clone());
+    result.assign_to_target(datapack, &mut function_body_ctx, return_target.clone());
+
+    datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
+
+    ctx.add_command(
+        datapack,
+        Command::Function(
+            ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths),
+            None,
+        ),
+    );
 
     return_target.to_expression()
 }

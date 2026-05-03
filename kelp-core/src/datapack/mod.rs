@@ -92,6 +92,12 @@ impl Datapack {
 
     #[inline]
     #[must_use]
+    pub fn create_resource_location(&self, paths: Vec<String>) -> ResourceLocation {
+        ResourceLocation::new_namespace_paths(self.current_namespace_name(), paths)
+    }
+
+    #[inline]
+    #[must_use]
     pub fn get_struct_type(&self, id: StructId) -> (Visibility, &[String], &StructDeclaration) {
         self.environment.get_struct(id)
     }

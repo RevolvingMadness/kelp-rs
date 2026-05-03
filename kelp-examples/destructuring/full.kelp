@@ -1,12 +1,12 @@
 use std::*;
 
 struct Abilities {
-    invulnerable: boolean,
-    mayfly: boolean,
-    instabuild: boolean,
+    invulnerable: bool,
+    mayfly: bool,
+    instabuild: bool,
     walkSpeed: float,
-    mayBuild: boolean,
-    flying: boolean,
+    mayBuild: bool,
+    flying: bool,
     flySpeed: float
 }
 

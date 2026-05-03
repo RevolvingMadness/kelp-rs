@@ -172,7 +172,6 @@ fn compile_function(
     datapack.function_return_targets.push(return_target);
     let result = original_body.kind.resolve(datapack, &mut function_body_ctx);
     let return_target = datapack.function_return_targets.pop().unwrap();
-    return_target.clone().assign(datapack, ctx, result);
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
@@ -183,6 +182,8 @@ fn compile_function(
             None,
         ),
     );
+
+    return_target.clone().assign(datapack, ctx, result);
 
     return_target.to_expression()
 }

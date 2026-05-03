@@ -77,7 +77,7 @@ impl UnresolvedDataType {
     pub fn resolve_fully(self, ctx: &mut SemanticAnalysisContext) -> Option<DataType> {
         let partially_resolved = self.resolve_partially(None, ctx)?;
 
-        partially_resolved.resolve_fully(&GenericResolver::empty())
+        Some(partially_resolved.resolve_fully(&GenericResolver::empty()))
     }
 
     #[must_use]

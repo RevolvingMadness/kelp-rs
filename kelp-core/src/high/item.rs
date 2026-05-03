@@ -99,12 +99,12 @@ impl Item {
                     })
                     .collect::<Vec<_>>();
 
-                let return_type = return_type.resolve_fully(ctx);
+                let return_type = return_type.resolve_partially(Some(&generic_names), ctx);
 
                 let id = ctx.declare_function(
                     self.visibility,
                     name,
-                    generic_names,
+                    generic_names.clone(),
                     parameter_types
                         .iter()
                         .cloned()
@@ -113,6 +113,13 @@ impl Item {
                     return_type.clone(),
                     None,
                 );
+
+                for generic_name in generic_names {
+                    ctx.declare_type(
+                        Visibility::Public,
+                        HighTypeDeclarationKind::Generic(generic_name),
+                    );
+                }
 
                 ctx.enter_scope();
                 ctx.function_return_types.push(return_type);
@@ -140,13 +147,18 @@ impl Item {
                     }
                 }
 
-                let body = body.perform_semantic_analysis(ctx);
+                let Some(body) = body.perform_semantic_analysis(ctx) else {
+                    ctx.function_return_types.pop().unwrap();
+                    ctx.exit_scope();
+
+                    return None;
+                };
 
                 let return_type = ctx.function_return_types.pop().unwrap();
                 ctx.exit_scope();
 
                 if let Some(return_type) = return_type
-                    && let Some((body_span, tail_expression_span, body)) = body.as_ref()
+                    && let (body_span, tail_expression_span, body) = &body
                     && !body.kind.definitely_diverges()
                     && !body.data_type.equals(&return_type)
                 {
@@ -159,8 +171,8 @@ impl Item {
                     );
                 }
 
-                if resolved_all_parameters && let Some((_, _, body_expr)) = body {
-                    ctx.update_function(id, resolved_parameters, body_expr);
+                if resolved_all_parameters {
+                    ctx.update_function(id, resolved_parameters, body.2);
                 }
 
                 MiddleItem::FunctionDeclaration

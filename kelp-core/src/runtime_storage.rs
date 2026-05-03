@@ -13,7 +13,7 @@ pub enum RuntimeStorageType {
 
 impl RuntimeStorageType {
     #[must_use]
-    pub fn get_unique(self, datapack: &mut Datapack) -> RuntimeStorageTarget {
+    pub fn instantiate(self, datapack: &mut Datapack) -> RuntimeStorageTarget {
         match self {
             Self::Score => {
                 let unique_score = datapack.get_unique_score();

@@ -32,6 +32,7 @@ pub struct Statement {
 }
 
 impl Statement {
+    #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,

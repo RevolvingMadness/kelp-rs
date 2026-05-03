@@ -45,7 +45,7 @@ impl GenericPathSegment<DataType> {
             .generic_types
             .into_iter()
             .map(|data_type| data_type.resolve_fully(resolver))
-            .collect::<Option<_>>()?;
+            .collect();
 
         Some(Self {
             name: self.name,

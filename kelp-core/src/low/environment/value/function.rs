@@ -10,7 +10,7 @@ pub struct FunctionDeclaration {
     pub module_path: Vec<String>,
     pub name: String,
     pub generic_types: Vec<DataType>,
-    pub parameters: Option<Vec<(Pattern, DataType)>>,
+    pub parameters: Vec<(Option<Pattern>, Option<DataType>)>,
     pub return_type: DataType,
     pub body: Option<UnresolvedExpression>,
 }

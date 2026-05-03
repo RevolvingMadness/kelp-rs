@@ -25,6 +25,7 @@ pub enum HighTypeDeclarationKind {
     Module(HighModuleDeclaration),
     Struct(HighStructDeclaration),
     Alias(HighAliasDeclaration),
+    Generic(String),
     Builtin(BuiltinDataType),
 }
 
@@ -35,6 +36,7 @@ impl HighTypeDeclarationKind {
             Self::Module(declaration) => &declaration.name,
             Self::Struct(declaration) => declaration.name(),
             Self::Alias(declaration) => &declaration.name,
+            Self::Generic(name) => name,
             Self::Builtin(data_type) => data_type.name(),
         }
     }
@@ -45,6 +47,7 @@ impl HighTypeDeclarationKind {
             Self::Module(_) => return None,
             Self::Struct(declaration) => declaration.generic_count(),
             Self::Alias(declaration) => declaration.generic_names.len(),
+            Self::Generic(_) => 0,
             Self::Builtin(builtin_type) => builtin_type.generic_count(),
         })
     }
@@ -95,9 +98,7 @@ impl HighTypeDeclaration {
                             .field_types
                             .into_iter()
                             .map(|(field_name, field_type)| {
-                                let field_type = field_type?.resolve_fully(&resolver).unwrap();
-
-                                Some((field_name, field_type))
+                                Some((field_name, field_type?.resolve_fully(&resolver)))
                             })
                             .collect::<Option<_>>()?;
 
@@ -121,11 +122,7 @@ impl HighTypeDeclaration {
                         let field_types = declaration
                             .field_types
                             .into_iter()
-                            .map(|field_type| {
-                                let field_type = field_type?.resolve_fully(&resolver).unwrap();
-
-                                Some(field_type)
-                            })
+                            .map(|field_type| Some(field_type?.resolve_fully(&resolver)))
                             .collect::<Option<_>>()?;
 
                         ctx.declare_monomorphized_tuple_struct(
@@ -149,8 +146,9 @@ impl HighTypeDeclaration {
                     &generic_types,
                 )?;
 
-                declaration.alias.resolve_fully(&resolver)
+                Some(declaration.alias.resolve_fully(&resolver))
             }
+            HighTypeDeclarationKind::Generic(name) => Some(DataType::Generic(name)),
             HighTypeDeclarationKind::Builtin(data_type) => {
                 data_type.to_data_type_semantic_analysis(ctx, path_span, generic_types)
             }

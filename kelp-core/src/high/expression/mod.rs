@@ -82,7 +82,7 @@ pub enum ExpressionKind {
     ForLoop(bool, Pattern, Box<Expression>, Box<BlockExpression>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
-    Return(Span, Option<Box<Expression>>),
+    Return(Span, Span, Option<Box<Expression>>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -814,6 +814,10 @@ impl Expression {
                 for ((_, data_type), (argument_span, argument)) in
                     call_info.parameters.into_iter().zip(arguments.into_iter())
                 {
+                    let Some(data_type) = data_type else {
+                        continue;
+                    };
+
                     if argument.data_type.equals(&data_type) {
                         if !failed {
                             new_arguments.push(argument);
@@ -1037,7 +1041,7 @@ impl Expression {
                 UnresolvedExpressionKind::EntitySelector(Box::new(selector))
                     .with(DataType::EntitySelector)
             }
-            ExpressionKind::Return(span, expression) => {
+            ExpressionKind::Return(keyword_span, expression_span, expression) => {
                 let expression = match expression {
                     Some(expression) => {
                         let (_, expression) = expression.perform_semantic_analysis(ctx)?;
@@ -1051,11 +1055,22 @@ impl Expression {
                     && !expression.data_type.equals(return_type)
                 {
                     return ctx.add_error(
-                        span,
+                        expression_span,
                         SemanticAnalysisError::MismatchedTypes {
                             expected: return_type.clone(),
                             actual: expression.data_type,
                         },
+                    );
+                }
+
+                let return_type = ctx.function_return_types.last().unwrap();
+
+                if let Some(return_type) = return_type
+                    && return_type.is_compiletime(&ctx.environment)
+                {
+                    return ctx.add_error(
+                        keyword_span,
+                        SemanticAnalysisError::CannotUseReturnWithCompiletimeResult,
                     );
                 }
 

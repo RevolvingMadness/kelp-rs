@@ -5,7 +5,10 @@ use kelp_core::high::{
 
 use crate::{
     cst::CSTFunctionDeclarationItem,
-    data_type::{lower_data_type, try_parse_data_type},
+    data_type::{
+        generics::{lower_generic_names, try_parse_generic_names},
+        lower_data_type, try_parse_data_type,
+    },
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     parser::Parser,
     pattern::{lower_pattern, try_parse_pattern},
@@ -27,6 +30,10 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
     }
 
     parser.skip_whitespace();
+
+    if try_parse_generic_names(parser) {
+        parser.skip_whitespace();
+    }
 
     parser.expect_char('(', "Expected '('");
 
@@ -102,6 +109,10 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 
     parser.skip_whitespace();
 
+    if try_parse_generic_names(parser) {
+        parser.skip_whitespace();
+    }
+
     parser.expect_char('(', "Expected '('");
 
     parser.skip_whitespace();
@@ -172,6 +183,8 @@ pub fn lower_function_declaration_item_kind(
     let name_span = name_token.text_range();
     let name = name_token.text();
 
+    let generic_names = node.generic_names().and_then(lower_generic_names);
+
     let parameters = node
         .parameters()
         .filter_map(|parameter| {
@@ -192,7 +205,7 @@ pub fn lower_function_declaration_item_kind(
     Some(ItemKind::FunctionDeclaration {
         name_span: text_range_to_span(name_span),
         name: name.to_owned(),
-        generic_names: Vec::new(),
+        generic_names: generic_names.unwrap_or_default(),
         parameters,
         return_type,
         body,

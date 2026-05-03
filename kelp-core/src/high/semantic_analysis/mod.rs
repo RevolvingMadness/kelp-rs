@@ -514,7 +514,7 @@ impl SemanticAnalysisContext {
         )
     }
 
-    fn declare_type(
+    pub fn declare_type(
         &mut self,
         visibility: Visibility,
         declaration: HighTypeDeclarationKind,

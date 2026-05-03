@@ -102,11 +102,14 @@ impl HighValueDeclaration {
                     .parameters
                     .into_iter()
                     .map(|(pattern, data_type)| {
-                        Some((pattern?, data_type?.resolve_fully(&resolver)?))
+                        (
+                            pattern,
+                            data_type.map(|data_type| data_type.resolve_fully(&resolver)),
+                        )
                     })
-                    .collect::<Option<Vec<_>>>();
+                    .collect();
 
-                let return_type = declaration.return_type?.resolve_fully(&resolver)?;
+                let return_type = declaration.return_type?.resolve_fully(&resolver);
 
                 let monomorphized_id = ctx.declare_monomorphized_function(
                     original_id,

@@ -94,6 +94,12 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     to.display(self.environment)
                 )
             }
+            SemanticAnalysisError::CannotUseReturnWithCompiletimeResult => {
+                write!(
+                    f,
+                    "`return` can only be used in functions which returns a runtime value"
+                )
+            }
             SemanticAnalysisError::CannotBeRepresentedAsFloat(data_type) => {
                 write!(
                     f,
@@ -345,6 +351,7 @@ pub enum SemanticAnalysisError {
         from: DataType,
         to: DataType,
     },
+    CannotUseReturnWithCompiletimeResult,
     ExpressionSigilNotAllowed,
     CannotBeRepresentedAsFloat(DataType),
     UnknownRuntimeStorageType,

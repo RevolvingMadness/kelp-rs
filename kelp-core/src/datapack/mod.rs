@@ -54,12 +54,6 @@ pub struct DatapackSettings {
     pub num_match_cases_to_split: usize,
 }
 
-#[derive(Debug, Clone)]
-pub struct CompiledFunction {
-    pub resource_location: ResourceLocation,
-    pub result_expression: ResolvedExpression,
-}
-
 pub struct Datapack {
     pub name: String,
     pub description: Option<String>,
@@ -68,8 +62,7 @@ pub struct Datapack {
     pub environment: Environment,
     pub variable_values: HashMap<VariableId, (DataType, ResolvedExpression)>,
     pub function_values: HashMap<FunctionId, FunctionDeclaration>,
-    pub compiled_functions: HashMap<FunctionId, CompiledFunction>,
-    pub function_return_expressions: SmallVec<[RuntimeStorageTarget; 5]>,
+    pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
@@ -88,8 +81,7 @@ impl Datapack {
             environment,
             variable_values: HashMap::new(),
             function_values: HashMap::new(),
-            compiled_functions: HashMap::new(),
-            function_return_expressions: SmallVec::new(),
+            function_return_targets: SmallVec::new(),
             namespaces: HashMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),

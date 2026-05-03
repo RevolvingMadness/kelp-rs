@@ -7,7 +7,7 @@ use crate::{
     cst::CSTReturnExpression,
     expression::{lower_expression, try_parse_expression},
     parser::Parser,
-    span::span_of_cst_node,
+    span::{span_of_cst_node, text_range_to_span},
     syntax::SyntaxKind,
 };
 
@@ -31,9 +31,10 @@ pub fn lower_return_expression(
     node: CSTReturnExpression,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Expression> {
+    let keyword_span = text_range_to_span(node.return_keyword_token()?.text_range());
     let full_span = span_of_cst_node(&node);
 
-    let (span, expression) = match node.expression() {
+    let (expression_span, expression) = match node.expression() {
         Some(expression) => {
             let span = span_of_cst_node(&expression);
             let expr = lower_expression(expression, ctx)?;
@@ -43,5 +44,8 @@ pub fn lower_return_expression(
         None => (full_span, None),
     };
 
-    Some(ExpressionKind::Return(span, expression.map(Box::new)).with_span(full_span))
+    Some(
+        ExpressionKind::Return(keyword_span, expression_span, expression.map(Box::new))
+            .with_span(full_span),
+    )
 }

@@ -22,7 +22,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct CallInfo {
     pub return_type: DataType,
-    pub parameters: Vec<(Pattern, DataType)>,
+    pub parameters: Vec<(Option<Pattern>, Option<DataType>)>,
 }
 
 pub struct DataTypeDisplay<'a> {
@@ -142,14 +142,16 @@ impl Display for DataTypeDisplay<'_> {
 
                 f.write_char('(')?;
 
-                if let Some(parameters) = &declaration.parameters {
-                    for (i, (_, data_type)) in parameters.iter().enumerate() {
-                        if i != 0 {
-                            f.write_str(", ")?;
-                        }
+                for (i, (_, data_type)) in declaration.parameters.iter().enumerate() {
+                    let Some(data_type) = data_type else {
+                        continue;
+                    };
 
-                        data_type.display(self.environment).fmt(f)?;
+                    if i != 0 {
+                        f.write_str(", ")?;
                     }
+
+                    data_type.display(self.environment).fmt(f)?;
                 }
 
                 write!(
@@ -244,36 +246,42 @@ pub enum DataType {
 
 impl DataType {
     #[must_use]
-    pub fn resolve_fully(self, resolver: &GenericResolver) -> Option<Self> {
-        Some(match self {
-            Self::Score(data_type) => Self::Score(Box::new(data_type.resolve_fully(resolver)?)),
-            Self::List(data_type) => Self::List(Box::new(data_type.resolve_fully(resolver)?)),
+    pub fn resolve_fully(self, resolver: &GenericResolver) -> Self {
+        match self {
+            Self::Score(data_type) => Self::Score(Box::new(data_type.resolve_fully(resolver))),
+            Self::List(data_type) => Self::List(Box::new(data_type.resolve_fully(resolver))),
             Self::TypedCompound(compound) => {
                 let compound = compound
                     .into_iter()
-                    .map(|(key, data_type)| Some((key, data_type.resolve_fully(resolver)?)))
-                    .collect::<Option<_>>()?;
+                    .map(|(key, data_type)| (key, data_type.resolve_fully(resolver)))
+                    .collect();
 
                 Self::TypedCompound(compound)
             }
             Self::Compound(data_type) => {
-                Self::Compound(Box::new(data_type.resolve_fully(resolver)?))
+                Self::Compound(Box::new(data_type.resolve_fully(resolver)))
             }
-            Self::Data(data_type) => Self::Data(Box::new(data_type.resolve_fully(resolver)?)),
+            Self::Data(data_type) => Self::Data(Box::new(data_type.resolve_fully(resolver))),
             Self::Reference(data_type) => {
-                Self::Reference(Box::new(data_type.resolve_fully(resolver)?))
+                Self::Reference(Box::new(data_type.resolve_fully(resolver)))
             }
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .into_iter()
                     .map(|data_type| data_type.resolve_fully(resolver))
-                    .collect::<Option<_>>()?;
+                    .collect();
 
                 Self::Tuple(data_types)
             }
-            Self::Generic(name) => resolver.resolve(&name)?.clone(),
+            Self::Generic(ref name) => {
+                if let Some(data_type) = resolver.resolve(name) {
+                    data_type.clone()
+                } else {
+                    self
+                }
+            }
             _ => self,
-        })
+        }
     }
 
     #[must_use]
@@ -284,7 +292,7 @@ impl DataType {
 
                 CallInfo {
                     return_type: declaration.return_type.clone(),
-                    parameters: declaration.parameters.clone().unwrap_or_default(),
+                    parameters: declaration.parameters.clone(),
                 }
             }
             Self::ResourceLocation => CallInfo {

@@ -984,7 +984,7 @@ impl UnresolvedExpressionKind {
             Self::Return(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let target = datapack.function_return_expressions.last().unwrap().clone();
+                let target = datapack.function_return_targets.last().unwrap().clone();
 
                 expression.assign_to_target(datapack, ctx, target);
 
@@ -1318,7 +1318,7 @@ impl UnresolvedExpressionKind {
             Self::Return(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let target = datapack.function_return_expressions.last().unwrap().clone();
+                let target = datapack.function_return_targets.last().unwrap().clone();
 
                 expression.assign_to_target(datapack, ctx, target);
 

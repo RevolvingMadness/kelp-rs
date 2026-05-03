@@ -249,29 +249,32 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let lower_elapsed = lower_start.elapsed();
 
     let start_semantic = Instant::now();
-    let items = items
+    let Some(items) = items
         .into_iter()
-        .filter_map(|item| item.perform_semantic_analysis(&mut semantic_analysis_context))
-        .collect();
-    let semantic_elapsed = start_semantic.elapsed();
-    let semantic_analysis_succeeded = semantic_analysis_context.infos.is_empty();
-
-    for info in &semantic_analysis_context.infos {
-        match &info.kind {
-            SemanticAnalysisInfoKind::Error(error) => {
-                let span = (&main_kelp_path, info.span.into_range());
-                Report::build(ReportKind::Error, span.clone())
-                    .with_label(
-                        Label::new(span)
-                            .with_message(error.display(&semantic_analysis_context.environment))
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-                    .print((&main_kelp_path, Source::from(&main_kelp)))
-                    .unwrap();
+        .map(|item| item.perform_semantic_analysis(&mut semantic_analysis_context))
+        .collect::<Option<_>>()
+    else {
+        for info in &semantic_analysis_context.infos {
+            match &info.kind {
+                SemanticAnalysisInfoKind::Error(error) => {
+                    let span = (&main_kelp_path, info.span.into_range());
+                    Report::build(ReportKind::Error, span.clone())
+                        .with_label(
+                            Label::new(span)
+                                .with_message(error.display(&semantic_analysis_context.environment))
+                                .with_color(Color::Red),
+                        )
+                        .finish()
+                        .print((&main_kelp_path, Source::from(&main_kelp)))
+                        .unwrap();
+                }
             }
         }
-    }
+
+        return;
+    };
+    let semantic_elapsed = start_semantic.elapsed();
+    let semantic_analysis_succeeded = semantic_analysis_context.infos.is_empty();
 
     let part_1_elapsed = parse_elapsed + lower_elapsed + semantic_elapsed;
 

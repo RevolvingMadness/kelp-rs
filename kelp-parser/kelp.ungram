@@ -26,7 +26,7 @@ GroupUseTree = (Path? '::')? '{' (UseTree (',' UseTree)* ','?)? '}'
 AsUseTree = Path 'as' 'ident'
 PathUseTree = Path
 
-FunctionDeclarationItem = 'fn' name:'ident' '(' (parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?)? ')' ('->' DataType)? BlockExpression
+FunctionDeclarationItem = 'fn' name:'ident' GenericNames '(' (parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?)? ')' ('->' DataType)? BlockExpression
 
 FunctionParameter = Pattern ':' DataType
 
@@ -72,11 +72,9 @@ RemoveStatement = 'remove' target:Expression
 ItemStatement = Item
 
 // ----- Generics -----
-GenericNames =
-  ('<' (generics:'data_type_name' (',' generics:'data_type_name')*)? '>')
+GenericNames = '<' (generics:'data_type_name' (',' generics:'data_type_name')*)? '>'
 
-GenericDataTypes =
-  ('<' (generics:DataType (',' generics:DataType)*)? '>')
+GenericDataTypes = '<' (generics:DataType (',' generics:DataType)*)? '>'
 
 // ----- Expression -----
 Expression =

@@ -27,7 +27,7 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
-    datapack::{CompiledFunction, Datapack},
+    datapack::Datapack,
     low::{
         data_type::DataType,
         environment::{
@@ -133,85 +133,32 @@ fn compile_function(
 ) -> ResolvedExpression {
     let (_, _, original_declaration) = datapack.get_function_declaration(original_id);
 
+    let parameters = original_declaration.parameters.clone();
+
     let original_body = original_declaration.body.clone().unwrap();
-    let should_inline = original_declaration
-        .parameters
-        .as_ref()
-        .is_some_and(|parameters| {
-            parameters
-                .iter()
-                .any(|(_, parameter)| parameter.is_compiletime(&datapack.environment))
-        })
-        || original_declaration
-            .return_type
-            .is_compiletime(&datapack.environment);
-    let return_storage_type = original_declaration.return_type.get_runtime_storage_type();
 
-    let mut paths = original_declaration.module_path.clone();
-
-    let namespace = paths.remove(0);
-
-    paths.push(original_declaration.name.clone());
-
-    let compiled_resource_location = ResourceLocation::new_namespace_paths(&namespace, &paths);
-
-    let parameters = original_declaration.parameters.clone().unwrap_or_default();
+    let return_runtime_storage_type = original_declaration.return_type.get_runtime_storage_type();
 
     for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
+        let Some(pattern) = pattern else {
+            continue;
+        };
+
+        let Some(data_type) = data_type else {
+            continue;
+        };
+
         pattern.destructure(datapack, ctx, data_type, argument);
     }
 
-    if should_inline {
-        original_body.kind.resolve(datapack, ctx)
-    } else {
-        if let Some(compiled_function) = datapack.compiled_functions.get(&original_id) {
-            let resource_location = compiled_function.resource_location.clone();
-            let result_expression = compiled_function.result_expression.clone();
+    let return_target = return_runtime_storage_type.instantiate(datapack);
 
-            ctx.add_command(datapack, Command::Function(resource_location, None));
+    datapack.function_return_targets.push(return_target);
+    let result = original_body.kind.resolve(datapack, ctx);
+    let return_target = datapack.function_return_targets.pop().unwrap();
+    result.assign_to_target(datapack, ctx, return_target.clone());
 
-            return result_expression;
-        }
-
-        let return_target = return_storage_type.get_unique(datapack);
-
-        datapack.compiled_functions.insert(
-            original_id,
-            CompiledFunction {
-                resource_location: compiled_resource_location.clone(),
-                result_expression: return_target.clone().to_expression(),
-            },
-        );
-
-        let mut compiled_body_ctx = CompileContext::default();
-
-        datapack
-            .function_return_expressions
-            .push(return_target.clone());
-
-        if original_body.kind.definitely_diverges() {
-            original_body
-                .kind
-                .compile_as_statement(datapack, &mut compiled_body_ctx);
-        } else {
-            let result = original_body.kind.resolve(datapack, &mut compiled_body_ctx);
-            result.assign_to_target(datapack, &mut compiled_body_ctx, return_target.clone());
-        }
-
-        datapack.function_return_expressions.pop();
-
-        let function = datapack
-            .get_namespace_mut(&namespace)
-            .get_function_mut(&paths);
-        compiled_body_ctx.compile_to_function(function);
-
-        ctx.add_command(
-            datapack,
-            Command::Function(compiled_resource_location, None),
-        );
-
-        return_target.to_expression()
-    }
+    return_target.to_expression()
 }
 
 macro_rules! compute_int {
@@ -1728,14 +1675,16 @@ impl ResolvedExpression {
 
                 output.push('(');
 
-                if let Some(parameters) = &declaration.parameters {
-                    for (i, (_, data_type)) in parameters.iter().enumerate() {
-                        if i != 0 {
-                            output.push_str(", ");
-                        }
+                for (i, (_, data_type)) in declaration.parameters.iter().enumerate() {
+                    let Some(data_type) = data_type else {
+                        continue;
+                    };
 
-                        let _ = write!(output, "{}", data_type.display(&datapack.environment));
+                    if i != 0 {
+                        output.push_str(", ");
                     }
+
+                    let _ = write!(output, "{}", data_type.display(&datapack.environment));
                 }
 
                 output.push(')');

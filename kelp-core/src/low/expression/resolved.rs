@@ -390,19 +390,31 @@ impl ResolvedExpression {
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                let node = if let DataType::Data(inner) = data_type
-                    && let DataType::Struct(id) = &**inner
-                    && let (_, _, StructDeclaration::Tuple(_)) = datapack.get_struct_type(*id)
-                {
-                    let index = field.parse::<i32>().ok()?;
+                let DataType::Data(inner) = data_type else {
+                    unreachable!();
+                };
 
-                    NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
-                } else if let DataType::Tuple(_) = data_type {
-                    let index = field.parse::<i32>().ok()?;
+                let node = match &**inner {
+                    DataType::Struct(id) => {
+                        let (_, _, declaration) = datapack.get_struct_type(*id);
 
-                    NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
-                } else {
-                    NbtPathNode::Named(SNBTString(false, field.to_owned()), None)
+                        match declaration {
+                            StructDeclaration::Struct(_) => {
+                                NbtPathNode::Named(SNBTString(false, field.to_owned()), None)
+                            }
+                            StructDeclaration::Tuple(_) => {
+                                let index = field.parse::<i32>().ok()?;
+
+                                NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
+                            }
+                        }
+                    }
+                    DataType::Tuple(_) => {
+                        let index = field.parse::<i32>().ok()?;
+
+                        NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
+                    }
+                    _ => NbtPathNode::Named(SNBTString(false, field.to_owned()), None),
                 };
 
                 Some(Self::Data(Box::new((target, path.with_node(node)))))

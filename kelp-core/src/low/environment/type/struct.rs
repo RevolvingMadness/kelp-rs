@@ -24,6 +24,18 @@ impl<'a> Iterator for FieldTypesIter<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StructId(pub usize);
 
+impl From<StructStructId> for StructId {
+    fn from(value: StructStructId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<TupleStructId> for StructId {
+    fn from(value: TupleStructId) -> Self {
+        Self(value.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StructDeclaration {
     Struct(StructStructDeclaration),

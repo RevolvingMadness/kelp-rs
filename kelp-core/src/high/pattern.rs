@@ -47,25 +47,6 @@ impl PatternKind {
     }
 
     #[must_use]
-    pub fn is_irrefutable(&self) -> bool {
-        match self {
-            Self::Literal(_) => false,
-            Self::Wildcard
-            | Self::Binding(_)
-            | Self::Compound(_)
-            | Self::Score(_)
-            | Self::Data(_) => true,
-            Self::Tuple(patterns) => patterns.iter().all(|pattern| pattern.kind.is_irrefutable()),
-            Self::StructStruct(_, field_patterns) => field_patterns
-                .values()
-                .all(|pattern| pattern.kind.is_irrefutable()),
-            Self::TupleStruct(_, field_patterns) => field_patterns
-                .iter()
-                .all(|pattern| pattern.kind.is_irrefutable()),
-        }
-    }
-
-    #[must_use]
     pub fn get_type(&self) -> PatternType {
         match self {
             Self::Literal(expression) => expression.get_pattern_type(),
@@ -148,18 +129,6 @@ pub struct Pattern {
 }
 
 impl Pattern {
-    #[must_use]
-    pub fn perform_irrefutablity_semantic_analysis(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> Option<()> {
-        if !self.kind.is_irrefutable() {
-            return ctx.add_error(self.span, SemanticAnalysisError::PatternIsNotIrrefutable);
-        }
-
-        Some(())
-    }
-
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,

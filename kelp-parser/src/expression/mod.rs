@@ -447,9 +447,12 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                             break;
                         }
 
+                        let comma_state = parser.save_state();
                         parser.skip_whitespace();
 
                         if !parser.try_bump_char(',') {
+                            parser.restore_state(comma_state);
+
                             break;
                         }
 
@@ -704,6 +707,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 unreachable!();
             }
 
+            let state = parser.save_state();
             parser.skip_whitespace();
 
             if parser.try_bump_char('{') {
@@ -724,6 +728,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                     parser.bump_char();
                 }
             } else {
+                parser.restore_state(state);
                 parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
             }
 

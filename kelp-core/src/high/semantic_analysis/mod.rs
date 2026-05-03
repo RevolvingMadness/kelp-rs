@@ -141,6 +141,7 @@ impl SemanticAnalysisContext {
             BuiltinDataType::Compound,
             BuiltinDataType::Data,
             BuiltinDataType::SNBT,
+            BuiltinDataType::EntitySelector,
             BuiltinDataType::ResourceLocation,
         ];
 

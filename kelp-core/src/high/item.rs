@@ -132,6 +132,9 @@ impl Item {
                 {
                     let Some(data_type) = data_type else {
                         resolved_all_parameters = false;
+
+                        pattern.kind.destructure_unknown(ctx);
+
                         continue;
                     };
 
@@ -139,6 +142,7 @@ impl Item {
                         pattern.perform_semantic_analysis(ctx, data_type.clone())
                     else {
                         resolved_all_parameters = false;
+
                         continue;
                     };
 

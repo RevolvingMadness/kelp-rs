@@ -157,6 +157,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     | SyntaxKind::ModuleName
                     | SyntaxKind::DataTypeName
                     | SyntaxKind::RuntimeStorageType => Some(SemanticTokenType::Class),
+                    SyntaxKind::FunctionName => Some(SemanticTokenType::Function),
                     _ => None,
                 };
 

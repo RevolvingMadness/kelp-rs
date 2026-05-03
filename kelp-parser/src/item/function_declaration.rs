@@ -23,7 +23,7 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
     parser.start_node(SyntaxKind::FunctionDeclarationItem);
     parser.bump_str(SyntaxKind::FNKeyword, "fn");
 
-    if !parser.expect_whitespace() || !parser.try_bump_identifier() {
+    if !parser.expect_whitespace() || !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
         parser.restore_state(state);
 
         return false;
@@ -103,7 +103,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 
     parser.expect_whitespace();
 
-    if !parser.try_bump_identifier() {
+    if !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
         parser.error("Expected function name");
     }
 

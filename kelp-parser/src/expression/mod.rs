@@ -625,6 +625,27 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
 
             true
         }),
+        Some('/') => {
+            parser.bump_char();
+
+            parser.skip_whitespace();
+
+            let Some(identifier) = parser.peek_identifier() else {
+                parser.error("Expected command");
+
+                return true;
+            };
+
+            if !try_parse_command_expression(parser, identifier) {
+                parser.error_with_len("Unknown command", identifier.len());
+
+                parser.bump_identifier(identifier);
+
+                return true;
+            }
+
+            true
+        }
         Some(char) if char.is_ascii_digit() => {
             parser.start_node(SyntaxKind::NumericExpression);
 

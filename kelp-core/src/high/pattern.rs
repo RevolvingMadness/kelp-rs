@@ -291,6 +291,7 @@ impl Pattern {
                 let pattern_type = pattern_declaration.resolve_fully(
                     ctx,
                     pattern_id,
+                    last_segment.generic_spans,
                     last_segment.generic_types,
                     last_segment.name_span,
                 )?;
@@ -359,6 +360,7 @@ impl Pattern {
                 let pattern_type = pattern_declaration.resolve_fully(
                     ctx,
                     pattern_id,
+                    last_segment.generic_spans,
                     last_segment.generic_types,
                     last_segment.name_span,
                 )?;

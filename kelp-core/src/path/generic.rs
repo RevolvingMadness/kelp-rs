@@ -13,6 +13,7 @@ use crate::{
 pub struct GenericPathSegment<T> {
     pub name: String,
     pub name_span: Span,
+    pub generic_spans: Vec<Span>,
     pub generic_types: Vec<T>,
 }
 
@@ -50,6 +51,7 @@ impl GenericPathSegment<DataType> {
         Some(Self {
             name: self.name,
             name_span: self.name_span,
+            generic_spans: self.generic_spans,
             generic_types,
         })
     }
@@ -71,6 +73,7 @@ impl GenericPathSegment<UnresolvedDataType> {
         Some(GenericPathSegment {
             name: self.name,
             name_span: self.name_span,
+            generic_spans: self.generic_spans,
             generic_types,
         })
     }
@@ -145,6 +148,7 @@ impl GenericPath<UnresolvedDataType> {
             segments: vec![GenericPathSegment {
                 name: segment_name.to_owned(),
                 name_span: span,
+                generic_spans: Vec::new(),
                 generic_types: Vec::new(),
             }],
         }

@@ -1,7 +1,9 @@
 use strum::{Display, EnumString};
 
 use crate::{
-    high::semantic_analysis::SemanticAnalysisContext, low::data_type::DataType, span::Span,
+    high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    low::data_type::DataType,
+    span::Span,
 };
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
@@ -34,6 +36,7 @@ impl BuiltinDataType {
         self,
         ctx: &mut SemanticAnalysisContext,
         span: Span,
+        mut generic_spans: Vec<Span>,
         mut generic_types: Vec<DataType>,
     ) -> Option<DataType> {
         let expected_generic_count = self.generic_count();
@@ -64,8 +67,30 @@ impl BuiltinDataType {
                 match self {
                     Self::List => DataType::List(Box::new(element_type)),
                     Self::Compound => DataType::Compound(Box::new(element_type)),
-                    Self::Data => DataType::Data(Box::new(element_type)),
-                    Self::Score => DataType::Score(Box::new(element_type)),
+                    Self::Data => {
+                        if !element_type.is_data_compatible(&ctx.environment) {
+                            let element_span = generic_spans.remove(0);
+
+                            return ctx.add_error(
+                                element_span,
+                                SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
+                            );
+                        }
+
+                        DataType::Data(Box::new(element_type))
+                    }
+                    Self::Score => {
+                        if !element_type.is_score_compatible() {
+                            let element_span = generic_spans.remove(0);
+
+                            return ctx.add_error(
+                                element_span,
+                                SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
+                            );
+                        }
+
+                        DataType::Score(Box::new(element_type))
+                    }
                     _ => unreachable!(),
                 }
             }

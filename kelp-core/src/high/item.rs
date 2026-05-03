@@ -174,6 +174,8 @@ impl Item {
 
                 if resolved_all_parameters {
                     ctx.update_function(id, resolved_parameters, body.2);
+                } else {
+                    return None;
                 }
 
                 MiddleItem::FunctionDeclaration

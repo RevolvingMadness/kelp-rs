@@ -106,6 +106,7 @@ impl UnresolvedDataType {
                 declaration.resolve_fully(
                     ctx,
                     id,
+                    last_segment.generic_spans,
                     last_segment.generic_types,
                     last_segment.name_span,
                 )?

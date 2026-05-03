@@ -80,12 +80,16 @@ fn lower_generic_path_segment(
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
 
-    let generic_types = node.generic_data_types().and_then(lower_generic_data_types);
+    let (generic_spans, generic_types) = node
+        .generic_data_types()
+        .and_then(lower_generic_data_types)
+        .unwrap_or_default();
 
     Some(GenericPathSegment {
         name_span,
         name: name.to_owned(),
-        generic_types: generic_types.unwrap_or_default(),
+        generic_spans,
+        generic_types,
     })
 }
 

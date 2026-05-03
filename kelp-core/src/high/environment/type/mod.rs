@@ -71,6 +71,7 @@ impl HighTypeDeclaration {
         self,
         ctx: &mut SemanticAnalysisContext,
         id: HighTypeId,
+        generic_spans: Vec<Span>,
         generic_types: Vec<DataType>,
         path_span: Span,
     ) -> Option<DataType> {
@@ -149,9 +150,8 @@ impl HighTypeDeclaration {
                 Some(declaration.alias.resolve_fully(&resolver))
             }
             HighTypeDeclarationKind::Generic(name) => Some(DataType::Generic(name)),
-            HighTypeDeclarationKind::Builtin(data_type) => {
-                data_type.to_data_type_semantic_analysis(ctx, path_span, generic_types)
-            }
+            HighTypeDeclarationKind::Builtin(data_type) => data_type
+                .to_data_type_semantic_analysis(ctx, path_span, generic_spans, generic_types),
         }
     }
 }

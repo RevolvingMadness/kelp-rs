@@ -11,7 +11,11 @@ use crate::{
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::{
-        environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
+        environment::{
+            Environment,
+            r#type::r#struct::{StructDeclaration, StructId},
+            value::function::FunctionId,
+        },
         pattern::Pattern,
     },
     operator::{ArithmeticOperator, ComparisonOperator},
@@ -734,20 +738,23 @@ impl DataType {
     #[must_use]
     pub fn can_be_assigned_to_score(&self) -> bool {
         match self {
-            Self::Boolean => true,
-            Self::Byte => true,
-            Self::Short => true,
-            Self::Integer => true,
             Self::Score(_) => true,
             Self::Data(data_type) => data_type.can_be_assigned_to_score(),
             Self::Reference(data_type) => data_type.can_be_assigned_to_score(),
-            Self::InferredInteger => true,
-            _ => false,
+            _ => self.is_score_compatible(),
         }
     }
 
     #[must_use]
-    pub fn can_be_assigned_to_data(&self, environment: &Environment) -> bool {
+    pub const fn is_score_compatible(&self) -> bool {
+        matches!(
+            self,
+            Self::Boolean | Self::Byte | Self::Short | Self::Integer | Self::InferredInteger
+        )
+    }
+
+    #[must_use]
+    pub fn is_data_compatible(&self, environment: &Environment) -> bool {
         match self {
             Self::Boolean => true,
             Self::Byte => true,
@@ -759,28 +766,121 @@ impl DataType {
             Self::String => true,
             Self::Unit => true,
             Self::Never => true,
-            Self::Score(data_type) => data_type.can_be_assigned_to_data(environment),
-            Self::List(data_type) => data_type.can_be_assigned_to_data(environment),
+            Self::List(data_type) => data_type.is_data_compatible(environment),
             Self::TypedCompound(compound) => compound
                 .values()
-                .all(|data_type| data_type.can_be_assigned_to_data(environment)),
-            Self::Compound(data_type) => data_type.can_be_assigned_to_data(environment),
-            Self::Data(data_type) => data_type.can_be_assigned_to_data(environment),
-            Self::Reference(data_type) => data_type.can_be_assigned_to_data(environment),
+                .all(|data_type| data_type.is_data_compatible(environment)),
+            Self::Compound(data_type) => data_type.is_data_compatible(environment),
             Self::Tuple(data_types) => data_types
                 .iter()
-                .all(|data_type| data_type.can_be_assigned_to_data(environment)),
+                .all(|data_type| data_type.is_data_compatible(environment)),
             Self::Struct(id) => {
                 let (_, _, declaration) = environment.get_struct(*id);
 
                 declaration
                     .field_types()
-                    .all(|data_type| data_type.can_be_assigned_to_data(environment))
+                    .all(|data_type| data_type.is_data_compatible(environment))
             }
             Self::InferredInteger => true,
             Self::InferredFloat => true,
             _ => false,
         }
+    }
+
+    #[must_use]
+    pub fn get_data_type(&self, environment: &Environment) -> Option<Self> {
+        Some(match self {
+            Self::Boolean => Self::Boolean,
+            Self::Byte => Self::Byte,
+            Self::Short => Self::Short,
+            Self::Integer => Self::Integer,
+            Self::Long => Self::Long,
+            Self::Float => Self::Float,
+            Self::Double => Self::Double,
+            Self::String => Self::String,
+            Self::Unit => Self::Unit,
+            Self::Never => Self::Never,
+            Self::Score(data_type) => data_type.get_data_type(environment)?,
+            Self::List(data_type) => {
+                let data_type = data_type.get_data_type(environment)?;
+
+                Self::List(Box::new(data_type))
+            }
+            Self::TypedCompound(compound) => {
+                let compound = compound
+                    .iter()
+                    .map(|(key, data_type)| {
+                        let data_type = data_type.get_data_type(environment)?;
+
+                        Some((key.clone(), data_type))
+                    })
+                    .collect::<Option<_>>()?;
+
+                Self::TypedCompound(compound)
+            }
+            Self::Compound(data_type) => {
+                let data_type = data_type.get_data_type(environment)?;
+
+                Self::Compound(Box::new(data_type))
+            }
+            Self::Data(data_type) => data_type.get_data_type(environment)?,
+            Self::Reference(data_type) => {
+                let data_type = data_type.get_data_type(environment)?;
+
+                Self::Reference(Box::new(data_type))
+            }
+            Self::Tuple(data_types) => {
+                let data_types = data_types
+                    .iter()
+                    .map(|data_type| data_type.get_data_type(environment))
+                    .collect::<Option<_>>()?;
+
+                Self::Tuple(data_types)
+            }
+            Self::Struct(id) => {
+                let (_, _, declaration) = environment.get_struct(*id);
+
+                let mut changed = false;
+                for field_type in declaration.field_types() {
+                    let data_type = field_type.get_data_type(environment)?;
+                    if !field_type.equals(&data_type) {
+                        changed = true;
+                        break;
+                    }
+                }
+
+                if !changed {
+                    return Some(Self::Struct(*id));
+                }
+
+                match declaration {
+                    StructDeclaration::Struct(decl) => {
+                        let compound = decl
+                            .field_types
+                            .iter()
+                            .map(|(key, field_type)| {
+                                let data_type = field_type.get_data_type(environment)?;
+                                Some((LowSNBTString(false, key.clone()), data_type))
+                            })
+                            .collect::<Option<_>>()?;
+
+                        Self::TypedCompound(compound)
+                    }
+                    StructDeclaration::Tuple(decl) => {
+                        let data_types = decl
+                            .field_types
+                            .iter()
+                            .map(|field_type| field_type.get_data_type(environment))
+                            .collect::<Option<_>>()?;
+
+                        Self::Tuple(data_types)
+                    }
+                }
+            }
+            Self::InferredInteger => Self::Integer,
+            Self::InferredFloat => Self::Float,
+            _ => return None,
+        })
     }
 
     #[must_use]

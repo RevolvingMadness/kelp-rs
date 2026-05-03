@@ -185,8 +185,8 @@ impl Expression {
                 )
             }
             ExpressionKind::PlayerScore(_) => (
-                DataType::Score(Box::new(DataType::Inferred)),
-                PlaceTypeKind::Score(DataType::Inferred),
+                DataType::Score(Box::new(DataType::Integer)),
+                PlaceTypeKind::Score(DataType::Integer),
             ),
             ExpressionKind::Data(_) => (
                 DataType::Data(Box::new(DataType::Inferred)),
@@ -552,7 +552,7 @@ impl Expression {
                 let score = score.perform_semantic_analysis(ctx)?;
 
                 UnresolvedExpressionKind::PlayerScore(score)
-                    .with(DataType::Score(Box::new(DataType::Inferred)))
+                    .with(DataType::Score(Box::new(DataType::Integer)))
             }
             ExpressionKind::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -653,19 +653,17 @@ impl Expression {
                         DataType::Score(Box::new(expression.data_type.clone()))
                     }
                     RuntimeStorageType::Data => {
-                        if !expression
-                            .data_type
-                            .can_be_assigned_to_data(&ctx.environment)
-                        {
+                        let Some(data_type) = expression.data_type.get_data_type(&ctx.environment)
+                        else {
                             return ctx.add_error(
                                 expression_span,
                                 SemanticAnalysisError::TypeIsNotDataCompatible(
                                     expression.data_type,
                                 ),
                             );
-                        }
+                        };
 
-                        DataType::Data(Box::new(expression.data_type.clone()))
+                        DataType::Data(Box::new(data_type))
                     }
                 };
 
@@ -702,6 +700,7 @@ impl Expression {
                 let data_type = type_declaration.resolve_fully(
                     ctx,
                     id,
+                    last_segment.generic_spans,
                     last_segment.generic_types,
                     last_segment.name_span,
                 )?;

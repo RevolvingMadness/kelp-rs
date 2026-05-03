@@ -279,10 +279,18 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     let part_1_elapsed = parse_elapsed + lower_elapsed + semantic_elapsed;
 
-    println!("{} Parsed in {:?}", "Done:".cyan(), parse_elapsed.green());
-    println!("{} Lowered in {:?}", "Done:".cyan(), lower_elapsed.green());
     println!(
-        "{} Semantic analysis finished in {:?}",
+        "{}     Parsed kelp code in              {:?}",
+        "Done:".cyan(),
+        parse_elapsed.green()
+    );
+    println!(
+        "{}     Lowered kelp code in             {:?}",
+        "Done:".cyan(),
+        lower_elapsed.green()
+    );
+    println!(
+        "{}     Performed semantic analysis in   {:?}",
         "Done:".cyan(),
         if semantic_analysis_succeeded {
             semantic_elapsed.green()
@@ -291,29 +299,29 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         }
     );
     println!(
-        "{} Part 1 complete in {:?}",
+        "{}     Part 1 complete in               {:?}\n",
         "Done:".cyan(),
         part_1_elapsed.green()
     );
 
     if semantic_analysis_succeeded && parse_succeeded {
         process_success(
-            part_1_elapsed,
             semantic_analysis_context.environment,
             items,
             &main_kelp_path,
             &main_kelp,
+            part_1_elapsed,
             kelp_toml,
         );
     }
 }
 
 fn process_success(
-    existing_elapsed: Duration,
     environment: Environment,
     items: Vec<Item>,
     _file_name: &str,
     _source_text: &str,
+    part_1_elapsed: Duration,
     kelp_toml: KelpToml,
 ) {
     let project_name = kelp_toml.project.name;
@@ -330,11 +338,6 @@ fn process_success(
         item.compile(&mut datapack, &mut ctx);
     }
     let compile_elapsed = start_compile.elapsed();
-    println!(
-        "{} Code compilation finished in {:?}",
-        "Done:".cyan(),
-        compile_elapsed.green()
-    );
 
     datapack.add_context_to_current_function(&mut ctx);
     datapack.pop_function_from_current_namespace();
@@ -344,13 +347,35 @@ fn process_success(
     let number_of_functions = datapack.number_of_functions();
     let number_of_commands_per_function = number_of_commands as f32 / number_of_functions as f32;
 
-    let start_gen = Instant::now();
+    let start_datapack_compile = Instant::now();
     let regular_datapack = datapack.compile();
-    let gen_elapsed = start_gen.elapsed();
+    let datapack_compile_elapsed = start_datapack_compile.elapsed();
+
+    let part_2_elapsed = compile_elapsed + datapack_compile_elapsed;
+
+    let total_elapsed = part_1_elapsed + part_2_elapsed;
+
     println!(
-        "{} Datapack compilation finished in {:?}",
+        "{}     Compiled kelp code in {:?}",
         "Done:".cyan(),
-        gen_elapsed.green()
+        compile_elapsed.green()
+    );
+    println!(
+        "{}     Compiled datapack in  {:?}",
+        "Done:".cyan(),
+        datapack_compile_elapsed.green()
+    );
+
+    println!(
+        "{}     Part 2 complete in    {:?}\n",
+        "Done:".cyan(),
+        part_2_elapsed.green()
+    );
+
+    println!(
+        "{} Finished in {:?}",
+        "Finished:".bold().green(),
+        total_elapsed.green()
     );
 
     let datapack_dir = dirs::home_dir()
@@ -372,19 +397,13 @@ fn process_success(
         number_of_functions,
     );
     println!(
-        "{} {:>6} command(s) generated",
+        "{} {:>6} command(s)  generated",
         "Done:".bold().green(),
         number_of_commands,
     );
     println!(
-        "{} {:>6.2} command(s)/function",
+        "{} {:>6.2} command(s) / function",
         "Done:".bold().green(),
         number_of_commands_per_function,
-    );
-
-    println!(
-        "\n{} Total processing time: {:?}",
-        "Finished:".bold().green(),
-        (existing_elapsed + compile_elapsed + gen_elapsed).green()
     );
 }

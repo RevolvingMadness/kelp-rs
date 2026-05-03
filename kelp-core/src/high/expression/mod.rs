@@ -185,12 +185,12 @@ impl Expression {
                 )
             }
             ExpressionKind::PlayerScore(_) => (
-                DataType::Score(Box::new(DataType::Integer)),
-                PlaceTypeKind::Score(DataType::Integer),
+                DataType::Score(Box::new(DataType::Inferred)),
+                PlaceTypeKind::Score(DataType::Inferred),
             ),
             ExpressionKind::Data(_) => (
-                DataType::Data(Box::new(DataType::SNBT)),
-                PlaceTypeKind::Data(DataType::SNBT),
+                DataType::Data(Box::new(DataType::Inferred)),
+                PlaceTypeKind::Data(DataType::Inferred),
             ),
             ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
                 let Some(place_type) = expression.get_place_type(ctx)? else {
@@ -354,9 +354,7 @@ impl Expression {
                 let (_, left) = left?;
                 let (_, right) = right?;
 
-                let Some(result_type) = left
-                    .data_type
-                    .get_arithmetic_result(operator, &right.data_type)
+                let Some(result_type) = left.data_type.get_arithmetic_result(&right.data_type)
                 else {
                     return ctx.add_error(
                         self.span,
@@ -554,7 +552,7 @@ impl Expression {
                 let score = score.perform_semantic_analysis(ctx)?;
 
                 UnresolvedExpressionKind::PlayerScore(score)
-                    .with(DataType::Score(Box::new(DataType::Integer)))
+                    .with(DataType::Score(Box::new(DataType::Inferred)))
             }
             ExpressionKind::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -566,7 +564,7 @@ impl Expression {
                 let path = path?;
 
                 UnresolvedExpressionKind::Data(Box::new((target, path)))
-                    .with(DataType::Data(Box::new(DataType::SNBT)))
+                    .with(DataType::Data(Box::new(DataType::Inferred)))
             }
             ExpressionKind::Condition(inverted, condition) => {
                 let condition = condition.perform_semantic_analysis(ctx)?;
@@ -643,12 +641,7 @@ impl Expression {
 
                 let data_type = match runtime_storage_type {
                     RuntimeStorageType::Score => {
-                        if !expression
-                            .data_type
-                            .unwrap_all_apply_predicate_all(&ctx.environment, |data_type| {
-                                data_type.is_score_compatible()
-                            })
-                        {
+                        if !expression.data_type.can_be_assigned_to_score() {
                             return ctx.add_error(
                                 expression_span,
                                 SemanticAnalysisError::TypeIsNotScoreCompatible(
@@ -660,6 +653,18 @@ impl Expression {
                         DataType::Score(Box::new(expression.data_type.clone()))
                     }
                     RuntimeStorageType::Data => {
+                        if !expression
+                            .data_type
+                            .can_be_assigned_to_data(&ctx.environment)
+                        {
+                            return ctx.add_error(
+                                expression_span,
+                                SemanticAnalysisError::TypeIsNotDataCompatible(
+                                    expression.data_type,
+                                ),
+                            );
+                        }
+
                         DataType::Data(Box::new(expression.data_type.clone()))
                     }
                 };

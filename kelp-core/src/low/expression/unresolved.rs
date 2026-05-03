@@ -642,9 +642,9 @@ impl UnresolvedExpressionKind {
                     }
                     RuntimeStorageType::Data => {
                         let (unique_target, unique_path) = if let Some(scale) = scale {
-                            expression.as_data_scale(datapack, ctx, scale)
+                            expression.to_data_scale(datapack, ctx, scale)
                         } else {
-                            expression.as_data(datapack, ctx, true)
+                            expression.to_data(datapack, ctx, true)
                         };
 
                         ResolvedExpression::Data(Box::new((unique_target, unique_path)))

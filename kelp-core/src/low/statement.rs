@@ -85,7 +85,7 @@ impl Statement {
                 let target = target.kind.resolve(datapack, ctx);
                 let value = value.kind.resolve(datapack, ctx);
 
-                let (target, path) = target.as_data(datapack, ctx, false);
+                let (target, path) = target.to_data(datapack, ctx, false);
 
                 let modification = value.as_data_command_modification(datapack, ctx);
 
@@ -102,7 +102,7 @@ impl Statement {
             Self::Remove(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let (target, path) = expression.as_data(datapack, ctx, false);
+                let (target, path) = expression.to_data(datapack, ctx, false);
 
                 ctx.add_command(
                     datapack,
@@ -155,7 +155,7 @@ impl Statement {
                 let target = target.kind.resolve(datapack, ctx);
                 let value = value.kind.resolve(datapack, ctx);
 
-                let (target, path) = target.as_data(datapack, ctx, false);
+                let (target, path) = target.to_data(datapack, ctx, false);
 
                 let modification = value.as_data_command_modification(datapack, ctx);
 
@@ -174,7 +174,7 @@ impl Statement {
             Self::Remove(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let (target, path) = expression.as_data(datapack, ctx, false);
+                let (target, path) = expression.to_data(datapack, ctx, false);
 
                 ctx.add_command(
                     datapack,

@@ -117,7 +117,6 @@ impl Display for DataTypeDisplay<'_> {
 
                 Ok(())
             }
-            DataType::SNBT => f.write_str("snbt"),
             DataType::Generic(name) => name.fmt(f),
             DataType::Function(id) => {
                 // TODO: Maybe display full path?
@@ -233,7 +232,6 @@ pub enum DataType {
     Data(Box<Self>),
     Reference(Box<Self>),
     Tuple(Vec<Self>),
-    SNBT,
     Generic(String),
     Function(FunctionId),
     Struct(StructId),
@@ -361,28 +359,6 @@ impl DataType {
         Some(id)
     }
 
-    pub fn unwrap_all_apply_predicate_all(
-        &self,
-        environment: &Environment,
-        predicate: fn(&Self) -> bool,
-    ) -> bool {
-        match self {
-            Self::TypedCompound(compound) => compound.values().all(predicate),
-            Self::Score(data_type)
-            | Self::List(data_type)
-            | Self::Compound(data_type)
-            | Self::Data(data_type)
-            | Self::Reference(data_type) => predicate(data_type),
-            Self::Tuple(data_types) => data_types.iter().all(predicate),
-            Self::Struct(id) => {
-                let (_, _, declaration) = environment.get_struct(*id);
-
-                declaration.field_types().all(predicate)
-            }
-            _ => predicate(self),
-        }
-    }
-
     #[must_use]
     pub fn reduce(self, other: &Self) -> Option<Self> {
         if self.equals(other) {
@@ -423,27 +399,25 @@ impl DataType {
             (Self::InferredFloat, other) if other.is_float_like() => Some(other.clone()),
             (this, Self::InferredFloat) if this.is_float_like() => Some(this),
 
-            (Self::SNBT, _) | (_, Self::SNBT) => Some(Self::SNBT),
-
             (Self::Data(inner), other) => inner
                 .reduce(other)
-                .map_or(Some(Self::SNBT), |reduced_inner| {
+                .map_or(Some(Self::Inferred), |reduced_inner| {
                     Some(Self::Data(Box::new(reduced_inner)))
                 }),
             (this, Self::Data(inner)) => this
                 .reduce(inner)
-                .map_or(Some(Self::SNBT), |reduced_inner| {
+                .map_or(Some(Self::Inferred), |reduced_inner| {
                     Some(Self::Data(Box::new(reduced_inner)))
                 }),
 
             (Self::Score(inner), other) => inner
                 .reduce(other)
-                .map_or(Some(Self::SNBT), |reduced_inner| {
+                .map_or(Some(Self::Inferred), |reduced_inner| {
                     Some(Self::Score(Box::new(reduced_inner)))
                 }),
             (this, Self::Score(inner)) => this
                 .reduce(inner)
-                .map_or(Some(Self::SNBT), |reduced_inner| {
+                .map_or(Some(Self::Inferred), |reduced_inner| {
                     Some(Self::Score(Box::new(reduced_inner)))
                 }),
 
@@ -574,11 +548,11 @@ impl DataType {
 
     #[must_use]
     pub const fn is_integer_like(&self) -> bool {
-        self.is_restrictied_integer_like() || matches!(self, Self::Long)
+        self.is_restricted_integer_like() || matches!(self, Self::Long)
     }
 
     #[must_use]
-    pub const fn is_restrictied_integer_like(&self) -> bool {
+    pub const fn is_restricted_integer_like(&self) -> bool {
         matches!(
             self,
             Self::Byte | Self::Short | Self::Integer | Self::InferredInteger
@@ -621,7 +595,6 @@ impl DataType {
             | Self::Tuple(_)
             | Self::Generic(_)
             | Self::Function(_)
-            | Self::SNBT
             | Self::ResourceLocation
             | Self::EntitySelector
             | Self::Inferred // TODO
@@ -735,8 +708,7 @@ impl DataType {
             (Self::Score(self_type), Self::Score(data_type))
             | (Self::Data(self_type), Self::Data(data_type)) => self_type.can_cast_to(data_type),
 
-            (Self::SNBT, _)
-            | (
+            (
                 Self::InferredInteger
                 | Self::InferredFloat
                 | Self::Byte
@@ -760,12 +732,53 @@ impl DataType {
     }
 
     #[must_use]
-    pub fn is_score_compatible(&self) -> bool {
-        let data_type = self.unwrap_all_reference();
-
-        match data_type {
+    pub fn can_be_assigned_to_score(&self) -> bool {
+        match self {
             Self::Boolean => true,
-            data_type if data_type.is_numeric() => true,
+            Self::Byte => true,
+            Self::Short => true,
+            Self::Integer => true,
+            Self::Score(_) => true,
+            Self::Data(data_type) => data_type.can_be_assigned_to_score(),
+            Self::Reference(data_type) => data_type.can_be_assigned_to_score(),
+            Self::InferredInteger => true,
+            _ => false,
+        }
+    }
+
+    #[must_use]
+    pub fn can_be_assigned_to_data(&self, environment: &Environment) -> bool {
+        match self {
+            Self::Boolean => true,
+            Self::Byte => true,
+            Self::Short => true,
+            Self::Integer => true,
+            Self::Long => true,
+            Self::Float => true,
+            Self::Double => true,
+            Self::String => true,
+            Self::Unit => true,
+            Self::Never => true,
+            Self::Score(data_type) => data_type.can_be_assigned_to_data(environment),
+            Self::List(data_type) => data_type.can_be_assigned_to_data(environment),
+            Self::TypedCompound(compound) => compound
+                .values()
+                .all(|data_type| data_type.can_be_assigned_to_data(environment)),
+            Self::Compound(data_type) => data_type.can_be_assigned_to_data(environment),
+            Self::Data(data_type) => data_type.can_be_assigned_to_data(environment),
+            Self::Reference(data_type) => data_type.can_be_assigned_to_data(environment),
+            Self::Tuple(data_types) => data_types
+                .iter()
+                .all(|data_type| data_type.can_be_assigned_to_data(environment)),
+            Self::Struct(id) => {
+                let (_, _, declaration) = environment.get_struct(*id);
+
+                declaration
+                    .field_types()
+                    .all(|data_type| data_type.can_be_assigned_to_data(environment))
+            }
+            Self::InferredInteger => true,
+            Self::InferredFloat => true,
             _ => false,
         }
     }
@@ -781,15 +794,10 @@ impl DataType {
                 | Self::Compound(_)
                 | Self::Data(_)
                 | Self::Tuple(_)
-                | Self::SNBT
         )
     }
 
-    fn raw_get_arithmetic_result(
-        &self,
-        _operator: ArithmeticOperator,
-        other: &Self,
-    ) -> Option<Self> {
+    fn raw_get_arithmetic_result(&self, other: &Self) -> Option<Self> {
         if self.is_numeric() && other.is_numeric() {
             return Some(match (self, other) {
                 (Self::InferredInteger, other) | (other, Self::InferredInteger) => {
@@ -821,12 +829,12 @@ impl DataType {
 
         match (self, other) {
             (Self::Score(inner), other) | (other, Self::Score(inner))
-                if other.is_score_compatible() && inner.is_score_compatible() =>
+                if other.can_be_assigned_to_score() && inner.can_be_assigned_to_score() =>
             {
                 Some(Self::Score(Box::new(Self::Integer)))
             }
             (Self::Data(inner), other) | (other, Self::Data(inner))
-                if other.is_score_compatible() && inner.is_score_compatible() =>
+                if other.can_be_assigned_to_score() && inner.can_be_assigned_to_score() =>
             {
                 Some(Self::Score(Box::new(Self::Integer)))
             }
@@ -835,17 +843,13 @@ impl DataType {
     }
 
     #[must_use]
-    pub fn get_arithmetic_result(
-        &self,
-        operator: ArithmeticOperator,
-        other: &Self,
-    ) -> Option<Self> {
+    pub fn get_arithmetic_result(&self, other: &Self) -> Option<Self> {
         match (self, other) {
             (Self::Reference(self_), other) | (other, Self::Reference(self_)) => {
-                self_.raw_get_arithmetic_result(operator, other)
+                self_.raw_get_arithmetic_result(other)
             }
 
-            _ => self.raw_get_arithmetic_result(operator, other),
+            _ => self.raw_get_arithmetic_result(other),
         }
     }
 
@@ -882,14 +886,14 @@ impl DataType {
 
         match (self, other) {
             (Self::Score(inner), other_type) | (other_type, Self::Score(inner))
-                if inner.is_score_compatible() && other_type.is_score_compatible() =>
+                if inner.can_be_assigned_to_score() && other_type.can_be_assigned_to_score() =>
             {
                 inner.can_perform_comparison(environment, operator, other_type)
             }
             (Self::Data(inner), other) | (other, Self::Data(inner))
                 if (operator == ComparisonOperator::EqualTo
                     || operator == ComparisonOperator::NotEqualTo)
-                    || (inner.is_score_compatible() && other.is_score_compatible()) =>
+                    || (inner.can_be_assigned_to_score() && other.can_be_assigned_to_score()) =>
             {
                 inner.can_perform_comparison(environment, operator, other)
             }
@@ -920,12 +924,11 @@ impl DataType {
     }
 
     fn get_index_result(&self) -> Result<Self, SemanticAnalysisError> {
-        Ok(match self {
-            Self::Reference(self_) => self_.get_index_result()?,
+        let self_ = self.unwrap_all_reference();
 
+        Ok(match self_ {
             Self::List(data_type) => *data_type.clone(),
             Self::Data(data_type) => Self::Data(Box::new(data_type.get_index_result()?)),
-            Self::SNBT => Self::SNBT,
 
             _ => return Err(SemanticAnalysisError::CannotBeIndexed(self.clone())),
         })
@@ -996,8 +999,6 @@ impl DataType {
                     }
                 })
             }
-
-            Self::SNBT => Ok(Self::SNBT),
 
             _ => Err(SemanticAnalysisError::TypeDoesntHaveField {
                 data_type: self.clone(),

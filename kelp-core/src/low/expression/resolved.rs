@@ -439,9 +439,6 @@ impl ResolvedExpression {
 
     pub fn try_into_snbt(self) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::PlayerScore(_) | Self::Data(_) | Self::Condition(_, _) => {
-                return Err(self);
-            }
             Self::StructStruct(name, field_expressions) => {
                 if !field_expressions.values().all(Self::can_into_snbt) {
                     return Err(Self::StructStruct(name, field_expressions));
@@ -537,8 +534,7 @@ impl ResolvedExpression {
 
                 SNBT::compound(compound)
             }
-            Self::Function(_) => todo!(),
-            Self::ResourceLocation(_) | Self::EntitySelector(_) => return Err(self),
+            _ => return Err(self),
         })
     }
 
@@ -653,17 +649,6 @@ impl ResolvedExpression {
     #[must_use]
     pub fn to_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         match self {
-            Self::StructStruct(name, field_expressions) => {
-                let mut new_field_expressions = HashMap::new();
-
-                for (key, value) in field_expressions {
-                    let value_score = value.as_score(datapack, ctx, true);
-
-                    new_field_expressions.insert(key, Self::PlayerScore(value_score));
-                }
-
-                Self::StructStruct(name, new_field_expressions)
-            }
             Self::PlayerScore(player_score) if player_score.is_generated => {
                 Self::PlayerScore(player_score)
             }
@@ -682,39 +667,9 @@ impl ResolvedExpression {
         ctx: &mut CompileContext,
         scale: NotNan<f32>,
     ) -> Self {
-        #[allow(clippy::single_match_else)]
-        match self {
-            Self::StructStruct(name, field_expressions) => {
-                let mut new_field_expressions = HashMap::new();
-
-                for (key, value) in field_expressions {
-                    let value_score = value.as_score_scale(datapack, ctx, scale);
-
-                    new_field_expressions.insert(key, Self::PlayerScore(value_score));
-                }
-
-                Self::StructStruct(name, new_field_expressions)
-            }
-            _ => {
-                let unique_score = datapack.get_unique_score();
-                self.assign_to_score_scale(datapack, ctx, unique_score.clone(), scale);
-                Self::PlayerScore(unique_score)
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn as_score_scale(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        scale: NotNan<f32>,
-    ) -> GeneratedPlayerScore {
         let unique_score = datapack.get_unique_score();
-
         self.assign_to_score_scale(datapack, ctx, unique_score.clone(), scale);
-
-        unique_score
+        Self::PlayerScore(unique_score)
     }
 
     pub fn assign_to_data(
@@ -1027,25 +982,27 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn as_data(
+    pub fn to_data(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         force: bool,
     ) -> (GeneratedDataTarget, NbtPath) {
-        if !force && let Self::Data(target_path) = self {
-            *target_path
-        } else {
-            let (unique_data, path) = datapack.get_unique_data();
+        #[allow(clippy::single_match_else)]
+        match self {
+            Self::Data(target_path) if !force => *target_path,
+            _ => {
+                let (unique_data, path) = datapack.get_unique_data();
 
-            self.assign_to_data(datapack, ctx, unique_data.clone(), path.clone());
+                self.assign_to_data(datapack, ctx, unique_data.clone(), path.clone());
 
-            (unique_data, path)
+                (unique_data, path)
+            }
         }
     }
 
     #[must_use]
-    pub fn as_data_scale(
+    pub fn to_data_scale(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
@@ -1067,7 +1024,7 @@ impl ResolvedExpression {
         match self.try_into_snbt() {
             Ok(snbt) => DataCommandModification::Value(Macroable::Regular(snbt)),
             Err(self_) => {
-                let (target, path) = self_.as_data(datapack, ctx, false);
+                let (target, path) = self_.to_data(datapack, ctx, false);
 
                 DataCommandModification::From(target.target, Some(path))
             }

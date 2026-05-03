@@ -196,7 +196,7 @@ impl PlaceType {
     ) -> Option<()> {
         match self.kind {
             PlaceTypeKind::Score(_) => {
-                if !value_type.is_score_compatible() {
+                if !value_type.can_be_assigned_to_score() {
                     return ctx.add_error(
                         value_span,
                         SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),
@@ -248,7 +248,7 @@ impl PlaceType {
             }
             PlaceTypeKind::Dereference(place_type) => match place_type.data_type {
                 DataType::Score(_) => {
-                    if !value_type.is_score_compatible() {
+                    if !value_type.can_be_assigned_to_score() {
                         return ctx.add_error(
                             value_span,
                             SemanticAnalysisError::TypeIsNotScoreCompatible(value_type.clone()),

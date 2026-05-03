@@ -163,6 +163,13 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     data_type.display(self.environment)
                 )
             }
+            SemanticAnalysisError::TypeIsNotDataCompatible(data_type) => {
+                write!(
+                    f,
+                    "The type `{}` is not data compatible",
+                    data_type.display(self.environment)
+                )
+            }
             SemanticAnalysisError::CannotBeAssignedToData(data_type) => {
                 write!(
                     f,
@@ -366,6 +373,7 @@ pub enum SemanticAnalysisError {
     PatternIsNotIrrefutable,
     TypeIsNotCondition(DataType),
     TypeIsNotScoreCompatible(DataType),
+    TypeIsNotDataCompatible(DataType),
     CannotBeAssignedToData(DataType),
     CannotBeIndexed(DataType),
     IndexOutOfBounds,

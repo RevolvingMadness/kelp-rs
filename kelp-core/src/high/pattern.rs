@@ -195,7 +195,7 @@ impl Pattern {
             (PatternKind::Score(score), _) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
-                if !variable_type.is_score_compatible() {
+                if !variable_type.can_be_assigned_to_score() {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {

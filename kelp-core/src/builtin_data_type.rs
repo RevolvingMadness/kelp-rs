@@ -24,13 +24,6 @@ pub enum BuiltinDataType {
     List,
     Compound,
     Data,
-    #[strum(
-        serialize = "snbt",
-        serialize = "nbt",
-        serialize = "SNBT",
-        serialize = "NBT"
-    )]
-    SNBT,
     EntitySelector,
     ResourceLocation,
 }
@@ -65,7 +58,6 @@ impl BuiltinDataType {
             Self::Float => DataType::Float,
             Self::Double => DataType::Double,
             Self::String => DataType::String,
-            Self::SNBT => DataType::SNBT,
             Self::List | Self::Compound | Self::Data | Self::Score => {
                 let element_type = generic_types.remove(0);
 
@@ -98,7 +90,6 @@ impl BuiltinDataType {
             Self::Float => DataType::Float,
             Self::Double => DataType::Double,
             Self::String => DataType::String,
-            Self::SNBT => DataType::SNBT,
             Self::List | Self::Compound | Self::Data | Self::Score => {
                 let element_type = generic_types.remove(0);
 
@@ -127,7 +118,6 @@ impl BuiltinDataType {
             | Self::Double
             | Self::String
             | Self::Unit
-            | Self::SNBT
             | Self::EntitySelector
             | Self::ResourceLocation => 0,
             Self::List | Self::Compound | Self::Data | Self::Score => 1,
@@ -150,7 +140,6 @@ impl BuiltinDataType {
             Self::List => "list",
             Self::Compound => "compound",
             Self::Data => "data",
-            Self::SNBT => "snbt",
             Self::EntitySelector => "entity_selector",
             Self::ResourceLocation => "resource_location",
         }

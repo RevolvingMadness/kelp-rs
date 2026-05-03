@@ -132,13 +132,11 @@ impl Pattern {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        variable_type: DataType,
+        variable_type: &DataType,
     ) -> Option<MiddlePattern> {
         let self_type = self.kind.get_type();
 
-        let (wrappers, unwrapped_type) = variable_type.clone().unwrap_all();
-
-        Some(match (self.kind, unwrapped_type) {
+        Some(match (self.kind, variable_type) {
             (PatternKind::Literal(expression), _) => MiddlePattern::Literal(expression),
             (PatternKind::Wildcard, _) => MiddlePattern::Wildcard,
             (PatternKind::Binding(path), _) => {
@@ -146,7 +144,8 @@ impl Pattern {
                     let segment = &path.segments[0];
                     let name = segment.name.clone();
 
-                    let id = ctx.declare_variable_known(Visibility::Public, name, variable_type);
+                    let id =
+                        ctx.declare_variable_known(Visibility::Public, name, variable_type.clone());
 
                     let declaration = ctx.get_value(id.into()).clone();
 
@@ -168,7 +167,7 @@ impl Pattern {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: variable_type,
+                            expected: variable_type.clone(),
                             actual: Box::new(self_type),
                         },
                     );
@@ -191,11 +190,7 @@ impl Pattern {
                     .iter()
                     .cloned()
                     .zip(data_types)
-                    .map(|(pattern, data_type)| {
-                        let data_type = data_type.wrap_all(&wrappers);
-
-                        pattern.perform_semantic_analysis(ctx, data_type)
-                    })
+                    .map(|(pattern, data_type)| pattern.perform_semantic_analysis(ctx, data_type))
                     .collect_option_all()?;
 
                 MiddlePattern::Tuple(patterns)
@@ -207,7 +202,7 @@ impl Pattern {
                         let Some(data_type) =
                             compound_types.iter().find_map(|(typed_key, data_type)| {
                                 if typed_key.1 == key.snbt_string.1 {
-                                    Some(data_type.clone())
+                                    Some(data_type)
                                 } else {
                                     None
                                 }
@@ -224,8 +219,6 @@ impl Pattern {
                             );
                         };
 
-                        let data_type = data_type.wrap_all(&wrappers);
-
                         let pattern = pattern.perform_semantic_analysis(ctx, data_type)?;
 
                         Some((key.snbt_string, pattern))
@@ -238,8 +231,6 @@ impl Pattern {
                 let compound = compound_patterns
                     .iter()
                     .map(|(key, pattern)| {
-                        let data_type = data_type.clone().wrap_all(&wrappers);
-
                         let pattern = pattern.clone().perform_semantic_analysis(ctx, data_type)?;
 
                         Some((key.snbt_string.clone(), pattern))
@@ -271,7 +262,7 @@ impl Pattern {
                     &last_segment.name,
                 )?;
 
-                if pattern_id != value_id {
+                if pattern_id != *value_id {
                     for pattern in field_patterns.into_values() {
                         pattern.kind.destructure_unknown(ctx);
                     }
@@ -279,7 +270,7 @@ impl Pattern {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: variable_type,
+                            expected: variable_type.clone(),
                             actual: Box::new(self_type),
                         },
                     );
@@ -290,12 +281,13 @@ impl Pattern {
                     &last_segment.name,
                     pattern_id,
                 )?;
-                let mut field_types = pattern_declaration.field_types.clone();
+
+                let field_types = pattern_declaration.field_types.clone();
 
                 let field_patterns = field_patterns
                     .into_iter()
                     .map(|(name, pattern)| {
-                        let Some(field_type) = field_types.remove(&name.snbt_string.1) else {
+                        let Some(field_type) = field_types.get(&name.snbt_string.1) else {
                             pattern.kind.destructure_unknown(ctx);
 
                             return ctx.add_error(
@@ -306,8 +298,6 @@ impl Pattern {
                                 },
                             );
                         };
-
-                        let field_type = field_type.wrap_all(&wrappers);
 
                         let pattern = pattern.perform_semantic_analysis(ctx, field_type)?;
 
@@ -340,7 +330,7 @@ impl Pattern {
                     &last_segment.name,
                 )?;
 
-                if pattern_id != value_id {
+                if pattern_id != *value_id {
                     for pattern in field_patterns {
                         pattern.kind.destructure_unknown(ctx);
                     }
@@ -348,7 +338,7 @@ impl Pattern {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: variable_type,
+                            expected: variable_type.clone(),
                             actual: Box::new(self_type),
                         },
                     );
@@ -359,6 +349,7 @@ impl Pattern {
                     &last_segment.name,
                     pattern_id,
                 )?;
+
                 let field_types = pattern_declaration.field_types.clone();
 
                 let expected_field_count = field_types.len();
@@ -379,9 +370,7 @@ impl Pattern {
                     .into_iter()
                     .zip(field_types)
                     .map(|(field_pattern, field_type)| {
-                        let field_type = field_type.wrap_all(&wrappers);
-
-                        let pattern = field_pattern.perform_semantic_analysis(ctx, field_type)?;
+                        let pattern = field_pattern.perform_semantic_analysis(ctx, &field_type)?;
 
                         Some(pattern)
                     })
@@ -395,7 +384,7 @@ impl Pattern {
                 return ctx.add_error(
                     self.span,
                     SemanticAnalysisError::MismatchedPatternTypes {
-                        expected: variable_type,
+                        expected: variable_type.clone(),
                         actual: Box::new(self_type),
                     },
                 );

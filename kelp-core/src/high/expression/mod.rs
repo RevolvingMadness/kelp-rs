@@ -924,7 +924,7 @@ impl Expression {
 
                 ctx.enter_scope();
 
-                let Some(pattern) = pattern.perform_semantic_analysis(ctx, iterable_type) else {
+                let Some(pattern) = pattern.perform_semantic_analysis(ctx, &iterable_type) else {
                     ctx.exit_scope();
 
                     return None;

@@ -138,8 +138,7 @@ impl Item {
                         continue;
                     };
 
-                    let Some(resolved_pattern) =
-                        pattern.perform_semantic_analysis(ctx, data_type.clone())
+                    let Some(resolved_pattern) = pattern.perform_semantic_analysis(ctx, &data_type)
                     else {
                         resolved_all_parameters = false;
 

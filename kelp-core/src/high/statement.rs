@@ -65,7 +65,7 @@ impl Statement {
 
                 let variable_type = explicit_type.unwrap_or_else(|| value.data_type.clone());
 
-                let pattern = pattern.perform_semantic_analysis(ctx, variable_type.clone())?;
+                let pattern = pattern.perform_semantic_analysis(ctx, &variable_type)?;
 
                 MiddleStatement::Let(variable_type, pattern, Box::new(value))
             }

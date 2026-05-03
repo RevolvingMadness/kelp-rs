@@ -3,7 +3,6 @@ use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysi
 use crate::{
     cst::CSTExpression,
     data_type::try_parse_data_type,
-    entity_selector::try_parse_entity_selector,
     expression::{
         with_block::{
             block::try_parse_block_expression,
@@ -16,15 +15,16 @@ use crate::{
             lower_expression_with_block,
         },
         without_block::{
-            command::try_parse_command_expression, data::try_parse_data_expression,
+            command::try_parse_command_expression, coordinates::try_parse_coordinates_expression,
+            data::try_parse_data_expression, entity_selector::try_parse_entity_selector_expression,
             list::try_parse_list_expression, lower_expression_without_block,
+            resource_location::try_parse_resource_location_expression,
             r#return::try_parse_return_expression, score::try_parse_score_expression,
             r#struct::try_parse_struct_expression_fields,
         },
     },
     parser::Parser,
     path::generic::try_parse_generic_path,
-    resource_location::try_parse_resource_location,
     syntax::SyntaxKind,
 };
 
@@ -502,58 +502,6 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_resource_location_expression(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
-
-    parser.start_node(SyntaxKind::ResourceLocationExpression);
-
-    parser.bump_identifier_kind(SyntaxKind::ResourceLocationKeyword, "resource_location");
-
-    parser.skip_whitespace();
-
-    if !parser.try_bump_char(':') {
-        parser.restore_state(state);
-
-        return false;
-    }
-
-    parser.skip_whitespace();
-
-    if !try_parse_resource_location(parser) {
-        parser.error("Expected resource location");
-    }
-
-    parser.finish_node();
-
-    true
-}
-
-pub fn try_parse_entity_selector_expression(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
-
-    parser.start_node(SyntaxKind::EntitySelectorExpression);
-
-    parser.bump_identifier_kind(SyntaxKind::EntitySelectorKeyword, "entity_selector");
-
-    parser.skip_whitespace();
-
-    if !parser.try_bump_char(':') {
-        parser.restore_state(state);
-
-        return false;
-    }
-
-    parser.skip_whitespace();
-
-    if !try_parse_entity_selector(parser) {
-        parser.error("Expected entity selector");
-    }
-
-    parser.finish_node();
-
-    true
-}
-
 pub fn try_parse_primary(parser: &mut Parser) -> bool {
     if try_parse_expression_with_block(parser) {
         return true;
@@ -699,6 +647,11 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 }
                 "entity_selector" => {
                     if try_parse_entity_selector_expression(parser) {
+                        return true;
+                    }
+                }
+                "coordinates" => {
+                    if try_parse_coordinates_expression(parser) {
                         return true;
                     }
                 }

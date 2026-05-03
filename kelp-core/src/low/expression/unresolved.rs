@@ -22,6 +22,7 @@ use crate::{
     data::GeneratedDataTarget,
     datapack::Datapack,
     low::{
+        coordinate::Coordinates,
         data::DataTarget,
         data_type::DataType,
         entity_selector::EntitySelector,
@@ -302,6 +303,7 @@ pub enum UnresolvedExpressionKind {
     ),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
+    Coordinates(Box<SupportsExpressionSigil<Coordinates>>),
     Return(Box<UnresolvedExpression>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -983,6 +985,11 @@ impl UnresolvedExpressionKind {
 
                 ResolvedExpression::EntitySelector(selector)
             }
+            Self::Coordinates(coordinates) => {
+                let coordinates = coordinates.compile(datapack, ctx);
+
+                ResolvedExpression::Coordinates(coordinates)
+            }
             Self::Return(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
@@ -1368,6 +1375,9 @@ impl UnresolvedExpressionKind {
             }
             Self::ResourceLocation(resource_location) => {
                 resource_location.compile_as_statement(datapack, ctx);
+            }
+            Self::Coordinates(coordinates) => {
+                coordinates.compile_as_statement(datapack, ctx);
             }
             Self::Boolean(_)
             | Self::Byte(_)

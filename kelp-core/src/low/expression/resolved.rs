@@ -15,6 +15,7 @@ use minecraft_command_types::{
         r#return::ReturnCommand,
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
+    coordinate::{Coordinates, WorldCoordinate},
     entity_selector::EntitySelector,
     macroable::Macroable,
     nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
@@ -248,6 +249,7 @@ pub enum ResolvedExpression {
     Never,
     ResourceLocation(ResourceLocation),
     EntitySelector(EntitySelector),
+    Coordinates(Coordinates),
     Function(FunctionId),
 
     PlayerScore(GeneratedPlayerScore),
@@ -543,6 +545,85 @@ impl ResolvedExpression {
                     SNBTString(false, "__kelp_rs_never__".to_string()),
                     Macroable::Regular(SNBT::byte(1)),
                 );
+
+                SNBT::compound(compound)
+            }
+            Self::Coordinates(coordinates) => {
+                fn world_coordinate_to_snbt(coordinate: WorldCoordinate) -> SNBT {
+                    let mut compound = SNBTCompound::new();
+
+                    match coordinate {
+                        WorldCoordinate::Relative(offset) => {
+                            compound.insert(
+                                SNBTString(false, "relative".to_owned()),
+                                SNBT::macroable_byte(1),
+                            );
+
+                            if let Some(offset) = offset {
+                                compound.insert(
+                                    SNBTString(false, "offset".to_owned()),
+                                    SNBT::macroable_double(offset),
+                                );
+                            }
+                        }
+                        WorldCoordinate::Absolute(position) => {
+                            compound.insert(
+                                SNBTString(false, "relative".to_owned()),
+                                SNBT::macroable_byte(0),
+                            );
+
+                            compound.insert(
+                                SNBTString(false, "position".to_owned()),
+                                SNBT::macroable_double(position),
+                            );
+                        }
+                    }
+
+                    SNBT::compound(compound)
+                }
+
+                let mut compound = SNBTCompound::new();
+
+                match coordinates {
+                    Coordinates::World(x, y, z) => {
+                        compound.insert(
+                            SNBTString(false, "x".to_owned()),
+                            Macroable::Regular(world_coordinate_to_snbt(x)),
+                        );
+
+                        compound.insert(
+                            SNBTString(false, "y".to_owned()),
+                            Macroable::Regular(world_coordinate_to_snbt(y)),
+                        );
+
+                        compound.insert(
+                            SNBTString(false, "z".to_owned()),
+                            Macroable::Regular(world_coordinate_to_snbt(z)),
+                        );
+                    }
+                    Coordinates::Local(x, y, z) => {
+                        if let Some(x) = x {
+                            compound.insert(
+                                SNBTString(false, "x".to_owned()),
+                                SNBT::macroable_double(x),
+                            );
+                        }
+
+                        if let Some(y) = y {
+                            compound.insert(
+                                SNBTString(false, "y".to_owned()),
+                                SNBT::macroable_double(y),
+                            );
+                        }
+
+                        if let Some(z) = z {
+                            compound.insert(
+                                SNBTString(false, "z".to_owned()),
+                                SNBT::macroable_double(z),
+                            );
+                        }
+                    }
+                }
 
                 SNBT::compound(compound)
             }
@@ -1808,6 +1889,7 @@ impl ResolvedExpression {
             }
             Self::ResourceLocation(resource_location) => SNBT::string(resource_location),
             Self::EntitySelector(selector) => SNBT::string(selector),
+            Self::Coordinates(coordinates) => SNBT::string(coordinates),
         }
     }
 

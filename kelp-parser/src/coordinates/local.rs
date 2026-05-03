@@ -10,8 +10,8 @@ use crate::{
 pub fn parse_local_coordinate(parser: &mut Parser) {
     parser.start_node(SyntaxKind::LocalCoordinate);
 
-    if !parser.expect_char('^', "Expected '^'") {
-        parser.bump_char();
+    if !parser.try_bump_char('^') {
+        parser.error("Expected '^'");
     }
 
     try_parse_expression(parser);

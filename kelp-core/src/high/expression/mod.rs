@@ -6,6 +6,7 @@ use ordered_float::NotNan;
 use crate::{
     high::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
+        coordinate::Coordinates,
         data::DataTarget,
         data_type::unresolved::UnresolvedDataType,
         entity_selector::EntitySelector,
@@ -82,6 +83,7 @@ pub enum ExpressionKind {
     ForLoop(bool, Pattern, Box<Expression>, Box<BlockExpression>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
+    Coordinates(Box<SupportsExpressionSigil<Coordinates>>),
     Return(Span, Span, Option<Box<Expression>>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
@@ -1016,6 +1018,12 @@ impl Expression {
 
                 UnresolvedExpressionKind::EntitySelector(Box::new(selector))
                     .with(DataType::EntitySelector)
+            }
+            ExpressionKind::Coordinates(coordinates) => {
+                let coordinates = coordinates.perform_semantic_analysis(ctx)?;
+
+                UnresolvedExpressionKind::Coordinates(Box::new(coordinates))
+                    .with(DataType::Coordinates)
             }
             ExpressionKind::Return(keyword_span, expression_span, expression) => {
                 let expression = match expression {

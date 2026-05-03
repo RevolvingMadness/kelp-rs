@@ -105,9 +105,10 @@ ExpressionWithoutBlock =
 | CompoundExpression
 | IndexExpression
 | FieldAccessExpression
+| ReturnExpression
 | ResourceLocationExpression
 | EntitySelectorExpression
-| ReturnExpression
+| CoordinatesExpression
 
 ExpressionWithBlock =
   BlockExpression
@@ -231,6 +232,8 @@ FieldAccessExpression = Expression '.' 'field_name'
 ResourceLocationExpression = 'resource_location' ':' ResourceLocation
 
 EntitySelectorExpression = 'entity_selector' ':' EntitySelector
+
+CoordinatesExpression = 'coordinates' ':' Coordinates
 
 ReturnExpression = 'return' Expression?
 
@@ -385,8 +388,7 @@ NameEntitySelector =
   'ident'
 
 // ----- Resource Location -----
-ResourceLocation =
-  ActualResourceLocation | ExpressionSigil
+ResourceLocation = ActualResourceLocation | ExpressionSigil
 
 ActualResourceLocation = '#'? (namespace:ResourceLocationNamespace ':')? path:ResourceLocationPath
 
@@ -401,11 +403,11 @@ ResourceLocationPathSegment =
   'ident'
 
 // ----- Coordinates -----
-Coordinates =
-  WorldCoordinates | LocalCoordinates
+Coordinates = ActualCoordinates | ExpressionSigil
 
-WorldCoordinates =
-  WorldCoordinate WorldCoordinate WorldCoordinate
+ActualCoordinates = WorldCoordinates | LocalCoordinates
+
+WorldCoordinates = WorldCoordinate WorldCoordinate WorldCoordinate
 
 WorldCoordinate =
   ('~' | '^')? Expression

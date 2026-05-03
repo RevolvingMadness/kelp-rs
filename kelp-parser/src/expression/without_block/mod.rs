@@ -7,7 +7,8 @@ use crate::{
         binary::lower_binary_expression, boolean::lower_boolean_expression,
         call::lower_call_expression, character::lower_character_expression,
         command::lower_command_expression, compound::lower_compound_expression,
-        data::lower_data_expression, entity_selector::lower_entity_selector_expression,
+        coordinates::lower_coordinates_expression, data::lower_data_expression,
+        entity_selector::lower_entity_selector_expression,
         field_access::lower_field_access_expression, index::lower_index_expression,
         list::lower_list_expression, numeric::lower_numeric_expression,
         parenthesized::lower_parenthesized_expression, path::lower_path_expression,
@@ -27,6 +28,7 @@ pub mod call;
 pub mod character;
 pub mod command;
 pub mod compound;
+pub mod coordinates;
 pub mod data;
 pub mod entity_selector;
 pub mod field_access;
@@ -86,12 +88,15 @@ pub fn lower_expression_without_block(
         CSTExpressionWithoutBlock::FieldAccessExpression(node) => {
             lower_field_access_expression(node, ctx)
         }
+        CSTExpressionWithoutBlock::ReturnExpression(node) => lower_return_expression(node, ctx),
         CSTExpressionWithoutBlock::ResourceLocationExpression(node) => {
             lower_resource_location_expression(node, ctx)
         }
         CSTExpressionWithoutBlock::EntitySelectorExpression(node) => {
             lower_entity_selector_expression(node, ctx)
         }
-        CSTExpressionWithoutBlock::ReturnExpression(node) => lower_return_expression(node, ctx),
+        CSTExpressionWithoutBlock::CoordinatesExpression(node) => {
+            lower_coordinates_expression(node, ctx)
+        }
     }
 }

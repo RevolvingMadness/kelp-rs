@@ -195,6 +195,7 @@ impl Display for DataTypeDisplay<'_> {
             DataType::InferredFloat => f.write_str("{float}"),
             DataType::ResourceLocation => f.write_str("resource_location"),
             DataType::EntitySelector => f.write_str("entity_selector"),
+            DataType::Coordinates => f.write_str("coordinates"),
         }
     }
 }
@@ -244,6 +245,7 @@ pub enum DataType {
     InferredFloat,
     ResourceLocation,
     EntitySelector,
+    Coordinates,
 }
 
 impl DataType {
@@ -601,6 +603,7 @@ impl DataType {
             | Self::Function(_)
             | Self::ResourceLocation
             | Self::EntitySelector
+            | Self::Coordinates
             | Self::Inferred // TODO
             | Self::InferredInteger
             | Self::InferredFloat => true,

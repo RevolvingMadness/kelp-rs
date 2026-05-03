@@ -708,6 +708,7 @@ impl Parser<'_> {
             '?' => SyntaxKind::QuestionMark,
             '|' => SyntaxKind::Pipe,
             '`' => SyntaxKind::Backtick,
+            '^' => SyntaxKind::Caret,
             _ => SyntaxKind::Garbage,
         }
     }

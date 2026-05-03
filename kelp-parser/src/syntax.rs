@@ -81,12 +81,12 @@ pub enum SyntaxKind {
     Whitespace,
     Comment,
 
+    ActualCoordinates,
     LocalCoordinates,
     LocalCoordinate,
     WorldCoordinates,
     WorldCoordinate,
 
-    ResourceLocation,
     ActualResourceLocation,
     ResourceLocationTag,
     ResourceLocationNamespace,
@@ -141,8 +141,6 @@ pub enum SyntaxKind {
     CreateKeyword,
     QueryKeyword,
     RestartKeyword,
-    ResourceLocationKeyword,
-    EntitySelectorKeyword,
     ReturnKeyword,
     IfKeyword,
     WhileKeyword,
@@ -209,7 +207,12 @@ pub enum SyntaxKind {
     StopwatchCommandExpressionRestart,
 
     ResourceLocationExpression,
+    ResourceLocationKeyword,
     EntitySelectorExpression,
+    EntitySelectorKeyword,
+    CoordinatesExpression,
+    CoordinatesKeyword,
+
     ReturnExpression,
     StructExpression,
     StructExpressionFields,

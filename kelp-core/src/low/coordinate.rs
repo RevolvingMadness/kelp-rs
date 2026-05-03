@@ -37,6 +37,19 @@ impl WorldCoordinate {
             }
         }
     }
+
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+        match self {
+            Self::Relative(expression) => {
+                if let Some(expression) = expression {
+                    expression.kind.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Absolute(expression) => {
+                expression.kind.compile_as_statement(datapack, ctx);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +78,29 @@ impl Coordinates {
                 let z = z.map(|z| z.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
 
                 LowCoordinates::Local(x, y, z)
+            }
+        }
+    }
+
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+        match self {
+            Self::World(x, y, z) => {
+                x.compile_as_statement(datapack, ctx);
+                y.compile_as_statement(datapack, ctx);
+                z.compile_as_statement(datapack, ctx);
+            }
+            Self::Local(x, y, z) => {
+                if let Some(x) = x {
+                    x.kind.compile_as_statement(datapack, ctx);
+                }
+
+                if let Some(y) = y {
+                    y.kind.compile_as_statement(datapack, ctx);
+                }
+
+                if let Some(z) = z {
+                    z.kind.compile_as_statement(datapack, ctx);
+                }
             }
         }
     }

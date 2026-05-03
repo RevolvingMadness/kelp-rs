@@ -7,30 +7,32 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-pub fn parse_world_coordinate(parser: &mut Parser) {
+pub fn try_parse_world_coordinate(parser: &mut Parser) -> bool {
     parser.start_node(SyntaxKind::WorldCoordinate);
 
-    let Some(char) = parser.peek_char() else {
-        parser.finish_node();
+    let mut parsed = false;
 
-        return;
-    };
+    match parser.peek_char() {
+        Some('~') => {
+            parser.bump_char_kind(SyntaxKind::Tilde);
 
-    let has_symbol = char == '~' || char == '^';
+            parsed = true;
+        }
+        Some('^') => {
+            parser.bump_char_kind(SyntaxKind::Caret);
 
-    if !has_symbol && !char.is_numeric() {
-        parser.finish_node();
-
-        return;
+            parsed = true;
+        }
+        _ => {}
     }
 
-    if has_symbol {
-        parser.bump_char();
+    if try_parse_expression(parser) {
+        parsed = true;
     }
-
-    try_parse_expression(parser);
 
     parser.finish_node();
+
+    parsed
 }
 
 #[must_use]
@@ -39,15 +41,15 @@ pub fn lower_world_coordinate(
     node: CSTWorldCoordinate,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<WorldCoordinate> {
-    let is_relative = node.tilde_token().is_some();
+    let is_relative = node.tilde_token().is_some() || node.caret_token().is_some();
 
     let value = node
         .expression()
         .and_then(|expression| lower_expression(expression, ctx));
 
-    Some(if is_relative {
-        WorldCoordinate::Relative(value)
+    if is_relative {
+        Some(WorldCoordinate::Relative(value))
     } else {
-        WorldCoordinate::Absolute(value.unwrap())
-    })
+        value.map(WorldCoordinate::Absolute)
+    }
 }

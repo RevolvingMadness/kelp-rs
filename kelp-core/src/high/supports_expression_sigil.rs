@@ -4,11 +4,12 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     high::{
-        entity_selector::EntitySelector, expression::Expression,
+        coordinate::Coordinates, entity_selector::EntitySelector, expression::Expression,
         semantic_analysis::SemanticAnalysisContext,
     },
     low::{
-        data_type::DataType, entity_selector::EntitySelector as LowEntitySelector,
+        coordinate::Coordinates as LowCoordinates, data_type::DataType,
+        entity_selector::EntitySelector as LowEntitySelector,
         supports_expression_sigil::SupportsExpressionSigil as LowSupportsExpressionSigil,
     },
 };
@@ -35,6 +36,29 @@ impl<T: Display> Display for SupportsExpressionSigil<T> {
             Self::Regular(value) => value.fmt(f),
             Self::Sigil(_) => f.write_str("..."),
         }
+    }
+}
+
+impl SupportsExpressionSigil<ResourceLocation> {
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<LowSupportsExpressionSigil<ResourceLocation>> {
+        Some(match self {
+            Self::Regular(value) => LowSupportsExpressionSigil::Regular(value),
+            Self::Sigil(expression) => {
+                let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
+
+                expression.data_type.assert_equals(
+                    ctx,
+                    expression_span,
+                    &DataType::ResourceLocation,
+                )?;
+
+                LowSupportsExpressionSigil::Sigil(expression)
+            }
+        })
     }
 }
 
@@ -65,22 +89,24 @@ impl SupportsExpressionSigil<EntitySelector> {
     }
 }
 
-impl SupportsExpressionSigil<ResourceLocation> {
+impl SupportsExpressionSigil<Coordinates> {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<LowSupportsExpressionSigil<ResourceLocation>> {
+    ) -> Option<LowSupportsExpressionSigil<LowCoordinates>> {
         Some(match self {
-            Self::Regular(value) => LowSupportsExpressionSigil::Regular(value),
+            Self::Regular(coordinates) => {
+                let coordinates = coordinates.perform_semantic_analysis(ctx)?;
+
+                LowSupportsExpressionSigil::Regular(coordinates)
+            }
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                expression.data_type.assert_equals(
-                    ctx,
-                    expression_span,
-                    &DataType::ResourceLocation,
-                )?;
+                expression
+                    .data_type
+                    .assert_equals(ctx, expression_span, &DataType::Coordinates)?;
 
                 LowSupportsExpressionSigil::Sigil(expression)
             }

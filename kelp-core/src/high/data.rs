@@ -14,7 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum DataTargetKind {
-    Block(Box<Coordinates>),
+    Block(Box<SupportsExpressionSigil<Coordinates>>),
     Entity(SupportsExpressionSigil<EntitySelector>),
     Storage(SupportsExpressionSigil<ResourceLocation>),
 }
@@ -67,7 +67,7 @@ impl DataTarget {
                 DataTargetKind::Block(coordinates) => {
                     let coordinates = coordinates.perform_semantic_analysis(ctx)?;
 
-                    MiddleDataTargetKind::Block(Box::new(coordinates))
+                    MiddleDataTargetKind::Block(coordinates.map(Box::new))
                 }
                 DataTargetKind::Entity(selector) => {
                     let selector = selector.perform_semantic_analysis(ctx)?;

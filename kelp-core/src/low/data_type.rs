@@ -33,7 +33,7 @@ pub struct DataTypeDisplay<'a> {
 impl Display for DataTypeDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.data_type {
-            DataType::Boolean => f.write_str("boolean"),
+            DataType::Boolean => f.write_str("bool"),
             DataType::Byte => f.write_str("byte"),
             DataType::Short => f.write_str("short"),
             DataType::Integer => f.write_str("integer"),

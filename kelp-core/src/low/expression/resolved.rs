@@ -377,13 +377,14 @@ impl ResolvedExpression {
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                let DataType::Data(inner) = data_type else {
-                    unreachable!();
-                };
-
-                let node = if let DataType::Struct(id) = &**inner
+                let node = if let DataType::Data(inner) = data_type
+                    && let DataType::Struct(id) = &**inner
                     && let (_, _, StructDeclaration::Tuple(_)) = datapack.get_struct_type(*id)
                 {
+                    let index = field.parse::<i32>().ok()?;
+
+                    NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
+                } else if let DataType::Tuple(_) = data_type {
                     let index = field.parse::<i32>().ok()?;
 
                     NbtPathNode::Index(Some(SNBT::macroable_integer(index)))

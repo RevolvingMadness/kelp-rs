@@ -133,7 +133,7 @@ impl BuiltinDataType {
     #[must_use]
     pub const fn name(&self) -> &str {
         match self {
-            Self::Boolean => "boolean",
+            Self::Boolean => "bool",
             Self::Byte => "byte",
             Self::Short => "short",
             Self::Integer => "integer",

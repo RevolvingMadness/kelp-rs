@@ -68,16 +68,16 @@ impl BuiltinDataType {
                     Self::List => DataType::List(Box::new(element_type)),
                     Self::Compound => DataType::Compound(Box::new(element_type)),
                     Self::Data => {
-                        if !element_type.is_data_compatible(&ctx.environment) {
+                        let Some(data_type) = element_type.get_data_type(&ctx.environment) else {
                             let element_span = generic_spans.remove(0);
 
                             return ctx.add_error(
                                 element_span,
                                 SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
                             );
-                        }
+                        };
 
-                        DataType::Data(Box::new(element_type))
+                        DataType::Data(Box::new(data_type))
                     }
                     Self::Score => {
                         if !element_type.is_score_compatible() {

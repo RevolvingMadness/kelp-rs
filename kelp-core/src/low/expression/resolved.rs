@@ -1444,6 +1444,9 @@ impl ResolvedExpression {
                 Self::Float(unsafe { NotNan::new_unchecked(value.into_inner() as f32) })
             }
 
+            (self_ @ Self::List(_), DataType::List(_)) => self_,
+            (self_ @ Self::Compound(_), DataType::Compound(_)) => self_,
+
             (self_ @ Self::Boolean(_), DataType::Boolean)
             | (self_ @ Self::Byte(_), DataType::Byte)
             | (self_ @ Self::Short(_), DataType::Short)

@@ -709,10 +709,22 @@ impl DataType {
     #[must_use]
     pub fn can_cast_to(&self, data_type: &Self) -> bool {
         match (self, data_type) {
-            (Self::Score(self_type), Self::Score(data_type))
-            | (Self::Data(self_type), Self::Data(data_type)) => self_type.can_cast_to(data_type),
+            (Self::Score(self_type), Self::Score(data_type)) => self_type.can_cast_to(data_type),
+            (Self::Score(self_type), Self::Data(data_type)) => self_type.can_cast_to(data_type),
+            (Self::Data(self_type), Self::Data(data_type)) => self_type.can_cast_to(data_type),
+            (Self::Data(self_type), Self::Score(data_type)) => self_type.can_cast_to(data_type),
 
-            (
+            (Self::List(self_type), Self::List(data_type)) if self_type.can_cast_to(data_type) => {
+                true
+            }
+            (Self::Compound(self_type), Self::Compound(data_type))
+                if self_type.can_cast_to(data_type) =>
+            {
+                true
+            }
+
+            (Self::Inferred, _)
+            | (
                 Self::InferredInteger
                 | Self::InferredFloat
                 | Self::Byte
@@ -751,40 +763,6 @@ impl DataType {
             self,
             Self::Boolean | Self::Byte | Self::Short | Self::Integer | Self::InferredInteger
         )
-    }
-
-    #[must_use]
-    pub fn is_data_compatible(&self, environment: &Environment) -> bool {
-        match self {
-            Self::Boolean => true,
-            Self::Byte => true,
-            Self::Short => true,
-            Self::Integer => true,
-            Self::Long => true,
-            Self::Float => true,
-            Self::Double => true,
-            Self::String => true,
-            Self::Unit => true,
-            Self::Never => true,
-            Self::List(data_type) => data_type.is_data_compatible(environment),
-            Self::TypedCompound(compound) => compound
-                .values()
-                .all(|data_type| data_type.is_data_compatible(environment)),
-            Self::Compound(data_type) => data_type.is_data_compatible(environment),
-            Self::Tuple(data_types) => data_types
-                .iter()
-                .all(|data_type| data_type.is_data_compatible(environment)),
-            Self::Struct(id) => {
-                let (_, _, declaration) = environment.get_struct(*id);
-
-                declaration
-                    .field_types()
-                    .all(|data_type| data_type.is_data_compatible(environment))
-            }
-            Self::InferredInteger => true,
-            Self::InferredFloat => true,
-            _ => false,
-        }
     }
 
     #[must_use]
@@ -840,37 +818,25 @@ impl DataType {
             Self::Struct(id) => {
                 let (_, _, declaration) = environment.get_struct(*id);
 
-                let mut changed = false;
-                for field_type in declaration.field_types() {
-                    let data_type = field_type.get_data_type(environment)?;
-                    if !field_type.equals(&data_type) {
-                        changed = true;
-                        break;
-                    }
-                }
-
-                if !changed {
-                    return Some(Self::Struct(*id));
-                }
-
                 match declaration {
-                    StructDeclaration::Struct(decl) => {
-                        let compound = decl
+                    StructDeclaration::Struct(declaration) => {
+                        let compound = declaration
                             .field_types
                             .iter()
-                            .map(|(key, field_type)| {
-                                let data_type = field_type.get_data_type(environment)?;
+                            .map(|(key, data_type)| {
+                                let data_type = data_type.get_data_type(environment)?;
+
                                 Some((LowSNBTString(false, key.clone()), data_type))
                             })
                             .collect::<Option<_>>()?;
 
                         Self::TypedCompound(compound)
                     }
-                    StructDeclaration::Tuple(decl) => {
-                        let data_types = decl
+                    StructDeclaration::Tuple(declaration) => {
+                        let data_types = declaration
                             .field_types
                             .iter()
-                            .map(|field_type| field_type.get_data_type(environment))
+                            .map(|data_type| data_type.get_data_type(environment))
                             .collect::<Option<_>>()?;
 
                         Self::Tuple(data_types)
@@ -885,16 +851,15 @@ impl DataType {
 
     #[must_use]
     pub fn has_fields(&self) -> bool {
-        let data_type = self.unwrap_all_reference();
-
-        matches!(
-            data_type,
-            Self::Struct(_)
-                | Self::TypedCompound(_)
-                | Self::Compound(_)
-                | Self::Data(_)
-                | Self::Tuple(_)
-        )
+        match self {
+            Self::TypedCompound(_) => true,
+            Self::Compound(_) => true,
+            Self::Data(_) => true,
+            Self::Reference(data_type) => data_type.has_fields(),
+            Self::Tuple(_) => true,
+            Self::Struct(_) => true,
+            _ => false,
+        }
     }
 
     fn raw_get_arithmetic_result(&self, other: &Self) -> Option<Self> {
@@ -1023,20 +988,18 @@ impl DataType {
         }
     }
 
-    fn get_index_result(&self) -> Result<Self, SemanticAnalysisError> {
-        let self_ = self.unwrap_all_reference();
-
-        Ok(match self_ {
-            Self::List(data_type) => *data_type.clone(),
+    fn get_index_result(self) -> Result<Self, SemanticAnalysisError> {
+        Ok(match self {
+            Self::List(data_type) => *data_type,
             Self::Data(data_type) => Self::Data(Box::new(data_type.get_index_result()?)),
-
-            _ => return Err(SemanticAnalysisError::CannotBeIndexed(self.clone())),
+            Self::Reference(data_type) => data_type.get_index_result()?,
+            _ => return Err(SemanticAnalysisError::CannotBeIndexed(self)),
         })
     }
 
     #[must_use]
     pub fn get_index_result_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         span: Span,
     ) -> Option<Self> {
@@ -1085,10 +1048,6 @@ impl DataType {
                 data_type.get_field_result(environment, field)?,
             ))),
 
-            Self::Score(data_type) => Ok(Self::Score(Box::new(
-                data_type.get_field_result(environment, field)?,
-            ))),
-
             Self::Tuple(items) => {
                 let index = field.parse::<usize>().ok();
 
@@ -1120,17 +1079,17 @@ impl DataType {
         }
     }
 
-    fn get_dereferenced_result(&self) -> Result<Self, SemanticAnalysisError> {
+    fn get_dereferenced_result(self) -> Result<Self, SemanticAnalysisError> {
         Ok(match self {
-            Self::Reference(data_type) => *data_type.clone(),
-            Self::Score(_) | Self::Data(_) => self.clone(),
-            _ => return Err(SemanticAnalysisError::CannotBeDereferenced(self.clone())),
+            Self::Reference(data_type) => *data_type,
+            Self::Score(_) | Self::Data(_) => self,
+            _ => return Err(SemanticAnalysisError::CannotBeDereferenced(self)),
         })
     }
 
     #[must_use]
     pub fn get_dereferenced_result_semantic_analysis(
-        &self,
+        self,
         ctx: &mut SemanticAnalysisContext,
         span: Span,
     ) -> Option<Self> {

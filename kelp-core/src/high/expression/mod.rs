@@ -199,6 +199,7 @@ impl Expression {
 
                 let data_type = place_type
                     .data_type
+                    .clone()
                     .get_dereferenced_result_semantic_analysis(ctx, expression.span)?;
 
                 (data_type, PlaceTypeKind::Dereference(Box::new(place_type)))
@@ -210,6 +211,7 @@ impl Expression {
 
                 let data_type = target_place_type
                     .data_type
+                    .clone()
                     .get_index_result_semantic_analysis(ctx, target.span)?;
 
                 (data_type, PlaceTypeKind::Index(Box::new(target_place_type)))
@@ -325,6 +327,7 @@ impl Expression {
                     UnaryOperator::Dereference => {
                         let dereferenced_result = expression
                             .data_type
+                            .clone()
                             .get_dereferenced_result_semantic_analysis(ctx, span)?;
 
                         UnresolvedExpressionKind::Unary(
@@ -586,6 +589,7 @@ impl Expression {
 
                 let index_result = target
                     .data_type
+                    .clone()
                     .get_index_result_semantic_analysis(ctx, target_span)?;
 
                 // TODO: Improve this.

@@ -701,30 +701,27 @@ impl DataType {
         self.distribute_wrapper(TypeWrapper::Data)
     }
 
-    #[must_use]
-    pub fn get_iterable_type(&self) -> Option<Self> {
-        Some(match self {
-            Self::Reference(self_) => match &**self_ {
-                Self::List(data_type) => *data_type.clone(),
-                Self::Data(data_type) => data_type.get_iterable_type()?,
-                Self::String => Self::String,
-                _ => return None,
-            },
+    pub fn get_iterable_type(&self) -> Result<Self, SemanticAnalysisError> {
+        Ok(match self {
+            Self::Reference(inner) => return inner.get_iterable_type(),
 
             Self::List(data_type) => *data_type.clone(),
             Self::Data(data_type) => data_type.get_iterable_type()?,
             Self::String => Self::String,
-            _ => return None,
+            _ => return Err(SemanticAnalysisError::CannotIterateType(self.clone())),
         })
     }
 
-    pub fn dereference(self) -> Result<Self, Self> {
-        Ok(match self {
-            Self::Reference(data_type) => *data_type,
-            Self::Score(_) | Self::Data(_) => self,
-
-            _ => return Err(self),
-        })
+    #[must_use]
+    pub fn get_iterable_type_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+    ) -> Option<Self> {
+        match self.get_iterable_type() {
+            Ok(data_type) => Some(data_type),
+            Err(error) => ctx.add_error(span, error),
+        }
     }
 
     #[must_use]
@@ -878,9 +875,9 @@ impl DataType {
         environment: &Environment,
         operator: ComparisonOperator,
         other: &Self,
-    ) -> Option<bool> {
+    ) -> bool {
         if self.is_numeric() && other.is_numeric() {
-            return Some(true);
+            return true;
         }
 
         match (self, other) {
@@ -896,7 +893,7 @@ impl DataType {
             {
                 inner.can_perform_comparison(environment, operator, other)
             }
-            _ => Some(false),
+            _ => false,
         }
     }
 
@@ -906,20 +903,20 @@ impl DataType {
         environment: &Environment,
         operator: ComparisonOperator,
         other: &Self,
-    ) -> Option<bool> {
+    ) -> bool {
         if (operator == ComparisonOperator::EqualTo || operator == ComparisonOperator::NotEqualTo)
             && self.equals(other)
         {
-            return Some(true);
+            return true;
         }
 
-        Some(match (self, other) {
+        match (self, other) {
             (Self::Reference(data_type), other) | (other, Self::Reference(data_type)) => {
-                data_type.raw_can_perform_comparison(environment, operator, other)?
+                data_type.raw_can_perform_comparison(environment, operator, other)
             }
 
-            _ => self.raw_can_perform_comparison(environment, operator, other)?,
-        })
+            _ => self.raw_can_perform_comparison(environment, operator, other),
+        }
     }
 
     fn get_index_result(&self) -> Result<Self, SemanticAnalysisError> {
@@ -1118,5 +1115,77 @@ impl DataType {
 
             _ => self == other,
         }
+    }
+}
+
+impl DataType {
+    #[must_use]
+    pub fn assert_runtime_value_mutation_in_runtime_loop(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+    ) -> Option<()> {
+        if ctx.loop_depth != 0 && self.is_compiletime(&ctx.environment) {
+            return ctx.add_error(
+                span,
+                SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+            );
+        }
+
+        Some(())
+    }
+
+    #[must_use]
+    pub fn assert_can_perform_augmented_assignment(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        operator: ArithmeticOperator,
+        value_span: Span,
+        value_type: &Self,
+    ) -> Option<()> {
+        if self.can_perform_augmented_assignment(operator, value_type) {
+            return Some(());
+        }
+
+        ctx.add_error(
+            value_span,
+            SemanticAnalysisError::InvalidAugmentedAssignmentType(
+                operator,
+                self.clone(),
+                value_type.clone(),
+            ),
+        )
+    }
+
+    #[must_use]
+    pub fn assert_equals(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+        other: &Self,
+    ) -> Option<()> {
+        if self.equals(other) {
+            return Some(());
+        }
+
+        ctx.add_error(
+            span,
+            SemanticAnalysisError::MismatchedTypes {
+                expected: other.clone(),
+                actual: self.clone(),
+            },
+        )
+    }
+
+    #[must_use]
+    pub fn assert_condition(&self, ctx: &mut SemanticAnalysisContext, span: Span) -> Option<()> {
+        if self.is_condition() {
+            return Some(());
+        }
+
+        ctx.add_error(
+            span,
+            SemanticAnalysisError::TypeIsNotCondition(self.clone()),
+        )
     }
 }

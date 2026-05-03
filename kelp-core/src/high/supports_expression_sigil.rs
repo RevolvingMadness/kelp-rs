@@ -4,9 +4,8 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     high::{
-        entity_selector::EntitySelector,
-        expression::Expression,
-        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        entity_selector::EntitySelector, expression::Expression,
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::{
         data_type::DataType, entity_selector::EntitySelector as LowEntitySelector,
@@ -54,15 +53,11 @@ impl SupportsExpressionSigil<EntitySelector> {
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                if !expression.data_type.equals(&DataType::EntitySelector) {
-                    return ctx.add_error(
-                        expression_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: DataType::EntitySelector,
-                            actual: expression.data_type,
-                        },
-                    );
-                }
+                expression.data_type.assert_equals(
+                    ctx,
+                    expression_span,
+                    &DataType::EntitySelector,
+                )?;
 
                 LowSupportsExpressionSigil::Sigil(expression)
             }
@@ -81,15 +76,11 @@ impl SupportsExpressionSigil<ResourceLocation> {
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                if !expression.data_type.equals(&DataType::ResourceLocation) {
-                    return ctx.add_error(
-                        expression_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: DataType::ResourceLocation,
-                            actual: expression.data_type,
-                        },
-                    );
-                }
+                expression.data_type.assert_equals(
+                    ctx,
+                    expression_span,
+                    &DataType::ResourceLocation,
+                )?;
 
                 LowSupportsExpressionSigil::Sigil(expression)
             }

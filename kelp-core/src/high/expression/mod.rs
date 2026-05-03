@@ -391,12 +391,11 @@ impl Expression {
                 let (_, left) = left?;
                 let (_, right) = right?;
 
-                if let Some(value) = left.data_type.can_perform_comparison(
+                if !left.data_type.can_perform_comparison(
                     &ctx.environment,
                     operator,
                     &right.data_type,
-                ) && !value
-                {
+                ) {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::CannotPerformComparisonOperation {
@@ -417,22 +416,26 @@ impl Expression {
                 let (left_span, left) = left?;
                 let (right_span, right) = right?;
 
-                if left.data_type != DataType::Boolean {
-                    return ctx.add_error(
-                        left_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: DataType::Boolean,
-                            actual: left.data_type,
-                        },
-                    );
-                } else if right.data_type != DataType::Boolean {
-                    return ctx.add_error(
-                        right_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: DataType::Boolean,
-                            actual: right.data_type,
-                        },
-                    );
+                let mut failed = false;
+
+                if left
+                    .data_type
+                    .assert_equals(ctx, left_span, &DataType::Boolean)
+                    .is_none()
+                {
+                    failed = true;
+                }
+
+                if right
+                    .data_type
+                    .assert_equals(ctx, right_span, &DataType::Boolean)
+                    .is_none()
+                {
+                    failed = true;
+                }
+
+                if failed {
+                    return None;
                 }
 
                 UnresolvedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
@@ -843,27 +846,17 @@ impl Expression {
                 };
 
                 let else_type = if let Some((else_body_span, else_body)) = &else_body {
-                    if !else_body.data_type.equals(&body.data_type) {
-                        return ctx.add_error(
-                            *else_body_span,
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: body.data_type,
-                                actual: else_body.data_type.clone(),
-                            },
-                        );
-                    }
+                    else_body
+                        .data_type
+                        .assert_equals(ctx, *else_body_span, &body.data_type)?;
 
                     &else_body.data_type
                 } else {
-                    if !body.data_type.equals(&DataType::Unit) {
-                        return ctx.add_error(
-                            tail_expression_span.unwrap_or(body_span),
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: DataType::Unit,
-                                actual: body.data_type,
-                            },
-                        );
-                    }
+                    body.data_type.assert_equals(
+                        ctx,
+                        tail_expression_span.unwrap_or(body_span),
+                        &DataType::Unit,
+                    )?;
 
                     &DataType::Unit
                 };
@@ -891,12 +884,7 @@ impl Expression {
 
                 let (condition_span, condition) = condition?;
 
-                if !condition.data_type.is_condition() {
-                    return ctx.add_error(
-                        condition_span,
-                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
-                    );
-                }
+                condition.data_type.assert_condition(ctx, condition_span)?;
 
                 let (_, _, body) = body?;
 
@@ -915,13 +903,13 @@ impl Expression {
             ExpressionKind::ForLoop(reversed, pattern, iterable, body) => {
                 let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
 
-                let Some(iterable_type) = iterable.data_type.get_iterable_type() else {
+                let Some(iterable_type) = iterable
+                    .data_type
+                    .get_iterable_type_semantic_analysis(ctx, expression_span)
+                else {
                     pattern.kind.destructure_unknown(ctx);
 
-                    return ctx.add_error(
-                        expression_span,
-                        SemanticAnalysisError::CannotIterateType(iterable.data_type),
-                    );
+                    return None;
                 };
 
                 ctx.enter_scope();

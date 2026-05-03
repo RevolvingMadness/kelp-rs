@@ -234,34 +234,17 @@ impl PlaceType {
                     .run_all_succeeded()?;
             }
             PlaceTypeKind::Value => {
-                if !value_type.equals(&self.data_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: self.data_type,
-                            actual: value_type.clone(),
-                        },
-                    );
-                }
+                value_type.assert_equals(ctx, value_span, &self.data_type)?;
 
-                if ctx.loop_depth != 0 && self.data_type.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
+                self.data_type
+                    .assert_runtime_value_mutation_in_runtime_loop(ctx, self.span)?;
             }
             PlaceTypeKind::Index(place_type) => {
                 let index_result = place_type
                     .data_type
                     .get_index_result_semantic_analysis(ctx, place_type.span)?;
 
-                if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
+                index_result.assert_runtime_value_mutation_in_runtime_loop(ctx, self.span)?;
             }
             PlaceTypeKind::Dereference(place_type) => match place_type.data_type {
                 DataType::Score(_) => {
@@ -276,22 +259,9 @@ impl PlaceType {
                 DataType::Data(_) => {}
 
                 DataType::Reference(inner_type) => {
-                    if !value_type.equals(&inner_type) {
-                        return ctx.add_error(
-                            value_span,
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: *inner_type,
-                                actual: value_type.clone(),
-                            },
-                        );
-                    }
+                    value_type.assert_equals(ctx, value_span, &inner_type)?;
 
-                    if ctx.loop_depth != 0 && inner_type.is_compiletime(&ctx.environment) {
-                        return ctx.add_error(
-                            self.span,
-                            SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                        );
-                    }
+                    inner_type.assert_runtime_value_mutation_in_runtime_loop(ctx, self.span)?;
                 }
 
                 place_data_type => {
@@ -308,12 +278,7 @@ impl PlaceType {
                     &field,
                 )?;
 
-                if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
+                field_result.assert_runtime_value_mutation_in_runtime_loop(ctx, self.span)?;
             }
         }
 
@@ -330,38 +295,17 @@ impl PlaceType {
     ) -> Option<()> {
         match self.kind {
             PlaceTypeKind::Data(data_type) | PlaceTypeKind::Score(data_type) => {
-                if !data_type.can_perform_augmented_assignment(operator, value_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            data_type,
-                            value_type.clone(),
-                        ),
-                    );
-                }
+                data_type.assert_can_perform_augmented_assignment(
+                    ctx, operator, value_span, value_type,
+                )?;
             }
             PlaceTypeKind::Value => {
-                if ctx.loop_depth != 0 && self.data_type.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
+                self.data_type
+                    .assert_runtime_value_mutation_in_runtime_loop(ctx, self.span)?;
 
-                if !self
-                    .data_type
-                    .can_perform_augmented_assignment(operator, value_type)
-                {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            self.data_type.clone(),
-                            value_type.clone(),
-                        ),
-                    );
-                }
+                self.data_type.assert_can_perform_augmented_assignment(
+                    ctx, operator, value_span, value_type,
+                )?;
             }
             PlaceTypeKind::Tuple(_) | PlaceTypeKind::Underscore => {
                 return ctx.add_error(
@@ -374,12 +318,7 @@ impl PlaceType {
                     .data_type
                     .get_index_result_semantic_analysis(ctx, target.span)?;
 
-                if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
+                index_result.assert_runtime_value_mutation_in_runtime_loop(ctx, self.span)?;
 
                 if !index_result.can_perform_augmented_assignment(operator, value_type) {
                     return ctx.add_error(
@@ -393,42 +332,22 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Dereference(place_type) => {
-                if !place_type
+                place_type
                     .data_type
-                    .can_perform_augmented_assignment(operator, value_type)
-                {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            place_type.data_type,
-                            value_type.clone(),
-                        ),
-                    );
-                }
+                    .assert_can_perform_augmented_assignment(
+                        ctx, operator, value_span, value_type,
+                    )?;
             }
             PlaceTypeKind::FieldAccess(target, field_span, field) => {
                 let field_result = target
                     .data_type
                     .get_field_result_semantic_analysis(ctx, field_span, &field)?;
 
-                if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
-                    );
-                }
+                field_result.assert_runtime_value_mutation_in_runtime_loop(ctx, self.span)?;
 
-                if !field_result.can_perform_augmented_assignment(operator, value_type) {
-                    return ctx.add_error(
-                        value_span,
-                        SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                            operator,
-                            field_result,
-                            value_type.clone(),
-                        ),
-                    );
-                }
+                field_result.assert_can_perform_augmented_assignment(
+                    ctx, operator, value_span, value_type,
+                )?;
             }
         }
 

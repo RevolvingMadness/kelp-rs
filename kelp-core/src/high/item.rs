@@ -161,18 +161,15 @@ impl Item {
                 let return_type = ctx.function_return_types.pop().unwrap();
                 ctx.exit_scope();
 
-                if let Some(return_type) = return_type
+                if let Some(return_type) = &return_type
                     && let (body_span, tail_expression_span, body) = &body
                     && !body.kind.definitely_diverges()
-                    && !body.data_type.equals(&return_type)
                 {
-                    return ctx.add_error(
+                    body.data_type.assert_equals(
+                        ctx,
                         tail_expression_span.unwrap_or(*body_span),
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: return_type,
-                            actual: body.data_type.clone(),
-                        },
-                    );
+                        return_type,
+                    )?;
                 }
 
                 if resolved_all_parameters {
@@ -185,15 +182,11 @@ impl Item {
                 let (body_span, tail_expression_span, body) =
                     body.perform_semantic_analysis(ctx)?;
 
-                if !body.data_type.equals(&DataType::Unit) {
-                    return ctx.add_error(
-                        tail_expression_span.unwrap_or(body_span),
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: DataType::Unit,
-                            actual: body.data_type,
-                        },
-                    );
-                }
+                body.data_type.assert_equals(
+                    ctx,
+                    tail_expression_span.unwrap_or(body_span),
+                    &DataType::Unit,
+                )?;
 
                 MiddleItem::MCFNDeclaration(resource_location, body)
             }

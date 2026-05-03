@@ -6,6 +6,7 @@ use kelp_core::high::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::high::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::low::environment::Environment;
 use kelp_core::low::item::Item;
+use kelp_core::trait_ext::CollectOptionAllIterExt;
 use kelp_parser::cst::CSTRoot;
 use kelp_parser::parser::{ParseResult, Parser};
 use kelp_parser::root::lower_root;
@@ -252,7 +253,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let Some(items) = items
         .into_iter()
         .map(|item| item.perform_semantic_analysis(&mut semantic_analysis_context))
-        .collect::<Option<_>>()
+        .collect_option_all()
     else {
         for info in &semantic_analysis_context.infos {
             match &info.kind {

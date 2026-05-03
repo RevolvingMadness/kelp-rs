@@ -40,7 +40,6 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
     player_score::GeneratedPlayerScore,
-    runtime_storage::RuntimeStorageTarget,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -160,7 +159,7 @@ fn compile_function(
     datapack.function_return_targets.push(return_target);
     let result = original_body.kind.resolve(datapack, &mut function_body_ctx);
     let return_target = datapack.function_return_targets.pop().unwrap();
-    result.assign_to_target(datapack, &mut function_body_ctx, return_target.clone());
+    return_target.clone().assign(datapack, ctx, result);
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
@@ -1888,20 +1887,6 @@ impl ResolvedExpression {
                 unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
             }
             _ => unreachable!(),
-        }
-    }
-
-    pub fn assign_to_target(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        target: RuntimeStorageTarget,
-    ) {
-        match target {
-            RuntimeStorageTarget::Score(score) => self.assign_to_score(datapack, ctx, score),
-            RuntimeStorageTarget::Data(target, path) => {
-                self.assign_to_data(datapack, ctx, target, path);
-            }
         }
     }
 

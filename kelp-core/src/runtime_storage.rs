@@ -1,8 +1,8 @@
 use minecraft_command_types::nbt_path::NbtPath;
 
 use crate::{
-    data::GeneratedDataTarget, datapack::Datapack, low::expression::resolved::ResolvedExpression,
-    player_score::GeneratedPlayerScore,
+    compile_context::CompileContext, data::GeneratedDataTarget, datapack::Datapack,
+    low::expression::resolved::ResolvedExpression, player_score::GeneratedPlayerScore,
 };
 
 #[derive(Debug, Clone)]
@@ -41,6 +41,22 @@ impl RuntimeStorageTarget {
         match self {
             Self::Score(score) => ResolvedExpression::PlayerScore(score),
             Self::Data(target, path) => ResolvedExpression::Data(Box::new((target, path))),
+        }
+    }
+
+    pub fn assign(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        value: ResolvedExpression,
+    ) {
+        match self {
+            Self::Score(score) => {
+                value.assign_to_score(datapack, ctx, score);
+            }
+            Self::Data(target, path) => {
+                value.assign_to_data(datapack, ctx, target, path);
+            }
         }
     }
 }

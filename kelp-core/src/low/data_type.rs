@@ -922,59 +922,124 @@ impl DataType {
         })
     }
 
-    #[must_use]
-    pub fn get_index_result(&self) -> Option<Self> {
-        Some(match self {
+    fn get_index_result(&self) -> Result<Self, SemanticAnalysisError> {
+        Ok(match self {
             Self::Reference(self_) => self_.get_index_result()?,
 
             Self::List(data_type) => *data_type.clone(),
             Self::Data(data_type) => Self::Data(Box::new(data_type.get_index_result()?)),
             Self::SNBT => Self::SNBT,
 
-            _ => return None,
+            _ => return Err(SemanticAnalysisError::CannotBeIndexed(self.clone())),
         })
     }
 
     #[must_use]
-    pub fn get_field_result(&self, environment: &Environment, field: &str) -> Option<Self> {
-        Some(match self {
-            Self::Reference(self_) => self_.get_field_result(environment, field)?,
+    pub fn get_index_result_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+    ) -> Option<Self> {
+        match self.get_index_result() {
+            Ok(result) => Some(result),
+            Err(error) => ctx.add_error(span, error),
+        }
+    }
+
+    fn get_field_result(
+        &self,
+        environment: &Environment,
+        field: &str,
+    ) -> Result<Self, SemanticAnalysisError> {
+        match self {
+            Self::Reference(inner) => inner.get_field_result(environment, field),
 
             Self::Struct(id) => {
                 let (_, _, declaration) = environment.get_struct(*id);
 
-                declaration.get_field(field).cloned()?
+                declaration.get_field(field).cloned().ok_or_else(|| {
+                    SemanticAnalysisError::TypeDoesntHaveField {
+                        data_type: self.clone(),
+                        field: field.to_owned(),
+                    }
+                })
             }
 
-            Self::TypedCompound(compound) => {
-                compound.iter().find(|(key, _)| key.1 == *field)?.1.clone()
-            }
-            Self::Compound(data_type) => *data_type.clone(),
-            Self::Data(data_type) => {
-                Self::Data(Box::new(data_type.get_field_result(environment, field)?))
-            }
-            Self::Score(data_type) => {
-                Self::Score(Box::new(data_type.get_field_result(environment, field)?))
-            }
+            Self::TypedCompound(compound) => compound
+                .iter()
+                .find_map(|(key, data_type)| {
+                    if key.1 == *field {
+                        Some(data_type.clone())
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| SemanticAnalysisError::TypeDoesntHaveField {
+                    data_type: self.clone(),
+                    field: field.to_owned(),
+                }),
+
+            Self::Compound(data_type) => Ok(*data_type.clone()),
+
+            Self::Data(data_type) => Ok(Self::Data(Box::new(
+                data_type.get_field_result(environment, field)?,
+            ))),
+
+            Self::Score(data_type) => Ok(Self::Score(Box::new(
+                data_type.get_field_result(environment, field)?,
+            ))),
+
             Self::Tuple(items) => {
-                return field
-                    .parse::<i32>()
-                    .map_or(None, |index| items.get(index as usize).cloned());
+                let index = field.parse::<usize>().ok();
+
+                index.and_then(|i| items.get(i).cloned()).ok_or_else(|| {
+                    SemanticAnalysisError::TypeDoesntHaveField {
+                        data_type: self.clone(),
+                        field: field.to_owned(),
+                    }
+                })
             }
 
-            Self::SNBT => Self::SNBT,
+            Self::SNBT => Ok(Self::SNBT),
 
-            _ => return None,
+            _ => Err(SemanticAnalysisError::TypeDoesntHaveField {
+                data_type: self.clone(),
+                field: field.to_owned(),
+            }),
+        }
+    }
+
+    #[must_use]
+    pub fn get_field_result_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+        field: &str,
+    ) -> Option<Self> {
+        match self.get_field_result(&ctx.environment, field) {
+            Ok(result) => Some(result),
+            Err(error) => ctx.add_error(span, error),
+        }
+    }
+
+    fn get_dereferenced_result(&self) -> Result<Self, SemanticAnalysisError> {
+        Ok(match self {
+            Self::Reference(data_type) => *data_type.clone(),
+            Self::Score(_) | Self::Data(_) => self.clone(),
+            _ => return Err(SemanticAnalysisError::CannotBeDereferenced(self.clone())),
         })
     }
 
     #[must_use]
-    pub fn get_dereferenced_result(&self) -> Option<Self> {
-        Some(match self {
-            Self::Reference(data_type) => *data_type.clone(),
-            Self::Score(_) | Self::Data(_) => self.clone(),
-            _ => return None,
-        })
+    pub fn get_dereferenced_result_semantic_analysis(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+    ) -> Option<Self> {
+        match self.get_dereferenced_result() {
+            Ok(result) => Some(result),
+            Err(error) => ctx.add_error(span, error),
+        }
     }
 
     #[must_use]

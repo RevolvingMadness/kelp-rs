@@ -33,7 +33,6 @@ pub enum Place {
     Data(GeneratedDataTarget, NbtPath),
     Value(ValueId),
     Tuple(Vec<Self>),
-    Dereference(Box<Self>),
     Underscore,
 }
 
@@ -54,7 +53,6 @@ impl Place {
                     ValueDeclarationKind::Function(_) => return None,
                 }
             }
-            Self::Dereference(place) => place.dereference(datapack)?.dereference(datapack)?,
             Self::Tuple(_) | Self::Underscore => return None,
         })
     }
@@ -78,7 +76,7 @@ impl Place {
                     ..
                 } = datapack.get_value(id)
                 else {
-                    return;
+                    unreachable!("The expression '{:?}' cannot be assigned to", self);
                 };
 
                 datapack.set_variable(VariableId(id.0), value);
@@ -94,12 +92,6 @@ impl Place {
                 for (place, expression) in places.into_iter().zip(expressions) {
                     place.assign(datapack, ctx, expression);
                 }
-            }
-            Self::Dereference(place) => {
-                place
-                    .dereference(datapack)
-                    .unwrap()
-                    .assign(datapack, ctx, value);
             }
         }
     }
@@ -167,11 +159,6 @@ impl Place {
 
                     datapack.set_variable(id, new_value);
                 }
-            }
-            Self::Dereference(place) => {
-                let place = place.dereference(datapack).unwrap();
-
-                place.augmented_assign(datapack, ctx, operator, value);
             }
             Self::Tuple(_) | Self::Underscore => {
                 unreachable!()
@@ -265,12 +252,9 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::Index(place_type) => {
-                let Some(index_result) = place_type.data_type.get_index_result() else {
-                    return ctx.add_error(
-                        place_type.span,
-                        SemanticAnalysisError::CannotBeIndexed(place_type.data_type),
-                    );
-                };
+                let index_result = place_type
+                    .data_type
+                    .get_index_result_semantic_analysis(ctx, place_type.span)?;
 
                 if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
                     return ctx.add_error(
@@ -318,17 +302,11 @@ impl PlaceType {
                 }
             },
             PlaceTypeKind::FieldAccess(target, _, field) => {
-                let Some(field_result) =
-                    target.data_type.get_field_result(&ctx.environment, &field)
-                else {
-                    return ctx.add_error(
-                        target.span,
-                        SemanticAnalysisError::TypeDoesntHaveField {
-                            data_type: target.data_type,
-                            field,
-                        },
-                    );
-                };
+                let field_result = target.data_type.get_field_result_semantic_analysis(
+                    ctx,
+                    target.span,
+                    &field,
+                )?;
 
                 if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
                     return ctx.add_error(
@@ -392,12 +370,9 @@ impl PlaceType {
                 );
             }
             PlaceTypeKind::Index(target) => {
-                let Some(index_result) = target.data_type.get_index_result() else {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CannotBeIndexed(target.data_type),
-                    );
-                };
+                let index_result = target
+                    .data_type
+                    .get_index_result_semantic_analysis(ctx, target.span)?;
 
                 if ctx.loop_depth != 0 && index_result.is_compiletime(&ctx.environment) {
                     return ctx.add_error(
@@ -433,17 +408,9 @@ impl PlaceType {
                 }
             }
             PlaceTypeKind::FieldAccess(target, field_span, field) => {
-                let Some(field_result) =
-                    target.data_type.get_field_result(&ctx.environment, &field)
-                else {
-                    return ctx.add_error(
-                        field_span,
-                        SemanticAnalysisError::TypeDoesntHaveField {
-                            data_type: target.data_type,
-                            field,
-                        },
-                    );
-                };
+                let field_result = target
+                    .data_type
+                    .get_field_result_semantic_analysis(ctx, field_span, &field)?;
 
                 if ctx.loop_depth != 0 && field_result.is_compiletime(&ctx.environment) {
                     return ctx.add_error(

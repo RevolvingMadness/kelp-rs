@@ -169,7 +169,7 @@ impl Expression {
                 let Some(place_types) = expressions
                     .iter()
                     .map(|expression| expression.get_place_type(ctx))
-                    .collect::<Option<Option<Vec<_>>>>()?
+                    .collect_option_all::<Option<Vec<_>>>()?
                 else {
                     return Some(None);
                 };
@@ -192,26 +192,25 @@ impl Expression {
                 DataType::Data(Box::new(DataType::SNBT)),
                 PlaceTypeKind::Data(DataType::SNBT),
             ),
-            ExpressionKind::Unary(operator, expression) => match operator {
-                UnaryOperator::Dereference => {
-                    let Some(place_type) = expression.get_place_type(ctx)? else {
-                        return Some(None);
-                    };
+            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
+                let Some(place_type) = expression.get_place_type(ctx)? else {
+                    return Some(None);
+                };
 
-                    let data_type = place_type.data_type.get_dereferenced_result()?;
+                let data_type = place_type
+                    .data_type
+                    .get_dereferenced_result_semantic_analysis(ctx, expression.span)?;
 
-                    (data_type, PlaceTypeKind::Dereference(Box::new(place_type)))
-                }
-                UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => {
-                    return None;
-                }
-            },
+                (data_type, PlaceTypeKind::Dereference(Box::new(place_type)))
+            }
             ExpressionKind::Index(target, _) => {
                 let Some(target_place_type) = target.get_place_type(ctx)? else {
                     return Some(None);
                 };
 
-                let data_type = target_place_type.data_type.get_index_result()?;
+                let data_type = target_place_type
+                    .data_type
+                    .get_index_result_semantic_analysis(ctx, target.span)?;
 
                 (data_type, PlaceTypeKind::Index(Box::new(target_place_type)))
             }
@@ -222,7 +221,7 @@ impl Expression {
 
                 let data_type = target_place_type
                     .data_type
-                    .get_field_result(&ctx.environment, &field.snbt_string.1)?;
+                    .get_field_result_semantic_analysis(ctx, field.span, &field.snbt_string.1)?;
 
                 (
                     data_type,
@@ -247,7 +246,9 @@ impl Expression {
 
                 (data_type.clone(), PlaceTypeKind::Value)
             }
-            _ => return None,
+            _ => {
+                return ctx.add_error(self.span, SemanticAnalysisError::CannotBeAssignedTo);
+            }
         };
 
         Some(Some(PlaceType {
@@ -322,14 +323,9 @@ impl Expression {
                         .with(DataType::Reference(Box::new(expression_data_type)))
                     }
                     UnaryOperator::Dereference => {
-                        let Some(dereferenced_result) =
-                            expression.data_type.get_dereferenced_result()
-                        else {
-                            return ctx.add_error(
-                                span,
-                                SemanticAnalysisError::CannotBeDereferenced(expression.data_type),
-                            );
-                        };
+                        let dereferenced_result = expression
+                            .data_type
+                            .get_dereferenced_result_semantic_analysis(ctx, span)?;
 
                         UnresolvedExpressionKind::Unary(
                             UnaryOperator::Dereference,
@@ -443,9 +439,7 @@ impl Expression {
                     .with(DataType::Boolean)
             }
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
-                let Some(place) = target.get_place_type(ctx) else {
-                    return ctx.add_error(target.span, SemanticAnalysisError::CannotBeAssignedTo);
-                };
+                let place = target.get_place_type(ctx)?;
 
                 let place = place?;
 
@@ -468,9 +462,7 @@ impl Expression {
                 .with(DataType::Unit)
             }
             ExpressionKind::Assignment(target, value) => {
-                let Some(place) = target.get_place_type(ctx) else {
-                    return ctx.add_error(target.span, SemanticAnalysisError::CannotBeAssignedTo);
-                };
+                let place = target.get_place_type(ctx)?;
 
                 let place = place?;
 
@@ -591,12 +583,9 @@ impl Expression {
                 let (target_span, target) = target?;
                 let (index_span, index) = index?;
 
-                let Some(index_result) = target.data_type.get_index_result() else {
-                    return ctx.add_error(
-                        target_span,
-                        SemanticAnalysisError::CannotBeIndexed(target.data_type),
-                    );
-                };
+                let index_result = target
+                    .data_type
+                    .get_index_result_semantic_analysis(ctx, target_span)?;
 
                 // TODO: Improve this.
                 if target.kind.is_index_out_of_bounds(&index) == Some(true) {
@@ -618,18 +607,9 @@ impl Expression {
 
                 let (field_span, field) = field.perform_semantic_analysis(ctx);
 
-                let Some(field_result) = expression
+                let field_result = expression
                     .data_type
-                    .get_field_result(&ctx.environment, &field.1)
-                else {
-                    return ctx.add_error(
-                        field_span,
-                        SemanticAnalysisError::TypeDoesntHaveField {
-                            data_type: expression.data_type,
-                            field: field.1,
-                        },
-                    );
-                };
+                    .get_field_result_semantic_analysis(ctx, field_span, &field.1)?;
 
                 UnresolvedExpressionKind::FieldAccess(Box::new(expression), field)
                     .with(field_result)

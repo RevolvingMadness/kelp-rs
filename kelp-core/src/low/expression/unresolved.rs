@@ -465,9 +465,12 @@ impl UnresolvedExpressionKind {
             Self::Unary(operator, expression) => match operator {
                 UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => None,
                 UnaryOperator::Dereference => {
-                    let expression = expression.kind.as_place(datapack, ctx)?;
+                    let place = expression
+                        .kind
+                        .as_place(datapack, ctx)?
+                        .dereference(datapack)?;
 
-                    Some(Place::Dereference(Box::new(expression)))
+                    Some(place)
                 }
             },
             Self::PlayerScore(score) => {
@@ -985,7 +988,7 @@ impl UnresolvedExpressionKind {
 
                 let target = datapack.function_return_targets.last().unwrap().clone();
 
-                expression.assign_to_target(datapack, ctx, target);
+                target.assign(datapack, ctx, expression);
 
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
 
@@ -1328,7 +1331,7 @@ impl UnresolvedExpressionKind {
 
                 let target = datapack.function_return_targets.last().unwrap().clone();
 
-                expression.assign_to_target(datapack, ctx, target);
+                target.assign(datapack, ctx, expression);
 
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
             }

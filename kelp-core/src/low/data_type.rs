@@ -200,24 +200,6 @@ impl Display for DataTypeDisplay<'_> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeWrapper {
-    Reference,
-    Score,
-    Data,
-}
-
-impl TypeWrapper {
-    #[must_use]
-    pub fn wrap(self, inner: DataType) -> DataType {
-        match self {
-            Self::Reference => DataType::Reference(Box::new(inner)),
-            Self::Score => DataType::Score(Box::new(inner)),
-            Self::Data => DataType::Data(Box::new(inner)),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DataType {
     Boolean,
@@ -492,67 +474,6 @@ impl DataType {
 
 impl DataType {
     #[must_use]
-    pub fn unwrap_single(self) -> (Option<TypeWrapper>, Self) {
-        match self {
-            Self::Reference(inner) => (Some(TypeWrapper::Reference), *inner),
-            Self::Score(inner) => (Some(TypeWrapper::Score), *inner),
-            Self::Data(inner) => (Some(TypeWrapper::Data), *inner),
-            _ => (None, self),
-        }
-    }
-
-    #[must_use]
-    pub fn unwrap_single_reference(&self) -> Option<&Self> {
-        Some(match self {
-            Self::Reference(inner) => inner,
-            Self::Score(inner) => inner,
-            Self::Data(inner) => inner,
-            _ => return None,
-        })
-    }
-
-    #[must_use]
-    pub fn unwrap_all(mut self) -> (Vec<TypeWrapper>, Self) {
-        let mut wrappers = Vec::new();
-
-        loop {
-            let (wrapper, inner) = self.unwrap_single();
-
-            let Some(wrapper) = wrapper else {
-                return (wrappers, inner);
-            };
-
-            wrappers.push(wrapper);
-
-            self = inner;
-        }
-    }
-
-    #[must_use]
-    pub fn unwrap_all_reference(&self) -> &Self {
-        let mut current = self;
-
-        loop {
-            let inner = current.unwrap_single_reference();
-
-            let Some(inner) = inner else {
-                return current;
-            };
-
-            current = inner;
-        }
-    }
-
-    #[must_use]
-    pub fn wrap_all(mut self, wrappers: &[TypeWrapper]) -> Self {
-        for wrapper in wrappers.iter().rev() {
-            self = wrapper.wrap(self);
-        }
-
-        self
-    }
-
-    #[must_use]
     pub const fn is_integer_like(&self) -> bool {
         self.is_restricted_integer_like() || matches!(self, Self::Long)
     }
@@ -608,77 +529,6 @@ impl DataType {
             | Self::InferredInteger
             | Self::InferredFloat => true,
         }
-    }
-
-    #[must_use]
-    pub fn distribute_wrapper(self, wrapper: TypeWrapper) -> Self {
-        let (outer, inner) = self.unwrap_single();
-
-        if Some(wrapper) != outer {
-            return inner;
-        }
-
-        let distributed_inner = inner.distribute_wrapper(wrapper);
-
-        match distributed_inner {
-            Self::List(data_type) => Self::List(Box::new(wrapper.wrap(*data_type))),
-            Self::Tuple(data_types) => {
-                let data_types = data_types
-                    .into_iter()
-                    .map(|data_type| wrapper.wrap(data_type))
-                    .collect();
-
-                Self::Tuple(data_types)
-            }
-            Self::TypedCompound(compound) => {
-                let compound = compound
-                    .into_iter()
-                    .map(|(key, dt)| (key, wrapper.wrap(dt)))
-                    .collect();
-
-                Self::TypedCompound(compound)
-            }
-            Self::Compound(data_type) => {
-                let data_type = wrapper.wrap(*data_type);
-
-                Self::Compound(Box::new(data_type))
-            }
-            Self::Reference(data_type) if wrapper != TypeWrapper::Reference => {
-                let data_type = wrapper.wrap(*data_type);
-
-                Self::Reference(Box::new(data_type))
-            }
-            Self::Data(data_type) if wrapper != TypeWrapper::Data => {
-                let data_type = wrapper.wrap(*data_type);
-
-                Self::Data(Box::new(data_type))
-            }
-            Self::Score(data_type) if wrapper != TypeWrapper::Score => {
-                let data_type = wrapper.wrap(*data_type);
-
-                Self::Score(Box::new(data_type))
-            }
-            Self::Struct(id) if wrapper == TypeWrapper::Reference => Self::Struct(id),
-            other => wrapper.wrap(other),
-        }
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn distribute_references(self) -> Self {
-        self.distribute_wrapper(TypeWrapper::Reference)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn distribute_score(self) -> Self {
-        self.distribute_wrapper(TypeWrapper::Score)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn distribute_data(self) -> Self {
-        self.distribute_wrapper(TypeWrapper::Data)
     }
 
     pub fn get_iterable_type(&self) -> Result<Self, SemanticAnalysisError> {
@@ -744,11 +594,10 @@ impl DataType {
         }
     }
 
+    #[inline]
     #[must_use]
-    pub fn is_condition(&self) -> bool {
-        let data_type = self.unwrap_all_reference();
-
-        matches!(data_type, Self::Boolean)
+    pub const fn is_condition(&self) -> bool {
+        matches!(self, Self::Boolean)
     }
 
     #[must_use]

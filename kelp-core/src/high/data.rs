@@ -49,9 +49,11 @@ pub struct DataTarget {
 impl Display for DataTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            DataTargetKind::Block(coordinates) => coordinates.fmt(f),
-            DataTargetKind::Entity(selector) => selector.fmt(f),
-            DataTargetKind::Storage(resource_location) => resource_location.fmt(f),
+            DataTargetKind::Block(coordinates) => write!(f, "block {}", coordinates),
+            DataTargetKind::Entity(selector) => write!(f, "entity {}", selector),
+            DataTargetKind::Storage(resource_location) => {
+                write!(f, "storage {}", resource_location)
+            }
         }
     }
 }

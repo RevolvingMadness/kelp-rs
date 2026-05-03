@@ -46,11 +46,7 @@ impl Display for PatternType {
             Self::Data(target_path) => {
                 let (target, _) = &**target_path;
 
-                target.fmt(f)?;
-
-                f.write_str(" ...")?;
-
-                Ok(())
+                write!(f, "{} ...", target)
             }
             Self::Tuple(pattern_types) => {
                 f.write_str("(")?;

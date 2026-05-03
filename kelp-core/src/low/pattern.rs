@@ -148,34 +148,13 @@ fn destructure_struct_struct(
             }
         }
         (DataType::Reference(data_type), value) => {
-            destructure_struct_struct(
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                data_type.distribute_references(),
-                value,
-            );
+            destructure_struct_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (DataType::Data(data_type), value) => {
-            destructure_struct_struct(
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                data_type.distribute_data(),
-                value,
-            );
+            destructure_struct_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (DataType::Score(data_type), value) => {
-            destructure_struct_struct(
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                data_type.distribute_score(),
-                value,
-            );
+            destructure_struct_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
     }
@@ -226,34 +205,13 @@ fn destructure_tuple_struct(
             }
         }
         (value, DataType::Reference(data_type)) => {
-            destructure_tuple_struct(
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                data_type.distribute_references(),
-                value,
-            );
+            destructure_tuple_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (value, DataType::Data(data_type)) => {
-            destructure_tuple_struct(
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                data_type.distribute_data(),
-                value,
-            );
+            destructure_tuple_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (value, DataType::Score(data_type)) => {
-            destructure_tuple_struct(
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                data_type.distribute_score(),
-                value,
-            );
+            destructure_tuple_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
     }

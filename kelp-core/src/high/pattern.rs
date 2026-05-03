@@ -181,6 +181,16 @@ impl Pattern {
                 let target = target.perform_semantic_analysis(ctx)?;
                 let path = path.perform_semantic_analysis(ctx)?;
 
+                if variable_type.get_data_type(&ctx.environment).is_none() {
+                    return ctx.add_error(
+                        self.span,
+                        SemanticAnalysisError::MismatchedPatternTypes {
+                            expected: variable_type.clone(),
+                            actual: Box::new(self_type),
+                        },
+                    );
+                }
+
                 MiddlePattern::Data(Box::new((target, path)))
             }
             (PatternKind::Tuple(patterns), DataType::Tuple(data_types))

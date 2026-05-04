@@ -11,6 +11,9 @@ use crate::low::environment::r#type::r#struct::{
     StructDeclaration, StructId, StructStructDeclaration, StructStructId, TupleStructDeclaration,
     TupleStructId,
 };
+use crate::low::environment::value::function::regular::{
+    RegularFunctionDeclaration, RegularFunctionId,
+};
 use crate::low::environment::value::function::{FunctionDeclaration, FunctionId};
 use crate::low::environment::value::variable::VariableId;
 use crate::low::environment::value::{ValueDeclaration, ValueId};
@@ -61,7 +64,7 @@ pub struct Datapack {
     pub settings: DatapackSettings,
     pub environment: Environment,
     pub variable_values: HashMap<VariableId, (DataType, ResolvedExpression)>,
-    pub function_values: HashMap<FunctionId, FunctionDeclaration>,
+    pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
@@ -149,15 +152,15 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_function_value(&self, id: FunctionId) -> &FunctionDeclaration {
+    pub fn get_function_value(&self, id: RegularFunctionId) -> &RegularFunctionDeclaration {
         self.function_values.get(&id).unwrap()
     }
 
     #[inline]
     #[must_use]
-    pub fn get_function_declaration(
+    pub fn get_function_declaration<I: Into<FunctionId>>(
         &self,
-        id: FunctionId,
+        id: I,
     ) -> (Visibility, &[String], &FunctionDeclaration) {
         self.environment.get_function(id)
     }

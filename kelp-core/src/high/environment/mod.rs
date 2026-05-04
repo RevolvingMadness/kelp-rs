@@ -3,7 +3,7 @@ use crate::{
         r#type::{HighTypeDeclaration, HighTypeId},
         value::{
             HighValueDeclaration, HighValueDeclarationKind, HighValueId,
-            function::{HighFunctionDeclaration, HighFunctionId},
+            function::regular::{HighRegularFunctionDeclaration, HighRegularFunctionId},
             variable::{HighVariableDeclaration, HighVariableId},
         },
     },
@@ -59,14 +59,14 @@ impl HighEnvironment {
 
     pub fn update_function(
         &mut self,
-        id: HighFunctionId,
+        id: HighRegularFunctionId,
         new_parameters: Vec<(Pattern, DataType)>,
         new_body: UnresolvedExpression,
     ) {
         self.update_declaration(id.into(), |declaration| {
             let HighValueDeclaration {
                 kind:
-                    HighValueDeclarationKind::Function(HighFunctionDeclaration {
+                    HighValueDeclarationKind::Function(HighRegularFunctionDeclaration {
                         parameters: old_parameters,
                         body: old_body,
                         ..
@@ -103,8 +103,8 @@ impl HighEnvironment {
     }
 
     #[must_use]
-    pub fn declare_function(&mut self, declaration: HighValueDeclaration) -> HighFunctionId {
-        let id = HighFunctionId(self.values.len());
+    pub fn declare_function(&mut self, declaration: HighValueDeclaration) -> HighRegularFunctionId {
+        let id = HighRegularFunctionId(self.values.len());
 
         self.values.push(declaration);
 

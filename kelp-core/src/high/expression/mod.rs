@@ -804,7 +804,7 @@ impl Expression {
 
                 let mut new_arguments = Vec::with_capacity(arguments.len());
 
-                for ((_, data_type), (argument_span, argument)) in
+                for (data_type, (argument_span, argument)) in
                     call_info.parameters.into_iter().zip(arguments.into_iter())
                 {
                     if argument.data_type.equals(&data_type) {

@@ -1,6 +1,7 @@
 use hashbrown::{Equivalent, HashMap};
 use smallvec::SmallVec;
 use std::collections::HashMap as StdHashMap;
+use strum::IntoEnumIterator;
 
 use crate::{
     builtin_data_type::BuiltinDataType,
@@ -17,7 +18,11 @@ use crate::{
             },
             value::{
                 HighValueDeclaration, HighValueDeclarationKind, HighValueId,
-                function::{HighFunctionDeclaration, HighFunctionId},
+                function::{
+                    HighFunctionId,
+                    builtin::{HighBuiltinFunctionDeclaration, HighBuiltinFunctionId},
+                    regular::{HighRegularFunctionDeclaration, HighRegularFunctionId},
+                },
                 variable::HighVariableId,
             },
         },
@@ -35,7 +40,10 @@ use crate::{
                 TupleStructDeclaration, TupleStructId,
             },
             value::{
-                function::{FunctionDeclaration, FunctionId},
+                function::{
+                    BuiltinFunctionKind, FunctionDeclaration, FunctionId,
+                    regular::RegularFunctionId,
+                },
                 variable::VariableId,
             },
         },
@@ -136,24 +144,12 @@ impl SemanticAnalysisContext {
     pub fn declare_std_module(&mut self) {
         self.enter_module("std".to_owned());
 
-        for builtin_type in [
-            BuiltinDataType::Boolean,
-            BuiltinDataType::Byte,
-            BuiltinDataType::Short,
-            BuiltinDataType::Integer,
-            BuiltinDataType::Long,
-            BuiltinDataType::Float,
-            BuiltinDataType::Double,
-            BuiltinDataType::String,
-            // BuiltinDataType::Unit,
-            BuiltinDataType::Score,
-            BuiltinDataType::List,
-            BuiltinDataType::Compound,
-            BuiltinDataType::Data,
-            BuiltinDataType::EntitySelector,
-            BuiltinDataType::ResourceLocation,
-        ] {
+        for builtin_type in BuiltinDataType::iter() {
             self.declare_builtin_type(builtin_type);
+        }
+
+        for builtin_function in BuiltinFunctionKind::iter() {
+            self.declare_builtin_function(Visibility::Public, builtin_function.declaration());
         }
 
         self.exit_module_and_declare(Visibility::Public);
@@ -176,13 +172,13 @@ impl SemanticAnalysisContext {
 
     #[inline]
     #[must_use]
-    pub fn get_monomorphized_function_id(
+    pub fn get_monomorphized_function_id<I: Into<HighFunctionId>>(
         &self,
-        id: HighFunctionId,
+        id: I,
         generic_types: &[DataType],
     ) -> Option<FunctionId> {
         let key = MonomorphizedFunctionKeyRef {
-            id,
+            id: id.into(),
             generics: generic_types,
         };
 
@@ -326,15 +322,17 @@ impl SemanticAnalysisContext {
         self.declare_monomorphized_struct(original_id, monomorphized_id, generic_types)
     }
 
-    pub fn declare_monomorphized_function(
+    pub fn declare_monomorphized_function<I: Into<HighFunctionId>, D: Into<FunctionDeclaration>>(
         &mut self,
-        original_id: HighFunctionId,
+        original_id: I,
         visibility: Visibility,
-        declaration: FunctionDeclaration,
+        declaration: D,
     ) -> FunctionId {
+        let declaration = declaration.into();
+
         let key = MonomorphizedFunctionKey {
-            original_id,
-            generics: declaration.generic_types.clone(),
+            original_id: original_id.into(),
+            generics: declaration.generic_types().to_vec(),
         };
 
         let monomorphized_id = self.environment.declare_function(
@@ -563,7 +561,7 @@ impl SemanticAnalysisContext {
         id
     }
 
-    pub fn declare_function(
+    pub fn declare_regular_function(
         &mut self,
         visibility: Visibility,
         name: String,
@@ -571,10 +569,10 @@ impl SemanticAnalysisContext {
         parameters: Vec<(Option<Pattern>, Option<DataType>)>,
         return_type: Option<DataType>,
         body: Option<UnresolvedExpression>,
-    ) -> HighFunctionId {
+    ) -> HighRegularFunctionId {
         let id = self.declare_value(
             visibility,
-            HighValueDeclarationKind::Function(HighFunctionDeclaration {
+            HighValueDeclarationKind::Function(HighRegularFunctionDeclaration {
                 name,
                 generic_names,
                 parameters,
@@ -583,25 +581,25 @@ impl SemanticAnalysisContext {
             }),
         );
 
-        HighFunctionId(id.0)
+        HighRegularFunctionId(id.0)
     }
 
-    pub fn update_function(
+    pub fn update_regular_function(
         &mut self,
-        id: HighFunctionId,
+        id: HighRegularFunctionId,
         parameters: Vec<(Pattern, DataType)>,
         body: UnresolvedExpression,
     ) {
         let mut monomorphized_functions_to_update = Vec::new();
 
         for (key, func_id) in &self.monomorphized_functions {
-            if key.original_id == id {
-                monomorphized_functions_to_update.push(*func_id);
+            if key.original_id == id.into() {
+                monomorphized_functions_to_update.push(RegularFunctionId(func_id.0));
             }
         }
 
         for monomorphized_function_id in monomorphized_functions_to_update {
-            self.environment.update_function(
+            self.environment.update_regular_function(
                 monomorphized_function_id,
                 parameters.clone(),
                 body.clone(),
@@ -609,6 +607,19 @@ impl SemanticAnalysisContext {
         }
 
         self.high_environment.update_function(id, parameters, body);
+    }
+
+    pub fn declare_builtin_function(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighBuiltinFunctionDeclaration,
+    ) -> HighBuiltinFunctionId {
+        let id = self.declare_value(
+            visibility,
+            HighValueDeclarationKind::BuiltinFunction(declaration),
+        );
+
+        HighBuiltinFunctionId(id.0)
     }
 
     #[must_use]

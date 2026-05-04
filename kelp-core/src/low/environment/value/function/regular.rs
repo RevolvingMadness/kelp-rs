@@ -3,10 +3,10 @@ use crate::low::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FunctionId(pub usize);
+pub struct RegularFunctionId(pub usize);
 
 #[derive(Debug, Clone)]
-pub struct FunctionDeclaration {
+pub struct RegularFunctionDeclaration {
     pub module_path: Vec<String>,
     pub name: String,
     pub generic_types: Vec<DataType>,

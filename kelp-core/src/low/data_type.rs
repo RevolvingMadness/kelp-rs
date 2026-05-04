@@ -10,13 +10,10 @@ use crate::{
         data_type::resolved::GenericResolver,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    low::{
-        environment::{
-            Environment,
-            r#type::r#struct::{StructDeclaration, StructId},
-            value::function::FunctionId,
-        },
-        pattern::Pattern,
+    low::environment::{
+        Environment,
+        r#type::r#struct::{StructDeclaration, StructId},
+        value::function::FunctionId,
     },
     operator::{ArithmeticOperator, ComparisonOperator},
     runtime_storage::RuntimeStorageType,
@@ -26,7 +23,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct CallInfo {
     pub return_type: DataType,
-    pub parameters: Vec<(Pattern, DataType)>,
+    pub parameters: Vec<DataType>,
 }
 
 pub struct DataTypeDisplay<'a> {
@@ -127,12 +124,14 @@ impl Display for DataTypeDisplay<'_> {
 
                 let (_, _, declaration) = self.environment.get_function(*id);
 
-                write!(f, "fn {}", declaration.name)?;
+                write!(f, "fn {}", declaration.name())?;
 
-                if !declaration.generic_types.is_empty() {
+                let generic_types = declaration.generic_types();
+
+                if !generic_types.is_empty() {
                     f.write_str("<")?;
 
-                    for (i, data_type) in declaration.generic_types.iter().enumerate() {
+                    for (i, data_type) in generic_types.iter().enumerate() {
                         if i != 0 {
                             f.write_str(", ")?;
                         }
@@ -145,7 +144,7 @@ impl Display for DataTypeDisplay<'_> {
 
                 f.write_char('(')?;
 
-                for (i, (_, data_type)) in declaration.parameters.iter().enumerate() {
+                for (i, data_type) in declaration.parameters().iter().enumerate() {
                     if i != 0 {
                         f.write_str(", ")?;
                     }
@@ -156,7 +155,7 @@ impl Display for DataTypeDisplay<'_> {
                 write!(
                     f,
                     ") -> {}",
-                    declaration.return_type.display(self.environment)
+                    declaration.return_type().display(self.environment)
                 )?;
 
                 Ok(())
@@ -273,8 +272,8 @@ impl DataType {
                 let (_, _, declaration) = environment.get_function(*id);
 
                 CallInfo {
-                    return_type: declaration.return_type.clone(),
-                    parameters: declaration.parameters.clone(),
+                    return_type: declaration.return_type().clone(),
+                    parameters: declaration.parameters(),
                 }
             }
             Self::ResourceLocation => CallInfo {

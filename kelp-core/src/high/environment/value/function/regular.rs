@@ -3,10 +3,10 @@ use crate::low::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighFunctionId(pub usize);
+pub struct HighRegularFunctionId(pub usize);
 
 #[derive(Debug, Clone)]
-pub struct HighFunctionDeclaration {
+pub struct HighRegularFunctionDeclaration {
     pub name: String,
     pub generic_names: Vec<String>,
     pub parameters: Vec<(Option<Pattern>, Option<DataType>)>,

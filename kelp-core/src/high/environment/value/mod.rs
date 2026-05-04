@@ -2,14 +2,20 @@ use crate::{
     high::{
         data_type::resolved::GenericResolver,
         environment::value::{
-            function::{HighFunctionDeclaration, HighFunctionId},
+            function::{
+                builtin::{HighBuiltinFunctionDeclaration, HighBuiltinFunctionId},
+                regular::{HighRegularFunctionDeclaration, HighRegularFunctionId},
+            },
             variable::{HighVariableDeclaration, HighVariableId},
         },
         semantic_analysis::SemanticAnalysisContext,
     },
     low::{
         data_type::DataType,
-        environment::value::{ValueId, function::FunctionDeclaration},
+        environment::value::{
+            ValueId,
+            function::{builtin::BuiltinFunctionDeclaration, regular::RegularFunctionDeclaration},
+        },
     },
     span::Span,
     visibility::Visibility,
@@ -27,8 +33,8 @@ impl From<HighVariableId> for HighValueId {
     }
 }
 
-impl From<HighFunctionId> for HighValueId {
-    fn from(value: HighFunctionId) -> Self {
+impl From<HighRegularFunctionId> for HighValueId {
+    fn from(value: HighRegularFunctionId) -> Self {
         Self(value.0)
     }
 }
@@ -36,7 +42,8 @@ impl From<HighFunctionId> for HighValueId {
 #[derive(Debug, Clone)]
 pub enum HighValueDeclarationKind {
     Variable(HighVariableDeclaration),
-    Function(HighFunctionDeclaration),
+    Function(HighRegularFunctionDeclaration),
+    BuiltinFunction(HighBuiltinFunctionDeclaration),
 }
 
 impl HighValueDeclarationKind {
@@ -45,6 +52,7 @@ impl HighValueDeclarationKind {
         match self {
             Self::Variable(declaration) => &declaration.name,
             Self::Function(declaration) => &declaration.name,
+            Self::BuiltinFunction(declaration) => &declaration.name,
         }
     }
 }
@@ -84,7 +92,7 @@ impl HighValueDeclaration {
                 Some((resolved_id.into(), data_type))
             }
             HighValueDeclarationKind::Function(declaration) => {
-                let original_id = HighFunctionId(original_id.0);
+                let original_id = HighRegularFunctionId(original_id.0);
 
                 if let Some(id) = ctx.get_monomorphized_function_id(original_id, &generic_types) {
                     return Some((id.into(), DataType::Function(id)));
@@ -113,13 +121,54 @@ impl HighValueDeclaration {
                 let monomorphized_id = ctx.declare_monomorphized_function(
                     original_id,
                     self.visibility,
-                    FunctionDeclaration {
+                    RegularFunctionDeclaration {
                         module_path: self.module_path,
                         name: declaration.name,
                         generic_types,
                         parameters,
                         return_type,
                         body,
+                    },
+                );
+
+                Some((
+                    monomorphized_id.into(),
+                    DataType::Function(monomorphized_id),
+                ))
+            }
+            HighValueDeclarationKind::BuiltinFunction(declaration) => {
+                let original_id = HighBuiltinFunctionId(original_id.0);
+
+                if let Some(id) = ctx.get_monomorphized_function_id(original_id, &generic_types) {
+                    return Some((id.into(), DataType::Function(id)));
+                }
+
+                let resolver = GenericResolver::create_semantic_analysis(
+                    ctx,
+                    &declaration.name,
+                    path_span,
+                    &declaration.generic_names,
+                    &generic_types,
+                )?;
+
+                let parameters = declaration
+                    .parameters
+                    .into_iter()
+                    .map(|data_type| data_type.resolve_fully(&resolver))
+                    .collect();
+
+                let return_type = declaration.return_type.resolve_fully(&resolver);
+
+                let monomorphized_id = ctx.declare_monomorphized_function(
+                    original_id,
+                    self.visibility,
+                    BuiltinFunctionDeclaration {
+                        module_path: self.module_path,
+                        name: declaration.name,
+                        generic_types,
+                        parameters,
+                        return_type,
+                        kind: declaration.kind,
                     },
                 );
 
@@ -135,7 +184,8 @@ impl HighValueDeclaration {
     pub const fn data_type(&self) -> Option<Option<&DataType>> {
         match &self.kind {
             HighValueDeclarationKind::Variable(declaration) => Some(declaration.data_type.as_ref()),
-            HighValueDeclarationKind::Function(..) => None,
+            HighValueDeclarationKind::Function(..)
+            | HighValueDeclarationKind::BuiltinFunction(..) => None,
         }
     }
 }

@@ -890,7 +890,7 @@ impl UnresolvedExpressionKind {
                     .map(|argument| argument.kind.resolve(datapack, ctx))
                     .collect::<Vec<_>>();
 
-                callee.call_to_value(datapack, ctx, &arguments)
+                callee.call_to_value(datapack, ctx, arguments)
             }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -1125,7 +1125,7 @@ impl UnresolvedExpressionKind {
                     .map(|argument| argument.kind.resolve(datapack, ctx))
                     .collect::<Vec<_>>();
 
-                callee.call(datapack, ctx, &arguments);
+                callee.call(datapack, ctx, arguments);
             }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();

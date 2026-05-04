@@ -1,4 +1,4 @@
-use strum::{Display, EnumString};
+use strum::{Display, EnumIter, EnumString};
 
 use crate::{
     high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
@@ -6,7 +6,7 @@ use crate::{
     span::Span,
 };
 
-#[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString)]
+#[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString, EnumIter)]
 #[strum(serialize_all = "snake_case")]
 pub enum BuiltinDataType {
     #[strum(serialize = "boolean", serialize = "bool")]
@@ -21,7 +21,6 @@ pub enum BuiltinDataType {
     #[strum(serialize = "string", serialize = "str")]
     String,
     #[strum(serialize = "()", serialize = "unit")]
-    Unit,
     Score,
     List,
     Compound,
@@ -53,7 +52,6 @@ impl BuiltinDataType {
         }
 
         Some(match self {
-            Self::Unit => DataType::Unit,
             Self::Boolean => DataType::Boolean,
             Self::Byte => DataType::Byte,
             Self::Short => DataType::Short,
@@ -108,7 +106,6 @@ impl BuiltinDataType {
         }
 
         Some(match self {
-            Self::Unit => DataType::Unit,
             Self::Boolean => DataType::Boolean,
             Self::Byte => DataType::Byte,
             Self::Short => DataType::Short,
@@ -145,7 +142,6 @@ impl BuiltinDataType {
             | Self::Float
             | Self::Double
             | Self::String
-            | Self::Unit
             | Self::EntitySelector
             | Self::ResourceLocation
             | Self::Coordinates => 0,
@@ -164,7 +160,6 @@ impl BuiltinDataType {
             Self::Float => "float",
             Self::Double => "double",
             Self::String => "string",
-            Self::Unit => "unit",
             Self::Score => "score",
             Self::List => "list",
             Self::Compound => "compound",

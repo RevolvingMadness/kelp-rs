@@ -13,7 +13,10 @@ use crate::{
             },
             value::{
                 ValueDeclaration, ValueDeclarationKind, ValueId,
-                function::{FunctionDeclaration, FunctionId},
+                function::{
+                    FunctionDeclaration, FunctionId,
+                    regular::{RegularFunctionDeclaration, RegularFunctionId},
+                },
                 variable::{VariableDeclaration, VariableId},
             },
         },
@@ -205,7 +208,12 @@ impl Environment {
     }
 
     #[must_use]
-    pub fn get_function(&self, id: FunctionId) -> (Visibility, &[String], &FunctionDeclaration) {
+    pub fn get_function<I: Into<FunctionId>>(
+        &self,
+        id: I,
+    ) -> (Visibility, &[String], &FunctionDeclaration) {
+        let id = id.into();
+
         let ValueDeclaration {
             visibility,
             module_path,
@@ -218,19 +226,21 @@ impl Environment {
         (*visibility, module_path, declaration)
     }
 
-    pub fn update_function(
+    pub fn update_regular_function(
         &mut self,
-        id: FunctionId,
+        id: RegularFunctionId,
         new_parameters: Vec<(Pattern, DataType)>,
         new_body: UnresolvedExpression,
     ) {
         let ValueDeclaration {
             kind:
-                ValueDeclarationKind::Function(FunctionDeclaration {
-                    parameters: old_parameters,
-                    body: old_body,
-                    ..
-                }),
+                ValueDeclarationKind::Function(FunctionDeclaration::Regular(
+                    RegularFunctionDeclaration {
+                        parameters: old_parameters,
+                        body: old_body,
+                        ..
+                    },
+                )),
             ..
         } = &mut self.values[id.0]
         else {

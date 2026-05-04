@@ -61,7 +61,7 @@ impl ValueDeclarationKind {
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
-            Self::Function(declaration) => &declaration.name,
+            Self::Function(declaration) => declaration.name(),
         }
     }
 }

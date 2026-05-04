@@ -34,7 +34,10 @@ use crate::{
         environment::{
             Environment,
             r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
-            value::{function::FunctionId, variable::VariableId},
+            value::{
+                function::{FunctionDeclaration, FunctionId},
+                variable::VariableId,
+            },
         },
         expression::{unresolved::UnresolvedExpression, utils::push_scoreboard_players},
         pattern::Pattern,
@@ -312,7 +315,7 @@ impl ResolvedExpression {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        arguments: &[Self],
+        arguments: Vec<Self>,
     ) -> Self {
         match self {
             Self::Variable(id) => {
@@ -344,20 +347,25 @@ impl ResolvedExpression {
             Self::Function(id) => {
                 let (_, _, declaration) = datapack.get_function_declaration(id);
 
-                compile_function(
-                    datapack,
-                    ctx,
-                    declaration.parameters.clone(),
-                    declaration.body.clone(),
-                    &declaration.return_type.clone(),
-                    arguments,
-                )
+                match declaration {
+                    FunctionDeclaration::Regular(declaration) => compile_function(
+                        datapack,
+                        ctx,
+                        declaration.parameters.clone(),
+                        declaration.body.clone(),
+                        &declaration.return_type.clone(),
+                        &arguments,
+                    ),
+                    FunctionDeclaration::Builtin(declaration) => {
+                        declaration.kind.call(datapack, ctx, arguments)
+                    }
+                }
             }
             _ => unreachable!("The expression '{:?}' is not callable", self),
         }
     }
 
-    pub fn call(self, datapack: &mut Datapack, ctx: &mut CompileContext, arguments: &[Self]) {
+    pub fn call(self, datapack: &mut Datapack, ctx: &mut CompileContext, arguments: Vec<Self>) {
         match self {
             Self::Variable(id) => {
                 handle_variable!(datapack, id, call(datapack, ctx, arguments))
@@ -374,14 +382,21 @@ impl ResolvedExpression {
             Self::Function(id) => {
                 let (_, _, declaration) = datapack.get_function_declaration(id);
 
-                compile_function(
-                    datapack,
-                    ctx,
-                    declaration.parameters.clone(),
-                    declaration.body.clone(),
-                    &declaration.return_type.clone(),
-                    arguments,
-                );
+                match declaration {
+                    FunctionDeclaration::Regular(declaration) => {
+                        compile_function(
+                            datapack,
+                            ctx,
+                            declaration.parameters.clone(),
+                            declaration.body.clone(),
+                            &declaration.return_type.clone(),
+                            &arguments,
+                        );
+                    }
+                    FunctionDeclaration::Builtin(declaration) => {
+                        declaration.kind.call(datapack, ctx, arguments);
+                    }
+                }
             }
             _ => unreachable!("The expression '{:?}' is not callable", self),
         }
@@ -1891,17 +1906,17 @@ impl ResolvedExpression {
             Self::Function(id) => {
                 let (_, _, declaration) = datapack.get_function_declaration(id);
 
-                let mut output = format!("fn {}", declaration.name);
+                let mut output = format!("fn {}", declaration.name());
 
                 format_generics(
                     &mut output,
-                    &declaration.generic_types,
+                    declaration.generic_types(),
                     &datapack.environment,
                 );
 
                 output.push('(');
 
-                for (i, (_, data_type)) in declaration.parameters.iter().enumerate() {
+                for (i, data_type) in declaration.parameters().into_iter().enumerate() {
                     if i != 0 {
                         output.push_str(", ");
                     }
@@ -1911,12 +1926,10 @@ impl ResolvedExpression {
 
                 output.push(')');
 
-                if declaration.return_type != DataType::Unit {
-                    let _ = write!(
-                        output,
-                        " -> {}",
-                        declaration.return_type.display(&datapack.environment)
-                    );
+                let return_type = declaration.return_type();
+
+                if *return_type != DataType::Unit {
+                    let _ = write!(output, " -> {}", return_type.display(&datapack.environment));
                 }
 
                 SNBT::string(output)

@@ -101,7 +101,7 @@ impl Item {
 
                 let return_type = return_type.resolve_partially(Some(&generic_names), ctx);
 
-                let id = ctx.declare_function(
+                let id = ctx.declare_regular_function(
                     self.visibility,
                     name,
                     generic_names.clone(),
@@ -172,7 +172,7 @@ impl Item {
                 }
 
                 if resolved_all_parameters {
-                    ctx.update_function(id, resolved_parameters, body.2);
+                    ctx.update_regular_function(id, resolved_parameters, body.2);
                 } else {
                     return None;
                 }

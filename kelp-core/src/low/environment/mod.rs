@@ -237,10 +237,7 @@ impl Environment {
             unreachable!("Value is not a function");
         };
 
-        *old_parameters = new_parameters
-            .into_iter()
-            .map(|(pattern, data_type)| (Some(pattern), Some(data_type)))
-            .collect();
-        *old_body = Some(new_body);
+        *old_parameters = new_parameters;
+        *old_body = new_body;
     }
 }

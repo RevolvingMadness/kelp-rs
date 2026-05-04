@@ -962,7 +962,7 @@ let parse_descriptor_for_arg_count_descriptor = storage bc:parse_descriptor_for_
 let parse_descriptor_for_arg_count_output = score output parse_descriptor_for_arg_count
 
 mcfn bc:interpreter/parse_descriptor_for_arg_count {
-    parse_descriptor_for_arg_count_output = 0
+    *parse_descriptor_for_arg_count_output = 0
     let in_args = 0 to score
     let type_parsing_state = 0 to score
     let early_return = 0 to score

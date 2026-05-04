@@ -28,6 +28,7 @@ pub enum BuiltinDataType {
     Data,
     EntitySelector,
     ResourceLocation,
+    Coordinates,
 }
 
 impl BuiltinDataType {
@@ -96,6 +97,7 @@ impl BuiltinDataType {
             }
             Self::EntitySelector => DataType::EntitySelector,
             Self::ResourceLocation => DataType::ResourceLocation,
+            Self::Coordinates => DataType::Coordinates,
         })
     }
 
@@ -128,6 +130,7 @@ impl BuiltinDataType {
             }
             Self::EntitySelector => DataType::EntitySelector,
             Self::ResourceLocation => DataType::ResourceLocation,
+            Self::Coordinates => DataType::Coordinates,
         })
     }
 
@@ -144,7 +147,8 @@ impl BuiltinDataType {
             | Self::String
             | Self::Unit
             | Self::EntitySelector
-            | Self::ResourceLocation => 0,
+            | Self::ResourceLocation
+            | Self::Coordinates => 0,
             Self::List | Self::Compound | Self::Data | Self::Score => 1,
         }
     }
@@ -167,6 +171,7 @@ impl BuiltinDataType {
             Self::Data => "data",
             Self::EntitySelector => "entity_selector",
             Self::ResourceLocation => "resource_location",
+            Self::Coordinates => "coordinates",
         }
     }
 }

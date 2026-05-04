@@ -126,7 +126,17 @@ impl SemanticAnalysisContext {
             function_return_types: SmallVec::new(),
         };
 
-        let builtins = [
+        self_.declare_std_module();
+
+        self_.enter_module(id.to_owned());
+
+        self_
+    }
+
+    pub fn declare_std_module(&mut self) {
+        self.enter_module("std".to_owned());
+
+        for builtin_type in [
             BuiltinDataType::Boolean,
             BuiltinDataType::Byte,
             BuiltinDataType::Short,
@@ -142,19 +152,11 @@ impl SemanticAnalysisContext {
             BuiltinDataType::Data,
             BuiltinDataType::EntitySelector,
             BuiltinDataType::ResourceLocation,
-        ];
-
-        self_.enter_module("std".to_owned());
-
-        for builtin in builtins {
-            self_.declare_builtin(builtin);
+        ] {
+            self.declare_builtin_type(builtin_type);
         }
 
-        self_.exit_module_and_declare(Visibility::Public);
-
-        self_.enter_module(id.to_owned());
-
-        self_
+        self.exit_module_and_declare(Visibility::Public);
     }
 
     #[inline]
@@ -507,7 +509,7 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_builtin(&mut self, data_type: BuiltinDataType) -> HighTypeId {
+    pub fn declare_builtin_type(&mut self, data_type: BuiltinDataType) -> HighTypeId {
         self.declare_type(
             Visibility::Public,
             HighTypeDeclarationKind::Builtin(data_type),

@@ -51,6 +51,10 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
             parser.skip_whitespace();
 
             parser.expect_char(')', "Expected ')'");
+
+            parser.skip_whitespace();
+
+            parser.expect_char(';', "Expected ';'");
         }
         _ => {
             parser.start_node_at(checkpoint, SyntaxKind::StructStructDeclarationItem);
@@ -103,6 +107,10 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
             parser.skip_whitespace();
 
             parser.expect_char(')', "Expected ')'");
+
+            parser.skip_whitespace();
+
+            parser.expect_char(';', "Expected ';'");
         }
         _ => {
             parser.start_node_at(checkpoint, SyntaxKind::StructStructDeclarationItem);

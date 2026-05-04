@@ -26,7 +26,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct CallInfo {
     pub return_type: DataType,
-    pub parameters: Vec<(Option<Pattern>, Option<DataType>)>,
+    pub parameters: Vec<(Pattern, DataType)>,
 }
 
 pub struct DataTypeDisplay<'a> {
@@ -146,10 +146,6 @@ impl Display for DataTypeDisplay<'_> {
                 f.write_char('(')?;
 
                 for (i, (_, data_type)) in declaration.parameters.iter().enumerate() {
-                    let Some(data_type) = data_type else {
-                        continue;
-                    };
-
                     if i != 0 {
                         f.write_str(", ")?;
                     }

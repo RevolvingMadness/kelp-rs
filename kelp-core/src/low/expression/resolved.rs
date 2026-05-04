@@ -36,7 +36,8 @@ use crate::{
             r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
             value::{function::FunctionId, variable::VariableId},
         },
-        expression::utils::push_scoreboard_players,
+        expression::{unresolved::UnresolvedExpression, utils::push_scoreboard_players},
+        pattern::Pattern,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     place::Place,
@@ -140,37 +141,25 @@ fn integer_range_from_comparison_operator(
 fn compile_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    original_id: FunctionId,
+    parameters: Vec<(Pattern, DataType)>,
+    body: UnresolvedExpression,
+    return_type: &DataType,
     arguments: &[ResolvedExpression],
 ) -> ResolvedExpression {
-    let (_, _, original_declaration) = datapack.get_function_declaration(original_id);
-
     let paths = datapack.get_unique_function_paths();
 
-    let parameters = original_declaration.parameters.clone();
-
-    let original_body = original_declaration.body.clone().unwrap();
-
-    let return_runtime_storage_type = original_declaration.return_type.get_runtime_storage_type();
+    let return_runtime_storage_type = return_type.get_runtime_storage_type();
 
     let mut function_body_ctx = CompileContext::default();
 
     for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
-        let Some(pattern) = pattern else {
-            continue;
-        };
-
-        let Some(data_type) = data_type else {
-            continue;
-        };
-
         pattern.destructure(datapack, &mut function_body_ctx, data_type, argument);
     }
 
     let return_target = return_runtime_storage_type.instantiate(datapack);
 
     datapack.function_return_targets.push(return_target);
-    let result = original_body.kind.resolve(datapack, &mut function_body_ctx);
+    let result = body.kind.resolve(datapack, &mut function_body_ctx);
     let return_target = datapack.function_return_targets.pop().unwrap();
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
@@ -352,7 +341,18 @@ impl ResolvedExpression {
 
                 Self::PlayerScore(unique_score)
             }
-            Self::Function(original_id) => compile_function(datapack, ctx, original_id, arguments),
+            Self::Function(id) => {
+                let (_, _, declaration) = datapack.get_function_declaration(id);
+
+                compile_function(
+                    datapack,
+                    ctx,
+                    declaration.parameters.clone(),
+                    declaration.body.clone(),
+                    &declaration.return_type.clone(),
+                    arguments,
+                )
+            }
             _ => unreachable!("The expression '{:?}' is not callable", self),
         }
     }
@@ -371,8 +371,17 @@ impl ResolvedExpression {
 
                 ctx.add_command(datapack, Command::Function(resource_location, None));
             }
-            Self::Function(original_id) => {
-                compile_function(datapack, ctx, original_id, arguments);
+            Self::Function(id) => {
+                let (_, _, declaration) = datapack.get_function_declaration(id);
+
+                compile_function(
+                    datapack,
+                    ctx,
+                    declaration.parameters.clone(),
+                    declaration.body.clone(),
+                    &declaration.return_type.clone(),
+                    arguments,
+                );
             }
             _ => unreachable!("The expression '{:?}' is not callable", self),
         }
@@ -1893,10 +1902,6 @@ impl ResolvedExpression {
                 output.push('(');
 
                 for (i, (_, data_type)) in declaration.parameters.iter().enumerate() {
-                    let Some(data_type) = data_type else {
-                        continue;
-                    };
-
                     if i != 0 {
                         output.push_str(", ");
                     }
@@ -1916,7 +1921,6 @@ impl ResolvedExpression {
 
                 SNBT::string(output)
             }
-
             Self::StructStruct(id, fields) => {
                 if force_display {
                     // TODO: Maybe display full path?

@@ -108,7 +108,7 @@ impl Item {
                     parameter_types
                         .iter()
                         .cloned()
-                        .map(|parameter| (None, parameter))
+                        .map(|parameter_type| (None, parameter_type))
                         .collect(),
                     return_type.clone(),
                     None,

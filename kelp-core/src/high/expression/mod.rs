@@ -807,10 +807,6 @@ impl Expression {
                 for ((_, data_type), (argument_span, argument)) in
                     call_info.parameters.into_iter().zip(arguments.into_iter())
                 {
-                    let Some(data_type) = data_type else {
-                        continue;
-                    };
-
                     if argument.data_type.equals(&data_type) {
                         if !failed {
                             new_arguments.push(argument);

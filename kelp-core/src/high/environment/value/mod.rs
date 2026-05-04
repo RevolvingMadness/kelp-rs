@@ -102,14 +102,13 @@ impl HighValueDeclaration {
                     .parameters
                     .into_iter()
                     .map(|(pattern, data_type)| {
-                        (
-                            pattern,
-                            data_type.map(|data_type| data_type.resolve_fully(&resolver)),
-                        )
+                        Some((pattern?, data_type?.resolve_fully(&resolver)))
                     })
-                    .collect();
+                    .collect::<Option<_>>()?;
 
                 let return_type = declaration.return_type?.resolve_fully(&resolver);
+
+                let body = declaration.body?;
 
                 let monomorphized_id = ctx.declare_monomorphized_function(
                     original_id,
@@ -120,7 +119,7 @@ impl HighValueDeclaration {
                         generic_types,
                         parameters,
                         return_type,
-                        body: declaration.body,
+                        body,
                     },
                 );
 
@@ -136,7 +135,7 @@ impl HighValueDeclaration {
     pub const fn data_type(&self) -> Option<Option<&DataType>> {
         match &self.kind {
             HighValueDeclarationKind::Variable(declaration) => Some(declaration.data_type.as_ref()),
-            HighValueDeclarationKind::Function(_) => None,
+            HighValueDeclarationKind::Function(..) => None,
         }
     }
 }

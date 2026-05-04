@@ -50,7 +50,7 @@ impl Place {
 
                         value.clone().as_place()?
                     }
-                    ValueDeclarationKind::Function(_) => return None,
+                    ValueDeclarationKind::Function(..) => return None,
                 }
             }
             Self::Tuple(_) | Self::Underscore => return None,

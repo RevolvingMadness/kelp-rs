@@ -1,3 +1,5 @@
+use std::{iter::Map, slice::Iter};
+
 use strum::EnumIter;
 
 use crate::{
@@ -11,11 +13,30 @@ use crate::{
             regular::{RegularFunctionDeclaration, RegularFunctionId},
         },
         expression::resolved::ResolvedExpression,
+        pattern::Pattern,
     },
 };
 
 pub mod builtin;
 pub mod regular;
+
+type TakeDataTypeFn = fn(&(Pattern, DataType)) -> &DataType;
+
+pub enum ParametersIter<'a> {
+    Regular(Map<Iter<'a, (Pattern, DataType)>, TakeDataTypeFn>),
+    Builtin(Iter<'a, DataType>),
+}
+
+impl<'a> Iterator for ParametersIter<'a> {
+    type Item = &'a DataType;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Regular(iterator) => iterator.next(),
+            Self::Builtin(iterator) => iterator.next(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionId(pub usize);
@@ -67,17 +88,17 @@ impl FunctionDeclaration {
         }
     }
 
-    // TODO: Custom iterator
     #[must_use]
-    pub fn parameters(&self) -> Vec<DataType> {
+    pub fn parameters(&self) -> ParametersIter<'_> {
+        const fn take_data_type((_, data_type): &(Pattern, DataType)) -> &DataType {
+            data_type
+        }
+
         match self {
-            Self::Regular(declaration) => declaration
-                .parameters
-                .clone()
-                .into_iter()
-                .map(|(_, data_type)| data_type)
-                .collect(),
-            Self::Builtin(declaration) => declaration.parameters.clone(),
+            Self::Regular(declaration) => {
+                ParametersIter::Regular(declaration.parameters.iter().map(take_data_type))
+            }
+            Self::Builtin(declaration) => ParametersIter::Builtin(declaration.parameters.iter()),
         }
     }
 

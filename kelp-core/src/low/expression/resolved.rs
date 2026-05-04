@@ -1916,7 +1916,7 @@ impl ResolvedExpression {
 
                 output.push('(');
 
-                for (i, data_type) in declaration.parameters().into_iter().enumerate() {
+                for (i, data_type) in declaration.parameters().enumerate() {
                     if i != 0 {
                         output.push_str(", ");
                     }

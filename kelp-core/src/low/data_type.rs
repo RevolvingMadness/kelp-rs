@@ -144,7 +144,7 @@ impl Display for DataTypeDisplay<'_> {
 
                 f.write_char('(')?;
 
-                for (i, data_type) in declaration.parameters().iter().enumerate() {
+                for (i, data_type) in declaration.parameters().enumerate() {
                     if i != 0 {
                         f.write_str(", ")?;
                     }
@@ -273,7 +273,7 @@ impl DataType {
 
                 CallInfo {
                     return_type: declaration.return_type().clone(),
-                    parameters: declaration.parameters(),
+                    parameters: declaration.parameters().cloned().collect(),
                 }
             }
             Self::ResourceLocation => CallInfo {

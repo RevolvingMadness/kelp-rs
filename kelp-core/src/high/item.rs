@@ -4,11 +4,11 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     high::{
-        data_type::unresolved::UnresolvedDataType,
+        data_type::UnresolvedDataType,
         environment::r#type::{
             HighTypeDeclarationKind,
             alias::HighAliasDeclaration,
-            r#struct::{HighStructStructDeclaration, HighTupleStructDeclaration},
+            r#struct::{regular::HighStructStructDeclaration, tuple::HighTupleStructDeclaration},
         },
         expression::block::BlockExpression,
         pattern::Pattern,

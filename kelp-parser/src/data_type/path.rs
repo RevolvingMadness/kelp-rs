@@ -1,4 +1,4 @@
-use kelp_core::high::data_type::unresolved::UnresolvedDataType;
+use kelp_core::high::data_type::UnresolvedDataType;
 
 use crate::{
     cst::CSTPathDataType,

@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use crate::{
     high::{
-        data_type::{resolved::GenericResolver, unresolved::UnresolvedDataType},
+        data_type::{GenericResolver, UnresolvedDataType},
         semantic_analysis::SemanticAnalysisContext,
     },
     low::data_type::DataType,

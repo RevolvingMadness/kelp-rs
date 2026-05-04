@@ -1,4 +1,4 @@
-use kelp_core::{high::data_type::unresolved::UnresolvedDataType, span::Span};
+use kelp_core::{high::data_type::UnresolvedDataType, span::Span};
 
 use crate::{
     cst::{CSTGenericDataTypes, CSTGenericNames},

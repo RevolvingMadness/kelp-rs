@@ -1,6 +1,5 @@
 use kelp_core::high::{
-    data_type::unresolved::UnresolvedDataType, item::ItemKind,
-    semantic_analysis::SemanticAnalysisContext,
+    data_type::UnresolvedDataType, item::ItemKind, semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{

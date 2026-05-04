@@ -8,7 +8,7 @@ use crate::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         coordinate::Coordinates,
         data::DataTarget,
-        data_type::unresolved::UnresolvedDataType,
+        data_type::UnresolvedDataType,
         entity_selector::EntitySelector,
         expression::block::BlockExpression,
         nbt_path::NbtPath,

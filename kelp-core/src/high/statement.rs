@@ -1,4 +1,4 @@
-use crate::high::data_type::unresolved::UnresolvedDataType;
+use crate::high::data_type::UnresolvedDataType;
 use crate::high::item::Item;
 use crate::high::pattern::Pattern;
 use crate::high::semantic_analysis::SemanticAnalysisContext;

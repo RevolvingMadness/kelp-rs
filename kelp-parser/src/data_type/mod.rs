@@ -1,4 +1,4 @@
-use kelp_core::high::{data_type::unresolved::UnresolvedDataType, snbt_string::SNBTString};
+use kelp_core::high::{data_type::UnresolvedDataType, snbt_string::SNBTString};
 use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{

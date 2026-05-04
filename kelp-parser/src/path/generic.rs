@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::data_type::unresolved::UnresolvedDataType,
+    high::data_type::UnresolvedDataType,
     path::generic::{GenericPath, GenericPathSegment},
 };
 

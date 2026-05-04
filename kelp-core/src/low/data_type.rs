@@ -7,7 +7,7 @@ use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     high::{
-        data_type::resolved::GenericResolver,
+        data_type::GenericResolver,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::environment::{

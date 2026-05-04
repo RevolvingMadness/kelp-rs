@@ -1,6 +1,25 @@
-use std::collections::HashMap;
+use crate::high::environment::r#type::r#struct::{
+    regular::{HighStructStructDeclaration, HighStructStructId},
+    tuple::{HighTupleStructDeclaration, HighTupleStructId},
+};
 
-use crate::low::data_type::DataType;
+pub mod regular;
+pub mod tuple;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HighStructId(pub usize);
+
+impl From<HighStructStructId> for HighStructId {
+    fn from(value: HighStructStructId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighTupleStructId> for HighStructId {
+    fn from(value: HighTupleStructId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum HighStructDeclaration {
@@ -32,18 +51,4 @@ impl HighStructDeclaration {
             Self::Tuple(declaration) => declaration.generic_names.len(),
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct HighStructStructDeclaration {
-    pub name: String,
-    pub generic_names: Vec<String>,
-    pub field_types: HashMap<String, Option<DataType>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct HighTupleStructDeclaration {
-    pub name: String,
-    pub generic_names: Vec<String>,
-    pub field_types: Vec<Option<DataType>>,
 }

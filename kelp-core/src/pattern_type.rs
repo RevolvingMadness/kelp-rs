@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     high::{
-        data::DataTarget, data_type::unresolved::UnresolvedDataType, nbt_path::NbtPath,
+        data::DataTarget, data_type::UnresolvedDataType, nbt_path::NbtPath,
         player_score::PlayerScore, snbt_string::SNBTString,
     },
     path::generic::GenericPath,

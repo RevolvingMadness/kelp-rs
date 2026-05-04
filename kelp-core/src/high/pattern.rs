@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     high::{
         data::DataTarget,
-        data_type::unresolved::UnresolvedDataType,
+        data_type::UnresolvedDataType,
         nbt_path::NbtPath,
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},

@@ -1,7 +1,7 @@
 use crate::{
     builtin_data_type::BuiltinDataType,
     high::{
-        data_type::resolved::GenericResolver,
+        data_type::GenericResolver,
         environment::r#type::{
             alias::HighAliasDeclaration, module::HighModuleDeclaration,
             r#struct::HighStructDeclaration,

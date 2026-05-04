@@ -13,7 +13,8 @@ use crate::{
                 alias::HighAliasDeclaration,
                 module::HighModuleDeclaration,
                 r#struct::{
-                    HighStructDeclaration, HighStructStructDeclaration, HighTupleStructDeclaration,
+                    HighStructDeclaration, regular::HighStructStructDeclaration,
+                    tuple::HighTupleStructDeclaration,
                 },
             },
             value::{

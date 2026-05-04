@@ -1,6 +1,6 @@
 use crate::{
     high::{
-        data_type::resolved::GenericResolver,
+        data_type::GenericResolver,
         environment::value::{
             function::{
                 builtin::{HighBuiltinFunctionDeclaration, HighBuiltinFunctionId},

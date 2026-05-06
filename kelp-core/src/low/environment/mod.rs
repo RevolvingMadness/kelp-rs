@@ -39,11 +39,11 @@ impl Environment {
     #[must_use]
     pub fn declare_type(
         &mut self,
-        visibility: Visibility,
         module_path: Vec<String>,
+        visibility: Visibility,
         declaration: TypeDeclarationKind,
-    ) -> usize {
-        let len = self.types.len();
+    ) -> u32 {
+        let len = self.types.len() as u32;
 
         self.types.push(TypeDeclaration {
             visibility,
@@ -63,8 +63,8 @@ impl Environment {
         declaration: StructDeclaration,
     ) -> StructId {
         let id = self.declare_type(
-            visibility,
             module_path,
+            visibility,
             TypeDeclarationKind::Struct(declaration),
         );
 
@@ -124,7 +124,7 @@ impl Environment {
             visibility,
             module_path,
             kind: TypeDeclarationKind::Struct(declaration),
-        } = &self.types[id.0]
+        } = &self.types[id.0 as usize]
         else {
             unreachable!();
         };
@@ -161,18 +161,27 @@ impl Environment {
     }
 
     #[must_use]
-    pub fn declare_value(&mut self, declaration: ValueDeclaration) -> ValueId {
-        let id = ValueId(self.values.len());
+    pub fn declare_value(
+        &mut self,
+        module_path: Vec<String>,
+        visibility: Visibility,
+        declaration: ValueDeclarationKind,
+    ) -> ValueId {
+        let id = self.values.len() as u32;
 
-        self.values.push(declaration);
+        self.values.push(ValueDeclaration {
+            visibility,
+            module_path,
+            kind: declaration,
+        });
 
-        id
+        ValueId(id)
     }
 
     #[inline]
     #[must_use]
     pub fn get_value(&self, id: ValueId) -> &ValueDeclaration {
-        &self.values[id.0]
+        &self.values[id.0 as usize]
     }
 
     #[must_use]
@@ -183,7 +192,7 @@ impl Environment {
         name: String,
         data_type: ResolvedDataType,
     ) -> VariableId {
-        let id = VariableId(self.values.len());
+        let id = VariableId(self.values.len() as u32);
 
         self.values.push(
             ValueDeclarationKind::Variable(VariableDeclaration { name, data_type })
@@ -200,7 +209,7 @@ impl Environment {
         visibility: Visibility,
         declaration: FunctionDeclaration,
     ) -> FunctionId {
-        let id = FunctionId(self.values.len());
+        let id = FunctionId(self.values.len() as u32);
 
         self.values.push(
             ValueDeclarationKind::Function(Box::new(declaration))
@@ -221,7 +230,7 @@ impl Environment {
             visibility,
             module_path,
             kind: ValueDeclarationKind::Function(declaration),
-        } = &self.values[id.0]
+        } = &self.values[id.0 as usize]
         else {
             unreachable!();
         };
@@ -238,7 +247,7 @@ impl Environment {
         let ValueDeclaration {
             kind: ValueDeclarationKind::Function(declaration),
             ..
-        } = &mut self.values[id.0]
+        } = &mut self.values[id.0 as usize]
         else {
             unreachable!();
         };

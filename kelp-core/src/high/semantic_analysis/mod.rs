@@ -742,12 +742,12 @@ impl SemanticAnalysisContext {
 
     #[must_use]
     pub fn get_type(&self, id: HighTypeId) -> &HighTypeDeclaration {
-        &self.high_environment.types[id.0]
+        &self.high_environment.types[id.0 as usize]
     }
 
     #[must_use]
     pub fn get_value(&self, id: HighValueId) -> &HighValueDeclaration {
-        &self.high_environment.values[id.0]
+        &self.high_environment.values[id.0 as usize]
     }
 
     #[must_use]

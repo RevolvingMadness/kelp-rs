@@ -1,7 +1,7 @@
 use crate::low::data_type::unresolved::UnresolvedDataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighTupleStructId(pub usize);
+pub struct HighTupleStructId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct HighTupleStructDeclaration {

@@ -10,7 +10,7 @@ pub mod regular;
 pub mod tuple;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighStructId(pub usize);
+pub struct HighStructId(pub u32);
 
 impl From<HighStructStructId> for HighStructId {
     fn from(value: HighStructStructId) -> Self {

@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighBuiltinFunctionId(pub usize);
+pub struct HighBuiltinFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct HighBuiltinFunctionDeclaration {

@@ -10,7 +10,7 @@ pub mod function;
 pub mod variable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ValueId(pub usize);
+pub struct ValueId(pub u32);
 
 impl From<VariableId> for ValueId {
     fn from(value: VariableId) -> Self {

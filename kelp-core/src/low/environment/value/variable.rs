@@ -1,7 +1,7 @@
 use crate::low::data_type::resolved::ResolvedDataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct VariableId(pub usize);
+pub struct VariableId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration {

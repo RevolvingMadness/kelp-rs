@@ -18,7 +18,7 @@ pub mod function;
 pub mod variable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighValueId(pub usize);
+pub struct HighValueId(pub u32);
 
 impl From<HighVariableId> for HighValueId {
     fn from(value: HighVariableId) -> Self {

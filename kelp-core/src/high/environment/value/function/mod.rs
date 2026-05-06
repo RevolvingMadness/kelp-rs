@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighFunctionId(pub usize);
+pub struct HighFunctionId(pub u32);
 
 impl From<HighRegularFunctionId> for HighFunctionId {
     fn from(value: HighRegularFunctionId) -> Self {

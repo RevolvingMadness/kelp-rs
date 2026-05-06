@@ -22,7 +22,7 @@ impl<'a> Iterator for FieldTypesIter<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructId(pub usize);
+pub struct StructId(pub u32);
 
 impl From<StructStructId> for StructId {
     fn from(value: StructStructId) -> Self {
@@ -69,7 +69,7 @@ impl StructDeclaration {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructStructId(pub usize);
+pub struct StructStructId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct StructStructDeclaration {
@@ -79,7 +79,7 @@ pub struct StructStructDeclaration {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TupleStructId(pub usize);
+pub struct TupleStructId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct TupleStructDeclaration {

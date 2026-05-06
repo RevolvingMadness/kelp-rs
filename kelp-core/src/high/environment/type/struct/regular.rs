@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::low::data_type::unresolved::UnresolvedDataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighStructStructId(pub usize);
+pub struct HighStructStructId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct HighStructStructDeclaration {

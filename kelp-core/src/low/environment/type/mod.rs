@@ -4,7 +4,7 @@ pub mod builtin_data_type;
 pub mod r#struct;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeId(pub usize);
+pub struct TypeId(pub u32);
 
 #[derive(Debug, Clone)]
 pub enum TypeDeclarationKind {

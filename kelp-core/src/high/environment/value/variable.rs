@@ -1,7 +1,7 @@
 use crate::low::data_type::unresolved::UnresolvedDataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighVariableId(pub usize);
+pub struct HighVariableId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct HighVariableDeclaration {

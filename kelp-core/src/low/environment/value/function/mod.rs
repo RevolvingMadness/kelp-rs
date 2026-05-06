@@ -14,7 +14,7 @@ pub mod builtin;
 pub mod regular;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FunctionId(pub usize);
+pub struct FunctionId(pub u32);
 
 impl From<RegularFunctionId> for FunctionId {
     fn from(value: RegularFunctionId) -> Self {

@@ -37,7 +37,7 @@ pub struct HighEnvironment {
 impl HighEnvironment {
     #[must_use]
     pub fn declare_type(&mut self, declaration: HighTypeDeclaration) -> HighTypeId {
-        let id = HighTypeId(self.types.len());
+        let id = HighTypeId(self.types.len() as u32);
 
         self.types.push(declaration);
 
@@ -51,7 +51,7 @@ impl HighEnvironment {
         module_path: Vec<String>,
         declaration: HighValueDeclarationKind,
     ) -> HighValueId {
-        let id = HighValueId(self.values.len());
+        let id = HighValueId(self.values.len() as u32);
 
         self.values.push(HighValueDeclaration {
             visibility,
@@ -68,7 +68,7 @@ impl HighEnvironment {
         id: HighValueId,
         f: impl FnOnce(&mut HighValueDeclaration),
     ) {
-        f(self.values.get_mut(id.0).unwrap());
+        f(self.values.get_mut(id.0 as usize).unwrap());
     }
 
     pub fn update_function(
@@ -120,7 +120,7 @@ impl HighEnvironment {
 
     #[must_use]
     pub fn declare_function(&mut self, declaration: HighValueDeclaration) -> HighRegularFunctionId {
-        let id = HighRegularFunctionId(self.values.len());
+        let id = HighRegularFunctionId(self.values.len() as u32);
 
         self.values.push(declaration);
 
@@ -133,7 +133,7 @@ impl HighEnvironment {
             module_path,
             visibility,
             kind: declaration,
-        } = &self.types[id.0];
+        } = &self.types[id.0 as usize];
 
         (module_path, *visibility, declaration)
     }
@@ -183,7 +183,7 @@ impl HighEnvironment {
             module_path,
             visibility,
             kind: declaration,
-        } = &self.values[id.0];
+        } = &self.values[id.0 as usize];
 
         (module_path, *visibility, declaration)
     }

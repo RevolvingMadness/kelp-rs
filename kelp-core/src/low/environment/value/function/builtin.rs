@@ -4,7 +4,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BuiltinFunctionId(pub usize);
+pub struct BuiltinFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct BuiltinFunctionDeclaration {

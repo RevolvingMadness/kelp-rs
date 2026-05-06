@@ -22,7 +22,7 @@ pub mod module;
 pub mod r#struct;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighTypeId(pub usize);
+pub struct HighTypeId(pub u32);
 
 impl From<HighStructId> for HighTypeId {
     fn from(value: HighStructId) -> Self {

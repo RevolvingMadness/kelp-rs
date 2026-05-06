@@ -4,7 +4,7 @@ use crate::low::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RegularFunctionId(pub usize);
+pub struct RegularFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct RegularFunctionDeclaration {

@@ -20,7 +20,6 @@ pub enum BuiltinDataType {
     Double,
     #[strum(serialize = "string", serialize = "str")]
     String,
-    #[strum(serialize = "()", serialize = "unit")]
     Score,
     List,
     Compound,

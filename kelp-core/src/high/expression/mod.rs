@@ -360,9 +360,9 @@ impl Expression {
             ExpressionKind::Assignment(target, value) => {
                 let value = value.perform_semantic_analysis(ctx);
 
-                ctx.is_lhs = true;
+                ctx.is_lhs += 1;
                 let target = target.perform_semantic_analysis(ctx);
-                ctx.is_lhs = false;
+                ctx.is_lhs -= 1;
 
                 let (target_span, target) = target?;
                 let (value_span, value) = value?;
@@ -893,7 +893,7 @@ impl Expression {
                 UnresolvedExpressionKind::String(value.snbt_string).with(UnresolvedDataType::String)
             }
             ExpressionKind::Underscore => {
-                if !ctx.is_lhs {
+                if ctx.is_lhs == 0 {
                     return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
                 }
 

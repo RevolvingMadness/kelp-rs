@@ -59,7 +59,7 @@ pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
     pub scopes: Vec<Scope>,
     pub loop_depth: u32,
-    pub is_lhs: bool,
+    pub is_lhs: u32,
     pub current_module_path: Vec<String>,
     pub function_return_types: SmallVec<[UnresolvedDataType; 5]>,
     max_infos: usize,
@@ -79,7 +79,7 @@ impl SemanticAnalysisContext {
             scopes: vec![Scope::default()],
             resolved_variables: HashMap::new(),
             loop_depth: 0,
-            is_lhs: false,
+            is_lhs: 0,
             current_module_path: Vec::new(),
             function_return_types: SmallVec::new(),
         };

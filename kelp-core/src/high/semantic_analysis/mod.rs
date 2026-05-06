@@ -447,22 +447,6 @@ impl SemanticAnalysisContext {
         parameters: Vec<(UnresolvedPattern, UnresolvedDataType)>,
         body: UnresolvedExpression,
     ) {
-        // let mut monomorphized_functions_to_update = Vec::new();
-
-        // for (key, func_id) in &self.monomorphized_functions {
-        //     if key.original_id == id.into() {
-        //         monomorphized_functions_to_update.push(RegularFunctionId(func_id.0));
-        //     }
-        // }
-
-        // for monomorphized_function_id in monomorphized_functions_to_update {
-        //     self.environment.update_regular_function(
-        //         monomorphized_function_id,
-        //         parameters.clone(),
-        //         body.clone(),
-        //     );
-        // }
-
         self.high_environment.update_function(id, parameters, body);
     }
 

@@ -4,11 +4,8 @@ use crate::{
     high::{
         data::DataTarget,
         data_type::DataType,
-        environment::{
-            r#type::r#struct::{
-                HighStructId, regular::HighStructStructId, tuple::HighTupleStructId,
-            },
-            value::variable::HighVariableId,
+        environment::r#type::r#struct::{
+            HighStructId, regular::HighStructStructId, tuple::HighTupleStructId,
         },
         nbt_path::NbtPath,
         player_score::PlayerScore,
@@ -150,13 +147,7 @@ impl Pattern {
 
                     let id = ctx.declare_variable(Visibility::Public, name, variable_type.clone());
 
-                    let declaration = ctx.get_value(id.into()).clone();
-
-                    let (resolved_id, _) =
-                        declaration.resolve_fully(ctx, id.into(), Vec::new(), segment.name_span)?;
-
-                    // TODO: This is illegal!
-                    UnresolvedPattern::Binding(HighVariableId(resolved_id.0))
+                    UnresolvedPattern::Binding(id)
                 } else {
                     return ctx.add_error(
                         self.span,

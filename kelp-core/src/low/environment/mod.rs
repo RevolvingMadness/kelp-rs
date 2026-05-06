@@ -119,6 +119,7 @@ impl Environment {
 
     #[must_use]
     pub fn get_struct(&self, id: StructId) -> (&[String], Visibility, &StructDeclaration) {
+        #[allow(irrefutable_let_patterns)]
         let TypeDeclaration {
             visibility,
             module_path,

@@ -1,8 +1,8 @@
 use crate::{
-    builtin_data_type::BuiltinDataType,
     high::{
         environment::r#type::{
             alias::HighAliasDeclaration,
+            builtin_data_type::HighBuiltinTypeDeclaration,
             module::HighModuleDeclaration,
             r#struct::{
                 HighStructDeclaration, HighStructId, regular::HighStructStructId,
@@ -17,6 +17,7 @@ use crate::{
 };
 
 pub mod alias;
+pub mod builtin_data_type;
 pub mod module;
 pub mod r#struct;
 
@@ -47,7 +48,7 @@ pub enum HighTypeDeclarationKind {
     Struct(HighStructDeclaration),
     Alias(HighAliasDeclaration),
     Generic(String),
-    Builtin(BuiltinDataType),
+    Builtin(HighBuiltinTypeDeclaration),
 }
 
 impl HighTypeDeclarationKind {
@@ -58,7 +59,7 @@ impl HighTypeDeclarationKind {
             Self::Struct(declaration) => declaration.name(),
             Self::Alias(declaration) => &declaration.name,
             Self::Generic(name) => name,
-            Self::Builtin(data_type) => data_type.name(),
+            Self::Builtin(data_type) => &data_type.name,
         }
     }
 
@@ -69,7 +70,7 @@ impl HighTypeDeclarationKind {
             Self::Struct(declaration) => declaration.generic_count(),
             Self::Alias(declaration) => declaration.generic_names.len(),
             Self::Generic(..) => 0,
-            Self::Builtin(builtin_type) => builtin_type.generic_count(),
+            Self::Builtin(builtin_type) => builtin_type.generic_count,
         })
     }
 }

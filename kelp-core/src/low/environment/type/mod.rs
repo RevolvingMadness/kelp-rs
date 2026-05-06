@@ -1,8 +1,6 @@
-use crate::{
-    builtin_data_type::BuiltinDataType, low::environment::r#type::r#struct::StructDeclaration,
-    visibility::Visibility,
-};
+use crate::{low::environment::r#type::r#struct::StructDeclaration, visibility::Visibility};
 
+pub mod builtin_data_type;
 pub mod r#struct;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -11,7 +9,6 @@ pub struct TypeId(pub usize);
 #[derive(Debug, Clone)]
 pub enum TypeDeclarationKind {
     Struct(StructDeclaration),
-    Builtin(BuiltinDataType),
 }
 
 impl TypeDeclarationKind {
@@ -19,7 +16,6 @@ impl TypeDeclarationKind {
     pub fn name(&self) -> &str {
         match self {
             Self::Struct(declaration) => declaration.name(),
-            Self::Builtin(data_type) => data_type.name(),
         }
     }
 }

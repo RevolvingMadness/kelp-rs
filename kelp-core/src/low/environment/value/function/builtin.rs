@@ -1,5 +1,6 @@
-use crate::low::{
-    data_type::resolved::ResolvedDataType, environment::value::function::BuiltinFunctionKind,
+use crate::{
+    high::environment::value::function::builtin::BuiltinFunctionKind,
+    low::data_type::resolved::ResolvedDataType,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

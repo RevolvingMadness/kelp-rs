@@ -3,13 +3,13 @@ use smallvec::SmallVec;
 use strum::IntoEnumIterator;
 
 use crate::{
-    builtin_data_type::BuiltinDataType,
     high::{
         environment::{
             HighEnvironment,
             r#type::{
                 HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
                 alias::HighAliasDeclaration,
+                builtin_data_type::{BuiltinTypeKind, HighBuiltinTypeDeclaration},
                 module::HighModuleDeclaration,
                 r#struct::{
                     HighStructDeclaration, HighStructId,
@@ -21,7 +21,9 @@ use crate::{
                 HighValueDeclaration, HighValueDeclarationKind, HighValueId,
                 function::{
                     HighFunctionDeclaration,
-                    builtin::{HighBuiltinFunctionDeclaration, HighBuiltinFunctionId},
+                    builtin::{
+                        BuiltinFunctionKind, HighBuiltinFunctionDeclaration, HighBuiltinFunctionId,
+                    },
                     regular::{HighRegularFunctionDeclaration, HighRegularFunctionId},
                 },
                 variable::HighVariableId,
@@ -34,10 +36,7 @@ use crate::{
     },
     low::{
         data_type::unresolved::UnresolvedDataType,
-        environment::{
-            Environment,
-            value::{function::BuiltinFunctionKind, variable::VariableId},
-        },
+        environment::{Environment, value::variable::VariableId},
         expression::unresolved::UnresolvedExpression,
         pattern::UnresolvedPattern,
     },
@@ -95,8 +94,8 @@ impl SemanticAnalysisContext {
     pub fn declare_std_module(&mut self) {
         self.enter_module("std".to_owned());
 
-        for builtin_type in BuiltinDataType::iter() {
-            self.declare_builtin_type(builtin_type);
+        for builtin_type in BuiltinTypeKind::iter() {
+            self.declare_builtin_type(builtin_type.declaration());
         }
 
         for builtin_function in BuiltinFunctionKind::iter() {
@@ -363,7 +362,7 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_builtin_type(&mut self, data_type: BuiltinDataType) -> HighTypeId {
+    pub fn declare_builtin_type(&mut self, data_type: HighBuiltinTypeDeclaration) -> HighTypeId {
         self.declare_type(
             Visibility::Public,
             HighTypeDeclarationKind::Builtin(data_type),

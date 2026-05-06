@@ -13,7 +13,7 @@ use crate::{
                     regular::HighStructStructDeclaration, tuple::HighTupleStructDeclaration,
                 },
             },
-            value::function::builtin::HighBuiltinFunctionDeclaration,
+            value::function::builtin::{BuiltinFunctionKind, HighBuiltinFunctionDeclaration},
         },
         expression::block::BlockExpression,
         pattern::Pattern,
@@ -22,10 +22,7 @@ use crate::{
         },
         use_tree::UseTree,
     },
-    low::{
-        data_type::unresolved::UnresolvedDataType,
-        environment::value::function::BuiltinFunctionKind, item::Item as MiddleItem,
-    },
+    low::{data_type::unresolved::UnresolvedDataType, item::Item as MiddleItem},
     span::Span,
     visibility::Visibility,
 };

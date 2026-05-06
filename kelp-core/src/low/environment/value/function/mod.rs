@@ -3,7 +3,10 @@ use strum::EnumIter;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    high::environment::value::function::builtin::HighBuiltinFunctionDeclaration,
+    high::environment::{
+        r#type::r#struct::tuple::HighTupleStructId,
+        value::function::builtin::HighBuiltinFunctionDeclaration,
+    },
     low::{
         data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
         environment::value::function::{
@@ -90,8 +93,11 @@ impl FunctionDeclaration {
     }
 }
 
-#[derive(Debug, Clone, Copy, EnumIter)]
+#[derive(Debug, Clone, EnumIter)]
 pub enum BuiltinFunctionKind {
+    #[strum(disabled)]
+    TupleConstructor(HighTupleStructId, Vec<UnresolvedDataType>),
+
     StdAdd, // fn add(integer, integer) -> integer
 }
 
@@ -99,6 +105,8 @@ impl BuiltinFunctionKind {
     #[must_use]
     pub fn declaration(self) -> HighBuiltinFunctionDeclaration {
         match self {
+            Self::TupleConstructor(..) => unreachable!(),
+
             Self::StdAdd => HighBuiltinFunctionDeclaration {
                 name: "add".to_owned(),
                 generic_names: Vec::new(),
@@ -111,11 +119,16 @@ impl BuiltinFunctionKind {
 
     pub fn call(
         self,
-        _datapack: &mut Datapack,
+        datapack: &mut Datapack,
         _ctx: &mut CompileContext,
         mut arguments: Vec<ResolvedExpression>,
     ) -> ResolvedExpression {
         match self {
+            Self::TupleConstructor(id, generic_types) => {
+                let id = UnresolvedDataType::resolve_tuple_struct(datapack, id, generic_types);
+
+                ResolvedExpression::TupleStruct(id, arguments)
+            }
             Self::StdAdd => {
                 let ResolvedExpression::Integer(a) = arguments.pop().unwrap() else {
                     unreachable!();

@@ -5,10 +5,15 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use crate::{
     high::{
         data_type::DataType,
-        environment::r#type::{
-            HighTypeDeclarationKind,
-            alias::HighAliasDeclaration,
-            r#struct::{regular::HighStructStructDeclaration, tuple::HighTupleStructDeclaration},
+        environment::{
+            r#type::{
+                HighTypeDeclarationKind,
+                alias::HighAliasDeclaration,
+                r#struct::{
+                    regular::HighStructStructDeclaration, tuple::HighTupleStructDeclaration,
+                },
+            },
+            value::function::builtin::HighBuiltinFunctionDeclaration,
         },
         expression::block::BlockExpression,
         pattern::Pattern,
@@ -17,7 +22,10 @@ use crate::{
         },
         use_tree::UseTree,
     },
-    low::{data_type::unresolved::UnresolvedDataType, item::Item as MiddleItem},
+    low::{
+        data_type::unresolved::UnresolvedDataType,
+        environment::value::function::BuiltinFunctionKind, item::Item as MiddleItem,
+    },
     span::Span,
     visibility::Visibility,
 };
@@ -231,14 +239,31 @@ impl Item {
                 let field_types = field_types
                     .into_iter()
                     .map(|field_type| field_type.resolve_partially(Some(&generic_names), ctx))
-                    .collect();
+                    .collect::<Vec<_>>();
 
-                ctx.declare_tuple_struct(
+                let generic_types = generic_names
+                    .iter()
+                    .cloned()
+                    .map(UnresolvedDataType::Generic)
+                    .collect::<Vec<_>>();
+
+                let id = ctx.declare_tuple_struct(
                     self.visibility,
                     HighTupleStructDeclaration {
+                        name: name.clone(),
+                        generic_names: generic_names.clone(),
+                        field_types: field_types.clone(),
+                    },
+                );
+
+                ctx.declare_builtin_function(
+                    Visibility::Public,
+                    HighBuiltinFunctionDeclaration {
                         name,
                         generic_names,
-                        field_types,
+                        parameters: field_types,
+                        return_type: UnresolvedDataType::Struct(id.into(), generic_types.clone()),
+                        kind: BuiltinFunctionKind::TupleConstructor(id, generic_types),
                     },
                 );
 

@@ -686,7 +686,8 @@ impl Expression {
                 if argument_count != parameter_count {
                     return ctx.add_error(
                         callee_span,
-                        SemanticAnalysisError::InvalidParameterCount {
+                        SemanticAnalysisError::MismatchedParameterCount {
+                            function_name: call_info.name,
                             expected: parameter_count,
                             actual: argument_count,
                         },

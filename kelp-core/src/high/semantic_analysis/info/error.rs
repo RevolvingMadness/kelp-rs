@@ -232,15 +232,27 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     field
                 )
             }
-            SemanticAnalysisError::InvalidParameterCount { expected, actual } => {
+            SemanticAnalysisError::MismatchedParameterCount {
+                function_name,
+                expected,
+                actual,
+            } => {
                 let s = if *expected == 1 { "" } else { "s" };
                 let was_were = if *actual == 1 { "was" } else { "were" };
 
-                write!(
-                    f,
-                    "Expected {} parameter{} but {} {} given",
-                    expected, s, actual, was_were
-                )
+                if let Some(function_name) = function_name {
+                    write!(
+                        f,
+                        "The function `{}` takes {} parameter{} but {} {} given",
+                        function_name, expected, s, actual, was_were
+                    )
+                } else {
+                    write!(
+                        f,
+                        "Epxected {} parameter{} but {} {} given",
+                        expected, s, actual, was_were
+                    )
+                }
             }
             SemanticAnalysisError::InvalidGenerics {
                 type_name,
@@ -388,7 +400,8 @@ pub enum SemanticAnalysisError {
         data_type: UnresolvedDataType,
         field: String,
     },
-    InvalidParameterCount {
+    MismatchedParameterCount {
+        function_name: Option<String>,
         expected: usize,
         actual: usize,
     },

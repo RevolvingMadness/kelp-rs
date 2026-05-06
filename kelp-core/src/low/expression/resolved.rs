@@ -355,7 +355,7 @@ impl ResolvedExpression {
                         &arguments,
                     ),
                     FunctionDeclaration::Builtin(declaration) => {
-                        declaration.kind.call(datapack, ctx, arguments)
+                        declaration.kind.clone().call(datapack, ctx, arguments)
                     }
                 }
             }
@@ -392,7 +392,7 @@ impl ResolvedExpression {
                         );
                     }
                     FunctionDeclaration::Builtin(declaration) => {
-                        declaration.kind.call(datapack, ctx, arguments);
+                        declaration.kind.clone().call(datapack, ctx, arguments);
                     }
                 }
             }

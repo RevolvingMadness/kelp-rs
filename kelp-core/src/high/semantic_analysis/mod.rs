@@ -12,8 +12,9 @@ use crate::{
                 alias::HighAliasDeclaration,
                 module::HighModuleDeclaration,
                 r#struct::{
-                    HighStructDeclaration, regular::HighStructStructDeclaration,
-                    tuple::HighTupleStructDeclaration,
+                    HighStructDeclaration, HighStructId,
+                    regular::{HighStructStructDeclaration, HighStructStructId},
+                    tuple::{HighTupleStructDeclaration, HighTupleStructId},
                 },
             },
             value::{
@@ -333,8 +334,10 @@ impl SemanticAnalysisContext {
         &mut self,
         visibility: Visibility,
         declaration: HighStructDeclaration,
-    ) -> HighTypeId {
-        self.declare_type(visibility, HighTypeDeclarationKind::Struct(declaration))
+    ) -> HighStructId {
+        let id = self.declare_type(visibility, HighTypeDeclarationKind::Struct(declaration));
+
+        HighStructId(id.0)
     }
 
     #[inline]
@@ -342,8 +345,10 @@ impl SemanticAnalysisContext {
         &mut self,
         visibility: Visibility,
         declaration: HighStructStructDeclaration,
-    ) -> HighTypeId {
-        self.declare_struct(visibility, HighStructDeclaration::Struct(declaration))
+    ) -> HighStructStructId {
+        let id = self.declare_struct(visibility, HighStructDeclaration::Struct(declaration));
+
+        HighStructStructId(id.0)
     }
 
     #[inline]
@@ -351,8 +356,10 @@ impl SemanticAnalysisContext {
         &mut self,
         visibility: Visibility,
         declaration: HighTupleStructDeclaration,
-    ) -> HighTypeId {
-        self.declare_struct(visibility, HighStructDeclaration::Tuple(declaration))
+    ) -> HighTupleStructId {
+        let id = self.declare_struct(visibility, HighStructDeclaration::Tuple(declaration));
+
+        HighTupleStructId(id.0)
     }
 
     #[inline]

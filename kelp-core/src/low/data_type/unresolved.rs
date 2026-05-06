@@ -52,6 +52,7 @@ macro_rules! check_error {
 
 #[derive(Debug, Clone)]
 pub struct CallInfo {
+    pub name: Option<String>,
     pub parameter_types: Vec<UnresolvedDataType>,
     pub return_type: UnresolvedDataType,
 }
@@ -609,6 +610,7 @@ impl UnresolvedDataType {
 
                 match declaration {
                     HighFunctionDeclaration::Regular(declaration) => CallInfo {
+                        name: Some(declaration.name.clone()),
                         parameter_types: declaration
                             .parameters
                             .iter()
@@ -624,6 +626,7 @@ impl UnresolvedDataType {
                             .substitute_generics(&declaration.generic_names, generic_types),
                     },
                     HighFunctionDeclaration::Builtin(declaration) => CallInfo {
+                        name: Some(declaration.name.clone()),
                         parameter_types: declaration
                             .parameters
                             .iter()
@@ -641,6 +644,7 @@ impl UnresolvedDataType {
                 }
             }
             Self::ResourceLocation => CallInfo {
+                name: None,
                 return_type: Self::Integer,
                 parameter_types: Vec::new(),
             },

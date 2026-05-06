@@ -30,16 +30,56 @@ pub enum BuiltinFunctionKind {
 impl BuiltinFunctionKind {
     #[must_use]
     pub fn declaration(self) -> HighBuiltinFunctionDeclaration {
+        macro_rules! declaration {
+            (
+                fn $name:ident ( $($parameters:expr),* $(,)? )
+            ) => {
+                HighBuiltinFunctionDeclaration {
+                    name: stringify!($name).to_owned(),
+                    generic_names: Vec::new(),
+                    parameters: vec![$($parameters),*],
+                    return_type: UnresolvedDataType::Unit,
+                    kind: self,
+                }
+            };
+
+            (
+                fn $name:ident ( $($parameters:expr),* $(,)? ) -> $return_type:expr
+            ) => {
+                HighBuiltinFunctionDeclaration {
+                    name: stringify!($name).to_owned(),
+                    generic_names: Vec::new(),
+                    parameters: vec![$($parameters),*],
+                    return_type: $return_type,
+                    kind: self,
+                }
+            };
+
+            (
+                fn $name:ident < $($generic:ident),+ > ( $($parameters:expr),* $(,)? )
+            ) => {
+                declaration!(fn $name<$($generic),+>($($parameters),*) -> UnresolvedDataType::Unit)
+            };
+
+            (
+                fn $name:ident < $($generic:ident),+ > ( $($parameters:expr),* $(,)? ) -> $return_type:expr
+            ) => {
+                HighBuiltinFunctionDeclaration {
+                    name: stringify!($name).to_owned(),
+                    generic_names: vec![$(stringify!($generic).to_owned()),+],
+                    parameters: vec![$($parameters),*],
+                    return_type: $return_type,
+                    kind: self,
+                }
+            };
+        }
+
         match self {
             Self::TupleConstructor(..) => unreachable!(),
 
-            Self::StdAdd => HighBuiltinFunctionDeclaration {
-                name: "add".to_owned(),
-                generic_names: Vec::new(),
-                parameters: vec![UnresolvedDataType::Integer, UnresolvedDataType::Integer],
-                return_type: UnresolvedDataType::Integer,
-                kind: self,
-            },
+            Self::StdAdd => {
+                declaration!(fn add(UnresolvedDataType::Integer, UnresolvedDataType::Integer) -> UnresolvedDataType::Integer)
+            }
         }
     }
 

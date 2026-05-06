@@ -323,24 +323,24 @@ impl LanguageServer for Backend {
         Ok(())
     }
 
-    async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.on_change(params.text_document.uri, params.text_document.text)
+    async fn did_open(&self, parameters: DidOpenTextDocumentParams) {
+        self.on_change(parameters.text_document.uri, parameters.text_document.text)
             .await;
     }
 
-    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
+    async fn did_change(&self, mut parameters: DidChangeTextDocumentParams) {
         self.on_change(
-            params.text_document.uri,
-            std::mem::take(&mut params.content_changes[0].text),
+            parameters.text_document.uri,
+            std::mem::take(&mut parameters.content_changes[0].text),
         )
         .await;
     }
 
     async fn semantic_tokens_full(
         &self,
-        params: SemanticTokensParams,
+        parameters: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        let uri = params.text_document.uri;
+        let uri = parameters.text_document.uri;
         let map = self.document_map.read().await;
         let state = map
             .get(&uri)

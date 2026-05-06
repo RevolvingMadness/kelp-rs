@@ -30,11 +30,3 @@ pub struct TypeDeclaration {
     pub module_path: Vec<String>,
     pub kind: TypeDeclarationKind,
 }
-
-impl TypeDeclaration {
-    #[inline]
-    #[must_use]
-    pub fn as_tuple(&self) -> (Visibility, &[String], &TypeDeclarationKind) {
-        (self.visibility, &self.module_path, &self.kind)
-    }
-}

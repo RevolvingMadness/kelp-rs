@@ -1,5 +1,3 @@
-use std::{iter::Map, slice::Iter};
-
 use strum::EnumIter;
 
 use crate::{
@@ -7,36 +5,19 @@ use crate::{
     datapack::Datapack,
     high::environment::value::function::builtin::HighBuiltinFunctionDeclaration,
     low::{
-        data_type::DataType,
+        data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
         environment::value::function::{
             builtin::{BuiltinFunctionDeclaration, BuiltinFunctionId},
             regular::{RegularFunctionDeclaration, RegularFunctionId},
         },
         expression::resolved::ResolvedExpression,
-        pattern::Pattern,
+        pattern::UnresolvedPattern,
     },
+    parameter_types_iter::{ParameterTypesIter, take_second},
 };
 
 pub mod builtin;
 pub mod regular;
-
-type TakeDataTypeFn = fn(&(Pattern, DataType)) -> &DataType;
-
-pub enum ParametersIter<'a> {
-    Regular(Map<Iter<'a, (Pattern, DataType)>, TakeDataTypeFn>),
-    Builtin(Iter<'a, DataType>),
-}
-
-impl<'a> Iterator for ParametersIter<'a> {
-    type Item = &'a DataType;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Regular(iterator) => iterator.next(),
-            Self::Builtin(iterator) => iterator.next(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionId(pub usize);
@@ -81,7 +62,7 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub fn generic_types(&self) -> &[DataType] {
+    pub fn generic_types(&self) -> &[ResolvedDataType] {
         match self {
             Self::Regular(declaration) => &declaration.generic_types,
             Self::Builtin(declaration) => &declaration.generic_types,
@@ -89,21 +70,19 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub fn parameters(&self) -> ParametersIter<'_> {
-        const fn take_data_type((_, data_type): &(Pattern, DataType)) -> &DataType {
-            data_type
-        }
-
+    pub fn parameter_types(&self) -> ParameterTypesIter<'_, UnresolvedPattern, ResolvedDataType> {
         match self {
             Self::Regular(declaration) => {
-                ParametersIter::Regular(declaration.parameters.iter().map(take_data_type))
+                ParameterTypesIter::Regular(declaration.parameters.iter().map(take_second))
             }
-            Self::Builtin(declaration) => ParametersIter::Builtin(declaration.parameters.iter()),
+            Self::Builtin(declaration) => {
+                ParameterTypesIter::Builtin(declaration.parameters.iter())
+            }
         }
     }
 
     #[must_use]
-    pub const fn return_type(&self) -> &DataType {
+    pub const fn return_type(&self) -> &ResolvedDataType {
         match self {
             Self::Regular(declaration) => &declaration.return_type,
             Self::Builtin(declaration) => &declaration.return_type,
@@ -123,8 +102,8 @@ impl BuiltinFunctionKind {
             Self::StdAdd => HighBuiltinFunctionDeclaration {
                 name: "add".to_owned(),
                 generic_names: Vec::new(),
-                parameters: vec![DataType::Integer, DataType::Integer],
-                return_type: DataType::Integer,
+                parameters: vec![UnresolvedDataType::Integer, UnresolvedDataType::Integer],
+                return_type: UnresolvedDataType::Integer,
                 kind: self,
             },
         }

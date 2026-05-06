@@ -160,12 +160,12 @@ impl Backend {
                                 end: line_index.offset_to_position(info.span.end),
                             },
                             severity: Some(match info.kind {
-                                SemanticAnalysisInfoKind::Error(_) => DiagnosticSeverity::ERROR,
+                                SemanticAnalysisInfoKind::Error(..) => DiagnosticSeverity::ERROR,
                             }),
                             source: Some("kelp-lsp".to_string()),
                             message: match &info.kind {
                                 SemanticAnalysisInfoKind::Error(error) => error
-                                    .display(&semantic_analysis_context.environment)
+                                    .display(&semantic_analysis_context.high_environment)
                                     .to_string(),
                             },
                             ..Default::default()

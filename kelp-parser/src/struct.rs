@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use kelp_core::high::data_type::UnresolvedDataType;
+use kelp_core::high::data_type::DataType;
 
 use crate::{
     cst::{CSTStructField, CSTStructFields, CSTTupleField, CSTTupleFields},
@@ -11,7 +11,7 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_field(node: CSTStructField) -> Option<(String, UnresolvedDataType)> {
+pub fn lower_struct_field(node: CSTStructField) -> Option<(String, DataType)> {
     let name_token = node.name()?;
     let name = name_token.text();
 
@@ -47,7 +47,7 @@ pub fn try_parse_struct_field(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_fields(node: CSTStructFields) -> Option<HashMap<String, UnresolvedDataType>> {
+pub fn lower_struct_fields(node: CSTStructFields) -> Option<HashMap<String, DataType>> {
     let fields = node
         .struct_fields()
         .filter_map(lower_struct_field)
@@ -88,7 +88,7 @@ pub fn try_parse_struct_fields(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_field(node: CSTTupleField) -> Option<UnresolvedDataType> {
+pub fn lower_tuple_field(node: CSTTupleField) -> Option<DataType> {
     let data_type = lower_data_type(node.data_type()?)?;
 
     Some(data_type)
@@ -111,7 +111,7 @@ pub fn try_parse_tuple_field(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_fields(node: CSTTupleFields) -> Option<Vec<UnresolvedDataType>> {
+pub fn lower_tuple_fields(node: CSTTupleFields) -> Option<Vec<DataType>> {
     let fields = node.tuple_fields().filter_map(lower_tuple_field).collect();
 
     Some(fields)

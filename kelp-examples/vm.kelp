@@ -12,7 +12,7 @@ struct VM {
     program: list<Instruction>,
 }
 
-fn vm_run() -> data<integer> {
+fn vm_run(vm: data<VM>) -> data<integer> {
     let op_push = 1;
     let op_load = 2;
     let op_store = 3;
@@ -29,8 +29,6 @@ fn vm_run() -> data<integer> {
     let op_jump_if_zero = 11;
 
     let op_halt = 255;
-
-    let vm = storage vm:vm vm as data<VM>;
 
     loop {
         let instruction = *vm.program[vm.ip];
@@ -159,8 +157,6 @@ mcfn namespace:main {
 
     let op_halt = 255;
 
-    let vm = storage vm:vm vm as data<VM>;
-
     let n = 10;
 
     let program = [
@@ -200,14 +196,14 @@ mcfn namespace:main {
         Instruction { opcode: op_halt, arg: 0 }, // 26
     ];
 
-    *vm = VM {
+    let vm = VM {
         stack: [],
         locals: [0, 0, 0, 0, 0],
         ip: 0,
         program: program,
-    };
+    } to data;
 
-    let output = vm_run();
+    let output = vm_run(vm);
 
     tellraw @a ["fib(10) = ", output];
 }

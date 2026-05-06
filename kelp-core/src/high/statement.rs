@@ -1,16 +1,16 @@
-use crate::high::data_type::UnresolvedDataType;
+use crate::high::data_type::DataType;
+use crate::high::expression::Expression;
 use crate::high::item::Item;
 use crate::high::pattern::Pattern;
 use crate::high::semantic_analysis::SemanticAnalysisContext;
 use crate::high::semantic_analysis::info::error::SemanticAnalysisError;
-use crate::low::statement::LoopControlFlowKind;
+use crate::low::statement::{LoopControlFlowKind, UnresolvedStatement};
 use crate::span::Span;
-use crate::{high::expression::Expression, low::statement::Statement as MiddleStatement};
 
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
-    Let(Option<UnresolvedDataType>, Pattern, Expression),
+    Let(Option<DataType>, Pattern, Expression),
     Append(Expression, Box<Expression>),
     Remove(Expression),
     Item(Box<Item>),
@@ -36,26 +36,16 @@ impl Statement {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleStatement> {
+    ) -> Option<UnresolvedStatement> {
         Some(match self.kind {
             StatementKind::Expression(expression) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                MiddleStatement::Expression(expression)
+                UnresolvedStatement::Expression(expression)
             }
             StatementKind::Let(explicit_type, pattern, value) => {
-                let explicit_type = match explicit_type {
-                    Some(explicit_type) => {
-                        let Some(explicit_type) = explicit_type.resolve_fully(ctx) else {
-                            pattern.kind.destructure_unknown(ctx);
-
-                            return None;
-                        };
-
-                        Some(explicit_type)
-                    }
-                    None => None,
-                };
+                let explicit_type =
+                    explicit_type.map(|explicit_type| explicit_type.resolve_partially(None, ctx));
 
                 let Some((_, value)) = value.perform_semantic_analysis(ctx) else {
                     pattern.kind.destructure_unknown(ctx);
@@ -67,7 +57,7 @@ impl Statement {
 
                 let pattern = pattern.perform_semantic_analysis(ctx, &variable_type)?;
 
-                MiddleStatement::Let(variable_type, pattern, Box::new(value))
+                UnresolvedStatement::Let(variable_type, pattern, Box::new(value))
             }
             StatementKind::Append(target, value) => {
                 let target = target.perform_semantic_analysis(ctx);
@@ -76,12 +66,12 @@ impl Statement {
                 let (_, target) = target?;
                 let (_, value) = value?;
 
-                MiddleStatement::Append(target, Box::new(value))
+                UnresolvedStatement::Append(target, Box::new(value))
             }
             StatementKind::Remove(target) => {
                 let (_, target) = target.perform_semantic_analysis(ctx)?;
 
-                MiddleStatement::Remove(target)
+                UnresolvedStatement::Remove(target)
             }
             StatementKind::Break => {
                 if ctx.loop_depth == 0 {
@@ -91,7 +81,7 @@ impl Statement {
                     );
                 }
 
-                MiddleStatement::Break
+                UnresolvedStatement::Break
             }
             StatementKind::Continue => {
                 if ctx.loop_depth == 0 {
@@ -101,12 +91,12 @@ impl Statement {
                     );
                 }
 
-                MiddleStatement::Continue
+                UnresolvedStatement::Continue
             }
             StatementKind::Item(item) => {
                 let item = item.perform_semantic_analysis(ctx)?;
 
-                MiddleStatement::Item(Box::new(item))
+                UnresolvedStatement::Item(Box::new(item))
             }
         })
     }

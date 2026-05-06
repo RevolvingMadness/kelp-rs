@@ -2,7 +2,7 @@ use strum::{Display, EnumIter, EnumString};
 
 use crate::{
     high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-    low::data_type::DataType,
+    low::data_type::unresolved::UnresolvedDataType,
     span::Span,
 };
 
@@ -37,13 +37,13 @@ impl BuiltinDataType {
         ctx: &mut SemanticAnalysisContext,
         span: Span,
         mut generic_spans: Vec<Span>,
-        mut generic_types: Vec<DataType>,
-    ) -> Option<DataType> {
+        mut generic_types: Vec<UnresolvedDataType>,
+    ) -> UnresolvedDataType {
         let expected_generic_count = self.generic_count();
         let actual_generic_count = generic_types.len();
 
         if actual_generic_count != expected_generic_count {
-            return ctx.add_invalid_generics(
+            return ctx.add_invalid_generics_type(
                 span,
                 self.name(),
                 expected_generic_count,
@@ -51,83 +51,87 @@ impl BuiltinDataType {
             );
         }
 
-        Some(match self {
-            Self::Boolean => DataType::Boolean,
-            Self::Byte => DataType::Byte,
-            Self::Short => DataType::Short,
-            Self::Integer => DataType::Integer,
-            Self::Long => DataType::Long,
-            Self::Float => DataType::Float,
-            Self::Double => DataType::Double,
-            Self::String => DataType::String,
+        match self {
+            Self::Boolean => UnresolvedDataType::Boolean,
+            Self::Byte => UnresolvedDataType::Byte,
+            Self::Short => UnresolvedDataType::Short,
+            Self::Integer => UnresolvedDataType::Integer,
+            Self::Long => UnresolvedDataType::Long,
+            Self::Float => UnresolvedDataType::Float,
+            Self::Double => UnresolvedDataType::Double,
+            Self::String => UnresolvedDataType::String,
             Self::List | Self::Compound | Self::Data | Self::Score => {
                 let element_type = generic_types.remove(0);
 
                 match self {
-                    Self::List => DataType::List(Box::new(element_type)),
-                    Self::Compound => DataType::Compound(Box::new(element_type)),
+                    Self::List => UnresolvedDataType::List(Box::new(element_type)),
+                    Self::Compound => UnresolvedDataType::Compound(Box::new(element_type)),
                     Self::Data => {
-                        let Some(data_type) = element_type.get_data_type(&ctx.environment) else {
+                        let Some(data_type) = element_type.get_data_type(&ctx.high_environment)
+                        else {
                             let element_span = generic_spans.remove(0);
 
-                            return ctx.add_error(
+                            return ctx.add_error_type(
                                 element_span,
                                 SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
                             );
                         };
 
-                        DataType::Data(Box::new(data_type))
+                        UnresolvedDataType::Data(Box::new(data_type))
                     }
                     Self::Score => {
                         if !element_type.is_score_compatible() {
                             let element_span = generic_spans.remove(0);
 
-                            return ctx.add_error(
+                            return ctx.add_error_type(
                                 element_span,
                                 SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
                             );
                         }
 
-                        DataType::Score(Box::new(element_type))
+                        UnresolvedDataType::Score(Box::new(element_type))
                     }
                     _ => unreachable!(),
                 }
             }
-            Self::EntitySelector => DataType::EntitySelector,
-            Self::ResourceLocation => DataType::ResourceLocation,
-            Self::Coordinates => DataType::Coordinates,
-        })
+            Self::EntitySelector => UnresolvedDataType::EntitySelector,
+            Self::ResourceLocation => UnresolvedDataType::ResourceLocation,
+            Self::Coordinates => UnresolvedDataType::Coordinates,
+        }
     }
 
     #[must_use]
-    pub fn to_resolved_data_type(&self, mut generic_types: Vec<DataType>) -> Option<DataType> {
+    pub fn to_resolved_data_type(
+        &self,
+        mut generic_types: Vec<UnresolvedDataType>,
+    ) -> Option<UnresolvedDataType> {
         if generic_types.len() != self.generic_count() {
             return None;
         }
 
         Some(match self {
-            Self::Boolean => DataType::Boolean,
-            Self::Byte => DataType::Byte,
-            Self::Short => DataType::Short,
-            Self::Integer => DataType::Integer,
-            Self::Long => DataType::Long,
-            Self::Float => DataType::Float,
-            Self::Double => DataType::Double,
-            Self::String => DataType::String,
+            Self::Boolean => UnresolvedDataType::Boolean,
+            Self::Byte => UnresolvedDataType::Byte,
+            Self::Short => UnresolvedDataType::Short,
+            Self::Integer => UnresolvedDataType::Integer,
+            Self::Long => UnresolvedDataType::Long,
+            Self::Float => UnresolvedDataType::Float,
+            Self::Double => UnresolvedDataType::Double,
+            Self::String => UnresolvedDataType::String,
             Self::List | Self::Compound | Self::Data | Self::Score => {
                 let element_type = generic_types.remove(0);
 
                 match self {
-                    Self::List => DataType::List(Box::new(element_type)),
-                    Self::Compound => DataType::Compound(Box::new(element_type)),
-                    Self::Data => DataType::Data(Box::new(element_type)),
-                    Self::Score => DataType::Score(Box::new(element_type)),
+                    Self::List => UnresolvedDataType::List(Box::new(element_type)),
+                    Self::Compound => UnresolvedDataType::Compound(Box::new(element_type)),
+                    Self::Data => UnresolvedDataType::Data(Box::new(element_type)),
+                    Self::Score => UnresolvedDataType::Score(Box::new(element_type)),
                     _ => unreachable!(),
                 }
             }
-            Self::EntitySelector => DataType::EntitySelector,
-            Self::ResourceLocation => DataType::ResourceLocation,
-            Self::Coordinates => DataType::Coordinates,
+            Self::EntitySelector => UnresolvedDataType::EntitySelector,
+            Self::ResourceLocation => UnresolvedDataType::ResourceLocation,
+            Self::Coordinates => UnresolvedDataType::Coordinates,
         })
     }
 

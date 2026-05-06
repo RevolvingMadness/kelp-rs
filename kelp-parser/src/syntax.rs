@@ -39,7 +39,6 @@ pub enum SyntaxKind {
     PipeEqual,                 // |=
     LeftArrowLeftArrowEqual,   // <<=
     RightArrowRightArrowEqual, // >>=
-    RightArrowLeftArrow,       // ><
     ExclamationMark,           // !
     Comma,                     // ,
     Period,                    // .

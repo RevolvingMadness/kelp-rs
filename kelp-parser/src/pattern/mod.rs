@@ -114,7 +114,7 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 
                 true
             }
-            Some(_) => {
+            Some(..) => {
                 if try_parse_score_pattern(parser) {
                     return true;
                 }

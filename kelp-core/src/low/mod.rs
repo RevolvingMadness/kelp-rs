@@ -10,6 +10,7 @@ pub mod item_source;
 pub mod mc_item;
 pub mod nbt_path;
 pub mod pattern;
+pub mod place;
 pub mod player_score;
 pub mod score_comparison;
 pub mod statement;

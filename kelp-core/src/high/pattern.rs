@@ -3,15 +3,21 @@ use std::collections::HashMap;
 use crate::{
     high::{
         data::DataTarget,
-        data_type::UnresolvedDataType,
+        data_type::DataType,
+        environment::{
+            r#type::r#struct::{
+                HighStructId, regular::HighStructStructId, tuple::HighTupleStructId,
+            },
+            value::variable::HighVariableId,
+        },
         nbt_path::NbtPath,
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
         snbt_string::SNBTString,
     },
     low::{
-        data_type::DataType, environment::value::variable::VariableId,
-        expression::literal::LiteralExpression, pattern::Pattern as MiddlePattern,
+        data_type::unresolved::UnresolvedDataType, expression::literal::LiteralExpression,
+        pattern::UnresolvedPattern,
     },
     path::generic::GenericPath,
     pattern_type::PatternType,
@@ -25,17 +31,14 @@ pub enum PatternKind {
     Literal(LiteralExpression),
 
     Wildcard,
-    Binding(GenericPath<UnresolvedDataType>),
+    Binding(GenericPath<DataType>),
 
     Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
 
     Tuple(Vec<Pattern>),
-    StructStruct(
-        GenericPath<UnresolvedDataType>,
-        HashMap<SNBTString, Pattern>,
-    ),
-    TupleStruct(GenericPath<UnresolvedDataType>, Vec<Pattern>),
+    StructStruct(GenericPath<DataType>, HashMap<SNBTString, Pattern>),
+    TupleStruct(GenericPath<DataType>, Vec<Pattern>),
 
     Compound(HashMap<SNBTString, Pattern>),
 }
@@ -56,7 +59,7 @@ impl PatternKind {
 
                 PatternType::Data(Box::new((target.clone(), path.clone())))
             }
-            Self::Wildcard | Self::Binding(_) => PatternType::Any,
+            Self::Wildcard | Self::Binding(..) => PatternType::Any,
             Self::Tuple(patterns) => PatternType::Tuple(
                 patterns
                     .iter()
@@ -88,7 +91,8 @@ impl PatternKind {
 
     pub fn destructure_unknown(self, ctx: &mut SemanticAnalysisContext) {
         match self {
-            Self::Literal(_) | Self::Score(_) | Self::Data(_) | Self::Wildcard => {}
+            Self::Literal(..) | Self::Score(..) | Self::Data(..) | Self::Wildcard => {}
+
             Self::Binding(path) => {
                 if path.segments.len() != 1 {
                     return;
@@ -96,7 +100,7 @@ impl PatternKind {
 
                 let name = path.segments[0].name.clone();
 
-                let _ = ctx.declare_variable_unknown(Visibility::Public, name);
+                let _ = ctx.declare_variable(Visibility::Public, name, UnresolvedDataType::Error);
             }
             Self::Tuple(patterns) => {
                 for pattern in patterns {
@@ -132,27 +136,27 @@ impl Pattern {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-        variable_type: &DataType,
-    ) -> Option<MiddlePattern> {
+        variable_type: &UnresolvedDataType,
+    ) -> Option<UnresolvedPattern> {
         let self_type = self.kind.get_type();
 
         Some(match (self.kind, variable_type) {
-            (PatternKind::Literal(expression), _) => MiddlePattern::Literal(expression),
-            (PatternKind::Wildcard, _) => MiddlePattern::Wildcard,
+            (PatternKind::Literal(expression), _) => UnresolvedPattern::Literal(expression),
+            (PatternKind::Wildcard, _) => UnresolvedPattern::Wildcard,
             (PatternKind::Binding(path), _) => {
                 if path.segments.len() == 1 {
                     let segment = &path.segments[0];
                     let name = segment.name.clone();
 
-                    let id =
-                        ctx.declare_variable_known(Visibility::Public, name, variable_type.clone());
+                    let id = ctx.declare_variable(Visibility::Public, name, variable_type.clone());
 
                     let declaration = ctx.get_value(id.into()).clone();
 
                     let (resolved_id, _) =
                         declaration.resolve_fully(ctx, id.into(), Vec::new(), segment.name_span)?;
 
-                    MiddlePattern::Binding(VariableId(resolved_id.0))
+                    // TODO: This is illegal!
+                    UnresolvedPattern::Binding(HighVariableId(resolved_id.0))
                 } else {
                     return ctx.add_error(
                         self.span,
@@ -173,7 +177,7 @@ impl Pattern {
                     );
                 }
 
-                MiddlePattern::Score(score)
+                UnresolvedPattern::Score(score)
             }
             (PatternKind::Data(target_path), _) => {
                 let (target, path) = *target_path;
@@ -181,7 +185,7 @@ impl Pattern {
                 let target = target.perform_semantic_analysis(ctx)?;
                 let path = path.perform_semantic_analysis(ctx)?;
 
-                if variable_type.get_data_type(&ctx.environment).is_none() {
+                if variable_type.get_data_type(&ctx.high_environment).is_none() {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {
@@ -191,9 +195,9 @@ impl Pattern {
                     );
                 }
 
-                MiddlePattern::Data(Box::new((target, path)))
+                UnresolvedPattern::Data(Box::new((target, path)))
             }
-            (PatternKind::Tuple(patterns), DataType::Tuple(data_types))
+            (PatternKind::Tuple(patterns), UnresolvedDataType::Tuple(data_types))
                 if patterns.len() == data_types.len() =>
             {
                 let patterns = patterns
@@ -203,9 +207,12 @@ impl Pattern {
                     .map(|(pattern, data_type)| pattern.perform_semantic_analysis(ctx, data_type))
                     .collect_option_all()?;
 
-                MiddlePattern::Tuple(patterns)
+                UnresolvedPattern::Tuple(patterns)
             }
-            (PatternKind::Compound(compound_patterns), DataType::TypedCompound(compound_types)) => {
+            (
+                PatternKind::Compound(compound_patterns),
+                UnresolvedDataType::TypedCompound(compound_types),
+            ) => {
                 let compound = compound_patterns
                     .into_iter()
                     .map(|(key, pattern)| {
@@ -235,9 +242,9 @@ impl Pattern {
                     })
                     .collect_option_all()?;
 
-                MiddlePattern::Compound(compound)
+                UnresolvedPattern::Compound(compound)
             }
-            (PatternKind::Compound(compound_patterns), DataType::Compound(data_type)) => {
+            (PatternKind::Compound(compound_patterns), UnresolvedDataType::Compound(data_type)) => {
                 let compound = compound_patterns
                     .iter()
                     .map(|(key, pattern)| {
@@ -247,32 +254,31 @@ impl Pattern {
                     })
                     .collect_option_all()?;
 
-                MiddlePattern::Compound(compound)
+                UnresolvedPattern::Compound(compound)
             }
-            (PatternKind::StructStruct(path, field_patterns), DataType::Struct(value_id)) => {
-                let mut path = path.resolve_fully(ctx)?;
+            (
+                PatternKind::StructStruct(path, field_patterns),
+                UnresolvedDataType::Struct(value_id, value_generic_types),
+            ) => {
+                let mut path = path.resolve_partially(None, ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
+                let pattern_id = HighStructStructId(pattern_id.0);
 
                 let last_segment = path.segments.pop().unwrap();
+                let pattern_generic_types = last_segment.generic_types;
 
-                let pattern_declaration = ctx.get_type(pattern_id).clone();
-
-                let pattern_type = pattern_declaration.resolve_fully(
-                    ctx,
-                    pattern_id,
-                    last_segment.generic_spans,
-                    last_segment.generic_types,
-                    last_segment.name_span,
-                )?;
-
-                let pattern_id = pattern_type.as_struct_id_semantic_analysis(
-                    ctx,
+                let (_, _, pattern_declaration) = ctx.get_visible_struct_struct(
                     last_segment.name_span,
                     &last_segment.name,
+                    pattern_id.into(),
                 )?;
 
-                if pattern_id != *value_id {
+                let pattern_generic_names = pattern_declaration.generic_names.clone();
+
+                if HighStructId::from(pattern_id) != *value_id
+                    || pattern_generic_types != *value_generic_types
+                {
                     for pattern in field_patterns.into_values() {
                         pattern.kind.destructure_unknown(ctx);
                     }
@@ -286,12 +292,6 @@ impl Pattern {
                     );
                 }
 
-                let (specific_id, _, pattern_declaration) = ctx.get_visible_struct_struct(
-                    last_segment.name_span,
-                    &last_segment.name,
-                    pattern_id,
-                )?;
-
                 let field_types = pattern_declaration.field_types.clone();
 
                 let field_patterns = field_patterns
@@ -303,44 +303,48 @@ impl Pattern {
                             return ctx.add_error(
                                 name.span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: DataType::Struct(pattern_id),
+                                    data_type: UnresolvedDataType::Struct(
+                                        pattern_id.into(),
+                                        pattern_generic_types.clone(),
+                                    ),
                                     field: name.snbt_string.1,
                                 },
                             );
                         };
 
-                        let pattern = pattern.perform_semantic_analysis(ctx, field_type)?;
+                        let field_type = field_type
+                            .clone()
+                            .substitute_generics(&pattern_generic_names, &pattern_generic_types);
+
+                        let pattern = pattern.perform_semantic_analysis(ctx, &field_type)?;
 
                         Some((name.snbt_string, pattern))
                     })
                     .collect_option_all()?;
 
-                MiddlePattern::StructStruct(specific_id, field_patterns)
+                UnresolvedPattern::StructStruct(pattern_id, pattern_generic_types, field_patterns)
             }
-            (PatternKind::TupleStruct(path, field_patterns), DataType::Struct(value_id)) => {
-                let mut path = path.resolve_fully(ctx)?;
+            (
+                PatternKind::TupleStruct(path, field_patterns),
+                UnresolvedDataType::Struct(value_id, value_generic_types),
+            ) => {
+                let mut path = path.resolve_partially(None, ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
+                let pattern_id = HighTupleStructId(pattern_id.0);
 
                 let last_segment = path.segments.pop().unwrap();
+                let pattern_generic_types = last_segment.generic_types;
 
-                let pattern_declaration = ctx.get_type(pattern_id).clone();
-
-                let pattern_type = pattern_declaration.resolve_fully(
-                    ctx,
-                    pattern_id,
-                    last_segment.generic_spans,
-                    last_segment.generic_types,
-                    last_segment.name_span,
-                )?;
-
-                let pattern_id = pattern_type.as_struct_id_semantic_analysis(
-                    ctx,
+                let (_, _, pattern_declaration) = ctx.get_visible_tuple_struct(
                     last_segment.name_span,
                     &last_segment.name,
+                    pattern_id.into(),
                 )?;
 
-                if pattern_id != *value_id {
+                if HighStructId::from(pattern_id) != *value_id
+                    || pattern_generic_types != *value_generic_types
+                {
                     for pattern in field_patterns {
                         pattern.kind.destructure_unknown(ctx);
                     }
@@ -353,12 +357,6 @@ impl Pattern {
                         },
                     );
                 }
-
-                let (specific_id, _, pattern_declaration) = ctx.get_visible_tuple_struct(
-                    last_segment.name_span,
-                    &last_segment.name,
-                    pattern_id,
-                )?;
 
                 let field_types = pattern_declaration.field_types.clone();
 
@@ -376,17 +374,22 @@ impl Pattern {
                     );
                 }
 
+                let pattern_generic_names = pattern_declaration.generic_names.clone();
+
                 let field_patterns = field_patterns
                     .into_iter()
                     .zip(field_types)
                     .map(|(field_pattern, field_type)| {
+                        let field_type = field_type
+                            .substitute_generics(&pattern_generic_names, &pattern_generic_types);
+
                         let pattern = field_pattern.perform_semantic_analysis(ctx, &field_type)?;
 
                         Some(pattern)
                     })
                     .collect_option_all()?;
 
-                MiddlePattern::TupleStruct(specific_id, field_patterns)
+                UnresolvedPattern::TupleStruct(pattern_id, pattern_generic_types, field_patterns)
             }
             (kind, _) => {
                 kind.destructure_unknown(ctx);

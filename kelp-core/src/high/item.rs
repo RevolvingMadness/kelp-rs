@@ -4,7 +4,7 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     high::{
-        data_type::UnresolvedDataType,
+        data_type::DataType,
         environment::r#type::{
             HighTypeDeclarationKind,
             alias::HighAliasDeclaration,
@@ -17,7 +17,7 @@ use crate::{
         },
         use_tree::UseTree,
     },
-    low::{data_type::DataType, item::Item as MiddleItem},
+    low::{data_type::unresolved::UnresolvedDataType, item::Item as MiddleItem},
     span::Span,
     visibility::Visibility,
 };
@@ -29,19 +29,14 @@ pub enum ItemKind {
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
-        parameters: Vec<(Pattern, UnresolvedDataType)>,
-        return_type: UnresolvedDataType,
+        parameters: Vec<(Pattern, DataType)>,
+        return_type: DataType,
         body: BlockExpression,
     },
     MCFNDeclaration(ResourceLocation, BlockExpression),
-    TypeAliasDeclaration(Span, String, Vec<String>, UnresolvedDataType),
-    StructStructDeclaration(
-        Span,
-        String,
-        Vec<String>,
-        HashMap<String, UnresolvedDataType>,
-    ),
-    TupleStructDeclaration(Span, String, Vec<String>, Vec<UnresolvedDataType>),
+    TypeAliasDeclaration(Span, String, Vec<String>, DataType),
+    StructStructDeclaration(Span, String, Vec<String>, HashMap<String, DataType>),
+    TupleStructDeclaration(Span, String, Vec<String>, Vec<DataType>),
     Use(UseTree),
 }
 
@@ -130,14 +125,6 @@ impl Item {
                 for ((pattern, _), data_type) in
                     parameters.into_iter().zip(parameter_types.into_iter())
                 {
-                    let Some(data_type) = data_type else {
-                        resolved_all_parameters = false;
-
-                        pattern.kind.destructure_unknown(ctx);
-
-                        continue;
-                    };
-
                     let Some(resolved_pattern) = pattern.perform_semantic_analysis(ctx, &data_type)
                     else {
                         resolved_all_parameters = false;
@@ -150,7 +137,9 @@ impl Item {
                     }
                 }
 
-                let Some(body) = body.perform_semantic_analysis(ctx) else {
+                let Some((body_span, tail_expression_span, body)) =
+                    body.perform_semantic_analysis(ctx)
+                else {
                     ctx.function_return_types.pop().unwrap();
                     ctx.exit_scope();
 
@@ -160,19 +149,16 @@ impl Item {
                 let return_type = ctx.function_return_types.pop().unwrap();
                 ctx.exit_scope();
 
-                if let Some(return_type) = &return_type
-                    && let (body_span, tail_expression_span, body) = &body
-                    && !body.kind.definitely_diverges()
-                {
+                if !body.kind.definitely_diverges() {
                     body.data_type.assert_equals(
                         ctx,
-                        tail_expression_span.unwrap_or(*body_span),
-                        return_type,
+                        tail_expression_span.unwrap_or(body_span),
+                        &return_type,
                     )?;
                 }
 
                 if resolved_all_parameters {
-                    ctx.update_regular_function(id, resolved_parameters, body.2);
+                    ctx.update_regular_function(id, resolved_parameters, body);
                 } else {
                     return None;
                 }
@@ -186,7 +172,7 @@ impl Item {
                 body.data_type.assert_equals(
                     ctx,
                     tail_expression_span.unwrap_or(body_span),
-                    &DataType::Unit,
+                    &UnresolvedDataType::Unit,
                 )?;
 
                 MiddleItem::MCFNDeclaration(resource_location, body)
@@ -197,7 +183,7 @@ impl Item {
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
                 }
 
-                let alias = alias.resolve_partially(Some(&generic_names), ctx)?;
+                let alias = alias.resolve_partially(Some(&generic_names), ctx);
 
                 ctx.declare_alias(
                     self.visibility,

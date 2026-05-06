@@ -63,7 +63,10 @@ impl EntitySelectorOption {
                 LowEntitySelectorOption::Predicate(inverted, predicate)
             }
             Self::Nbt(inverted, expression) => {
-                let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx);
+                let expression = expression
+                    .kind
+                    .resolve(datapack, ctx)
+                    .as_snbt_macros(datapack, ctx);
 
                 LowEntitySelectorOption::Nbt(inverted, expression)
             }
@@ -84,26 +87,26 @@ impl EntitySelectorOption {
             Self::Nbt(_, expression) => {
                 expression.kind.compile_as_statement(datapack, ctx);
             }
-            Self::X(_)
-            | Self::Y(_)
-            | Self::Z(_)
-            | Self::Distance(_)
-            | Self::DistanceX(_)
-            | Self::DistanceY(_)
-            | Self::DistanceZ(_)
-            | Self::XRotation(_)
-            | Self::YRotation(_)
-            | Self::Scores(_)
-            | Self::Tag(_, _)
-            | Self::Team(_, _)
-            | Self::Name(_, _)
-            | Self::Type(_, _)
-            | Self::Predicate(_, _)
-            | Self::Gamemode(_, _)
-            | Self::Level(_)
-            | Self::Advancements(_)
-            | Self::Limit(_)
-            | Self::Sort(_) => {}
+            Self::X(..)
+            | Self::Y(..)
+            | Self::Z(..)
+            | Self::Distance(..)
+            | Self::DistanceX(..)
+            | Self::DistanceY(..)
+            | Self::DistanceZ(..)
+            | Self::XRotation(..)
+            | Self::YRotation(..)
+            | Self::Scores(..)
+            | Self::Tag(..)
+            | Self::Team(..)
+            | Self::Name(..)
+            | Self::Type(..)
+            | Self::Predicate(..)
+            | Self::Gamemode(..)
+            | Self::Level(..)
+            | Self::Advancements(..)
+            | Self::Limit(..)
+            | Self::Sort(..) => {}
         }
     }
 }

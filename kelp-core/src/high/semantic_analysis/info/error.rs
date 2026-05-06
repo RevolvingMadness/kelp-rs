@@ -1,14 +1,15 @@
 use std::fmt::Display;
 
 use crate::{
-    low::{data_type::DataType, environment::Environment, statement::LoopControlFlowKind},
+    high::environment::HighEnvironment,
+    low::{data_type::unresolved::UnresolvedDataType, statement::LoopControlFlowKind},
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
 };
 
 pub struct SemanticAnalysisErrorDisplay<'a> {
     pub error: &'a SemanticAnalysisError,
-    pub environment: &'a Environment,
+    pub high_environment: &'a HighEnvironment,
 }
 
 impl Display for SemanticAnalysisErrorDisplay<'_> {
@@ -22,9 +23,9 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "Cannot perform: `{}` {} `{}`",
-                    left.display(self.environment),
+                    left.display(self.high_environment),
                     operator,
-                    right.display(self.environment)
+                    right.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotPerformComparisonOperation {
@@ -35,23 +36,23 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "Cannot perform: `{}` {} `{}`",
-                    left.display(self.environment),
+                    left.display(self.high_environment),
                     operator,
-                    right.display(self.environment)
+                    right.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotPerformAugmentedAssignment(data_type) => {
                 write!(
                     f,
                     "Cannot perform augmented assignment on type `{}`",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::MismatchedPatternTypes { expected, actual } => {
                 write!(
                     f,
                     "Expected type `{}` but got `{}`",
-                    expected.display(self.environment),
+                    expected.display(self.high_environment),
                     actual
                 )
             }
@@ -63,7 +64,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "Cannot iterate over type `{}`",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::ExpressionSigilNotAllowed => {
@@ -73,8 +74,8 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "Expected type `{}` but got `{}`",
-                    expected.display(self.environment),
-                    actual.display(self.environment)
+                    expected.display(self.high_environment),
+                    actual.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::InvalidAugmentedAssignmentType(op, target, value) => {
@@ -82,16 +83,16 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     f,
                     "Cannot {}-assign type `{}` to type `{}`",
                     op.name(),
-                    value.display(self.environment),
-                    target.display(self.environment)
+                    value.display(self.high_environment),
+                    target.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotCastType { from, to } => {
                 write!(
                     f,
                     "Cannot cast type `{}` to `{}`",
-                    from.display(self.environment),
-                    to.display(self.environment)
+                    from.display(self.high_environment),
+                    to.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotUseReturnWithCompiletimeResult => {
@@ -104,7 +105,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "The type `{}` cannot be represented as a float",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::UnknownRuntimeStorageType => {
@@ -114,14 +115,14 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "This value is too big to fit in the type `{}`",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::ValueTooSmall(data_type) => {
                 write!(
                     f,
                     "This value is too small to fit in the type `{}`",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop => {
@@ -153,35 +154,35 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "The type `{}` cannot be used in conditions",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::TypeIsNotScoreCompatible(data_type) => {
                 write!(
                     f,
                     "The type `{}` is not score compatible",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::TypeIsNotDataCompatible(data_type) => {
                 write!(
                     f,
                     "The type `{}` is not data compatible",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotBeAssignedToData(data_type) => {
                 write!(
                     f,
                     "The type `{}` cannot be assigned to data storage",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotBeIndexed(data_type) => {
                 write!(
                     f,
                     "The type `{}` cannot be indexed",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::IndexOutOfBounds => write!(f, "Index out of bounds"),
@@ -189,14 +190,14 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "The type `{}` cannot be dereferenced",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotBeReferenced(data_type) => {
                 write!(
                     f,
                     "The type `{}` cannot be referenced",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotBeAssignedTo => {
@@ -206,28 +207,28 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "The type `{}` does not have any fields",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotNegateType(data_type) => {
                 write!(
                     f,
                     "The type `{}` cannot be negated",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::CannotInvertType(data_type) => {
                 write!(
                     f,
                     "The type `{}` cannot be inverted",
-                    data_type.display(self.environment)
+                    data_type.display(self.high_environment)
                 )
             }
             SemanticAnalysisError::TypeDoesntHaveField { data_type, field } => {
                 write!(
                     f,
                     "The type `{}` does not have a field named `{}`",
-                    data_type.display(self.environment),
+                    data_type.display(self.high_environment),
                     field
                 )
             }
@@ -333,37 +334,37 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
     CannotPerformArithmeticOperation {
-        left: DataType,
+        left: UnresolvedDataType,
         operator: ArithmeticOperator,
-        right: DataType,
+        right: UnresolvedDataType,
     },
     CannotPerformComparisonOperation {
-        left: DataType,
+        left: UnresolvedDataType,
         operator: ComparisonOperator,
-        right: DataType,
+        right: UnresolvedDataType,
     },
-    CannotPerformAugmentedAssignment(DataType),
+    CannotPerformAugmentedAssignment(UnresolvedDataType),
     MismatchedPatternTypes {
-        expected: DataType,
+        expected: UnresolvedDataType,
         actual: Box<PatternType>,
     },
     UnderscoreExpression,
-    CannotIterateType(DataType),
+    CannotIterateType(UnresolvedDataType),
     MismatchedTypes {
-        expected: DataType,
-        actual: DataType,
+        expected: UnresolvedDataType,
+        actual: UnresolvedDataType,
     },
-    InvalidAugmentedAssignmentType(ArithmeticOperator, DataType, DataType),
+    InvalidAugmentedAssignmentType(ArithmeticOperator, UnresolvedDataType, UnresolvedDataType),
     CannotCastType {
-        from: DataType,
-        to: DataType,
+        from: UnresolvedDataType,
+        to: UnresolvedDataType,
     },
     CannotUseReturnWithCompiletimeResult,
     ExpressionSigilNotAllowed,
-    CannotBeRepresentedAsFloat(DataType),
+    CannotBeRepresentedAsFloat(UnresolvedDataType),
     UnknownRuntimeStorageType,
-    ValueTooLarge(DataType),
-    ValueTooSmall(DataType),
+    ValueTooLarge(UnresolvedDataType),
+    ValueTooSmall(UnresolvedDataType),
     CompiletimeValueMutationInRuntimeLoop,
     MissingKey(String),
     UnexpectedKey(String),
@@ -371,20 +372,20 @@ pub enum SemanticAnalysisError {
     TypeAlreadyDeclared(String),
     ValueIsAlreadyDefined(String),
     PatternIsNotIrrefutable,
-    TypeIsNotCondition(DataType),
-    TypeIsNotScoreCompatible(DataType),
-    TypeIsNotDataCompatible(DataType),
-    CannotBeAssignedToData(DataType),
-    CannotBeIndexed(DataType),
+    TypeIsNotCondition(UnresolvedDataType),
+    TypeIsNotScoreCompatible(UnresolvedDataType),
+    TypeIsNotDataCompatible(UnresolvedDataType),
+    CannotBeAssignedToData(UnresolvedDataType),
+    CannotBeIndexed(UnresolvedDataType),
     IndexOutOfBounds,
-    CannotBeDereferenced(DataType),
-    CannotBeReferenced(DataType),
+    CannotBeDereferenced(UnresolvedDataType),
+    CannotBeReferenced(UnresolvedDataType),
     CannotBeAssignedTo,
-    TypeDoesntHaveFields(DataType),
-    CannotNegateType(DataType),
-    CannotInvertType(DataType),
+    TypeDoesntHaveFields(UnresolvedDataType),
+    CannotNegateType(UnresolvedDataType),
+    CannotInvertType(UnresolvedDataType),
     TypeDoesntHaveField {
-        data_type: DataType,
+        data_type: UnresolvedDataType,
         field: String,
     },
     InvalidParameterCount {
@@ -430,11 +431,11 @@ impl SemanticAnalysisError {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        environment: &'a Environment,
+        high_environment: &'a HighEnvironment,
     ) -> SemanticAnalysisErrorDisplay<'a> {
         SemanticAnalysisErrorDisplay {
             error: self,
-            environment,
+            high_environment,
         }
     }
 }

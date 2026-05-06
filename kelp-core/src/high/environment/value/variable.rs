@@ -1,4 +1,4 @@
-use crate::low::data_type::DataType;
+use crate::low::data_type::unresolved::UnresolvedDataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighVariableId(pub usize);
@@ -6,5 +6,5 @@ pub struct HighVariableId(pub usize);
 #[derive(Debug, Clone)]
 pub struct HighVariableDeclaration {
     pub name: String,
-    pub data_type: Option<DataType>,
+    pub data_type: UnresolvedDataType,
 }

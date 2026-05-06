@@ -367,20 +367,6 @@ impl GeneratedPlayerScore {
                     ScoreOperationOperator::Divide,
                 );
             }
-            ArithmeticOperator::Swap => {
-                let right_score = value.as_score(datapack, ctx, false);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self.score,
-                            ScoreOperationOperator::Swap,
-                            right_score.score,
-                        ),
-                    )),
-                );
-            }
         }
     }
 }

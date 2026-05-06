@@ -1,14 +1,17 @@
 use crate::{
     builtin_data_type::BuiltinDataType,
     high::{
-        data_type::GenericResolver,
         environment::r#type::{
-            alias::HighAliasDeclaration, module::HighModuleDeclaration,
-            r#struct::HighStructDeclaration,
+            alias::HighAliasDeclaration,
+            module::HighModuleDeclaration,
+            r#struct::{
+                HighStructDeclaration, HighStructId, regular::HighStructStructId,
+                tuple::HighTupleStructId,
+            },
         },
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    low::data_type::DataType,
+    low::data_type::unresolved::UnresolvedDataType,
     span::Span,
     visibility::Visibility,
 };
@@ -19,6 +22,24 @@ pub mod r#struct;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighTypeId(pub usize);
+
+impl From<HighStructId> for HighTypeId {
+    fn from(value: HighStructId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighStructStructId> for HighTypeId {
+    fn from(value: HighStructStructId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighTupleStructId> for HighTypeId {
+    fn from(value: HighTupleStructId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum HighTypeDeclarationKind {
@@ -44,10 +65,10 @@ impl HighTypeDeclarationKind {
     #[must_use]
     pub const fn generic_count(&self) -> Option<usize> {
         Some(match self {
-            Self::Module(_) => return None,
+            Self::Module(..) => return None,
             Self::Struct(declaration) => declaration.generic_count(),
             Self::Alias(declaration) => declaration.generic_names.len(),
-            Self::Generic(_) => 0,
+            Self::Generic(..) => 0,
             Self::Builtin(builtin_type) => builtin_type.generic_count(),
         })
     }
@@ -55,8 +76,8 @@ impl HighTypeDeclarationKind {
 
 #[derive(Debug, Clone)]
 pub struct HighTypeDeclaration {
-    pub visibility: Visibility,
     pub module_path: Vec<String>,
+    pub visibility: Visibility,
     pub kind: HighTypeDeclarationKind,
 }
 
@@ -67,89 +88,54 @@ impl HighTypeDeclaration {
         (self.visibility, self.module_path, self.kind)
     }
 
-    pub fn resolve_fully(
+    pub fn resolve_partially(
         self,
         ctx: &mut SemanticAnalysisContext,
         id: HighTypeId,
         generic_spans: Vec<Span>,
-        generic_types: Vec<DataType>,
+        generic_types: Vec<UnresolvedDataType>,
         path_span: Span,
-    ) -> Option<DataType> {
+    ) -> UnresolvedDataType {
         match self.kind {
-            HighTypeDeclarationKind::Module(_) => ctx.add_error(
+            HighTypeDeclarationKind::Module(..) => ctx.add_error_type(
                 path_span,
                 SemanticAnalysisError::NotAType(self.kind.name().to_owned()),
             ),
             HighTypeDeclarationKind::Struct(declaration) => {
-                if let Some(id) = ctx.get_monomorphized_struct_id(id, &generic_types) {
-                    return Some(DataType::Struct(id));
+                let id = HighStructId(id.0);
+
+                let expected_generics = declaration.generic_count();
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics_type(
+                        path_span,
+                        declaration.name(),
+                        expected_generics,
+                        actual_generics,
+                    );
                 }
 
-                let id = match declaration {
-                    HighStructDeclaration::Struct(declaration) => {
-                        let resolver = GenericResolver::create_semantic_analysis(
-                            ctx,
-                            &declaration.name,
-                            path_span,
-                            &declaration.generic_names,
-                            &generic_types,
-                        )?;
-
-                        let field_types = declaration
-                            .field_types
-                            .into_iter()
-                            .map(|(field_name, field_type)| {
-                                Some((field_name, field_type?.resolve_fully(&resolver)))
-                            })
-                            .collect::<Option<_>>()?;
-
-                        ctx.declare_monomorphized_struct_struct(
-                            self.visibility,
-                            id,
-                            declaration.name,
-                            generic_types,
-                            field_types,
-                        )
-                    }
-                    HighStructDeclaration::Tuple(declaration) => {
-                        let resolver = GenericResolver::create_semantic_analysis(
-                            ctx,
-                            &declaration.name,
-                            path_span,
-                            &declaration.generic_names,
-                            &generic_types,
-                        )?;
-
-                        let field_types = declaration
-                            .field_types
-                            .into_iter()
-                            .map(|field_type| Some(field_type?.resolve_fully(&resolver)))
-                            .collect::<Option<_>>()?;
-
-                        ctx.declare_monomorphized_tuple_struct(
-                            self.visibility,
-                            id,
-                            declaration.name,
-                            generic_types,
-                            field_types,
-                        )
-                    }
-                };
-
-                Some(DataType::Struct(id))
+                UnresolvedDataType::Struct(id, generic_types)
             }
             HighTypeDeclarationKind::Alias(declaration) => {
-                let resolver = GenericResolver::create_semantic_analysis(
-                    ctx,
-                    &declaration.name,
-                    path_span,
-                    &declaration.generic_names,
-                    &generic_types,
-                )?;
+                let expected_generics = declaration.generic_names.len();
+                let actual_generics = generic_types.len();
 
-                Some(declaration.alias.resolve_fully(&resolver))
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics_type(
+                        path_span,
+                        &declaration.name,
+                        expected_generics,
+                        actual_generics,
+                    );
+                }
+
+                declaration
+                    .alias
+                    .substitute_generics(&declaration.generic_names, &generic_types)
             }
-            HighTypeDeclarationKind::Generic(name) => Some(DataType::Generic(name)),
+            HighTypeDeclarationKind::Generic(name) => UnresolvedDataType::Generic(name),
             HighTypeDeclarationKind::Builtin(data_type) => data_type
                 .to_data_type_semantic_analysis(ctx, path_span, generic_spans, generic_types),
         }

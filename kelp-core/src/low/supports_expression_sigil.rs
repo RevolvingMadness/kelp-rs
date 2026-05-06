@@ -53,7 +53,7 @@ macro_rules! impl_supports_expression_sigil {
 
             pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
                 match self {
-                    Self::Regular(_) => {}
+                    Self::Regular(..) => {}
                     Self::Sigil(expression) => {
                         expression.kind.compile_as_statement(datapack, ctx);
                     }

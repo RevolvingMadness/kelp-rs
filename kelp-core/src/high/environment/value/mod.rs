@@ -1,22 +1,15 @@
 use crate::{
     high::{
-        data_type::GenericResolver,
         environment::value::{
             function::{
-                builtin::{HighBuiltinFunctionDeclaration, HighBuiltinFunctionId},
-                regular::{HighRegularFunctionDeclaration, HighRegularFunctionId},
+                HighFunctionDeclaration, HighFunctionId, builtin::HighBuiltinFunctionId,
+                regular::HighRegularFunctionId,
             },
             variable::{HighVariableDeclaration, HighVariableId},
         },
         semantic_analysis::SemanticAnalysisContext,
     },
-    low::{
-        data_type::DataType,
-        environment::value::{
-            ValueId,
-            function::{builtin::BuiltinFunctionDeclaration, regular::RegularFunctionDeclaration},
-        },
-    },
+    low::data_type::unresolved::UnresolvedDataType,
     span::Span,
     visibility::Visibility,
 };
@@ -33,8 +26,20 @@ impl From<HighVariableId> for HighValueId {
     }
 }
 
+impl From<HighFunctionId> for HighValueId {
+    fn from(value: HighFunctionId) -> Self {
+        Self(value.0)
+    }
+}
+
 impl From<HighRegularFunctionId> for HighValueId {
     fn from(value: HighRegularFunctionId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighBuiltinFunctionId> for HighValueId {
+    fn from(value: HighBuiltinFunctionId) -> Self {
         Self(value.0)
     }
 }
@@ -42,8 +47,7 @@ impl From<HighRegularFunctionId> for HighValueId {
 #[derive(Debug, Clone)]
 pub enum HighValueDeclarationKind {
     Variable(HighVariableDeclaration),
-    Function(HighRegularFunctionDeclaration),
-    BuiltinFunction(HighBuiltinFunctionDeclaration),
+    Function(HighFunctionDeclaration),
 }
 
 impl HighValueDeclarationKind {
@@ -51,8 +55,7 @@ impl HighValueDeclarationKind {
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
-            Self::Function(declaration) => &declaration.name,
-            Self::BuiltinFunction(declaration) => &declaration.name,
+            Self::Function(declaration) => declaration.name(),
         }
     }
 }
@@ -69,123 +72,64 @@ impl HighValueDeclaration {
         self,
         ctx: &mut SemanticAnalysisContext,
         original_id: HighValueId,
-        generic_types: Vec<DataType>,
+        generic_types: Vec<UnresolvedDataType>,
         path_span: Span,
-    ) -> Option<(ValueId, DataType)> {
+    ) -> Option<(HighValueId, UnresolvedDataType)> {
         match self.kind {
             HighValueDeclarationKind::Variable(declaration) => {
-                let data_type = declaration.data_type?;
+                let expected_generics = 0;
+                let actual_generics = generic_types.len();
 
-                if let Some(resolved_id) = ctx.get_resolved_variable(original_id) {
-                    return Some((resolved_id.into(), data_type));
+                if actual_generics != expected_generics {
+                    let type_name = &declaration
+                        .data_type
+                        .display(&ctx.high_environment)
+                        .to_string();
+
+                    return ctx.add_invalid_generics(
+                        path_span,
+                        type_name,
+                        expected_generics,
+                        actual_generics,
+                    );
                 }
 
-                let resolved_id = ctx.environment.declare_variable(
-                    self.module_path,
-                    self.visibility,
-                    declaration.name,
-                    data_type.clone(),
-                );
-
-                ctx.declare_resolved_variable(original_id, resolved_id);
-
-                Some((resolved_id.into(), data_type))
+                Some((original_id, declaration.data_type))
             }
             HighValueDeclarationKind::Function(declaration) => {
-                let original_id = HighRegularFunctionId(original_id.0);
+                let id = HighRegularFunctionId(original_id.0);
 
-                if let Some(id) = ctx.get_monomorphized_function_id(original_id, &generic_types) {
-                    return Some((id.into(), DataType::Function(id)));
+                let expected_generics = declaration.generic_count();
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics(
+                        path_span,
+                        declaration.name(),
+                        expected_generics,
+                        actual_generics,
+                    );
                 }
 
-                let resolver = GenericResolver::create_semantic_analysis(
-                    ctx,
-                    &declaration.name,
-                    path_span,
-                    &declaration.generic_names,
-                    &generic_types,
-                )?;
-
-                let parameters = declaration
-                    .parameters
-                    .into_iter()
-                    .map(|(pattern, data_type)| {
-                        Some((pattern?, data_type?.resolve_fully(&resolver)))
-                    })
-                    .collect::<Option<_>>()?;
-
-                let return_type = declaration.return_type?.resolve_fully(&resolver);
-
-                let body = declaration.body?;
-
-                let monomorphized_id = ctx.declare_monomorphized_function(
-                    original_id,
-                    self.visibility,
-                    RegularFunctionDeclaration {
-                        module_path: self.module_path,
-                        name: declaration.name,
-                        generic_types,
-                        parameters,
-                        return_type,
-                        body,
-                    },
-                );
-
                 Some((
-                    monomorphized_id.into(),
-                    DataType::Function(monomorphized_id),
-                ))
-            }
-            HighValueDeclarationKind::BuiltinFunction(declaration) => {
-                let original_id = HighBuiltinFunctionId(original_id.0);
-
-                if let Some(id) = ctx.get_monomorphized_function_id(original_id, &generic_types) {
-                    return Some((id.into(), DataType::Function(id)));
-                }
-
-                let resolver = GenericResolver::create_semantic_analysis(
-                    ctx,
-                    &declaration.name,
-                    path_span,
-                    &declaration.generic_names,
-                    &generic_types,
-                )?;
-
-                let parameters = declaration
-                    .parameters
-                    .into_iter()
-                    .map(|data_type| data_type.resolve_fully(&resolver))
-                    .collect();
-
-                let return_type = declaration.return_type.resolve_fully(&resolver);
-
-                let monomorphized_id = ctx.declare_monomorphized_function(
                     original_id,
-                    self.visibility,
-                    BuiltinFunctionDeclaration {
-                        module_path: self.module_path,
-                        name: declaration.name,
-                        generic_types,
-                        parameters,
-                        return_type,
-                        kind: declaration.kind,
-                    },
-                );
-
-                Some((
-                    monomorphized_id.into(),
-                    DataType::Function(monomorphized_id),
+                    UnresolvedDataType::Function(id.into(), generic_types),
                 ))
             }
         }
     }
 
     #[must_use]
-    pub const fn data_type(&self) -> Option<Option<&DataType>> {
+    pub fn data_type(
+        &self,
+        id: HighValueId,
+        generic_types: &[UnresolvedDataType],
+    ) -> UnresolvedDataType {
         match &self.kind {
-            HighValueDeclarationKind::Variable(declaration) => Some(declaration.data_type.as_ref()),
-            HighValueDeclarationKind::Function(..)
-            | HighValueDeclarationKind::BuiltinFunction(..) => None,
+            HighValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
+            HighValueDeclarationKind::Function(..) => {
+                UnresolvedDataType::Function(HighFunctionId(id.0), generic_types.to_vec())
+            }
         }
     }
 }

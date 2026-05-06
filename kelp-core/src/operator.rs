@@ -15,7 +15,6 @@ pub enum ArithmeticOperator {
     Or,
     LeftShift,
     RightShift,
-    Swap,
 }
 
 impl Display for ArithmeticOperator {
@@ -30,7 +29,6 @@ impl Display for ArithmeticOperator {
             Self::Or => "|",
             Self::LeftShift => "<<",
             Self::RightShift => ">>",
-            Self::Swap => "><",
         })
     }
 }
@@ -48,7 +46,6 @@ impl ArithmeticOperator {
             Self::Or => "or",
             Self::LeftShift => "left-shift",
             Self::RightShift => "right-shift",
-            Self::Swap => "swap",
         }
     }
 
@@ -67,7 +64,6 @@ impl ArithmeticOperator {
             Self::Multiply => Some(ScoreOperationOperator::Multiply),
             Self::FloorDivide => Some(ScoreOperationOperator::Divide),
             Self::Modulo => Some(ScoreOperationOperator::Modulo),
-            Self::Swap => Some(ScoreOperationOperator::Swap),
             _ => None,
         }
     }

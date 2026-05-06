@@ -1,4 +1,4 @@
-use kelp_core::{high::data_type::UnresolvedDataType, span::Span};
+use kelp_core::{high::data_type::DataType, span::Span};
 
 use crate::{
     cst::{CSTGenericDataTypes, CSTGenericNames},
@@ -89,7 +89,7 @@ pub fn try_parse_generic_data_types(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_generic_data_types(
     node: CSTGenericDataTypes,
-) -> Option<(Vec<Span>, Vec<UnresolvedDataType>)> {
+) -> Option<(Vec<Span>, Vec<DataType>)> {
     Some(
         node.generics()
             .filter_map(|data_type| {

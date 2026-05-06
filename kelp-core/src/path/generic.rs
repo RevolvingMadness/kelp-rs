@@ -1,11 +1,9 @@
 use std::fmt::{Display, Write};
 
 use crate::{
-    high::{
-        data_type::{GenericResolver, UnresolvedDataType},
-        semantic_analysis::SemanticAnalysisContext,
-    },
-    low::data_type::DataType,
+    datapack::Datapack,
+    high::{data_type::DataType, semantic_analysis::SemanticAnalysisContext},
+    low::data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
     span::Span,
 };
 
@@ -39,35 +37,13 @@ impl<T: Display> Display for GenericPathSegment<T> {
     }
 }
 
-impl GenericPathSegment<DataType> {
-    #[must_use]
-    pub fn resolve_fully(self, resolver: &GenericResolver) -> Option<Self> {
-        let generic_types = self
-            .generic_types
-            .into_iter()
-            .map(|data_type| data_type.resolve_fully(resolver))
-            .collect();
-
-        Some(Self {
-            name: self.name,
-            name_span: self.name_span,
-            generic_spans: self.generic_spans,
-            generic_types,
-        })
-    }
-}
-
 impl GenericPathSegment<UnresolvedDataType> {
     #[must_use]
-    pub fn resolve_partially(
-        self,
-        context_generic_names: Option<&[String]>,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> Option<GenericPathSegment<DataType>> {
+    pub fn resolve(self, datapack: &mut Datapack) -> Option<GenericPathSegment<ResolvedDataType>> {
         let generic_types = self
             .generic_types
             .into_iter()
-            .map(|data_type| data_type.resolve_partially(context_generic_names, ctx))
+            .map(|data_type| data_type.resolve(datapack))
             .collect::<Option<_>>()?;
 
         Some(GenericPathSegment {
@@ -76,6 +52,28 @@ impl GenericPathSegment<UnresolvedDataType> {
             generic_spans: self.generic_spans,
             generic_types,
         })
+    }
+}
+
+impl GenericPathSegment<DataType> {
+    #[must_use]
+    pub fn resolve_partially(
+        self,
+        context_generic_names: Option<&[String]>,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> GenericPathSegment<UnresolvedDataType> {
+        let generic_types = self
+            .generic_types
+            .into_iter()
+            .map(|data_type| data_type.resolve_partially(context_generic_names, ctx))
+            .collect();
+
+        GenericPathSegment {
+            name: self.name,
+            name_span: self.name_span,
+            generic_spans: self.generic_spans,
+            generic_types,
+        }
     }
 }
 
@@ -99,46 +97,39 @@ impl<T: Display> Display for GenericPath<T> {
     }
 }
 
-impl GenericPath<DataType> {
-    #[must_use]
-    pub fn resolve_fully(self, resolver: &GenericResolver) -> Option<Self> {
-        let segments = self
-            .segments
-            .into_iter()
-            .map(|segment| segment.resolve_fully(resolver))
-            .collect::<Option<_>>()?;
-
-        Some(Self {
-            span: self.span,
-            segments,
-        })
-    }
-}
-
 impl GenericPath<UnresolvedDataType> {
     #[must_use]
-    pub fn resolve_fully(self, ctx: &mut SemanticAnalysisContext) -> Option<GenericPath<DataType>> {
-        let partially_resolved = self.resolve_partially(None, ctx)?;
-
-        partially_resolved.resolve_fully(&GenericResolver::empty())
-    }
-
-    #[must_use]
-    pub fn resolve_partially(
-        self,
-        context_generic_names: Option<&[String]>,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> Option<GenericPath<DataType>> {
+    pub fn resolve(self, datapack: &mut Datapack) -> Option<GenericPath<ResolvedDataType>> {
         let segments = self
             .segments
             .into_iter()
-            .map(|segment| segment.resolve_partially(context_generic_names, ctx))
+            .map(|segment| segment.resolve(datapack))
             .collect::<Option<_>>()?;
 
         Some(GenericPath {
             span: self.span,
             segments,
         })
+    }
+}
+
+impl GenericPath<DataType> {
+    #[must_use]
+    pub fn resolve_partially(
+        self,
+        context_generic_names: Option<&[String]>,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> GenericPath<UnresolvedDataType> {
+        let segments = self
+            .segments
+            .into_iter()
+            .map(|segment| segment.resolve_partially(context_generic_names, ctx))
+            .collect();
+
+        GenericPath {
+            span: self.span,
+            segments,
+        }
     }
 
     #[must_use]

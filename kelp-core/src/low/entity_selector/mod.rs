@@ -36,7 +36,7 @@ impl EntitySelector {
                     option.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::Name(_) => {}
+            Self::Name(..) => {}
         }
     }
 }

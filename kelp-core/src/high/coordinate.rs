@@ -26,7 +26,7 @@ impl Display for WorldCoordinate {
 
                 Ok(())
             }
-            Self::Absolute(_) => f.write_str("..."),
+            Self::Absolute(..) => f.write_str("..."),
         }
     }
 }

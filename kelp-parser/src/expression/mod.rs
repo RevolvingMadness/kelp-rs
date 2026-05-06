@@ -67,7 +67,6 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
         (Some('|'), Some('='), _) => Some((2, SyntaxKind::PipeEqual)),
         (Some('<'), Some('<'), Some('=')) => Some((3, SyntaxKind::LeftArrowLeftArrowEqual)),
         (Some('>'), Some('>'), Some('=')) => Some((3, SyntaxKind::RightArrowRightArrowEqual)),
-        (Some('>'), Some('<'), _) => Some((2, SyntaxKind::RightArrowLeftArrow)),
         (Some('='), c, _) if c != Some('=') => Some((1, SyntaxKind::Equal)),
         _ => None,
     };
@@ -684,7 +683,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             let state = parser.save_state();
             parser.skip_whitespace();
 
-            if parser.try_bump_char('{') {
+            if parser.peek_char() == Some('{') {
                 parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
                 parser.start_node_at(checkpoint, SyntaxKind::StructExpression);
 

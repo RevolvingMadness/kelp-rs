@@ -1,5 +1,8 @@
 use kelp_core::{
-    high::{expression::{Expression, ExpressionKind}, semantic_analysis::SemanticAnalysisContext},
+    high::{
+        expression::{Expression, ExpressionKind},
+        semantic_analysis::SemanticAnalysisContext,
+    },
     operator::ArithmeticOperator,
 };
 
@@ -31,7 +34,6 @@ pub fn lower_assignment_expression(
         SyntaxKind::PipeEqual => Some(ArithmeticOperator::Or),
         SyntaxKind::LeftArrowLeftArrowEqual => Some(ArithmeticOperator::LeftShift),
         SyntaxKind::RightArrowRightArrowEqual => Some(ArithmeticOperator::RightShift),
-        SyntaxKind::RightArrowLeftArrow => Some(ArithmeticOperator::Swap),
         _ => return None,
     };
 

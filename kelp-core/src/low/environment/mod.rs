@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     low::{
-        data_type::DataType,
+        data_type::resolved::ResolvedDataType,
         environment::{
             r#type::{
                 TypeDeclaration, TypeDeclarationKind,
@@ -21,7 +21,7 @@ use crate::{
             },
         },
         expression::unresolved::UnresolvedExpression,
-        pattern::Pattern,
+        pattern::UnresolvedPattern,
     },
     visibility::Visibility,
 };
@@ -78,10 +78,10 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_types: Vec<DataType>,
-        field_types: HashMap<String, DataType>,
-    ) -> StructId {
-        self.declare_struct(
+        generic_types: Vec<ResolvedDataType>,
+        field_types: HashMap<String, ResolvedDataType>,
+    ) -> StructStructId {
+        let id = self.declare_struct(
             module_path,
             visibility,
             StructDeclaration::Struct(StructStructDeclaration {
@@ -89,7 +89,9 @@ impl Environment {
                 generic_types,
                 field_types,
             }),
-        )
+        );
+
+        StructStructId(id.0)
     }
 
     #[inline]
@@ -99,10 +101,10 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_types: Vec<DataType>,
-        field_types: Vec<DataType>,
-    ) -> StructId {
-        self.declare_struct(
+        generic_types: Vec<ResolvedDataType>,
+        field_types: Vec<ResolvedDataType>,
+    ) -> TupleStructId {
+        let id = self.declare_struct(
             module_path,
             visibility,
             StructDeclaration::Tuple(TupleStructDeclaration {
@@ -110,52 +112,51 @@ impl Environment {
                 generic_types,
                 field_types,
             }),
-        )
+        );
+
+        TupleStructId(id.0)
     }
 
     #[must_use]
-    pub fn get_struct(&self, id: StructId) -> (Visibility, &[String], &StructDeclaration) {
-        let (visibility, module_path, TypeDeclarationKind::Struct(declaration)) =
-            self.types[id.0].as_tuple()
+    pub fn get_struct(&self, id: StructId) -> (&[String], Visibility, &StructDeclaration) {
+        let TypeDeclaration {
+            visibility,
+            module_path,
+            kind: TypeDeclarationKind::Struct(declaration),
+        } = &self.types[id.0]
         else {
             unreachable!();
         };
 
-        (visibility, module_path, declaration)
+        (module_path, *visibility, declaration)
     }
 
     #[must_use]
     pub fn get_struct_struct(
         &self,
         id: StructStructId,
-    ) -> (Visibility, &[String], &StructStructDeclaration) {
-        let (
-            visibility,
-            module_path,
-            TypeDeclarationKind::Struct(StructDeclaration::Struct(declaration)),
-        ) = self.types[id.0].as_tuple()
+    ) -> (&[String], Visibility, &StructStructDeclaration) {
+        let (module_path, visibility, StructDeclaration::Struct(declaration)) =
+            self.get_struct(id.into())
         else {
             unreachable!();
         };
 
-        (visibility, module_path, declaration)
+        (module_path, visibility, declaration)
     }
 
     #[must_use]
     pub fn get_tuple_struct(
         &self,
         id: TupleStructId,
-    ) -> (Visibility, &[String], &TupleStructDeclaration) {
-        let (
-            visibility,
-            module_path,
-            TypeDeclarationKind::Struct(StructDeclaration::Tuple(declaration)),
-        ) = self.types[id.0].as_tuple()
+    ) -> (&[String], Visibility, &TupleStructDeclaration) {
+        let (module_path, visibility, StructDeclaration::Tuple(declaration)) =
+            self.get_struct(id.into())
         else {
             unreachable!();
         };
 
-        (visibility, module_path, declaration)
+        (module_path, visibility, declaration)
     }
 
     #[must_use]
@@ -179,7 +180,7 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        data_type: DataType,
+        data_type: ResolvedDataType,
     ) -> VariableId {
         let id = VariableId(self.values.len());
 
@@ -201,7 +202,8 @@ impl Environment {
         let id = FunctionId(self.values.len());
 
         self.values.push(
-            ValueDeclarationKind::Function(declaration).with_visibility(module_path, visibility),
+            ValueDeclarationKind::Function(Box::new(declaration))
+                .with_visibility(module_path, visibility),
         );
 
         id
@@ -211,7 +213,7 @@ impl Environment {
     pub fn get_function<I: Into<FunctionId>>(
         &self,
         id: I,
-    ) -> (Visibility, &[String], &FunctionDeclaration) {
+    ) -> (&[String], Visibility, &FunctionDeclaration) {
         let id = id.into();
 
         let ValueDeclaration {
@@ -223,28 +225,30 @@ impl Environment {
             unreachable!();
         };
 
-        (*visibility, module_path, declaration)
+        (module_path, *visibility, declaration)
     }
 
     pub fn update_regular_function(
         &mut self,
         id: RegularFunctionId,
-        new_parameters: Vec<(Pattern, DataType)>,
+        new_parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
         new_body: UnresolvedExpression,
     ) {
         let ValueDeclaration {
-            kind:
-                ValueDeclarationKind::Function(FunctionDeclaration::Regular(
-                    RegularFunctionDeclaration {
-                        parameters: old_parameters,
-                        body: old_body,
-                        ..
-                    },
-                )),
+            kind: ValueDeclarationKind::Function(declaration),
             ..
         } = &mut self.values[id.0]
         else {
-            unreachable!("Value is not a function");
+            unreachable!();
+        };
+
+        let FunctionDeclaration::Regular(RegularFunctionDeclaration {
+            parameters: old_parameters,
+            body: old_body,
+            ..
+        }) = &mut **declaration
+        else {
+            unreachable!();
         };
 
         *old_parameters = new_parameters;

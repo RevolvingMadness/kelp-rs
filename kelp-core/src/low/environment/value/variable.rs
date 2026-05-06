@@ -1,4 +1,4 @@
-use crate::low::data_type::DataType;
+use crate::low::data_type::resolved::ResolvedDataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VariableId(pub usize);
@@ -6,5 +6,5 @@ pub struct VariableId(pub usize);
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration {
     pub name: String,
-    pub data_type: DataType,
+    pub data_type: ResolvedDataType,
 }

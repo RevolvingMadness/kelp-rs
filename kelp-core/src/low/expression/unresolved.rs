@@ -21,15 +21,16 @@ use crate::{
     compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedDataTarget,
     datapack::Datapack,
+    high::environment::{
+        r#type::r#struct::{regular::HighStructStructId, tuple::HighTupleStructId},
+        value::HighValueId,
+    },
     low::{
         coordinate::Coordinates,
         data::DataTarget,
-        data_type::DataType,
+        data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
         entity_selector::EntitySelector,
-        environment::{
-            r#type::r#struct::{StructStructId, TupleStructId},
-            value::{ValueDeclarationKind, ValueId, function::FunctionId, variable::VariableId},
-        },
+        environment::value::{ValueDeclarationKind, function::FunctionId, variable::VariableId},
         expression::{
             command::{
                 Command as MiddleCommand,
@@ -38,13 +39,13 @@ use crate::{
             resolved::ResolvedExpression,
         },
         nbt_path::NbtPath,
-        pattern::Pattern,
+        pattern::UnresolvedPattern,
+        place::Place,
         player_score::PlayerScore,
-        statement::{EarlyReturnType, Statement},
+        statement::{EarlyReturnType, UnresolvedStatement},
         supports_expression_sigil::SupportsExpressionSigil,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
-    place::Place,
     runtime_storage::RuntimeStorageType,
 };
 
@@ -236,7 +237,7 @@ fn iterate_string(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     is_reversed: bool,
-    pattern: Pattern,
+    pattern: UnresolvedPattern,
     iterable: ResolvedExpression,
     body: UnresolvedExpression,
 ) {
@@ -255,7 +256,7 @@ fn iterate_string(
     pattern.destructure(
         datapack,
         &mut for_body_ctx,
-        DataType::String,
+        ResolvedDataType::String,
         ResolvedExpression::Data(Box::new((
             unique_data_target_2.clone(),
             unique_path_2.clone(),
@@ -333,8 +334,8 @@ fn iterate_data(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     is_reversed: bool,
-    pattern: Pattern,
-    iterable_type: DataType,
+    pattern: UnresolvedPattern,
+    iterable_type: ResolvedDataType,
     iterable: ResolvedExpression,
     body: UnresolvedExpression,
 ) {
@@ -440,13 +441,13 @@ pub enum UnresolvedExpressionKind {
     Assignment(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
     List(Vec<UnresolvedExpression>),
     Compound(HashMap<SNBTString, UnresolvedExpression>),
-    PlayerScore(PlayerScore),
+    Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<MiddleExecuteIfSubcommand>),
     Command(Box<MiddleCommand>),
     Index(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
     FieldAccess(Box<UnresolvedExpression>, SNBTString),
-    AsCast(Box<UnresolvedExpression>, DataType),
+    AsCast(Box<UnresolvedExpression>, UnresolvedDataType),
     ToCast(
         Option<NotNan<f32>>,
         Box<UnresolvedExpression>,
@@ -454,20 +455,28 @@ pub enum UnresolvedExpressionKind {
     ),
     Tuple(Vec<UnresolvedExpression>),
     Call(Box<UnresolvedExpression>, Vec<UnresolvedExpression>),
-    Value(ValueId),
-    StructStruct(StructStructId, HashMap<SNBTString, UnresolvedExpression>),
-    TupleStruct(TupleStructId, Vec<UnresolvedExpression>),
+    Value(HighValueId, Vec<UnresolvedDataType>),
+    StructStruct(
+        HighStructStructId,
+        Vec<UnresolvedDataType>,
+        HashMap<SNBTString, UnresolvedExpression>,
+    ),
+    TupleStruct(
+        HighTupleStructId,
+        Vec<UnresolvedDataType>,
+        Vec<UnresolvedExpression>,
+    ),
     If(
         Box<UnresolvedExpression>,
         Box<UnresolvedExpression>,
         Option<Box<UnresolvedExpression>>,
     ),
-    Block(Vec<Statement>, Option<Box<UnresolvedExpression>>),
+    Block(Vec<UnresolvedStatement>, Option<Box<UnresolvedExpression>>),
     WhileLoop(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
     Loop(Box<UnresolvedExpression>),
     ForLoop(
         bool,
-        Box<Pattern>,
+        Box<UnresolvedPattern>,
         Box<UnresolvedExpression>,
         Box<UnresolvedExpression>,
     ),
@@ -482,7 +491,7 @@ pub enum UnresolvedExpressionKind {
 
 impl UnresolvedExpressionKind {
     #[must_use]
-    pub const fn with(self, data_type: DataType) -> UnresolvedExpression {
+    pub const fn with(self, data_type: UnresolvedDataType) -> UnresolvedExpression {
         UnresolvedExpression {
             kind: self,
             data_type,
@@ -490,9 +499,24 @@ impl UnresolvedExpressionKind {
     }
 
     #[must_use]
+    pub const fn can_be_assigned_to(&self) -> bool {
+        matches!(
+            self,
+            Self::Score(..)
+                | Self::Data(..)
+                | Self::Tuple(..)
+                | Self::Value(..)
+                | Self::Index(..)
+                | Self::FieldAccess(..)
+                | Self::Unary(UnaryOperator::Dereference, _)
+                | Self::Underscore
+        )
+    }
+
+    #[must_use]
     pub fn definitely_diverges(&self) -> bool {
         match self {
-            Self::Return(_) => true,
+            Self::Return(..) => true,
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
@@ -540,10 +564,10 @@ impl UnresolvedExpressionKind {
             }
             Self::List(expressions)
             | Self::Tuple(expressions)
-            | Self::TupleStruct(_, expressions) => expressions
+            | Self::TupleStruct(_, _, expressions) => expressions
                 .iter()
                 .any(|expression| expression.kind.definitely_diverges()),
-            Self::Compound(compound) | Self::StructStruct(_, compound) => compound
+            Self::Compound(compound) | Self::StructStruct(_, _, compound) => compound
                 .values()
                 .any(|expression| expression.kind.definitely_diverges()),
             Self::WhileLoop(expression, _) => expression.kind.definitely_diverges(),
@@ -588,7 +612,7 @@ impl UnresolvedExpressionKind {
             Self::Loop(body) => body.kind.get_early_return_type(),
             Self::ForLoop(_, _, _, body) => body.kind.get_early_return_type(),
 
-            Self::Return(_) => Some(EarlyReturnType::Return),
+            Self::Return(..) => Some(EarlyReturnType::Return),
 
             _ => None,
         }
@@ -602,7 +626,7 @@ impl UnresolvedExpressionKind {
 
     #[must_use]
     pub const fn can_be_referenced(&self) -> bool {
-        matches!(self, Self::Value(_))
+        matches!(self, Self::Value(..))
     }
 
     #[must_use]
@@ -637,7 +661,7 @@ impl UnresolvedExpressionKind {
                     Some(place)
                 }
             },
-            Self::PlayerScore(score) => {
+            Self::Score(score) => {
                 let score = score.compile(datapack, ctx);
 
                 Some(Place::Score(score))
@@ -648,7 +672,7 @@ impl UnresolvedExpressionKind {
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
-                Some(Place::Data(target, path))
+                Some(Place::Data(Box::new(target), path))
             }
             Self::Index(target, index) => {
                 let target = target.kind.resolve(datapack, ctx);
@@ -660,11 +684,11 @@ impl UnresolvedExpressionKind {
                 Some(place)
             }
             Self::FieldAccess(target, field) => {
-                let data_type = &target.data_type;
+                let data_type = target.data_type.resolve(datapack).unwrap();
 
                 let target = target.kind.resolve(datapack, ctx);
 
-                let field_result = target.access_field(datapack, data_type, &field.1).unwrap();
+                let field_result = target.access_field(datapack, &data_type, &field.1).unwrap();
                 let place = field_result.as_place()?;
 
                 Some(place)
@@ -675,7 +699,13 @@ impl UnresolvedExpressionKind {
                     .map(|expression| expression.kind.as_place(datapack, ctx))
                     .collect::<Option<_>>()?,
             )),
-            Self::Value(name) => Some(Place::Value(name)),
+            Self::Value(id, generic_types) => {
+                let id = datapack
+                    .get_monomorphized_value_id(id, &generic_types)
+                    .unwrap();
+
+                Some(Place::Value(id))
+            }
             _ => None,
         }
     }
@@ -739,7 +769,7 @@ impl UnresolvedExpressionKind {
                     .map(|(key, value)| (key, value.kind.resolve(datapack, ctx)))
                     .collect::<HashMap<_, _>>(),
             ),
-            Self::PlayerScore(score) => {
+            Self::Score(score) => {
                 let score = score.compile(datapack, ctx);
 
                 ResolvedExpression::PlayerScore(score)
@@ -782,7 +812,7 @@ impl UnresolvedExpressionKind {
                 target.index(datapack, ctx, index).unwrap()
             }
             Self::FieldAccess(target, field) => {
-                let data_type = target.data_type;
+                let data_type = target.data_type.resolve(datapack).unwrap();
 
                 let target = target.kind.resolve(datapack, ctx);
 
@@ -821,20 +851,80 @@ impl UnresolvedExpressionKind {
                     .map(|expression| expression.kind.resolve(datapack, ctx))
                     .collect(),
             ),
-            Self::StructStruct(id, fields) => ResolvedExpression::StructStruct(
-                id,
-                fields
+            Self::StructStruct(id, generic_types, field_expressions) => {
+                let (module_path, visiblity, declaration) =
+                    datapack.high_environment.get_struct_struct(id);
+
+                let module_path = module_path.to_vec();
+                let name = declaration.name.clone();
+
+                let generic_types = generic_types
                     .into_iter()
-                    .map(|(key, field)| (key.1, field.kind.resolve(datapack, ctx)))
-                    .collect(),
-            ),
-            Self::TupleStruct(id, fields) => ResolvedExpression::TupleStruct(
-                id,
-                fields
+                    .map(|data_type| data_type.resolve(datapack).unwrap())
+                    .collect();
+
+                let field_types = field_expressions
+                    .iter()
+                    .map(|(name, expression)| {
+                        let data_type = expression.data_type.clone().resolve(datapack).unwrap();
+
+                        (name.1.clone(), data_type)
+                    })
+                    .collect();
+
+                let id = datapack.declare_monomorphized_struct_struct(
+                    module_path,
+                    visiblity,
+                    id.into(),
+                    name,
+                    generic_types,
+                    field_types,
+                );
+
+                let field_expressions = field_expressions
                     .into_iter()
-                    .map(|field| field.kind.resolve(datapack, ctx))
-                    .collect(),
-            ),
+                    .map(|(name, expression)| {
+                        let expression = expression.kind.resolve(datapack, ctx);
+
+                        (name.1, expression)
+                    })
+                    .collect();
+
+                ResolvedExpression::StructStruct(id, field_expressions)
+            }
+            Self::TupleStruct(id, generic_types, field_expressions) => {
+                let (module_path, visiblity, declaration) =
+                    datapack.high_environment.get_tuple_struct(id);
+
+                let module_path = module_path.to_vec();
+                let name = declaration.name.clone();
+
+                let generic_types = generic_types
+                    .into_iter()
+                    .map(|data_type| data_type.resolve(datapack).unwrap())
+                    .collect();
+
+                let field_types = field_expressions
+                    .iter()
+                    .map(|expression| expression.data_type.clone().resolve(datapack).unwrap())
+                    .collect();
+
+                let id = datapack.declare_monomorphized_tuple_struct(
+                    module_path,
+                    visiblity,
+                    id.into(),
+                    name,
+                    generic_types,
+                    field_types,
+                );
+
+                let field_expressions = field_expressions
+                    .into_iter()
+                    .map(|expression| expression.kind.resolve(datapack, ctx))
+                    .collect();
+
+                ResolvedExpression::TupleStruct(id, field_expressions)
+            }
             Self::Underscore => unreachable!(),
             Self::Boolean(value) => ResolvedExpression::Boolean(value),
             Self::Byte(value) => ResolvedExpression::Byte(value),
@@ -847,14 +937,18 @@ impl UnresolvedExpressionKind {
             Self::Double(value) => ResolvedExpression::Double(value),
             Self::String(value) => ResolvedExpression::String(value),
             Self::Unit => ResolvedExpression::Unit,
-            Self::Value(id) => {
+            Self::Value(id, generic_types) => {
+                let id = datapack
+                    .get_monomorphized_value_id(id, &generic_types)
+                    .unwrap();
+
                 let declaration = datapack.get_value(id);
 
                 match &declaration.kind {
-                    ValueDeclarationKind::Variable(_) => {
+                    ValueDeclarationKind::Variable(..) => {
                         ResolvedExpression::Variable(VariableId(id.0))
                     }
-                    ValueDeclarationKind::Function(_) => {
+                    ValueDeclarationKind::Function(..) => {
                         ResolvedExpression::Function(FunctionId(id.0))
                     }
                 }
@@ -982,7 +1076,12 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Unit
             }
             Self::ForLoop(is_reversed, pattern, iterable, body) => {
-                let iterable_type = iterable.data_type.get_iterable_type().unwrap();
+                let iterable_type = iterable
+                    .data_type
+                    .resolve(datapack)
+                    .unwrap()
+                    .get_iterable_type()
+                    .unwrap();
 
                 let iterable = iterable.kind.resolve(datapack, ctx);
 
@@ -1002,7 +1101,7 @@ impl UnresolvedExpressionKind {
                         }
                     }
                     Err(iterable) => {
-                        if iterable_type.equals(&DataType::String) {
+                        if iterable_type.equals(&ResolvedDataType::String) {
                             iterate_string(datapack, ctx, is_reversed, *pattern, iterable, *body);
                         } else {
                             iterate_data(
@@ -1095,12 +1194,12 @@ impl UnresolvedExpressionKind {
                     element.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::StructStruct(_, field_expressions) => {
+            Self::StructStruct(_, _, field_expressions) => {
                 for field_expression in field_expressions.into_values() {
                     field_expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::TupleStruct(_, field_expressions) => {
+            Self::TupleStruct(_, _, field_expressions) => {
                 for field_expression in field_expressions {
                     field_expression.kind.compile_as_statement(datapack, ctx);
                 }
@@ -1211,7 +1310,12 @@ impl UnresolvedExpressionKind {
                 datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
             }
             Self::ForLoop(is_reversed, pattern, iterable, body) => {
-                let iterable_type = iterable.data_type.get_iterable_type().unwrap();
+                let iterable_type = iterable
+                    .data_type
+                    .resolve(datapack)
+                    .unwrap()
+                    .get_iterable_type()
+                    .unwrap();
 
                 let iterable = iterable.kind.resolve(datapack, ctx);
 
@@ -1231,7 +1335,7 @@ impl UnresolvedExpressionKind {
                         }
                     }
                     Err(iterable) => {
-                        if iterable_type.equals(&DataType::String) {
+                        if iterable_type.equals(&ResolvedDataType::String) {
                             iterate_string(datapack, ctx, is_reversed, *pattern, iterable, *body);
                         } else {
                             iterate_data(
@@ -1284,7 +1388,7 @@ impl UnresolvedExpressionKind {
                 left.kind.compile_as_statement(datapack, ctx);
                 right.kind.compile_as_statement(datapack, ctx);
             }
-            Self::PlayerScore(score) => {
+            Self::Score(score) => {
                 score.compile(datapack, ctx);
             }
             Self::Index(target, index) => {
@@ -1300,18 +1404,18 @@ impl UnresolvedExpressionKind {
             Self::Coordinates(coordinates) => {
                 coordinates.compile_as_statement(datapack, ctx);
             }
-            Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::InferredInteger(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::InferredFloat(_)
-            | Self::Double(_)
-            | Self::String(_)
+            Self::Boolean(..)
+            | Self::Byte(..)
+            | Self::Short(..)
+            | Self::Integer(..)
+            | Self::InferredInteger(..)
+            | Self::Long(..)
+            | Self::Float(..)
+            | Self::InferredFloat(..)
+            | Self::Double(..)
+            | Self::String(..)
             | Self::Unit
-            | Self::Value(_) => {}
+            | Self::Value(..) => {}
         }
     }
 }
@@ -1319,5 +1423,5 @@ impl UnresolvedExpressionKind {
 #[derive(Debug, Clone)]
 pub struct UnresolvedExpression {
     pub kind: UnresolvedExpressionKind,
-    pub data_type: DataType,
+    pub data_type: UnresolvedDataType,
 }

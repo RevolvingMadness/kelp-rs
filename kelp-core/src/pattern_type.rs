@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     high::{
-        data::DataTarget, data_type::UnresolvedDataType, nbt_path::NbtPath,
+        data::DataTarget, data_type::DataType, nbt_path::NbtPath,
         player_score::PlayerScore, snbt_string::SNBTString,
     },
     path::generic::GenericPath,
@@ -24,8 +24,8 @@ pub enum PatternType {
     Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Tuple(Vec<Self>),
-    StructStruct(GenericPath<UnresolvedDataType>, HashMap<SNBTString, Self>),
-    TupleStruct(GenericPath<UnresolvedDataType>, Vec<Self>),
+    StructStruct(GenericPath<DataType>, HashMap<SNBTString, Self>),
+    TupleStruct(GenericPath<DataType>, Vec<Self>),
     Reference(Box<Self>),
     Compound(HashMap<SNBTString, Self>),
     Any,

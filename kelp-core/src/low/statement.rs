@@ -1,9 +1,8 @@
 use crate::compile_context::{LoopInfo, LoopType};
-use crate::low::data_type::DataType;
-use crate::low::expression::resolved::ResolvedExpression;
+use crate::low::data_type::unresolved::UnresolvedDataType;
 use crate::low::expression::unresolved::UnresolvedExpression;
 use crate::low::item::Item;
-use crate::low::pattern::Pattern;
+use crate::low::pattern::UnresolvedPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
 use minecraft_command_types::command::Command;
 use minecraft_command_types::command::data::{DataCommand, DataCommandModificationMode};
@@ -11,9 +10,13 @@ use minecraft_command_types::command::execute::ExecuteSubcommand;
 use minecraft_command_types::command::r#return::ReturnCommand;
 
 #[derive(Debug, Clone)]
-pub enum Statement {
+pub enum UnresolvedStatement {
     Expression(UnresolvedExpression),
-    Let(DataType, Pattern, Box<UnresolvedExpression>),
+    Let(
+        UnresolvedDataType,
+        UnresolvedPattern,
+        Box<UnresolvedExpression>,
+    ),
     Append(UnresolvedExpression, Box<UnresolvedExpression>),
     Remove(UnresolvedExpression),
     Item(Box<Item>),
@@ -49,7 +52,7 @@ pub enum EarlyReturnType {
     Return,
 }
 
-impl Statement {
+impl UnresolvedStatement {
     #[must_use]
     pub fn get_early_return_type(&self) -> Option<EarlyReturnType> {
         match self {
@@ -69,7 +72,7 @@ impl Statement {
             Self::Let(_, _, value) => value.kind.definitely_diverges(),
             Self::Append(_, value) => value.kind.definitely_diverges(),
             Self::Remove(expr) => expr.kind.definitely_diverges(),
-            Self::Item(_) => false,
+            Self::Item(..) => false,
         }
     }
 
@@ -77,6 +80,7 @@ impl Statement {
         match self {
             Self::Expression(expression) => expression.kind.compile_as_statement(datapack, ctx),
             Self::Let(data_type, pattern, value) => {
+                let data_type = data_type.resolve(datapack).unwrap();
                 let value = value.kind.resolve(datapack, ctx);
 
                 pattern.destructure(datapack, ctx, data_type, value);
@@ -134,88 +138,6 @@ impl Statement {
                 );
             }
             Self::Item(item) => item.compile(datapack, ctx),
-        }
-    }
-
-    pub fn resolve_as_expression(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> Option<ResolvedExpression> {
-        match self {
-            Self::Expression(expression) => Some(expression.kind.resolve(datapack, ctx)),
-            Self::Let(data_type, pattern, value) => {
-                let value = value.kind.resolve(datapack, ctx);
-
-                pattern.destructure(datapack, ctx, data_type, value);
-
-                None
-            }
-            Self::Append(target, value) => {
-                let target = target.kind.resolve(datapack, ctx);
-                let value = value.kind.resolve(datapack, ctx);
-
-                let (target, path) = target.to_data(datapack, ctx, false);
-
-                let modification = value.as_data_command_modification(datapack, ctx);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        target.target,
-                        path,
-                        DataCommandModificationMode::Append,
-                        modification,
-                    )),
-                );
-
-                None
-            }
-            Self::Remove(expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
-
-                let (target, path) = expression.to_data(datapack, ctx, false);
-
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Remove(target.target, path)),
-                );
-
-                None
-            }
-            Self::Break => {
-                ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
-
-                None
-            }
-            Self::Continue => {
-                let LoopInfo {
-                    resource_location: loop_resource_location,
-                    type_: loop_type,
-                } = ctx.loop_info.as_ref().unwrap().clone();
-
-                let iteration_command = Command::Function(loop_resource_location, None);
-
-                let command = match loop_type {
-                    LoopType::While(invert, condition) => Command::Execute(ExecuteSubcommand::If(
-                        invert,
-                        condition.then(ExecuteSubcommand::Run(Box::new(iteration_command))),
-                    )),
-                    LoopType::Loop => iteration_command,
-                };
-
-                ctx.add_command(
-                    datapack,
-                    Command::Return(ReturnCommand::Run(Box::new(command))),
-                );
-
-                None
-            }
-            Self::Item(item) => {
-                item.compile(datapack, ctx);
-
-                None
-            }
         }
     }
 }

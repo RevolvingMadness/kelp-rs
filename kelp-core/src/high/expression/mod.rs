@@ -8,8 +8,9 @@ use crate::{
         command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
         coordinate::Coordinates,
         data::DataTarget,
-        data_type::UnresolvedDataType,
+        data_type::DataType,
         entity_selector::EntitySelector,
+        environment::r#type::r#struct::regular::HighStructStructId,
         expression::block::BlockExpression,
         nbt_path::NbtPath,
         pattern::Pattern,
@@ -19,12 +20,11 @@ use crate::{
         supports_expression_sigil::SupportsExpressionSigil,
     },
     low::{
-        data_type::DataType,
+        data_type::unresolved::UnresolvedDataType,
         expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     path::generic::GenericPath,
-    place::{PlaceType, PlaceTypeKind},
     runtime_storage::RuntimeStorageType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
@@ -60,14 +60,11 @@ pub enum ExpressionKind {
     Command(Box<Command>),
     Index(Box<Expression>, Box<Expression>),
     FieldAccess(Box<Expression>, SNBTString),
-    AsCast(Box<Expression>, UnresolvedDataType),
+    AsCast(Box<Expression>, DataType),
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
-    Path(GenericPath<UnresolvedDataType>),
-    StructStruct(
-        GenericPath<UnresolvedDataType>,
-        HashMap<SNBTString, Expression>,
-    ),
+    Path(GenericPath<DataType>),
+    StructStruct(GenericPath<DataType>, HashMap<SNBTString, Expression>),
     Call {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
@@ -101,14 +98,14 @@ impl ExpressionKind {
     pub const fn is_f32_compatible(&self) -> bool {
         matches!(
             self,
-            Self::Byte(_)
-                | Self::Short(_)
-                | Self::Integer(_)
-                | Self::InferredInteger(_)
-                | Self::Long(_)
-                | Self::Float(_)
-                | Self::InferredFloat(_)
-                | Self::Double(_)
+            Self::Byte(..)
+                | Self::Short(..)
+                | Self::Integer(..)
+                | Self::InferredInteger(..)
+                | Self::Long(..)
+                | Self::Float(..)
+                | Self::InferredFloat(..)
+                | Self::Double(..)
         )
     }
 
@@ -164,104 +161,6 @@ pub struct Expression {
 }
 
 impl Expression {
-    #[must_use]
-    pub fn get_place_type(&self, ctx: &mut SemanticAnalysisContext) -> Option<Option<PlaceType>> {
-        let (data_type, place_type_kind) = match &self.kind {
-            ExpressionKind::Tuple(expressions) => {
-                let Some(place_types) = expressions
-                    .iter()
-                    .map(|expression| expression.get_place_type(ctx))
-                    .collect_option_all::<Option<Vec<_>>>()?
-                else {
-                    return Some(None);
-                };
-
-                let data_types = place_types
-                    .iter()
-                    .map(|place_type| place_type.data_type.clone())
-                    .collect();
-
-                (
-                    DataType::Tuple(data_types),
-                    PlaceTypeKind::Tuple(place_types),
-                )
-            }
-            ExpressionKind::PlayerScore(_) => (
-                DataType::Score(Box::new(DataType::Integer)),
-                PlaceTypeKind::Score(DataType::Integer),
-            ),
-            ExpressionKind::Data(_) => (
-                DataType::Data(Box::new(DataType::Inferred)),
-                PlaceTypeKind::Data(DataType::Inferred),
-            ),
-            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
-                let Some(place_type) = expression.get_place_type(ctx)? else {
-                    return Some(None);
-                };
-
-                let data_type = place_type
-                    .data_type
-                    .clone()
-                    .get_dereferenced_result_semantic_analysis(ctx, expression.span)?;
-
-                (data_type, PlaceTypeKind::Dereference(Box::new(place_type)))
-            }
-            ExpressionKind::Index(target, _) => {
-                let Some(target_place_type) = target.get_place_type(ctx)? else {
-                    return Some(None);
-                };
-
-                let data_type = target_place_type
-                    .data_type
-                    .clone()
-                    .get_index_result_semantic_analysis(ctx, target.span)?;
-
-                (data_type, PlaceTypeKind::Index(Box::new(target_place_type)))
-            }
-            ExpressionKind::FieldAccess(target, field) => {
-                let Some(target_place_type) = target.get_place_type(ctx)? else {
-                    return Some(None);
-                };
-
-                let data_type = target_place_type
-                    .data_type
-                    .get_field_result_semantic_analysis(ctx, field.span, &field.snbt_string.1)?;
-
-                (
-                    data_type,
-                    PlaceTypeKind::FieldAccess(
-                        Box::new(target_place_type),
-                        field.span,
-                        field.snbt_string.1.clone(),
-                    ),
-                )
-            }
-            ExpressionKind::Underscore => (DataType::Inferred, PlaceTypeKind::Underscore),
-            ExpressionKind::Path(path) => {
-                let Some(id) = ctx.get_visible_value_id(path) else {
-                    return Some(None);
-                };
-
-                let declaration = ctx.get_value(id);
-
-                let Some(data_type) = declaration.data_type()? else {
-                    return Some(None);
-                };
-
-                (data_type.clone(), PlaceTypeKind::Value)
-            }
-            _ => {
-                return ctx.add_error(self.span, SemanticAnalysisError::CannotBeAssignedTo);
-            }
-        };
-
-        Some(Some(PlaceType {
-            span: self.span,
-            data_type,
-            kind: place_type_kind,
-        }))
-    }
-
     #[allow(clippy::result_large_err)]
     pub fn try_as_f32(self) -> Result<NotNan<f32>, Self> {
         match self.kind.try_as_f32() {
@@ -324,7 +223,9 @@ impl Expression {
                             UnaryOperator::Reference,
                             Box::new(expression),
                         )
-                        .with(DataType::Reference(Box::new(expression_data_type)))
+                        .with(UnresolvedDataType::Reference(Box::new(
+                            expression_data_type,
+                        )))
                     }
                     UnaryOperator::Dereference => {
                         let dereferenced_result = expression
@@ -371,19 +272,6 @@ impl Expression {
                     );
                 };
 
-                if operator == ArithmeticOperator::Swap
-                    && (!left.data_type.is_lvalue() || !right.data_type.is_lvalue())
-                {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CannotPerformArithmeticOperation {
-                            left: left.data_type,
-                            operator,
-                            right: right.data_type,
-                        },
-                    );
-                }
-
                 UnresolvedExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
                     .with(result_type)
             }
@@ -410,7 +298,7 @@ impl Expression {
                 }
 
                 UnresolvedExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
-                    .with(DataType::Boolean)
+                    .with(UnresolvedDataType::Boolean)
             }
             ExpressionKind::Logical(left, operator, right) => {
                 let left = left.perform_semantic_analysis(ctx);
@@ -423,7 +311,7 @@ impl Expression {
 
                 if left
                     .data_type
-                    .assert_equals(ctx, left_span, &DataType::Boolean)
+                    .assert_equals(ctx, left_span, &UnresolvedDataType::Boolean)
                     .is_none()
                 {
                     failed = true;
@@ -431,7 +319,7 @@ impl Expression {
 
                 if right
                     .data_type
-                    .assert_equals(ctx, right_span, &DataType::Boolean)
+                    .assert_equals(ctx, right_span, &UnresolvedDataType::Boolean)
                     .is_none()
                 {
                     failed = true;
@@ -442,46 +330,55 @@ impl Expression {
                 }
 
                 UnresolvedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
-                    .with(DataType::Boolean)
+                    .with(UnresolvedDataType::Boolean)
             }
             ExpressionKind::AugmentedAssignment(target, operator, value) => {
-                let place = target.get_place_type(ctx)?;
+                let target = target.perform_semantic_analysis(ctx);
+                let value = value.perform_semantic_analysis(ctx);
 
-                let place = place?;
+                let (target_span, target) = target?;
+                let (value_span, value) = value?;
 
-                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+                if !target.kind.can_be_assigned_to() {
+                    return ctx.add_error(target_span, SemanticAnalysisError::CannotBeAssignedTo);
+                }
 
-                place.perform_augmented_assignment_semantic_analysis(
+                target.data_type.assert_can_perform_augmented_assignment(
                     ctx,
                     operator,
                     value_span,
                     &value.data_type,
                 )?;
 
-                let (_, target) = target.perform_semantic_analysis(ctx)?;
-
                 UnresolvedExpressionKind::AugmentedAssignment(
                     Box::new(target),
                     operator,
                     Box::new(value),
                 )
-                .with(DataType::Unit)
+                .with(UnresolvedDataType::Unit)
             }
             ExpressionKind::Assignment(target, value) => {
-                let place = target.get_place_type(ctx)?;
-
-                let place = place?;
-
-                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
-
-                place.perform_assignment_semantic_analysis(ctx, value_span, &value.data_type)?;
+                let value = value.perform_semantic_analysis(ctx);
 
                 ctx.is_lhs = true;
-                let (_, target) = target.perform_semantic_analysis(ctx)?;
+                let target = target.perform_semantic_analysis(ctx);
                 ctx.is_lhs = false;
 
+                let (target_span, target) = target?;
+                let (value_span, value) = value?;
+
+                if !target.kind.can_be_assigned_to() {
+                    return ctx.add_error(target_span, SemanticAnalysisError::CannotBeAssignedTo);
+                }
+
+                target.data_type.assert_can_perform_assignment(
+                    ctx,
+                    value_span,
+                    &value.data_type,
+                )?;
+
                 UnresolvedExpressionKind::Assignment(Box::new(target), Box::new(value))
-                    .with(DataType::Unit)
+                    .with(UnresolvedDataType::Unit)
             }
             ExpressionKind::List(expressions) => {
                 let expressions = expressions
@@ -504,7 +401,7 @@ impl Expression {
                         else {
                             has_error = true;
 
-                            ctx.add_error::<()>(
+                            ctx.add_error_unit(
                                 *expression_span,
                                 SemanticAnalysisError::MismatchedTypes {
                                     expected: element_type.clone(),
@@ -524,7 +421,7 @@ impl Expression {
 
                     element_type
                 } else {
-                    DataType::Inferred
+                    UnresolvedDataType::Inferred
                 };
 
                 let expressions = expressions
@@ -533,7 +430,7 @@ impl Expression {
                     .collect();
 
                 UnresolvedExpressionKind::List(expressions)
-                    .with(DataType::List(Box::new(element_type)))
+                    .with(UnresolvedDataType::List(Box::new(element_type)))
             }
             ExpressionKind::Compound(compound_values) => {
                 let compound_values = compound_values
@@ -551,13 +448,14 @@ impl Expression {
                     .collect();
 
                 UnresolvedExpressionKind::Compound(compound_values)
-                    .with(DataType::TypedCompound(compound_data_types))
+                    .with(UnresolvedDataType::TypedCompound(compound_data_types))
             }
             ExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
-                UnresolvedExpressionKind::PlayerScore(score)
-                    .with(DataType::Score(Box::new(DataType::Integer)))
+                UnresolvedExpressionKind::Score(score).with(UnresolvedDataType::Score(Box::new(
+                    UnresolvedDataType::Integer,
+                )))
             }
             ExpressionKind::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -568,19 +466,21 @@ impl Expression {
                 let target = target?;
                 let path = path?;
 
-                UnresolvedExpressionKind::Data(Box::new((target, path)))
-                    .with(DataType::Data(Box::new(DataType::Inferred)))
+                UnresolvedExpressionKind::Data(Box::new((target, path))).with(
+                    UnresolvedDataType::Data(Box::new(UnresolvedDataType::Inferred)),
+                )
             }
             ExpressionKind::Condition(inverted, condition) => {
                 let condition = condition.perform_semantic_analysis(ctx)?;
 
                 UnresolvedExpressionKind::Condition(inverted, Box::new(condition))
-                    .with(DataType::Boolean)
+                    .with(UnresolvedDataType::Boolean)
             }
             ExpressionKind::Command(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                UnresolvedExpressionKind::Command(Box::new(command)).with(DataType::Integer)
+                UnresolvedExpressionKind::Command(Box::new(command))
+                    .with(UnresolvedDataType::Integer)
             }
             ExpressionKind::Index(target, index) => {
                 let target = target.perform_semantic_analysis(ctx);
@@ -591,7 +491,6 @@ impl Expression {
 
                 let index_result = target
                     .data_type
-                    .clone()
                     .get_index_result_semantic_analysis(ctx, target_span)?;
 
                 // TODO: Improve this.
@@ -623,10 +522,9 @@ impl Expression {
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.perform_semantic_analysis(ctx);
-                let data_type = data_type.resolve_fully(ctx);
+                let data_type = data_type.resolve_partially(None, ctx);
 
                 let (_, expression) = expression?;
-                let data_type = data_type?;
 
                 if !expression.data_type.can_cast_to(&data_type) {
                     return ctx.add_error(
@@ -656,10 +554,11 @@ impl Expression {
                             );
                         }
 
-                        DataType::Score(Box::new(expression.data_type.clone()))
+                        UnresolvedDataType::Score(Box::new(expression.data_type.clone()))
                     }
                     RuntimeStorageType::Data => {
-                        let Some(data_type) = expression.data_type.get_data_type(&ctx.environment)
+                        let Some(data_type) =
+                            expression.data_type.get_data_type(&ctx.high_environment)
                         else {
                             return ctx.add_error(
                                 expression_span,
@@ -669,7 +568,7 @@ impl Expression {
                             );
                         };
 
-                        DataType::Data(Box::new(data_type))
+                        UnresolvedDataType::Data(Box::new(data_type))
                     }
                 };
 
@@ -692,34 +591,24 @@ impl Expression {
                     .collect();
 
                 UnresolvedExpressionKind::Tuple(expressions)
-                    .with(DataType::Tuple(expression_data_types))
+                    .with(UnresolvedDataType::Tuple(expression_data_types))
             }
             ExpressionKind::StructStruct(path, field_values) => {
-                let mut path = path.resolve_fully(ctx)?;
+                let mut path = path.resolve_partially(None, ctx);
 
                 let id = ctx.get_visible_type_id(&path)?;
 
-                let type_declaration = ctx.get_type(id).clone();
-
                 let last_segment = path.segments.pop().unwrap();
 
-                let data_type = type_declaration.resolve_fully(
-                    ctx,
-                    id,
-                    last_segment.generic_spans,
-                    last_segment.generic_types,
-                    last_segment.name_span,
-                )?;
-
-                let id = data_type.as_struct_id_semantic_analysis(
-                    ctx,
-                    last_segment.name_span,
-                    &last_segment.name,
-                )?;
-
-                let (specific_id, _, declaration) =
+                let (_, _, declaration) =
                     ctx.get_visible_struct_struct(last_segment.name_span, &last_segment.name, id)?;
 
+                let id = HighStructStructId(id.0);
+
+                let data_type =
+                    UnresolvedDataType::Struct(id.into(), last_segment.generic_types.clone());
+
+                let generic_names = declaration.generic_names.clone();
                 let field_types = declaration.field_types.clone();
 
                 let field_values = field_values
@@ -729,19 +618,23 @@ impl Expression {
                             return ctx.add_error(
                                 key.span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: DataType::Struct(id),
+                                    data_type: data_type.clone(),
                                     field: key.snbt_string.1,
                                 },
                             );
                         };
 
+                        let field_type = field_type
+                            .clone()
+                            .substitute_generics(&generic_names, &last_segment.generic_types);
+
                         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
-                        if !value.data_type.equals(field_type) {
+                        if !value.data_type.equals(&field_type) {
                             return ctx.add_error(
                                 value_span,
                                 SemanticAnalysisError::MismatchedTypes {
-                                    expected: field_type.clone(),
+                                    expected: field_type,
                                     actual: value.data_type,
                                 },
                             );
@@ -760,7 +653,7 @@ impl Expression {
                     {
                         has_error = true;
 
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             path.span,
                             SemanticAnalysisError::MissingField(declared_field_name.clone()),
                         );
@@ -771,8 +664,8 @@ impl Expression {
                     return None;
                 }
 
-                UnresolvedExpressionKind::StructStruct(specific_id, field_values)
-                    .with(DataType::Struct(id))
+                UnresolvedExpressionKind::StructStruct(id, last_segment.generic_types, field_values)
+                    .with(data_type)
             }
             ExpressionKind::Call { callee, arguments } => {
                 let (callee_span, callee) = callee.perform_semantic_analysis(ctx)?;
@@ -782,12 +675,12 @@ impl Expression {
                     .map(|argument| argument.perform_semantic_analysis(ctx))
                     .collect_option_all::<Vec<_>>()?;
 
-                let Some(call_info) = callee.data_type.get_call_info(&ctx.environment) else {
+                let Some(call_info) = callee.data_type.get_call_info(&ctx.high_environment)? else {
                     return ctx
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
 
-                let parameter_count = call_info.parameters.len();
+                let parameter_count = call_info.parameter_types.len();
                 let argument_count = arguments.len();
 
                 if argument_count != parameter_count {
@@ -804,15 +697,17 @@ impl Expression {
 
                 let mut new_arguments = Vec::with_capacity(arguments.len());
 
-                for (data_type, (argument_span, argument)) in
-                    call_info.parameters.into_iter().zip(arguments.into_iter())
+                for (data_type, (argument_span, argument)) in call_info
+                    .parameter_types
+                    .into_iter()
+                    .zip(arguments.into_iter())
                 {
                     if argument.data_type.equals(&data_type) {
                         if !failed {
                             new_arguments.push(argument);
                         }
                     } else {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             argument_span,
                             SemanticAnalysisError::MismatchedTypes {
                                 expected: data_type,
@@ -861,10 +756,10 @@ impl Expression {
                     body.data_type.assert_equals(
                         ctx,
                         tail_expression_span.unwrap_or(body_span),
-                        &DataType::Unit,
+                        &UnresolvedDataType::Unit,
                     )?;
 
-                    &DataType::Unit
+                    &UnresolvedDataType::Unit
                 };
 
                 let data_type = body.data_type.clone().reduce(else_type).unwrap();
@@ -895,7 +790,7 @@ impl Expression {
                 let (_, _, body) = body?;
 
                 UnresolvedExpressionKind::WhileLoop(Box::new(condition), Box::new(body))
-                    .with(DataType::Unit)
+                    .with(UnresolvedDataType::Unit)
             }
             ExpressionKind::Loop(body) => {
                 ctx.loop_depth += 1;
@@ -904,13 +799,14 @@ impl Expression {
 
                 let (_, _, body) = body?;
 
-                UnresolvedExpressionKind::Loop(Box::new(body)).with(DataType::Unit)
+                UnresolvedExpressionKind::Loop(Box::new(body)).with(UnresolvedDataType::Unit)
             }
             ExpressionKind::ForLoop(reversed, pattern, iterable, body) => {
                 let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
 
                 let Some(iterable_type) = iterable
                     .data_type
+                    .clone()
                     .get_iterable_type_semantic_analysis(ctx, expression_span)
                 else {
                     pattern.kind.destructure_unknown(ctx);
@@ -945,10 +841,10 @@ impl Expression {
                     Box::new(iterable),
                     Box::new(body),
                 )
-                .with(DataType::Unit)
+                .with(UnresolvedDataType::Unit)
             }
             ExpressionKind::Path(path) => {
-                let mut path = path.resolve_fully(ctx)?;
+                let mut path = path.resolve_partially(None, ctx);
 
                 let id = ctx.get_visible_value_id(&path)?;
 
@@ -959,67 +855,67 @@ impl Expression {
                 let (id, data_type) = value_declaration.resolve_fully(
                     ctx,
                     id,
-                    last_segment.generic_types,
+                    last_segment.generic_types.clone(),
                     last_segment.name_span,
                 )?;
 
-                UnresolvedExpressionKind::Value(id).with(data_type)
+                UnresolvedExpressionKind::Value(id, last_segment.generic_types).with(data_type)
             }
             ExpressionKind::Boolean(value) => {
-                UnresolvedExpressionKind::Boolean(value).with(DataType::Boolean)
+                UnresolvedExpressionKind::Boolean(value).with(UnresolvedDataType::Boolean)
             }
             ExpressionKind::Byte(value) => {
-                UnresolvedExpressionKind::Byte(value).with(DataType::Byte)
+                UnresolvedExpressionKind::Byte(value).with(UnresolvedDataType::Byte)
             }
             ExpressionKind::Short(value) => {
-                UnresolvedExpressionKind::Short(value).with(DataType::Short)
+                UnresolvedExpressionKind::Short(value).with(UnresolvedDataType::Short)
             }
             ExpressionKind::Integer(value) => {
-                UnresolvedExpressionKind::Integer(value).with(DataType::Integer)
+                UnresolvedExpressionKind::Integer(value).with(UnresolvedDataType::Integer)
             }
             ExpressionKind::InferredInteger(value) => {
-                UnresolvedExpressionKind::InferredInteger(value).with(DataType::InferredInteger)
+                UnresolvedExpressionKind::InferredInteger(value)
+                    .with(UnresolvedDataType::InferredInteger)
             }
             ExpressionKind::Long(value) => {
-                UnresolvedExpressionKind::Long(value).with(DataType::Long)
+                UnresolvedExpressionKind::Long(value).with(UnresolvedDataType::Long)
             }
             ExpressionKind::Float(value) => {
-                UnresolvedExpressionKind::Float(value).with(DataType::Float)
+                UnresolvedExpressionKind::Float(value).with(UnresolvedDataType::Float)
             }
-            ExpressionKind::InferredFloat(value) => {
-                UnresolvedExpressionKind::InferredFloat(value).with(DataType::InferredFloat)
-            }
+            ExpressionKind::InferredFloat(value) => UnresolvedExpressionKind::InferredFloat(value)
+                .with(UnresolvedDataType::InferredFloat),
             ExpressionKind::Double(value) => {
-                UnresolvedExpressionKind::Double(value).with(DataType::Double)
+                UnresolvedExpressionKind::Double(value).with(UnresolvedDataType::Double)
             }
             ExpressionKind::String(value) => {
-                UnresolvedExpressionKind::String(value.snbt_string).with(DataType::String)
+                UnresolvedExpressionKind::String(value.snbt_string).with(UnresolvedDataType::String)
             }
             ExpressionKind::Underscore => {
                 if !ctx.is_lhs {
                     return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
                 }
 
-                UnresolvedExpressionKind::Underscore.with(DataType::Inferred)
+                UnresolvedExpressionKind::Underscore.with(UnresolvedDataType::Inferred)
             }
-            ExpressionKind::Unit => UnresolvedExpressionKind::Unit.with(DataType::Unit),
+            ExpressionKind::Unit => UnresolvedExpressionKind::Unit.with(UnresolvedDataType::Unit),
             ExpressionKind::ResourceLocation(resource_location) => {
                 let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                 UnresolvedExpressionKind::ResourceLocation(Box::new(resource_location))
-                    .with(DataType::ResourceLocation)
+                    .with(UnresolvedDataType::ResourceLocation)
             }
             ExpressionKind::EntitySelector(selector) => {
                 let selector = selector.perform_semantic_analysis(ctx)?;
 
                 UnresolvedExpressionKind::EntitySelector(Box::new(selector))
-                    .with(DataType::EntitySelector)
+                    .with(UnresolvedDataType::EntitySelector)
             }
             ExpressionKind::Coordinates(coordinates) => {
                 let coordinates = coordinates.perform_semantic_analysis(ctx)?;
 
                 UnresolvedExpressionKind::Coordinates(Box::new(coordinates))
-                    .with(DataType::Coordinates)
+                    .with(UnresolvedDataType::Coordinates)
             }
             ExpressionKind::Return(keyword_span, expression_span, expression) => {
                 let expression = match expression {
@@ -1028,10 +924,10 @@ impl Expression {
 
                         expression
                     }
-                    None => UnresolvedExpressionKind::Unit.with(DataType::Unit),
+                    None => UnresolvedExpressionKind::Unit.with(UnresolvedDataType::Unit),
                 };
 
-                if let Some(Some(return_type)) = ctx.function_return_types.last()
+                if let Some(return_type) = ctx.function_return_types.last()
                     && !expression.data_type.equals(return_type)
                 {
                     return ctx.add_error(
@@ -1045,16 +941,15 @@ impl Expression {
 
                 let return_type = ctx.function_return_types.last().unwrap();
 
-                if let Some(return_type) = return_type
-                    && return_type.is_compiletime(&ctx.environment)
-                {
+                if return_type.is_compiletime()? {
                     return ctx.add_error(
                         keyword_span,
                         SemanticAnalysisError::CannotUseReturnWithCompiletimeResult,
                     );
                 }
 
-                UnresolvedExpressionKind::Return(Box::new(expression)).with(DataType::Never)
+                UnresolvedExpressionKind::Return(Box::new(expression))
+                    .with(UnresolvedDataType::Never)
             }
         };
 

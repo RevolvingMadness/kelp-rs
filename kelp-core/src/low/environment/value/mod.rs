@@ -27,7 +27,7 @@ impl From<FunctionId> for ValueId {
 #[derive(Debug, Clone)]
 pub enum ValueDeclarationKind {
     Variable(VariableDeclaration),
-    Function(FunctionDeclaration),
+    Function(Box<FunctionDeclaration>),
 }
 
 impl ValueDeclarationKind {

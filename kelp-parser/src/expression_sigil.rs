@@ -51,7 +51,7 @@ pub fn assert_not_sigil<T>(
 ) -> Option<T> {
     match sigil {
         SupportsExpressionSigil::Regular(value) => Some(value),
-        SupportsExpressionSigil::Sigil(_) => {
+        SupportsExpressionSigil::Sigil(..) => {
             ctx.add_error(span, SemanticAnalysisError::ExpressionSigilNotAllowed)
         }
     }

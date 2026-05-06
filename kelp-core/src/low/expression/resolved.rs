@@ -30,7 +30,7 @@ use crate::{
     data::GeneratedDataTarget,
     datapack::Datapack,
     low::{
-        data_type::DataType,
+        data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
         environment::{
             Environment,
             r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
@@ -40,10 +40,10 @@ use crate::{
             },
         },
         expression::{unresolved::UnresolvedExpression, utils::push_scoreboard_players},
-        pattern::Pattern,
+        pattern::UnresolvedPattern,
+        place::Place,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
-    place::Place,
     player_score::GeneratedPlayerScore,
     trait_ext::CollectOptionAllIterExt,
 };
@@ -144,9 +144,9 @@ fn integer_range_from_comparison_operator(
 fn compile_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    parameters: Vec<(Pattern, DataType)>,
+    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
     body: UnresolvedExpression,
-    return_type: &DataType,
+    return_type: &ResolvedDataType,
     arguments: &[ResolvedExpression],
 ) -> ResolvedExpression {
     let paths = datapack.get_unique_function_paths();
@@ -192,7 +192,6 @@ macro_rules! compute_int {
             ArithmeticOperator::Or => $l | $r,
             ArithmeticOperator::LeftShift => $l << $r,
             ArithmeticOperator::RightShift => $l >> $r,
-            ArithmeticOperator::Swap => unreachable!(),
         }
     };
 }
@@ -204,7 +203,6 @@ macro_rules! compute_float {
             ArithmeticOperator::Subtract => $l - $r,
             ArithmeticOperator::Multiply => $l * $r,
             ArithmeticOperator::FloorDivide => $l / $r,
-            ArithmeticOperator::Swap => unreachable!(),
             ArithmeticOperator::Modulo
             | ArithmeticOperator::And
             | ArithmeticOperator::Or
@@ -217,7 +215,7 @@ macro_rules! compute_float {
     };
 }
 
-fn format_generics(output: &mut String, generics: &[DataType], environment: &Environment) {
+fn format_generics(output: &mut String, generics: &[ResolvedDataType], environment: &Environment) {
     if generics.is_empty() {
         return;
     }
@@ -345,7 +343,7 @@ impl ResolvedExpression {
                 Self::PlayerScore(unique_score)
             }
             Self::Function(id) => {
-                let (_, _, declaration) = datapack.get_function_declaration(id);
+                let (_, _, declaration) = datapack.get_function(id);
 
                 match declaration {
                     FunctionDeclaration::Regular(declaration) => compile_function(
@@ -380,7 +378,7 @@ impl ResolvedExpression {
                 ctx.add_command(datapack, Command::Function(resource_location, None));
             }
             Self::Function(id) => {
-                let (_, _, declaration) = datapack.get_function_declaration(id);
+                let (_, _, declaration) = datapack.get_function(id);
 
                 match declaration {
                     FunctionDeclaration::Regular(declaration) => {
@@ -468,7 +466,7 @@ impl ResolvedExpression {
     pub fn access_field(
         self,
         datapack: &Datapack,
-        data_type: &DataType,
+        data_type: &ResolvedDataType,
         field: &str,
     ) -> Option<Self> {
         match self {
@@ -487,26 +485,26 @@ impl ResolvedExpression {
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                let DataType::Data(inner) = data_type else {
+                let ResolvedDataType::Data(inner) = data_type else {
                     unreachable!();
                 };
 
                 let node = match &**inner {
-                    DataType::Struct(id) => {
+                    ResolvedDataType::Struct(id) => {
                         let (_, _, declaration) = datapack.get_struct_type(*id);
 
                         match declaration {
-                            StructDeclaration::Struct(_) => {
+                            StructDeclaration::Struct(..) => {
                                 NbtPathNode::Named(SNBTString(false, field.to_owned()), None)
                             }
-                            StructDeclaration::Tuple(_) => {
+                            StructDeclaration::Tuple(..) => {
                                 let index = field.parse::<i32>().ok()?;
 
                                 NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
                             }
                         }
                     }
-                    DataType::Tuple(_) => {
+                    ResolvedDataType::Tuple(..) => {
                         let index = field.parse::<i32>().ok()?;
 
                         NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
@@ -744,14 +742,14 @@ impl ResolvedExpression {
 
     pub fn as_snbt_macros(self, datapack: &Datapack, ctx: &mut CompileContext) -> Macroable<SNBT> {
         match self {
-            Self::Boolean(_)
-            | Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_)
-            | Self::String(_)
+            Self::Boolean(..)
+            | Self::Byte(..)
+            | Self::Short(..)
+            | Self::Integer(..)
+            | Self::Long(..)
+            | Self::Float(..)
+            | Self::Double(..)
+            | Self::String(..)
             | Self::Unit => Macroable::Regular(self.try_into_snbt(datapack).unwrap()),
 
             Self::List(list) => Macroable::Regular(SNBT::list(
@@ -786,16 +784,16 @@ impl ResolvedExpression {
             }
             Self::Reference(expression) => return expression.as_snbt_double(datapack, ctx),
 
-            Self::Byte(_)
-            | Self::Short(_)
-            | Self::Integer(_)
-            | Self::Long(_)
-            | Self::Float(_)
-            | Self::Double(_) => {
+            Self::Byte(..)
+            | Self::Short(..)
+            | Self::Integer(..)
+            | Self::Long(..)
+            | Self::Float(..)
+            | Self::Double(..) => {
                 Macroable::Regular(NotNan::new(self.try_as_f32(datapack).unwrap()).unwrap())
             }
 
-            Self::PlayerScore(_) | Self::Data(_) => ctx.get_macro_snbt(self),
+            Self::PlayerScore(..) | Self::Data(..) => ctx.get_macro_snbt(self),
 
             _ => return None,
         })
@@ -1525,7 +1523,7 @@ impl ResolvedExpression {
                 ComparisonOperator::EqualTo => left == right,
                 ComparisonOperator::NotEqualTo => left != right,
             }),
-            (left_kind @ Self::Data(_), right_kind)
+            (left_kind @ Self::Data(..), right_kind)
                 if operator == ComparisonOperator::EqualTo
                     || operator == ComparisonOperator::NotEqualTo =>
             {
@@ -1565,7 +1563,7 @@ impl ResolvedExpression {
                     )),
                 )
             }
-            (self_ @ Self::Data(_), other) | (other, self_ @ Self::Data(_)) => {
+            (self_ @ Self::Data(..), other) | (other, self_ @ Self::Data(..)) => {
                 let score = self_.as_score(datapack, ctx, false);
 
                 let other_score = other.as_score(datapack, ctx, false);
@@ -1631,79 +1629,91 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn cast_to(self, datapack: &Datapack, data_type: DataType) -> Option<Self> {
+    pub fn cast_to(self, datapack: &Datapack, data_type: UnresolvedDataType) -> Option<Self> {
         Some(match (self, data_type) {
             (Self::Variable(id), data_type) => {
                 handle_variable!(datapack, id, cast_to(datapack, data_type))
             }
 
-            (Self::Reference(expression), DataType::Reference(data_type)) => {
+            (Self::Reference(expression), UnresolvedDataType::Reference(data_type)) => {
                 return expression.cast_to(datapack, *data_type);
             }
 
-            (Self::Byte(value), DataType::Short) => Self::Short(i16::from(value)),
-            (Self::Byte(value), DataType::Integer) => Self::Integer(i32::from(value)),
-            (Self::Byte(value), DataType::Long) => Self::Long(i64::from(value)),
-            (Self::Byte(value), DataType::Float) => {
+            (Self::Byte(value), UnresolvedDataType::Short) => Self::Short(i16::from(value)),
+            (Self::Byte(value), UnresolvedDataType::Integer) => Self::Integer(i32::from(value)),
+            (Self::Byte(value), UnresolvedDataType::Long) => Self::Long(i64::from(value)),
+            (Self::Byte(value), UnresolvedDataType::Float) => {
                 Self::Float(NotNan::new(f32::from(value)).unwrap())
             }
-            (Self::Byte(value), DataType::Double) => {
+            (Self::Byte(value), UnresolvedDataType::Double) => {
                 Self::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
-            (Self::Short(value), DataType::Byte) => Self::Byte(value as i8),
-            (Self::Short(value), DataType::Integer) => Self::Integer(i32::from(value)),
-            (Self::Short(value), DataType::Long) => Self::Long(i64::from(value)),
-            (Self::Short(value), DataType::Float) => {
+            (Self::Short(value), UnresolvedDataType::Byte) => Self::Byte(value as i8),
+            (Self::Short(value), UnresolvedDataType::Integer) => Self::Integer(i32::from(value)),
+            (Self::Short(value), UnresolvedDataType::Long) => Self::Long(i64::from(value)),
+            (Self::Short(value), UnresolvedDataType::Float) => {
                 Self::Float(NotNan::new(f32::from(value)).unwrap())
             }
-            (Self::Short(value), DataType::Double) => {
+            (Self::Short(value), UnresolvedDataType::Double) => {
                 Self::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
-            (Self::Integer(value), DataType::Byte) => Self::Byte(value as i8),
-            (Self::Integer(value), DataType::Short) => Self::Short(value as i16),
-            (Self::Integer(value), DataType::Long) => Self::Long(i64::from(value)),
-            (Self::Integer(value), DataType::Float) => {
+            (Self::Integer(value), UnresolvedDataType::Byte) => Self::Byte(value as i8),
+            (Self::Integer(value), UnresolvedDataType::Short) => Self::Short(value as i16),
+            (Self::Integer(value), UnresolvedDataType::Long) => Self::Long(i64::from(value)),
+            (Self::Integer(value), UnresolvedDataType::Float) => {
                 Self::Float(NotNan::new(value as f32).unwrap())
             }
-            (Self::Integer(value), DataType::Double) => {
+            (Self::Integer(value), UnresolvedDataType::Double) => {
                 Self::Double(NotNan::new(f64::from(value)).unwrap())
             }
 
-            (Self::Long(value), DataType::Byte) => Self::Byte(value as i8),
-            (Self::Long(value), DataType::Short) => Self::Short(value as i16),
-            (Self::Long(value), DataType::Integer) => Self::Integer(value as i32),
-            (Self::Long(value), DataType::Float) => Self::Float(NotNan::new(value as f32).unwrap()),
-            (Self::Long(value), DataType::Double) => {
+            (Self::Long(value), UnresolvedDataType::Byte) => Self::Byte(value as i8),
+            (Self::Long(value), UnresolvedDataType::Short) => Self::Short(value as i16),
+            (Self::Long(value), UnresolvedDataType::Integer) => Self::Integer(value as i32),
+            (Self::Long(value), UnresolvedDataType::Float) => {
+                Self::Float(NotNan::new(value as f32).unwrap())
+            }
+            (Self::Long(value), UnresolvedDataType::Double) => {
                 Self::Double(NotNan::new(value as f64).unwrap())
             }
 
-            (Self::Float(value), DataType::Byte) => Self::Byte(value.into_inner() as i8),
-            (Self::Float(value), DataType::Short) => Self::Short(value.into_inner() as i16),
-            (Self::Float(value), DataType::Integer) => Self::Integer(value.into_inner() as i32),
-            (Self::Float(value), DataType::Long) => Self::Long(value.into_inner() as i64),
-            (Self::Float(value), DataType::Double) => Self::Double(value.into()),
+            (Self::Float(value), UnresolvedDataType::Byte) => Self::Byte(value.into_inner() as i8),
+            (Self::Float(value), UnresolvedDataType::Short) => {
+                Self::Short(value.into_inner() as i16)
+            }
+            (Self::Float(value), UnresolvedDataType::Integer) => {
+                Self::Integer(value.into_inner() as i32)
+            }
+            (Self::Float(value), UnresolvedDataType::Long) => Self::Long(value.into_inner() as i64),
+            (Self::Float(value), UnresolvedDataType::Double) => Self::Double(value.into()),
 
-            (Self::Double(value), DataType::Byte) => Self::Byte(value.into_inner() as i8),
-            (Self::Double(value), DataType::Short) => Self::Short(value.into_inner() as i16),
-            (Self::Double(value), DataType::Integer) => Self::Integer(value.into_inner() as i32),
-            (Self::Double(value), DataType::Long) => Self::Long(value.into_inner() as i64),
-            (Self::Double(value), DataType::Float) => {
+            (Self::Double(value), UnresolvedDataType::Byte) => Self::Byte(value.into_inner() as i8),
+            (Self::Double(value), UnresolvedDataType::Short) => {
+                Self::Short(value.into_inner() as i16)
+            }
+            (Self::Double(value), UnresolvedDataType::Integer) => {
+                Self::Integer(value.into_inner() as i32)
+            }
+            (Self::Double(value), UnresolvedDataType::Long) => {
+                Self::Long(value.into_inner() as i64)
+            }
+            (Self::Double(value), UnresolvedDataType::Float) => {
                 Self::Float(unsafe { NotNan::new_unchecked(value.into_inner() as f32) })
             }
 
-            (self_ @ Self::List(_), DataType::List(_))
-            | (self_ @ Self::Compound(_), DataType::Compound(_))
-            | (self_ @ Self::Boolean(_), DataType::Boolean)
-            | (self_ @ Self::Byte(_), DataType::Byte)
-            | (self_ @ Self::Short(_), DataType::Short)
-            | (self_ @ Self::Integer(_), DataType::Integer)
-            | (self_ @ Self::Long(_), DataType::Long)
-            | (self_ @ Self::Float(_), DataType::Float)
-            | (self_ @ Self::Double(_), DataType::Double)
-            | (self_ @ Self::Data(_), DataType::Data(_))
-            | (self_ @ Self::PlayerScore(_), DataType::Score(_)) => self_,
+            (self_ @ Self::List(..), UnresolvedDataType::List(..))
+            | (self_ @ Self::Compound(..), UnresolvedDataType::Compound(..))
+            | (self_ @ Self::Boolean(..), UnresolvedDataType::Boolean)
+            | (self_ @ Self::Byte(..), UnresolvedDataType::Byte)
+            | (self_ @ Self::Short(..), UnresolvedDataType::Short)
+            | (self_ @ Self::Integer(..), UnresolvedDataType::Integer)
+            | (self_ @ Self::Long(..), UnresolvedDataType::Long)
+            | (self_ @ Self::Float(..), UnresolvedDataType::Float)
+            | (self_ @ Self::Double(..), UnresolvedDataType::Double)
+            | (self_ @ Self::Data(..), UnresolvedDataType::Data(..))
+            | (self_ @ Self::PlayerScore(..), UnresolvedDataType::Score(..)) => self_,
 
             _ => return None,
         })
@@ -1744,7 +1754,7 @@ impl ResolvedExpression {
                 ),
             ),
             Self::PlayerScore(score) => score.to_execute_condition(inverted),
-            Self::Data(_) => {
+            Self::Data(..) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -1904,7 +1914,7 @@ impl ResolvedExpression {
                 expression.as_text_component(datapack, ctx, force_display)
             }
             Self::Function(id) => {
-                let (_, _, declaration) = datapack.get_function_declaration(id);
+                let (_, _, declaration) = datapack.get_function(id);
 
                 let mut output = format!("fn {}", declaration.name());
 
@@ -1916,7 +1926,7 @@ impl ResolvedExpression {
 
                 output.push('(');
 
-                for (i, data_type) in declaration.parameters().enumerate() {
+                for (i, data_type) in declaration.parameter_types().enumerate() {
                     if i != 0 {
                         output.push_str(", ");
                     }
@@ -1928,7 +1938,7 @@ impl ResolvedExpression {
 
                 let return_type = declaration.return_type();
 
-                if *return_type != DataType::Unit {
+                if *return_type != ResolvedDataType::Unit {
                     let _ = write!(output, " -> {}", return_type.display(&datapack.environment));
                 }
 
@@ -1936,9 +1946,9 @@ impl ResolvedExpression {
             }
             Self::StructStruct(id, fields) => {
                 if force_display {
-                    // TODO: Maybe display full path?
+                    // Maybe display full path?
 
-                    let (visibility, _, declaration) = datapack.get_struct_struct_type(id);
+                    let (_, visibility, declaration) = datapack.get_struct_struct_type(id);
 
                     let mut output = Vec::new();
 
@@ -2001,9 +2011,9 @@ impl ResolvedExpression {
             }
             Self::TupleStruct(id, fields) => {
                 if force_display {
-                    // TODO: Maybe display full path?
+                    // Maybe display full path?
 
-                    let (visibility, _, declaration) = datapack.get_tuple_struct_type(id);
+                    let (_, visibility, declaration) = datapack.get_tuple_struct_type(id);
 
                     let mut output = Vec::new();
 
@@ -2071,7 +2081,7 @@ impl ResolvedExpression {
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                Place::Data(target, path)
+                Place::Data(Box::new(target), path)
             }
             Self::Tuple(expressions) => Place::Tuple(
                 expressions
@@ -2087,7 +2097,7 @@ impl ResolvedExpression {
     pub const fn is_lvalue(&self) -> bool {
         matches!(
             self,
-            Self::Variable(_) | Self::PlayerScore(_) | Self::Data(_)
+            Self::Variable(..) | Self::PlayerScore(..) | Self::Data(..)
         )
     }
 
@@ -2385,7 +2395,7 @@ impl ResolvedExpression {
             Self::Long(value) => Self::Long(-value),
             Self::Float(value) => Self::Float(-value),
             Self::Double(value) => Self::Double(-value),
-            Self::PlayerScore(_) => {
+            Self::PlayerScore(..) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -2405,7 +2415,7 @@ impl ResolvedExpression {
 
                 Self::PlayerScore(unique_score)
             }
-            Self::Data(_) => {
+            Self::Data(..) => {
                 let unique_score = self.clone().as_score(datapack, ctx, true);
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());

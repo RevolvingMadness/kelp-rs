@@ -3,7 +3,7 @@ use crate::{
         expression::Expression, semantic_analysis::SemanticAnalysisContext, statement::Statement,
     },
     low::{
-        data_type::DataType,
+        data_type::unresolved::UnresolvedDataType,
         expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
     },
     span::Span,
@@ -61,7 +61,7 @@ impl BlockExpression {
 
         let data_type = tail_expression
             .as_ref()
-            .map_or(DataType::Unit, |(_, tail_expression)| {
+            .map_or(UnresolvedDataType::Unit, |(_, tail_expression)| {
                 tail_expression.data_type.clone()
             });
 

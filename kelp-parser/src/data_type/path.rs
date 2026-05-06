@@ -1,4 +1,4 @@
-use kelp_core::high::data_type::UnresolvedDataType;
+use kelp_core::high::data_type::DataType;
 
 use crate::{
     cst::CSTPathDataType,
@@ -23,8 +23,8 @@ pub fn try_parse_path_data_type(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_path_data_type(node: CSTPathDataType) -> Option<UnresolvedDataType> {
+pub fn lower_path_data_type(node: CSTPathDataType) -> Option<DataType> {
     let path = lower_generic_path(node.generic_path()?)?;
 
-    Some(UnresolvedDataType::Named(path))
+    Some(DataType::Named(path))
 }

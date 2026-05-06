@@ -1,6 +1,9 @@
-use crate::high::environment::r#type::r#struct::{
-    regular::{HighStructStructDeclaration, HighStructStructId},
-    tuple::{HighTupleStructDeclaration, HighTupleStructId},
+use crate::{
+    high::environment::r#type::r#struct::{
+        regular::{HighStructStructDeclaration, HighStructStructId},
+        tuple::{HighTupleStructDeclaration, HighTupleStructId},
+    },
+    low::data_type::unresolved::UnresolvedDataType,
 };
 
 pub mod regular;
@@ -49,6 +52,18 @@ impl HighStructDeclaration {
         match self {
             Self::Struct(declaration) => declaration.generic_names.len(),
             Self::Tuple(declaration) => declaration.generic_names.len(),
+        }
+    }
+
+    #[must_use]
+    pub fn get_field(&self, field_name: &str) -> Option<&UnresolvedDataType> {
+        match self {
+            Self::Struct(declaration) => declaration.field_types.get(field_name),
+            Self::Tuple(declaration) => {
+                let field_index = field_name.parse::<usize>().ok()?;
+
+                declaration.field_types.get(field_index)
+            }
         }
     }
 }

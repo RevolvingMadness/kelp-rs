@@ -1,6 +1,5 @@
-use hashbrown::{Equivalent, HashMap};
+use hashbrown::HashMap;
 use smallvec::SmallVec;
-use std::collections::HashMap as StdHashMap;
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -20,7 +19,7 @@ use crate::{
             value::{
                 HighValueDeclaration, HighValueDeclarationKind, HighValueId,
                 function::{
-                    HighFunctionId,
+                    HighFunctionDeclaration,
                     builtin::{HighBuiltinFunctionDeclaration, HighBuiltinFunctionId},
                     regular::{HighRegularFunctionDeclaration, HighRegularFunctionId},
                 },
@@ -33,23 +32,13 @@ use crate::{
         },
     },
     low::{
-        data_type::DataType,
+        data_type::unresolved::UnresolvedDataType,
         environment::{
             Environment,
-            r#type::r#struct::{
-                StructDeclaration, StructId, StructStructDeclaration, StructStructId,
-                TupleStructDeclaration, TupleStructId,
-            },
-            value::{
-                function::{
-                    BuiltinFunctionKind, FunctionDeclaration, FunctionId,
-                    regular::RegularFunctionId,
-                },
-                variable::VariableId,
-            },
+            value::{function::BuiltinFunctionKind, variable::VariableId},
         },
         expression::unresolved::UnresolvedExpression,
-        pattern::Pattern,
+        pattern::UnresolvedPattern,
     },
     path::{generic::GenericPath, regular::Path},
     span::Span,
@@ -58,42 +47,6 @@ use crate::{
 
 pub mod info;
 pub mod scope;
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct MonomorphizedStructKey {
-    pub original_id: HighTypeId,
-    pub generics: Vec<DataType>,
-}
-
-#[derive(Hash, PartialEq, Eq)]
-struct MonomorphizedStructKeyRef<'a> {
-    pub id: HighTypeId,
-    pub generics: &'a [DataType],
-}
-
-impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
-    fn equivalent(&self, key: &MonomorphizedStructKey) -> bool {
-        self.id == key.original_id && self.generics == key.generics.as_slice()
-    }
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct MonomorphizedFunctionKey {
-    pub original_id: HighFunctionId,
-    pub generics: Vec<DataType>,
-}
-
-#[derive(Hash, PartialEq, Eq)]
-struct MonomorphizedFunctionKeyRef<'a> {
-    pub id: HighFunctionId,
-    pub generics: &'a [DataType],
-}
-
-impl Equivalent<MonomorphizedFunctionKey> for MonomorphizedFunctionKeyRef<'_> {
-    fn equivalent(&self, key: &MonomorphizedFunctionKey) -> bool {
-        self.id == key.original_id && self.generics == key.generics.as_slice()
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ResolvedItem {
@@ -108,12 +61,10 @@ pub struct SemanticAnalysisContext {
     pub loop_depth: u32,
     pub is_lhs: bool,
     pub current_module_path: Vec<String>,
-    pub function_return_types: SmallVec<[Option<DataType>; 5]>,
+    pub function_return_types: SmallVec<[UnresolvedDataType; 5]>,
     max_infos: usize,
     pub environment: Environment,
-    high_environment: HighEnvironment,
-    monomorphized_structs: HashMap<MonomorphizedStructKey, StructId>,
-    monomorphized_functions: HashMap<MonomorphizedFunctionKey, FunctionId>,
+    pub high_environment: HighEnvironment,
     resolved_variables: HashMap<HighValueId, VariableId>,
 }
 
@@ -126,8 +77,6 @@ impl SemanticAnalysisContext {
             environment: Environment::default(),
             high_environment: HighEnvironment::default(),
             scopes: vec![Scope::default()],
-            monomorphized_structs: HashMap::new(),
-            monomorphized_functions: HashMap::new(),
             resolved_variables: HashMap::new(),
             loop_depth: 0,
             is_lhs: false,
@@ -154,36 +103,6 @@ impl SemanticAnalysisContext {
         }
 
         self.exit_module_and_declare(Visibility::Public);
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_monomorphized_struct_id(
-        &self,
-        id: HighTypeId,
-        generic_types: &[DataType],
-    ) -> Option<StructId> {
-        let key = MonomorphizedStructKeyRef {
-            id,
-            generics: generic_types,
-        };
-
-        self.monomorphized_structs.get(&key).copied()
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_monomorphized_function_id<I: Into<HighFunctionId>>(
-        &self,
-        id: I,
-        generic_types: &[DataType],
-    ) -> Option<FunctionId> {
-        let key = MonomorphizedFunctionKeyRef {
-            id: id.into(),
-            generics: generic_types,
-        };
-
-        self.monomorphized_functions.get(&key).copied()
     }
 
     #[inline]
@@ -224,7 +143,7 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn is_item_visible(&self, visibility: Visibility, target_module_path: &[String]) -> bool {
+    pub fn is_item_visible(&self, target_module_path: &[String], visibility: Visibility) -> bool {
         if matches!(visibility, Visibility::Public) {
             return true;
         }
@@ -250,6 +169,19 @@ impl SemanticAnalysisContext {
         )
     }
 
+    #[must_use]
+    pub fn add_invalid_generics_type(
+        &mut self,
+        span: Span,
+        type_name: &str,
+        expected: usize,
+        actual: usize,
+    ) -> UnresolvedDataType {
+        self.add_invalid_generics::<()>(span, type_name, expected, actual);
+
+        UnresolvedDataType::Error
+    }
+
     pub fn add_info<T>(&mut self, info: SemanticAnalysisInfo) -> Option<T> {
         if self.infos.len() >= self.max_infos {
             return None;
@@ -267,84 +199,21 @@ impl SemanticAnalysisContext {
         })
     }
 
-    pub fn declare_monomorphized_struct(
-        &mut self,
-        original_id: HighTypeId,
-        monomorphized_id: StructId,
-        generic_types: Vec<DataType>,
-    ) -> StructId {
-        let key = MonomorphizedStructKey {
-            original_id,
-            generics: generic_types,
-        };
-
-        self.monomorphized_structs.insert(key, monomorphized_id);
-
-        monomorphized_id
+    pub fn add_error_unit(&mut self, span: Span, error: SemanticAnalysisError) -> Option<()> {
+        self.add_info(SemanticAnalysisInfo {
+            span,
+            kind: SemanticAnalysisInfoKind::Error(error),
+        })
     }
 
-    #[inline]
-    pub fn declare_monomorphized_struct_struct(
+    pub fn add_error_type(
         &mut self,
-        visibility: Visibility,
-        original_id: HighTypeId,
-        name: String,
-        generic_types: Vec<DataType>,
-        field_types: StdHashMap<String, DataType>,
-    ) -> StructId {
-        let id = self.environment.declare_struct_struct(
-            self.current_module_path.clone(),
-            visibility,
-            name,
-            generic_types.clone(),
-            field_types,
-        );
+        span: Span,
+        error: SemanticAnalysisError,
+    ) -> UnresolvedDataType {
+        self.add_error_unit(span, error);
 
-        self.declare_monomorphized_struct(original_id, id, generic_types)
-    }
-
-    #[inline]
-    pub fn declare_monomorphized_tuple_struct(
-        &mut self,
-        visibility: Visibility,
-        original_id: HighTypeId,
-        name: String,
-        generic_types: Vec<DataType>,
-        field_types: Vec<DataType>,
-    ) -> StructId {
-        let monomorphized_id = self.environment.declare_tuple_struct(
-            self.current_module_path.clone(),
-            visibility,
-            name,
-            generic_types.clone(),
-            field_types,
-        );
-
-        self.declare_monomorphized_struct(original_id, monomorphized_id, generic_types)
-    }
-
-    pub fn declare_monomorphized_function<I: Into<HighFunctionId>, D: Into<FunctionDeclaration>>(
-        &mut self,
-        original_id: I,
-        visibility: Visibility,
-        declaration: D,
-    ) -> FunctionId {
-        let declaration = declaration.into();
-
-        let key = MonomorphizedFunctionKey {
-            original_id: original_id.into(),
-            generics: declaration.generic_types().to_vec(),
-        };
-
-        let monomorphized_id = self.environment.declare_function(
-            self.current_module_path.clone(),
-            visibility,
-            declaration,
-        );
-
-        self.monomorphized_functions.insert(key, monomorphized_id);
-
-        monomorphized_id
+        UnresolvedDataType::Error
     }
 
     #[must_use]
@@ -352,7 +221,7 @@ impl SemanticAnalysisContext {
         &mut self,
         visibility: Visibility,
         name: String,
-        data_type: Option<DataType>,
+        data_type: UnresolvedDataType,
     ) -> HighVariableId {
         let id = self.high_environment.declare_variable(
             visibility,
@@ -367,27 +236,6 @@ impl SemanticAnalysisContext {
             .declare_value(name, id.into());
 
         id
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn declare_variable_known(
-        &mut self,
-        visibility: Visibility,
-        name: String,
-        data_type: DataType,
-    ) -> HighVariableId {
-        self.declare_variable(visibility, name, Some(data_type))
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn declare_variable_unknown(
-        &mut self,
-        visibility: Visibility,
-        name: String,
-    ) -> HighVariableId {
-        self.declare_variable(visibility, name, None)
     }
 
     #[must_use]
@@ -414,7 +262,7 @@ impl SemanticAnalysisContext {
         let scope = self.current_scope_mut();
 
         if scope.types.contains_key(&name) {
-            self.add_error::<()>(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+            self.add_error_unit(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
 
             return;
         }
@@ -431,7 +279,7 @@ impl SemanticAnalysisContext {
         let scope = self.current_scope_mut();
 
         if scope.values.contains_key(&name) {
-            self.add_error::<()>(
+            self.add_error_unit(
                 name_span,
                 SemanticAnalysisError::ValueIsAlreadyDefined(name),
             );
@@ -567,19 +415,21 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         name: String,
         generic_names: Vec<String>,
-        parameters: Vec<(Option<Pattern>, Option<DataType>)>,
-        return_type: Option<DataType>,
+        parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
+        return_type: UnresolvedDataType,
         body: Option<UnresolvedExpression>,
     ) -> HighRegularFunctionId {
         let id = self.declare_value(
             visibility,
-            HighValueDeclarationKind::Function(HighRegularFunctionDeclaration {
-                name,
-                generic_names,
-                parameters,
-                return_type,
-                body,
-            }),
+            HighValueDeclarationKind::Function(HighFunctionDeclaration::Regular(
+                HighRegularFunctionDeclaration {
+                    name,
+                    generic_names,
+                    parameters,
+                    return_type,
+                    body,
+                },
+            )),
         );
 
         HighRegularFunctionId(id.0)
@@ -588,24 +438,24 @@ impl SemanticAnalysisContext {
     pub fn update_regular_function(
         &mut self,
         id: HighRegularFunctionId,
-        parameters: Vec<(Pattern, DataType)>,
+        parameters: Vec<(UnresolvedPattern, UnresolvedDataType)>,
         body: UnresolvedExpression,
     ) {
-        let mut monomorphized_functions_to_update = Vec::new();
+        // let mut monomorphized_functions_to_update = Vec::new();
 
-        for (key, func_id) in &self.monomorphized_functions {
-            if key.original_id == id.into() {
-                monomorphized_functions_to_update.push(RegularFunctionId(func_id.0));
-            }
-        }
+        // for (key, func_id) in &self.monomorphized_functions {
+        //     if key.original_id == id.into() {
+        //         monomorphized_functions_to_update.push(RegularFunctionId(func_id.0));
+        //     }
+        // }
 
-        for monomorphized_function_id in monomorphized_functions_to_update {
-            self.environment.update_regular_function(
-                monomorphized_function_id,
-                parameters.clone(),
-                body.clone(),
-            );
-        }
+        // for monomorphized_function_id in monomorphized_functions_to_update {
+        //     self.environment.update_regular_function(
+        //         monomorphized_function_id,
+        //         parameters.clone(),
+        //         body.clone(),
+        //     );
+        // }
 
         self.high_environment.update_function(id, parameters, body);
     }
@@ -617,7 +467,7 @@ impl SemanticAnalysisContext {
     ) -> HighBuiltinFunctionId {
         let id = self.declare_value(
             visibility,
-            HighValueDeclarationKind::BuiltinFunction(declaration),
+            HighValueDeclarationKind::Function(HighFunctionDeclaration::Builtin(declaration)),
         );
 
         HighBuiltinFunctionId(id.0)
@@ -662,7 +512,7 @@ impl SemanticAnalysisContext {
             ..
         } = self.get_type(current_type_id);
 
-        let is_visible = self.is_item_visible(*visibility, module_path);
+        let is_visible = self.is_item_visible(module_path, *visibility);
 
         if !is_visible {
             return self.add_error(
@@ -742,7 +592,7 @@ impl SemanticAnalysisContext {
         };
 
         let declaration = self.get_value(resolved_value_id);
-        let is_visible = self.is_item_visible(declaration.visibility, &declaration.module_path);
+        let is_visible = self.is_item_visible(&declaration.module_path, declaration.visibility);
 
         if !is_visible {
             return self.add_error(
@@ -775,7 +625,7 @@ impl SemanticAnalysisContext {
                     break;
                 };
 
-                let is_visible = self.is_item_visible(*visibility, module_path);
+                let is_visible = self.is_item_visible(module_path, *visibility);
 
                 if !is_visible {
                     return self.add_error(
@@ -800,7 +650,7 @@ impl SemanticAnalysisContext {
                     ..
                 } = self.get_type(current_type_id);
 
-                let is_visible = self.is_item_visible(*visibility, module_path);
+                let is_visible = self.is_item_visible(module_path, *visibility);
 
                 if !is_visible {
                     let last_segment = path.segments.last().unwrap();
@@ -879,7 +729,7 @@ impl SemanticAnalysisContext {
         };
 
         let declaration = self.get_value(resolved_value_id);
-        let is_visible = self.is_item_visible(declaration.visibility, &declaration.module_path);
+        let is_visible = self.is_item_visible(&declaration.module_path, declaration.visibility);
 
         if !is_visible {
             return self.add_error(
@@ -920,7 +770,7 @@ impl SemanticAnalysisContext {
         let HighTypeDeclaration {
             visibility,
             module_path,
-            kind: HighTypeDeclarationKind::Module(_),
+            kind: HighTypeDeclarationKind::Module(..),
         } = self.get_type(id)
         else {
             return self.add_error(
@@ -929,7 +779,7 @@ impl SemanticAnalysisContext {
             );
         };
 
-        let is_visible = self.is_item_visible(*visibility, module_path);
+        let is_visible = self.is_item_visible(module_path, *visibility);
 
         if !is_visible {
             return self.add_error(
@@ -945,24 +795,60 @@ impl SemanticAnalysisContext {
         Some(declaration)
     }
 
-    #[inline]
     #[must_use]
     pub fn get_visible_struct_struct(
         &mut self,
         name_span: Span,
         name: &str,
-        id: StructId,
-    ) -> Option<(StructStructId, &[String], &StructStructDeclaration)> {
-        let (visibility, module_path, StructDeclaration::Struct(_)) =
-            self.environment.get_struct(id)
-        else {
+        id: HighTypeId,
+    ) -> Option<(&[String], Visibility, &HighStructStructDeclaration)> {
+        let (module_path, visibility, declaration) = self.high_environment.get_type(id);
+
+        let is_visible = self.is_item_visible(module_path, visibility);
+
+        if !is_visible {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::TypeNotPublic(name.to_owned()),
+            );
+        }
+
+        let HighTypeDeclarationKind::Struct(declaration) = declaration else {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::NotAStruct(name.to_owned()),
+            );
+        };
+
+        let HighStructDeclaration::Struct(..) = declaration else {
             return self.add_error(
                 name_span,
                 SemanticAnalysisError::NotARegularStruct(name.to_owned()),
             );
         };
 
-        let is_visible = self.is_item_visible(visibility, module_path);
+        let (
+            module_path,
+            visibility,
+            HighTypeDeclarationKind::Struct(HighStructDeclaration::Struct(declaration)),
+        ) = self.high_environment.get_type(id)
+        else {
+            unreachable!();
+        };
+
+        Some((module_path, visibility, declaration))
+    }
+
+    #[must_use]
+    pub fn get_visible_tuple_struct(
+        &mut self,
+        name_span: Span,
+        name: &str,
+        id: HighTypeId,
+    ) -> Option<(&[String], Visibility, &HighTupleStructDeclaration)> {
+        let (module_path, visibility, declaration) = self.high_environment.get_type(id);
+
+        let is_visible = self.is_item_visible(module_path, visibility);
 
         if !is_visible {
             return self.add_error(
@@ -971,47 +857,29 @@ impl SemanticAnalysisContext {
             );
         }
 
-        let (_, module_path, StructDeclaration::Struct(declaration)) =
-            self.environment.get_struct(id)
-        else {
-            unreachable!();
+        let HighTypeDeclarationKind::Struct(declaration) = declaration else {
+            return self.add_error(
+                name_span,
+                SemanticAnalysisError::NotAStruct(name.to_owned()),
+            );
         };
 
-        Some((StructStructId(id.0), module_path, declaration))
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_visible_tuple_struct(
-        &mut self,
-        name_span: Span,
-        name: &str,
-        id: StructId,
-    ) -> Option<(TupleStructId, &[String], &TupleStructDeclaration)> {
-        let (visibility, module_path, StructDeclaration::Tuple(_)) =
-            self.environment.get_struct(id)
-        else {
+        let HighStructDeclaration::Tuple(..) = declaration else {
             return self.add_error(
                 name_span,
                 SemanticAnalysisError::NotATupleStruct(name.to_owned()),
             );
         };
 
-        let is_visible = self.is_item_visible(visibility, module_path);
-
-        if !is_visible {
-            return self.add_error(
-                name_span,
-                SemanticAnalysisError::TypeNotPublic(name.to_owned()),
-            );
-        }
-
-        let (_, module_path, StructDeclaration::Tuple(declaration)) =
-            self.environment.get_struct(id)
+        let (
+            module_path,
+            visibility,
+            HighTypeDeclarationKind::Struct(HighStructDeclaration::Tuple(declaration)),
+        ) = self.high_environment.get_type(id)
         else {
             unreachable!();
         };
 
-        Some((TupleStructId(id.0), module_path, declaration))
+        Some((module_path, visibility, declaration))
     }
 }

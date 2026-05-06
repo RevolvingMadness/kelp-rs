@@ -5,7 +5,7 @@ use kelp_core::{
         expression::{Expression, ExpressionKind},
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    low::data_type::DataType,
+    low::data_type::unresolved::UnresolvedDataType,
 };
 use ordered_float::NotNan;
 
@@ -57,17 +57,17 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Byte(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooLarge(DataType::Byte),
+                            SemanticAnalysisError::ValueTooLarge(UnresolvedDataType::Byte),
                         );
 
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooSmall(DataType::Byte),
+                            SemanticAnalysisError::ValueTooSmall(UnresolvedDataType::Byte),
                         );
 
                         ExpressionKind::Invalid
@@ -79,17 +79,17 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Short(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooLarge(DataType::Short),
+                            SemanticAnalysisError::ValueTooLarge(UnresolvedDataType::Short),
                         );
 
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooSmall(DataType::Short),
+                            SemanticAnalysisError::ValueTooSmall(UnresolvedDataType::Short),
                         );
 
                         ExpressionKind::Invalid
@@ -101,17 +101,17 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Integer(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooLarge(DataType::Integer),
+                            SemanticAnalysisError::ValueTooLarge(UnresolvedDataType::Integer),
                         );
 
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooSmall(DataType::Integer),
+                            SemanticAnalysisError::ValueTooSmall(UnresolvedDataType::Integer),
                         );
 
                         ExpressionKind::Invalid
@@ -123,17 +123,17 @@ pub fn lower_numeric_expression(
                 Ok(value) => ExpressionKind::Long(value),
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooLarge(DataType::Long),
+                            SemanticAnalysisError::ValueTooLarge(UnresolvedDataType::Long),
                         );
 
                         ExpressionKind::Invalid
                     }
                     IntErrorKind::NegOverflow => {
-                        ctx.add_error::<()>(
+                        ctx.add_error_unit(
                             text_range_to_span(value_token.text_range()),
-                            SemanticAnalysisError::ValueTooSmall(DataType::Long),
+                            SemanticAnalysisError::ValueTooSmall(UnresolvedDataType::Long),
                         );
 
                         ExpressionKind::Invalid
@@ -161,17 +161,21 @@ pub fn lower_numeric_expression(
                         Ok(value) => ExpressionKind::InferredInteger(value),
                         Err(error) => match error.kind() {
                             IntErrorKind::PosOverflow => {
-                                ctx.add_error::<()>(
+                                ctx.add_error_unit(
                                     text_range_to_span(value_token.text_range()),
-                                    SemanticAnalysisError::ValueTooLarge(DataType::Integer),
+                                    SemanticAnalysisError::ValueTooLarge(
+                                        UnresolvedDataType::Integer,
+                                    ),
                                 );
 
                                 ExpressionKind::Invalid
                             }
                             IntErrorKind::NegOverflow => {
-                                ctx.add_error::<()>(
+                                ctx.add_error_unit(
                                     text_range_to_span(value_token.text_range()),
-                                    SemanticAnalysisError::ValueTooSmall(DataType::Integer),
+                                    SemanticAnalysisError::ValueTooSmall(
+                                        UnresolvedDataType::Integer,
+                                    ),
                                 );
 
                                 ExpressionKind::Invalid

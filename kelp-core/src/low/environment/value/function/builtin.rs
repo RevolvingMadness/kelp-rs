@@ -1,4 +1,6 @@
-use crate::low::{data_type::DataType, environment::value::function::BuiltinFunctionKind};
+use crate::low::{
+    data_type::resolved::ResolvedDataType, environment::value::function::BuiltinFunctionKind,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BuiltinFunctionId(pub usize);
@@ -7,8 +9,8 @@ pub struct BuiltinFunctionId(pub usize);
 pub struct BuiltinFunctionDeclaration {
     pub module_path: Vec<String>,
     pub name: String,
-    pub generic_types: Vec<DataType>,
-    pub parameters: Vec<DataType>,
-    pub return_type: DataType,
+    pub generic_types: Vec<ResolvedDataType>,
+    pub parameters: Vec<ResolvedDataType>,
+    pub return_type: ResolvedDataType,
     pub kind: BuiltinFunctionKind,
 }

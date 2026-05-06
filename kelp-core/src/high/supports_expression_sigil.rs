@@ -8,7 +8,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     low::{
-        coordinate::Coordinates as LowCoordinates, data_type::DataType,
+        coordinate::Coordinates as LowCoordinates, data_type::unresolved::UnresolvedDataType,
         entity_selector::EntitySelector as LowEntitySelector,
         supports_expression_sigil::SupportsExpressionSigil as LowSupportsExpressionSigil,
     },
@@ -34,7 +34,7 @@ impl<T: Display> Display for SupportsExpressionSigil<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Regular(value) => value.fmt(f),
-            Self::Sigil(_) => f.write_str("..."),
+            Self::Sigil(..) => f.write_str("..."),
         }
     }
 }
@@ -53,7 +53,7 @@ impl SupportsExpressionSigil<ResourceLocation> {
                 expression.data_type.assert_equals(
                     ctx,
                     expression_span,
-                    &DataType::ResourceLocation,
+                    &UnresolvedDataType::ResourceLocation,
                 )?;
 
                 LowSupportsExpressionSigil::Sigil(expression)
@@ -80,7 +80,7 @@ impl SupportsExpressionSigil<EntitySelector> {
                 expression.data_type.assert_equals(
                     ctx,
                     expression_span,
-                    &DataType::EntitySelector,
+                    &UnresolvedDataType::EntitySelector,
                 )?;
 
                 LowSupportsExpressionSigil::Sigil(expression)
@@ -104,9 +104,11 @@ impl SupportsExpressionSigil<Coordinates> {
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                expression
-                    .data_type
-                    .assert_equals(ctx, expression_span, &DataType::Coordinates)?;
+                expression.data_type.assert_equals(
+                    ctx,
+                    expression_span,
+                    &UnresolvedDataType::Coordinates,
+                )?;
 
                 LowSupportsExpressionSigil::Sigil(expression)
             }

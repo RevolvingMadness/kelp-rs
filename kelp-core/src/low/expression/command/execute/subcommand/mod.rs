@@ -93,7 +93,7 @@ impl ExecuteSubcommand {
             Self::Store(store_type, high_execute_store_subcommand) => {
                 Self::Store(store_type, high_execute_store_subcommand.then(next))
             }
-            Self::Run(_) => next.then(self),
+            Self::Run(..) => next.then(self),
             Self::Multiple(high_execute_subcommands) => Self::Multiple(
                 high_execute_subcommands
                     .into_iter()

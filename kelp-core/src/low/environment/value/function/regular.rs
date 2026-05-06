@@ -1,5 +1,6 @@
 use crate::low::{
-    data_type::DataType, expression::unresolved::UnresolvedExpression, pattern::Pattern,
+    data_type::resolved::ResolvedDataType, expression::unresolved::UnresolvedExpression,
+    pattern::UnresolvedPattern,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -9,8 +10,8 @@ pub struct RegularFunctionId(pub usize);
 pub struct RegularFunctionDeclaration {
     pub module_path: Vec<String>,
     pub name: String,
-    pub generic_types: Vec<DataType>,
-    pub parameters: Vec<(Pattern, DataType)>,
-    pub return_type: DataType,
+    pub generic_types: Vec<ResolvedDataType>,
+    pub parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    pub return_type: ResolvedDataType,
     pub body: UnresolvedExpression,
 }

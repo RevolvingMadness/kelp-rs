@@ -1,9 +1,7 @@
 use minecraft_command_types::{has_macro::HasMacro, snbt::SNBTString as LowSNBTString};
 
 use crate::{
-    high::semantic_analysis::{
-        SemanticAnalysisContext, info::error::SemanticAnalysisError,
-    },
+    high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     span::Span,
 };
 
@@ -29,7 +27,7 @@ impl SNBTString {
         ctx: &mut SemanticAnalysisContext,
     ) -> (Span, LowSNBTString) {
         if self.snbt_string.has_macro_conflict() {
-            ctx.add_error::<()>(self.span, SemanticAnalysisError::MacroConflict);
+            ctx.add_error_unit(self.span, SemanticAnalysisError::MacroConflict);
         }
 
         (self.span, self.snbt_string)

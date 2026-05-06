@@ -1,5 +1,5 @@
 use kelp_core::high::{
-    data_type::UnresolvedDataType, item::ItemKind, semantic_analysis::SemanticAnalysisContext,
+    data_type::DataType, item::ItemKind, semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{
@@ -197,7 +197,7 @@ pub fn lower_function_declaration_item_kind(
     let return_type = node
         .data_type()
         .and_then(lower_data_type)
-        .unwrap_or(UnresolvedDataType::Unit);
+        .unwrap_or(DataType::Unit);
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 

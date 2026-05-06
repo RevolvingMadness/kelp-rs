@@ -3,15 +3,15 @@ use std::{
     slice::Iter,
 };
 
-use crate::low::data_type::DataType;
+use crate::low::data_type::resolved::ResolvedDataType;
 
 pub enum FieldTypesIter<'a> {
-    Struct(Values<'a, String, DataType>),
-    Tuple(Iter<'a, DataType>),
+    Struct(Values<'a, String, ResolvedDataType>),
+    Tuple(Iter<'a, ResolvedDataType>),
 }
 
 impl<'a> Iterator for FieldTypesIter<'a> {
-    type Item = &'a DataType;
+    type Item = &'a ResolvedDataType;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -52,7 +52,7 @@ impl StructDeclaration {
     }
 
     #[must_use]
-    pub fn generic_types(&self) -> &[DataType] {
+    pub fn generic_types(&self) -> &[ResolvedDataType] {
         match self {
             Self::Struct(declaration) => &declaration.generic_types,
             Self::Tuple(declaration) => &declaration.generic_types,
@@ -66,18 +66,6 @@ impl StructDeclaration {
             Self::Tuple(declaration) => FieldTypesIter::Tuple(declaration.field_types.iter()),
         }
     }
-
-    #[must_use]
-    pub fn get_field(&self, field_name: &str) -> Option<&DataType> {
-        match self {
-            Self::Struct(declaration) => declaration.field_types.get(field_name),
-            Self::Tuple(declaration) => {
-                let field_index = field_name.parse::<usize>().ok()?;
-
-                declaration.field_types.get(field_index)
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -86,8 +74,8 @@ pub struct StructStructId(pub usize);
 #[derive(Debug, Clone)]
 pub struct StructStructDeclaration {
     pub name: String,
-    pub generic_types: Vec<DataType>,
-    pub field_types: HashMap<String, DataType>,
+    pub generic_types: Vec<ResolvedDataType>,
+    pub field_types: HashMap<String, ResolvedDataType>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -96,6 +84,6 @@ pub struct TupleStructId(pub usize);
 #[derive(Debug, Clone)]
 pub struct TupleStructDeclaration {
     pub name: String,
-    pub generic_types: Vec<DataType>,
-    pub field_types: Vec<DataType>,
+    pub generic_types: Vec<ResolvedDataType>,
+    pub field_types: Vec<ResolvedDataType>,
 }

@@ -18,14 +18,14 @@ impl LiteralExpression {
     #[must_use]
     pub const fn get_pattern_type(&self) -> PatternType {
         match self {
-            Self::Boolean(_) => PatternType::Boolean,
-            Self::Byte(_) => PatternType::Byte,
-            Self::Short(_) => PatternType::Short,
-            Self::Integer(_) => PatternType::Integer,
-            Self::Long(_) => PatternType::Long,
-            Self::Float(_) => PatternType::Float,
-            Self::Double(_) => PatternType::Double,
-            Self::String(_) => PatternType::String,
+            Self::Boolean(..) => PatternType::Boolean,
+            Self::Byte(..) => PatternType::Byte,
+            Self::Short(..) => PatternType::Short,
+            Self::Integer(..) => PatternType::Integer,
+            Self::Long(..) => PatternType::Long,
+            Self::Float(..) => PatternType::Float,
+            Self::Double(..) => PatternType::Double,
+            Self::String(..) => PatternType::String,
         }
     }
 }

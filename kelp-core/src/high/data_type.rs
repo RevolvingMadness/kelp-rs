@@ -5,54 +5,12 @@ use std::{
 
 use crate::{
     high::{semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString},
-    low::data_type::DataType,
+    low::data_type::unresolved::UnresolvedDataType,
     path::generic::GenericPath,
-    span::Span,
-    trait_ext::CollectOptionAllIterExt,
 };
 
-pub struct GenericResolver<'a> {
-    names: &'a [String],
-    types: &'a [DataType],
-}
-
-impl<'a> GenericResolver<'a> {
-    pub fn create_semantic_analysis(
-        ctx: &mut SemanticAnalysisContext,
-        name: &str,
-        name_span: Span,
-        names: &'a [String],
-        types: &'a [DataType],
-    ) -> Option<Self> {
-        let expected_generics = names.len();
-        let actual_generics = types.len();
-
-        if actual_generics != expected_generics {
-            return ctx.add_invalid_generics(name_span, name, expected_generics, actual_generics);
-        }
-
-        Some(Self { names, types })
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn empty() -> Self {
-        Self {
-            names: &[],
-            types: &[],
-        }
-    }
-
-    #[must_use]
-    pub fn resolve(&self, name: &str) -> Option<&DataType> {
-        let index = self.names.iter().position(|n| n == name)?;
-
-        self.types.get(index)
-    }
-}
-
 #[derive(Debug, Clone)]
-pub enum UnresolvedDataType {
+pub enum DataType {
     Named(GenericPath<Self>),
     TypedCompound(HashMap<SNBTString, Self>),
     Reference(Box<Self>),
@@ -62,7 +20,7 @@ pub enum UnresolvedDataType {
     Inferred,
 }
 
-impl Display for UnresolvedDataType {
+impl Display for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Named(path) => path.fmt(f),
@@ -110,73 +68,68 @@ impl Display for UnresolvedDataType {
     }
 }
 
-impl UnresolvedDataType {
-    #[must_use]
-    pub fn resolve_fully(self, ctx: &mut SemanticAnalysisContext) -> Option<DataType> {
-        let partially_resolved = self.resolve_partially(None, ctx)?;
-
-        Some(partially_resolved.resolve_fully(&GenericResolver::empty()))
-    }
-
+impl DataType {
     #[must_use]
     pub fn resolve_partially(
         self,
         context_generic_names: Option<&[String]>,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<DataType> {
-        Some(match self {
+    ) -> UnresolvedDataType {
+        match self {
             Self::Named(path) => {
                 if path.segments.len() == 1 && path.segments[0].generic_types.is_empty() {
                     let name = &path.segments[0].name;
 
                     if context_generic_names.is_some_and(|names| names.contains(name)) {
-                        return Some(DataType::Generic(name.clone()));
+                        return UnresolvedDataType::Generic(name.clone());
                     }
                 }
 
-                let mut path = path.resolve_partially(context_generic_names, ctx)?;
+                let mut path = path.resolve_partially(context_generic_names, ctx);
 
-                let id = ctx.get_visible_type_id(&path)?;
+                let Some(id) = ctx.get_visible_type_id(&path) else {
+                    return UnresolvedDataType::Error;
+                };
                 let last_segment = path.segments.pop().unwrap();
 
                 let declaration = ctx.get_type(id).clone();
 
-                declaration.resolve_fully(
+                declaration.resolve_partially(
                     ctx,
                     id,
                     last_segment.generic_spans,
                     last_segment.generic_types,
                     last_segment.name_span,
-                )?
+                )
             }
-            Self::Unit => DataType::Unit,
-            Self::Never => DataType::Never,
-            Self::Inferred => DataType::Inferred,
+            Self::Unit => UnresolvedDataType::Unit,
+            Self::Never => UnresolvedDataType::Never,
+            Self::Inferred => UnresolvedDataType::Inferred,
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .into_iter()
                     .map(|data_type| data_type.resolve_partially(context_generic_names, ctx))
-                    .collect_option_all()?;
+                    .collect();
 
-                DataType::Tuple(data_types)
+                UnresolvedDataType::Tuple(data_types)
             }
             Self::Reference(data_type) => {
-                let data_type = data_type.resolve_partially(context_generic_names, ctx)?;
+                let data_type = data_type.resolve_partially(context_generic_names, ctx);
 
-                DataType::Reference(Box::new(data_type))
+                UnresolvedDataType::Reference(Box::new(data_type))
             }
             Self::TypedCompound(compound) => {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.resolve_partially(context_generic_names, ctx)?;
+                        let value = value.resolve_partially(context_generic_names, ctx);
 
-                        Some((key.snbt_string, value))
+                        (key.snbt_string, value)
                     })
-                    .collect_option_all()?;
+                    .collect();
 
-                DataType::TypedCompound(compound)
+                UnresolvedDataType::TypedCompound(compound)
             }
-        })
+        }
     }
 }

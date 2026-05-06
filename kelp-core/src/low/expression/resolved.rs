@@ -1316,9 +1316,7 @@ impl ResolvedExpression {
                         ctx,
                         PlayersScoreboardCommand::Operation(
                             target.score.clone(),
-                            operator
-                                .into_scoreboard_players_operation_operator()
-                                .unwrap(),
+                            operator.try_into().unwrap(),
                             constant_score.score,
                         ),
                     );

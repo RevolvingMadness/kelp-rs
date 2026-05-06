@@ -33,6 +33,21 @@ impl Display for ArithmeticOperator {
     }
 }
 
+impl TryFrom<ArithmeticOperator> for ScoreOperationOperator {
+    type Error = ();
+
+    fn try_from(value: ArithmeticOperator) -> Result<Self, Self::Error> {
+        Ok(match value {
+            ArithmeticOperator::Add => Self::Add,
+            ArithmeticOperator::Subtract => Self::Subtract,
+            ArithmeticOperator::Multiply => Self::Multiply,
+            ArithmeticOperator::FloorDivide => Self::Divide,
+            ArithmeticOperator::Modulo => Self::Modulo,
+            _ => return Err(()),
+        })
+    }
+}
+
 impl ArithmeticOperator {
     #[must_use]
     pub const fn name(&self) -> &str {
@@ -52,20 +67,6 @@ impl ArithmeticOperator {
     #[must_use]
     pub const fn is_additive(self) -> bool {
         matches!(self, Self::Add | Self::Subtract)
-    }
-
-    #[must_use]
-    pub const fn into_scoreboard_players_operation_operator(
-        self,
-    ) -> Option<ScoreOperationOperator> {
-        match self {
-            Self::Add => Some(ScoreOperationOperator::Add),
-            Self::Subtract => Some(ScoreOperationOperator::Subtract),
-            Self::Multiply => Some(ScoreOperationOperator::Multiply),
-            Self::FloorDivide => Some(ScoreOperationOperator::Divide),
-            Self::Modulo => Some(ScoreOperationOperator::Modulo),
-            _ => None,
-        }
     }
 }
 

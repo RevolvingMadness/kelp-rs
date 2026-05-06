@@ -177,9 +177,7 @@ impl GeneratedPlayerScore {
                     Command::Scoreboard(ScoreboardCommand::Players(
                         PlayersScoreboardCommand::Operation(
                             target.score,
-                            operator
-                                .into_scoreboard_players_operation_operator()
-                                .unwrap(),
+                            operator.try_into().unwrap(),
                             self.score,
                         ),
                     )),

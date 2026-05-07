@@ -137,7 +137,9 @@ impl Pattern {
     ) -> Option<UnresolvedPattern> {
         let self_type = self.kind.get_type();
 
-        Some(match (self.kind, variable_type) {
+        let (wrappers, inner_type) = variable_type.unwrap();
+
+        Some(match (self.kind, inner_type) {
             (PatternKind::Literal(expression), _) => UnresolvedPattern::Literal(expression),
             (PatternKind::Wildcard, _) => UnresolvedPattern::Wildcard,
             (PatternKind::Binding(path), _) => {
@@ -192,10 +194,11 @@ impl Pattern {
                 if patterns.len() == data_types.len() =>
             {
                 let patterns = patterns
-                    .iter()
-                    .cloned()
+                    .into_iter()
                     .zip(data_types)
-                    .map(|(pattern, data_type)| pattern.perform_semantic_analysis(ctx, data_type))
+                    .map(|(pattern, data_type)| {
+                        pattern.perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))
+                    })
                     .collect_option_all()?;
 
                 UnresolvedPattern::Tuple(patterns)
@@ -227,7 +230,8 @@ impl Pattern {
                             );
                         };
 
-                        let pattern = pattern.perform_semantic_analysis(ctx, data_type)?;
+                        let pattern = pattern
+                            .perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))?;
 
                         Some((key.snbt_string, pattern))
                     })
@@ -237,11 +241,12 @@ impl Pattern {
             }
             (PatternKind::Compound(compound_patterns), UnresolvedDataType::Compound(data_type)) => {
                 let compound = compound_patterns
-                    .iter()
+                    .into_iter()
                     .map(|(key, pattern)| {
-                        let pattern = pattern.clone().perform_semantic_analysis(ctx, data_type)?;
+                        let pattern = pattern
+                            .perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))?;
 
-                        Some((key.snbt_string.clone(), pattern))
+                        Some((key.snbt_string, pattern))
                     })
                     .collect_option_all()?;
 
@@ -294,10 +299,7 @@ impl Pattern {
                             return ctx.add_error(
                                 name.span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: UnresolvedDataType::Struct(
-                                        pattern_id.into(),
-                                        pattern_generic_types.clone(),
-                                    ),
+                                    data_type: variable_type.clone(),
                                     field: name.snbt_string.1,
                                 },
                             );
@@ -307,7 +309,8 @@ impl Pattern {
                             .clone()
                             .substitute_generics(&pattern_generic_names, &pattern_generic_types);
 
-                        let pattern = pattern.perform_semantic_analysis(ctx, &field_type)?;
+                        let pattern =
+                            pattern.perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
 
                         Some((name.snbt_string, pattern))
                     })
@@ -374,7 +377,8 @@ impl Pattern {
                         let field_type = field_type
                             .substitute_generics(&pattern_generic_names, &pattern_generic_types);
 
-                        let pattern = field_pattern.perform_semantic_analysis(ctx, &field_type)?;
+                        let pattern = field_pattern
+                            .perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
 
                         Some(pattern)
                     })

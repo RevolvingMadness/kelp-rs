@@ -30,6 +30,22 @@ use crate::{
     visibility::Visibility,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum WrapperType {
+    Data,
+    Reference,
+}
+
+impl WrapperType {
+    #[must_use]
+    pub fn wrap(self, data_type: UnresolvedDataType) -> UnresolvedDataType {
+        match self {
+            Self::Data => UnresolvedDataType::Data(Box::new(data_type)),
+            Self::Reference => UnresolvedDataType::Reference(Box::new(data_type)),
+        }
+    }
+}
+
 macro_rules! check_error {
     (bool, $($expr:expr),+) => {
         if false $(|| matches!($expr, UnresolvedDataType::Error))* {
@@ -255,6 +271,39 @@ pub enum UnresolvedDataType {
 }
 
 impl UnresolvedDataType {
+    #[must_use]
+    pub fn unwrap(&self) -> (Vec<WrapperType>, &Self) {
+        let mut wrappers = Vec::new();
+        let mut current = self;
+
+        loop {
+            match current {
+                Self::Data(inner) => {
+                    wrappers.push(WrapperType::Data);
+
+                    current = inner;
+                }
+                Self::Reference(inner) => {
+                    wrappers.push(WrapperType::Reference);
+
+                    current = inner;
+                }
+                _ => break,
+            }
+        }
+
+        (wrappers, current)
+    }
+
+    #[must_use]
+    pub fn wrap(mut self, wrappers: &[WrapperType]) -> Self {
+        for wrapper in wrappers.iter().rev() {
+            self = wrapper.wrap(self);
+        }
+
+        self
+    }
+
     #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn inner_resolve_struct_struct(

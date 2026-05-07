@@ -175,6 +175,9 @@ fn compile_compiletime_function(
 
     let paths = datapack.get_unique_function_paths();
 
+    let resource_location =
+        ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths.clone());
+
     let mut function_body_ctx = CompileContext::default();
 
     for ((pattern, data_type), argument) in
@@ -184,6 +187,14 @@ fn compile_compiletime_function(
     }
 
     let return_target = return_runtime_storage_type.instantiate(datapack);
+
+    datapack.cached_compiletime_functions.insert(
+        CompiletimeFunctionKey { id, arguments },
+        CompiletimeFunction {
+            resource_location: resource_location.clone(),
+            return_target: return_target.clone(),
+        },
+    );
 
     datapack.function_return_targets.push(return_target);
     let result = body.kind.resolve(datapack, &mut function_body_ctx);
@@ -195,18 +206,7 @@ fn compile_compiletime_function(
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
-    let resource_location =
-        ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths);
-
-    ctx.add_command(datapack, Command::Function(resource_location.clone(), None));
-
-    datapack.cached_compiletime_functions.insert(
-        CompiletimeFunctionKey { id, arguments },
-        CompiletimeFunction {
-            resource_location,
-            return_target: return_target.clone(),
-        },
-    );
+    ctx.add_command(datapack, Command::Function(resource_location, None));
 
     return_target.to_expression()
 }
@@ -243,6 +243,9 @@ fn compile_runtime_function(
 
     let paths = datapack.get_unique_function_paths();
 
+    let resource_location =
+        ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths.clone());
+
     let mut parameter_targets = Vec::with_capacity(parameters.len());
 
     let mut function_body_ctx = CompileContext::default();
@@ -266,6 +269,15 @@ fn compile_runtime_function(
 
     let return_target = return_runtime_storage_type.instantiate(datapack);
 
+    datapack.cached_runtime_functions.insert(
+        id,
+        RuntimeFunction {
+            resource_location: resource_location.clone(),
+            parameter_targets: parameter_targets.clone(),
+            return_target: return_target.clone(),
+        },
+    );
+
     datapack.function_return_targets.push(return_target);
     let result = body.kind.resolve(datapack, &mut function_body_ctx);
     let return_target = datapack.function_return_targets.pop().unwrap();
@@ -276,23 +288,11 @@ fn compile_runtime_function(
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
-    let resource_location =
-        ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths);
+    ctx.add_command(datapack, Command::Function(resource_location, None));
 
-    ctx.add_command(datapack, Command::Function(resource_location.clone(), None));
-
-    for (parameter_target, argument) in parameter_targets.clone().into_iter().zip(arguments) {
+    for (parameter_target, argument) in parameter_targets.into_iter().zip(arguments) {
         argument.assign_target(datapack, ctx, parameter_target);
     }
-
-    datapack.cached_runtime_functions.insert(
-        id,
-        RuntimeFunction {
-            resource_location,
-            parameter_targets,
-            return_target: return_target.clone(),
-        },
-    );
 
     return_target.to_expression()
 }

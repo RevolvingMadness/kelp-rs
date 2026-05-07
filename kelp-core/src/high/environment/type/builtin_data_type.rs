@@ -128,7 +128,7 @@ impl BuiltinTypeKind {
         }
 
         match self {
-            Self::Boolean => declaration!(boolean),
+            Self::Boolean => declaration!(bool),
             Self::Byte => declaration!(byte),
             Self::Short => declaration!(short),
             Self::Integer => declaration!(integer),

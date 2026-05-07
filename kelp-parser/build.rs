@@ -10,11 +10,13 @@ use ungrammar::{Grammar, Rule};
 
 fn main() {
     let grammar_path = PathBuf::from("kelp.ungram");
+
     if !grammar_path.exists() {
         return;
     }
-    let grammar_src = fs::read_to_string(grammar_path).unwrap();
-    let grammar: Grammar = grammar_src.parse().unwrap();
+
+    let grammar_source = fs::read_to_string(grammar_path).unwrap().replace('\r', "");
+    let grammar = grammar_source.parse::<Grammar>().unwrap();
 
     let ast = lower(&grammar);
 

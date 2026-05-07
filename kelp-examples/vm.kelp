@@ -12,7 +12,7 @@ struct VM {
     program: list<Instruction>,
 }
 
-fn vm_run(vm: data<VM>) -> data<integer> {
+runtime fn vm_run(vm: data<VM>) -> data<integer> {
     let op_push = 1;
     let op_load = 2;
     let op_store = 3;

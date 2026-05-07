@@ -928,24 +928,24 @@ impl Expression {
                     None => UnresolvedExpressionKind::Unit.with(UnresolvedDataType::Unit),
                 };
 
-                if let Some(return_type) = ctx.function_return_types.last()
-                    && !expression.data_type.equals(return_type)
+                if let Some(context) = ctx.function_contexts.last()
+                    && !expression.data_type.equals(&context.return_type)
                 {
                     return ctx.add_error(
                         expression_span,
                         SemanticAnalysisError::MismatchedTypes {
-                            expected: return_type.clone(),
+                            expected: context.return_type.clone(),
                             actual: expression.data_type,
                         },
                     );
                 }
 
-                let return_type = ctx.function_return_types.last().unwrap();
+                let context = ctx.function_contexts.last().unwrap();
 
-                if return_type.is_compiletime()? {
+                if !context.is_runtime {
                     return ctx.add_error(
                         keyword_span,
-                        SemanticAnalysisError::CannotUseReturnWithCompiletimeResult,
+                        SemanticAnalysisError::CannotUseReturnInCompiletimeFunction,
                     );
                 }
 

@@ -15,7 +15,7 @@ pub struct GenericPathSegment<T> {
     pub generic_types: Vec<T>,
 }
 
-impl<T: Display> Display for GenericPathSegment<T> {
+impl Display for GenericPathSegment<DataType> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
 
@@ -83,7 +83,7 @@ pub struct GenericPath<T> {
     pub segments: Vec<GenericPathSegment<T>>,
 }
 
-impl<T: Display> Display for GenericPath<T> {
+impl Display for GenericPath<DataType> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, segment) in self.segments.iter().enumerate() {
             if i != 0 {

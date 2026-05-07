@@ -8,7 +8,7 @@ pub struct RegularFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct RegularFunctionDeclaration {
-    pub module_path: Vec<String>,
+    pub is_runtime: bool,
     pub name: String,
     pub generic_types: Vec<ResolvedDataType>,
     pub parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,

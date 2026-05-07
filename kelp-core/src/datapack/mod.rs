@@ -29,7 +29,7 @@ use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
 use crate::span::Span;
 use crate::visibility::Visibility;
-use hashbrown::{Equivalent, HashMap};
+use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
 use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
 use minecraft_command_types::command::scoreboard::{
@@ -47,7 +47,7 @@ use minecraft_command_types::snbt::SNBTString;
 use serde_json::json;
 use smallvec::SmallVec;
 use std::cell::Cell;
-use std::collections::{HashMap as StdHashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::mem::take;
 
 pub mod mcfunction;
@@ -89,6 +89,13 @@ impl Equivalent<MonomorphizedFunctionKey> for MonomorphizedFunctionKeyRef<'_> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct RuntimeFunction {
+    pub resource_location: ResourceLocation,
+    pub parameter_targets: Vec<RuntimeStorageTarget>,
+    pub return_target: RuntimeStorageTarget,
+}
+
 #[derive(Default, Clone, Copy)]
 pub struct DatapackRequirements {
     pub always_succeed_predicate: bool,
@@ -108,18 +115,19 @@ pub struct Datapack {
     pub settings: DatapackSettings,
     pub environment: Environment,
     pub high_environment: HighEnvironment,
-    pub variable_values: StdHashMap<VariableId, (ResolvedDataType, ResolvedExpression)>,
-    pub function_values: StdHashMap<RegularFunctionId, RegularFunctionDeclaration>,
+    pub variable_values: HashMap<VariableId, (ResolvedDataType, ResolvedExpression)>,
+    pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
-    namespaces: StdHashMap<String, DatapackNamespace>,
+    namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: Cell<usize>,
     used_constants: HashSet<i32>,
     used_data: Vec<(DataTarget, LowNbtPath)>,
 
-    monomorphized_structs: HashMap<MonomorphizedStructKey, StructId>,
-    monomorphized_functions: HashMap<MonomorphizedFunctionKey, FunctionId>,
-    resolved_variables: StdHashMap<HighVariableId, VariableId>,
+    monomorphized_structs: HashbrownMap<MonomorphizedStructKey, StructId>,
+    monomorphized_functions: HashbrownMap<MonomorphizedFunctionKey, FunctionId>,
+    resolved_variables: HashMap<HighVariableId, VariableId>,
+    pub runtime_functions: HashMap<FunctionId, RuntimeFunction>,
 }
 
 impl Datapack {
@@ -136,18 +144,19 @@ impl Datapack {
             settings: DatapackSettings::default(),
             high_environment,
             environment: Environment::default(),
-            variable_values: StdHashMap::new(),
-            function_values: StdHashMap::new(),
+            variable_values: HashMap::new(),
+            function_values: HashMap::new(),
             function_return_targets: SmallVec::new(),
-            namespaces: StdHashMap::new(),
+            namespaces: HashMap::new(),
             namespace_stack: Vec::new(),
             counter: Cell::new(0),
             used_constants: HashSet::new(),
             used_data: Vec::new(),
 
-            monomorphized_structs: HashMap::new(),
-            monomorphized_functions: HashMap::new(),
-            resolved_variables: StdHashMap::new(),
+            monomorphized_structs: HashbrownMap::new(),
+            monomorphized_functions: HashbrownMap::new(),
+            resolved_variables: HashMap::new(),
+            runtime_functions: HashMap::new(),
         }
     }
 
@@ -769,7 +778,7 @@ impl Datapack {
 
                 let declaration = RegularFunctionDeclaration {
                     name: declaration.name,
-                    module_path: module_path.clone(),
+                    is_runtime: declaration.is_runtime,
                     generic_types: resolved_generic_types,
                     parameters,
                     return_type,
@@ -798,7 +807,6 @@ impl Datapack {
 
                 let declaration = BuiltinFunctionDeclaration {
                     name: declaration.name,
-                    module_path: module_path.clone(),
                     generic_types: resolved_generic_types,
                     parameters,
                     return_type,
@@ -832,7 +840,7 @@ impl Datapack {
         original_id: HighTypeId,
         name: String,
         generic_types: Vec<ResolvedDataType>,
-        field_types: StdHashMap<String, ResolvedDataType>,
+        field_types: HashMap<String, ResolvedDataType>,
     ) -> StructStructId {
         let monomorphized_id = self.environment.declare_struct_struct(
             module_path,

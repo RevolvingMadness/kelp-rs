@@ -508,6 +508,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "const" => "ConstKeyword",
         "function_name" => "FunctionName",
         "coordinates" => "CoordinatesKeyword",
+        "runtime" => "RuntimeKeyword",
         _ => todo!("{:?}", token),
     }
 }

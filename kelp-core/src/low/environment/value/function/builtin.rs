@@ -8,7 +8,6 @@ pub struct BuiltinFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct BuiltinFunctionDeclaration {
-    pub module_path: Vec<String>,
     pub name: String,
     pub generic_types: Vec<ResolvedDataType>,
     pub parameters: Vec<ResolvedDataType>,

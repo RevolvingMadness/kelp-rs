@@ -18,7 +18,8 @@ use crate::{
         expression::block::BlockExpression,
         pattern::Pattern,
         semantic_analysis::{
-            ResolvedItem, SemanticAnalysisContext, info::error::SemanticAnalysisError,
+            FunctionContext, ResolvedItem, SemanticAnalysisContext,
+            info::error::SemanticAnalysisError,
         },
         use_tree::UseTree,
     },
@@ -31,6 +32,7 @@ use crate::{
 pub enum ItemKind {
     ModuleDeclaration(Span, String, Vec<Item>),
     FunctionDeclaration {
+        runtime_keyword_span: Option<Span>,
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
@@ -83,6 +85,7 @@ impl Item {
                 MiddleItem::ModuleDeclaration
             }
             ItemKind::FunctionDeclaration {
+                runtime_keyword_span,
                 name,
                 generic_names,
                 parameters,
@@ -101,8 +104,22 @@ impl Item {
 
                 let return_type = return_type.resolve_partially(Some(&generic_names), ctx);
 
+                let all_types_are_runtime = {
+                    let parameter_types_are_runtime = parameter_types
+                        .iter()
+                        .all(|t| !matches!(t.is_compiletime(), Some(true)));
+
+                    let return_type_is_runtime =
+                        !matches!(return_type.is_compiletime(), Some(true));
+
+                    parameter_types_are_runtime && return_type_is_runtime
+                };
+
+                let is_runtime = runtime_keyword_span.is_some() && all_types_are_runtime;
+
                 let id = ctx.declare_regular_function(
                     self.visibility,
+                    is_runtime,
                     name,
                     generic_names.clone(),
                     parameter_types
@@ -114,6 +131,15 @@ impl Item {
                     None,
                 );
 
+                if let Some(runtime_keyword_span) = runtime_keyword_span
+                    && !all_types_are_runtime
+                {
+                    return ctx.add_error(
+                        runtime_keyword_span,
+                        SemanticAnalysisError::FunctionTypesNotAllRuntime,
+                    );
+                }
+
                 for generic_name in generic_names {
                     ctx.declare_type(
                         Visibility::Public,
@@ -122,7 +148,10 @@ impl Item {
                 }
 
                 ctx.enter_scope();
-                ctx.function_return_types.push(return_type);
+                ctx.function_contexts.push(FunctionContext {
+                    is_runtime,
+                    return_type,
+                });
 
                 let mut resolved_parameters = Vec::with_capacity(parameters.len());
                 let mut resolved_all_parameters = true;
@@ -145,20 +174,20 @@ impl Item {
                 let Some((body_span, tail_expression_span, body)) =
                     body.perform_semantic_analysis(ctx)
                 else {
-                    ctx.function_return_types.pop().unwrap();
+                    ctx.function_contexts.pop().unwrap();
                     ctx.exit_scope();
 
                     return None;
                 };
 
-                let return_type = ctx.function_return_types.pop().unwrap();
+                let context = ctx.function_contexts.pop().unwrap();
                 ctx.exit_scope();
 
                 if !body.kind.definitely_diverges() {
                     body.data_type.assert_equals(
                         ctx,
                         tail_expression_span.unwrap_or(body_span),
-                        &return_type,
+                        &context.return_type,
                     )?;
                 }
 

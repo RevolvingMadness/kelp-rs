@@ -835,6 +835,7 @@ impl UnresolvedDataType {
 
             Self::Score(..) | Self::Data(..) => false,
             Self::Reference(data_type) => return data_type.is_compiletime(),
+
             Self::Boolean
             | Self::Byte
             | Self::Short

@@ -1,0 +1,18 @@
+use std::*;
+
+runtime fn add_runtime(a: score<integer>, b: score<integer>) -> score<integer> {
+    tellraw @a [a, " + ", b];
+
+    a + b
+}
+
+fn add(a: integer, b: integer) -> score<integer> {
+    add_runtime(a to score, b to score)
+}
+
+mcfn namespace:main {
+    tellraw @a add(1, 2);
+    tellraw @a add(2, 3);
+    tellraw @a add(5, 7);
+    tellraw @a add(3, 4);
+}

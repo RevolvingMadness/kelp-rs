@@ -20,6 +20,17 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
     parser.start_node(SyntaxKind::FunctionDeclarationItem);
+
+    if parser.peek_identifier() == Some("runtime") {
+        parser.bump_str(SyntaxKind::RuntimeKeyword, "runtime");
+
+        if !parser.expect_whitespace() {
+            parser.restore_state(state);
+
+            return false;
+        }
+    }
+
     parser.bump_str(SyntaxKind::FNKeyword, "fn");
 
     if !parser.expect_whitespace() || !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
@@ -98,6 +109,13 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
 
 pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
     parser.start_node(SyntaxKind::FunctionDeclarationItem);
+
+    if parser.peek_identifier() == Some("runtime") {
+        parser.bump_str(SyntaxKind::RuntimeKeyword, "runtime");
+
+        parser.expect_whitespace();
+    }
+
     parser.bump_str(SyntaxKind::FNKeyword, "fn");
 
     parser.expect_whitespace();
@@ -178,6 +196,10 @@ pub fn lower_function_declaration_item_kind(
     node: CSTFunctionDeclarationItem,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<ItemKind> {
+    let runtime_keyword_span = node
+        .runtime_keyword_token()
+        .map(|token| text_range_to_span(token.text_range()));
+
     let name_token = node.name()?;
     let name_span = name_token.text_range();
     let name = name_token.text();
@@ -202,6 +224,7 @@ pub fn lower_function_declaration_item_kind(
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
     Some(ItemKind::FunctionDeclaration {
+        runtime_keyword_span,
         name_span: text_range_to_span(name_span),
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),

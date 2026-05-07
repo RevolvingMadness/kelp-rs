@@ -28,7 +28,7 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
-    datapack::Datapack,
+    datapack::{Datapack, RuntimeFunction},
     low::{
         data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
         environment::{
@@ -45,6 +45,7 @@ use crate::{
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     player_score::GeneratedPlayerScore,
+    runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -141,29 +142,23 @@ fn integer_range_from_comparison_operator(
     }
 }
 
-fn compile_function(
+#[must_use]
+fn compile_compiletime_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
     body: UnresolvedExpression,
-    return_type: &ResolvedDataType,
-    arguments: &[ResolvedExpression],
+    arguments: Vec<ResolvedExpression>,
 ) -> ResolvedExpression {
     let paths = datapack.get_unique_function_paths();
 
-    let return_runtime_storage_type = return_type.get_runtime_storage_type();
-
     let mut function_body_ctx = CompileContext::default();
 
-    for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
+    for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.into_iter()) {
         pattern.destructure(datapack, &mut function_body_ctx, data_type, argument);
     }
 
-    let return_target = return_runtime_storage_type.instantiate(datapack);
-
-    datapack.function_return_targets.push(return_target);
     let result = body.kind.resolve(datapack, &mut function_body_ctx);
-    let return_target = datapack.function_return_targets.pop().unwrap();
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
@@ -175,9 +170,125 @@ fn compile_function(
         ),
     );
 
-    return_target.clone().assign(datapack, ctx, result);
+    result
+}
+
+#[must_use]
+fn compile_runtime_function(
+    datapack: &mut Datapack,
+    ctx: &mut CompileContext,
+    id: FunctionId,
+    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    body: UnresolvedExpression,
+    return_runtime_storage_type: RuntimeStorageType,
+    arguments: Vec<RuntimeStorageTarget>,
+) -> ResolvedExpression {
+    if let Some(function) = datapack.runtime_functions.get(&id) {
+        let resource_location = function.resource_location.clone();
+        let parameter_targets = function.parameter_targets.clone();
+        let return_target = function.return_target.clone();
+
+        for (parameter_target, argument) in
+            parameter_targets.clone().into_iter().zip(arguments.clone())
+        {
+            parameter_target.assign_target(datapack, ctx, argument);
+        }
+
+        ctx.add_command(datapack, Command::Function(resource_location, None));
+
+        for (parameter_target, argument) in parameter_targets.into_iter().zip(arguments) {
+            argument.assign_target(datapack, ctx, parameter_target);
+        }
+
+        return return_target.to_expression();
+    }
+
+    let paths = datapack.get_unique_function_paths();
+
+    let mut parameter_targets = Vec::with_capacity(parameters.len());
+
+    let mut function_body_ctx = CompileContext::default();
+
+    for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.clone()) {
+        let parameter_target = data_type.get_runtime_storage_type().instantiate(datapack);
+
+        parameter_target
+            .clone()
+            .assign_target(datapack, ctx, argument);
+
+        pattern.destructure(
+            datapack,
+            &mut function_body_ctx,
+            data_type,
+            parameter_target.clone().to_expression(),
+        );
+
+        parameter_targets.push(parameter_target);
+    }
+
+    let return_target = return_runtime_storage_type.instantiate(datapack);
+
+    datapack.function_return_targets.push(return_target);
+    let result = body.kind.resolve(datapack, &mut function_body_ctx);
+    let return_target = datapack.function_return_targets.pop().unwrap();
+
+    return_target
+        .clone()
+        .assign(datapack, &mut function_body_ctx, result);
+
+    datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
+
+    let resource_location =
+        ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths);
+
+    ctx.add_command(datapack, Command::Function(resource_location.clone(), None));
+
+    for (parameter_target, argument) in parameter_targets.clone().into_iter().zip(arguments) {
+        argument.assign_target(datapack, ctx, parameter_target);
+    }
+
+    datapack.runtime_functions.insert(
+        id,
+        RuntimeFunction {
+            resource_location,
+            parameter_targets,
+            return_target: return_target.clone(),
+        },
+    );
 
     return_target.to_expression()
+}
+
+#[must_use]
+#[allow(clippy::too_many_arguments)]
+fn compile_function(
+    datapack: &mut Datapack,
+    ctx: &mut CompileContext,
+    id: FunctionId,
+    is_runtime: bool,
+    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    body: UnresolvedExpression,
+    return_runtime_storage_type: RuntimeStorageType,
+    arguments: Vec<ResolvedExpression>,
+) -> ResolvedExpression {
+    if is_runtime {
+        let argument_targets = arguments
+            .into_iter()
+            .map(|argument| argument.to_runtime_storage_target(datapack).unwrap())
+            .collect();
+
+        compile_runtime_function(
+            datapack,
+            ctx,
+            id,
+            parameters,
+            body,
+            return_runtime_storage_type,
+            argument_targets,
+        )
+    } else {
+        compile_compiletime_function(datapack, ctx, parameters, body, arguments)
+    }
 }
 
 macro_rules! compute_int {
@@ -257,7 +368,7 @@ pub enum ResolvedExpression {
     Function(FunctionId),
     Reference(Box<Self>),
 
-    PlayerScore(GeneratedPlayerScore),
+    Score(GeneratedPlayerScore),
     Data(Box<(GeneratedDataTarget, NbtPath)>),
     Condition(bool, Box<ExecuteIfSubcommand>),
 }
@@ -309,38 +420,67 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn call_to_value(
+    pub fn to_runtime_storage_target(
+        self,
+        datapack: &mut Datapack,
+    ) -> Option<RuntimeStorageTarget> {
+        Some(match self {
+            Self::Variable(id) => {
+                handle_variable!(datapack, id, to_runtime_storage_target(datapack))
+            }
+
+            Self::Score(score) => RuntimeStorageTarget::Score(score),
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                RuntimeStorageTarget::Data(Box::new(target), path)
+            }
+
+            _ => return None,
+        })
+    }
+
+    pub fn call(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         arguments: Vec<Self>,
-    ) -> Self {
-        match self {
+        store_result: bool,
+    ) -> Option<Self> {
+        Some(match self {
             Self::Variable(id) => {
-                handle_variable!(datapack, id, call_to_value(datapack, ctx, arguments))
+                handle_variable!(datapack, id, call(datapack, ctx, arguments, store_result))
             }
-            Self::Reference(expression) => expression.call_to_value(datapack, ctx, arguments),
+            Self::Reference(expression) => {
+                expression.call(datapack, ctx, arguments, store_result)?
+            }
 
             Self::ResourceLocation(resource_location) => {
                 assert!(arguments.is_empty());
 
-                let unique_score = datapack.get_unique_score();
+                if store_result {
+                    let unique_score = datapack.get_unique_score();
 
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
-                                resource_location,
-                                None,
-                            )))),
-                        ),
-                    )),
-                );
+                    ctx.add_command(
+                        datapack,
+                        Command::Execute(ExecuteSubcommand::Store(
+                            StoreType::Result,
+                            ExecuteStoreSubcommand::Score(
+                                unique_score.score.clone(),
+                                Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
+                                    resource_location,
+                                    None,
+                                )))),
+                            ),
+                        )),
+                    );
 
-                Self::PlayerScore(unique_score)
+                    Self::Score(unique_score)
+                } else {
+                    ctx.add_command(datapack, Command::Function(resource_location, None));
+
+                    return None;
+                }
             }
             Self::Function(id) => {
                 let (_, _, declaration) = datapack.get_function(id);
@@ -349,10 +489,12 @@ impl ResolvedExpression {
                     FunctionDeclaration::Regular(declaration) => compile_function(
                         datapack,
                         ctx,
+                        id,
+                        declaration.is_runtime,
                         declaration.parameters.clone(),
                         declaration.body.clone(),
-                        &declaration.return_type.clone(),
-                        &arguments,
+                        declaration.return_type.get_runtime_storage_type(),
+                        arguments,
                     ),
                     FunctionDeclaration::Builtin(declaration) => {
                         declaration.kind.clone().call(datapack, ctx, arguments)
@@ -360,44 +502,7 @@ impl ResolvedExpression {
                 }
             }
             _ => unreachable!("The expression '{:?}' is not callable", self),
-        }
-    }
-
-    pub fn call(self, datapack: &mut Datapack, ctx: &mut CompileContext, arguments: Vec<Self>) {
-        match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, call(datapack, ctx, arguments))
-            }
-            Self::Reference(expression) => {
-                expression.call(datapack, ctx, arguments);
-            }
-
-            Self::ResourceLocation(resource_location) => {
-                assert!(arguments.is_empty());
-
-                ctx.add_command(datapack, Command::Function(resource_location, None));
-            }
-            Self::Function(id) => {
-                let (_, _, declaration) = datapack.get_function(id);
-
-                match declaration {
-                    FunctionDeclaration::Regular(declaration) => {
-                        compile_function(
-                            datapack,
-                            ctx,
-                            declaration.parameters.clone(),
-                            declaration.body.clone(),
-                            &declaration.return_type.clone(),
-                            &arguments,
-                        );
-                    }
-                    FunctionDeclaration::Builtin(declaration) => {
-                        declaration.kind.clone().call(datapack, ctx, arguments);
-                    }
-                }
-            }
-            _ => unreachable!("The expression '{:?}' is not callable", self),
-        }
+        })
     }
 
     #[must_use]
@@ -409,12 +514,12 @@ impl ResolvedExpression {
 
             Self::Reference(expression) => *expression,
 
-            Self::PlayerScore(score) => {
+            Self::Score(score) => {
                 let unique_score = datapack.get_unique_score();
 
                 score.assign_to_score(datapack, ctx, unique_score.clone());
 
-                Self::PlayerScore(unique_score)
+                Self::Score(unique_score)
             }
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -543,7 +648,7 @@ impl ResolvedExpression {
             | Self::EntitySelector(..)
             | Self::Coordinates(..)
             | Self::Function(..)
-            | Self::PlayerScore(..)
+            | Self::Score(..)
             | Self::Condition(..) => None,
         }
     }
@@ -580,7 +685,7 @@ impl ResolvedExpression {
             | Self::EntitySelector(..)
             | Self::Coordinates(..)
             | Self::Function(..)
-            | Self::PlayerScore(..)
+            | Self::Score(..)
             | Self::Data(..)
             | Self::Condition(..) => false,
         }
@@ -793,7 +898,7 @@ impl ResolvedExpression {
                 Macroable::Regular(NotNan::new(self.try_as_f32(datapack).unwrap()).unwrap())
             }
 
-            Self::PlayerScore(..) | Self::Data(..) => ctx.get_macro_snbt(self),
+            Self::Score(..) | Self::Data(..) => ctx.get_macro_snbt(self),
 
             _ => return None,
         })
@@ -829,7 +934,7 @@ impl ResolvedExpression {
         }
 
         match self {
-            Self::PlayerScore(player_score) if !force || player_score.is_generated => player_score,
+            Self::Score(player_score) if !force || player_score.is_generated => player_score,
             _ => {
                 let unique_score = datapack.get_unique_score();
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -841,13 +946,11 @@ impl ResolvedExpression {
     #[must_use]
     pub fn to_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         match self {
-            Self::PlayerScore(player_score) if player_score.is_generated => {
-                Self::PlayerScore(player_score)
-            }
+            Self::Score(player_score) if player_score.is_generated => Self::Score(player_score),
             _ => {
                 let unique_score = datapack.get_unique_score();
                 self.assign_to_score(datapack, ctx, unique_score.clone());
-                Self::PlayerScore(unique_score)
+                Self::Score(unique_score)
             }
         }
     }
@@ -861,7 +964,7 @@ impl ResolvedExpression {
     ) -> Self {
         let unique_score = datapack.get_unique_score();
         self.assign_to_score_scale(datapack, ctx, unique_score.clone(), scale);
-        Self::PlayerScore(unique_score)
+        Self::Score(unique_score)
     }
 
     pub fn assign_to_data(
@@ -891,7 +994,7 @@ impl ResolvedExpression {
                     expression.assign_to_data(datapack, ctx, target, path);
                 }
 
-                Self::PlayerScore(score) => {
+                Self::Score(score) => {
                     score.assign_to_data(datapack, ctx, target, path);
                 }
                 Self::Data(inner_target_inner_path) => {
@@ -1016,6 +1119,7 @@ impl ResolvedExpression {
                         )),
                     );
                 }
+                Self::Unit | Self::Never => {}
                 value => {
                     unreachable!("{:?}", value)
                 }
@@ -1055,7 +1159,7 @@ impl ResolvedExpression {
                     expression.assign_to_data_scale(datapack, ctx, target, path, scale);
                 }
 
-                Self::PlayerScore(score) => {
+                Self::Score(score) => {
                     score.assign_to_data_scale(datapack, ctx, target, path, scale);
                 }
                 Self::Data(inner_target_inner_path) => {
@@ -1324,7 +1428,7 @@ impl ResolvedExpression {
             };
         }
 
-        if let Self::PlayerScore(self_) = self {
+        if let Self::Score(self_) = self {
             self_.operate_on_score(datapack, ctx, target, operator);
         } else {
             let unique_score = datapack.get_unique_score();
@@ -1447,7 +1551,7 @@ impl ResolvedExpression {
                 left_kind.assign_to_score(datapack, ctx, unique_score.clone());
                 right_kind.operate_on_score(datapack, ctx, unique_score.clone(), operator);
 
-                Self::PlayerScore(unique_score)
+                Self::Score(unique_score)
             }
         }
     }
@@ -1578,7 +1682,7 @@ impl ResolvedExpression {
                     )),
                 )
             }
-            (Self::PlayerScore(score), other) => {
+            (Self::Score(score), other) => {
                 if let Some(value) = other.try_as_i32(datapack, false) {
                     return Self::Condition(
                         operator.should_execute_if_be_inverted(),
@@ -1607,7 +1711,7 @@ impl ResolvedExpression {
                     )),
                 )
             }
-            (left_kind, Self::PlayerScore(right_score)) => {
+            (left_kind, Self::Score(right_score)) => {
                 let left_score = left_kind.as_score(datapack, ctx, false);
 
                 Self::Condition(
@@ -1711,7 +1815,7 @@ impl ResolvedExpression {
             | (self_ @ Self::Float(..), UnresolvedDataType::Float)
             | (self_ @ Self::Double(..), UnresolvedDataType::Double)
             | (self_ @ Self::Data(..), UnresolvedDataType::Data(..))
-            | (self_ @ Self::PlayerScore(..), UnresolvedDataType::Score(..)) => self_,
+            | (self_ @ Self::Score(..), UnresolvedDataType::Score(..)) => self_,
 
             _ => return None,
         })
@@ -1751,7 +1855,7 @@ impl ResolvedExpression {
                     None,
                 ),
             ),
-            Self::PlayerScore(score) => score.to_execute_condition(inverted),
+            Self::Score(score) => score.to_execute_condition(inverted),
             Self::Data(..) => {
                 let unique_score = datapack.get_unique_score();
 
@@ -1772,7 +1876,7 @@ impl ResolvedExpression {
         force_display: bool,
     ) -> SNBT {
         match self {
-            Self::PlayerScore(player_score) => player_score.to_text_component(),
+            Self::Score(player_score) => player_score.to_text_component(),
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
@@ -2075,7 +2179,7 @@ impl ResolvedExpression {
 
             Self::Reference(inner) => inner.as_place()?,
 
-            Self::PlayerScore(score) => Place::Score(score),
+            Self::Score(score) => Place::Score(score),
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
@@ -2093,10 +2197,7 @@ impl ResolvedExpression {
 
     #[must_use]
     pub const fn is_lvalue(&self) -> bool {
-        matches!(
-            self,
-            Self::Variable(..) | Self::PlayerScore(..) | Self::Data(..)
-        )
+        matches!(self, Self::Variable(..) | Self::Score(..) | Self::Data(..))
     }
 
     pub fn compile_augmented_assignment(
@@ -2115,7 +2216,7 @@ impl ResolvedExpression {
                 )
             }
 
-            Self::PlayerScore(score) => {
+            Self::Score(score) => {
                 value.operate_on_score(datapack, ctx, score, operator);
             }
             Self::Data(ref target_path) => {
@@ -2218,7 +2319,7 @@ impl ResolvedExpression {
                     PlayersScoreboardCommand::Set(score.score, value.len() as i32),
                 );
             }
-            Self::PlayerScore(source) => {
+            Self::Score(source) => {
                 source.assign_to_score(datapack, ctx, score);
             }
             Self::Data(data_target_path) => {
@@ -2249,11 +2350,10 @@ impl ResolvedExpression {
                     )),
                 );
             }
+            Self::Unit | Self::Never => {}
             Self::Tuple(..)
             | Self::StructStruct(..)
             | Self::TupleStruct(..)
-            | Self::Unit
-            | Self::Never
             | Self::ResourceLocation(..)
             | Self::EntitySelector(..)
             | Self::Coordinates(..)
@@ -2342,7 +2442,7 @@ impl ResolvedExpression {
                     ),
                 );
             }
-            Self::PlayerScore(source) => {
+            Self::Score(source) => {
                 source.assign_to_score_scale(datapack, ctx, score, scale);
             }
             Self::Data(data_target_path) => {
@@ -2393,7 +2493,7 @@ impl ResolvedExpression {
             Self::Long(value) => Self::Long(-value),
             Self::Float(value) => Self::Float(-value),
             Self::Double(value) => Self::Double(-value),
-            Self::PlayerScore(..) => {
+            Self::Score(..) => {
                 let unique_score = datapack.get_unique_score();
 
                 self.assign_to_score(datapack, ctx, unique_score.clone());
@@ -2411,7 +2511,7 @@ impl ResolvedExpression {
                     )),
                 );
 
-                Self::PlayerScore(unique_score)
+                Self::Score(unique_score)
             }
             Self::Data(..) => {
                 let unique_score = self.clone().as_score(datapack, ctx, true);
@@ -2431,7 +2531,7 @@ impl ResolvedExpression {
                     )),
                 );
 
-                Self::PlayerScore(unique_score)
+                Self::Score(unique_score)
             }
             _ => return None,
         })
@@ -2475,7 +2575,7 @@ impl ResolvedExpression {
                 )
                 .compile_as_statement(datapack, ctx);
 
-                Self::PlayerScore(unique_score)
+                Self::Score(unique_score)
             }
             LogicalOperator::Or => {
                 let unique_function_paths = datapack.get_unique_function_paths();
@@ -2540,7 +2640,7 @@ impl ResolvedExpression {
                     .get_function_mut(&unique_function_paths)
                     .add_commands(function_commands);
 
-                Self::PlayerScore(unique_score)
+                Self::Score(unique_score)
             }
         }
     }

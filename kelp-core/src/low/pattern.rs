@@ -37,7 +37,7 @@ fn destructure_tuple(
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
         }
-        (ResolvedDataType::Tuple(data_types), score @ ResolvedExpression::PlayerScore(..)) => {
+        (ResolvedDataType::Tuple(data_types), score @ ResolvedExpression::Score(..)) => {
             for (pattern, data_type) in patterns.into_iter().zip(data_types) {
                 pattern.destructure(datapack, ctx, data_type, score.clone());
             }

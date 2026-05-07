@@ -23,7 +23,7 @@ impl RuntimeStorageType {
             Self::Data => {
                 let (target, path) = datapack.get_unique_data();
 
-                RuntimeStorageTarget::Data(target, path)
+                RuntimeStorageTarget::Data(Box::new(target), path)
             }
         }
     }
@@ -32,15 +32,15 @@ impl RuntimeStorageType {
 #[derive(Debug, Clone)]
 pub enum RuntimeStorageTarget {
     Score(GeneratedPlayerScore),
-    Data(GeneratedDataTarget, NbtPath),
+    Data(Box<GeneratedDataTarget>, NbtPath),
 }
 
 impl RuntimeStorageTarget {
     #[must_use]
     pub fn to_expression(self) -> ResolvedExpression {
         match self {
-            Self::Score(score) => ResolvedExpression::PlayerScore(score),
-            Self::Data(target, path) => ResolvedExpression::Data(Box::new((target, path))),
+            Self::Score(score) => ResolvedExpression::Score(score),
+            Self::Data(target, path) => ResolvedExpression::Data(Box::new((*target, path))),
         }
     }
 
@@ -55,8 +55,13 @@ impl RuntimeStorageTarget {
                 value.assign_to_score(datapack, ctx, score);
             }
             Self::Data(target, path) => {
-                value.assign_to_data(datapack, ctx, target, path);
+                value.assign_to_data(datapack, ctx, *target, path);
             }
         }
+    }
+
+    #[inline]
+    pub fn assign_target(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: Self) {
+        self.assign(datapack, ctx, value.to_expression());
     }
 }

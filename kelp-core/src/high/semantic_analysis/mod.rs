@@ -48,6 +48,12 @@ use crate::{
 pub mod info;
 pub mod scope;
 
+#[derive(Debug, Clone)]
+pub struct FunctionContext {
+    pub is_runtime: bool,
+    pub return_type: UnresolvedDataType,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ResolvedItem {
     Type(HighTypeId),
@@ -61,7 +67,7 @@ pub struct SemanticAnalysisContext {
     pub loop_depth: u32,
     pub is_lhs: u32,
     pub current_module_path: Vec<String>,
-    pub function_return_types: SmallVec<[UnresolvedDataType; 5]>,
+    pub function_contexts: SmallVec<[FunctionContext; 5]>,
     max_infos: usize,
     pub environment: Environment,
     pub high_environment: HighEnvironment,
@@ -81,7 +87,7 @@ impl SemanticAnalysisContext {
             loop_depth: 0,
             is_lhs: 0,
             current_module_path: Vec::new(),
-            function_return_types: SmallVec::new(),
+            function_contexts: SmallVec::new(),
         };
 
         self_.declare_std_module();
@@ -416,9 +422,11 @@ impl SemanticAnalysisContext {
         id
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn declare_regular_function(
         &mut self,
         visibility: Visibility,
+        is_runtime: bool,
         name: String,
         generic_names: Vec<String>,
         parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
@@ -430,6 +438,7 @@ impl SemanticAnalysisContext {
             HighValueDeclarationKind::Function(HighFunctionDeclaration::Regular(
                 HighRegularFunctionDeclaration {
                     name,
+                    is_runtime,
                     generic_names,
                     parameters,
                     return_type,

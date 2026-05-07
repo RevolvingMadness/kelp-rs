@@ -5,8 +5,8 @@ use std::{
 
 use crate::{
     high::{
-        data::DataTarget, data_type::DataType, nbt_path::NbtPath,
-        player_score::PlayerScore, snbt_string::SNBTString,
+        data::DataTarget, data_type::DataType, nbt_path::NbtPath, player_score::PlayerScore,
+        snbt_string::SNBTString,
     },
     path::generic::GenericPath,
 };

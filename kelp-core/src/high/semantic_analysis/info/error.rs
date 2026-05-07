@@ -15,6 +15,9 @@ pub struct SemanticAnalysisErrorDisplay<'a> {
 impl Display for SemanticAnalysisErrorDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.error {
+            SemanticAnalysisError::FunctionTypesNotAllRuntime => {
+                f.write_str("A function can only be marked as `runtime` if all of its parameter and return types are runtime")
+            }
             SemanticAnalysisError::CannotPerformArithmeticOperation {
                 left,
                 operator,
@@ -95,10 +98,10 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     to.display(self.high_environment)
                 )
             }
-            SemanticAnalysisError::CannotUseReturnWithCompiletimeResult => {
+            SemanticAnalysisError::CannotUseReturnInCompiletimeFunction => {
                 write!(
                     f,
-                    "`return` can only be used in functions which returns a runtime value"
+                    "`return` can only be used in functions marked as `runtime`"
                 )
             }
             SemanticAnalysisError::CannotBeRepresentedAsFloat(data_type) => {
@@ -345,6 +348,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
 
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
+    FunctionTypesNotAllRuntime,
     CannotPerformArithmeticOperation {
         left: UnresolvedDataType,
         operator: ArithmeticOperator,
@@ -371,7 +375,7 @@ pub enum SemanticAnalysisError {
         from: UnresolvedDataType,
         to: UnresolvedDataType,
     },
-    CannotUseReturnWithCompiletimeResult,
+    CannotUseReturnInCompiletimeFunction,
     ExpressionSigilNotAllowed,
     CannotBeRepresentedAsFloat(UnresolvedDataType),
     UnknownRuntimeStorageType,

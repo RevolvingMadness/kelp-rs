@@ -9,6 +9,7 @@ pub struct HighRegularFunctionId(pub u32);
 #[derive(Debug, Clone)]
 pub struct HighRegularFunctionDeclaration {
     pub name: String,
+    pub is_runtime: bool,
     pub generic_names: Vec<String>,
     pub parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
     pub return_type: UnresolvedDataType,

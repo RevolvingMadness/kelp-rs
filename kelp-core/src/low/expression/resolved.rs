@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Write, hash::BuildHasher};
+use std::{collections::BTreeMap, fmt::Write};
 
 use minecraft_command_types::{
     command::{
@@ -28,7 +28,10 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedDataTarget,
-    datapack::{Datapack, RuntimeFunction},
+    datapack::{
+        CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
+        RuntimeFunction,
+    },
     low::{
         data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
         environment::{
@@ -104,12 +107,12 @@ pub fn split_constants_list(
 }
 
 #[must_use]
-pub fn split_constants_compound<S: BuildHasher>(
+pub fn split_constants_compound(
     datapack: &Datapack,
-    compound: HashMap<SNBTString, ResolvedExpression, S>,
-) -> (SNBTCompound, HashMap<SNBTString, ResolvedExpression>) {
+    compound: BTreeMap<SNBTString, ResolvedExpression>,
+) -> (SNBTCompound, BTreeMap<SNBTString, ResolvedExpression>) {
     let mut constants = SNBTCompound::new();
-    let mut non_constants = HashMap::default();
+    let mut non_constants = BTreeMap::default();
 
     for (key, expression) in compound {
         match expression.try_into_snbt(datapack) {
@@ -146,31 +149,63 @@ fn integer_range_from_comparison_operator(
 fn compile_compiletime_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
+    id: FunctionId,
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
-    body: UnresolvedExpression,
     arguments: Vec<ResolvedExpression>,
+    body: UnresolvedExpression,
+    return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
+    if let Some(function) = datapack
+        .cached_compiletime_functions
+        .get(&CompiletimeFunctionKeyRef {
+            id,
+            arguments: &arguments,
+        })
+    {
+        let resource_location = function.resource_location.clone();
+        let return_target = function.return_target.clone();
+
+        ctx.add_command(datapack, Command::Function(resource_location, None));
+
+        return return_target.to_expression();
+    }
+
     let paths = datapack.get_unique_function_paths();
 
     let mut function_body_ctx = CompileContext::default();
 
-    for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.into_iter()) {
+    for ((pattern, data_type), argument) in
+        parameters.into_iter().zip(arguments.clone().into_iter())
+    {
         pattern.destructure(datapack, &mut function_body_ctx, data_type, argument);
     }
 
+    let return_target = return_runtime_storage_type.instantiate(datapack);
+
+    datapack.function_return_targets.push(return_target);
     let result = body.kind.resolve(datapack, &mut function_body_ctx);
+    let return_target = datapack.function_return_targets.pop().unwrap();
+
+    return_target
+        .clone()
+        .assign(datapack, &mut function_body_ctx, result);
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
-    ctx.add_command(
-        datapack,
-        Command::Function(
-            ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths),
-            None,
-        ),
+    let resource_location =
+        ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths);
+
+    ctx.add_command(datapack, Command::Function(resource_location.clone(), None));
+
+    datapack.cached_compiletime_functions.insert(
+        CompiletimeFunctionKey { id, arguments },
+        CompiletimeFunction {
+            resource_location,
+            return_target: return_target.clone(),
+        },
     );
 
-    result
+    return_target.to_expression()
 }
 
 #[must_use]
@@ -179,11 +214,11 @@ fn compile_runtime_function(
     ctx: &mut CompileContext,
     id: FunctionId,
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    arguments: Vec<RuntimeStorageTarget>,
     body: UnresolvedExpression,
     return_runtime_storage_type: RuntimeStorageType,
-    arguments: Vec<RuntimeStorageTarget>,
 ) -> ResolvedExpression {
-    if let Some(function) = datapack.runtime_functions.get(&id) {
+    if let Some(function) = datapack.cached_runtime_functions.get(&id) {
         let resource_location = function.resource_location.clone();
         let parameter_targets = function.parameter_targets.clone();
         let return_target = function.return_target.clone();
@@ -247,7 +282,7 @@ fn compile_runtime_function(
         argument.assign_target(datapack, ctx, parameter_target);
     }
 
-    datapack.runtime_functions.insert(
+    datapack.cached_runtime_functions.insert(
         id,
         RuntimeFunction {
             resource_location,
@@ -267,9 +302,9 @@ fn compile_function(
     id: FunctionId,
     is_runtime: bool,
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    arguments: Vec<ResolvedExpression>,
     body: UnresolvedExpression,
     return_runtime_storage_type: RuntimeStorageType,
-    arguments: Vec<ResolvedExpression>,
 ) -> ResolvedExpression {
     if is_runtime {
         let argument_targets = arguments
@@ -282,12 +317,20 @@ fn compile_function(
             ctx,
             id,
             parameters,
+            argument_targets,
             body,
             return_runtime_storage_type,
-            argument_targets,
         )
     } else {
-        compile_compiletime_function(datapack, ctx, parameters, body, arguments)
+        compile_compiletime_function(
+            datapack,
+            ctx,
+            id,
+            parameters,
+            arguments,
+            body,
+            return_runtime_storage_type,
+        )
     }
 }
 
@@ -344,7 +387,7 @@ fn format_generics(output: &mut String, generics: &[ResolvedDataType], environme
     output.push('>');
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ResolvedExpression {
     Boolean(bool),
     Byte(i8),
@@ -355,9 +398,9 @@ pub enum ResolvedExpression {
     Double(NotNan<f64>),
     String(SNBTString),
     List(Vec<Self>),
-    Compound(HashMap<SNBTString, Self>),
+    Compound(BTreeMap<SNBTString, Self>),
     Tuple(Vec<Self>),
-    StructStruct(StructStructId, HashMap<String, Self>),
+    StructStruct(StructStructId, BTreeMap<String, Self>),
     TupleStruct(TupleStructId, Vec<Self>),
     Unit,
     Never,
@@ -492,9 +535,9 @@ impl ResolvedExpression {
                         id,
                         declaration.is_runtime,
                         declaration.parameters.clone(),
+                        arguments,
                         declaration.body.clone(),
                         declaration.return_type.get_runtime_storage_type(),
-                        arguments,
                     ),
                     FunctionDeclaration::Builtin(declaration) => {
                         declaration.kind.clone().call(datapack, ctx, arguments)

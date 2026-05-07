@@ -61,13 +61,13 @@ struct MonomorphizedStructKey {
 
 #[derive(Hash, PartialEq, Eq)]
 struct MonomorphizedStructKeyRef<'a> {
-    pub id: HighTypeId,
+    pub original_id: HighTypeId,
     pub generics: &'a [ResolvedDataType],
 }
 
 impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
     fn equivalent(&self, key: &MonomorphizedStructKey) -> bool {
-        self.id == key.original_id && self.generics == key.generics.as_slice()
+        self.original_id == key.original_id && self.generics == key.generics.as_slice()
     }
 }
 
@@ -93,6 +93,30 @@ impl Equivalent<MonomorphizedFunctionKey> for MonomorphizedFunctionKeyRef<'_> {
 pub struct RuntimeFunction {
     pub resource_location: ResourceLocation,
     pub parameter_targets: Vec<RuntimeStorageTarget>,
+    pub return_target: RuntimeStorageTarget,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct CompiletimeFunctionKey {
+    pub id: FunctionId,
+    pub arguments: Vec<ResolvedExpression>,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+pub struct CompiletimeFunctionKeyRef<'a> {
+    pub id: FunctionId,
+    pub arguments: &'a [ResolvedExpression],
+}
+
+impl Equivalent<CompiletimeFunctionKey> for CompiletimeFunctionKeyRef<'_> {
+    fn equivalent(&self, key: &CompiletimeFunctionKey) -> bool {
+        self.id == key.id && self.arguments == key.arguments.as_slice()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CompiletimeFunction {
+    pub resource_location: ResourceLocation,
     pub return_target: RuntimeStorageTarget,
 }
 
@@ -127,7 +151,8 @@ pub struct Datapack {
     monomorphized_structs: HashbrownMap<MonomorphizedStructKey, StructId>,
     monomorphized_functions: HashbrownMap<MonomorphizedFunctionKey, FunctionId>,
     resolved_variables: HashMap<HighVariableId, VariableId>,
-    pub runtime_functions: HashMap<FunctionId, RuntimeFunction>,
+    pub cached_runtime_functions: HashMap<FunctionId, RuntimeFunction>,
+    pub cached_compiletime_functions: HashbrownMap<CompiletimeFunctionKey, CompiletimeFunction>,
 }
 
 impl Datapack {
@@ -156,7 +181,8 @@ impl Datapack {
             monomorphized_structs: HashbrownMap::new(),
             monomorphized_functions: HashbrownMap::new(),
             resolved_variables: HashMap::new(),
-            runtime_functions: HashMap::new(),
+            cached_runtime_functions: HashMap::new(),
+            cached_compiletime_functions: HashbrownMap::new(),
         }
     }
 
@@ -685,7 +711,7 @@ impl Datapack {
         generic_types: &[ResolvedDataType],
     ) -> Option<StructId> {
         let key = MonomorphizedStructKeyRef {
-            id,
+            original_id: id,
             generics: generic_types,
         };
 
@@ -777,6 +803,8 @@ impl Datapack {
                 let body = declaration.body.unwrap();
 
                 let declaration = RegularFunctionDeclaration {
+                    module_paths: module_path.clone(),
+                    visibility,
                     name: declaration.name,
                     is_runtime: declaration.is_runtime,
                     generic_types: resolved_generic_types,

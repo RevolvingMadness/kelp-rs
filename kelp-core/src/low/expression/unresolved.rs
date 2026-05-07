@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use minecraft_command_types::{
     command::{
@@ -767,7 +767,7 @@ impl UnresolvedExpressionKind {
                 compound
                     .into_iter()
                     .map(|(key, value)| (key, value.kind.resolve(datapack, ctx)))
-                    .collect::<HashMap<_, _>>(),
+                    .collect::<BTreeMap<_, _>>(),
             ),
             Self::Score(score) => {
                 let score = score.compile(datapack, ctx);

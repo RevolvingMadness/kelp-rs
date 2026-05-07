@@ -1,0 +1,17 @@
+use std::*;
+
+fn add(a: integer, b: integer) -> integer {
+    let result = a + b;
+
+    tellraw @a ["This should be cached: ", result to score];
+
+    result
+}
+
+mcfn namespace:main {
+    tellraw @a add(1, 1);
+    tellraw @a add(1, 2);
+    tellraw @a add(1, 1);
+    tellraw @a add(1, 2);
+    tellraw @a add(1, 3);
+}

@@ -27,7 +27,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedPlayerScore {
     pub is_generated: bool,
     pub score: PlayerScore,

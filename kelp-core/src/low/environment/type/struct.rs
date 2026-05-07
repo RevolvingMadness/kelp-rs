@@ -3,7 +3,7 @@ use std::{
     slice::Iter,
 };
 
-use crate::low::data_type::resolved::ResolvedDataType;
+use crate::low::data_type::resolved::{FieldAccessType, ResolvedDataType};
 
 pub enum FieldTypesIter<'a> {
     Struct(Values<'a, String, ResolvedDataType>),
@@ -64,6 +64,14 @@ impl StructDeclaration {
         match self {
             Self::Struct(declaration) => FieldTypesIter::Struct(declaration.field_types.values()),
             Self::Tuple(declaration) => FieldTypesIter::Tuple(declaration.field_types.iter()),
+        }
+    }
+
+    #[must_use]
+    pub const fn get_field_access_type(&self) -> FieldAccessType {
+        match self {
+            Self::Struct(_) => FieldAccessType::Name,
+            Self::Tuple(_) => FieldAccessType::Index,
         }
     }
 }

@@ -33,10 +33,13 @@ use crate::{
         RuntimeFunction,
     },
     low::{
-        data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
+        data_type::{
+            resolved::{FieldAccessType, ResolvedDataType},
+            unresolved::UnresolvedDataType,
+        },
         environment::{
             Environment,
-            r#type::r#struct::{StructDeclaration, StructStructId, TupleStructId},
+            r#type::r#struct::{StructStructId, TupleStructId},
             value::{
                 function::{FunctionDeclaration, FunctionId},
                 variable::VariableId,
@@ -633,31 +636,19 @@ impl ResolvedExpression {
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                let ResolvedDataType::Data(inner) = data_type else {
-                    unreachable!();
-                };
+                let access_type = data_type
+                    .get_field_access_type(&datapack.environment)
+                    .unwrap();
 
-                let node = match &**inner {
-                    ResolvedDataType::Struct(id) => {
-                        let (_, _, declaration) = datapack.get_struct_type(*id);
-
-                        match declaration {
-                            StructDeclaration::Struct(..) => {
-                                NbtPathNode::Named(SNBTString(false, field.to_owned()), None)
-                            }
-                            StructDeclaration::Tuple(..) => {
-                                let index = field.parse::<i32>().ok()?;
-
-                                NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
-                            }
-                        }
+                let node = match access_type {
+                    FieldAccessType::Name => {
+                        NbtPathNode::Named(SNBTString(false, field.to_owned()), None)
                     }
-                    ResolvedDataType::Tuple(..) => {
+                    FieldAccessType::Index => {
                         let index = field.parse::<i32>().ok()?;
 
                         NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
                     }
-                    _ => NbtPathNode::Named(SNBTString(false, field.to_owned()), None),
                 };
 
                 Some(Self::Data(Box::new((target, path.with_node(node)))))

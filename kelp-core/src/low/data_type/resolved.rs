@@ -10,6 +10,13 @@ use crate::{
     runtime_storage::RuntimeStorageType,
 };
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FieldAccessType {
+    #[default]
+    Name,
+    Index,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ResolvedDataType {
     Boolean,
@@ -40,6 +47,20 @@ pub enum ResolvedDataType {
 }
 
 impl ResolvedDataType {
+    #[must_use]
+    pub fn get_field_access_type(&self, environment: &Environment) -> Option<FieldAccessType> {
+        Some(match self {
+            Self::TypedCompound(..) => FieldAccessType::Name,
+            Self::Compound(..) => FieldAccessType::Name,
+            Self::Data(..) => FieldAccessType::Name,
+            Self::Reference(data_type) => data_type.get_field_access_type(environment)?,
+            Self::Tuple(..) => FieldAccessType::Index,
+            Self::Struct(id) => environment.get_struct(*id).2.get_field_access_type(),
+
+            _ => return None,
+        })
+    }
+
     #[must_use]
     pub fn get_runtime_storage_type(&self) -> RuntimeStorageType {
         match self {

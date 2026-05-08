@@ -62,13 +62,10 @@ impl HighEnvironment {
         id
     }
 
-    #[inline]
-    pub fn update_declaration(
-        &mut self,
-        id: HighValueId,
-        f: impl FnOnce(&mut HighValueDeclaration),
-    ) {
-        f(self.values.get_mut(id.0 as usize).unwrap());
+    pub fn update_value(&mut self, id: HighValueId, f: impl FnOnce(&mut HighValueDeclaration)) {
+        let declaration = &mut self.values[id.0 as usize];
+
+        f(declaration);
     }
 
     pub fn update_function(
@@ -77,7 +74,7 @@ impl HighEnvironment {
         new_parameters: Vec<(UnresolvedPattern, UnresolvedDataType)>,
         new_body: UnresolvedExpression,
     ) {
-        self.update_declaration(id.into(), |declaration| {
+        self.update_value(id.into(), |declaration| {
             let HighValueDeclaration {
                 kind:
                     HighValueDeclarationKind::Function(HighFunctionDeclaration::Regular(

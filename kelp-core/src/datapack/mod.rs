@@ -444,8 +444,7 @@ impl Datapack {
                     "__kelp_{}_storage_{}__",
                     current_namespace_name,
                     self.increment_counter()
-                )
-                .into(),
+                ),
                 None,
             )]),
         )

@@ -3,7 +3,7 @@ use crate::{
         environment::r#type::{
             alias::HighAliasDeclaration,
             builtin_data_type::HighBuiltinTypeDeclaration,
-            module::HighModuleDeclaration,
+            module::{HighModuleDeclaration, HighModuleId},
             r#struct::{
                 HighStructDeclaration, HighStructId, regular::HighStructStructId,
                 tuple::HighTupleStructId,
@@ -23,6 +23,12 @@ pub mod r#struct;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighTypeId(pub u32);
+
+impl From<HighModuleId> for HighTypeId {
+    fn from(value: HighModuleId) -> Self {
+        Self(value.0)
+    }
+}
 
 impl From<HighStructId> for HighTypeId {
     fn from(value: HighStructId) -> Self {

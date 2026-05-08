@@ -12,6 +12,7 @@ pub mod nbt_path;
 pub mod pattern;
 pub mod place;
 pub mod player_score;
+pub mod program;
 pub mod score_comparison;
 pub mod statement;
 pub mod supports_expression_sigil;

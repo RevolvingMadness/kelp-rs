@@ -147,11 +147,9 @@ impl Backend {
                     let mut semantic_analysis_context =
                         SemanticAnalysisContext::new("mod", usize::MAX);
 
-                    let statements = lower_root(&cst_root, &mut semantic_analysis_context);
+                    let program = lower_root(&cst_root, &mut semantic_analysis_context);
 
-                    for statement in statements {
-                        statement.perform_semantic_analysis(&mut semantic_analysis_context);
-                    }
+                    program.perform_semantic_analysis(&mut semantic_analysis_context);
 
                     for info in semantic_analysis_context.infos {
                         diagnostics.push(Diagnostic {

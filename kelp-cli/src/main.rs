@@ -5,8 +5,7 @@ use kelp_core::datapack::Datapack;
 use kelp_core::high::environment::HighEnvironment;
 use kelp_core::high::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::high::semantic_analysis::info::SemanticAnalysisInfoKind;
-use kelp_core::low::item::Item;
-use kelp_core::trait_ext::CollectOptionAllIterExt;
+use kelp_core::low::program::Program as MiddleProgram;
 use kelp_parser::cst::CSTRoot;
 use kelp_parser::parser::{ParseResult, Parser};
 use kelp_parser::root::lower_root;
@@ -246,15 +245,11 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let mut semantic_analysis_context = SemanticAnalysisContext::new(&kelp_toml.project.id, 10);
 
     let lower_start = Instant::now();
-    let items = lower_root(&root, &mut semantic_analysis_context);
+    let program = lower_root(&root, &mut semantic_analysis_context);
     let lower_elapsed = lower_start.elapsed();
 
     let start_semantic = Instant::now();
-    let Some(items) = items
-        .into_iter()
-        .map(|item| item.perform_semantic_analysis(&mut semantic_analysis_context))
-        .collect_option_all()
-    else {
+    let Some(program) = program.perform_semantic_analysis(&mut semantic_analysis_context) else {
         for info in &semantic_analysis_context.infos {
             match &info.kind {
                 SemanticAnalysisInfoKind::Error(error) => {
@@ -309,7 +304,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     if semantic_analysis_succeeded && parse_succeeded {
         process_success(
             semantic_analysis_context.high_environment,
-            items,
+            program,
             &main_kelp_path,
             &main_kelp,
             part_1_elapsed,
@@ -320,7 +315,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
 fn process_success(
     high_environment: HighEnvironment,
-    items: Vec<Item>,
+    program: MiddleProgram,
     _file_name: &str,
     _source_text: &str,
     part_1_elapsed: Duration,
@@ -336,9 +331,7 @@ fn process_success(
 
     let mut ctx = CompileContext::default();
     let start_compile = Instant::now();
-    for item in items {
-        item.compile(&mut datapack, &mut ctx);
-    }
+    program.compile(&mut datapack, &mut ctx);
     let compile_elapsed = start_compile.elapsed();
 
     datapack.add_context_to_current_function(&mut ctx);

@@ -2,11 +2,10 @@ use kelp_core::{
     high::{
         pattern::{Pattern, PatternKind},
         semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
     },
     path::generic::GenericPath,
+    span::Span,
 };
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::{CSTCompoundPattern, CSTCompoundPatternEntry},
@@ -19,7 +18,7 @@ use crate::{
 pub fn lower_compound_pattern_entry(
     node: CSTCompoundPatternEntry,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<(SNBTString, Pattern)> {
+) -> Option<((Span, String), Pattern)> {
     let entry_name_token = node.name()?;
     let entry_name_span = text_range_to_span(entry_name_token.text_range());
     let entry_name = entry_name_token.text();
@@ -32,13 +31,7 @@ pub fn lower_compound_pattern_entry(
             kind: PatternKind::Binding(GenericPath::single(entry_name_span, entry_name)),
         });
 
-    Some((
-        SNBTString {
-            snbt_string: LowSNBTString(false, entry_name.to_owned()),
-            span: entry_name_span,
-        },
-        entry_pattern,
-    ))
+    Some(((entry_name_span, entry_name.to_owned()), entry_pattern))
 }
 
 #[must_use]

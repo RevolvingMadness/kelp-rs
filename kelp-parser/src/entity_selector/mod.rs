@@ -61,10 +61,7 @@ fn parse_option(parser: &mut Parser) -> bool {
     parser.bump_identifier(key_name);
     parser.skip_whitespace();
 
-    if !parser.expect_char('=', "Expected '=' after option name") {
-        recover_option(parser);
-        parser.finish_node();
-    }
+    parser.expect_char('=', "Expected '=' after option name");
 
     parser.skip_whitespace();
 
@@ -106,6 +103,7 @@ fn parse_option(parser: &mut Parser) -> bool {
     }
 
     parser.finish_node();
+
     parser.finish_node();
 
     true

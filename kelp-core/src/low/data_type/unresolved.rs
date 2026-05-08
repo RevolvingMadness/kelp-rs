@@ -3,8 +3,6 @@ use std::{
     fmt::{Display, Write},
 };
 
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
-
 use crate::{
     datapack::Datapack,
     high::{
@@ -117,7 +115,7 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
                         f.write_str(", ")?;
                     }
 
-                    write!(f, "{}: ", key.1)?;
+                    write!(f, "{}: ", key)?;
 
                     value_data_type.display(self.high_environment).fmt(f)?;
                 }
@@ -253,7 +251,7 @@ pub enum UnresolvedDataType {
     Never,
     Score(Box<Self>),
     List(Box<Self>),
-    TypedCompound(BTreeMap<LowSNBTString, Self>),
+    TypedCompound(BTreeMap<String, Self>),
     Compound(Box<Self>),
     Data(Box<Self>),
     Reference(Box<Self>),
@@ -1078,7 +1076,7 @@ impl UnresolvedDataType {
                                     .substitute_generics(&declaration.generic_names, generic_types)
                                     .get_data_type(high_environment)?;
 
-                                Some((LowSNBTString(false, key.clone()), data_type))
+                                Some((key.clone(), data_type))
                             })
                             .collect::<Option<_>>()?;
 
@@ -1306,7 +1304,7 @@ impl UnresolvedDataType {
             }
 
             Self::TypedCompound(compound) => compound.iter().find_map(|(key, data_type)| {
-                if key.1 == *field {
+                if key == field {
                     Some(data_type.clone())
                 } else {
                     None

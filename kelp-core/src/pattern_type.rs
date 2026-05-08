@@ -4,10 +4,7 @@ use std::{
 };
 
 use crate::{
-    high::{
-        data::DataTarget, data_type::DataType, nbt_path::NbtPath, player_score::PlayerScore,
-        snbt_string::SNBTString,
-    },
+    high::{data::DataTarget, data_type::DataType, nbt_path::NbtPath, player_score::PlayerScore},
     path::generic::GenericPath,
 };
 
@@ -24,10 +21,10 @@ pub enum PatternType {
     Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Tuple(Vec<Self>),
-    StructStruct(GenericPath<DataType>, HashMap<SNBTString, Self>),
+    StructStruct(GenericPath<DataType>, HashMap<String, Self>),
     TupleStruct(GenericPath<DataType>, Vec<Self>),
     Reference(Box<Self>),
-    Compound(HashMap<SNBTString, Self>),
+    Compound(HashMap<String, Self>),
     Any,
 }
 
@@ -73,7 +70,7 @@ impl Display for PatternType {
                         f.write_str(", ")?;
                     }
 
-                    write!(f, "{}: {}", field_name.snbt_string.1, field_type)?;
+                    write!(f, "{}: {}", field_name, field_type)?;
                 }
 
                 if !field_types.is_empty() {
@@ -120,7 +117,7 @@ impl Display for PatternType {
                         f.write_str(", ")?;
                     }
 
-                    write!(f, "{}: {}", key.snbt_string.1, pattern_type)?;
+                    write!(f, "{}: {}", key, pattern_type)?;
                 }
 
                 if !compound.is_empty() {

@@ -8,14 +8,9 @@ use crate::{
         without_block::compound::{lower_compound_expression_inner, try_parse_compound_expression},
     },
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
-use kelp_core::high::{
-    nbt_path::NbtPathNode, semantic_analysis::SemanticAnalysisContext,
-    snbt_string::SNBTString,
-};
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
+use kelp_core::high::{nbt_path::NbtPathNode, semantic_analysis::SemanticAnalysisContext};
 
 pub mod index;
 pub mod named;
@@ -57,8 +52,6 @@ pub fn lower_nbt_path_node(
             ))
         }
         CSTNBTPathNode::NamedNBTPathNode(node) => {
-            let span = span_of_cst_node(&node);
-
             let name_token = node.name()?;
             let name = name_token.text();
 
@@ -68,13 +61,7 @@ pub fn lower_nbt_path_node(
                 Some(compound)
             });
 
-            Some(NbtPathNode::Named(
-                SNBTString {
-                    snbt_string: LowSNBTString(false, name.to_string()),
-                    span,
-                },
-                compound,
-            ))
+            Some(NbtPathNode::Named(name.to_owned(), compound))
         }
         CSTNBTPathNode::CompoundNBTPathNode(node) => {
             let (_, compound) = lower_compound_expression_inner(node.compound_expression()?, ctx)?;

@@ -12,11 +12,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum NbtPathNode {
-    RootCompound(HashMap<SNBTString, UnresolvedExpression>),
-    Named(
-        SNBTString,
-        Option<HashMap<SNBTString, UnresolvedExpression>>,
-    ),
+    RootCompound(HashMap<String, UnresolvedExpression>),
+    Named(String, Option<HashMap<String, UnresolvedExpression>>),
     Index(Option<Box<UnresolvedExpression>>),
 }
 
@@ -27,29 +24,37 @@ impl NbtPathNode {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx);
+                        let value = value
+                            .kind
+                            .resolve(datapack, ctx)
+                            .as_snbt_macros(datapack, ctx);
 
-                        (key, value)
+                        (SNBTString(false, key), value)
                     })
                     .collect(),
             ),
             Self::Named(name, expression) => LowNbtPathNode::Named(
-                name,
+                SNBTString(false, name),
                 expression.map(|expression| {
                     expression
                         .into_iter()
                         .map(|(key, value)| {
-                            let value = value.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx);
+                            let value = value
+                                .kind
+                                .resolve(datapack, ctx)
+                                .as_snbt_macros(datapack, ctx);
 
-                            (key, value)
+                            (SNBTString(false, key), value)
                         })
                         .collect::<SNBTCompound>()
                 }),
             ),
-            Self::Index(expression) => LowNbtPathNode::Index(
+            Self::Index(expression) => LowNbtPathNode::Index(expression.map(|expression| {
                 expression
-                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx)),
-            ),
+                    .kind
+                    .resolve(datapack, ctx)
+                    .as_snbt_macros(datapack, ctx)
+            })),
         }
     }
 }

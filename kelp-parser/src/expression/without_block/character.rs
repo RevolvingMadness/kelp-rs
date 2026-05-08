@@ -1,9 +1,7 @@
 use kelp_core::high::{
     expression::{Expression, ExpressionKind},
     semantic_analysis::SemanticAnalysisContext,
-    snbt_string::SNBTString,
 };
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{cst::CSTCharacterExpression, span::span_of_cst_node};
 
@@ -18,11 +16,5 @@ pub fn lower_character_expression(
     let text_token = node.character_literal_token()?;
     let text = text_token.text().trim_matches('\'');
 
-    Some(
-        ExpressionKind::String(SNBTString {
-            span,
-            snbt_string: LowSNBTString(false, text.to_string()),
-        })
-        .with_span(span),
-    )
+    Some(ExpressionKind::String(text.to_owned()).with_span(span))
 }

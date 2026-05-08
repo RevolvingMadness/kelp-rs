@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
-
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-    snbt_string::SNBTString,
+use kelp_core::{
+    high::{
+        expression::{Expression, ExpressionKind},
+        semantic_analysis::SemanticAnalysisContext,
+    },
+    span::Span,
 };
 
 use crate::{
@@ -22,20 +22,14 @@ use crate::{
 fn lower_struct_expression_field(
     node: CSTStructExpressionField,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<(SNBTString, Expression)> {
+) -> Option<((Span, String), Expression)> {
     let name_token = node.name()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
 
     let expression = lower_expression(node.expression()?, ctx)?;
 
-    Some((
-        SNBTString {
-            snbt_string: LowSNBTString(false, name.to_owned()),
-            span: name_span,
-        },
-        expression,
-    ))
+    Some(((name_span, name.to_owned()), expression))
 }
 
 #[must_use]
@@ -70,7 +64,7 @@ fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
 pub fn lower_struct_expression_fields(
     node: CSTStructExpressionFields,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<HashMap<SNBTString, Expression>> {
+) -> Option<HashMap<(Span, String), Expression>> {
     let fields = node
         .struct_expression_fields()
         .filter_map(|field| lower_struct_expression_field(field, ctx))

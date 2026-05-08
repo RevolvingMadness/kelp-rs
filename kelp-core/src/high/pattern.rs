@@ -10,7 +10,6 @@ use crate::{
         nbt_path::NbtPath,
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-        snbt_string::SNBTString,
     },
     low::{
         data_type::unresolved::UnresolvedDataType, expression::literal::LiteralExpression,
@@ -34,10 +33,10 @@ pub enum PatternKind {
     Data(Box<(DataTarget, NbtPath)>),
 
     Tuple(Vec<Pattern>),
-    StructStruct(GenericPath<DataType>, HashMap<SNBTString, Pattern>),
+    StructStruct(GenericPath<DataType>, HashMap<(Span, String), Pattern>),
     TupleStruct(GenericPath<DataType>, Vec<Pattern>),
 
-    Compound(HashMap<SNBTString, Pattern>),
+    Compound(HashMap<(Span, String), Pattern>),
 }
 
 impl PatternKind {
@@ -66,14 +65,14 @@ impl PatternKind {
             Self::Compound(compound) => PatternType::Compound(
                 compound
                     .iter()
-                    .map(|(key, pattern)| (key.clone(), pattern.kind.get_type()))
+                    .map(|((_, key), pattern)| (key.clone(), pattern.kind.get_type()))
                     .collect(),
             ),
             Self::StructStruct(path, field_patterns) => PatternType::StructStruct(
                 path.clone(),
                 field_patterns
                     .iter()
-                    .map(|(key, pattern)| (key.clone(), pattern.kind.get_type()))
+                    .map(|((_, key), pattern)| (key.clone(), pattern.kind.get_type()))
                     .collect(),
             ),
             Self::TupleStruct(path, field_patterns) => PatternType::TupleStruct(
@@ -209,10 +208,10 @@ impl Pattern {
             ) => {
                 let compound = compound_patterns
                     .into_iter()
-                    .map(|(key, pattern)| {
+                    .map(|((key_span, key), pattern)| {
                         let Some(data_type) =
                             compound_types.iter().find_map(|(typed_key, data_type)| {
-                                if typed_key.1 == key.snbt_string.1 {
+                                if *typed_key == key {
                                     Some(data_type)
                                 } else {
                                     None
@@ -222,10 +221,10 @@ impl Pattern {
                             pattern.kind.destructure_unknown(ctx);
 
                             return ctx.add_error(
-                                key.span,
+                                key_span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
                                     data_type: variable_type.clone(),
-                                    field: key.snbt_string.1,
+                                    field: key,
                                 },
                             );
                         };
@@ -233,7 +232,7 @@ impl Pattern {
                         let pattern = pattern
                             .perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))?;
 
-                        Some((key.snbt_string, pattern))
+                        Some((key, pattern))
                     })
                     .collect_option_all()?;
 
@@ -242,11 +241,11 @@ impl Pattern {
             (PatternKind::Compound(compound_patterns), UnresolvedDataType::Compound(data_type)) => {
                 let compound = compound_patterns
                     .into_iter()
-                    .map(|(key, pattern)| {
+                    .map(|((_, key), pattern)| {
                         let pattern = pattern
                             .perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))?;
 
-                        Some((key.snbt_string, pattern))
+                        Some((key, pattern))
                     })
                     .collect_option_all()?;
 
@@ -292,15 +291,15 @@ impl Pattern {
 
                 let field_patterns = field_patterns
                     .into_iter()
-                    .map(|(name, pattern)| {
-                        let Some(field_type) = field_types.get(&name.snbt_string.1) else {
+                    .map(|((name_span, name), pattern)| {
+                        let Some(field_type) = field_types.get(&name) else {
                             pattern.kind.destructure_unknown(ctx);
 
                             return ctx.add_error(
-                                name.span,
+                                name_span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
                                     data_type: variable_type.clone(),
-                                    field: name.snbt_string.1,
+                                    field: name,
                                 },
                             );
                         };
@@ -312,7 +311,7 @@ impl Pattern {
                         let pattern =
                             pattern.perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
 
-                        Some((name.snbt_string, pattern))
+                        Some((name, pattern))
                     })
                     .collect_option_all()?;
 

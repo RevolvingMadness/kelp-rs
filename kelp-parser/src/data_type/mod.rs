@@ -1,5 +1,4 @@
-use kelp_core::high::{data_type::DataType, snbt_string::SNBTString};
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
+use kelp_core::high::data_type::DataType;
 
 use crate::{
     cst::{CSTDataType, CSTTypedCompoundDataTypeField},
@@ -10,7 +9,6 @@ use crate::{
         typed_compound::try_parse_typed_compound_data_type,
     },
     parser::Parser,
-    span::text_range_to_span,
     syntax::SyntaxKind,
 };
 
@@ -85,19 +83,12 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_typed_compound_data_type_field(
     node: CSTTypedCompoundDataTypeField,
-) -> Option<(SNBTString, DataType)> {
+) -> Option<(String, DataType)> {
     let name_token = node.name()?;
-    let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
     let data_type = lower_data_type(node.data_type()?)?;
 
-    Some((
-        SNBTString {
-            span: name_span,
-            snbt_string: LowSNBTString(false, name.to_owned()),
-        },
-        data_type,
-    ))
+    Some((name.to_owned(), data_type))
 }
 
 #[must_use]

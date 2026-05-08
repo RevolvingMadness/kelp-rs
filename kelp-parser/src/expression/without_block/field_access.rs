@@ -1,9 +1,7 @@
 use kelp_core::high::{
     expression::{Expression, ExpressionKind},
     semantic_analysis::SemanticAnalysisContext,
-    snbt_string::SNBTString,
 };
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::CSTFieldAccessExpression,
@@ -20,19 +18,10 @@ pub fn lower_field_access_expression(
     let expression = lower_expression(node.expression()?, ctx)?;
     let field_token = node.field_name_token()?;
 
-    let field_name_span = text_range_to_span(field_token.text_range());
+    let field_span = text_range_to_span(field_token.text_range());
     let field = field_token.text().to_owned();
 
     let span = span_of_cst_node(&node);
 
-    Some(
-        ExpressionKind::FieldAccess(
-            Box::new(expression),
-            SNBTString {
-                span: field_name_span,
-                snbt_string: LowSNBTString(false, field),
-            },
-        )
-        .with_span(span),
-    )
+    Some(ExpressionKind::FieldAccess(Box::new(expression), field_span, field).with_span(span))
 }

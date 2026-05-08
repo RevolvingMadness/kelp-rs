@@ -1,17 +1,15 @@
 use std::collections::HashMap;
 
 use crate::{
-    high::{
-        expression::Expression, semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
-    },
+    high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
     low::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
     trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone)]
 pub enum NbtPathNode {
-    RootCompound(HashMap<SNBTString, Expression>),
-    Named(SNBTString, Option<HashMap<SNBTString, Expression>>),
+    RootCompound(HashMap<String, Expression>),
+    Named(String, Option<HashMap<String, Expression>>),
     Index(Option<Box<Expression>>),
 }
 
@@ -25,7 +23,6 @@ impl NbtPathNode {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, key) = key.perform_semantic_analysis(ctx);
                         let (_, value) = value.perform_semantic_analysis(ctx)?;
 
                         Some((key, value))
@@ -35,13 +32,11 @@ impl NbtPathNode {
                 MiddleNbtPathNode::RootCompound(compound)
             }
             Self::Named(name, compound) => {
-                let (_, name) = name.perform_semantic_analysis(ctx);
                 let compound = match compound {
                     Some(compound) => Some(
                         compound
                             .into_iter()
                             .map(|(key, value)| {
-                                let (_, key) = key.perform_semantic_analysis(ctx);
                                 let (_, value) = value.perform_semantic_analysis(ctx)?;
 
                                 Some((key, value))

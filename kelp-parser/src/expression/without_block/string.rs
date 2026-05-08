@@ -1,5 +1,7 @@
-use kelp_core::high::{expression::{Expression, ExpressionKind}, semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString};
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
+use kelp_core::high::{
+    expression::{Expression, ExpressionKind},
+    semantic_analysis::SemanticAnalysisContext,
+};
 
 use crate::{cst::CSTStringExpression, span::span_of_cst_node};
 
@@ -12,13 +14,7 @@ pub fn lower_string_expression(
     let span = span_of_cst_node(&node);
 
     let text_token = node.string_literal_token()?;
-    let text = text_token.text().trim_matches('"');
+    let string = text_token.text().trim_matches('"');
 
-    Some(
-        ExpressionKind::String(SNBTString {
-            span,
-            snbt_string: LowSNBTString(false, text.to_string()),
-        })
-        .with_span(span),
-    )
+    Some(ExpressionKind::String(string.to_owned()).with_span(span))
 }

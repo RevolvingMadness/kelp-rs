@@ -112,21 +112,22 @@ pub fn split_constants_list(
 #[must_use]
 pub fn split_constants_compound(
     datapack: &Datapack,
-    compound: BTreeMap<SNBTString, ResolvedExpression>,
-) -> (SNBTCompound, BTreeMap<SNBTString, ResolvedExpression>) {
+    compound: BTreeMap<String, ResolvedExpression>,
+) -> (SNBTCompound, BTreeMap<String, ResolvedExpression>) {
     let mut constants = SNBTCompound::new();
     let mut non_constants = BTreeMap::default();
 
     for (key, expression) in compound {
         match expression.try_into_snbt(datapack) {
             Ok(snbt) => {
-                constants.insert(key, Macroable::Regular(snbt));
+                constants.insert(SNBTString(false, key), Macroable::Regular(snbt));
             }
             Err(expression) => {
                 constants.insert(
-                    key.clone(),
-                    Macroable::Regular(SNBT::compound(SNBTCompound::new())),
+                    SNBTString(false, key.clone()),
+                    SNBT::macroable_compound(SNBTCompound::new()),
                 );
+
                 non_constants.insert(key, expression);
             }
         }
@@ -399,9 +400,9 @@ pub enum ResolvedExpression {
     Long(i64),
     Float(NotNan<f32>),
     Double(NotNan<f64>),
-    String(SNBTString),
+    String(String),
     List(Vec<Self>),
-    Compound(BTreeMap<SNBTString, Self>),
+    Compound(BTreeMap<String, Self>),
     Tuple(Vec<Self>),
     StructStruct(StructStructId, BTreeMap<String, Self>),
     TupleStruct(TupleStructId, Vec<Self>),
@@ -596,12 +597,8 @@ impl ResolvedExpression {
 
             Self::List(items) => items,
             Self::String(string) => string
-                .1
                 .chars()
-                .map(|char| {
-                    let string = SNBTString(false, char.to_string());
-                    Self::String(string)
-                })
+                .map(|char| Self::String(char.to_string()))
                 .collect(),
             _ => return Err(self),
         };
@@ -627,7 +624,7 @@ impl ResolvedExpression {
             Self::Reference(expression) => expression.access_field(datapack, data_type, field),
 
             Self::Compound(compound) => compound.into_iter().find_map(|(actual_field, value)| {
-                if actual_field.1 == field {
+                if actual_field == field {
                     Some(value)
                 } else {
                     None
@@ -776,7 +773,7 @@ impl ResolvedExpression {
             Self::Long(long) => SNBT::long(long),
             Self::Float(float) => SNBT::float(float),
             Self::Double(double) => SNBT::double(double),
-            Self::String(string) => SNBT::snbt_string(string),
+            Self::String(string) => SNBT::snbt_string(SNBTString(false, string)),
             Self::List(list) => {
                 if !list
                     .iter()
@@ -802,7 +799,12 @@ impl ResolvedExpression {
 
                 let compound = compound
                     .into_iter()
-                    .map(|(key, value)| (key, value.try_into_snbt(datapack).unwrap()))
+                    .map(|(key, value)| {
+                        (
+                            SNBTString(false, key),
+                            value.try_into_snbt(datapack).unwrap(),
+                        )
+                    })
                     .collect();
 
                 SNBT::compound(compound)
@@ -905,7 +907,9 @@ impl ResolvedExpression {
             Self::Compound(compound) => Macroable::Regular(SNBT::compound(
                 compound
                     .into_iter()
-                    .map(|(key, value)| (key, value.as_snbt_macros(datapack, ctx)))
+                    .map(|(key, value)| {
+                        (SNBTString(false, key), value.as_snbt_macros(datapack, ctx))
+                    })
                     .collect(),
             )),
             _ => ctx.get_macro_snbt(self),
@@ -1086,7 +1090,8 @@ impl ResolvedExpression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone().with_node(NbtPathNode::named(key)),
+                            path.clone()
+                                .with_node(NbtPathNode::named(SNBTString(false, key))),
                         );
                     }
                 }
@@ -1251,7 +1256,8 @@ impl ResolvedExpression {
                             datapack,
                             ctx,
                             target.clone(),
-                            path.clone().with_node(NbtPathNode::named(key)),
+                            path.clone()
+                                .with_node(NbtPathNode::named(SNBTString(false, key))),
                             scale,
                         );
                     }
@@ -1393,7 +1399,7 @@ impl ResolvedExpression {
             Self::Long(v) => *v as i32,
             Self::Float(v) if force => v.into_inner() as i32,
             Self::Double(v) if force => v.into_inner() as i32,
-            Self::String(SNBTString(_, v)) if force => v.len() as i32,
+            Self::String(v) if force => v.len() as i32,
             Self::List(v) if force => v.len() as i32,
             Self::Compound(compound) if force => compound.len() as i32,
             _ => return None,
@@ -1995,9 +2001,9 @@ impl ResolvedExpression {
             }
             Self::String(string) => {
                 if force_display {
-                    SNBT::string(format!("\"{}\"", string.1))
+                    SNBT::string(format!("\"{}\"", string))
                 } else {
-                    SNBT::snbt_string(string)
+                    SNBT::snbt_string(SNBTString(false, string))
                 }
             }
             Self::List(list) => SNBT::list(
@@ -2008,7 +2014,12 @@ impl ResolvedExpression {
             Self::Compound(compound) => SNBT::compound(
                 compound
                     .into_iter()
-                    .map(|(key, value)| (key, value.as_text_component(datapack, ctx, false)))
+                    .map(|(key, value)| {
+                        (
+                            SNBTString(false, key),
+                            value.as_text_component(datapack, ctx, false),
+                        )
+                    })
                     .collect(),
             ),
             Self::Condition(_, _) => {
@@ -2332,7 +2343,7 @@ impl ResolvedExpression {
                     PlayersScoreboardCommand::Set(score.score, value.into_inner() as i32),
                 );
             }
-            Self::String(SNBTString(_, value)) => {
+            Self::String(value) => {
                 push_scoreboard_players(
                     datapack,
                     ctx,

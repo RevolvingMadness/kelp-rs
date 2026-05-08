@@ -4,11 +4,10 @@ use kelp_core::{
     high::{
         pattern::{Pattern, PatternKind},
         semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
     },
     path::generic::GenericPath,
+    span::Span,
 };
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::{
@@ -27,7 +26,7 @@ use crate::{
 pub fn lower_struct_pattern_field(
     node: CSTStructStructPatternField,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<(SNBTString, Pattern)> {
+) -> Option<((Span, String), Pattern)> {
     let field_name_token = node.struct_field_name_token()?;
     let field_name_span = text_range_to_span(field_name_token.text_range());
     let field_name = field_name_token.text();
@@ -40,13 +39,7 @@ pub fn lower_struct_pattern_field(
             kind: PatternKind::Binding(GenericPath::single(field_name_span, field_name)),
         });
 
-    Some((
-        SNBTString {
-            snbt_string: LowSNBTString(false, field_name.to_owned()),
-            span: field_name_span,
-        },
-        field_pattern,
-    ))
+    Some(((field_name_span, field_name.to_owned()), field_pattern))
 }
 
 #[must_use]
@@ -85,7 +78,7 @@ fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
 fn lower_struct_pattern_fields(
     node: CSTStructStructPatternFields,
     ctx: &mut SemanticAnalysisContext,
-) -> HashMap<SNBTString, Pattern> {
+) -> HashMap<(Span, String), Pattern> {
     node.struct_struct_pattern_fields()
         .filter_map(|field| lower_struct_pattern_field(field, ctx))
         .collect()

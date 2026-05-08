@@ -414,7 +414,7 @@ pub enum UnresolvedExpressionKind {
     Float(NotNan<f32>),
     InferredFloat(NotNan<f32>),
     Double(NotNan<f64>),
-    String(SNBTString),
+    String(String),
     Unit,
     Underscore,
     Unary(UnaryOperator, Box<UnresolvedExpression>),
@@ -440,13 +440,13 @@ pub enum UnresolvedExpressionKind {
     ),
     Assignment(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
     List(Vec<UnresolvedExpression>),
-    Compound(HashMap<SNBTString, UnresolvedExpression>),
+    Compound(HashMap<String, UnresolvedExpression>),
     Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<MiddleExecuteIfSubcommand>),
     Command(Box<MiddleCommand>),
     Index(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
-    FieldAccess(Box<UnresolvedExpression>, SNBTString),
+    FieldAccess(Box<UnresolvedExpression>, String),
     AsCast(Box<UnresolvedExpression>, UnresolvedDataType),
     ToCast(
         Option<NotNan<f32>>,
@@ -459,7 +459,7 @@ pub enum UnresolvedExpressionKind {
     StructStruct(
         HighStructStructId,
         Vec<UnresolvedDataType>,
-        HashMap<SNBTString, UnresolvedExpression>,
+        HashMap<String, UnresolvedExpression>,
     ),
     TupleStruct(
         HighTupleStructId,
@@ -688,7 +688,7 @@ impl UnresolvedExpressionKind {
 
                 let target = target.kind.resolve(datapack, ctx);
 
-                let field_result = target.access_field(datapack, &data_type, &field.1).unwrap();
+                let field_result = target.access_field(datapack, &data_type, &field).unwrap();
                 let place = field_result.as_place()?;
 
                 Some(place)
@@ -816,7 +816,7 @@ impl UnresolvedExpressionKind {
 
                 let target = target.kind.resolve(datapack, ctx);
 
-                target.access_field(datapack, &data_type, &field.1).unwrap()
+                target.access_field(datapack, &data_type, &field).unwrap()
             }
             Self::AsCast(expression, data_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
@@ -868,7 +868,7 @@ impl UnresolvedExpressionKind {
                     .map(|(name, expression)| {
                         let data_type = expression.data_type.clone().resolve(datapack).unwrap();
 
-                        (name.1.clone(), data_type)
+                        (name.clone(), data_type)
                     })
                     .collect();
 
@@ -886,7 +886,7 @@ impl UnresolvedExpressionKind {
                     .map(|(name, expression)| {
                         let expression = expression.kind.resolve(datapack, ctx);
 
-                        (name.1, expression)
+                        (name, expression)
                     })
                     .collect();
 

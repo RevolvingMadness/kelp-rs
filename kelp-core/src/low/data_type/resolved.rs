@@ -3,8 +3,6 @@ use std::{
     fmt::{Display, Write},
 };
 
-use minecraft_command_types::snbt::SNBTString;
-
 use crate::{
     low::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
     runtime_storage::RuntimeStorageType,
@@ -31,7 +29,7 @@ pub enum ResolvedDataType {
     Never,
     Score(Box<Self>),
     List(Box<Self>),
-    TypedCompound(BTreeMap<SNBTString, Self>),
+    TypedCompound(BTreeMap<String, Self>),
     Compound(Box<Self>),
     Data(Box<Self>),
     Reference(Box<Self>),
@@ -199,7 +197,7 @@ impl Display for ResolvedDataTypeDisplay<'_> {
                         f.write_str(", ")?;
                     }
 
-                    write!(f, "{}: ", key.1)?;
+                    write!(f, "{}: ", key)?;
 
                     value_data_type.display(self.environment).fmt(f)?;
                 }

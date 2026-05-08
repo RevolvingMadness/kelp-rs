@@ -16,7 +16,6 @@ use crate::{
         pattern::Pattern,
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-        snbt_string::SNBTString,
         supports_expression_sigil::SupportsExpressionSigil,
     },
     low::{
@@ -43,7 +42,7 @@ pub enum ExpressionKind {
     Float(NotNan<f32>),
     InferredFloat(NotNan<f32>),
     Double(NotNan<f64>),
-    String(SNBTString),
+    String(String),
     Underscore,
     Unit,
     Unary(UnaryOperator, Box<Expression>),
@@ -53,18 +52,18 @@ pub enum ExpressionKind {
     AugmentedAssignment(Box<Expression>, ArithmeticOperator, Box<Expression>),
     Assignment(Box<Expression>, Box<Expression>),
     List(Vec<Expression>),
-    Compound(HashMap<SNBTString, Expression>),
+    Compound(HashMap<String, Expression>),
     PlayerScore(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<ExecuteIfSubcommand>),
     Command(Box<Command>),
     Index(Box<Expression>, Box<Expression>),
-    FieldAccess(Box<Expression>, SNBTString),
+    FieldAccess(Box<Expression>, Span, String),
     AsCast(Box<Expression>, DataType),
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Path(GenericPath<DataType>),
-    StructStruct(GenericPath<DataType>, HashMap<SNBTString, Expression>),
+    StructStruct(GenericPath<DataType>, HashMap<(Span, String), Expression>),
     Call {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
@@ -438,7 +437,7 @@ impl Expression {
                     .map(|(key, value)| {
                         let (_, value) = value.perform_semantic_analysis(ctx)?;
 
-                        Some((key.snbt_string, value))
+                        Some((key, value))
                     })
                     .collect_option_all::<HashMap<_, _>>()?;
 
@@ -501,21 +500,19 @@ impl Expression {
                 UnresolvedExpressionKind::Index(Box::new(target), Box::new(index))
                     .with(index_result)
             }
-            ExpressionKind::FieldAccess(expression, field) => {
+            ExpressionKind::FieldAccess(expression, field_span, field) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                 if !expression.data_type.has_fields() {
                     return ctx.add_error(
-                        field.span,
+                        field_span,
                         SemanticAnalysisError::TypeDoesntHaveFields(expression.data_type),
                     );
                 }
 
-                let (field_span, field) = field.perform_semantic_analysis(ctx);
-
                 let field_result = expression
                     .data_type
-                    .get_field_result_semantic_analysis(ctx, field_span, &field.1)?;
+                    .get_field_result_semantic_analysis(ctx, field_span, &field)?;
 
                 UnresolvedExpressionKind::FieldAccess(Box::new(expression), field)
                     .with(field_result)
@@ -613,13 +610,13 @@ impl Expression {
 
                 let field_values = field_values
                     .into_iter()
-                    .map(|(key, value)| {
-                        let Some(field_type) = field_types.get(&key.snbt_string.1) else {
+                    .map(|((key_span, field), value)| {
+                        let Some(field_type) = field_types.get(&field) else {
                             return ctx.add_error(
-                                key.span,
+                                key_span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
                                     data_type: data_type.clone(),
-                                    field: key.snbt_string.1,
+                                    field,
                                 },
                             );
                         };
@@ -640,7 +637,7 @@ impl Expression {
                             );
                         }
 
-                        Some((key.snbt_string, value))
+                        Some((field, value))
                     })
                     .collect_option_all::<HashMap<_, _>>()?;
 
@@ -649,7 +646,7 @@ impl Expression {
                 for declared_field_name in field_types.into_keys() {
                     if !field_values
                         .keys()
-                        .any(|given_field_name| given_field_name.1 == declared_field_name)
+                        .any(|given_field_name| *given_field_name == declared_field_name)
                     {
                         has_error = true;
 
@@ -890,7 +887,7 @@ impl Expression {
                 UnresolvedExpressionKind::Double(value).with(UnresolvedDataType::Double)
             }
             ExpressionKind::String(value) => {
-                UnresolvedExpressionKind::String(value.snbt_string).with(UnresolvedDataType::String)
+                UnresolvedExpressionKind::String(value).with(UnresolvedDataType::String)
             }
             ExpressionKind::Underscore => {
                 if ctx.is_lhs == 0 {

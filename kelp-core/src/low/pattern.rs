@@ -63,7 +63,7 @@ fn destructure_tuple(
 }
 
 fn destructure_compound(
-    patterns: HashMap<SNBTString, UnresolvedPattern>,
+    patterns: HashMap<String, UnresolvedPattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: ResolvedDataType,
@@ -96,12 +96,13 @@ fn destructure_compound(
             let (target, path) = *target_path;
 
             for (key, pattern) in patterns {
+                let data_type = data_types.get(&key).unwrap().clone();
+
                 let expression = ResolvedExpression::Data(Box::new((
                     target.clone(),
                     path.clone()
-                        .with_node(NbtPathNode::Named(key.clone(), None)),
+                        .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
                 )));
-                let data_type = data_types.get(&key).unwrap().clone();
 
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
@@ -111,7 +112,7 @@ fn destructure_compound(
 }
 
 fn destructure_struct_struct(
-    field_patterns: HashMap<SNBTString, UnresolvedPattern>,
+    field_patterns: HashMap<String, UnresolvedPattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: StructStructId,
@@ -125,8 +126,8 @@ fn destructure_struct_struct(
             let field_types = declaration.field_types.clone();
 
             for (key, pattern) in field_patterns {
-                let field_value = fields.get(&key.1).unwrap().clone();
-                let data_type = field_types.get(&key.1).unwrap().clone();
+                let field_value = fields.get(&key).unwrap().clone();
+                let data_type = field_types.get(&key).unwrap().clone();
 
                 pattern.destructure(datapack, ctx, data_type, field_value);
             }
@@ -139,12 +140,13 @@ fn destructure_struct_struct(
             let field_types = declaration.field_types.clone();
 
             for (key, pattern) in field_patterns {
+                let data_type = field_types.get(&key).unwrap().clone();
+
                 let field_path = path
                     .clone()
-                    .with_node(NbtPathNode::Named(key.clone(), None));
-                let field_value = ResolvedExpression::Data(Box::new((target.clone(), field_path)));
+                    .with_node(NbtPathNode::Named(SNBTString(false, key), None));
 
-                let data_type = field_types.get(&key.1).unwrap().clone();
+                let field_value = ResolvedExpression::Data(Box::new((target.clone(), field_path)));
 
                 let data_wrapped_type = ResolvedDataType::Data(Box::new(data_type));
 
@@ -235,11 +237,11 @@ pub enum UnresolvedPattern {
     StructStruct(
         HighStructStructId,
         Vec<UnresolvedDataType>,
-        HashMap<SNBTString, Self>,
+        HashMap<String, Self>,
     ),
     TupleStruct(HighTupleStructId, Vec<UnresolvedDataType>, Vec<Self>),
 
-    Compound(HashMap<SNBTString, Self>),
+    Compound(HashMap<String, Self>),
 }
 
 impl UnresolvedPattern {

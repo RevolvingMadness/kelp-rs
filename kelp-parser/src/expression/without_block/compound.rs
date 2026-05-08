@@ -4,17 +4,15 @@ use kelp_core::{
     high::{
         expression::{Expression, ExpressionKind},
         semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
     },
     span::Span,
 };
-use minecraft_command_types::snbt::SNBTString as LowSNBTString;
 
 use crate::{
     cst::CSTCompoundExpression,
     expression::{lower_expression, try_parse_expression},
     parser::Parser,
-    span::{span_of_cst_node, text_range_to_span},
+    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -107,7 +105,7 @@ fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
 pub fn lower_compound_expression_inner(
     node: CSTCompoundExpression,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<(Span, HashMap<SNBTString, Expression>)> {
+) -> Option<(Span, HashMap<String, Expression>)> {
     let mut compound = HashMap::new();
 
     for entry in node.entries() {
@@ -122,16 +120,9 @@ pub fn lower_compound_expression_inner(
             continue;
         };
 
-        let key_span = text_range_to_span(key_token.text_range());
-        let key = key_token.text().to_owned();
+        let key = key_token.text();
 
-        compound.insert(
-            SNBTString {
-                span: key_span,
-                snbt_string: LowSNBTString(false, key),
-            },
-            value,
-        );
+        compound.insert(key.to_owned(), value);
     }
 
     Some((span_of_cst_node(&node), compound))

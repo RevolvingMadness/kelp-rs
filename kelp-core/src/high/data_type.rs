@@ -4,15 +4,14 @@ use std::{
 };
 
 use crate::{
-    high::{semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString},
-    low::data_type::unresolved::UnresolvedDataType,
-    path::generic::GenericPath,
+    high::semantic_analysis::SemanticAnalysisContext,
+    low::data_type::unresolved::UnresolvedDataType, path::generic::GenericPath,
 };
 
 #[derive(Debug, Clone)]
 pub enum DataType {
     Named(GenericPath<Self>),
-    TypedCompound(HashMap<SNBTString, Self>),
+    TypedCompound(HashMap<String, Self>),
     Reference(Box<Self>),
     Tuple(Vec<Self>),
     Unit,
@@ -36,7 +35,7 @@ impl Display for DataType {
                         f.write_str(", ")?;
                     }
 
-                    write!(f, "{}: {}", key.snbt_string.1, data_type)?;
+                    write!(f, "{}: {}", key, data_type)?;
                 }
 
                 if !compound.is_empty() {
@@ -124,7 +123,7 @@ impl DataType {
                     .map(|(key, value)| {
                         let value = value.resolve_partially(context_generic_names, ctx);
 
-                        (key.snbt_string, value)
+                        (key, value)
                     })
                     .collect();
 

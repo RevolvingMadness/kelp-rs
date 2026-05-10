@@ -57,6 +57,12 @@ macro_rules! check_error {
         }
     };
 
+    (tuple, $($expr:expr),+) => {
+        if false $(|| matches!($expr, UnresolvedDataType::Error))* {
+            return Some((UnresolvedDataType::Error, UnresolvedDataType::Error));
+        }
+    };
+
     ($($expr:expr),+) => {
         if false $(|| matches!($expr, UnresolvedDataType::Error))* {
             return Some(UnresolvedDataType::Error);
@@ -939,8 +945,14 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    pub const fn is_lvalue(&self) -> bool {
-        matches!(self, Self::Score(..) | Self::Data(..))
+    pub const fn is_runtime(&self) -> bool {
+        match self {
+            Self::Reference(data_type) => data_type.is_runtime(),
+
+            Self::Score(..) | Self::Data(..) => true,
+
+            _ => false,
+        }
     }
 
     #[must_use]
@@ -1005,6 +1017,7 @@ impl UnresolvedDataType {
                 | Self::Short
                 | Self::Integer
                 | Self::InferredInteger
+                | Self::Score(..)
         )
     }
 
@@ -1263,12 +1276,21 @@ impl UnresolvedDataType {
         }
     }
 
-    fn get_index_result(&self) -> Option<Self> {
-        check_error!(self);
+    fn get_index_result(&self) -> Option<(Self, Self)> {
+        check_error!(tuple, self);
 
         Some(match self {
-            Self::List(data_type) => *data_type.clone(),
-            Self::Data(data_type) => Self::Data(Box::new(data_type.get_index_result()?)),
+            Self::List(data_type) => (*data_type.clone(), Self::Integer),
+            Self::Data(data_type) => {
+                let (index_result_type, preferred_index_type) = data_type
+                    .get_index_result()
+                    .unwrap_or((Self::Inferred, Self::Inferred));
+
+                (
+                    Self::Data(Box::new(index_result_type)),
+                    preferred_index_type,
+                )
+            }
             Self::Reference(data_type) => data_type.get_index_result()?,
 
             _ => return None,
@@ -1280,11 +1302,23 @@ impl UnresolvedDataType {
         &self,
         ctx: &mut SemanticAnalysisContext,
         span: Span,
+        index_type: &Self,
     ) -> Option<Self> {
-        match self.get_index_result() {
-            Some(result) => Some(result),
-            None => ctx.add_error(span, SemanticAnalysisError::CannotBeIndexed(self.clone())),
+        let Some((index_result_type, preferred_index_type)) = self.get_index_result() else {
+            return ctx.add_error(span, SemanticAnalysisError::CannotBeIndexed(self.clone()));
+        };
+
+        if !index_type.equals(&preferred_index_type) {
+            return ctx.add_error(
+                span,
+                SemanticAnalysisError::CannotBeIndexedByType {
+                    target: self.clone(),
+                    index: index_type.clone(),
+                },
+            );
         }
+
+        Some(index_result_type)
     }
 
     fn get_field_result(&self, high_environment: &HighEnvironment, field: &str) -> Option<Self> {
@@ -1314,7 +1348,9 @@ impl UnresolvedDataType {
             Self::Compound(data_type) => *data_type.clone(),
 
             Self::Data(data_type) => Self::Data(Box::new(
-                data_type.get_field_result(high_environment, field)?,
+                data_type
+                    .get_field_result(high_environment, field)
+                    .unwrap_or(Self::Inferred),
             )),
 
             Self::Tuple(items) => {
@@ -1334,6 +1370,13 @@ impl UnresolvedDataType {
         span: Span,
         field: &str,
     ) -> Option<Self> {
+        if !self.has_fields() {
+            return ctx.add_error(
+                span,
+                SemanticAnalysisError::TypeDoesntHaveFields(self.clone()),
+            );
+        }
+
         match self.get_field_result(&ctx.high_environment, field) {
             Some(result) => Some(result),
             None => ctx.add_error(
@@ -1363,7 +1406,9 @@ impl UnresolvedDataType {
 
         Ok(match self {
             Self::Reference(data_type) => *data_type,
+
             Self::Score(..) | Self::Data(..) => self,
+
             _ => return Err(self),
         })
     }
@@ -1473,26 +1518,6 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    pub fn assert_can_perform_assignment(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        value_span: Span,
-        value_type: &Self,
-    ) -> Option<()> {
-        if self.equals(value_type) {
-            return Some(());
-        }
-
-        ctx.add_error(
-            value_span,
-            SemanticAnalysisError::MismatchedTypes {
-                expected: self.clone(),
-                actual: value_type.clone(),
-            },
-        )
-    }
-
-    #[must_use]
     pub fn assert_can_perform_augmented_assignment(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -1531,6 +1556,38 @@ impl UnresolvedDataType {
                 expected: other.clone(),
                 actual: self.clone(),
             },
+        )
+    }
+
+    #[must_use]
+    pub fn assert_score_compatible(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+    ) -> Option<()> {
+        if self.can_be_assigned_to_score() {
+            return Some(());
+        }
+
+        ctx.add_error(
+            span,
+            SemanticAnalysisError::TypeIsNotScoreCompatible(self.clone()),
+        )
+    }
+
+    #[must_use]
+    pub fn assert_data_compatible(
+        &self,
+        ctx: &mut SemanticAnalysisContext,
+        span: Span,
+    ) -> Option<()> {
+        if self.get_data_type(&ctx.high_environment).is_some() {
+            return Some(());
+        }
+
+        ctx.add_error(
+            span,
+            SemanticAnalysisError::TypeIsNotDataCompatible(self.clone()),
         )
     }
 

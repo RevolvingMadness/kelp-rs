@@ -24,10 +24,7 @@ impl NbtPathNode {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value
-                            .kind
-                            .resolve(datapack, ctx)
-                            .as_snbt_macros(datapack, ctx);
+                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                         (SNBTString(false, key), value)
                     })
@@ -39,22 +36,17 @@ impl NbtPathNode {
                     expression
                         .into_iter()
                         .map(|(key, value)| {
-                            let value = value
-                                .kind
-                                .resolve(datapack, ctx)
-                                .as_snbt_macros(datapack, ctx);
+                            let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                             (SNBTString(false, key), value)
                         })
                         .collect::<SNBTCompound>()
                 }),
             ),
-            Self::Index(expression) => LowNbtPathNode::Index(expression.map(|expression| {
+            Self::Index(expression) => LowNbtPathNode::Index(
                 expression
-                    .kind
-                    .resolve(datapack, ctx)
-                    .as_snbt_macros(datapack, ctx)
-            })),
+                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
+            ),
         }
     }
 }

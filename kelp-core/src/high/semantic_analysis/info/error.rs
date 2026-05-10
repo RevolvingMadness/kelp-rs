@@ -61,7 +61,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
             }
             SemanticAnalysisError::UnderscoreExpression => write!(
                 f,
-                "The underscore expression can only be used on the left hand side of assignments"
+                "The underscore expression can only be used as an assignee"
             ),
             SemanticAnalysisError::CannotIterateType(data_type) => {
                 write!(
@@ -188,6 +188,14 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     data_type.display(self.high_environment)
                 )
             }
+            SemanticAnalysisError::CannotBeIndexedByType { target, index } => {
+                write!(
+                    f,
+                    "The type `{}` cannot be indexed by `{}`",
+                    target.display(self.high_environment),
+                    index.display(self.high_environment),
+                )
+            }
             SemanticAnalysisError::IndexOutOfBounds => write!(f, "Index out of bounds"),
             SemanticAnalysisError::CannotBeDereferenced(data_type) => {
                 write!(
@@ -203,8 +211,11 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     data_type.display(self.high_environment)
                 )
             }
-            SemanticAnalysisError::CannotBeAssignedTo => {
-                write!(f, "Cannot assign a value to this expression")
+            SemanticAnalysisError::ExpressionIsNotAPlace => {
+                write!(f, "This expression is not a place")
+            }
+            SemanticAnalysisError::ExpressionIsNotAnAssignee => {
+                write!(f, "This expression is not an assignee")
             }
             SemanticAnalysisError::TypeDoesntHaveFields(data_type) => {
                 write!(
@@ -393,10 +404,15 @@ pub enum SemanticAnalysisError {
     TypeIsNotDataCompatible(UnresolvedDataType),
     CannotBeAssignedToData(UnresolvedDataType),
     CannotBeIndexed(UnresolvedDataType),
+    CannotBeIndexedByType {
+        target: UnresolvedDataType,
+        index: UnresolvedDataType,
+    },
     IndexOutOfBounds,
     CannotBeDereferenced(UnresolvedDataType),
     CannotBeReferenced(UnresolvedDataType),
-    CannotBeAssignedTo,
+    ExpressionIsNotAPlace,
+    ExpressionIsNotAnAssignee,
     TypeDoesntHaveFields(UnresolvedDataType),
     CannotNegateType(UnresolvedDataType),
     CannotInvertType(UnresolvedDataType),

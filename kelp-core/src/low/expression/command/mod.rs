@@ -104,7 +104,11 @@ impl Command {
             Self::Summon(entity, position, nbt) => LowCommand::Summon(
                 entity,
                 position,
-                nbt.map(|nbt| nbt.kind.resolve(datapack, ctx).as_snbt_macros(datapack, ctx)),
+                nbt.map(|nbt| {
+                    nbt.kind
+                        .resolve(datapack, ctx)
+                        .as_snbt_macros( ctx)
+                }),
             ),
         }
     }

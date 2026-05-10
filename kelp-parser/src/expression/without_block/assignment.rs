@@ -7,7 +7,9 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::CSTAssignmentExpression, expression::lower_expression, span::span_of_cst_node,
+    cst::CSTAssignmentExpression,
+    expression::lower_expression,
+    span::{span_of_cst_node, text_range_to_span},
     syntax::SyntaxKind,
 };
 
@@ -22,6 +24,8 @@ pub fn lower_assignment_expression(
     let target = lower_expression(node.target()?, ctx)?;
     let value = lower_expression(node.value()?, ctx)?;
     let operator = node.operator()?;
+
+    let operator_span = text_range_to_span(operator.text_range());
 
     let operator = match operator.kind() {
         SyntaxKind::Equal => None,
@@ -39,7 +43,12 @@ pub fn lower_assignment_expression(
 
     Some(
         (if let Some(operator) = operator {
-            ExpressionKind::AugmentedAssignment(Box::new(target), operator, Box::new(value))
+            ExpressionKind::AugmentedAssignment(
+                Box::new(target),
+                operator_span,
+                operator,
+                Box::new(value),
+            )
         } else {
             ExpressionKind::Assignment(Box::new(target), Box::new(value))
         })

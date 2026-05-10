@@ -184,6 +184,21 @@ impl Environment {
         &self.values[id.0 as usize]
     }
 
+    #[inline]
+    #[must_use]
+    pub fn get_variable(&self, id: ValueId) -> (&[String], Visibility, &VariableDeclaration) {
+        let ValueDeclaration {
+            visibility,
+            module_path,
+            kind: ValueDeclarationKind::Variable(declaration),
+        } = self.get_value(id)
+        else {
+            unreachable!();
+        };
+
+        (module_path, *visibility, declaration)
+    }
+
     #[must_use]
     pub fn declare_variable(
         &mut self,

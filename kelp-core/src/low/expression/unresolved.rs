@@ -21,14 +21,20 @@ use crate::{
     compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedDataTarget,
     datapack::Datapack,
-    high::environment::{
-        r#type::r#struct::{regular::HighStructStructId, tuple::HighTupleStructId},
-        value::HighValueId,
+    high::{
+        environment::{
+            r#type::r#struct::{regular::HighStructStructId, tuple::HighTupleStructId},
+            value::HighValueId,
+        },
+        expression::{assignee::UnresolvedAssigneeExpression, place::UnresolvedPlaceExpression},
     },
     low::{
         coordinate::Coordinates,
         data::DataTarget,
-        data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
+        data_type::{
+            resolved::{FieldAccessType, ResolvedDataType},
+            unresolved::UnresolvedDataType,
+        },
         entity_selector::EntitySelector,
         environment::value::{ValueDeclarationKind, function::FunctionId, variable::VariableId},
         expression::{
@@ -40,12 +46,11 @@ use crate::{
         },
         nbt_path::NbtPath,
         pattern::UnresolvedPattern,
-        place::Place,
         player_score::PlayerScore,
         statement::{EarlyReturnType, UnresolvedStatement},
         supports_expression_sigil::SupportsExpressionSigil,
     },
-    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
+    operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     runtime_storage::RuntimeStorageType,
 };
 
@@ -417,7 +422,10 @@ pub enum UnresolvedExpressionKind {
     String(String),
     Unit,
     Underscore,
-    Unary(UnaryOperator, Box<UnresolvedExpression>),
+    Negate(Box<UnresolvedExpression>),
+    Invert(Box<UnresolvedExpression>),
+    Reference(Box<UnresolvedPlaceExpression>),
+    Dereference(Box<UnresolvedPlaceExpression>),
     Arithmetic(
         Box<UnresolvedExpression>,
         ArithmeticOperator,
@@ -434,19 +442,19 @@ pub enum UnresolvedExpressionKind {
         Box<UnresolvedExpression>,
     ),
     AugmentedAssignment(
-        Box<UnresolvedExpression>,
+        Box<UnresolvedPlaceExpression>,
         ArithmeticOperator,
         Box<UnresolvedExpression>,
     ),
-    Assignment(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
+    Assignment(Box<UnresolvedAssigneeExpression>, Box<UnresolvedExpression>),
     List(Vec<UnresolvedExpression>),
     Compound(HashMap<String, UnresolvedExpression>),
     Score(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<MiddleExecuteIfSubcommand>),
     Command(Box<MiddleCommand>),
-    Index(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
-    FieldAccess(Box<UnresolvedExpression>, String),
+    Index(Box<UnresolvedPlaceExpression>, Box<UnresolvedExpression>),
+    FieldAccess(Box<UnresolvedPlaceExpression>, String),
     AsCast(Box<UnresolvedExpression>, UnresolvedDataType),
     ToCast(
         Option<NotNan<f32>>,
@@ -499,21 +507,6 @@ impl UnresolvedExpressionKind {
     }
 
     #[must_use]
-    pub const fn can_be_assigned_to(&self) -> bool {
-        matches!(
-            self,
-            Self::Score(..)
-                | Self::Data(..)
-                | Self::Tuple(..)
-                | Self::Value(..)
-                | Self::Index(..)
-                | Self::FieldAccess(..)
-                | Self::Unary(UnaryOperator::Dereference, _)
-                | Self::Underscore
-        )
-    }
-
-    #[must_use]
     pub fn definitely_diverges(&self) -> bool {
         match self {
             Self::Return(..) => true,
@@ -546,14 +539,16 @@ impl UnresolvedExpressionKind {
 
             Self::Arithmetic(left, _, right)
             | Self::Comparison(left, _, right)
-            | Self::Logical(left, _, right)
-            | Self::AugmentedAssignment(left, _, right)
-            | Self::Assignment(left, right)
-            | Self::Index(left, right) => {
+            | Self::Logical(left, _, right) => {
                 left.kind.definitely_diverges() || right.kind.definitely_diverges()
             }
-            Self::Unary(_, expression)
-            | Self::FieldAccess(expression, _)
+
+            Self::AugmentedAssignment(_, _, right)
+            | Self::Assignment(_, right)
+            | Self::Index(_, right) => right.kind.definitely_diverges(),
+
+            Self::Negate(expression)
+            | Self::Invert(expression)
             | Self::AsCast(expression, _)
             | Self::ToCast(_, expression, _) => expression.kind.definitely_diverges(),
             Self::Call(callee, arguments) => {
@@ -646,82 +641,28 @@ impl UnresolvedExpressionKind {
         Some((*index as usize) >= expressions.len())
     }
 
-    pub fn as_place(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Place> {
-        match self {
-            Self::Underscore => Some(Place::Underscore),
-
-            Self::Unary(operator, expression) => match operator {
-                UnaryOperator::Negate | UnaryOperator::Reference | UnaryOperator::Invert => None,
-                UnaryOperator::Dereference => {
-                    let place = expression
-                        .kind
-                        .as_place(datapack, ctx)?
-                        .dereference(datapack)?;
-
-                    Some(place)
-                }
-            },
-            Self::Score(score) => {
-                let score = score.compile(datapack, ctx);
-
-                Some(Place::Score(score))
-            }
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
-
-                Some(Place::Data(Box::new(target), path))
-            }
-            Self::Index(target, index) => {
-                let target = target.kind.resolve(datapack, ctx);
-                let index = index.kind.resolve(datapack, ctx);
-
-                let index_result = target.index(datapack, ctx, index).unwrap();
-                let place = index_result.as_place()?;
-
-                Some(place)
-            }
-            Self::FieldAccess(target, field) => {
-                let data_type = target.data_type.resolve(datapack).unwrap();
-
-                let target = target.kind.resolve(datapack, ctx);
-
-                let field_result = target.access_field(datapack, &data_type, &field).unwrap();
-                let place = field_result.as_place()?;
-
-                Some(place)
-            }
-            Self::Tuple(tuple) => Some(Place::Tuple(
-                tuple
-                    .into_iter()
-                    .map(|expression| expression.kind.as_place(datapack, ctx))
-                    .collect::<Option<_>>()?,
-            )),
-            Self::Value(id, generic_types) => {
-                let id = datapack
-                    .get_monomorphized_value_id(id, &generic_types)
-                    .unwrap();
-
-                Some(Place::Value(id))
-            }
-            _ => None,
-        }
-    }
-
     #[must_use]
     pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ResolvedExpression {
         match self {
-            Self::Unary(unary_operator, expression) => {
+            Self::Negate(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                match unary_operator {
-                    UnaryOperator::Negate => expression.negate(datapack, ctx).unwrap(),
-                    UnaryOperator::Invert => expression.invert(datapack).unwrap(),
-                    UnaryOperator::Reference => ResolvedExpression::Reference(Box::new(expression)),
-                    UnaryOperator::Dereference => expression.dereference(datapack, ctx).unwrap(),
-                }
+                expression.negate(datapack, ctx).unwrap()
+            }
+            Self::Invert(expression) => {
+                let expression = expression.kind.resolve(datapack, ctx);
+
+                expression.invert().unwrap()
+            }
+            Self::Reference(expression) => {
+                let expression = expression.resolve(datapack, ctx);
+
+                ResolvedExpression::Reference(Box::new(expression))
+            }
+            Self::Dereference(place) => {
+                let place = place.resolve(datapack, ctx);
+
+                place.resolve(datapack).dereference(datapack, ctx).unwrap()
             }
             Self::Arithmetic(left, operator, right) => {
                 let left = left.kind.resolve(datapack, ctx);
@@ -742,15 +683,15 @@ impl UnresolvedExpressionKind {
                 left.perform_logical_operation(datapack, ctx, operator, right)
             }
             Self::AugmentedAssignment(target, operator, value) => {
+                let target = target.resolve(datapack, ctx);
                 let value = value.kind.resolve(datapack, ctx);
 
-                let target_place = target.kind.as_place(datapack, ctx).unwrap();
-                target_place.augmented_assign(datapack, ctx, operator, value);
+                target.augmented_assign(datapack, ctx, operator, value);
 
                 ResolvedExpression::Unit
             }
             Self::Assignment(target, value) => {
-                let target = target.kind.as_place(datapack, ctx).unwrap();
+                let target = target.resolve(datapack, ctx);
                 let value = value.kind.resolve(datapack, ctx);
 
                 target.assign(datapack, ctx, value);
@@ -806,22 +747,23 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Score(unique_score)
             }
             Self::Index(target, index) => {
-                let target = target.kind.resolve(datapack, ctx);
+                let target = target.resolve(datapack, ctx);
                 let index = index.kind.resolve(datapack, ctx);
 
-                target.index(datapack, ctx, index).unwrap()
+                target.resolve(datapack).index(&index).unwrap()
             }
             Self::FieldAccess(target, field) => {
-                let data_type = target.data_type.resolve(datapack).unwrap();
+                let target = target.resolve(datapack, ctx);
 
-                let target = target.kind.resolve(datapack, ctx);
-
-                target.access_field(datapack, &data_type, &field).unwrap()
+                target
+                    .resolve(datapack)
+                    .access_field(FieldAccessType::Name, field)
+                    .unwrap()
             }
             Self::AsCast(expression, data_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                expression.cast_to(datapack, data_type).unwrap()
+                expression.cast_to(data_type).unwrap()
             }
             Self::ToCast(scale, expression, runtime_storage_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
@@ -946,7 +888,9 @@ impl UnresolvedExpressionKind {
 
                 match &declaration.kind {
                     ValueDeclarationKind::Variable(..) => {
-                        ResolvedExpression::Variable(VariableId(id.0))
+                        let id = VariableId(id.0);
+
+                        datapack.get_variable_value(id)
                     }
                     ValueDeclarationKind::Function(..) => {
                         ResolvedExpression::Function(FunctionId(id.0))
@@ -1085,7 +1029,7 @@ impl UnresolvedExpressionKind {
 
                 let iterable = iterable.kind.resolve(datapack, ctx);
 
-                match iterable.try_into_iter(datapack, is_reversed) {
+                match iterable.try_into_iter(is_reversed) {
                     Ok(expressions) => {
                         let pattern = *pattern;
 
@@ -1151,17 +1095,17 @@ impl UnresolvedExpressionKind {
     pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
             Self::Assignment(target, value) => {
-                let target = target.kind.as_place(datapack, ctx).unwrap();
+                let target = target.resolve(datapack, ctx);
+
                 let value = value.kind.resolve(datapack, ctx);
 
                 target.assign(datapack, ctx, value);
             }
             Self::AugmentedAssignment(target, operator, value) => {
+                let target = target.resolve(datapack, ctx);
                 let value = value.kind.resolve(datapack, ctx);
 
-                let target_place = target.kind.as_place(datapack, ctx).unwrap();
-
-                target_place.augmented_assign(datapack, ctx, operator, value);
+                target.augmented_assign(datapack, ctx, operator, value);
             }
             Self::List(list) => {
                 for element in list {
@@ -1319,7 +1263,7 @@ impl UnresolvedExpressionKind {
 
                 let iterable = iterable.kind.resolve(datapack, ctx);
 
-                match iterable.try_into_iter(datapack, is_reversed) {
+                match iterable.try_into_iter(is_reversed) {
                     Ok(expressions) => {
                         let pattern = *pattern;
 
@@ -1373,9 +1317,13 @@ impl UnresolvedExpressionKind {
                 target.compile(datapack, ctx);
                 path.compile(datapack, ctx);
             }
-            Self::Unary(_, expression) => {
+            Self::Negate(expression) => {
                 expression.kind.compile_as_statement(datapack, ctx);
             }
+            Self::Invert(expression) => {
+                expression.kind.compile_as_statement(datapack, ctx);
+            }
+            Self::Reference(_) | Self::Dereference(_) => {}
             Self::Arithmetic(left, _, right) => {
                 left.kind.compile_as_statement(datapack, ctx);
                 right.kind.compile_as_statement(datapack, ctx);
@@ -1391,31 +1339,28 @@ impl UnresolvedExpressionKind {
             Self::Score(score) => {
                 score.compile(datapack, ctx);
             }
-            Self::Index(target, index) => {
-                target.kind.compile_as_statement(datapack, ctx);
+            Self::Index(_, index) => {
                 index.kind.compile_as_statement(datapack, ctx);
             }
-            Self::FieldAccess(target, _) => {
-                target.kind.compile_as_statement(datapack, ctx);
-            }
+            Self::FieldAccess(_, _) => {}
             Self::ResourceLocation(resource_location) => {
                 resource_location.compile_as_statement(datapack, ctx);
             }
             Self::Coordinates(coordinates) => {
                 coordinates.compile_as_statement(datapack, ctx);
             }
-            Self::Boolean(..)
-            | Self::Byte(..)
-            | Self::Short(..)
-            | Self::Integer(..)
-            | Self::InferredInteger(..)
-            | Self::Long(..)
-            | Self::Float(..)
-            | Self::InferredFloat(..)
-            | Self::Double(..)
-            | Self::String(..)
-            | Self::Unit
-            | Self::Value(..) => {}
+            Self::Boolean(..) => {}
+            Self::Byte(..) => {}
+            Self::Short(..) => {}
+            Self::Integer(..) => {}
+            Self::InferredInteger(..) => {}
+            Self::Long(..) => {}
+            Self::Float(..) => {}
+            Self::InferredFloat(..) => {}
+            Self::Double(..) => {}
+            Self::String(..) => {}
+            Self::Unit => {}
+            Self::Value(..) => {}
         }
     }
 }

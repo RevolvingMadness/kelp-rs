@@ -28,7 +28,7 @@ impl BlockState {
                         let value = value
                             .kind
                             .resolve(datapack, ctx)
-                            .as_snbt_macros(datapack, ctx);
+                            .as_snbt_macros( ctx);
 
                         (key, value)
                     })

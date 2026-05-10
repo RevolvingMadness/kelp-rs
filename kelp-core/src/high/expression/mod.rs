@@ -11,7 +11,11 @@ use crate::{
         data_type::DataType,
         entity_selector::EntitySelector,
         environment::r#type::r#struct::regular::HighStructStructId,
-        expression::block::BlockExpression,
+        expression::{
+            assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionKind},
+            block::BlockExpression,
+            place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionKind},
+        },
         nbt_path::NbtPath,
         pattern::Pattern,
         player_score::PlayerScore,
@@ -29,7 +33,9 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
 };
 
+pub mod assignee;
 pub mod block;
+pub mod place;
 
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
@@ -49,7 +55,7 @@ pub enum ExpressionKind {
     Arithmetic(Box<Expression>, ArithmeticOperator, Box<Expression>),
     Comparison(Box<Expression>, ComparisonOperator, Box<Expression>),
     Logical(Box<Expression>, LogicalOperator, Box<Expression>),
-    AugmentedAssignment(Box<Expression>, ArithmeticOperator, Box<Expression>),
+    AugmentedAssignment(Box<Expression>, Span, ArithmeticOperator, Box<Expression>),
     Assignment(Box<Expression>, Box<Expression>),
     List(Vec<Expression>),
     Compound(HashMap<String, Expression>),
@@ -185,6 +191,128 @@ impl Expression {
     }
 
     #[must_use]
+    pub fn as_place_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<(Span, UnresolvedPlaceExpression)> {
+        let expression = match self.kind {
+            ExpressionKind::Path(path) => {
+                let mut path = path.resolve_partially(None, ctx);
+
+                let id = ctx.get_visible_value_id(&path)?;
+
+                let value_declaration = ctx.get_value(id).clone();
+
+                let last_segment = path.segments.pop().unwrap();
+
+                let (id, data_type) = value_declaration.resolve_fully(
+                    ctx,
+                    id,
+                    last_segment.generic_types.clone(),
+                    last_segment.name_span,
+                )?;
+
+                UnresolvedPlaceExpressionKind::Value(id, last_segment.generic_types).with(data_type)
+            }
+            ExpressionKind::PlayerScore(score) => {
+                let score = score.perform_semantic_analysis(ctx)?;
+
+                UnresolvedPlaceExpressionKind::Score(score).with(UnresolvedDataType::Score(
+                    Box::new(UnresolvedDataType::Integer),
+                ))
+            }
+            ExpressionKind::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                let target = target.perform_semantic_analysis(ctx)?;
+                let path = path.perform_semantic_analysis(ctx)?;
+
+                UnresolvedPlaceExpressionKind::Data(target, path).with(UnresolvedDataType::Data(
+                    Box::new(UnresolvedDataType::Inferred),
+                ))
+            }
+            ExpressionKind::FieldAccess(target, field_span, field) => {
+                let (_, target) = target.as_place_semantic_analysis(ctx)?;
+
+                let field_type = target
+                    .data_type
+                    .get_field_result_semantic_analysis(ctx, field_span, &field)?;
+
+                UnresolvedPlaceExpressionKind::FieldAccess(Box::new(target), field).with(field_type)
+            }
+            ExpressionKind::Index(target, index) => {
+                let target = target.as_place_semantic_analysis(ctx);
+                let index = index.perform_semantic_analysis(ctx);
+
+                let (target_span, target) = target?;
+                let (_, index) = index?;
+
+                let index_type = target.data_type.get_index_result_semantic_analysis(
+                    ctx,
+                    target_span,
+                    &index.data_type,
+                )?;
+
+                UnresolvedPlaceExpressionKind::Index(Box::new(target), Box::new(index))
+                    .with(index_type)
+            }
+            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
+                let (place_span, place) = expression.as_place_semantic_analysis(ctx)?;
+
+                let dereferenced_type = place
+                    .data_type
+                    .clone()
+                    .get_dereferenced_result_semantic_analysis(ctx, place_span)?;
+
+                UnresolvedPlaceExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
+            }
+            _ => return ctx.add_error(self.span, SemanticAnalysisError::ExpressionIsNotAPlace),
+        };
+
+        Some((self.span, expression))
+    }
+
+    #[must_use]
+    pub fn as_assignee_perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<(Span, UnresolvedAssigneeExpression)> {
+        let kind = match self.kind {
+            ExpressionKind::Tuple(expressions) => {
+                let (data_types, expressions) = expressions
+                    .into_iter()
+                    .map(|expression| {
+                        let (_, expression) =
+                            expression.as_assignee_perform_semantic_analysis(ctx)?;
+
+                        Some((expression.data_type.clone(), expression))
+                    })
+                    .collect_option_all::<Vec<_>>()?
+                    .into_iter()
+                    .unzip();
+
+                UnresolvedAssigneeExpressionKind::Tuple(expressions)
+                    .with(UnresolvedDataType::Tuple(data_types))
+            }
+            ExpressionKind::Underscore => {
+                UnresolvedAssigneeExpressionKind::Underscore.with(UnresolvedDataType::Inferred)
+            }
+            _ => {
+                let (span, place) = self.as_place_semantic_analysis(ctx)?;
+
+                let data_type = place.data_type.clone();
+
+                return Some((
+                    span,
+                    UnresolvedAssigneeExpressionKind::Place(place).with(data_type),
+                ));
+            }
+        };
+
+        Some((self.span, kind))
+    }
+
+    #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -192,66 +320,50 @@ impl Expression {
         let expression = match self.kind {
             ExpressionKind::Invalid => return None,
 
-            ExpressionKind::Unary(operator, expression) => {
-                let (span, expression) = expression.perform_semantic_analysis(ctx)?;
+            ExpressionKind::Unary(operator, expression) => match operator {
+                UnaryOperator::Negate => {
+                    let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                match operator {
-                    UnaryOperator::Negate => {
-                        let Some(negation_result) = expression.data_type.get_negation_result()
-                        else {
-                            return ctx.add_error(
-                                self.span,
-                                SemanticAnalysisError::CannotNegateType(expression.data_type),
-                            );
-                        };
+                    let Some(negation_result) = expression.data_type.get_negation_result() else {
+                        return ctx.add_error(
+                            self.span,
+                            SemanticAnalysisError::CannotNegateType(expression.data_type),
+                        );
+                    };
 
-                        UnresolvedExpressionKind::Unary(UnaryOperator::Negate, Box::new(expression))
-                            .with(negation_result)
-                    }
-                    UnaryOperator::Reference => {
-                        if !expression.kind.can_be_referenced() {
-                            return ctx.add_error(
-                                span,
-                                SemanticAnalysisError::CannotBeReferenced(expression.data_type),
-                            );
-                        }
-
-                        let expression_data_type = expression.data_type.clone();
-
-                        UnresolvedExpressionKind::Unary(
-                            UnaryOperator::Reference,
-                            Box::new(expression),
-                        )
-                        .with(UnresolvedDataType::Reference(Box::new(
-                            expression_data_type,
-                        )))
-                    }
-                    UnaryOperator::Dereference => {
-                        let dereferenced_result = expression
-                            .data_type
-                            .clone()
-                            .get_dereferenced_result_semantic_analysis(ctx, span)?;
-
-                        UnresolvedExpressionKind::Unary(
-                            UnaryOperator::Dereference,
-                            Box::new(expression),
-                        )
-                        .with(dereferenced_result)
-                    }
-                    UnaryOperator::Invert => {
-                        let Some(invered_result) = expression.data_type.get_inverted_result()
-                        else {
-                            return ctx.add_error(
-                                self.span,
-                                SemanticAnalysisError::CannotInvertType(expression.data_type),
-                            );
-                        };
-
-                        UnresolvedExpressionKind::Unary(UnaryOperator::Invert, Box::new(expression))
-                            .with(invered_result)
-                    }
+                    UnresolvedExpressionKind::Negate(Box::new(expression)).with(negation_result)
                 }
-            }
+                UnaryOperator::Invert => {
+                    let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+
+                    let Some(inverted_result) = expression.data_type.get_inverted_result() else {
+                        return ctx.add_error(
+                            self.span,
+                            SemanticAnalysisError::CannotInvertType(expression.data_type),
+                        );
+                    };
+
+                    UnresolvedExpressionKind::Invert(Box::new(expression)).with(inverted_result)
+                }
+                UnaryOperator::Reference => {
+                    let (_, expression) = expression.as_place_semantic_analysis(ctx)?;
+
+                    let data_type =
+                        UnresolvedDataType::Reference(Box::new(expression.data_type.clone()));
+
+                    UnresolvedExpressionKind::Reference(Box::new(expression)).with(data_type)
+                }
+                UnaryOperator::Dereference => {
+                    let (span, place) = expression.as_place_semantic_analysis(ctx)?;
+
+                    let dereferenced_type = place
+                        .data_type
+                        .clone()
+                        .get_dereferenced_result_semantic_analysis(ctx, span)?;
+
+                    UnresolvedExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
+                }
+            },
             ExpressionKind::Arithmetic(left, operator, right) => {
                 let left = left.perform_semantic_analysis(ctx);
                 let right = right.perform_semantic_analysis(ctx);
@@ -331,23 +443,28 @@ impl Expression {
                 UnresolvedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
                     .with(UnresolvedDataType::Boolean)
             }
-            ExpressionKind::AugmentedAssignment(target, operator, value) => {
-                let target = target.perform_semantic_analysis(ctx);
+            ExpressionKind::AugmentedAssignment(target, _operator_span, operator, value) => {
+                let target = target.as_place_semantic_analysis(ctx);
                 let value = value.perform_semantic_analysis(ctx);
 
-                let (target_span, target) = target?;
-                let (value_span, value) = value?;
+                let (_, target) = target?;
+                let (_, value) = value?;
 
-                if !target.kind.can_be_assigned_to() {
-                    return ctx.add_error(target_span, SemanticAnalysisError::CannotBeAssignedTo);
-                }
-
-                target.data_type.assert_can_perform_augmented_assignment(
-                    ctx,
-                    operator,
-                    value_span,
-                    &value.data_type,
-                )?;
+                // TODO
+                // if target
+                //     .data_type
+                //     .get_arithmetic_result(&value.data_type)
+                //     .is_none()
+                // {
+                //     return ctx.add_error(
+                //         operator_span,
+                //         SemanticAnalysisError::CannotPerformArithmeticOperation {
+                //             left: target.data_type,
+                //             operator,
+                //             right: value.data_type,
+                //         },
+                //     );
+                // }
 
                 UnresolvedExpressionKind::AugmentedAssignment(
                     Box::new(target),
@@ -357,24 +474,14 @@ impl Expression {
                 .with(UnresolvedDataType::Unit)
             }
             ExpressionKind::Assignment(target, value) => {
+                let target = target.as_assignee_perform_semantic_analysis(ctx);
+
                 let value = value.perform_semantic_analysis(ctx);
 
-                ctx.is_lhs += 1;
-                let target = target.perform_semantic_analysis(ctx);
-                ctx.is_lhs -= 1;
-
-                let (target_span, target) = target?;
+                let (_, target) = target?;
                 let (value_span, value) = value?;
 
-                if !target.kind.can_be_assigned_to() {
-                    return ctx.add_error(target_span, SemanticAnalysisError::CannotBeAssignedTo);
-                }
-
-                target.data_type.assert_can_perform_assignment(
-                    ctx,
-                    value_span,
-                    &value.data_type,
-                )?;
+                target.perform_assignment_semantic_analysis(ctx, value_span, &value.data_type)?;
 
                 UnresolvedExpressionKind::Assignment(Box::new(target), Box::new(value))
                     .with(UnresolvedDataType::Unit)
@@ -482,40 +589,29 @@ impl Expression {
                     .with(UnresolvedDataType::Integer)
             }
             ExpressionKind::Index(target, index) => {
-                let target = target.perform_semantic_analysis(ctx);
+                let target = target.as_place_semantic_analysis(ctx);
                 let index = index.perform_semantic_analysis(ctx);
 
                 let (target_span, target) = target?;
-                let (index_span, index) = index?;
+                let (_, index) = index?;
 
-                let index_result = target
-                    .data_type
-                    .get_index_result_semantic_analysis(ctx, target_span)?;
-
-                // TODO: Improve this.
-                if target.kind.is_index_out_of_bounds(&index) == Some(true) {
-                    return ctx.add_error(index_span, SemanticAnalysisError::IndexOutOfBounds);
-                }
+                let index_result = target.data_type.get_index_result_semantic_analysis(
+                    ctx,
+                    target_span,
+                    &index.data_type,
+                )?;
 
                 UnresolvedExpressionKind::Index(Box::new(target), Box::new(index))
                     .with(index_result)
             }
             ExpressionKind::FieldAccess(expression, field_span, field) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                let (_, place) = expression.as_place_semantic_analysis(ctx)?;
 
-                if !expression.data_type.has_fields() {
-                    return ctx.add_error(
-                        field_span,
-                        SemanticAnalysisError::TypeDoesntHaveFields(expression.data_type),
-                    );
-                }
-
-                let field_result = expression
+                let field_result = place
                     .data_type
                     .get_field_result_semantic_analysis(ctx, field_span, &field)?;
 
-                UnresolvedExpressionKind::FieldAccess(Box::new(expression), field)
-                    .with(field_result)
+                UnresolvedExpressionKind::FieldAccess(Box::new(place), field).with(field_result)
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.perform_semantic_analysis(ctx);
@@ -890,11 +986,7 @@ impl Expression {
                 UnresolvedExpressionKind::String(value).with(UnresolvedDataType::String)
             }
             ExpressionKind::Underscore => {
-                if ctx.is_lhs == 0 {
-                    return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
-                }
-
-                UnresolvedExpressionKind::Underscore.with(UnresolvedDataType::Inferred)
+                return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
             }
             ExpressionKind::Unit => UnresolvedExpressionKind::Unit.with(UnresolvedDataType::Unit),
             ExpressionKind::ResourceLocation(resource_location) => {

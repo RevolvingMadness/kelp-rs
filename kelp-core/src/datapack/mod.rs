@@ -256,8 +256,18 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value(&self, id: VariableId) -> &(ResolvedDataType, ResolvedExpression) {
-        self.variable_values.get(&id).unwrap()
+    pub fn get_variable_value(&self, id: VariableId) -> ResolvedExpression {
+        let (_, expression) = self.variable_values.get(&id).unwrap();
+
+        expression.clone()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_variable_value_mut(&mut self, id: VariableId) -> &mut ResolvedExpression {
+        let (_, expression) = self.variable_values.get_mut(&id).unwrap();
+
+        expression
     }
 
     #[inline]
@@ -273,15 +283,6 @@ impl Datapack {
         id: I,
     ) -> (&[String], Visibility, &FunctionDeclaration) {
         self.environment.get_function(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_variable_value_mut(
-        &mut self,
-        id: VariableId,
-    ) -> &mut (ResolvedDataType, ResolvedExpression) {
-        self.variable_values.get_mut(&id).unwrap()
     }
 
     pub fn compile_and_add_to_function(&mut self, paths: &Vec<String>, ctx: &mut CompileContext) {

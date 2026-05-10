@@ -66,7 +66,7 @@ impl EntitySelectorOption {
                 let expression = expression
                     .kind
                     .resolve(datapack, ctx)
-                    .as_snbt_macros(datapack, ctx);
+                    .as_snbt_macros( ctx);
 
                 LowEntitySelectorOption::Nbt(inverted, expression)
             }

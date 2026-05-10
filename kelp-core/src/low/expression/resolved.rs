@@ -40,30 +40,18 @@ use crate::{
         environment::{
             Environment,
             r#type::r#struct::{StructStructId, TupleStructId},
-            value::{
-                function::{FunctionDeclaration, FunctionId},
-                variable::VariableId,
-            },
+            value::function::{FunctionDeclaration, FunctionId},
         },
-        expression::{unresolved::UnresolvedExpression, utils::push_scoreboard_players},
+        expression::{
+            place::ResolvedPlaceExpression, unresolved::UnresolvedExpression,
+            utils::push_scoreboard_players,
+        },
         pattern::UnresolvedPattern,
-        place::Place,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     player_score::GeneratedPlayerScore,
     runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
-    trait_ext::CollectOptionAllIterExt,
 };
-
-macro_rules! handle_variable {
-    ($datapack:expr, $id:expr, $method_name:ident($($arg:expr),*)) => {
-        {
-            let (_, value) = $datapack.get_variable_value($id);
-
-            return value.clone().$method_name($($arg),*);
-        }
-    };
-}
 
 pub fn compile_shift_operation(
     datapack: &mut Datapack,
@@ -88,14 +76,13 @@ pub fn compile_shift_operation(
 
 #[must_use]
 pub fn split_constants_list(
-    datapack: &Datapack,
     list: Vec<ResolvedExpression>,
 ) -> (Vec<SNBT>, Vec<(usize, ResolvedExpression)>) {
     let mut constants = Vec::new();
     let mut non_constants = Vec::new();
 
     for (i, expression) in list.into_iter().enumerate() {
-        match expression.try_into_snbt(datapack) {
+        match expression.try_into_snbt() {
             Ok(snbt) => {
                 constants.push(snbt);
             }
@@ -111,14 +98,13 @@ pub fn split_constants_list(
 
 #[must_use]
 pub fn split_constants_compound(
-    datapack: &Datapack,
     compound: BTreeMap<String, ResolvedExpression>,
 ) -> (SNBTCompound, BTreeMap<String, ResolvedExpression>) {
     let mut constants = SNBTCompound::new();
     let mut non_constants = BTreeMap::default();
 
     for (key, expression) in compound {
-        match expression.try_into_snbt(datapack) {
+        match expression.try_into_snbt() {
             Ok(snbt) => {
                 constants.insert(SNBTString(false, key), Macroable::Regular(snbt));
             }
@@ -313,7 +299,7 @@ fn compile_function(
     if is_runtime {
         let argument_targets = arguments
             .into_iter()
-            .map(|argument| argument.to_runtime_storage_target(datapack).unwrap())
+            .map(|argument| argument.to_runtime_storage_target().unwrap())
             .collect();
 
         compile_runtime_function(
@@ -411,9 +397,8 @@ pub enum ResolvedExpression {
     ResourceLocation(ResourceLocation),
     EntitySelector(EntitySelector),
     Coordinates(Coordinates),
-    Variable(VariableId),
     Function(FunctionId),
-    Reference(Box<Self>),
+    Reference(Box<ResolvedPlaceExpression>),
 
     Score(GeneratedPlayerScore),
     Data(Box<(GeneratedDataTarget, NbtPath)>),
@@ -423,14 +408,6 @@ pub enum ResolvedExpression {
 impl ResolvedExpression {
     pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
         match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, compile_as_statement(datapack, ctx))
-            }
-
-            Self::Reference(expression) => {
-                expression.compile_as_statement(datapack, ctx);
-            }
-
             Self::List(list) => {
                 for element in list {
                     element.compile_as_statement(datapack, ctx);
@@ -467,15 +444,8 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn to_runtime_storage_target(
-        self,
-        datapack: &mut Datapack,
-    ) -> Option<RuntimeStorageTarget> {
+    pub fn to_runtime_storage_target(self) -> Option<RuntimeStorageTarget> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, to_runtime_storage_target(datapack))
-            }
-
             Self::Score(score) => RuntimeStorageTarget::Score(score),
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
@@ -495,13 +465,6 @@ impl ResolvedExpression {
         store_result: bool,
     ) -> Option<Self> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, call(datapack, ctx, arguments, store_result))
-            }
-            Self::Reference(expression) => {
-                expression.call(datapack, ctx, arguments, store_result)?
-            }
-
             Self::ResourceLocation(resource_location) => {
                 assert!(arguments.is_empty());
 
@@ -555,11 +518,7 @@ impl ResolvedExpression {
     #[must_use]
     pub fn dereference(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, dereference(datapack, ctx))
-            }
-
-            Self::Reference(expression) => *expression,
+            Self::Reference(place) => place.resolve(datapack),
 
             Self::Score(score) => {
                 let unique_score = datapack.get_unique_score();
@@ -568,6 +527,7 @@ impl ResolvedExpression {
 
                 Self::Score(unique_score)
             }
+
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
@@ -585,16 +545,30 @@ impl ResolvedExpression {
 
                 Self::Data(Box::new((unique_target, unique_path)))
             }
+
             _ => return None,
         })
     }
 
-    pub fn try_into_iter(self, datapack: &Datapack, reverse: bool) -> Result<Vec<Self>, Self> {
-        let mut vec = match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, try_into_iter(datapack, reverse))
+    #[must_use]
+    pub fn dereference_place(self) -> Option<ResolvedPlaceExpression> {
+        Some(match self {
+            Self::Reference(place) => *place,
+
+            Self::Score(score) => ResolvedPlaceExpression::Score(score),
+
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                ResolvedPlaceExpression::Data(target, path)
             }
 
+            _ => return None,
+        })
+    }
+
+    pub fn try_into_iter(self, reverse: bool) -> Result<Vec<Self>, Self> {
+        let mut vec = match self {
             Self::List(items) => items,
             Self::String(string) => string
                 .chars()
@@ -611,96 +585,13 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn access_field(
-        self,
-        datapack: &Datapack,
-        data_type: &ResolvedDataType,
-        field: &str,
-    ) -> Option<Self> {
+    pub fn can_into_snbt(&self) -> bool {
         match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, access_field(datapack, data_type, field))
+            Self::StructStruct(_, field_expressions) => {
+                field_expressions.values().all(Self::can_into_snbt)
             }
-            Self::Reference(expression) => expression.access_field(datapack, data_type, field),
-
-            Self::Compound(compound) => compound.into_iter().find_map(|(actual_field, value)| {
-                if actual_field == field {
-                    Some(value)
-                } else {
-                    None
-                }
-            }),
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
-                let access_type = data_type
-                    .get_field_access_type(&datapack.environment)
-                    .unwrap();
-
-                let node = match access_type {
-                    FieldAccessType::Name => {
-                        NbtPathNode::Named(SNBTString(false, field.to_owned()), None)
-                    }
-                    FieldAccessType::Index => {
-                        let index = field.parse::<i32>().ok()?;
-
-                        NbtPathNode::Index(Some(SNBT::macroable_integer(index)))
-                    }
-                };
-
-                Some(Self::Data(Box::new((target, path.with_node(node)))))
-            }
-            Self::Tuple(mut expressions) => {
-                let index = field.parse::<i32>().ok()?;
-
-                Some(expressions.remove(index as usize))
-            }
-            Self::StructStruct(_, fields) => fields
-                .into_iter()
-                .find_map(|(key, value)| if key == field { Some(value) } else { None }),
-            Self::TupleStruct(_, fields) => {
-                let field = field.parse::<usize>().ok()?;
-
-                fields.get(field).cloned()
-            }
-
-            Self::Boolean(..)
-            | Self::Byte(..)
-            | Self::Short(..)
-            | Self::Integer(..)
-            | Self::Long(..)
-            | Self::Float(..)
-            | Self::Double(..)
-            | Self::String(..)
-            | Self::List(..)
-            | Self::Unit
-            | Self::Never
-            | Self::ResourceLocation(..)
-            | Self::EntitySelector(..)
-            | Self::Coordinates(..)
-            | Self::Function(..)
-            | Self::Score(..)
-            | Self::Condition(..) => None,
-        }
-    }
-
-    #[must_use]
-    pub fn can_into_snbt(&self, datapack: &Datapack) -> bool {
-        match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, *id, can_into_snbt(datapack))
-            }
-            Self::Reference(expression) => expression.can_into_snbt(datapack),
-
-            Self::StructStruct(_, field_expressions) => field_expressions
-                .values()
-                .all(|expression| expression.can_into_snbt(datapack)),
-            Self::List(list) | Self::Tuple(list) => list
-                .iter()
-                .all(|expression| expression.can_into_snbt(datapack)),
-            Self::Compound(compound) => compound
-                .values()
-                .all(|expression| expression.can_into_snbt(datapack)),
+            Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
+            Self::Compound(compound) => compound.values().all(Self::can_into_snbt),
             Self::Boolean(..)
             | Self::Byte(..)
             | Self::Short(..)
@@ -718,22 +609,15 @@ impl ResolvedExpression {
             | Self::Function(..)
             | Self::Score(..)
             | Self::Data(..)
-            | Self::Condition(..) => false,
+            | Self::Condition(..)
+            | Self::Reference(..) => false,
         }
     }
 
-    pub fn try_into_snbt(self, datapack: &Datapack) -> Result<SNBT, Self> {
+    pub fn try_into_snbt(self) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, try_into_snbt(datapack))
-            }
-            Self::Reference(expression) => return expression.try_into_snbt(datapack),
-
             Self::StructStruct(name, field_expressions) => {
-                if !field_expressions
-                    .values()
-                    .all(|expression| expression.can_into_snbt(datapack))
-                {
+                if !field_expressions.values().all(Self::can_into_snbt) {
                     return Err(Self::StructStruct(name, field_expressions));
                 }
 
@@ -742,17 +626,14 @@ impl ResolvedExpression {
                 for (key, value) in field_expressions {
                     compound.insert(
                         SNBTString(false, key),
-                        Macroable::Regular(value.try_into_snbt(datapack).unwrap()),
+                        Macroable::Regular(value.try_into_snbt().unwrap()),
                     );
                 }
 
                 SNBT::compound(compound)
             }
             Self::TupleStruct(name, field_expressions) => {
-                if !field_expressions
-                    .iter()
-                    .all(|expression| expression.can_into_snbt(datapack))
-                {
+                if !field_expressions.iter().all(Self::can_into_snbt) {
                     return Err(Self::TupleStruct(name, field_expressions));
                 }
 
@@ -760,7 +641,7 @@ impl ResolvedExpression {
 
                 for field_expression in field_expressions {
                     list.push(Macroable::Regular(
-                        field_expression.try_into_snbt(datapack).unwrap(),
+                        field_expression.try_into_snbt().unwrap(),
                     ));
                 }
 
@@ -775,51 +656,37 @@ impl ResolvedExpression {
             Self::Double(double) => SNBT::double(double),
             Self::String(string) => SNBT::snbt_string(SNBTString(false, string)),
             Self::List(list) => {
-                if !list
-                    .iter()
-                    .all(|expression| expression.can_into_snbt(datapack))
-                {
+                if !list.iter().all(Self::can_into_snbt) {
                     return Err(Self::List(list));
                 }
 
                 let list = list
                     .into_iter()
-                    .map(|element| element.try_into_snbt(datapack).unwrap())
+                    .map(|element| element.try_into_snbt().unwrap())
                     .collect();
 
                 SNBT::list(list)
             }
             Self::Compound(compound) => {
-                if !compound
-                    .values()
-                    .all(|expression| expression.can_into_snbt(datapack))
-                {
+                if !compound.values().all(Self::can_into_snbt) {
                     return Err(Self::Compound(compound));
                 }
 
                 let compound = compound
                     .into_iter()
-                    .map(|(key, value)| {
-                        (
-                            SNBTString(false, key),
-                            value.try_into_snbt(datapack).unwrap(),
-                        )
-                    })
+                    .map(|(key, value)| (SNBTString(false, key), value.try_into_snbt().unwrap()))
                     .collect();
 
                 SNBT::compound(compound)
             }
             Self::Tuple(tuple) => {
-                if !tuple
-                    .iter()
-                    .all(|expression| expression.can_into_snbt(datapack))
-                {
+                if !tuple.iter().all(Self::can_into_snbt) {
                     return Err(Self::Tuple(tuple));
                 }
 
                 let tuple = tuple
                     .into_iter()
-                    .map(|element| element.try_into_snbt(datapack).unwrap())
+                    .map(|element| element.try_into_snbt().unwrap())
                     .collect();
 
                 SNBT::list(tuple)
@@ -848,17 +715,8 @@ impl ResolvedExpression {
         })
     }
 
-    pub fn try_into_snbt_scale(
-        self,
-        datapack: &Datapack,
-        scale: NotNan<f32>,
-    ) -> Result<SNBT, Self> {
+    pub fn try_into_snbt_scale(self, scale: NotNan<f32>) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, try_into_snbt_scale(datapack, scale))
-            }
-            Self::Reference(expression) => return expression.try_into_snbt_scale(datapack, scale),
-
             Self::Byte(byte) => {
                 SNBT::float(NotNan::new(f32::from(byte) * scale.into_inner()).unwrap())
             }
@@ -881,7 +739,7 @@ impl ResolvedExpression {
         })
     }
 
-    pub fn as_snbt_macros(self, datapack: &Datapack, ctx: &mut CompileContext) -> Macroable<SNBT> {
+    pub fn as_snbt_macros(self, ctx: &mut CompileContext) -> Macroable<SNBT> {
         match self {
             Self::Boolean(..)
             | Self::Byte(..)
@@ -891,49 +749,38 @@ impl ResolvedExpression {
             | Self::Float(..)
             | Self::Double(..)
             | Self::String(..)
-            | Self::Unit => Macroable::Regular(self.try_into_snbt(datapack).unwrap()),
+            | Self::Unit => Macroable::Regular(self.try_into_snbt().unwrap()),
 
             Self::List(list) => Macroable::Regular(SNBT::list(
                 list.into_iter()
-                    .map(|element| element.as_snbt_macros(datapack, ctx))
+                    .map(|element| element.as_snbt_macros(ctx))
                     .collect(),
             )),
             Self::Tuple(tuple) => Macroable::Regular(SNBT::list(
                 tuple
                     .into_iter()
-                    .map(|element| element.as_snbt_macros(datapack, ctx))
+                    .map(|element| element.as_snbt_macros(ctx))
                     .collect(),
             )),
             Self::Compound(compound) => Macroable::Regular(SNBT::compound(
                 compound
                     .into_iter()
-                    .map(|(key, value)| {
-                        (SNBTString(false, key), value.as_snbt_macros(datapack, ctx))
-                    })
+                    .map(|(key, value)| (SNBTString(false, key), value.as_snbt_macros(ctx)))
                     .collect(),
             )),
             _ => ctx.get_macro_snbt(self),
         }
     }
 
-    pub fn as_snbt_double(
-        self,
-        datapack: &Datapack,
-        ctx: &mut CompileContext,
-    ) -> Option<Macroable<NotNan<f64>>> {
+    pub fn as_snbt_double(self, ctx: &mut CompileContext) -> Option<Macroable<NotNan<f64>>> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, as_snbt_double(datapack, ctx))
-            }
-            Self::Reference(expression) => return expression.as_snbt_double(datapack, ctx),
-
             Self::Byte(..)
             | Self::Short(..)
             | Self::Integer(..)
             | Self::Long(..)
             | Self::Float(..)
             | Self::Double(..) => {
-                Macroable::Regular(NotNan::new(self.try_as_f32(datapack).unwrap()).unwrap())
+                Macroable::Regular(NotNan::new(self.try_as_f32().unwrap()).unwrap())
             }
 
             Self::Score(..) | Self::Data(..) => ctx.get_macro_snbt(self),
@@ -943,13 +790,8 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn try_as_f32(&self, datapack: &Datapack) -> Option<f64> {
+    pub fn try_as_f32(&self) -> Option<f64> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, *id, try_as_f32(datapack))
-            }
-            Self::Reference(expression) => return expression.try_as_f32(datapack),
-
             Self::Byte(v) => f64::from(*v),
             Self::Short(v) => f64::from(*v),
             Self::Integer(v) => f64::from(*v),
@@ -967,7 +809,7 @@ impl ResolvedExpression {
         ctx: &mut CompileContext,
         force: bool,
     ) -> GeneratedPlayerScore {
-        if !force && let Some(value) = self.try_as_i32(datapack, force) {
+        if !force && let Some(value) = self.try_as_i32(force) {
             return datapack.get_constant_score(value);
         }
 
@@ -1012,7 +854,7 @@ impl ResolvedExpression {
         target: GeneratedDataTarget,
         path: NbtPath,
     ) {
-        match self.try_into_snbt(datapack) {
+        match self.try_into_snbt() {
             Ok(snbt) => {
                 ctx.add_command(
                     datapack,
@@ -1025,13 +867,6 @@ impl ResolvedExpression {
                 );
             }
             Err(self_) => match self_ {
-                Self::Variable(id) => {
-                    handle_variable!(datapack, id, assign_to_data(datapack, ctx, target, path))
-                }
-                Self::Reference(expression) => {
-                    expression.assign_to_data(datapack, ctx, target, path);
-                }
-
                 Self::Score(score) => {
                     score.assign_to_data(datapack, ctx, target, path);
                 }
@@ -1049,7 +884,7 @@ impl ResolvedExpression {
                     );
                 }
                 Self::List(list) => {
-                    let (constants, non_constants) = split_constants_list(datapack, list);
+                    let (constants, non_constants) = split_constants_list(list);
 
                     ctx.add_command(
                         datapack,
@@ -1073,7 +908,7 @@ impl ResolvedExpression {
                     }
                 }
                 Self::Compound(compound) => {
-                    let (constants, non_constants) = split_constants_compound(datapack, compound);
+                    let (constants, non_constants) = split_constants_compound(compound);
 
                     ctx.add_command(
                         datapack,
@@ -1120,7 +955,7 @@ impl ResolvedExpression {
                     }
                 }
                 Self::Tuple(expressions) => {
-                    let (constants, non_constants) = split_constants_list(datapack, expressions);
+                    let (constants, non_constants) = split_constants_list(expressions);
 
                     ctx.add_command(
                         datapack,
@@ -1174,7 +1009,7 @@ impl ResolvedExpression {
         path: NbtPath,
         scale: NotNan<f32>,
     ) {
-        match self.try_into_snbt_scale(datapack, scale) {
+        match self.try_into_snbt_scale(scale) {
             Ok(snbt) => {
                 ctx.add_command(
                     datapack,
@@ -1187,17 +1022,6 @@ impl ResolvedExpression {
                 );
             }
             Err(self_) => match self_ {
-                Self::Variable(id) => {
-                    handle_variable!(
-                        datapack,
-                        id,
-                        assign_to_data_scale(datapack, ctx, target, path, scale)
-                    )
-                }
-                Self::Reference(expression) => {
-                    expression.assign_to_data_scale(datapack, ctx, target, path, scale);
-                }
-
                 Self::Score(score) => {
                     score.assign_to_data_scale(datapack, ctx, target, path, scale);
                 }
@@ -1215,7 +1039,7 @@ impl ResolvedExpression {
                     );
                 }
                 Self::List(list) => {
-                    let (constants, non_constants) = split_constants_list(datapack, list);
+                    let (constants, non_constants) = split_constants_list(list);
 
                     ctx.add_command(
                         datapack,
@@ -1239,7 +1063,7 @@ impl ResolvedExpression {
                     }
                 }
                 Self::Compound(compound) => {
-                    let (constants, non_constants) = split_constants_compound(datapack, compound);
+                    let (constants, non_constants) = split_constants_compound(compound);
 
                     ctx.add_command(
                         datapack,
@@ -1289,7 +1113,7 @@ impl ResolvedExpression {
                     }
                 }
                 Self::Tuple(expressions) => {
-                    let (constants, non_constants) = split_constants_list(datapack, expressions);
+                    let (constants, non_constants) = split_constants_list(expressions);
 
                     ctx.add_command(
                         datapack,
@@ -1375,7 +1199,7 @@ impl ResolvedExpression {
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> DataCommandModification {
-        match self.try_into_snbt(datapack) {
+        match self.try_into_snbt() {
             Ok(snbt) => DataCommandModification::Value(Macroable::Regular(snbt)),
             Err(self_) => {
                 let (target, path) = self_.to_data(datapack, ctx, false);
@@ -1386,13 +1210,8 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn try_as_i32(&self, datapack: &Datapack, force: bool) -> Option<i32> {
+    pub fn try_as_i32(&self, force: bool) -> Option<i32> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, *id, try_as_i32(datapack, force))
-            }
-            Self::Reference(expression) => return expression.try_as_i32(datapack, force),
-
             Self::Byte(v) => i32::from(*v),
             Self::Short(v) => i32::from(*v),
             Self::Integer(v) => *v,
@@ -1410,35 +1229,35 @@ impl ResolvedExpression {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        target: GeneratedPlayerScore,
+        score: GeneratedPlayerScore,
         operator: ArithmeticOperator,
     ) {
-        if let Some(value) = self.try_as_i32(datapack, true) {
+        if let Some(value) = self.try_as_i32(true) {
             return match operator {
                 ArithmeticOperator::Add => {
                     push_scoreboard_players(
                         datapack,
                         ctx,
-                        PlayersScoreboardCommand::Add(target.score, value),
+                        PlayersScoreboardCommand::Add(score.score, value),
                     );
                 }
                 ArithmeticOperator::Subtract => {
                     push_scoreboard_players(
                         datapack,
                         ctx,
-                        PlayersScoreboardCommand::Remove(target.score, value),
+                        PlayersScoreboardCommand::Remove(score.score, value),
                     );
                 }
                 ArithmeticOperator::And | ArithmeticOperator::Or => {
                     datapack
                         .get_constant_score(value)
-                        .operate_on_score(datapack, ctx, target, operator);
+                        .operate_on_score(datapack, ctx, score, operator);
                 }
                 ArithmeticOperator::LeftShift => {
                     compile_shift_operation(
                         datapack,
                         ctx,
-                        &target,
+                        &score,
                         value,
                         ScoreOperationOperator::Multiply,
                     );
@@ -1447,7 +1266,7 @@ impl ResolvedExpression {
                     compile_shift_operation(
                         datapack,
                         ctx,
-                        &target,
+                        &score,
                         value,
                         ScoreOperationOperator::Divide,
                     );
@@ -1459,7 +1278,7 @@ impl ResolvedExpression {
                         datapack,
                         ctx,
                         PlayersScoreboardCommand::Operation(
-                            target.score.clone(),
+                            score.score.clone(),
                             operator.try_into().unwrap(),
                             constant_score.score,
                         ),
@@ -1469,13 +1288,13 @@ impl ResolvedExpression {
         }
 
         if let Self::Score(self_) = self {
-            self_.operate_on_score(datapack, ctx, target, operator);
+            self_.operate_on_score(datapack, ctx, score, operator);
         } else {
             let unique_score = datapack.get_unique_score();
 
             self.assign_to_score(datapack, ctx, unique_score.clone());
 
-            unique_score.operate_on_score(datapack, ctx, target, operator);
+            unique_score.operate_on_score(datapack, ctx, score, operator);
         }
     }
 
@@ -1488,18 +1307,6 @@ impl ResolvedExpression {
         other: Self,
     ) -> Self {
         match (self, other) {
-            (Self::Variable(id), right) => {
-                let (_, left) = datapack.get_variable_value(id);
-
-                left.clone()
-                    .perform_arithmetic(datapack, ctx, operator, right)
-            }
-            (left, Self::Variable(id)) => {
-                let (_, right) = datapack.get_variable_value(id);
-
-                left.perform_arithmetic(datapack, ctx, operator, right.clone())
-            }
-
             (Self::Byte(left), Self::Byte(right)) => {
                 Self::Byte(compute_int!(left, right, operator, i8))
             }
@@ -1605,18 +1412,6 @@ impl ResolvedExpression {
         other: Self,
     ) -> Self {
         match (self, other) {
-            (Self::Variable(id), right) => {
-                let (_, left) = datapack.get_variable_value(id);
-
-                left.clone()
-                    .perform_comparison(datapack, ctx, operator, right)
-            }
-            (left, Self::Variable(id)) => {
-                let (_, right) = datapack.get_variable_value(id);
-
-                left.perform_comparison(datapack, ctx, operator, right.clone())
-            }
-
             (Self::Byte(left), Self::Byte(right)) => Self::Boolean(match operator {
                 ComparisonOperator::LessThan => left < right,
                 ComparisonOperator::LessThanOrEqualTo => left <= right,
@@ -1723,7 +1518,7 @@ impl ResolvedExpression {
                 )
             }
             (Self::Score(score), other) => {
-                if let Some(value) = other.try_as_i32(datapack, false) {
+                if let Some(value) = other.try_as_i32(false) {
                     return Self::Condition(
                         operator.should_execute_if_be_inverted(),
                         Box::new(ExecuteIfSubcommand::Score(
@@ -1771,16 +1566,8 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn cast_to(self, datapack: &Datapack, data_type: UnresolvedDataType) -> Option<Self> {
+    pub fn cast_to(self, data_type: UnresolvedDataType) -> Option<Self> {
         Some(match (self, data_type) {
-            (Self::Variable(id), data_type) => {
-                handle_variable!(datapack, id, cast_to(datapack, data_type))
-            }
-
-            (Self::Reference(expression), UnresolvedDataType::Reference(data_type)) => {
-                return expression.cast_to(datapack, *data_type);
-            }
-
             (Self::Byte(value), UnresolvedDataType::Short) => Self::Short(i16::from(value)),
             (Self::Byte(value), UnresolvedDataType::Integer) => Self::Integer(i32::from(value)),
             (Self::Byte(value), UnresolvedDataType::Long) => Self::Long(i64::from(value)),
@@ -1867,7 +1654,7 @@ impl ResolvedExpression {
         ctx: &mut CompileContext,
         inverted: bool,
     ) -> Option<(bool, ExecuteIfSubcommand)> {
-        if let Some(value) = self.try_as_i32(datapack, true) {
+        if let Some(value) = self.try_as_i32(true) {
             let unique_score = datapack.get_unique_score();
 
             push_scoreboard_players(
@@ -1880,13 +1667,6 @@ impl ResolvedExpression {
         }
 
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, to_execute_condition(datapack, ctx, inverted))
-            }
-            Self::Reference(expression) => {
-                return expression.to_execute_condition(datapack, ctx, inverted);
-            }
-
             Self::Boolean(value) => (
                 value,
                 ExecuteIfSubcommand::Score(
@@ -2048,17 +1828,12 @@ impl ResolvedExpression {
             }
             Self::Never => SNBT::string('!'),
             Self::Unit => SNBT::string("()"),
-            Self::Variable(id) => {
-                handle_variable!(
-                    datapack,
-                    id,
-                    as_text_component(datapack, ctx, force_display)
-                )
-            }
-            Self::Reference(expression) => {
-                // Should '&' be displayed?
+            Self::Reference(_place) => {
+                // // Should '&' be displayed?
 
-                expression.as_text_component(datapack, ctx, force_display)
+                // place.as_text_component(datapack, ctx, force_display)
+
+                todo!()
             }
             Self::Function(id) => {
                 let (_, _, declaration) = datapack.get_function(id);
@@ -2217,69 +1992,6 @@ impl ResolvedExpression {
         }
     }
 
-    #[must_use]
-    pub fn as_place(self) -> Option<Place> {
-        Some(match self {
-            Self::Variable(id) => Place::Value(id.into()),
-
-            Self::Reference(inner) => inner.as_place()?,
-
-            Self::Score(score) => Place::Score(score),
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
-                Place::Data(Box::new(target), path)
-            }
-            Self::Tuple(expressions) => Place::Tuple(
-                expressions
-                    .into_iter()
-                    .map(Self::as_place)
-                    .collect_option_all()?,
-            ),
-            _ => return None,
-        })
-    }
-
-    #[must_use]
-    pub const fn is_lvalue(&self) -> bool {
-        matches!(self, Self::Variable(..) | Self::Score(..) | Self::Data(..))
-    }
-
-    pub fn compile_augmented_assignment(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        operator: ArithmeticOperator,
-        value: Self,
-    ) {
-        match self {
-            Self::Variable(id) => {
-                handle_variable!(
-                    datapack,
-                    id,
-                    compile_augmented_assignment(datapack, ctx, operator, value)
-                )
-            }
-
-            Self::Score(score) => {
-                value.operate_on_score(datapack, ctx, score, operator);
-            }
-            Self::Data(ref target_path) => {
-                let (target, path) = &**target_path;
-
-                let unique_score = datapack.get_unique_score();
-
-                self.clone()
-                    .assign_to_score(datapack, ctx, unique_score.clone());
-
-                value.operate_on_score(datapack, ctx, unique_score.clone(), operator);
-
-                unique_score.assign_to_data(datapack, ctx, target.clone(), path.clone());
-            }
-            _ => unreachable!(),
-        }
-    }
-
     pub fn assign_to_score(
         self,
         datapack: &mut Datapack,
@@ -2287,13 +1999,6 @@ impl ResolvedExpression {
         score: GeneratedPlayerScore,
     ) {
         match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, assign_to_score(datapack, ctx, score))
-            }
-            Self::Reference(expression) => {
-                expression.assign_to_score(datapack, ctx, score);
-            }
-
             Self::Boolean(value) => {
                 push_scoreboard_players(
                     datapack,
@@ -2402,7 +2107,8 @@ impl ResolvedExpression {
             | Self::ResourceLocation(..)
             | Self::EntitySelector(..)
             | Self::Coordinates(..)
-            | Self::Function(..) => {
+            | Self::Function(..)
+            | Self::Reference(..) => {
                 unreachable!("The expression '{:?}' cannot be assigned to a score", self)
             }
         }
@@ -2416,17 +2122,6 @@ impl ResolvedExpression {
         scale: NotNan<f32>,
     ) {
         match self {
-            Self::Variable(id) => {
-                handle_variable!(
-                    datapack,
-                    id,
-                    assign_to_score_scale(datapack, ctx, score, scale)
-                )
-            }
-            Self::Reference(expression) => {
-                expression.assign_to_score_scale(datapack, ctx, score, scale);
-            }
-
             Self::Byte(value) => {
                 push_scoreboard_players(
                     datapack,
@@ -2513,12 +2208,8 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn invert(self, datapack: &Datapack) -> Option<Self> {
+    pub fn invert(self) -> Option<Self> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, invert(datapack))
-            }
-
             Self::Boolean(value) => Self::Boolean(!value),
             Self::Condition(inverted, subcommand) => Self::Condition(!inverted, subcommand),
             _ => return None,
@@ -2528,10 +2219,6 @@ impl ResolvedExpression {
     #[must_use]
     pub fn negate(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
         Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, negate(datapack, ctx))
-            }
-
             Self::Byte(value) => Self::Byte(-value),
             Self::Short(value) => Self::Short(-value),
             Self::Integer(value) => Self::Integer(-value),
@@ -2689,56 +2376,143 @@ impl ResolvedExpression {
             }
         }
     }
+}
 
+impl ResolvedExpression {
     #[must_use]
-    pub fn index(
+    pub fn set_field(
         mut self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        index: Self,
+        access_type: FieldAccessType,
+        field: String,
+        value: Self,
     ) -> Option<Self> {
-        Some(match self {
-            Self::Variable(id) => {
-                handle_variable!(datapack, id, index(datapack, ctx, index))
+        match self {
+            Self::Compound(ref mut compound) => {
+                compound.insert(field, value);
             }
-            Self::Reference(expression) => return expression.index(datapack, ctx, index),
+            Self::Tuple(ref mut expressions) => {
+                let index = field.parse::<usize>().unwrap();
 
-            Self::List(ref mut items) => {
-                if let Self::Integer(index) = index {
-                    if index >= 0 && (index as usize) < items.len() {
-                        items.swap_remove(index as usize)
-                    } else {
-                        return None;
-                    }
-                } else {
-                    let (unique_data_target, unique_data_path) = datapack.get_unique_data();
+                expressions[index] = value;
+            }
+            Self::TupleStruct(_, ref mut field_expressions) => {
+                let index = field.parse::<usize>().unwrap();
 
-                    self.assign_to_data(
-                        datapack,
-                        ctx,
-                        unique_data_target.clone(),
-                        unique_data_path.clone(),
-                    );
-
-                    Self::Data(Box::new((
-                        unique_data_target,
-                        unique_data_path.with_node(NbtPathNode::Index(Some(
-                            index.as_snbt_macros(datapack, ctx),
-                        ))),
-                    )))
-                }
+                field_expressions[index] = value;
+            }
+            Self::StructStruct(_, ref mut field_expressions) => {
+                field_expressions.insert(field, value);
             }
             Self::Data(target_path) => {
                 let (target, path) = *target_path;
 
-                Self::Data(Box::new((
-                    target,
-                    path.with_node(NbtPathNode::Index(Some(
-                        index.as_snbt_macros(datapack, ctx),
-                    ))),
-                )))
+                let node = access_type.into_nbt_path_node(field);
+
+                value.assign_to_data(datapack, ctx, target, path.with_node(node));
+
+                return None;
             }
-            _ => return None,
-        })
+
+            _ => unreachable!("{:?}", self),
+        }
+
+        Some(self)
+    }
+
+    #[must_use]
+    pub fn access_field(self, access_type: FieldAccessType, field: String) -> Option<Self> {
+        match self {
+            Self::Compound(mut compound) => compound.remove(&field),
+            Self::Tuple(mut expressions) => {
+                let index = field.parse::<usize>().unwrap();
+
+                if expressions.is_empty() {
+                    None
+                } else {
+                    Some(expressions.remove(index))
+                }
+            }
+            Self::TupleStruct(_, mut field_expressions) => {
+                let index = field.parse::<usize>().unwrap();
+
+                if field_expressions.is_empty() {
+                    None
+                } else {
+                    Some(field_expressions.remove(index))
+                }
+            }
+            Self::StructStruct(_, mut field_expressions) => field_expressions.remove(&field),
+            Self::Data(target_path) => {
+                let (target, path) = *target_path;
+
+                let node = access_type.into_nbt_path_node(field);
+
+                let path = path.with_node(node);
+
+                Some(Self::Data(Box::new((target, path))))
+            }
+
+            _ => unreachable!("{:?}", self),
+        }
+    }
+}
+
+impl ResolvedExpression {
+    #[must_use]
+    pub fn set_index(
+        mut self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        index: &Self,
+        value: Self,
+    ) -> Option<Self> {
+        match self {
+            Self::List(ref mut items) => {
+                let Self::Integer(index) = index else {
+                    unreachable!();
+                };
+
+                items[*index as usize] = value;
+            }
+
+            Self::Data(target_path) => {
+                let Self::Integer(index) = index else {
+                    unreachable!();
+                };
+
+                let (target, path) = *target_path;
+
+                let node = NbtPathNode::Index(Some(SNBT::macroable_integer(*index)));
+
+                value.assign_to_data(datapack, ctx, target, path.with_node(node));
+
+                return None;
+            }
+
+            _ => unreachable!("{:?}", self),
+        }
+
+        Some(self)
+    }
+
+    #[must_use]
+    pub fn index(self, index: &Self) -> Option<Self> {
+        match self {
+            Self::List(mut items) => {
+                let Self::Integer(index) = index else {
+                    unreachable!();
+                };
+
+                if items.is_empty() {
+                    None
+                } else {
+                    Some(items.remove(*index as usize))
+                }
+            }
+
+            _ => None,
+        }
     }
 }

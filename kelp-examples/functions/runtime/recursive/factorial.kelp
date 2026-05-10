@@ -1,0 +1,13 @@
+use std::*;
+
+recursive runtime fn factorial(n: data<integer>) -> data<integer> {
+    if n <= 0 {
+        return 1 to data;
+    }
+
+    n * factorial(n - 1 to data) to data
+}
+
+mcfn kelp_project:main {
+    tellraw @a factorial(5 to data);
+}

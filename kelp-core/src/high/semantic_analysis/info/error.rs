@@ -22,7 +22,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 f.write_str("Every type in a `recursive` function signature must be `data<_>`")
             }
             SemanticAnalysisError::RecursiveFunctionNotRuntime => {
-                f.write_str("A `recursive` function must also be marked `runtime`")
+                f.write_str("A function marked as `recursive` must also be marked as `runtime`")
             }
             SemanticAnalysisError::CannotPerformArithmeticOperation {
                 left,
@@ -134,9 +134,9 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     data_type.display(self.high_environment)
                 )
             }
-            SemanticAnalysisError::RecursiveFunctionCall => {
-                f.write_str("Function calls cannot be recursive")
-            }
+            SemanticAnalysisError::RecursiveFunctionCall => f.write_str(
+                "Recursive function calls can only be used inside functions marked as `recursive`",
+            ),
             SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop => {
                 f.write_str("Cannot mutate a compile-time value in a runtime loop")
             }

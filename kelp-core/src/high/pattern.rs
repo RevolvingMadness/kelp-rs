@@ -2,12 +2,11 @@ use std::collections::HashMap;
 
 use crate::{
     high::{
-        data::DataTarget,
+        data::Data,
         data_type::DataType,
         environment::r#type::r#struct::{
             HighStructId, regular::HighStructStructId, tuple::HighTupleStructId,
         },
-        nbt_path::NbtPath,
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
@@ -30,7 +29,7 @@ pub enum PatternKind {
     Binding(GenericPath<DataType>),
 
     Score(PlayerScore),
-    Data(Box<(DataTarget, NbtPath)>),
+    Data(Box<Data>),
 
     Tuple(Vec<Pattern>),
     StructStruct(GenericPath<DataType>, HashMap<(Span, String), Pattern>),
@@ -50,11 +49,7 @@ impl PatternKind {
         match self {
             Self::Literal(expression) => expression.get_pattern_type(),
             Self::Score(score) => PatternType::Score(score.clone()),
-            Self::Data(target_path) => {
-                let (target, path) = &**target_path;
-
-                PatternType::Data(Box::new((target.clone(), path.clone())))
-            }
+            Self::Data(data) => PatternType::Data(data.clone()),
             Self::Wildcard | Self::Binding(..) => PatternType::Any,
             Self::Tuple(patterns) => PatternType::Tuple(
                 patterns
@@ -171,11 +166,8 @@ impl Pattern {
 
                 UnresolvedPattern::Score(score)
             }
-            (PatternKind::Data(target_path), _) => {
-                let (target, path) = *target_path;
-
-                let target = target.perform_semantic_analysis(ctx)?;
-                let path = path.perform_semantic_analysis(ctx)?;
+            (PatternKind::Data(data), _) => {
+                let data = data.perform_semantic_analysis(ctx)?;
 
                 if variable_type.get_data_type(&ctx.high_environment).is_none() {
                     return ctx.add_error(
@@ -187,7 +179,7 @@ impl Pattern {
                     );
                 }
 
-                UnresolvedPattern::Data(Box::new((target, path)))
+                UnresolvedPattern::Data(data)
             }
             (PatternKind::Tuple(patterns), UnresolvedDataType::Tuple(data_types))
                 if patterns.len() == data_types.len() =>

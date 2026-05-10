@@ -1,7 +1,5 @@
-use minecraft_command_types::nbt_path::NbtPath;
-
 use crate::{
-    compile_context::CompileContext, data::GeneratedDataTarget, datapack::Datapack,
+    compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
     low::expression::resolved::ResolvedExpression, player_score::GeneratedPlayerScore,
 };
 
@@ -21,9 +19,9 @@ impl RuntimeStorageType {
                 RuntimeStorageTarget::Score(unique_score)
             }
             Self::Data => {
-                let (target, path) = datapack.get_unique_data();
+                let data = datapack.get_unique_data();
 
-                RuntimeStorageTarget::Data(Box::new(target), path)
+                RuntimeStorageTarget::Data(data)
             }
         }
     }
@@ -32,7 +30,7 @@ impl RuntimeStorageType {
 #[derive(Debug, Clone)]
 pub enum RuntimeStorageTarget {
     Score(GeneratedPlayerScore),
-    Data(Box<GeneratedDataTarget>, NbtPath),
+    Data(GeneratedData),
 }
 
 impl RuntimeStorageTarget {
@@ -40,7 +38,7 @@ impl RuntimeStorageTarget {
     pub fn to_expression(self) -> ResolvedExpression {
         match self {
             Self::Score(score) => ResolvedExpression::Score(score),
-            Self::Data(target, path) => ResolvedExpression::Data(Box::new((*target, path))),
+            Self::Data(data) => ResolvedExpression::Data(data),
         }
     }
 
@@ -54,8 +52,8 @@ impl RuntimeStorageTarget {
             Self::Score(score) => {
                 value.assign_to_score(datapack, ctx, score);
             }
-            Self::Data(target, path) => {
-                value.assign_to_data(datapack, ctx, *target, path);
+            Self::Data(data) => {
+                value.assign_to_data(datapack, ctx, data);
             }
         }
     }

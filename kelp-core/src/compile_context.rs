@@ -4,12 +4,12 @@ use minecraft_command_types::{
     command::{Command, execute::ExecuteIfSubcommand, function::FunctionCommandArguments},
     has_macro::HasMacro,
     macroable::Macroable,
-    nbt_path::{NbtPath, NbtPathNode},
+    nbt_path::NbtPathNode,
     resource_location::ResourceLocation,
 };
 
 use crate::{
-    data::GeneratedDataTarget,
+    data::GeneratedData,
     datapack::{Datapack, mcfunction::MCFunction},
     low::expression::resolved::ResolvedExpression,
 };
@@ -30,7 +30,7 @@ pub struct LoopInfo {
 pub struct CompileContext {
     pub commands: Vec<Command>,
     pub macro_arguments: HashMap<usize, ResolvedExpression>,
-    pub macro_data: Option<(GeneratedDataTarget, NbtPath)>,
+    pub macro_data: Option<GeneratedData>,
     pub loop_info: Option<LoopInfo>,
     macro_counter: usize,
 }
@@ -71,28 +71,27 @@ impl CompileContext {
             return;
         }
 
-        let (target, path) = if let Some(macro_data) = self.macro_data.clone() {
+        let data = if let Some(macro_data) = self.macro_data.clone() {
             macro_data
         } else {
-            let (target, path) = datapack.get_unique_data();
+            let unique_data = datapack.get_unique_data();
 
-            self.macro_data = Some((target.clone(), path.clone()));
+            self.macro_data = Some(unique_data.clone());
 
-            (target, path)
+            unique_data
         };
 
         for (id, expression) in take(&mut self.macro_arguments) {
             expression.assign_to_data(
                 datapack,
                 self,
-                target.clone(),
-                path.clone()
-                    .with_node(NbtPathNode::named_string(id.to_string())),
+                data.clone()
+                    .with_path_node(NbtPathNode::named_string(id.to_string())),
             );
         }
 
         let mut unique_function_ctx = Self {
-            macro_data: Some((target.clone(), path.clone())),
+            macro_data: Some(data.clone()),
             ..Default::default()
         };
 
@@ -111,8 +110,8 @@ impl CompileContext {
                 unique_function,
             ),
             Some(FunctionCommandArguments::DataTarget(
-                target.target,
-                Some(path),
+                data.target.target,
+                Some(data.path),
             )),
         ));
     }

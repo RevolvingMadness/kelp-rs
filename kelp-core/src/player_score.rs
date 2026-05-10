@@ -10,7 +10,7 @@ use minecraft_command_types::{
         },
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
-    nbt_path::{NbtPath, SNBTCompound},
+    nbt_path::SNBTCompound,
     range::IntegerRange,
     snbt::{SNBT, SNBTString},
 };
@@ -18,7 +18,7 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
-    data::GeneratedDataTarget,
+    data::GeneratedData,
     datapack::Datapack,
     low::expression::resolved::ResolvedExpression,
     operator::ArithmeticOperator,
@@ -191,16 +191,15 @@ impl GeneratedPlayerScore {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        target: GeneratedDataTarget,
-        path: NbtPath,
+        data: GeneratedData,
     ) {
         ctx.add_command(
             datapack,
             Command::Execute(ExecuteSubcommand::Store(
                 StoreType::Result,
                 ExecuteStoreSubcommand::Data(
-                    target.target,
-                    path,
+                    data.target.target,
+                    data.path,
                     NumericSNBTType::Integer,
                     NotNan::new(1.0).unwrap(),
                     Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(
@@ -216,8 +215,7 @@ impl GeneratedPlayerScore {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        target: GeneratedDataTarget,
-        path: NbtPath,
+        data: GeneratedData,
         scale: NotNan<f32>,
     ) {
         ctx.add_command(
@@ -225,8 +223,8 @@ impl GeneratedPlayerScore {
             Command::Execute(ExecuteSubcommand::Store(
                 StoreType::Result,
                 ExecuteStoreSubcommand::Data(
-                    target.target,
-                    path,
+                    data.target.target,
+                    data.path,
                     NumericSNBTType::Float,
                     scale,
                     Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(

@@ -18,7 +18,7 @@ use minecraft_command_types::{
     coordinate::Coordinates,
     entity_selector::EntitySelector,
     macroable::Macroable,
-    nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
+    nbt_path::{NbtPathNode, SNBTCompound},
     range::IntegerRange,
     resource_location::ResourceLocation,
     snbt::{SNBT, SNBTString},
@@ -27,7 +27,7 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
-    data::GeneratedDataTarget,
+    data::GeneratedData,
     datapack::{
         CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
         RuntimeFunction,
@@ -291,7 +291,7 @@ fn compile_recursive_runtime_function(
     ctx: &mut CompileContext,
     id: FunctionId,
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
-    arguments: Vec<(GeneratedDataTarget, NbtPath)>,
+    arguments: Vec<GeneratedData>,
     body: UnresolvedExpression,
 ) -> ResolvedExpression {
     todo!("Implement recursive runtime functions")
@@ -325,11 +325,11 @@ fn compile_function(
         let argument_datas = arguments
             .into_iter()
             .map(|argument| {
-                let ResolvedExpression::Data(target_path) = argument else {
+                let ResolvedExpression::Data(data) = argument else {
                     unreachable!();
                 };
 
-                *target_path
+                data
             })
             .collect();
 
@@ -429,7 +429,7 @@ pub enum ResolvedExpression {
     Reference(Box<ResolvedPlaceExpression>),
 
     Score(GeneratedPlayerScore),
-    Data(Box<(GeneratedDataTarget, NbtPath)>),
+    Data(GeneratedData),
     Condition(bool, Box<ExecuteIfSubcommand>),
 }
 
@@ -471,15 +471,12 @@ impl ResolvedExpression {
         }
     }
 
+    // TODO: TryInto trait
     #[must_use]
     pub fn to_runtime_storage_target(self) -> Option<RuntimeStorageTarget> {
         Some(match self {
             Self::Score(score) => RuntimeStorageTarget::Score(score),
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
-                RuntimeStorageTarget::Data(Box::new(target), path)
-            }
+            Self::Data(data) => RuntimeStorageTarget::Data(data),
 
             _ => return None,
         })
@@ -556,22 +553,20 @@ impl ResolvedExpression {
                 Self::Score(unique_score)
             }
 
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
-                let (unique_target, unique_path) = datapack.get_unique_data();
+            Self::Data(data) => {
+                let unique_data = datapack.get_unique_data();
 
                 ctx.add_command(
                     datapack,
                     Command::Data(DataCommand::Modify(
-                        unique_target.target.clone(),
-                        unique_path.clone(),
+                        unique_data.target.target.clone(),
+                        unique_data.path.clone(),
                         DataCommandModificationMode::Set,
-                        DataCommandModification::From(target.target, Some(path)),
+                        DataCommandModification::From(data.target.target, Some(data.path)),
                     )),
                 );
 
-                Self::Data(Box::new((unique_target, unique_path)))
+                Self::Data(unique_data)
             }
 
             _ => return None,
@@ -585,11 +580,7 @@ impl ResolvedExpression {
 
             Self::Score(score) => ResolvedPlaceExpression::Score(score),
 
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
-                ResolvedPlaceExpression::Data(target, path)
-            }
+            Self::Data(data) => ResolvedPlaceExpression::Data(data),
 
             _ => return None,
         })
@@ -879,16 +870,15 @@ impl ResolvedExpression {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        target: GeneratedDataTarget,
-        path: NbtPath,
+        data: GeneratedData,
     ) {
         match self.try_into_snbt() {
             Ok(snbt) => {
                 ctx.add_command(
                     datapack,
                     Command::Data(DataCommand::Modify(
-                        target.target,
-                        path,
+                        data.target.target,
+                        data.path,
                         DataCommandModificationMode::Set,
                         DataCommandModification::Value(Macroable::Regular(snbt)),
                     )),
@@ -896,18 +886,19 @@ impl ResolvedExpression {
             }
             Err(self_) => match self_ {
                 Self::Score(score) => {
-                    score.assign_to_data(datapack, ctx, target, path);
+                    score.assign_to_data(datapack, ctx, data);
                 }
-                Self::Data(inner_target_inner_path) => {
-                    let (inner_target, inner_path) = *inner_target_inner_path;
-
+                Self::Data(inner_data) => {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target,
-                            path,
+                            data.target.target,
+                            data.path,
                             DataCommandModificationMode::Set,
-                            DataCommandModification::From(inner_target.target, Some(inner_path)),
+                            DataCommandModification::From(
+                                inner_data.target.target,
+                                Some(inner_data.path),
+                            ),
                         )),
                     );
                 }
@@ -917,8 +908,8 @@ impl ResolvedExpression {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target.clone(),
-                            path.clone(),
+                            data.target.target.clone(),
+                            data.path.clone(),
                             DataCommandModificationMode::Set,
                             DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
@@ -928,8 +919,7 @@ impl ResolvedExpression {
                         non_constant.assign_to_data(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone().with_node(NbtPathNode::Index(Some(
+                            data.clone().with_path_node(NbtPathNode::Index(Some(
                                 SNBT::macroable_integer(index as i32),
                             ))),
                         );
@@ -941,8 +931,8 @@ impl ResolvedExpression {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target.clone(),
-                            path.clone(),
+                            data.target.target.clone(),
+                            data.path.clone(),
                             DataCommandModificationMode::Set,
                             DataCommandModification::Value(SNBT::macroable_compound(constants)),
                         )),
@@ -952,9 +942,8 @@ impl ResolvedExpression {
                         non_constant.assign_to_data(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::named(SNBTString(false, key))),
+                            data.clone()
+                                .with_path_node(NbtPathNode::named(SNBTString(false, key))),
                         );
                     }
                 }
@@ -963,9 +952,8 @@ impl ResolvedExpression {
                         value.assign_to_data(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                            data.clone()
+                                .with_path_node(NbtPathNode::Named(SNBTString(false, key), None)),
                         );
                     }
                 }
@@ -975,8 +963,7 @@ impl ResolvedExpression {
                         field_expression.assign_to_data(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone().with_node(NbtPathNode::Index(Some(
+                            data.clone().with_path_node(NbtPathNode::Index(Some(
                                 SNBT::macroable_integer(field_index as i32),
                             ))),
                         );
@@ -988,8 +975,8 @@ impl ResolvedExpression {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target.clone(),
-                            path.clone(),
+                            data.target.target.clone(),
+                            data.path.clone(),
                             DataCommandModificationMode::Set,
                             DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
@@ -999,8 +986,7 @@ impl ResolvedExpression {
                         non_constant.assign_to_data(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone().with_node(NbtPathNode::Index(Some(
+                            data.clone().with_path_node(NbtPathNode::Index(Some(
                                 SNBT::macroable_integer(index as i32),
                             ))),
                         );
@@ -1012,8 +998,8 @@ impl ResolvedExpression {
                         Command::Execute(ExecuteSubcommand::Store(
                             StoreType::Result,
                             ExecuteStoreSubcommand::Data(
-                                target.target,
-                                path,
+                                data.target.target,
+                                data.path,
                                 NumericSNBTType::Integer,
                                 NotNan::new(1.0).unwrap(),
                                 Box::new(ExecuteSubcommand::If(inverted, *condition)),
@@ -1033,8 +1019,7 @@ impl ResolvedExpression {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        target: GeneratedDataTarget,
-        path: NbtPath,
+        data: GeneratedData,
         scale: NotNan<f32>,
     ) {
         match self.try_into_snbt_scale(scale) {
@@ -1042,8 +1027,8 @@ impl ResolvedExpression {
                 ctx.add_command(
                     datapack,
                     Command::Data(DataCommand::Modify(
-                        target.target,
-                        path,
+                        data.target.target,
+                        data.path,
                         DataCommandModificationMode::Set,
                         DataCommandModification::Value(Macroable::Regular(snbt)),
                     )),
@@ -1051,18 +1036,19 @@ impl ResolvedExpression {
             }
             Err(self_) => match self_ {
                 Self::Score(score) => {
-                    score.assign_to_data_scale(datapack, ctx, target, path, scale);
+                    score.assign_to_data_scale(datapack, ctx, data, scale);
                 }
-                Self::Data(inner_target_inner_path) => {
-                    let (inner_target, inner_path) = *inner_target_inner_path;
-
+                Self::Data(inner_data) => {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target,
-                            path,
+                            data.target.target,
+                            data.path,
                             DataCommandModificationMode::Set,
-                            DataCommandModification::From(inner_target.target, Some(inner_path)),
+                            DataCommandModification::From(
+                                inner_data.target.target,
+                                Some(inner_data.path),
+                            ),
                         )),
                     );
                 }
@@ -1072,8 +1058,8 @@ impl ResolvedExpression {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target.clone(),
-                            path.clone(),
+                            data.target.target.clone(),
+                            data.path.clone(),
                             DataCommandModificationMode::Set,
                             DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
@@ -1083,8 +1069,7 @@ impl ResolvedExpression {
                         non_constant.assign_to_data(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone().with_node(NbtPathNode::Index(Some(
+                            data.clone().with_path_node(NbtPathNode::Index(Some(
                                 SNBT::macroable_integer(index as i32),
                             ))),
                         );
@@ -1096,8 +1081,8 @@ impl ResolvedExpression {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target.clone(),
-                            path.clone(),
+                            data.target.target.clone(),
+                            data.path.clone(),
                             DataCommandModificationMode::Set,
                             DataCommandModification::Value(SNBT::macroable_compound(constants)),
                         )),
@@ -1107,9 +1092,8 @@ impl ResolvedExpression {
                         non_constant.assign_to_data_scale(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::named(SNBTString(false, key))),
+                            data.clone()
+                                .with_path_node(NbtPathNode::named(SNBTString(false, key))),
                             scale,
                         );
                     }
@@ -1119,9 +1103,8 @@ impl ResolvedExpression {
                         value.assign_to_data_scale(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone()
-                                .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                            data.clone()
+                                .with_path_node(NbtPathNode::Named(SNBTString(false, key), None)),
                             scale,
                         );
                     }
@@ -1132,8 +1115,7 @@ impl ResolvedExpression {
                         field_expression.assign_to_data_scale(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone().with_node(NbtPathNode::Index(Some(
+                            data.clone().with_path_node(NbtPathNode::Index(Some(
                                 SNBT::macroable_integer(field_index as i32),
                             ))),
                             scale,
@@ -1146,8 +1128,8 @@ impl ResolvedExpression {
                     ctx.add_command(
                         datapack,
                         Command::Data(DataCommand::Modify(
-                            target.target.clone(),
-                            path.clone(),
+                            data.target.target.clone(),
+                            data.path.clone(),
                             DataCommandModificationMode::Set,
                             DataCommandModification::Value(SNBT::macroable_list(constants)),
                         )),
@@ -1157,8 +1139,7 @@ impl ResolvedExpression {
                         non_constant.assign_to_data_scale(
                             datapack,
                             ctx,
-                            target.clone(),
-                            path.clone().with_node(NbtPathNode::Index(Some(
+                            data.clone().with_path_node(NbtPathNode::Index(Some(
                                 SNBT::macroable_integer(index as i32),
                             ))),
                             scale,
@@ -1171,8 +1152,8 @@ impl ResolvedExpression {
                         Command::Execute(ExecuteSubcommand::Store(
                             StoreType::Result,
                             ExecuteStoreSubcommand::Data(
-                                target.target,
-                                path,
+                                data.target.target,
+                                data.path,
                                 NumericSNBTType::Integer,
                                 scale,
                                 Box::new(ExecuteSubcommand::If(inverted, *condition)),
@@ -1193,16 +1174,17 @@ impl ResolvedExpression {
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         force: bool,
-    ) -> (GeneratedDataTarget, NbtPath) {
+    ) -> GeneratedData {
         #[allow(clippy::single_match_else)]
         match self {
-            Self::Data(target_path) if !force => *target_path,
+            Self::Data(data) if !force => data,
+
             _ => {
-                let (unique_data, path) = datapack.get_unique_data();
+                let unique_data = datapack.get_unique_data();
 
-                self.assign_to_data(datapack, ctx, unique_data.clone(), path.clone());
+                self.assign_to_data(datapack, ctx, unique_data.clone());
 
-                (unique_data, path)
+                unique_data
             }
         }
     }
@@ -1213,12 +1195,12 @@ impl ResolvedExpression {
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         scale: NotNan<f32>,
-    ) -> (GeneratedDataTarget, NbtPath) {
-        let (unique_data, path) = datapack.get_unique_data();
+    ) -> GeneratedData {
+        let data = datapack.get_unique_data();
 
-        self.assign_to_data_scale(datapack, ctx, unique_data.clone(), path.clone(), scale);
+        self.assign_to_data_scale(datapack, ctx, data.clone(), scale);
 
-        (unique_data, path)
+        data
     }
 
     #[must_use]
@@ -1230,9 +1212,9 @@ impl ResolvedExpression {
         match self.try_into_snbt() {
             Ok(snbt) => DataCommandModification::Value(Macroable::Regular(snbt)),
             Err(self_) => {
-                let (target, path) = self_.to_data(datapack, ctx, false);
+                let data = self_.to_data(datapack, ctx, false);
 
-                DataCommandModification::From(target.target, Some(path))
+                DataCommandModification::From(data.target.target, Some(data.path))
             }
         }
     }
@@ -1494,9 +1476,9 @@ impl ResolvedExpression {
             {
                 let unique_score = datapack.get_unique_score();
 
-                let (unique_target, unique_path) = datapack.get_unique_data();
+                let unique_data = datapack.get_unique_data();
 
-                left_kind.assign_to_data(datapack, ctx, unique_target.clone(), unique_path.clone());
+                left_kind.assign_to_data(datapack, ctx, unique_data.clone());
 
                 let data_command_modification =
                     right_kind.as_data_command_modification(datapack, ctx);
@@ -1509,8 +1491,8 @@ impl ResolvedExpression {
                             unique_score.score.clone(),
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
                                 DataCommand::Modify(
-                                    unique_target.target,
-                                    unique_path,
+                                    unique_data.target.target,
+                                    unique_data.path,
                                     DataCommandModificationMode::Set,
                                     data_command_modification,
                                 ),
@@ -1725,12 +1707,10 @@ impl ResolvedExpression {
     ) -> SNBT {
         match self {
             Self::Score(player_score) => player_score.to_text_component(),
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
+            Self::Data(data) => {
                 let mut map = SNBTCompound::new();
 
-                match target.target {
+                match data.target.target {
                     DataTarget::Block(coordinates) => {
                         map.insert(
                             SNBTString(false, "block".to_string()),
@@ -1753,7 +1733,7 @@ impl ResolvedExpression {
 
                 map.insert(
                     SNBTString(false, "nbt".to_string()),
-                    Macroable::Regular(path.to_snbt_string()),
+                    Macroable::Regular(data.path.to_snbt_string()),
                 );
 
                 SNBT::compound(map)
@@ -2100,9 +2080,7 @@ impl ResolvedExpression {
             Self::Score(source) => {
                 source.assign_to_score(datapack, ctx, score);
             }
-            Self::Data(data_target_path) => {
-                let (data_target, path) = *data_target_path;
-
+            Self::Data(data) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::Store(
@@ -2110,7 +2088,7 @@ impl ResolvedExpression {
                         ExecuteStoreSubcommand::Score(
                             score.score,
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(data_target.target, Some(path), None),
+                                DataCommand::Get(data.target.target, Some(data.path), None),
                             )))),
                         ),
                     )),
@@ -2213,9 +2191,7 @@ impl ResolvedExpression {
             Self::Score(source) => {
                 source.assign_to_score_scale(datapack, ctx, score, scale);
             }
-            Self::Data(data_target_path) => {
-                let (data_target, path) = *data_target_path;
-
+            Self::Data(data) => {
                 ctx.add_command(
                     datapack,
                     Command::Execute(ExecuteSubcommand::Store(
@@ -2223,7 +2199,7 @@ impl ResolvedExpression {
                         ExecuteStoreSubcommand::Score(
                             score.score,
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(data_target.target, Some(path), Some(scale)),
+                                DataCommand::Get(data.target.target, Some(data.path), Some(scale)),
                             )))),
                         ),
                     )),
@@ -2433,12 +2409,10 @@ impl ResolvedExpression {
             Self::StructStruct(_, ref mut field_expressions) => {
                 field_expressions.insert(field, value);
             }
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
+            Self::Data(data) => {
                 let node = access_type.into_nbt_path_node(field);
 
-                value.assign_to_data(datapack, ctx, target, path.with_node(node));
+                value.assign_to_data(datapack, ctx, data.with_path_node(node));
 
                 return None;
             }
@@ -2472,14 +2446,10 @@ impl ResolvedExpression {
                 }
             }
             Self::StructStruct(_, mut field_expressions) => field_expressions.remove(&field),
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
+            Self::Data(data) => {
                 let node = access_type.into_nbt_path_node(field);
 
-                let path = path.with_node(node);
-
-                Some(Self::Data(Box::new((target, path))))
+                Some(Self::Data(data.with_path_node(node)))
             }
 
             _ => unreachable!("{:?}", self),
@@ -2505,16 +2475,12 @@ impl ResolvedExpression {
                 items[index as usize] = value;
             }
 
-            Self::Data(target_path) => {
+            Self::Data(data) => {
                 let index = index.as_snbt_macros(ctx);
-
-                let (target, path) = *target_path;
 
                 let node = NbtPathNode::Index(Some(index));
 
-                let path = path.with_node(node);
-
-                value.assign_to_data(datapack, ctx, target, path);
+                value.assign_to_data(datapack, ctx, data.with_path_node(node));
 
                 return None;
             }
@@ -2539,16 +2505,12 @@ impl ResolvedExpression {
                     Some(items.remove(index as usize))
                 }
             }
-            Self::Data(target_path) => {
+            Self::Data(data) => {
                 let index = index.as_snbt_macros(ctx);
-
-                let (target, path) = *target_path;
 
                 let node = NbtPathNode::Index(Some(index));
 
-                let path = path.with_node(node);
-
-                Some(Self::Data(Box::new((target, path))))
+                Some(Self::Data(data.with_path_node(node)))
             }
 
             _ => None,

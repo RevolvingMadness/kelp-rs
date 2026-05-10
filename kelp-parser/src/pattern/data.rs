@@ -34,7 +34,7 @@ pub fn lower_data_pattern(
 ) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
 
-    let (target, path) = lower_data(node.data()?, ctx)?;
+    let data = lower_data(node.data()?, ctx)?;
 
-    Some(PatternKind::Data(Box::new((target, path))).with_span(span))
+    Some(PatternKind::Data(Box::new(data)).with_span(span))
 }

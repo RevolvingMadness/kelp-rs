@@ -4,14 +4,30 @@ use minecraft_command_types::{
 
 use crate::{
     compile_context::CompileContext,
-    data::GeneratedDataTarget,
+    data::{GeneratedData, GeneratedDataTarget},
     datapack::Datapack,
     low::{
-        coordinate::Coordinates, entity_selector::EntitySelector,
+        coordinate::Coordinates, entity_selector::EntitySelector, nbt_path::NbtPath,
         supports_expression_sigil::SupportsExpressionSigil,
     },
     span::Span,
 };
+
+#[derive(Debug, Clone)]
+pub struct Data {
+    pub target: DataTarget,
+    pub path: NbtPath,
+}
+
+impl Data {
+    #[must_use]
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> GeneratedData {
+        let target = self.target.compile(datapack, ctx);
+        let path = self.path.compile(datapack, ctx);
+
+        GeneratedData { target, path }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum DataTargetKind {

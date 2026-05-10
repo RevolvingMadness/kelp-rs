@@ -23,6 +23,7 @@ use crate::{
         supports_expression_sigil::SupportsExpressionSigil,
     },
     low::{
+        data::Data,
         data_type::unresolved::UnresolvedDataType,
         expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
     },
@@ -227,9 +228,9 @@ impl Expression {
                 let target = target.perform_semantic_analysis(ctx)?;
                 let path = path.perform_semantic_analysis(ctx)?;
 
-                UnresolvedPlaceExpressionKind::Data(target, path).with(UnresolvedDataType::Data(
-                    Box::new(UnresolvedDataType::Inferred),
-                ))
+                UnresolvedPlaceExpressionKind::Data(Box::new(Data { target, path })).with(
+                    UnresolvedDataType::Data(Box::new(UnresolvedDataType::Inferred)),
+                )
             }
             ExpressionKind::FieldAccess(target, field_span, field) => {
                 let (_, target) = target.as_place_semantic_analysis(ctx)?;
@@ -572,7 +573,7 @@ impl Expression {
                 let target = target?;
                 let path = path?;
 
-                UnresolvedExpressionKind::Data(Box::new((target, path))).with(
+                UnresolvedExpressionKind::Data(Box::new(Data { target, path })).with(
                     UnresolvedDataType::Data(Box::new(UnresolvedDataType::Inferred)),
                 )
             }

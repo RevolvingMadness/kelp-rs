@@ -15,6 +15,7 @@ pub struct PlayerScore {
 }
 
 impl PlayerScore {
+    #[must_use]
     pub fn compile(
         self,
         datapack: &mut Datapack,

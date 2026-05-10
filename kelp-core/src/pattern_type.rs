@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    high::{data::DataTarget, data_type::DataType, nbt_path::NbtPath, player_score::PlayerScore},
+    high::{data::Data, data_type::DataType, player_score::PlayerScore},
     path::generic::GenericPath,
 };
 
@@ -19,7 +19,7 @@ pub enum PatternType {
     Double,
     String,
     Score(PlayerScore),
-    Data(Box<(DataTarget, NbtPath)>),
+    Data(Box<Data>),
     Tuple(Vec<Self>),
     StructStruct(GenericPath<DataType>, HashMap<String, Self>),
     TupleStruct(GenericPath<DataType>, Vec<Self>),
@@ -40,11 +40,7 @@ impl Display for PatternType {
             Self::Double => f.write_str("double"),
             Self::String => f.write_str("string"),
             Self::Score(score) => score.fmt(f),
-            Self::Data(target_path) => {
-                let (target, _) = &**target_path;
-
-                write!(f, "{} ...", target)
-            }
+            Self::Data(data) => data.fmt(f),
             Self::Tuple(pattern_types) => {
                 f.write_str("(")?;
 

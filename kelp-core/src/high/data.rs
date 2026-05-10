@@ -4,13 +4,43 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     high::{
-        coordinate::Coordinates, entity_selector::EntitySelector,
+        coordinate::Coordinates, entity_selector::EntitySelector, nbt_path::NbtPath,
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::SupportsExpressionSigil,
     },
-    low::data::{DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind},
+    low::data::{
+        Data as MiddleData, DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind,
+    },
     span::Span,
 };
+
+#[derive(Debug, Clone)]
+pub struct Data {
+    pub target: DataTarget,
+    pub path: NbtPath,
+}
+
+impl Display for Data {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ...", self.target)
+    }
+}
+
+impl Data {
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<MiddleData> {
+        let target = self.target.perform_semantic_analysis(ctx);
+        let path = self.path.perform_semantic_analysis(ctx);
+
+        let target = target?;
+        let path = path?;
+
+        Some(MiddleData { target, path })
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum DataTargetKind {

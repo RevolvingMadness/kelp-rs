@@ -13,11 +13,10 @@ use crate::{
         value::variable::HighVariableId,
     },
     low::{
-        data::DataTarget,
+        data::Data,
         data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
         environment::r#type::r#struct::{StructStructId, TupleStructId},
         expression::{literal::LiteralExpression, resolved::ResolvedExpression},
-        nbt_path::NbtPath,
         player_score::PlayerScore,
     },
 };
@@ -42,15 +41,12 @@ fn destructure_tuple(
                 pattern.destructure(datapack, ctx, data_type, score.clone());
             }
         }
-        (ResolvedDataType::Tuple(data_types), ResolvedExpression::Data(target_path)) => {
-            let (target, path) = *target_path;
-
+        (ResolvedDataType::Tuple(data_types), ResolvedExpression::Data(data)) => {
             for (i, (pattern, data_type)) in patterns.into_iter().zip(data_types).enumerate() {
-                let expression = ResolvedExpression::Data(Box::new((
-                    target.clone(),
-                    path.clone()
-                        .with_node(NbtPathNode::Index(Some(SNBT::macroable_integer(i as i32)))),
-                )));
+                let expression =
+                    ResolvedExpression::Data(data.clone().with_path_node(NbtPathNode::Index(
+                        Some(SNBT::macroable_integer(i as i32)),
+                    )));
 
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
@@ -92,17 +88,14 @@ fn destructure_compound(
         (ResolvedDataType::Data(data_type), value @ ResolvedExpression::Data(..)) => {
             destructure_compound(patterns, datapack, ctx, *data_type, value);
         }
-        (ResolvedDataType::TypedCompound(data_types), ResolvedExpression::Data(target_path)) => {
-            let (target, path) = *target_path;
-
+        (ResolvedDataType::TypedCompound(data_types), ResolvedExpression::Data(data)) => {
             for (key, pattern) in patterns {
                 let data_type = data_types.get(&key).unwrap().clone();
 
-                let expression = ResolvedExpression::Data(Box::new((
-                    target.clone(),
-                    path.clone()
-                        .with_node(NbtPathNode::Named(SNBTString(false, key), None)),
-                )));
+                let expression = ResolvedExpression::Data(
+                    data.clone()
+                        .with_path_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                );
 
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
@@ -132,9 +125,7 @@ fn destructure_struct_struct(
                 pattern.destructure(datapack, ctx, data_type, field_value);
             }
         }
-        (ResolvedDataType::Struct(..), ResolvedExpression::Data(target_path)) => {
-            let (target, path) = *target_path;
-
+        (ResolvedDataType::Struct(..), ResolvedExpression::Data(data)) => {
             let (_, _, declaration) = datapack.get_struct_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -142,11 +133,10 @@ fn destructure_struct_struct(
             for (key, pattern) in field_patterns {
                 let data_type = field_types.get(&key).unwrap().clone();
 
-                let field_path = path
-                    .clone()
-                    .with_node(NbtPathNode::Named(SNBTString(false, key), None));
-
-                let field_value = ResolvedExpression::Data(Box::new((target.clone(), field_path)));
+                let field_value = ResolvedExpression::Data(
+                    data.clone()
+                        .with_path_node(NbtPathNode::Named(SNBTString(false, key), None)),
+                );
 
                 let data_wrapped_type = ResolvedDataType::Data(Box::new(data_type));
 
@@ -188,9 +178,7 @@ fn destructure_tuple_struct(
                 field_pattern.destructure(datapack, ctx, field_type, field_expression);
             }
         }
-        (ResolvedExpression::Data(target_path), ResolvedDataType::Struct(..)) => {
-            let (target, path) = *target_path;
-
+        (ResolvedExpression::Data(data), ResolvedDataType::Struct(..)) => {
             let (_, _, declaration) = datapack.get_tuple_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -198,12 +186,9 @@ fn destructure_tuple_struct(
             for (field_index, (field_pattern, field_type)) in
                 field_patterns.into_iter().zip(field_types).enumerate()
             {
-                let field_path =
-                    path.clone()
-                        .with_node(NbtPathNode::Index(Some(SNBT::macroable_integer(
-                            field_index as i32,
-                        ))));
-                let field_value = ResolvedExpression::Data(Box::new((target.clone(), field_path)));
+                let field_value = ResolvedExpression::Data(data.clone().with_path_node(
+                    NbtPathNode::Index(Some(SNBT::macroable_integer(field_index as i32))),
+                ));
 
                 let data_wrapped_type = ResolvedDataType::Data(Box::new(field_type));
 
@@ -231,7 +216,7 @@ pub enum UnresolvedPattern {
     Binding(HighVariableId),
 
     Score(PlayerScore),
-    Data(Box<(DataTarget, NbtPath)>),
+    Data(Data),
 
     Tuple(Vec<Self>),
     StructStruct(
@@ -262,13 +247,10 @@ impl UnresolvedPattern {
 
                 value.assign_to_score(datapack, ctx, score);
             }
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
+            Self::Data(data) => {
+                let data = data.compile(datapack, ctx);
 
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
-
-                value.assign_to_data(datapack, ctx, target, path);
+                value.assign_to_data(datapack, ctx, data);
             }
             Self::Tuple(patterns) => {
                 destructure_tuple(patterns, datapack, ctx, data_type, value);

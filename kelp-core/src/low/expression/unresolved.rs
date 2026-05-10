@@ -19,7 +19,7 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::{CompileContext, LoopInfo, LoopType},
-    data::GeneratedDataTarget,
+    data::GeneratedData,
     datapack::Datapack,
     high::{
         environment::{
@@ -30,7 +30,7 @@ use crate::{
     },
     low::{
         coordinate::Coordinates,
-        data::DataTarget,
+        data::Data,
         data_type::{
             resolved::{FieldAccessType, ResolvedDataType},
             unresolved::UnresolvedDataType,
@@ -44,7 +44,6 @@ use crate::{
             },
             resolved::ResolvedExpression,
         },
-        nbt_path::NbtPath,
         pattern::UnresolvedPattern,
         player_score::PlayerScore,
         statement::{EarlyReturnType, UnresolvedStatement},
@@ -123,19 +122,14 @@ fn compile_if_internal(
     condition: UnresolvedExpression,
     body: UnresolvedExpression,
     else_body: Option<Box<UnresolvedExpression>>,
-    output: Option<(GeneratedDataTarget, LowNbtPath)>,
+    output_data: Option<GeneratedData>,
 ) {
     let mut body_ctx = ctx.create_child_ctx();
     let main_body_returns_early = body.kind.returns_early();
     let body = body.kind.resolve(datapack, &mut body_ctx);
 
-    if let Some((output_target, output_path)) = &output {
-        body.assign_to_data(
-            datapack,
-            &mut body_ctx,
-            output_target.clone(),
-            output_path.clone(),
-        );
+    if let Some(output_data) = &output_data {
+        body.assign_to_data(datapack, &mut body_ctx, output_data.clone());
     }
 
     let (invert, condition) = condition
@@ -149,8 +143,8 @@ fn compile_if_internal(
         let else_body_returns_early = else_body.kind.returns_early();
         let else_body = else_body.kind.resolve(datapack, &mut else_body_ctx);
 
-        if let Some((output_target, output_path)) = output {
-            else_body.assign_to_data(datapack, &mut else_body_ctx, output_target, output_path);
+        if let Some(output_data) = output_data {
+            else_body.assign_to_data(datapack, &mut else_body_ctx, output_data);
         }
 
         let should_add_condition = body_ctx.num_commands() > 1 || else_body_ctx.num_commands() > 1;
@@ -246,15 +240,10 @@ fn iterate_string(
     iterable: ResolvedExpression,
     body: UnresolvedExpression,
 ) {
-    let (unique_data_target, unique_path, name) = datapack.get_unique_data_named();
-    let (unique_data_target_2, unique_path_2) = datapack.get_unique_data();
+    let (unique_data, name) = datapack.get_unique_data_named();
+    let unique_data_2 = datapack.get_unique_data();
 
-    iterable.assign_to_data(
-        datapack,
-        ctx,
-        unique_data_target.clone(),
-        unique_path.clone(),
-    );
+    iterable.assign_to_data(datapack, ctx, unique_data.clone());
 
     let mut for_body_ctx = CompileContext::default();
 
@@ -262,26 +251,21 @@ fn iterate_string(
         datapack,
         &mut for_body_ctx,
         ResolvedDataType::String,
-        ResolvedExpression::Data(Box::new((
-            unique_data_target_2.clone(),
-            unique_path_2.clone(),
-        ))),
+        ResolvedExpression::Data(unique_data_2.clone()),
     );
 
-    for_body_ctx.add_command(
+    unique_data_2.modify(
         datapack,
-        Command::Data(DataCommand::Modify(
-            unique_data_target_2.target,
-            unique_path_2,
-            DataCommandModificationMode::Set,
-            DataCommandModification::String(
-                unique_data_target.target.clone(),
-                Some(unique_path.clone()),
-                Some(if is_reversed { -1 } else { 0 }),
-                if is_reversed { None } else { Some(1) },
-            ),
-        )),
+        &mut for_body_ctx,
+        DataCommandModificationMode::Set,
+        DataCommandModification::String(
+            unique_data.target.target.clone(),
+            Some(unique_data.path.clone()),
+            Some(if is_reversed { -1 } else { 0 }),
+            if is_reversed { None } else { Some(1) },
+        ),
     );
+
     body.kind.compile_as_statement(datapack, &mut for_body_ctx);
 
     let current_namespace_name = datapack.current_namespace_name().to_string();
@@ -290,19 +274,16 @@ fn iterate_string(
 
     let mut condition_ctx = CompileContext::default();
 
-    for_body_ctx.add_command(
+    unique_data.clone().modify(
         datapack,
-        Command::Data(DataCommand::Modify(
-            unique_data_target.target.clone(),
-            unique_path.clone(),
-            DataCommandModificationMode::Set,
-            DataCommandModification::String(
-                unique_data_target.target.clone(),
-                Some(unique_path),
-                Some(i32::from(!is_reversed)),
-                if is_reversed { Some(-1) } else { None },
-            ),
-        )),
+        &mut for_body_ctx,
+        DataCommandModificationMode::Set,
+        DataCommandModification::String(
+            unique_data.target.target.clone(),
+            Some(unique_data.path.clone()),
+            Some(i32::from(!is_reversed)),
+            if is_reversed { Some(-1) } else { None },
+        ),
     );
 
     let mut map = SNBTCompound::new();
@@ -314,7 +295,7 @@ fn iterate_string(
         Command::Execute(ExecuteSubcommand::If(
             true,
             ExecuteIfSubcommand::Data(
-                unique_data_target.target,
+                unique_data.target.target,
                 unique_path,
                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                     Command::Function(
@@ -344,26 +325,24 @@ fn iterate_data(
     iterable: ResolvedExpression,
     body: UnresolvedExpression,
 ) {
-    let (unique_data_target, unique_path) = datapack.get_unique_data();
+    let unique_data = datapack.get_unique_data();
 
-    iterable.assign_to_data(
-        datapack,
-        ctx,
-        unique_data_target.clone(),
-        unique_path.clone(),
-    );
+    iterable.assign_to_data(datapack, ctx, unique_data.clone());
 
     let mut for_body_ctx = CompileContext::default();
 
-    let unique_path = unique_path.with_node(NbtPathNode::Index(Some(SNBT::macroable_integer(
-        if is_reversed { -1 } else { 0 },
-    ))));
+    let destructure_unique_data =
+        unique_data
+            .clone()
+            .with_path_node(NbtPathNode::Index(Some(SNBT::macroable_integer(
+                if is_reversed { -1 } else { 0 },
+            ))));
 
     pattern.destructure(
         datapack,
         &mut for_body_ctx,
         iterable_type,
-        ResolvedExpression::Data(Box::new((unique_data_target.clone(), unique_path.clone()))),
+        ResolvedExpression::Data(destructure_unique_data),
     );
 
     body.kind.compile_as_statement(datapack, &mut for_body_ctx);
@@ -377,8 +356,8 @@ fn iterate_data(
     for_body_ctx.add_command(
         datapack,
         Command::Data(DataCommand::Remove(
-            unique_data_target.target.clone(),
-            unique_path.clone(),
+            unique_data.target.target.clone(),
+            unique_data.path.clone(),
         )),
     );
 
@@ -387,8 +366,8 @@ fn iterate_data(
         Command::Execute(ExecuteSubcommand::If(
             false,
             ExecuteIfSubcommand::Data(
-                unique_data_target.target,
-                unique_path,
+                unique_data.target.target,
+                unique_data.path,
                 Some(Box::new(ExecuteSubcommand::Run(Box::new(
                     Command::Function(
                         ResourceLocation::new_namespace_paths(
@@ -450,7 +429,7 @@ pub enum UnresolvedExpressionKind {
     List(Vec<UnresolvedExpression>),
     Compound(HashMap<String, UnresolvedExpression>),
     Score(PlayerScore),
-    Data(Box<(DataTarget, NbtPath)>),
+    Data(Box<Data>),
     Condition(bool, Box<MiddleExecuteIfSubcommand>),
     Command(Box<MiddleCommand>),
     Index(Box<UnresolvedPlaceExpression>, Box<UnresolvedExpression>),
@@ -718,13 +697,10 @@ impl UnresolvedExpressionKind {
 
                 ResolvedExpression::Score(score)
             }
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
+            Self::Data(data) => {
+                let data = data.compile(datapack, ctx);
 
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
-
-                ResolvedExpression::Data(Box::new((target, path)))
+                ResolvedExpression::Data(data)
             }
             Self::Condition(inverted, condition) => {
                 let condition = condition.compile(datapack, ctx);
@@ -780,13 +756,13 @@ impl UnresolvedExpressionKind {
                         }
                     }
                     RuntimeStorageType::Data => {
-                        let (unique_target, unique_path) = if let Some(scale) = scale {
+                        let data = if let Some(scale) = scale {
                             expression.to_data_scale(datapack, ctx, scale)
                         } else {
                             expression.to_data(datapack, ctx, true)
                         };
 
-                        ResolvedExpression::Data(Box::new((unique_target, unique_path)))
+                        ResolvedExpression::Data(data)
                     }
                 }
             }
@@ -910,7 +886,7 @@ impl UnresolvedExpressionKind {
                 })
             }
             Self::If(condition, body, else_body) => {
-                let (output_target, output_path) = datapack.get_unique_data();
+                let output_data = datapack.get_unique_data();
 
                 compile_if_internal(
                     datapack,
@@ -918,10 +894,10 @@ impl UnresolvedExpressionKind {
                     *condition,
                     *body,
                     else_body,
-                    Some((output_target.clone(), output_path.clone())),
+                    Some(output_data.clone()),
                 );
 
-                ResolvedExpression::Data(Box::new((output_target, output_path)))
+                ResolvedExpression::Data(output_data)
             }
             Self::Call(callee, arguments) => {
                 let callee = callee.kind.resolve(datapack, ctx);
@@ -1314,11 +1290,8 @@ impl UnresolvedExpressionKind {
 
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
             }
-            Self::Data(target_path) => {
-                let (target, path) = *target_path;
-
-                target.compile(datapack, ctx);
-                path.compile(datapack, ctx);
+            Self::Data(data) => {
+                let _ = data.compile(datapack, ctx);
             }
             Self::Negate(expression) => {
                 expression.kind.compile_as_statement(datapack, ctx);
@@ -1340,7 +1313,7 @@ impl UnresolvedExpressionKind {
                 right.kind.compile_as_statement(datapack, ctx);
             }
             Self::Score(score) => {
-                score.compile(datapack, ctx);
+                let _ = score.compile(datapack, ctx);
             }
             Self::Index(_, index) => {
                 index.kind.compile_as_statement(datapack, ctx);

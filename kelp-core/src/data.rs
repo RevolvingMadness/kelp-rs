@@ -4,8 +4,51 @@ use minecraft_command_types::{
         Command,
         data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
     },
-    nbt_path::NbtPath,
+    nbt_path::{NbtPath, NbtPathNode},
 };
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GeneratedData {
+    pub target: GeneratedDataTarget,
+    pub path: NbtPath,
+}
+
+impl GeneratedData {
+    #[must_use]
+    pub fn with_path_node(self, node: NbtPathNode) -> Self {
+        Self {
+            path: self.path.with_node(node),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn modify(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        mode: DataCommandModificationMode,
+        modification: DataCommandModification,
+    ) {
+        ctx.add_command(
+            datapack,
+            Command::Data(DataCommand::Modify(
+                self.target.target,
+                self.path,
+                mode,
+                modification,
+            )),
+        );
+    }
+
+    #[inline]
+    pub fn remove(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+        ctx.add_command(
+            datapack,
+            Command::Data(DataCommand::Remove(self.target.target, self.path)),
+        );
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedDataTarget {
@@ -14,25 +57,26 @@ pub struct GeneratedDataTarget {
 }
 
 impl GeneratedDataTarget {
+    // TODO: Remove
     #[must_use]
     pub fn as_unique_data(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         path: NbtPath,
-    ) -> (Self, NbtPath) {
-        let (unique_data, unique_path) = datapack.get_unique_data();
+    ) -> GeneratedData {
+        let data = datapack.get_unique_data();
 
         ctx.add_command(
             datapack,
             Command::Data(DataCommand::Modify(
-                unique_data.target.clone(),
-                unique_path.clone(),
+                data.target.target.clone(),
+                data.path.clone(),
                 DataCommandModificationMode::Set,
                 DataCommandModification::From(self.target, Some(path)),
             )),
         );
 
-        (unique_data, unique_path)
+        data
     }
 }

@@ -5,7 +5,7 @@ use crate::low::item::Item;
 use crate::low::pattern::UnresolvedPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
 use minecraft_command_types::command::Command;
-use minecraft_command_types::command::data::{DataCommand, DataCommandModificationMode};
+use minecraft_command_types::command::data::DataCommandModificationMode;
 use minecraft_command_types::command::execute::ExecuteSubcommand;
 use minecraft_command_types::command::r#return::ReturnCommand;
 
@@ -89,29 +89,23 @@ impl UnresolvedStatement {
                 let target = target.kind.resolve(datapack, ctx);
                 let value = value.kind.resolve(datapack, ctx);
 
-                let (target, path) = target.to_data(datapack, ctx, false);
+                let data = target.to_data(datapack, ctx, false);
 
                 let modification = value.as_data_command_modification(datapack, ctx);
 
-                ctx.add_command(
+                data.modify(
                     datapack,
-                    Command::Data(DataCommand::Modify(
-                        target.target,
-                        path,
-                        DataCommandModificationMode::Append,
-                        modification,
-                    )),
+                    ctx,
+                    DataCommandModificationMode::Append,
+                    modification,
                 );
             }
             Self::Remove(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let (target, path) = expression.to_data(datapack, ctx, false);
+                let data = expression.to_data(datapack, ctx, false);
 
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Remove(target.target, path)),
-                );
+                data.remove(datapack, ctx);
             }
             Self::Break => {
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));

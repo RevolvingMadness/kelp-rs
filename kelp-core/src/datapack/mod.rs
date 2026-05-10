@@ -1,5 +1,5 @@
 use crate::compile_context::CompileContext;
-use crate::data::GeneratedDataTarget;
+use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
 use crate::high::data::{DataTarget as HighDataTarget, DataTargetKind};
@@ -341,7 +341,7 @@ impl Datapack {
         }
     }
 
-    pub fn get_unique_data(&mut self) -> (GeneratedDataTarget, LowNbtPath) {
+    pub fn get_unique_data(&mut self) -> GeneratedData {
         let current_namespace_name = self.current_namespace_name();
 
         let target = DataTarget::Storage(ResourceLocation::new_namespace_path(
@@ -357,16 +357,16 @@ impl Datapack {
 
         self.used_data.push((target.clone(), path.clone()));
 
-        (
-            GeneratedDataTarget {
+        GeneratedData {
+            target: GeneratedDataTarget {
                 is_generated: true,
                 target,
             },
             path,
-        )
+        }
     }
 
-    pub fn get_unique_data_named(&self) -> (GeneratedDataTarget, LowNbtPath, String) {
+    pub fn get_unique_data_named(&self) -> (GeneratedData, String) {
         let current_namespace_name = self.current_namespace_name();
         let name = format!(
             "__kelp_{}_storage_{}__",
@@ -375,38 +375,21 @@ impl Datapack {
         );
 
         (
-            GeneratedDataTarget {
-                is_generated: true,
-                target: DataTarget::Storage(ResourceLocation::new_namespace_path(
-                    "__kelp_storages__",
-                    format!("__kelp_{}_storage__", current_namespace_name),
-                )),
+            GeneratedData {
+                target: GeneratedDataTarget {
+                    is_generated: true,
+                    target: DataTarget::Storage(ResourceLocation::new_namespace_path(
+                        "__kelp_storages__",
+                        format!("__kelp_{}_storage__", current_namespace_name),
+                    )),
+                },
+                path: LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
             },
-            LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
             name,
         )
     }
 
-    pub fn get_unique_data_both(&self) -> (HighDataTarget, DataTarget, LowNbtPath, String) {
-        let current_namespace_name = self.current_namespace_name();
-        let name = format!(
-            "__kelp_{}_storage_{}__",
-            current_namespace_name,
-            self.increment_counter()
-        );
-        let storage_location = ResourceLocation::new_namespace_path(
-            "__kelp_storages__",
-            format!("__kelp_{}_storage__", current_namespace_name),
-        );
-
-        (
-            DataTargetKind::Storage(storage_location.clone().regular_sigil()).with_generated_span(),
-            DataTarget::Storage(storage_location),
-            LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
-            name,
-        )
-    }
-
+    // TODO: Remove
     pub fn get_unique_data_with_path_name(&self) -> (DataTarget, LowNbtPath, SNBTString) {
         let current_namespace_name = self.current_namespace_name();
         let name = format!(

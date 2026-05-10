@@ -1,16 +1,13 @@
-use minecraft_command_types::{
-    command::{
-        Command,
-        data::DataCommand,
-        enums::store_type::StoreType,
-        execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
-    },
-    nbt_path::NbtPath,
+use minecraft_command_types::command::{
+    Command,
+    data::DataCommand,
+    enums::store_type::StoreType,
+    execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
 };
 
 use crate::{
     compile_context::CompileContext,
-    data::GeneratedDataTarget,
+    data::GeneratedData,
     datapack::Datapack,
     low::{
         data_type::resolved::FieldAccessType, environment::value::variable::VariableId,
@@ -24,7 +21,7 @@ use crate::{
 pub enum ResolvedPlaceExpression {
     Variable(VariableId),
     Score(GeneratedPlayerScore),
-    Data(GeneratedDataTarget, NbtPath),
+    Data(GeneratedData),
     FieldAccess(Box<Self>, FieldAccessType, String),
     Index(Box<Self>, ResolvedExpression),
 }
@@ -35,7 +32,7 @@ impl ResolvedPlaceExpression {
         match self {
             Self::Variable(id) => datapack.get_variable_value(id),
             Self::Score(score) => ResolvedExpression::Score(score),
-            Self::Data(target, path) => ResolvedExpression::Data(Box::new((target, path))),
+            Self::Data(data) => ResolvedExpression::Data(data),
             Self::FieldAccess(place, access_type, field) => place
                 .resolve(datapack, ctx)
                 .access_field(access_type, field)
@@ -57,8 +54,8 @@ impl ResolvedPlaceExpression {
             Self::Score(score) => {
                 value.assign_to_score(datapack, ctx, score);
             }
-            Self::Data(target, path) => {
-                value.assign_to_data(datapack, ctx, target, path);
+            Self::Data(data) => {
+                value.assign_to_data(datapack, ctx, data);
             }
             Self::FieldAccess(place, access_type, field) => {
                 let old_value = place.clone().resolve(datapack, ctx);
@@ -99,7 +96,7 @@ impl ResolvedPlaceExpression {
             Self::Score(score) => {
                 value.operate_on_score(datapack, ctx, score, operator);
             }
-            Self::Data(target, path) => {
+            Self::Data(data) => {
                 let unique_score = datapack.get_unique_score();
 
                 ctx.add_command(
@@ -109,7 +106,11 @@ impl ResolvedPlaceExpression {
                         ExecuteStoreSubcommand::Score(
                             unique_score.score.clone(),
                             Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(target.target.clone(), Some(path.clone()), None),
+                                DataCommand::Get(
+                                    data.target.target.clone(),
+                                    Some(data.path.clone()),
+                                    None,
+                                ),
                             )))),
                         ),
                     )),
@@ -117,7 +118,7 @@ impl ResolvedPlaceExpression {
 
                 value.operate_on_score(datapack, ctx, unique_score.clone(), operator);
 
-                unique_score.assign_to_data(datapack, ctx, target, path);
+                unique_score.assign_to_data(datapack, ctx, data);
             }
         }
     }

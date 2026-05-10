@@ -3,11 +3,10 @@ use crate::{
     datapack::Datapack,
     high::{environment::value::HighValueId, semantic_analysis::SemanticAnalysisContext},
     low::{
-        data::DataTarget,
+        data::Data,
         data_type::unresolved::UnresolvedDataType,
         environment::value::variable::VariableId,
         expression::{place::ResolvedPlaceExpression, unresolved::UnresolvedExpression},
-        nbt_path::NbtPath,
         player_score::PlayerScore,
     },
     span::Span,
@@ -17,7 +16,7 @@ use crate::{
 pub enum UnresolvedPlaceExpressionKind {
     Value(HighValueId, Vec<UnresolvedDataType>),
     Score(PlayerScore),
-    Data(DataTarget, NbtPath),
+    Data(Box<Data>),
     FieldAccess(Box<UnresolvedPlaceExpression>, String),
     Index(Box<UnresolvedPlaceExpression>, Box<UnresolvedExpression>),
     Dereference(Box<UnresolvedPlaceExpression>),
@@ -60,11 +59,10 @@ impl UnresolvedPlaceExpression {
 
                 ResolvedPlaceExpression::Score(score)
             }
-            UnresolvedPlaceExpressionKind::Data(target, path) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
+            UnresolvedPlaceExpressionKind::Data(data) => {
+                let data = data.compile(datapack, ctx);
 
-                ResolvedPlaceExpression::Data(target, path)
+                ResolvedPlaceExpression::Data(data)
             }
             UnresolvedPlaceExpressionKind::FieldAccess(place, field) => {
                 let access_type = place

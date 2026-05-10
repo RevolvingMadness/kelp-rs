@@ -128,8 +128,11 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     data_type.display(self.high_environment)
                 )
             }
+            SemanticAnalysisError::RecursiveFunctionCall => {
+                f.write_str("Function calls cannot be recursive")
+            }
             SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop => {
-                write!(f, "Cannot mutate a compile-time value in a runtime loop")
+                f.write_str("Cannot mutate a compile-time value in a runtime loop")
             }
             SemanticAnalysisError::MissingKey(key) => write!(f, "Missing key `{}`", key),
             SemanticAnalysisError::UnexpectedKey(key) => write!(f, "Unexpected key `{}`", key),
@@ -392,6 +395,7 @@ pub enum SemanticAnalysisError {
     UnknownRuntimeStorageType,
     ValueTooLarge(UnresolvedDataType),
     ValueTooSmall(UnresolvedDataType),
+    RecursiveFunctionCall,
     CompiletimeValueMutationInRuntimeLoop,
     MissingKey(String),
     UnexpectedKey(String),

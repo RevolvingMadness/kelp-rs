@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
@@ -18,7 +18,7 @@ use crate::{
         expression::block::BlockExpression,
         pattern::Pattern,
         semantic_analysis::{
-            FunctionContext, ResolvedItem, SemanticAnalysisContext,
+            FunctionContext, RegularFunctionModifiers, ResolvedItem, SemanticAnalysisContext,
             info::error::SemanticAnalysisError,
         },
         use_tree::UseTree,
@@ -115,11 +115,15 @@ impl Item {
                     parameter_types_are_runtime && return_type_is_runtime
                 };
 
-                let is_runtime = runtime_keyword_span.is_some() && all_types_are_runtime;
+                let modifiers = if runtime_keyword_span.is_some() {
+                    RegularFunctionModifiers::Runtime { recursive: false }
+                } else {
+                    RegularFunctionModifiers::None
+                };
 
                 let id = ctx.declare_regular_function(
                     self.visibility,
-                    is_runtime,
+                    modifiers.is_runtime(),
                     name,
                     generic_names.clone(),
                     parameter_types
@@ -128,7 +132,6 @@ impl Item {
                         .map(|parameter_type| (None, parameter_type))
                         .collect(),
                     return_type.clone(),
-                    None,
                 );
 
                 if let Some(runtime_keyword_span) = runtime_keyword_span
@@ -148,9 +151,15 @@ impl Item {
                 }
 
                 ctx.enter_scope();
-                ctx.function_contexts.push(FunctionContext {
-                    is_runtime,
+
+                let mut calls = HashSet::new();
+
+                calls.insert(id.into());
+
+                ctx.function_contexts.push(FunctionContext::Regular {
+                    modifiers,
                     return_type,
+                    calls,
                 });
 
                 let mut resolved_parameters = Vec::with_capacity(parameters.len());
@@ -174,8 +183,15 @@ impl Item {
                 let Some((body_span, tail_expression_span, body)) =
                     body.perform_semantic_analysis(ctx)
                 else {
-                    ctx.function_contexts.pop().unwrap();
+                    let context = ctx.function_contexts.pop().unwrap();
                     ctx.exit_scope();
+
+                    ctx.high_environment
+                        .update_regular_function(id, |declaration| {
+                            if let Some(calls) = context.get_calls() {
+                                declaration.calls = Some(calls.clone());
+                            }
+                        });
 
                     return None;
                 };
@@ -183,16 +199,30 @@ impl Item {
                 let context = ctx.function_contexts.pop().unwrap();
                 ctx.exit_scope();
 
+                ctx.high_environment
+                    .update_regular_function(id, |declaration| {
+                        if let Some(calls) = context.get_calls() {
+                            declaration.calls = Some(calls.clone());
+                        }
+                    });
+
                 if !body.kind.definitely_diverges() {
                     body.data_type.assert_equals(
                         ctx,
                         tail_expression_span.unwrap_or(body_span),
-                        &context.return_type,
+                        context.return_type(),
                     )?;
                 }
 
                 if resolved_all_parameters {
-                    ctx.update_regular_function(id, resolved_parameters, body);
+                    ctx.high_environment
+                        .update_regular_function(id, |declaration| {
+                            declaration.parameters = resolved_parameters
+                                .into_iter()
+                                .map(|(pattern, data_type)| (Some(pattern), data_type))
+                                .collect();
+                            declaration.body = Some(Box::new(body));
+                        });
                 } else {
                     return None;
                 }
@@ -200,8 +230,12 @@ impl Item {
                 MiddleItem::FunctionDeclaration
             }
             ItemKind::MCFNDeclaration(resource_location, body) => {
+                ctx.function_contexts.push(FunctionContext::MCFunction);
+
                 let (body_span, tail_expression_span, body) =
                     body.perform_semantic_analysis(ctx)?;
+
+                ctx.function_contexts.pop();
 
                 body.data_type.assert_equals(
                     ctx,

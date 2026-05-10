@@ -810,7 +810,7 @@ impl Datapack {
                     generic_types: resolved_generic_types,
                     parameters,
                     return_type,
-                    body,
+                    body: *body,
                 };
 
                 self.declare_monomorphized_function(id, module_path, visibility, declaration)

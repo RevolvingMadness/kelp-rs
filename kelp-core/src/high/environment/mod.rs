@@ -18,10 +18,7 @@ use crate::{
             variable::{HighVariableDeclaration, HighVariableId},
         },
     },
-    low::{
-        data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
-        pattern::UnresolvedPattern,
-    },
+    low::data_type::unresolved::UnresolvedDataType,
     visibility::Visibility,
 };
 
@@ -68,33 +65,25 @@ impl HighEnvironment {
         f(declaration);
     }
 
-    pub fn update_function(
+    pub fn update_regular_function(
         &mut self,
         id: HighRegularFunctionId,
-        new_parameters: Vec<(UnresolvedPattern, UnresolvedDataType)>,
-        new_body: UnresolvedExpression,
+        f: impl FnOnce(&mut HighRegularFunctionDeclaration),
     ) {
         self.update_value(id.into(), |declaration| {
             let HighValueDeclaration {
-                kind:
-                    HighValueDeclarationKind::Function(HighFunctionDeclaration::Regular(
-                        HighRegularFunctionDeclaration {
-                            parameters: old_parameters,
-                            body: old_body,
-                            ..
-                        },
-                    )),
+                kind: HighValueDeclarationKind::Function(declaration),
                 ..
             } = declaration
             else {
                 unreachable!("Value is not a function");
             };
 
-            *old_parameters = new_parameters
-                .into_iter()
-                .map(|(pattern, data_type)| (Some(pattern), data_type))
-                .collect();
-            *old_body = Some(new_body);
+            let HighFunctionDeclaration::Regular(declaration) = &mut **declaration else {
+                unreachable!("Function is not regular");
+            };
+
+            f(declaration);
         });
     }
 

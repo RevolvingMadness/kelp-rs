@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use strum::IntoEnumIterator;
@@ -20,7 +22,7 @@ use crate::{
             value::{
                 HighValueDeclaration, HighValueDeclarationKind, HighValueId,
                 function::{
-                    HighFunctionDeclaration,
+                    HighFunctionDeclaration, HighFunctionId,
                     builtin::{
                         BuiltinFunctionKind, HighBuiltinFunctionDeclaration, HighBuiltinFunctionId,
                     },
@@ -37,7 +39,6 @@ use crate::{
     low::{
         data_type::unresolved::UnresolvedDataType,
         environment::{Environment, value::variable::VariableId},
-        expression::unresolved::UnresolvedExpression,
         pattern::UnresolvedPattern,
     },
     path::{generic::GenericPath, regular::Path},
@@ -48,10 +49,86 @@ use crate::{
 pub mod info;
 pub mod scope;
 
+#[derive(Debug, Clone, Copy)]
+pub enum RegularFunctionModifiers {
+    None,
+    Runtime { recursive: bool },
+}
+
+impl RegularFunctionModifiers {
+    #[must_use]
+    pub const fn is_recursive(self) -> bool {
+        match self {
+            Self::None => false,
+            Self::Runtime { recursive } => recursive,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_runtime(self) -> bool {
+        matches!(self, Self::Runtime { .. })
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct FunctionContext {
-    pub is_runtime: bool,
-    pub return_type: UnresolvedDataType,
+pub enum FunctionContext {
+    Regular {
+        modifiers: RegularFunctionModifiers,
+        return_type: UnresolvedDataType,
+        calls: HashSet<HighFunctionId>,
+    },
+    MCFunction,
+}
+
+impl FunctionContext {
+    #[must_use]
+    pub fn calls(&self, id: &HighFunctionId) -> bool {
+        match self {
+            Self::Regular { calls, .. } => calls.contains(id),
+            Self::MCFunction => false,
+        }
+    }
+
+    #[must_use]
+    pub const fn get_calls(&self) -> Option<&HashSet<HighFunctionId>> {
+        match self {
+            Self::Regular { calls, .. } => Some(calls),
+            Self::MCFunction => None,
+        }
+    }
+
+    pub fn add_call(&mut self, id: HighFunctionId) {
+        match self {
+            Self::Regular { calls, .. } => {
+                calls.insert(id);
+            }
+            Self::MCFunction => {}
+        }
+    }
+
+    #[must_use]
+    pub const fn is_recursive(&self) -> Option<bool> {
+        match self {
+            Self::Regular { modifiers, .. } => Some(modifiers.is_recursive()),
+            Self::MCFunction { .. } => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_runtime(&self) -> Option<bool> {
+        match self {
+            Self::Regular { modifiers, .. } => Some(modifiers.is_runtime()),
+            Self::MCFunction { .. } => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn return_type(&self) -> &UnresolvedDataType {
+        match self {
+            Self::Regular { return_type, .. } => return_type,
+            Self::MCFunction => &UnresolvedDataType::Integer,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -429,32 +506,23 @@ impl SemanticAnalysisContext {
         generic_names: Vec<String>,
         parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
         return_type: UnresolvedDataType,
-        body: Option<UnresolvedExpression>,
     ) -> HighRegularFunctionId {
         let id = self.declare_value(
             visibility,
-            HighValueDeclarationKind::Function(HighFunctionDeclaration::Regular(
+            HighValueDeclarationKind::Function(Box::new(HighFunctionDeclaration::Regular(
                 HighRegularFunctionDeclaration {
                     name,
                     is_runtime,
                     generic_names,
                     parameters,
                     return_type,
-                    body,
+                    body: None,
+                    calls: None,
                 },
-            )),
+            ))),
         );
 
         HighRegularFunctionId(id.0)
-    }
-
-    pub fn update_regular_function(
-        &mut self,
-        id: HighRegularFunctionId,
-        parameters: Vec<(UnresolvedPattern, UnresolvedDataType)>,
-        body: UnresolvedExpression,
-    ) {
-        self.high_environment.update_function(id, parameters, body);
     }
 
     pub fn declare_builtin_function(
@@ -464,7 +532,9 @@ impl SemanticAnalysisContext {
     ) -> HighBuiltinFunctionId {
         let id = self.declare_value(
             visibility,
-            HighValueDeclarationKind::Function(HighFunctionDeclaration::Builtin(declaration)),
+            HighValueDeclarationKind::Function(Box::new(HighFunctionDeclaration::Builtin(
+                declaration,
+            ))),
         );
 
         HighBuiltinFunctionId(id.0)

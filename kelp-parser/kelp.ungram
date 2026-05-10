@@ -2,44 +2,73 @@ Root =
   Item*
 
 // ----- Item -----
-Item = 'pub'? ItemKind
+Item =
+  'pub'? ItemKind
 
-ItemKind = ModuleDeclarationItem
-  | UseItem
-  | FunctionDeclarationItem
-  | MCFNDeclarationItem
-  | StructStructDeclarationItem
-  | TupleStructDeclarationItem
-  | TypeAliasDeclarationItem
+ItemKind =
+  ModuleDeclarationItem
+| UseItem
+| FunctionDeclarationItem
+| MCFNDeclarationItem
+| StructStructDeclarationItem
+| TupleStructDeclarationItem
+| TypeAliasDeclarationItem
 
-ModuleDeclarationItem = 'mod' 'module_name' '{' Item* '}'
+ModuleDeclarationItem =
+  'mod' 'module_name' '{' Item* '}'
 
-UseItem = 'use' UseTree
+UseItem =
+  'use' UseTree
 
-UseTree = WildcardUseTree
-        | GroupUseTree
-        | AsUseTree
-        | PathUseTree
+UseTree =
+  WildcardUseTree | GroupUseTree | AsUseTree | PathUseTree
 
-WildcardUseTree = Path '::' '*'
-GroupUseTree = (Path? '::')? '{' (UseTree (',' UseTree)* ','?)? '}'
-AsUseTree = Path 'as' 'ident'
-PathUseTree = Path
+WildcardUseTree =
+  Path '::' '*'
 
-FunctionDeclarationItem = 'runtime'? 'fn' name:'function_name' GenericNames '(' (parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?)? ')' ('->' DataType)? BlockExpression
+GroupUseTree =
+  (Path? '::')? '{' (UseTree (',' UseTree)* ','?)? '}'
 
-FunctionParameter = Pattern ':' DataType
+AsUseTree =
+  Path 'as' 'ident'
+
+PathUseTree =
+  Path
+
+FunctionDeclarationItem =
+  'runtime'?
+  'fn'
+  name:'function_name'
+  GenericNames
+  '('
+  (parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?)?
+  ')'
+  ('->' DataType)?
+  BlockExpression
+
+FunctionParameter =
+  Pattern ':' DataType
 
 MCFNDeclarationItem =
   'mcfn' ResourceLocation BlockExpression
 
-StructStructDeclarationItem = 'struct' name:'type_name' GenericNames? '{' StructFields? '}'
-StructFields = (StructField (',' StructField)*) ','?
-StructField = name:'struct_field_name' ':' DataType
+StructStructDeclarationItem =
+  'struct' name:'type_name' GenericNames? '{' StructFields? '}'
 
-TupleStructDeclarationItem = 'struct' name:'type_name' GenericNames? '(' TupleFields? ')'
-TupleFields = (TupleField (',' TupleField)*) ','?
-TupleField = DataType
+StructFields =
+  (StructField (',' StructField)*) ','?
+
+StructField =
+  name:'struct_field_name' ':' DataType
+
+TupleStructDeclarationItem =
+  'struct' name:'type_name' GenericNames? '(' TupleFields? ')'
+
+TupleFields =
+  (TupleField (',' TupleField)*) ','?
+
+TupleField =
+  DataType
 
 TypeAliasDeclarationItem =
   'type' name:'data_type_name' GenericNames? '=' DataType
@@ -55,31 +84,36 @@ Statement =
 | ItemStatement
 
 ExpressionStatement =
-  (ExpressionWithoutBlock ';')
-| (ExpressionWithBlock ';'?)
+  (ExpressionWithoutBlock ';') | (ExpressionWithBlock ';'?)
 
 LetStatement =
   'let' Pattern (':' DataType)? '=' Expression
 
-BreakStatement = 'break'
+BreakStatement =
+  'break'
 
-ContinueStatement = 'continue'
+ContinueStatement =
+  'continue'
 
-AppendStatement = 'append' target:Expression value:Expression
+AppendStatement =
+  'append' target:Expression value:Expression
 
-RemoveStatement = 'remove' target:Expression
+RemoveStatement =
+  'remove' target:Expression
 
-ItemStatement = Item
+ItemStatement =
+  Item
 
 // ----- Generics -----
-GenericNames = '<' (generics:'data_type_name' (',' generics:'data_type_name')*)? '>'
+GenericNames =
+  '<' (generics:'data_type_name' (',' generics:'data_type_name')*)? '>'
 
-GenericDataTypes = '<' (generics:DataType (',' generics:DataType)*)? '>'
+GenericDataTypes =
+  '<' (generics:DataType (',' generics:DataType)*)? '>'
 
 // ----- Expression -----
 Expression =
-  ExpressionWithoutBlock
-| ExpressionWithBlock
+  ExpressionWithoutBlock | ExpressionWithBlock
 
 ExpressionWithoutBlock =
   PathExpression
@@ -111,17 +145,13 @@ ExpressionWithoutBlock =
 | CoordinatesExpression
 
 ExpressionWithBlock =
-  BlockExpression
-| LoopExpression
-| IfExpression
+  BlockExpression | LoopExpression | IfExpression
 
 BlockExpression =
   '{' Statement* '}'
 
 LoopExpression =
-  PredicateLoopExpression
-| InfiniteLoopExpression
-| IteratorLoopExpression
+  PredicateLoopExpression | InfiniteLoopExpression | IteratorLoopExpression
 
 PredicateLoopExpression =
   'while' Expression BlockExpression
@@ -133,11 +163,16 @@ IteratorLoopExpression =
   'for' Pattern 'in' Expression BlockExpression
 
 IfExpression =
-  'if' condition:Expression body:BlockExpression ('else' (else_body_block:BlockExpression | else_body_if:IfExpression))?
+  'if'
+  condition:Expression
+  body:BlockExpression
+  ('else' (else_body_block:BlockExpression | else_body_if:IfExpression))?
 
-PathExpression = GenericPath
+PathExpression =
+  GenericPath
 
-UnderscoreExpression = '_'
+UnderscoreExpression =
+  '_'
 
 UnaryExpression =
   operator:('!' | '-' | '*' | '&') Expression
@@ -173,7 +208,8 @@ BinaryExpression =
 DataExpression =
   DataTarget NBTPath?
 
-ScoreExpression = PlayerScore
+ScoreExpression =
+  PlayerScore
 
 BooleanExpression =
   'true' | 'false'
@@ -184,9 +220,11 @@ NumericExpression =
 UnitExpression =
   '(' ')'
 
-CallExpression = callee:Expression '(' CallArguments ')'
+CallExpression =
+  callee:Expression '(' CallArguments ')'
 
-CallArguments = (Expression (',' Expression)* ','?)?
+CallArguments =
+  (Expression (',' Expression)* ','?)?
 
 ParenthesizedExpression =
   '(' Expression ')'
@@ -209,9 +247,14 @@ TupleExpression =
 ListExpression =
   '[' (expressions:Expression (',' expressions:Expression)*)? ']'
 
-StructExpression = GenericPath '{' StructExpressionFields? '}'
-StructExpressionFields = StructExpressionField (',' StructExpressionField)* ','?
-StructExpressionField = name:('struct_field_name' | 'whole_value') ':' Expression
+StructExpression =
+  GenericPath '{' StructExpressionFields? '}'
+
+StructExpressionFields =
+  StructExpressionField (',' StructExpressionField)* ','?
+
+StructExpressionField =
+  name:('struct_field_name' | 'whole_value') ':' Expression
 
 CompoundExpression =
   '{'
@@ -225,21 +268,26 @@ CompoundExpression =
 CompoundExpressionEntry =
   name:'compound_key' ':' value:Expression
 
-IndexExpression = Expression '[' Expression ']'
+IndexExpression =
+  Expression '[' Expression ']'
 
-FieldAccessExpression = Expression '.' 'field_name'
+FieldAccessExpression =
+  Expression '.' 'field_name'
 
-ResourceLocationExpression = 'resource_location' ':' ResourceLocation
+ResourceLocationExpression =
+  'resource_location' ':' ResourceLocation
 
-EntitySelectorExpression = 'entity_selector' ':' EntitySelector
+EntitySelectorExpression =
+  'entity_selector' ':' EntitySelector
 
-CoordinatesExpression = 'coordinates' ':' Coordinates
+CoordinatesExpression =
+  'coordinates' ':' Coordinates
 
-ReturnExpression = 'return' Expression?
+ReturnExpression =
+  'return' Expression?
 
 // ----- Command Expression -----
-
-CommandExpression = 
+CommandExpression =
   TellrawCommandExpression
 | FunctionCommandExpression
 | StopwatchCommandExpression
@@ -250,7 +298,8 @@ TellrawCommandExpression =
 FunctionCommandExpression =
   'function' ResourceLocation
 
-StopwatchCommandExpression = 'stopwatch' StopwatchCommandExpressionOptions
+StopwatchCommandExpression =
+  'stopwatch' StopwatchCommandExpressionOptions
 
 StopwatchCommandExpressionOptions =
   StopwatchCommandExpressionCreate
@@ -258,17 +307,21 @@ StopwatchCommandExpressionOptions =
 | StopwatchCommandExpressionRemove
 | StopwatchCommandExpressionRestart
 
-StopwatchCommandExpressionCreate = 'create' ResourceLocation
+StopwatchCommandExpressionCreate =
+  'create' ResourceLocation
 
-StopwatchCommandExpressionQuery = 'query' ResourceLocation 'fractional_value'?
+StopwatchCommandExpressionQuery =
+  'query' ResourceLocation 'fractional_value'?
 
-StopwatchCommandExpressionRemove = 'remove' ResourceLocation
+StopwatchCommandExpressionRemove =
+  'remove' ResourceLocation
 
-StopwatchCommandExpressionRestart = 'restart' ResourceLocation
+StopwatchCommandExpressionRestart =
+  'restart' ResourceLocation
 
 // ----- Expression Sigil -----
-
-ExpressionSigil = '$' Expression
+ExpressionSigil =
+  '$' Expression
 
 // ----- Pattern -----
 Pattern =
@@ -287,19 +340,32 @@ WildcardPattern =
 TuplePattern =
   '(' patterns:Pattern? (',' patterns:Pattern)* ')'
 
-BindingPattern = GenericPath
+BindingPattern =
+  GenericPath
 
-ScorePattern = PlayerScore
+ScorePattern =
+  PlayerScore
 
-DataPattern = Data
+DataPattern =
+  Data
 
-StructStructPattern = GenericPath '{' StructStructPatternFields? '}'
-StructStructPatternFields = StructStructPatternField (',' StructStructPatternField)* ','?
-StructStructPatternField = 'struct_field_name' (':' pattern:Pattern)?
+StructStructPattern =
+  GenericPath '{' StructStructPatternFields? '}'
 
-TupleStructPattern = GenericPath '(' TupleStructPatternFields? ')'
-TupleStructPatternFields = TupleStructPatternField (',' TupleStructPatternField)* ','?
-TupleStructPatternField = Pattern
+StructStructPatternFields =
+  StructStructPatternField (',' StructStructPatternField)* ','?
+
+StructStructPatternField =
+  'struct_field_name' (':' pattern:Pattern)?
+
+TupleStructPattern =
+  GenericPath '(' TupleStructPatternFields? ')'
+
+TupleStructPatternFields =
+  TupleStructPatternField (',' TupleStructPatternField)* ','?
+
+TupleStructPatternField =
+  Pattern
 
 CompoundPattern =
   '{'
@@ -328,7 +394,8 @@ TupleDataType =
 UnitDataType =
   '(' ')'
 
-NeverDataType = '!'
+NeverDataType =
+  '!'
 
 TypedCompoundDataType =
   '{'
@@ -342,9 +409,11 @@ TypedCompoundDataType =
 TypedCompoundDataTypeField =
   name:'typed_compound_data_type_field_name' (':' DataType)?
 
-PathDataType = GenericPath
+PathDataType =
+  GenericPath
 
-InferredDataType = '_'
+InferredDataType =
+  '_'
 
 // ----- NBT Path -----
 NBTPath =
@@ -376,7 +445,8 @@ StorageDataTarget =
   'storage' ResourceLocation
 
 // ----- Entity Selector -----
-EntitySelector = ActualEntitySelector | ExpressionSigil
+EntitySelector =
+  ActualEntitySelector | ExpressionSigil
 
 ActualEntitySelector =
   VariableEntitySelector | NameEntitySelector
@@ -388,9 +458,11 @@ NameEntitySelector =
   'ident'
 
 // ----- Resource Location -----
-ResourceLocation = ActualResourceLocation | ExpressionSigil
+ResourceLocation =
+  ActualResourceLocation | ExpressionSigil
 
-ActualResourceLocation = '#'? (namespace:ResourceLocationNamespace ':')? path:ResourceLocationPath
+ActualResourceLocation =
+  '#'? (namespace:ResourceLocationNamespace ':')? path:ResourceLocationPath
 
 ResourceLocationNamespace =
   'ident'
@@ -403,11 +475,14 @@ ResourceLocationPathSegment =
   'ident'
 
 // ----- Coordinates -----
-Coordinates = ActualCoordinates | ExpressionSigil
+Coordinates =
+  ActualCoordinates | ExpressionSigil
 
-ActualCoordinates = WorldCoordinates | LocalCoordinates
+ActualCoordinates =
+  WorldCoordinates | LocalCoordinates
 
-WorldCoordinates = WorldCoordinate WorldCoordinate WorldCoordinate
+WorldCoordinates =
+  WorldCoordinate WorldCoordinate WorldCoordinate
 
 WorldCoordinate =
   ('~' | '^')? Expression
@@ -419,19 +494,22 @@ LocalCoordinate =
   ('~' | '^')? Expression
 
 // ----- Player Score -----
-
-PlayerScore = 'score' EntitySelector 'scoreboard_objective'
+PlayerScore =
+  'score' EntitySelector 'scoreboard_objective'
 
 // ----- Data -----
-
-Data = DataTarget NBTPath
+Data =
+  DataTarget NBTPath
 
 // ----- Path -----
+GenericPath =
+  '::'? GenericPathSegment ('::' GenericPathSegment)*
 
-GenericPath = '::'? GenericPathSegment ('::' GenericPathSegment)*
+GenericPathSegment =
+  'path_identifier' ('::' GenericDataTypes)?
 
-GenericPathSegment = 'path_identifier' ('::' GenericDataTypes)?
+Path =
+  '::'? PathSegment ('::' PathSegment)*
 
-Path = '::'? PathSegment ('::' PathSegment)*
-
-PathSegment = 'path_identifier'
+PathSegment =
+  'path_identifier'

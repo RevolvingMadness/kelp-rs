@@ -773,6 +773,17 @@ impl Expression {
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
 
+                if let Some(id) = call_info.id {
+                    let context = ctx.function_contexts.last_mut().unwrap();
+
+                    if context.is_recursive() == Some(false) && context.calls(&id) {
+                        return ctx
+                            .add_error(callee_span, SemanticAnalysisError::RecursiveFunctionCall);
+                    }
+
+                    context.add_call(id);
+                }
+
                 let parameter_count = call_info.parameter_types.len();
                 let argument_count = arguments.len();
 
@@ -1017,13 +1028,15 @@ impl Expression {
                     None => UnresolvedExpressionKind::Unit.with(UnresolvedDataType::Unit),
                 };
 
-                if let Some(context) = ctx.function_contexts.last()
-                    && !expression.data_type.equals(&context.return_type)
-                {
+                let context = ctx.function_contexts.last().unwrap();
+
+                let return_type = context.return_type();
+
+                if !expression.data_type.equals(return_type) {
                     return ctx.add_error(
                         expression_span,
                         SemanticAnalysisError::MismatchedTypes {
-                            expected: context.return_type.clone(),
+                            expected: return_type.clone(),
                             actual: expression.data_type,
                         },
                     );
@@ -1031,7 +1044,9 @@ impl Expression {
 
                 let context = ctx.function_contexts.last().unwrap();
 
-                if !context.is_runtime {
+                if let Some(is_runtime) = context.is_runtime()
+                    && !is_runtime
+                {
                     return ctx.add_error(
                         keyword_span,
                         SemanticAnalysisError::CannotUseReturnInCompiletimeFunction,

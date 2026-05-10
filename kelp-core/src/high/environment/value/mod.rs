@@ -47,7 +47,7 @@ impl From<HighBuiltinFunctionId> for HighValueId {
 #[derive(Debug, Clone)]
 pub enum HighValueDeclarationKind {
     Variable(HighVariableDeclaration),
-    Function(HighFunctionDeclaration),
+    Function(Box<HighFunctionDeclaration>),
 }
 
 impl HighValueDeclarationKind {

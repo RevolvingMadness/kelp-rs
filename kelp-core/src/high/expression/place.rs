@@ -87,7 +87,7 @@ impl UnresolvedPlaceExpression {
             }
             UnresolvedPlaceExpressionKind::Dereference(place) => place
                 .resolve(datapack, ctx)
-                .resolve(datapack)
+                .resolve(datapack, ctx)
                 .dereference_place()
                 .unwrap(),
         }

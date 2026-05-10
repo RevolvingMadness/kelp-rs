@@ -662,7 +662,10 @@ impl UnresolvedExpressionKind {
             Self::Dereference(place) => {
                 let place = place.resolve(datapack, ctx);
 
-                place.resolve(datapack).dereference(datapack, ctx).unwrap()
+                place
+                    .resolve(datapack, ctx)
+                    .dereference(datapack, ctx)
+                    .unwrap()
             }
             Self::Arithmetic(left, operator, right) => {
                 let left = left.kind.resolve(datapack, ctx);
@@ -750,13 +753,13 @@ impl UnresolvedExpressionKind {
                 let target = target.resolve(datapack, ctx);
                 let index = index.kind.resolve(datapack, ctx);
 
-                target.resolve(datapack).index(&index).unwrap()
+                target.resolve(datapack, ctx).index(ctx, index).unwrap()
             }
             Self::FieldAccess(target, field) => {
                 let target = target.resolve(datapack, ctx);
 
                 target
-                    .resolve(datapack)
+                    .resolve(datapack, ctx)
                     .access_field(FieldAccessType::Name, field)
                     .unwrap()
             }

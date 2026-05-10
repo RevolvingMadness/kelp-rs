@@ -31,16 +31,16 @@ pub enum ResolvedPlaceExpression {
 
 impl ResolvedPlaceExpression {
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack) -> ResolvedExpression {
+    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ResolvedExpression {
         match self {
             Self::Variable(id) => datapack.get_variable_value(id),
             Self::Score(score) => ResolvedExpression::Score(score),
             Self::Data(target, path) => ResolvedExpression::Data(Box::new((target, path))),
             Self::FieldAccess(place, access_type, field) => place
-                .resolve(datapack)
+                .resolve(datapack, ctx)
                 .access_field(access_type, field)
                 .unwrap(),
-            Self::Index(place, index) => place.resolve(datapack).index(&index).unwrap(),
+            Self::Index(place, index) => place.resolve(datapack, ctx).index(ctx, index).unwrap(),
         }
     }
 
@@ -61,7 +61,7 @@ impl ResolvedPlaceExpression {
                 value.assign_to_data(datapack, ctx, target, path);
             }
             Self::FieldAccess(place, access_type, field) => {
-                let old_value = place.clone().resolve(datapack);
+                let old_value = place.clone().resolve(datapack, ctx);
 
                 let new_value = old_value.set_field(datapack, ctx, access_type, field, value);
 
@@ -70,9 +70,9 @@ impl ResolvedPlaceExpression {
                 }
             }
             Self::Index(place, index) => {
-                let old_value = place.clone().resolve(datapack);
+                let old_value = place.clone().resolve(datapack, ctx);
 
-                let new_value = old_value.set_index(datapack, ctx, &index, value);
+                let new_value = old_value.set_index(datapack, ctx, index, value);
 
                 if let Some(new_value) = new_value {
                     place.assign(datapack, ctx, new_value);
@@ -90,7 +90,7 @@ impl ResolvedPlaceExpression {
     ) {
         match self {
             Self::Variable(_) | Self::FieldAccess(..) | Self::Index(..) => {
-                let old_value = self.clone().resolve(datapack);
+                let old_value = self.clone().resolve(datapack, ctx);
 
                 let new_value = old_value.perform_arithmetic(datapack, ctx, operator, value);
 

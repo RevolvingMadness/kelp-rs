@@ -518,7 +518,7 @@ impl ResolvedExpression {
     #[must_use]
     pub fn dereference(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Option<Self> {
         Some(match self {
-            Self::Reference(place) => place.resolve(datapack),
+            Self::Reference(place) => place.resolve(datapack, ctx),
 
             Self::Score(score) => {
                 let unique_score = datapack.get_unique_score();
@@ -2465,7 +2465,7 @@ impl ResolvedExpression {
         mut self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        index: &Self,
+        index: Self,
         value: Self,
     ) -> Option<Self> {
         match self {
@@ -2474,19 +2474,19 @@ impl ResolvedExpression {
                     unreachable!();
                 };
 
-                items[*index as usize] = value;
+                items[index as usize] = value;
             }
 
             Self::Data(target_path) => {
-                let Self::Integer(index) = index else {
-                    unreachable!();
-                };
+                let index = index.as_snbt_macros(ctx);
 
                 let (target, path) = *target_path;
 
-                let node = NbtPathNode::Index(Some(SNBT::macroable_integer(*index)));
+                let node = NbtPathNode::Index(Some(index));
 
-                value.assign_to_data(datapack, ctx, target, path.with_node(node));
+                let path = path.with_node(node);
+
+                value.assign_to_data(datapack, ctx, target, path);
 
                 return None;
             }
@@ -2498,7 +2498,7 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn index(self, index: &Self) -> Option<Self> {
+    pub fn index(self, ctx: &mut CompileContext, index: Self) -> Option<Self> {
         match self {
             Self::List(mut items) => {
                 let Self::Integer(index) = index else {
@@ -2508,8 +2508,19 @@ impl ResolvedExpression {
                 if items.is_empty() {
                     None
                 } else {
-                    Some(items.remove(*index as usize))
+                    Some(items.remove(index as usize))
                 }
+            }
+            Self::Data(target_path) => {
+                let index = index.as_snbt_macros(ctx);
+
+                let (target, path) = *target_path;
+
+                let node = NbtPathNode::Index(Some(index));
+
+                let path = path.with_node(node);
+
+                Some(Self::Data(Box::new((target, path))))
             }
 
             _ => None,

@@ -1308,7 +1308,10 @@ impl UnresolvedDataType {
             return ctx.add_error(span, SemanticAnalysisError::CannotBeIndexed(self.clone()));
         };
 
-        if !index_type.equals(&preferred_index_type) {
+        let (_, index_type) = index_type.unwrap();
+        let (_, preferred_index_type) = preferred_index_type.unwrap();
+
+        if !index_type.equals(preferred_index_type) {
             return ctx.add_error(
                 span,
                 SemanticAnalysisError::CannotBeIndexedByType {

@@ -36,6 +36,7 @@ PathUseTree =
   Path
 
 FunctionDeclarationItem =
+  'recursive'?
   'runtime'?
   'fn'
   name:'function_name'

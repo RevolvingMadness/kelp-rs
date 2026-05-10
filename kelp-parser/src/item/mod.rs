@@ -53,7 +53,7 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
     match identifier {
         "use" => try_parse_use_item_kind(parser),
         "mod" => try_parse_module_declaration_item_kind(parser),
-        "runtime" | "fn" => try_parse_function_declaration_item_kind(parser),
+        "recursive" | "runtime" | "fn" => try_parse_function_declaration_item_kind(parser),
         "mcfn" => try_parse_mcfn_declaration_item_kind(parser),
         "struct" => try_parse_struct_declaration_item_kind(parser),
         "type" => try_parse_type_alias_declaration_item_kind(parser),
@@ -84,7 +84,7 @@ pub fn expect_item_kind(parser: &mut Parser) {
     match identifier {
         "use" => expect_use_item_kind(parser),
         "mod" => expect_module_declaration_item_kind(parser),
-        "runtime" | "fn" => expect_function_declaration_item_kind(parser),
+        "recursive" | "runtime" | "fn" => expect_function_declaration_item_kind(parser),
         "mcfn" => expect_mcfn_declaration_item_kind(parser),
         "struct" => expect_struct_declaration_item_kind(parser),
         "type" => expect_type_alias_declaration_item_kind(parser),

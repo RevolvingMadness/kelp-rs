@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use crate::{
-    high::environment::value::function::HighFunctionId,
+    high::{
+        environment::value::function::HighFunctionId, semantic_analysis::RegularFunctionModifiers,
+    },
     low::{
         data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
         pattern::UnresolvedPattern,
@@ -14,7 +16,7 @@ pub struct HighRegularFunctionId(pub u32);
 #[derive(Debug, Clone)]
 pub struct HighRegularFunctionDeclaration {
     pub name: String,
-    pub is_runtime: bool,
+    pub modifiers: RegularFunctionModifiers,
     pub generic_names: Vec<String>,
     pub parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
     pub return_type: UnresolvedDataType,

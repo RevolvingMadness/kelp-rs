@@ -16,7 +16,13 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.error {
             SemanticAnalysisError::FunctionTypesNotAllRuntime => {
-                f.write_str("A function can only be marked as `runtime` if all of its parameter and return types are runtime")
+                f.write_str("Every type in a `runtime` function signature must be runtime")
+            }
+            SemanticAnalysisError::FunctionTypesNotAllData => {
+                f.write_str("Every type in a `recursive` function signature must be `data<_>`")
+            }
+            SemanticAnalysisError::RecursiveFunctionNotRuntime => {
+                f.write_str("A `recursive` function must also be marked `runtime`")
             }
             SemanticAnalysisError::CannotPerformArithmeticOperation {
                 left,
@@ -363,6 +369,8 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
     FunctionTypesNotAllRuntime,
+    FunctionTypesNotAllData,
+    RecursiveFunctionNotRuntime,
     CannotPerformArithmeticOperation {
         left: UnresolvedDataType,
         operator: ArithmeticOperator,

@@ -501,7 +501,7 @@ impl SemanticAnalysisContext {
     pub fn declare_regular_function(
         &mut self,
         visibility: Visibility,
-        is_runtime: bool,
+        modifiers: RegularFunctionModifiers,
         name: String,
         generic_names: Vec<String>,
         parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
@@ -512,7 +512,7 @@ impl SemanticAnalysisContext {
             HighValueDeclarationKind::Function(Box::new(HighFunctionDeclaration::Regular(
                 HighRegularFunctionDeclaration {
                     name,
-                    is_runtime,
+                    modifiers,
                     generic_names,
                     parameters,
                     return_type,

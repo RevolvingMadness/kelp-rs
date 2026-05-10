@@ -806,7 +806,7 @@ impl Datapack {
                     module_paths: module_path.clone(),
                     visibility,
                     name: declaration.name,
-                    is_runtime: declaration.is_runtime,
+                    modifiers: declaration.modifiers,
                     generic_types: resolved_generic_types,
                     parameters,
                     return_type,

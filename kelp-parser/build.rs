@@ -511,6 +511,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "function_name" => "FunctionName",
         "coordinates" => "CoordinatesKeyword",
         "runtime" => "RuntimeKeyword",
+        "recursive" => "RecursiveKeyword",
         _ => todo!("{:?}", token),
     }
 }

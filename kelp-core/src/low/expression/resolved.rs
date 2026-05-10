@@ -32,6 +32,7 @@ use crate::{
         CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
         RuntimeFunction,
     },
+    high::semantic_analysis::RegularFunctionModifiers,
     low::{
         data_type::{
             resolved::{FieldAccessType, ResolvedDataType},
@@ -199,7 +200,7 @@ fn compile_compiletime_function(
 }
 
 #[must_use]
-fn compile_runtime_function(
+fn compile_regular_runtime_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
@@ -285,39 +286,66 @@ fn compile_runtime_function(
 }
 
 #[must_use]
+fn compile_recursive_runtime_function(
+    datapack: &mut Datapack,
+    ctx: &mut CompileContext,
+    id: FunctionId,
+    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    arguments: Vec<(GeneratedDataTarget, NbtPath)>,
+    body: UnresolvedExpression,
+) -> ResolvedExpression {
+    todo!("Implement recursive runtime functions")
+}
+
+#[must_use]
 #[allow(clippy::too_many_arguments)]
 fn compile_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
-    is_runtime: bool,
+    modifiers: RegularFunctionModifiers,
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
     arguments: Vec<ResolvedExpression>,
     body: UnresolvedExpression,
     return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
-    if is_runtime {
-        let argument_targets = arguments
-            .into_iter()
-            .map(|argument| argument.to_runtime_storage_target().unwrap())
-            .collect();
-
-        compile_runtime_function(
-            datapack,
-            ctx,
-            id,
-            parameters,
-            argument_targets,
-            body,
-            return_runtime_storage_type,
-        )
-    } else {
-        compile_compiletime_function(
+    let RegularFunctionModifiers::Runtime { recursive } = modifiers else {
+        return compile_compiletime_function(
             datapack,
             ctx,
             id,
             parameters,
             arguments,
+            body,
+            return_runtime_storage_type,
+        );
+    };
+
+    if recursive {
+        let argument_datas = arguments
+            .into_iter()
+            .map(|argument| {
+                let ResolvedExpression::Data(target_path) = argument else {
+                    unreachable!();
+                };
+
+                *target_path
+            })
+            .collect();
+
+        compile_recursive_runtime_function(datapack, ctx, id, parameters, argument_datas, body)
+    } else {
+        let argument_targets = arguments
+            .into_iter()
+            .map(|argument| argument.to_runtime_storage_target().unwrap())
+            .collect();
+
+        compile_regular_runtime_function(
+            datapack,
+            ctx,
+            id,
+            parameters,
+            argument_targets,
             body,
             return_runtime_storage_type,
         )
@@ -500,7 +528,7 @@ impl ResolvedExpression {
                         datapack,
                         ctx,
                         id,
-                        declaration.is_runtime,
+                        declaration.modifiers,
                         declaration.parameters.clone(),
                         arguments,
                         declaration.body.clone(),

@@ -1,4 +1,5 @@
 use crate::{
+    high::semantic_analysis::RegularFunctionModifiers,
     low::{
         data_type::resolved::ResolvedDataType, expression::unresolved::UnresolvedExpression,
         pattern::UnresolvedPattern,
@@ -13,7 +14,7 @@ pub struct RegularFunctionId(pub u32);
 pub struct RegularFunctionDeclaration {
     pub module_paths: Vec<String>,
     pub visibility: Visibility,
-    pub is_runtime: bool,
+    pub modifiers: RegularFunctionModifiers,
     pub name: String,
     pub generic_types: Vec<ResolvedDataType>,
     pub parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,

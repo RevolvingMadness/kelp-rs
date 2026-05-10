@@ -32,6 +32,7 @@ use crate::{
 pub enum ItemKind {
     ModuleDeclaration(Span, String, Vec<Item>),
     FunctionDeclaration {
+        recursive_keyword_span: Option<Span>,
         runtime_keyword_span: Option<Span>,
         name_span: Span,
         name: String,
@@ -85,13 +86,14 @@ impl Item {
                 MiddleItem::ModuleDeclaration
             }
             ItemKind::FunctionDeclaration {
+                recursive_keyword_span,
                 runtime_keyword_span,
+                name_span: _,
                 name,
                 generic_names,
                 parameters,
                 return_type,
                 body,
-                ..
             } => {
                 let parameter_types = parameters
                     .iter()
@@ -104,26 +106,72 @@ impl Item {
 
                 let return_type = return_type.resolve_partially(Some(&generic_names), ctx);
 
-                let all_types_are_runtime = {
-                    let parameter_types_are_runtime = parameter_types
-                        .iter()
-                        .all(|t| !matches!(t.is_compiletime(), Some(true)));
+                let mut failed = false;
 
-                    let return_type_is_runtime =
-                        !matches!(return_type.is_compiletime(), Some(true));
+                if let Some(runtime_keyword_span) = runtime_keyword_span {
+                    let all_types_are_runtime = {
+                        let parameter_types_are_runtime =
+                            parameter_types.iter().all(|parameter_type| {
+                                !matches!(parameter_type.is_compiletime(), Some(true))
+                            });
 
-                    parameter_types_are_runtime && return_type_is_runtime
-                };
+                        let return_type_is_runtime =
+                            !matches!(return_type.is_compiletime(), Some(true));
+
+                        parameter_types_are_runtime && return_type_is_runtime
+                    };
+
+                    if !all_types_are_runtime {
+                        ctx.add_error_unit(
+                            runtime_keyword_span,
+                            SemanticAnalysisError::FunctionTypesNotAllRuntime,
+                        );
+
+                        failed = true;
+                    }
+
+                    if let Some(recursive_keyword_span) = recursive_keyword_span {
+                        let all_types_are_data = {
+                            let parameter_types_valid =
+                                parameter_types.iter().all(|parameter_type| {
+                                    matches!(parameter_type, UnresolvedDataType::Data(..))
+                                });
+
+                            let return_type_valid =
+                                matches!(return_type, UnresolvedDataType::Data(..));
+
+                            parameter_types_valid && return_type_valid
+                        };
+
+                        if !all_types_are_data {
+                            ctx.add_error_unit(
+                                recursive_keyword_span,
+                                SemanticAnalysisError::FunctionTypesNotAllData,
+                            );
+
+                            failed = true;
+                        }
+                    }
+                } else if let Some(recursive_keyword_span) = recursive_keyword_span {
+                    ctx.add_error_unit(
+                        recursive_keyword_span,
+                        SemanticAnalysisError::RecursiveFunctionNotRuntime,
+                    );
+
+                    failed = true;
+                }
 
                 let modifiers = if runtime_keyword_span.is_some() {
-                    RegularFunctionModifiers::Runtime { recursive: false }
+                    RegularFunctionModifiers::Runtime {
+                        recursive: recursive_keyword_span.is_some(),
+                    }
                 } else {
                     RegularFunctionModifiers::None
                 };
 
                 let id = ctx.declare_regular_function(
                     self.visibility,
-                    modifiers.is_runtime(),
+                    modifiers,
                     name,
                     generic_names.clone(),
                     parameter_types
@@ -134,13 +182,8 @@ impl Item {
                     return_type.clone(),
                 );
 
-                if let Some(runtime_keyword_span) = runtime_keyword_span
-                    && !all_types_are_runtime
-                {
-                    return ctx.add_error(
-                        runtime_keyword_span,
-                        SemanticAnalysisError::FunctionTypesNotAllRuntime,
-                    );
+                if failed {
+                    return None;
                 }
 
                 for generic_name in generic_names {

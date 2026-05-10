@@ -134,6 +134,7 @@ pub enum SyntaxKind {
     BlockKeyword,
     StorageKeyword,
     TellrawKeyword,
+    RecursiveKeyword,
     RuntimeKeyword,
     FNKeyword,
     FunctionKeyword,

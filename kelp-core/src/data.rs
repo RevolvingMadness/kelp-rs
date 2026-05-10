@@ -55,28 +55,3 @@ pub struct GeneratedDataTarget {
     pub is_generated: bool,
     pub target: DataTarget,
 }
-
-impl GeneratedDataTarget {
-    // TODO: Remove
-    #[must_use]
-    pub fn as_unique_data(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        path: NbtPath,
-    ) -> GeneratedData {
-        let data = datapack.get_unique_data();
-
-        ctx.add_command(
-            datapack,
-            Command::Data(DataCommand::Modify(
-                data.target.target.clone(),
-                data.path.clone(),
-                DataCommandModificationMode::Set,
-                DataCommandModification::From(self.target, Some(path)),
-            )),
-        );
-
-        data
-    }
-}

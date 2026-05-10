@@ -2,14 +2,11 @@ use crate::compile_context::CompileContext;
 use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
-use crate::high::data::{DataTarget as HighDataTarget, DataTargetKind};
 use crate::high::environment::HighEnvironment;
 use crate::high::environment::r#type::HighTypeId;
 use crate::high::environment::value::function::{HighFunctionDeclaration, HighFunctionId};
 use crate::high::environment::value::variable::HighVariableId;
 use crate::high::environment::value::{HighValueDeclarationKind, HighValueId};
-use crate::high::nbt_path::{NbtPath, NbtPathNode};
-use crate::high::supports_expression_sigil::RegularSupportsExpressionSigilExt;
 use crate::low::data_type::resolved::ResolvedDataType;
 use crate::low::data_type::unresolved::UnresolvedDataType;
 use crate::low::environment::Environment;
@@ -27,7 +24,6 @@ use crate::low::environment::value::{ValueDeclaration, ValueId};
 use crate::low::expression::resolved::ResolvedExpression;
 use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
-use crate::span::Span;
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
@@ -43,7 +39,6 @@ use minecraft_command_types::datapack::{Datapack as LowDatapack, PackMCMeta};
 use minecraft_command_types::entity_selector::EntitySelector;
 use minecraft_command_types::nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
-use minecraft_command_types::snbt::SNBTString;
 use serde_json::json;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -144,7 +139,7 @@ pub struct Datapack {
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
-    counter: Cell<usize>,
+    counter: usize,
     used_constants: HashSet<i32>,
     used_data: Vec<(DataTarget, LowNbtPath)>,
 
@@ -174,7 +169,7 @@ impl Datapack {
             function_return_targets: SmallVec::new(),
             namespaces: HashMap::new(),
             namespace_stack: Vec::new(),
-            counter: Cell::new(0),
+            counter: 0,
             used_constants: HashSet::new(),
             used_data: Vec::new(),
 
@@ -316,10 +311,10 @@ impl Datapack {
         self.namespace_stack.pop();
     }
 
-    pub fn increment_counter(&self) -> usize {
-        let val = self.counter.get();
+    pub fn increment_counter(&mut self) -> usize {
+        let val = self.counter;
 
-        self.counter.set(val + 1);
+        self.counter += 1;
 
         val
     }
@@ -328,7 +323,7 @@ impl Datapack {
         self.current_namespace().get_unique_function_paths()
     }
 
-    pub fn get_unique_score(&self) -> GeneratedPlayerScore {
+    pub fn get_unique_score(&mut self) -> GeneratedPlayerScore {
         let incremented = self.increment_counter();
 
         let current_namespace = self.current_namespace();
@@ -342,6 +337,7 @@ impl Datapack {
     }
 
     pub fn get_unique_data(&mut self) -> GeneratedData {
+        let counter = self.increment_counter();
         let current_namespace_name = self.current_namespace_name();
 
         let target = DataTarget::Storage(ResourceLocation::new_namespace_path(
@@ -351,8 +347,7 @@ impl Datapack {
 
         let path = LowNbtPath(vec![LowNbtPathNode::named_string(format!(
             "__kelp_{}_storage_{}__",
-            current_namespace_name,
-            self.increment_counter()
+            current_namespace_name, counter,
         ))]);
 
         self.used_data.push((target.clone(), path.clone()));
@@ -366,13 +361,11 @@ impl Datapack {
         }
     }
 
-    pub fn get_unique_data_named(&self) -> (GeneratedData, String) {
+    pub fn get_unique_data_named(&mut self) -> (GeneratedData, String) {
+        let counter = self.increment_counter();
         let current_namespace_name = self.current_namespace_name();
-        let name = format!(
-            "__kelp_{}_storage_{}__",
-            current_namespace_name,
-            self.increment_counter()
-        );
+
+        let name = format!("__kelp_{}_storage_{}__", current_namespace_name, counter);
 
         (
             GeneratedData {
@@ -386,51 +379,6 @@ impl Datapack {
                 path: LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
             },
             name,
-        )
-    }
-
-    // TODO: Remove
-    pub fn get_unique_data_with_path_name(&self) -> (DataTarget, LowNbtPath, SNBTString) {
-        let current_namespace_name = self.current_namespace_name();
-        let name = format!(
-            "__kelp_{}_storage_{}__",
-            current_namespace_name,
-            self.increment_counter()
-        );
-
-        (
-            DataTarget::Storage(ResourceLocation::new_namespace_path(
-                "__kelp_storages__",
-                format!("__kelp_{}_storage__", current_namespace_name),
-            )),
-            LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
-            SNBTString(false, name),
-        )
-    }
-
-    pub fn get_high_unique_data(&self) -> (HighDataTarget, NbtPath) {
-        let current_namespace_name = self.current_namespace_name();
-
-        (
-            HighDataTarget {
-                is_generated: true,
-                span: Span::dummy(),
-                kind: DataTargetKind::Storage(
-                    ResourceLocation::new_namespace_path(
-                        "__kelp_storages__",
-                        format!("__kelp_{}_storage__", current_namespace_name),
-                    )
-                    .regular_sigil(),
-                ),
-            },
-            NbtPath(vec![NbtPathNode::Named(
-                format!(
-                    "__kelp_{}_storage_{}__",
-                    current_namespace_name,
-                    self.increment_counter()
-                ),
-                None,
-            )]),
         )
     }
 

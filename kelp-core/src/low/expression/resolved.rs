@@ -30,7 +30,7 @@ use crate::{
     data::GeneratedData,
     datapack::{
         CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
-        RuntimeFunction,
+        RecursiveRuntimeFunction, RegularRuntimeFunction, RuntimeFunction,
     },
     high::semantic_analysis::RegularFunctionModifiers,
     low::{
@@ -210,6 +210,10 @@ fn compile_regular_runtime_function(
     return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
     if let Some(function) = datapack.cached_runtime_functions.get(&id) {
+        let RuntimeFunction::Regular(function) = function else {
+            unreachable!();
+        };
+
         let resource_location = function.resource_location.clone();
         let parameter_targets = function.parameter_targets.clone();
         let return_target = function.return_target.clone();
@@ -259,11 +263,11 @@ fn compile_regular_runtime_function(
 
     datapack.cached_runtime_functions.insert(
         id,
-        RuntimeFunction {
+        RuntimeFunction::Regular(RegularRuntimeFunction {
             resource_location: resource_location.clone(),
             parameter_targets: parameter_targets.clone(),
             return_target: return_target.clone(),
-        },
+        }),
     );
 
     datapack.function_return_targets.push(return_target);
@@ -294,7 +298,147 @@ fn compile_recursive_runtime_function(
     arguments: Vec<GeneratedData>,
     body: UnresolvedExpression,
 ) -> ResolvedExpression {
-    todo!("Implement recursive runtime functions")
+    if let Some(function) = datapack.cached_runtime_functions.get(&id) {
+        let RuntimeFunction::Recursive(function) = function else {
+            unreachable!();
+        };
+
+        let resource_location = function.resource_location.clone();
+        let arguments_stack = function.arguments_stack.clone();
+        let return_data = function.return_data.clone();
+        let prefix_data = function.prefix_data.clone();
+
+        arguments_stack.clone().append_value(
+            datapack,
+            ctx,
+            SNBT::macroable_list(Vec::<SNBT>::new()),
+        );
+
+        let arguments_data = arguments_stack.index(-1);
+
+        for argument_data in arguments {
+            arguments_data
+                .clone()
+                .append_from(datapack, ctx, argument_data);
+        }
+
+        prefix_data.clone().append_value(
+            datapack,
+            ctx,
+            SNBT::macroable_compound(SNBTCompound::new()),
+        );
+
+        let this_prefix_data = prefix_data.index(-1);
+
+        ctx.add_command(datapack, Command::Function(resource_location, None));
+
+        arguments_data.remove(datapack, ctx);
+
+        this_prefix_data.remove(datapack, ctx);
+
+        let temporary_return_data = datapack.get_unique_data();
+
+        temporary_return_data
+            .clone()
+            .set_from(datapack, ctx, return_data);
+
+        return ResolvedExpression::Data(temporary_return_data);
+    }
+
+    let paths = datapack.get_unique_function_paths();
+
+    let resource_location =
+        ResourceLocation::new_namespace_paths(datapack.current_namespace_name(), paths.clone());
+
+    let old_prefix_data = datapack.prefix_data.take();
+
+    let arguments_stack = datapack.get_unique_data();
+    let prefix_data = datapack.get_unique_data();
+    let return_data = datapack.get_unique_data();
+
+    datapack.prefix_data = old_prefix_data;
+
+    arguments_stack
+        .clone()
+        .append_value(datapack, ctx, SNBT::macroable_list(Vec::<SNBT>::new()));
+
+    let arguments_data = arguments_stack.clone().index(-1);
+
+    for argument_data in arguments {
+        arguments_data
+            .clone()
+            .append_from(datapack, ctx, argument_data);
+    }
+
+    prefix_data
+        .clone()
+        .append_value(datapack, ctx, SNBT::macroable_compound(SNBTCompound::new()));
+
+    let this_prefix_data = prefix_data.clone().index(-1);
+
+    let old_prefix_data = datapack.prefix_data.take();
+    datapack.prefix_data = Some(this_prefix_data.clone());
+
+    datapack.cached_runtime_functions.insert(
+        id,
+        RuntimeFunction::Recursive(Box::new(RecursiveRuntimeFunction {
+            resource_location: resource_location.clone(),
+            arguments_stack: arguments_stack.clone(),
+            return_data: return_data.clone(),
+            prefix_data: prefix_data.clone(),
+        })),
+    );
+
+    let mut function_body_ctx = CompileContext::default();
+
+    for (index, (pattern, data_type)) in parameters.into_iter().enumerate() {
+        assert!(matches!(data_type, ResolvedDataType::Data(..)));
+
+        let argument_data = arguments_data.clone().index(index as i32);
+
+        pattern.destructure(
+            datapack,
+            &mut function_body_ctx,
+            data_type,
+            ResolvedExpression::Data(argument_data),
+        );
+    }
+
+    datapack
+        .function_return_targets
+        .push(RuntimeStorageTarget::Data(return_data.clone()));
+
+    let result = body.kind.resolve(datapack, &mut function_body_ctx);
+
+    let return_target = datapack.function_return_targets.pop().unwrap();
+
+    return_target
+        .clone()
+        .assign(datapack, &mut function_body_ctx, result);
+
+    datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
+
+    datapack.prefix_data = old_prefix_data;
+
+    ctx.add_command(datapack, Command::Function(resource_location, None));
+
+    arguments_data.remove(datapack, ctx);
+
+    this_prefix_data.remove(datapack, ctx);
+
+    let temporary_return_data = datapack.get_unique_data();
+
+    ctx.add_command(
+        datapack,
+        Command::Data(DataCommand::Modify(
+            temporary_return_data.target.target.clone(),
+            temporary_return_data.path.clone(),
+            DataCommandModificationMode::Set,
+            DataCommandModification::From(return_data.target.target, Some(return_data.path)),
+        )),
+    );
+
+    ResolvedExpression::Data(temporary_return_data)
 }
 
 #[must_use]

@@ -62,9 +62,9 @@ impl DatapackNamespace {
     }
 
     #[inline]
-    pub fn add_default_function_if_missing(&mut self, paths: &Vec<String>) {
+    pub fn add_default_function_if_missing(&mut self, paths: &[String]) {
         if !self.functions.contains_key(paths) {
-            self.functions.insert(paths.clone(), MCFunction::default());
+            self.functions.insert(paths.to_vec(), MCFunction::default());
         }
     }
 
@@ -128,7 +128,7 @@ impl DatapackNamespace {
         self.functions.get_mut(&paths).expect("No current function")
     }
 
-    pub fn get_function_mut(&mut self, paths: &Vec<String>) -> &mut MCFunction {
+    pub fn get_function_mut(&mut self, paths: &[String]) -> &mut MCFunction {
         self.add_default_function_if_missing(paths);
 
         self.functions.get_mut(paths).unwrap()
@@ -141,7 +141,7 @@ impl DatapackNamespace {
 
     pub fn get_new_function_mut(&mut self) -> &mut MCFunction {
         let name = self.next_function_name();
-        self.get_function_mut(&vec![name])
+        self.get_function_mut(&[name])
     }
 
     pub fn ensure_load_function(&mut self, datapack: &mut Datapack) {

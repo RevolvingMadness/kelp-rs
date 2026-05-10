@@ -85,10 +85,24 @@ impl Equivalent<MonomorphizedFunctionKey> for MonomorphizedFunctionKeyRef<'_> {
 }
 
 #[derive(Debug, Clone)]
-pub struct RuntimeFunction {
+pub struct RegularRuntimeFunction {
     pub resource_location: ResourceLocation,
     pub parameter_targets: Vec<RuntimeStorageTarget>,
     pub return_target: RuntimeStorageTarget,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecursiveRuntimeFunction {
+    pub resource_location: ResourceLocation,
+    pub arguments_stack: GeneratedData,
+    pub return_data: GeneratedData,
+    pub prefix_data: GeneratedData,
+}
+
+#[derive(Debug, Clone)]
+pub enum RuntimeFunction {
+    Regular(RegularRuntimeFunction),
+    Recursive(Box<RecursiveRuntimeFunction>),
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -141,13 +155,14 @@ pub struct Datapack {
     namespace_stack: Vec<String>,
     counter: usize,
     used_constants: HashSet<i32>,
-    used_data: Vec<(DataTarget, LowNbtPath)>,
+    used_data: Vec<(GeneratedDataTarget, String)>,
 
     monomorphized_structs: HashbrownMap<MonomorphizedStructKey, StructId>,
     monomorphized_functions: HashbrownMap<MonomorphizedFunctionKey, FunctionId>,
     resolved_variables: HashMap<HighVariableId, VariableId>,
     pub cached_runtime_functions: HashMap<FunctionId, RuntimeFunction>,
     pub cached_compiletime_functions: HashbrownMap<CompiletimeFunctionKey, CompiletimeFunction>,
+    pub prefix_data: Option<GeneratedData>,
 }
 
 impl Datapack {
@@ -178,6 +193,7 @@ impl Datapack {
             resolved_variables: HashMap::new(),
             cached_runtime_functions: HashMap::new(),
             cached_compiletime_functions: HashbrownMap::new(),
+            prefix_data: None,
         }
     }
 
@@ -280,7 +296,7 @@ impl Datapack {
         self.environment.get_function(id)
     }
 
-    pub fn compile_and_add_to_function(&mut self, paths: &Vec<String>, ctx: &mut CompileContext) {
+    pub fn compile_and_add_to_function(&mut self, paths: &[String], ctx: &mut CompileContext) {
         let commands = ctx.compile();
 
         self.get_function_mut(paths).add_commands(commands);
@@ -337,6 +353,23 @@ impl Datapack {
     }
 
     pub fn get_unique_data(&mut self) -> GeneratedData {
+        if let Some(data_prefix) = &self.prefix_data {
+            let data_prefix = data_prefix.clone();
+
+            let counter = self.increment_counter();
+            let current_namespace_name = self.current_namespace_name();
+
+            let name = format!("__kelp_{}_storage_{}__", current_namespace_name, counter,);
+
+            let node = LowNbtPathNode::named_string(name.clone());
+
+            let data = data_prefix.clone().with_path_node(node);
+
+            self.used_data.push((data.target.clone(), name));
+
+            return data;
+        }
+
         let counter = self.increment_counter();
         let current_namespace_name = self.current_namespace_name();
 
@@ -345,20 +378,21 @@ impl Datapack {
             format!("__kelp_{}_storage__", current_namespace_name),
         ));
 
-        let path = LowNbtPath(vec![LowNbtPathNode::named_string(format!(
-            "__kelp_{}_storage_{}__",
-            current_namespace_name, counter,
-        ))]);
+        let name = format!("__kelp_{}_storage_{}__", current_namespace_name, counter,);
 
-        self.used_data.push((target.clone(), path.clone()));
+        let path = LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]);
 
-        GeneratedData {
+        let data = GeneratedData {
             target: GeneratedDataTarget {
                 is_generated: true,
                 target,
             },
             path,
-        }
+        };
+
+        self.used_data.push((data.target.clone(), name));
+
+        data
     }
 
     pub fn get_unique_data_named(&mut self) -> (GeneratedData, String) {
@@ -432,7 +466,7 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn get_function_mut(&mut self, paths: &Vec<String>) -> &mut MCFunction {
+    pub fn get_function_mut(&mut self, paths: &[String]) -> &mut MCFunction {
         self.current_namespace_mut().get_function_mut(paths)
     }
 
@@ -584,9 +618,14 @@ impl Datapack {
         let has_data = !self.used_data.is_empty();
 
         if has_data {
-            for (target, path) in take(&mut self.used_data) {
-                load_function_ctx
-                    .add_command(&mut self, Command::Data(DataCommand::Remove(target, path)));
+            for (target, name) in take(&mut self.used_data) {
+                load_function_ctx.add_command(
+                    &mut self,
+                    Command::Data(DataCommand::Remove(
+                        target.target,
+                        LowNbtPath(vec![LowNbtPathNode::named_string(name)]),
+                    )),
+                );
             }
         }
 
@@ -594,7 +633,7 @@ impl Datapack {
             let load_function_commands = load_function_ctx.compile();
 
             let kelp_namespace = self.get_namespace_mut("kelp");
-            let load_function = kelp_namespace.get_function_mut(&vec!["load".to_string()]);
+            let load_function = kelp_namespace.get_function_mut(&["load".to_string()]);
             load_function.add_commands(load_function_commands);
 
             output_datapack.get_namespace_mut("minecraft").add_tag(

@@ -7,7 +7,9 @@ use crate::{
     data::{GeneratedData, GeneratedDataTarget},
     datapack::Datapack,
     low::{
-        coordinate::Coordinates, entity_selector::EntitySelector, nbt_path::NbtPath,
+        coordinate::Coordinates,
+        entity_selector::EntitySelector,
+        nbt_path::{NbtPath, NbtPathNode},
         supports_expression_sigil::SupportsExpressionSigil,
     },
     span::Span,
@@ -26,6 +28,15 @@ impl Data {
         let path = self.path.compile(datapack, ctx);
 
         GeneratedData { target, path }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn with_path_node(self, node: NbtPathNode) -> Self {
+        Self {
+            path: self.path.with_node(node),
+            ..self
+        }
     }
 }
 

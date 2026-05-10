@@ -1,0 +1,17 @@
+use std::*;
+
+recursive runtime fn count(n: data<integer>) -> data<integer> {
+    if n <= 0 {
+        tellraw @a "Done!";
+
+        0 to data
+    } else {
+        tellraw @a n;
+        
+        count(n - 1 to data)
+    }
+}
+
+mcfn kelp_project:main {
+    _ = count(10 to data);
+}

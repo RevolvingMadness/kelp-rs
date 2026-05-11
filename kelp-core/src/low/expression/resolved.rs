@@ -479,7 +479,7 @@ fn compile_function(
     } else {
         let argument_targets = arguments
             .into_iter()
-            .map(|argument| argument.to_runtime_storage_target().unwrap())
+            .map(|argument| argument.try_into().unwrap())
             .collect();
 
         compile_regular_runtime_function(
@@ -611,17 +611,6 @@ impl ResolvedExpression {
             }
             _ => {}
         }
-    }
-
-    // TODO: TryInto trait
-    #[must_use]
-    pub fn to_runtime_storage_target(self) -> Option<RuntimeStorageTarget> {
-        Some(match self {
-            Self::Score(score) => RuntimeStorageTarget::Score(score),
-            Self::Data(data) => RuntimeStorageTarget::Data(data),
-
-            _ => return None,
-        })
     }
 
     pub fn call(

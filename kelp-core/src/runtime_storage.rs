@@ -33,6 +33,19 @@ pub enum RuntimeStorageTarget {
     Data(GeneratedData),
 }
 
+impl TryFrom<ResolvedExpression> for RuntimeStorageTarget {
+    type Error = ();
+
+    fn try_from(value: ResolvedExpression) -> Result<Self, Self::Error> {
+        Ok(match value {
+            ResolvedExpression::Score(score) => Self::Score(score),
+            ResolvedExpression::Data(data) => Self::Data(data),
+
+            _ => return Err(()),
+        })
+    }
+}
+
 impl RuntimeStorageTarget {
     #[must_use]
     pub fn to_expression(self) -> ResolvedExpression {

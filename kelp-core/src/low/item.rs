@@ -12,7 +12,7 @@ pub enum Item {
     FunctionDeclaration,
     MinecraftFunctionDeclaration(ResourceLocation, UnresolvedExpression),
     TypeAliasDeclaration,
-    StructStructDeclaration,
+    RegularStructDeclaration,
     TupleStructDeclaration,
     Use,
 }
@@ -44,7 +44,7 @@ impl Item {
                 });
             }
             Self::TypeAliasDeclaration => {}
-            Self::StructStructDeclaration => {}
+            Self::RegularStructDeclaration => {}
             Self::TupleStructDeclaration => {}
             Self::Use => {}
         }

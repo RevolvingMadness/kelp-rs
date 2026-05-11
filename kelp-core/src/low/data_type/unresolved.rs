@@ -9,7 +9,7 @@ use crate::{
         environment::{
             HighEnvironment,
             r#type::r#struct::{
-                HighStructDeclaration, HighStructId, regular::HighStructStructId,
+                HighStructDeclaration, HighStructId, regular::HighRegularStructId,
                 tuple::HighTupleStructId,
             },
             value::function::{HighFunctionDeclaration, HighFunctionId},
@@ -20,7 +20,7 @@ use crate::{
         data_type::resolved::ResolvedDataType,
         environment::{
             Environment,
-            r#type::r#struct::{StructId, StructStructId, TupleStructId},
+            r#type::r#struct::{RegularStructId, StructId, TupleStructId},
         },
     },
     operator::{ArithmeticOperator, ComparisonOperator},
@@ -311,16 +311,16 @@ impl UnresolvedDataType {
 
     #[must_use]
     #[allow(clippy::too_many_arguments)]
-    pub fn inner_resolve_struct_struct(
+    pub fn inner_resolve_regular_struct(
         datapack: &mut Datapack,
-        id: HighStructStructId,
+        id: HighRegularStructId,
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
         generic_names: &[String],
         field_types: HashMap<String, Self>,
         generic_types: Vec<Self>,
-    ) -> StructStructId {
+    ) -> RegularStructId {
         let field_types = field_types
             .into_iter()
             .map(|(name, data_type)| {
@@ -338,7 +338,7 @@ impl UnresolvedDataType {
             .map(|data_type| data_type.resolve(datapack).unwrap())
             .collect();
 
-        datapack.declare_monomorphized_struct_struct(
+        datapack.declare_monomorphized_regular_struct(
             module_path,
             visibility,
             id.into(),
@@ -399,9 +399,9 @@ impl UnresolvedDataType {
 
         match declaration {
             HighStructDeclaration::Struct(declaration) => {
-                let id = HighStructStructId(id.0);
+                let id = HighRegularStructId(id.0);
 
-                Self::inner_resolve_struct_struct(
+                Self::inner_resolve_regular_struct(
                     datapack,
                     id,
                     module_path,
@@ -432,19 +432,19 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    pub fn resolve_struct_struct(
+    pub fn resolve_regular_struct(
         datapack: &mut Datapack,
-        id: HighStructStructId,
+        id: HighRegularStructId,
         generic_types: Vec<Self>,
-    ) -> StructStructId {
+    ) -> RegularStructId {
         let (module_path, visibility, declaration) = {
             let (module_path, visiblity, declaration) =
-                datapack.high_environment.get_struct_struct(id);
+                datapack.high_environment.get_regular_struct(id);
 
             (module_path.to_vec(), visiblity, declaration.clone())
         };
 
-        Self::inner_resolve_struct_struct(
+        Self::inner_resolve_regular_struct(
             datapack,
             id,
             module_path,

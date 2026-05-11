@@ -24,8 +24,8 @@ impl<'a> Iterator for FieldTypesIter<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StructId(pub u32);
 
-impl From<StructStructId> for StructId {
-    fn from(value: StructStructId) -> Self {
+impl From<RegularStructId> for StructId {
+    fn from(value: RegularStructId) -> Self {
         Self(value.0)
     }
 }
@@ -38,7 +38,7 @@ impl From<TupleStructId> for StructId {
 
 #[derive(Debug, Clone)]
 pub enum StructDeclaration {
-    Struct(StructStructDeclaration),
+    Struct(RegularStructDeclaration),
     Tuple(TupleStructDeclaration),
 }
 
@@ -77,10 +77,10 @@ impl StructDeclaration {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructStructId(pub u32);
+pub struct RegularStructId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct StructStructDeclaration {
+pub struct RegularStructDeclaration {
     pub name: String,
     pub generic_types: Vec<ResolvedDataType>,
     pub field_types: HashMap<String, ResolvedDataType>,

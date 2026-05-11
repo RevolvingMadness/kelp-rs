@@ -21,7 +21,7 @@ pub enum PatternType {
     Score(PlayerScore),
     Data(Box<Data>),
     Tuple(Vec<Self>),
-    StructStruct(GenericPath<DataType>, HashMap<String, Self>),
+    RegularStruct(GenericPath<DataType>, HashMap<String, Self>),
     TupleStruct(GenericPath<DataType>, Vec<Self>),
     Reference(Box<Self>),
     Compound(HashMap<String, Self>),
@@ -54,7 +54,7 @@ impl Display for PatternType {
 
                 f.write_str(")")
             }
-            Self::StructStruct(path, field_types) => {
+            Self::RegularStruct(path, field_types) => {
                 write!(f, "{} {{", path)?;
 
                 if !field_types.is_empty() {

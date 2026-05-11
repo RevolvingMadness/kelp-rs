@@ -11,7 +11,7 @@ ItemKind =
 | UseItem
 | FunctionDeclarationItem
 | MinecraftFunctionDeclarationItem
-| StructStructDeclarationItem
+| RegularStructDeclarationItem
 | TupleStructDeclarationItem
 | TypeAliasDeclarationItem
 
@@ -63,7 +63,7 @@ FunctionParameter =
 MinecraftFunctionDeclarationItem =
   'mcfn' ResourceLocation BlockExpression
 
-StructStructDeclarationItem =
+RegularStructDeclarationItem =
   'struct' name:'type_name' GenericNames? '{' StructFields? '}'
 
 StructFields =
@@ -341,7 +341,7 @@ Pattern =
 | BindingPattern
 | ScorePattern
 | DataPattern
-| StructStructPattern
+| RegularStructPattern
 | TupleStructPattern
 | CompoundPattern
 
@@ -360,13 +360,13 @@ ScorePattern =
 DataPattern =
   Data
 
-StructStructPattern =
-  GenericPath '{' StructStructPatternFields? '}'
+RegularStructPattern =
+  GenericPath '{' RegularStructPatternFields? '}'
 
-StructStructPatternFields =
-  StructStructPatternField (',' StructStructPatternField)* ','?
+RegularStructPatternFields =
+  RegularStructPatternField (',' RegularStructPatternField)* ','?
 
-StructStructPatternField =
+RegularStructPatternField =
   'struct_field_name' (':' pattern:Pattern)?
 
 TupleStructPattern =

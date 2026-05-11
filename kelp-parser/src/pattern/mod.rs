@@ -136,7 +136,7 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
                 match parser.peek_char() {
                     Some('{') => {
                         parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                        parser.start_node_at(checkpoint, SyntaxKind::StructStructPattern);
+                        parser.start_node_at(checkpoint, SyntaxKind::RegularStructPattern);
 
                         parser.bump_char();
 
@@ -186,7 +186,7 @@ pub fn lower_pattern(node: CSTPattern, ctx: &mut SemanticAnalysisContext) -> Opt
         CSTPattern::BindingPattern(node) => lower_binding_pattern(node),
         CSTPattern::ScorePattern(node) => lower_score_pattern(node, ctx),
         CSTPattern::DataPattern(node) => lower_data_pattern(node, ctx),
-        CSTPattern::StructStructPattern(node) => lower_struct_pattern(node, ctx),
+        CSTPattern::RegularStructPattern(node) => lower_struct_pattern(node, ctx),
         CSTPattern::TupleStructPattern(node) => lower_tuple_struct_pattern(node, ctx),
         CSTPattern::CompoundPattern(node) => lower_compound_pattern(node, ctx),
     }

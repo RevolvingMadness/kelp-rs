@@ -10,7 +10,7 @@ use crate::{
                 HighTypeDeclarationKind,
                 alias::HighAliasDeclaration,
                 r#struct::{
-                    regular::HighStructStructDeclaration, tuple::HighTupleStructDeclaration,
+                    regular::HighRegularStructDeclaration, tuple::HighTupleStructDeclaration,
                 },
             },
             value::function::builtin::{BuiltinFunctionKind, HighBuiltinFunctionDeclaration},
@@ -47,7 +47,7 @@ pub enum ItemKind {
     FunctionDeclaration(FunctionDeclarationItem),
     MinecraftFunctionDeclaration(ResourceLocation, BlockExpression),
     TypeAliasDeclaration(TypeAliasDeclarationItem),
-    StructStructDeclaration(Span, String, Vec<String>, HashMap<String, DataType>),
+    RegularStructDeclaration(Span, String, Vec<String>, HashMap<String, DataType>),
     TupleStructDeclaration(Span, String, Vec<String>, Vec<DataType>),
     Use(UseTree),
 }
@@ -324,7 +324,7 @@ impl Item {
 
                 MiddleItem::TypeAliasDeclaration
             }
-            ItemKind::StructStructDeclaration(name_span, name, generic_names, field_types) => {
+            ItemKind::RegularStructDeclaration(name_span, name, generic_names, field_types) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
@@ -339,16 +339,16 @@ impl Item {
                     })
                     .collect();
 
-                ctx.declare_struct_struct(
+                ctx.declare_regular_struct(
                     self.visibility,
-                    HighStructStructDeclaration {
+                    HighRegularStructDeclaration {
                         name,
                         generic_names,
                         field_types,
                     },
                 );
 
-                MiddleItem::StructStructDeclaration
+                MiddleItem::RegularStructDeclaration
             }
             ItemKind::TupleStructDeclaration(name_span, name, generic_names, field_types) => {
                 if ctx.type_is_declared_in_current_scope(&name) {

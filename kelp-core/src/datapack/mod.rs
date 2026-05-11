@@ -11,7 +11,7 @@ use crate::low::data_type::resolved::ResolvedDataType;
 use crate::low::data_type::unresolved::UnresolvedDataType;
 use crate::low::environment::Environment;
 use crate::low::environment::r#type::r#struct::{
-    StructDeclaration, StructId, StructStructDeclaration, StructStructId, TupleStructDeclaration,
+    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
     TupleStructId,
 };
 use crate::low::environment::value::function::builtin::BuiltinFunctionDeclaration;
@@ -217,11 +217,11 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_struct_struct_type(
+    pub fn get_regular_struct_type(
         &self,
-        id: StructStructId,
-    ) -> (&[String], Visibility, &StructStructDeclaration) {
-        self.environment.get_struct_struct(id)
+        id: RegularStructId,
+    ) -> (&[String], Visibility, &RegularStructDeclaration) {
+        self.environment.get_regular_struct(id)
     }
 
     #[inline]
@@ -824,7 +824,7 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn declare_monomorphized_struct_struct(
+    pub fn declare_monomorphized_regular_struct(
         &mut self,
         module_path: Vec<String>,
         visibility: Visibility,
@@ -832,8 +832,8 @@ impl Datapack {
         name: String,
         generic_types: Vec<ResolvedDataType>,
         field_types: HashMap<String, ResolvedDataType>,
-    ) -> StructStructId {
-        let monomorphized_id = self.environment.declare_struct_struct(
+    ) -> RegularStructId {
+        let monomorphized_id = self.environment.declare_regular_struct(
             module_path,
             visibility,
             name,

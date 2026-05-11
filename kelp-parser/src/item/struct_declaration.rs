@@ -27,7 +27,7 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
 
     match parser.peek_char() {
         Some('{') => {
-            parser.start_node_at(checkpoint, SyntaxKind::StructStructDeclarationItem);
+            parser.start_node_at(checkpoint, SyntaxKind::RegularStructDeclarationItem);
 
             parser.bump_char();
 
@@ -57,7 +57,7 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
             parser.expect_char(';', "Expected ';'");
         }
         _ => {
-            parser.start_node_at(checkpoint, SyntaxKind::StructStructDeclarationItem);
+            parser.start_node_at(checkpoint, SyntaxKind::RegularStructDeclarationItem);
 
             parser.error("Expected '{' or '('");
         }
@@ -83,7 +83,7 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
 
     match parser.peek_char() {
         Some('{') => {
-            parser.start_node_at(checkpoint, SyntaxKind::StructStructDeclarationItem);
+            parser.start_node_at(checkpoint, SyntaxKind::RegularStructDeclarationItem);
 
             parser.bump_char();
 
@@ -113,7 +113,7 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
             parser.expect_char(';', "Expected ';'");
         }
         _ => {
-            parser.start_node_at(checkpoint, SyntaxKind::StructStructDeclarationItem);
+            parser.start_node_at(checkpoint, SyntaxKind::RegularStructDeclarationItem);
 
             parser.error("Expected '{' or '('");
         }

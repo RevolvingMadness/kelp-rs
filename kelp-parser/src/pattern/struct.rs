@@ -11,7 +11,7 @@ use kelp_core::{
 
 use crate::{
     cst::{
-        CSTStructStructPattern, CSTStructStructPatternField, CSTStructStructPatternFields,
+        CSTRegularStructPattern, CSTRegularStructPatternField, CSTRegularStructPatternFields,
         CSTTupleStructPattern, CSTTupleStructPatternField, CSTTupleStructPatternFields,
     },
     parser::Parser,
@@ -24,7 +24,7 @@ use crate::{
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_pattern_field(
-    node: CSTStructStructPatternField,
+    node: CSTRegularStructPatternField,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<((Span, String), Pattern)> {
     let field_name_token = node.struct_field_name_token()?;
@@ -52,7 +52,7 @@ fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructStructPatternField);
+    parser.start_node_at(checkpoint, SyntaxKind::RegularStructPatternField);
 
     let state = parser.save_state();
 
@@ -76,10 +76,10 @@ fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 fn lower_struct_pattern_fields(
-    node: CSTStructStructPatternFields,
+    node: CSTRegularStructPatternFields,
     ctx: &mut SemanticAnalysisContext,
 ) -> HashMap<(Span, String), Pattern> {
-    node.struct_struct_pattern_fields()
+    node.regular_struct_pattern_fields()
         .filter_map(|field| lower_struct_pattern_field(field, ctx))
         .collect()
 }
@@ -92,7 +92,7 @@ pub fn try_parse_struct_pattern_fields(parser: &mut Parser) -> bool {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructStructPatternFields);
+    parser.start_node_at(checkpoint, SyntaxKind::RegularStructPatternFields);
 
     loop {
         let state = parser.save_state();
@@ -118,7 +118,7 @@ pub fn try_parse_struct_pattern_fields(parser: &mut Parser) -> bool {
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_pattern(
-    node: CSTStructStructPattern,
+    node: CSTRegularStructPattern,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
@@ -126,11 +126,11 @@ pub fn lower_struct_pattern(
     let path = lower_generic_path(node.generic_path()?)?;
 
     let fields = node
-        .struct_struct_pattern_fields()
+        .regular_struct_pattern_fields()
         .map(|fields| lower_struct_pattern_fields(fields, ctx))
         .unwrap_or_default();
 
-    Some(PatternKind::StructStruct(path, fields).with_span(span))
+    Some(PatternKind::RegularStruct(path, fields).with_span(span))
 }
 
 #[must_use]

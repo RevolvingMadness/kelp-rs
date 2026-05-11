@@ -10,7 +10,7 @@ use crate::{
         data::DataTarget,
         data_type::DataType,
         entity_selector::EntitySelector,
-        environment::r#type::r#struct::regular::HighStructStructId,
+        environment::r#type::r#struct::regular::HighRegularStructId,
         expression::{
             assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionKind},
             block::BlockExpression,
@@ -70,7 +70,7 @@ pub enum ExpressionKind {
     ToCast(Box<Expression>, RuntimeStorageType),
     Tuple(Vec<Expression>),
     Path(GenericPath<DataType>),
-    StructStruct(GenericPath<DataType>, HashMap<(Span, String), Expression>),
+    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Expression>),
     Call {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
@@ -687,7 +687,7 @@ impl Expression {
                 UnresolvedExpressionKind::Tuple(expressions)
                     .with(UnresolvedDataType::Tuple(expression_data_types))
             }
-            ExpressionKind::StructStruct(path, field_values) => {
+            ExpressionKind::RegularStruct(path, field_values) => {
                 let mut path = path.resolve_partially(None, ctx);
 
                 let id = ctx.get_visible_type_id(&path)?;
@@ -695,9 +695,9 @@ impl Expression {
                 let last_segment = path.segments.pop().unwrap();
 
                 let (_, _, declaration) =
-                    ctx.get_visible_struct_struct(last_segment.name_span, &last_segment.name, id)?;
+                    ctx.get_visible_regular_struct(last_segment.name_span, &last_segment.name, id)?;
 
-                let id = HighStructStructId(id.0);
+                let id = HighRegularStructId(id.0);
 
                 let data_type =
                     UnresolvedDataType::Struct(id.into(), last_segment.generic_types.clone());
@@ -758,8 +758,12 @@ impl Expression {
                     return None;
                 }
 
-                UnresolvedExpressionKind::StructStruct(id, last_segment.generic_types, field_values)
-                    .with(data_type)
+                UnresolvedExpressionKind::RegularStruct(
+                    id,
+                    last_segment.generic_types,
+                    field_values,
+                )
+                .with(data_type)
             }
             ExpressionKind::Call { callee, arguments } => {
                 let (callee_span, callee) = callee.perform_semantic_analysis(ctx)?;

@@ -7,7 +7,7 @@ use crate::{
             r#type::{
                 TypeDeclaration, TypeDeclarationKind,
                 r#struct::{
-                    StructDeclaration, StructId, StructStructDeclaration, StructStructId,
+                    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
                     TupleStructDeclaration, TupleStructId,
                 },
             },
@@ -73,25 +73,25 @@ impl Environment {
 
     #[inline]
     #[must_use]
-    pub fn declare_struct_struct(
+    pub fn declare_regular_struct(
         &mut self,
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
         generic_types: Vec<ResolvedDataType>,
         field_types: HashMap<String, ResolvedDataType>,
-    ) -> StructStructId {
+    ) -> RegularStructId {
         let id = self.declare_struct(
             module_path,
             visibility,
-            StructDeclaration::Struct(StructStructDeclaration {
+            StructDeclaration::Struct(RegularStructDeclaration {
                 name,
                 generic_types,
                 field_types,
             }),
         );
 
-        StructStructId(id.0)
+        RegularStructId(id.0)
     }
 
     #[inline]
@@ -133,10 +133,10 @@ impl Environment {
     }
 
     #[must_use]
-    pub fn get_struct_struct(
+    pub fn get_regular_struct(
         &self,
-        id: StructStructId,
-    ) -> (&[String], Visibility, &StructStructDeclaration) {
+        id: RegularStructId,
+    ) -> (&[String], Visibility, &RegularStructDeclaration) {
         let (module_path, visibility, StructDeclaration::Struct(declaration)) =
             self.get_struct(id.into())
         else {

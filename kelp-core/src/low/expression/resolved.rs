@@ -40,7 +40,7 @@ use crate::{
         },
         environment::{
             Environment,
-            r#type::r#struct::{StructStructId, TupleStructId},
+            r#type::r#struct::{RegularStructId, TupleStructId},
             value::function::{FunctionDeclaration, FunctionId},
         },
         expression::{
@@ -560,7 +560,7 @@ pub enum ResolvedExpression {
     List(Vec<Self>),
     Compound(BTreeMap<String, Self>),
     Tuple(Vec<Self>),
-    StructStruct(StructStructId, BTreeMap<String, Self>),
+    RegularStruct(RegularStructId, BTreeMap<String, Self>),
     TupleStruct(TupleStructId, Vec<Self>),
     Unit,
     Never,
@@ -593,7 +593,7 @@ impl ResolvedExpression {
                     element.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::StructStruct(_, field_expressions) => {
+            Self::RegularStruct(_, field_expressions) => {
                 for value in field_expressions.into_values() {
                     value.compile_as_statement(datapack, ctx);
                 }
@@ -737,7 +737,7 @@ impl ResolvedExpression {
     #[must_use]
     pub fn can_into_snbt(&self) -> bool {
         match self {
-            Self::StructStruct(_, field_expressions) => {
+            Self::RegularStruct(_, field_expressions) => {
                 field_expressions.values().all(Self::can_into_snbt)
             }
             Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
@@ -766,9 +766,9 @@ impl ResolvedExpression {
 
     pub fn try_into_snbt(self) -> Result<SNBT, Self> {
         Ok(match self {
-            Self::StructStruct(name, field_expressions) => {
+            Self::RegularStruct(name, field_expressions) => {
                 if !field_expressions.values().all(Self::can_into_snbt) {
-                    return Err(Self::StructStruct(name, field_expressions));
+                    return Err(Self::RegularStruct(name, field_expressions));
                 }
 
                 let mut compound = SNBTCompound::new();
@@ -1078,7 +1078,7 @@ impl ResolvedExpression {
                         );
                     }
                 }
-                Self::StructStruct(_, field_expressions) => {
+                Self::RegularStruct(_, field_expressions) => {
                     for (key, value) in field_expressions {
                         value.assign_to_data(
                             datapack,
@@ -1229,7 +1229,7 @@ impl ResolvedExpression {
                         );
                     }
                 }
-                Self::StructStruct(_, fields) => {
+                Self::RegularStruct(_, fields) => {
                     for (key, value) in fields {
                         value.assign_to_data_scale(
                             datapack,
@@ -2005,11 +2005,11 @@ impl ResolvedExpression {
 
                 SNBT::string(output)
             }
-            Self::StructStruct(id, fields) => {
+            Self::RegularStruct(id, fields) => {
                 if force_display {
                     // Maybe display full path?
 
-                    let (_, visibility, declaration) = datapack.get_struct_struct_type(id);
+                    let (_, visibility, declaration) = datapack.get_regular_struct_type(id);
 
                     let mut output = Vec::new();
 
@@ -2239,7 +2239,7 @@ impl ResolvedExpression {
             }
             Self::Unit | Self::Never => {}
             Self::Tuple(..)
-            | Self::StructStruct(..)
+            | Self::RegularStruct(..)
             | Self::TupleStruct(..)
             | Self::ResourceLocation(..)
             | Self::EntitySelector(..)
@@ -2537,7 +2537,7 @@ impl ResolvedExpression {
 
                 field_expressions[index] = value;
             }
-            Self::StructStruct(_, ref mut field_expressions) => {
+            Self::RegularStruct(_, ref mut field_expressions) => {
                 field_expressions.insert(field, value);
             }
             Self::Data(data) => {
@@ -2576,7 +2576,7 @@ impl ResolvedExpression {
                     Some(field_expressions.remove(index))
                 }
             }
-            Self::StructStruct(_, mut field_expressions) => field_expressions.remove(&field),
+            Self::RegularStruct(_, mut field_expressions) => field_expressions.remove(&field),
             Self::Data(data) => {
                 let node = access_type.into_nbt_path_node(field);
 

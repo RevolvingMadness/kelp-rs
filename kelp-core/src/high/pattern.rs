@@ -5,7 +5,7 @@ use crate::{
         data::Data,
         data_type::DataType,
         environment::r#type::r#struct::{
-            HighStructId, regular::HighStructStructId, tuple::HighTupleStructId,
+            HighStructId, regular::HighRegularStructId, tuple::HighTupleStructId,
         },
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
@@ -32,7 +32,7 @@ pub enum PatternKind {
     Data(Box<Data>),
 
     Tuple(Vec<Pattern>),
-    StructStruct(GenericPath<DataType>, HashMap<(Span, String), Pattern>),
+    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Pattern>),
     TupleStruct(GenericPath<DataType>, Vec<Pattern>),
 
     Compound(HashMap<(Span, String), Pattern>),
@@ -63,7 +63,7 @@ impl PatternKind {
                     .map(|((_, key), pattern)| (key.clone(), pattern.kind.get_type()))
                     .collect(),
             ),
-            Self::StructStruct(path, field_patterns) => PatternType::StructStruct(
+            Self::RegularStruct(path, field_patterns) => PatternType::RegularStruct(
                 path.clone(),
                 field_patterns
                     .iter()
@@ -103,7 +103,7 @@ impl PatternKind {
                     pattern.kind.destructure_unknown(ctx);
                 }
             }
-            Self::StructStruct(_, field_patterns) => {
+            Self::RegularStruct(_, field_patterns) => {
                 for pattern in field_patterns.into_values() {
                     pattern.kind.destructure_unknown(ctx);
                 }
@@ -244,18 +244,18 @@ impl Pattern {
                 UnresolvedPattern::Compound(compound)
             }
             (
-                PatternKind::StructStruct(path, field_patterns),
+                PatternKind::RegularStruct(path, field_patterns),
                 UnresolvedDataType::Struct(value_id, value_generic_types),
             ) => {
                 let mut path = path.resolve_partially(None, ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
-                let pattern_id = HighStructStructId(pattern_id.0);
+                let pattern_id = HighRegularStructId(pattern_id.0);
 
                 let last_segment = path.segments.pop().unwrap();
                 let pattern_generic_types = last_segment.generic_types;
 
-                let (_, _, pattern_declaration) = ctx.get_visible_struct_struct(
+                let (_, _, pattern_declaration) = ctx.get_visible_regular_struct(
                     last_segment.name_span,
                     &last_segment.name,
                     pattern_id.into(),
@@ -307,7 +307,7 @@ impl Pattern {
                     })
                     .collect_option_all()?;
 
-                UnresolvedPattern::StructStruct(pattern_id, pattern_generic_types, field_patterns)
+                UnresolvedPattern::RegularStruct(pattern_id, pattern_generic_types, field_patterns)
             }
             (
                 PatternKind::TupleStruct(path, field_patterns),

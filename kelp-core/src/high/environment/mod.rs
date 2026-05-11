@@ -6,7 +6,7 @@ use crate::{
             HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
             r#struct::{
                 HighStructDeclaration, HighStructId,
-                regular::{HighStructStructDeclaration, HighStructStructId},
+                regular::{HighRegularStructDeclaration, HighRegularStructId},
                 tuple::{HighTupleStructDeclaration, HighTupleStructId},
             },
         },
@@ -147,10 +147,10 @@ impl HighEnvironment {
     }
 
     #[must_use]
-    pub fn get_struct_struct(
+    pub fn get_regular_struct(
         &self,
-        id: HighStructStructId,
-    ) -> (&[String], Visibility, &HighStructStructDeclaration) {
+        id: HighRegularStructId,
+    ) -> (&[String], Visibility, &HighRegularStructDeclaration) {
         let (module_path, visibility, HighStructDeclaration::Struct(declaration)) =
             self.get_struct(id.into())
         else {

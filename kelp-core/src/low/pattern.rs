@@ -9,13 +9,13 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     high::environment::{
-        r#type::r#struct::{regular::HighStructStructId, tuple::HighTupleStructId},
+        r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
         value::variable::HighVariableId,
     },
     low::{
         data::Data,
         data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
-        environment::r#type::r#struct::{StructStructId, TupleStructId},
+        environment::r#type::r#struct::{RegularStructId, TupleStructId},
         expression::{literal::LiteralExpression, resolved::ResolvedExpression},
         player_score::PlayerScore,
     },
@@ -104,17 +104,17 @@ fn destructure_compound(
     }
 }
 
-fn destructure_struct_struct(
+fn destructure_regular_struct(
     field_patterns: HashMap<String, UnresolvedPattern>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    id: StructStructId,
+    id: RegularStructId,
     data_type: ResolvedDataType,
     value: ResolvedExpression,
 ) {
     match (data_type, value) {
-        (ResolvedDataType::Struct(..), ResolvedExpression::StructStruct(_, fields)) => {
-            let (_, _, declaration) = datapack.get_struct_struct_type(id);
+        (ResolvedDataType::Struct(..), ResolvedExpression::RegularStruct(_, fields)) => {
+            let (_, _, declaration) = datapack.get_regular_struct_type(id);
 
             let field_types = declaration.field_types.clone();
 
@@ -126,7 +126,7 @@ fn destructure_struct_struct(
             }
         }
         (ResolvedDataType::Struct(..), ResolvedExpression::Data(data)) => {
-            let (_, _, declaration) = datapack.get_struct_struct_type(id);
+            let (_, _, declaration) = datapack.get_regular_struct_type(id);
 
             let field_types = declaration.field_types.clone();
 
@@ -144,13 +144,13 @@ fn destructure_struct_struct(
             }
         }
         (ResolvedDataType::Reference(data_type), value) => {
-            destructure_struct_struct(field_patterns, datapack, ctx, id, *data_type, value);
+            destructure_regular_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (ResolvedDataType::Data(data_type), value) => {
-            destructure_struct_struct(field_patterns, datapack, ctx, id, *data_type, value);
+            destructure_regular_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (ResolvedDataType::Score(data_type), value) => {
-            destructure_struct_struct(field_patterns, datapack, ctx, id, *data_type, value);
+            destructure_regular_struct(field_patterns, datapack, ctx, id, *data_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
     }
@@ -219,8 +219,8 @@ pub enum UnresolvedPattern {
     Data(Data),
 
     Tuple(Vec<Self>),
-    StructStruct(
-        HighStructStructId,
+    RegularStruct(
+        HighRegularStructId,
         Vec<UnresolvedDataType>,
         HashMap<String, Self>,
     ),
@@ -258,10 +258,10 @@ impl UnresolvedPattern {
             Self::Compound(patterns) => {
                 destructure_compound(patterns, datapack, ctx, data_type, value);
             }
-            Self::StructStruct(id, generic_types, field_patterns) => {
-                let id = UnresolvedDataType::resolve_struct_struct(datapack, id, generic_types);
+            Self::RegularStruct(id, generic_types, field_patterns) => {
+                let id = UnresolvedDataType::resolve_regular_struct(datapack, id, generic_types);
 
-                destructure_struct_struct(field_patterns, datapack, ctx, id, data_type, value);
+                destructure_regular_struct(field_patterns, datapack, ctx, id, data_type, value);
             }
             Self::TupleStruct(id, generic_types, field_patterns) => {
                 let id = UnresolvedDataType::resolve_tuple_struct(datapack, id, generic_types);

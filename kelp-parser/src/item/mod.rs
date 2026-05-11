@@ -166,7 +166,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
         CSTItemKind::MinecraftFunctionDeclarationItem(node) => {
             lower_minecraft_function_declaration_item_kind(node, ctx)
         }
-        CSTItemKind::StructStructDeclarationItem(node) => {
+        CSTItemKind::RegularStructDeclarationItem(node) => {
             let struct_name_token = node.name()?;
             let struct_name_span = text_range_to_span(struct_name_token.text_range());
             let struct_name = struct_name_token.text().to_owned();
@@ -178,7 +178,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
                 .and_then(lower_struct_fields)
                 .unwrap_or_default();
 
-            Some(ItemKind::StructStructDeclaration(
+            Some(ItemKind::RegularStructDeclaration(
                 struct_name_span,
                 struct_name,
                 generics.unwrap_or_default(),

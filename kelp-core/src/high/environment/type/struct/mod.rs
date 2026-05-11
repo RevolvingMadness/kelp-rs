@@ -1,6 +1,6 @@
 use crate::{
     high::environment::r#type::r#struct::{
-        regular::{HighStructStructDeclaration, HighStructStructId},
+        regular::{HighRegularStructDeclaration, HighRegularStructId},
         tuple::{HighTupleStructDeclaration, HighTupleStructId},
     },
     low::data_type::unresolved::UnresolvedDataType,
@@ -12,8 +12,8 @@ pub mod tuple;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighStructId(pub u32);
 
-impl From<HighStructStructId> for HighStructId {
-    fn from(value: HighStructStructId) -> Self {
+impl From<HighRegularStructId> for HighStructId {
+    fn from(value: HighRegularStructId) -> Self {
         Self(value.0)
     }
 }
@@ -26,7 +26,7 @@ impl From<HighTupleStructId> for HighStructId {
 
 #[derive(Debug, Clone)]
 pub enum HighStructDeclaration {
-    Struct(HighStructStructDeclaration),
+    Struct(HighRegularStructDeclaration),
     Tuple(HighTupleStructDeclaration),
 }
 

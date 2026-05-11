@@ -15,7 +15,7 @@ use crate::{
                 module::HighModuleDeclaration,
                 r#struct::{
                     HighStructDeclaration, HighStructId,
-                    regular::{HighStructStructDeclaration, HighStructStructId},
+                    regular::{HighRegularStructDeclaration, HighRegularStructId},
                     tuple::{HighTupleStructDeclaration, HighTupleStructId},
                 },
             },
@@ -421,14 +421,14 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_struct_struct(
+    pub fn declare_regular_struct(
         &mut self,
         visibility: Visibility,
-        declaration: HighStructStructDeclaration,
-    ) -> HighStructStructId {
+        declaration: HighRegularStructDeclaration,
+    ) -> HighRegularStructId {
         let id = self.declare_struct(visibility, HighStructDeclaration::Struct(declaration));
 
-        HighStructStructId(id.0)
+        HighRegularStructId(id.0)
     }
 
     #[inline]
@@ -863,12 +863,12 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn get_visible_struct_struct(
+    pub fn get_visible_regular_struct(
         &mut self,
         name_span: Span,
         name: &str,
         id: HighTypeId,
-    ) -> Option<(&[String], Visibility, &HighStructStructDeclaration)> {
+    ) -> Option<(&[String], Visibility, &HighRegularStructDeclaration)> {
         let (module_path, visibility, declaration) = self.high_environment.get_type(id);
 
         let is_visible = self.is_item_visible(module_path, visibility);

@@ -5,7 +5,7 @@ use crate::{
             builtin_data_type::HighBuiltinTypeDeclaration,
             module::{HighModuleDeclaration, HighModuleId},
             r#struct::{
-                HighStructDeclaration, HighStructId, regular::HighStructStructId,
+                HighStructDeclaration, HighStructId, regular::HighRegularStructId,
                 tuple::HighTupleStructId,
             },
         },
@@ -36,8 +36,8 @@ impl From<HighStructId> for HighTypeId {
     }
 }
 
-impl From<HighStructStructId> for HighTypeId {
-    fn from(value: HighStructStructId) -> Self {
+impl From<HighRegularStructId> for HighTypeId {
+    fn from(value: HighRegularStructId) -> Self {
         Self(value.0)
     }
 }

@@ -119,5 +119,5 @@ pub fn lower_struct_expression(
         .and_then(|fields| lower_struct_expression_fields(fields, ctx))
         .unwrap_or_default();
 
-    Some(ExpressionKind::StructStruct(path, fields).with_span(span))
+    Some(ExpressionKind::RegularStruct(path, fields).with_span(span))
 }

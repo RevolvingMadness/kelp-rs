@@ -23,7 +23,7 @@ use crate::{
     datapack::Datapack,
     high::{
         environment::{
-            r#type::r#struct::{regular::HighStructStructId, tuple::HighTupleStructId},
+            r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
             value::HighValueId,
         },
         expression::{assignee::UnresolvedAssigneeExpression, place::UnresolvedPlaceExpression},
@@ -443,8 +443,8 @@ pub enum UnresolvedExpressionKind {
     Tuple(Vec<UnresolvedExpression>),
     Call(Box<UnresolvedExpression>, Vec<UnresolvedExpression>),
     Value(HighValueId, Vec<UnresolvedDataType>),
-    StructStruct(
-        HighStructStructId,
+    RegularStruct(
+        HighRegularStructId,
         Vec<UnresolvedDataType>,
         HashMap<String, UnresolvedExpression>,
     ),
@@ -541,7 +541,7 @@ impl UnresolvedExpressionKind {
             | Self::TupleStruct(_, _, expressions) => expressions
                 .iter()
                 .any(|expression| expression.kind.definitely_diverges()),
-            Self::Compound(compound) | Self::StructStruct(_, _, compound) => compound
+            Self::Compound(compound) | Self::RegularStruct(_, _, compound) => compound
                 .values()
                 .any(|expression| expression.kind.definitely_diverges()),
             Self::WhileLoop(expression, _) => expression.kind.definitely_diverges(),
@@ -772,9 +772,9 @@ impl UnresolvedExpressionKind {
                     .map(|expression| expression.kind.resolve(datapack, ctx))
                     .collect(),
             ),
-            Self::StructStruct(id, generic_types, field_expressions) => {
+            Self::RegularStruct(id, generic_types, field_expressions) => {
                 let (module_path, visiblity, declaration) =
-                    datapack.high_environment.get_struct_struct(id);
+                    datapack.high_environment.get_regular_struct(id);
 
                 let module_path = module_path.to_vec();
                 let name = declaration.name.clone();
@@ -793,7 +793,7 @@ impl UnresolvedExpressionKind {
                     })
                     .collect();
 
-                let id = datapack.declare_monomorphized_struct_struct(
+                let id = datapack.declare_monomorphized_regular_struct(
                     module_path,
                     visiblity,
                     id.into(),
@@ -811,7 +811,7 @@ impl UnresolvedExpressionKind {
                     })
                     .collect();
 
-                ResolvedExpression::StructStruct(id, field_expressions)
+                ResolvedExpression::RegularStruct(id, field_expressions)
             }
             Self::TupleStruct(id, generic_types, field_expressions) => {
                 let (module_path, visiblity, declaration) =
@@ -1117,7 +1117,7 @@ impl UnresolvedExpressionKind {
                     element.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::StructStruct(_, _, field_expressions) => {
+            Self::RegularStruct(_, _, field_expressions) => {
                 for field_expression in field_expressions.into_values() {
                     field_expression.kind.compile_as_statement(datapack, ctx);
                 }

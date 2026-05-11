@@ -383,9 +383,9 @@ fn compile_recursive_runtime_function(
         id,
         RuntimeFunction::Recursive(Box::new(RecursiveRuntimeFunction {
             resource_location: resource_location.clone(),
-            arguments_stack: arguments_stack.clone(),
+            arguments_stack,
             return_data: return_data.clone(),
-            prefix_data: prefix_data.clone(),
+            prefix_data,
         })),
     );
 
@@ -412,9 +412,7 @@ fn compile_recursive_runtime_function(
 
     let return_target = datapack.function_return_targets.pop().unwrap();
 
-    return_target
-        .clone()
-        .assign(datapack, &mut function_body_ctx, result);
+    return_target.assign(datapack, &mut function_body_ctx, result);
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 

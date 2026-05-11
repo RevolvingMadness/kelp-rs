@@ -65,12 +65,7 @@ impl GeneratedData {
     }
 
     #[inline]
-    pub fn append_from(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        data: GeneratedData,
-    ) {
+    pub fn append_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: Self) {
         self.modify(
             datapack,
             ctx,
@@ -95,7 +90,7 @@ impl GeneratedData {
     }
 
     #[inline]
-    pub fn set_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: GeneratedData) {
+    pub fn set_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: Self) {
         self.modify(
             datapack,
             ctx,

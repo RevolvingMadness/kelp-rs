@@ -327,7 +327,7 @@ impl Datapack {
         self.namespace_stack.pop();
     }
 
-    pub fn increment_counter(&mut self) -> usize {
+    pub const fn increment_counter(&mut self) -> usize {
         let val = self.counter;
 
         self.counter += 1;
@@ -353,34 +353,27 @@ impl Datapack {
     }
 
     pub fn get_unique_data(&mut self) -> GeneratedData {
-        if let Some(data_prefix) = &self.prefix_data {
-            let data_prefix = data_prefix.clone();
+        let counter = self.increment_counter();
+        let current_namespace_name = self.current_namespace_name();
 
-            let counter = self.increment_counter();
-            let current_namespace_name = self.current_namespace_name();
+        let name = format!("__kelp_{}_storage_{}__", current_namespace_name, counter,);
 
-            let name = format!("__kelp_{}_storage_{}__", current_namespace_name, counter,);
+        let name_node = LowNbtPathNode::named_string(name.clone());
 
-            let node = LowNbtPathNode::named_string(name.clone());
-
-            let data = data_prefix.clone().with_path_node(node);
+        if let Some(data_prefix) = self.prefix_data.clone() {
+            let data = data_prefix.with_path_node(name_node);
 
             self.used_data.push((data.target.clone(), name));
 
             return data;
         }
 
-        let counter = self.increment_counter();
-        let current_namespace_name = self.current_namespace_name();
-
         let target = DataTarget::Storage(ResourceLocation::new_namespace_path(
             "__kelp_storages__",
-            format!("__kelp_{}_storage__", current_namespace_name),
+            name.clone(),
         ));
 
-        let name = format!("__kelp_{}_storage_{}__", current_namespace_name, counter,);
-
-        let path = LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]);
+        let path = LowNbtPath(vec![name_node]);
 
         let data = GeneratedData {
             target: GeneratedDataTarget {

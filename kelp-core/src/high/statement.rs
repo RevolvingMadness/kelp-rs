@@ -47,11 +47,17 @@ impl Statement {
                 let explicit_type =
                     explicit_type.map(|explicit_type| explicit_type.resolve_partially(None, ctx));
 
-                let Some((_, value)) = value.perform_semantic_analysis(ctx) else {
+                let Some((value_span, value)) = value.perform_semantic_analysis(ctx) else {
                     pattern.kind.destructure_unknown(ctx);
 
                     return None;
                 };
+
+                if let Some(explicit_type) = &explicit_type {
+                    value
+                        .data_type
+                        .assert_equals(ctx, value_span, explicit_type)?;
+                }
 
                 let variable_type = explicit_type.unwrap_or_else(|| value.data_type.clone());
 

@@ -10,6 +10,7 @@ use crate::{
         function_declaration::{
             expect_function_declaration_item_kind, lower_function_declaration_item_kind,
         },
+        recover_item,
         type_alias_declaration::{
             expect_type_alias_declaration_item_kind, lower_type_alias_declaration_item,
         },
@@ -28,8 +29,12 @@ pub fn expect_associated_item(parser: &mut Parser) {
     }
 
     let Some(identifier) = parser.peek_identifier() else {
-        parser.error("Expected associated item (fn or type)");
+        parser.error("Expected associated item");
+
+        recover_item(parser);
+
         parser.finish_node();
+
         return;
     };
 

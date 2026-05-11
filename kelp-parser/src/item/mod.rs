@@ -18,9 +18,10 @@ use crate::{
             expect_inherent_implementation_item_kind, lower_inherent_implementation_item,
             try_parse_inherent_implementation_item_kind,
         },
-        mcfn_declaration::{
-            expect_mcfn_declaration_item_kind, lower_mcfn_declaration_item_kind,
-            try_parse_mcfn_declaration_item_kind,
+        minecraft_function_declaration::{
+            expect_minecraft_function_declaration_item_kind,
+            lower_minecraft_function_declaration_item_kind,
+            try_parse_minecraft_function_declaration_item_kind,
         },
         module_declaration::{
             expect_module_declaration_item_kind, lower_module_declaration_item,
@@ -44,7 +45,7 @@ use crate::{
 pub mod associated;
 pub mod function_declaration;
 pub mod implementation;
-pub mod mcfn_declaration;
+pub mod minecraft_function_declaration;
 pub mod module_declaration;
 pub mod struct_declaration;
 pub mod type_alias_declaration;
@@ -61,7 +62,7 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
         "use" => try_parse_use_item_kind(parser),
         "mod" => try_parse_module_declaration_item_kind(parser),
         "recursive" | "runtime" | "fn" => try_parse_function_declaration_item_kind(parser),
-        "mcfn" => try_parse_mcfn_declaration_item_kind(parser),
+        "mcfn" => try_parse_minecraft_function_declaration_item_kind(parser),
         "struct" => try_parse_struct_declaration_item_kind(parser),
         "type" => try_parse_type_alias_declaration_item_kind(parser),
         _ => false,
@@ -136,7 +137,7 @@ pub fn expect_item(parser: &mut Parser) -> bool {
         "use" => expect_use_item_kind(parser),
         "mod" => expect_module_declaration_item_kind(parser),
         "recursive" | "runtime" | "fn" => expect_function_declaration_item_kind(parser),
-        "mcfn" => expect_mcfn_declaration_item_kind(parser),
+        "mcfn" => expect_minecraft_function_declaration_item_kind(parser),
         "struct" => expect_struct_declaration_item_kind(parser),
         "type" => expect_type_alias_declaration_item_kind(parser),
         _ => {
@@ -162,7 +163,9 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
         CSTItemKind::FunctionDeclarationItem(node) => Some(ItemKind::FunctionDeclaration(
             lower_function_declaration_item_kind(node, ctx)?,
         )),
-        CSTItemKind::MCFNDeclarationItem(node) => lower_mcfn_declaration_item_kind(node, ctx),
+        CSTItemKind::MinecraftFunctionDeclarationItem(node) => {
+            lower_minecraft_function_declaration_item_kind(node, ctx)
+        }
         CSTItemKind::StructStructDeclarationItem(node) => {
             let struct_name_token = node.name()?;
             let struct_name_span = text_range_to_span(struct_name_token.text_range());

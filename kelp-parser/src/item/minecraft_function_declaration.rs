@@ -2,7 +2,7 @@ use kelp_core::high::{item::ItemKind, semantic_analysis::SemanticAnalysisContext
 use rowan::ast::AstNode;
 
 use crate::{
-    cst::CSTMCFNDeclarationItem,
+    cst::CSTMinecraftFunctionDeclarationItem,
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     expression_sigil::assert_not_sigil,
     parser::Parser,
@@ -12,10 +12,10 @@ use crate::{
 };
 
 #[must_use]
-pub fn try_parse_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
+pub fn try_parse_minecraft_function_declaration_item_kind(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::MCFNDeclarationItem);
+    parser.start_node(SyntaxKind::MinecraftFunctionDeclarationItem);
     parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
 
     if !parser.expect_whitespace() || !try_parse_resource_location(parser) {
@@ -35,8 +35,8 @@ pub fn try_parse_mcfn_declaration_item_kind(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) {
-    parser.start_node(SyntaxKind::MCFNDeclarationItem);
+pub fn expect_minecraft_function_declaration_item_kind(parser: &mut Parser) {
+    parser.start_node(SyntaxKind::MinecraftFunctionDeclarationItem);
     parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
 
     let mut succeeded = parser.expect_whitespace();
@@ -56,8 +56,8 @@ pub fn expect_mcfn_declaration_item_kind(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_mcfn_declaration_item_kind(
-    node: CSTMCFNDeclarationItem,
+pub fn lower_minecraft_function_declaration_item_kind(
+    node: CSTMinecraftFunctionDeclarationItem,
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<ItemKind> {
     let resource_location_token = node.resource_location()?;
@@ -66,5 +66,8 @@ pub fn lower_mcfn_declaration_item_kind(
     let resource_location = assert_not_sigil(resource_location, resource_location_span, ctx)?;
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ItemKind::MCFNDeclaration(resource_location, body))
+    Some(ItemKind::MinecraftFunctionDeclaration(
+        resource_location,
+        body,
+    ))
 }

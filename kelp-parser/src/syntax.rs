@@ -174,7 +174,7 @@ pub enum SyntaxKind {
     FunctionDeclarationItem,
     FunctionName,
     FunctionParameter,
-    MCFNDeclarationItem,
+    MinecraftFunctionDeclarationItem,
     StructStructDeclarationItem,
     TupleStructDeclarationItem,
     TypeAliasDeclarationItem,

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     high::environment::{
         r#type::{
@@ -25,10 +27,19 @@ use crate::{
 pub mod r#type;
 pub mod value;
 
+#[derive(Debug, Clone)]
+pub struct HighImpl {
+    pub generic_names: Vec<String>,
+    pub target_type: UnresolvedDataType,
+    pub functions: HashMap<String, HighValueId>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct HighEnvironment {
     pub types: Vec<HighTypeDeclaration>,
     pub values: Vec<HighValueDeclaration>,
+
+    pub impls: HashMap<HighTypeId, Vec<HighImpl>>,
 }
 
 impl HighEnvironment {

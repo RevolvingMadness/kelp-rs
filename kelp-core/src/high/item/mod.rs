@@ -39,12 +39,13 @@ pub mod type_alias_declaration;
 pub enum ItemKind {
     InherentImplementationItem {
         generic_names: Vec<String>,
-        data_type: DataType,
+        target_type_span: Span,
+        target_type: DataType,
         associated_items: Vec<AssociatedItem>,
     },
     ModuleDeclaration(Span, String, Vec<Item>),
     FunctionDeclaration(FunctionDeclarationItem),
-    MCFNDeclaration(ResourceLocation, BlockExpression),
+    MinecraftFunctionDeclaration(ResourceLocation, BlockExpression),
     TypeAliasDeclaration(TypeAliasDeclarationItem),
     StructStructDeclaration(Span, String, Vec<String>, HashMap<String, DataType>),
     TupleStructDeclaration(Span, String, Vec<String>, Vec<DataType>),
@@ -66,9 +67,12 @@ impl Item {
         Some(match self.kind {
             ItemKind::InherentImplementationItem {
                 generic_names,
-                data_type,
+                target_type_span,
+                target_type,
                 associated_items,
-            } => todo!(),
+            } => {
+                todo!()
+            }
             ItemKind::ModuleDeclaration(name_span, name, items) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
@@ -280,7 +284,7 @@ impl Item {
 
                 MiddleItem::FunctionDeclaration
             }
-            ItemKind::MCFNDeclaration(resource_location, body) => {
+            ItemKind::MinecraftFunctionDeclaration(resource_location, body) => {
                 ctx.function_contexts.push(FunctionContext::MCFunction);
 
                 let (body_span, tail_expression_span, body) =
@@ -294,7 +298,7 @@ impl Item {
                     &UnresolvedDataType::Unit,
                 )?;
 
-                MiddleItem::MCFNDeclaration(resource_location, body)
+                MiddleItem::MinecraftFunctionDeclaration(resource_location, body)
             }
             ItemKind::TypeAliasDeclaration(TypeAliasDeclarationItem {
                 name_span,

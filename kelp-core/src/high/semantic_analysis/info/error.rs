@@ -15,6 +15,9 @@ pub struct SemanticAnalysisErrorDisplay<'a> {
 impl Display for SemanticAnalysisErrorDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.error {
+            SemanticAnalysisError::InherentImplRequiresNomialType => {
+                f.write_str("An inherent `impl` requires a nomial type")
+            }
             SemanticAnalysisError::FunctionTypesNotAllRuntime => {
                 f.write_str("Every type in a `runtime` function signature must be runtime")
             }
@@ -368,6 +371,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
 
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
+    InherentImplRequiresNomialType,
     FunctionTypesNotAllRuntime,
     FunctionTypesNotAllData,
     RecursiveFunctionNotRuntime,

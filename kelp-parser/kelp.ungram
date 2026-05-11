@@ -10,7 +10,7 @@ ItemKind =
 | InherentImplementationItem
 | UseItem
 | FunctionDeclarationItem
-| MCFNDeclarationItem
+| MinecraftFunctionDeclarationItem
 | StructStructDeclarationItem
 | TupleStructDeclarationItem
 | TypeAliasDeclarationItem
@@ -60,7 +60,7 @@ FunctionDeclarationItem =
 FunctionParameter =
   Pattern ':' DataType
 
-MCFNDeclarationItem =
+MinecraftFunctionDeclarationItem =
   'mcfn' ResourceLocation BlockExpression
 
 StructStructDeclarationItem =

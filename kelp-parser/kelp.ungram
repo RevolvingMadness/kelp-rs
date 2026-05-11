@@ -7,6 +7,7 @@ Item =
 
 ItemKind =
   ModuleDeclarationItem
+| InherentImplementationItem
 | UseItem
 | FunctionDeclarationItem
 | MCFNDeclarationItem
@@ -16,6 +17,15 @@ ItemKind =
 
 ModuleDeclarationItem =
   'mod' 'module_name' '{' Item* '}'
+
+InherentImplementationItem =
+  'impl' GenericNames? DataType '{' AssociatedItem* '}'
+
+AssociatedItem =
+  'pub'? AssociatedItemKind
+
+AssociatedItemKind =
+  TypeAliasDeclarationItem | FunctionDeclarationItem
 
 UseItem =
   'use' UseTree

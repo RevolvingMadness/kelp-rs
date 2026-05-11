@@ -128,6 +128,7 @@ pub enum SyntaxKind {
     ModuleName,
 
     UseKeyword,
+    ImplKeyword,
     PubKeyword,
     ScoreKeyword,
     EntityKeyword,
@@ -166,6 +167,9 @@ pub enum SyntaxKind {
 
     Item,
     ItemKind,
+    InherentImplementationItem,
+    AssociatedItem,
+    AssociatedItemKind,
     ModuleDeclarationItem,
     FunctionDeclarationItem,
     FunctionName,

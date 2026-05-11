@@ -1,5 +1,6 @@
 use kelp_core::high::{
-    data_type::DataType, item::ItemKind, semantic_analysis::SemanticAnalysisContext,
+    data_type::DataType, item::function_declaration::FunctionDeclarationItem,
+    semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{
@@ -75,10 +76,12 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
             }
 
             parser.skip_whitespace();
-            parser.expect_char(':', "Expected ':'");
+
+            let parsed_colon = parser.expect_char(':', "Expected ':'");
+
             parser.skip_whitespace();
 
-            if !try_parse_data_type(parser) {
+            if !try_parse_data_type(parser) && parsed_colon {
                 parser.error("Expected data type");
             }
 
@@ -166,10 +169,12 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
             }
 
             parser.skip_whitespace();
-            parser.expect_char(':', "Expected ':'");
+
+            let parsed_colon = parser.expect_char(':', "Expected ':'");
+
             parser.skip_whitespace();
 
-            if !try_parse_data_type(parser) {
+            if !try_parse_data_type(parser) && parsed_colon {
                 parser.error("Expected data type");
             }
 
@@ -215,7 +220,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 pub fn lower_function_declaration_item_kind(
     node: CSTFunctionDeclarationItem,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<ItemKind> {
+) -> Option<FunctionDeclarationItem> {
     let recursive_keyword_span = node
         .recursive_keyword_token()
         .map(|token| text_range_to_span(token.text_range()));
@@ -247,7 +252,7 @@ pub fn lower_function_declaration_item_kind(
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ItemKind::FunctionDeclaration {
+    Some(FunctionDeclarationItem {
         recursive_keyword_span,
         runtime_keyword_span,
         name_span: text_range_to_span(name_span),

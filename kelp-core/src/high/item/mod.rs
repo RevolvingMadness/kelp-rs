@@ -16,7 +16,10 @@ use crate::{
             value::function::builtin::{BuiltinFunctionKind, HighBuiltinFunctionDeclaration},
         },
         expression::block::BlockExpression,
-        pattern::Pattern,
+        item::{
+            associated::AssociatedItem, function_declaration::FunctionDeclarationItem,
+            type_alias_declaration::TypeAliasDeclarationItem,
+        },
         semantic_analysis::{
             FunctionContext, RegularFunctionModifiers, ResolvedItem, SemanticAnalysisContext,
             info::error::SemanticAnalysisError,
@@ -28,21 +31,21 @@ use crate::{
     visibility::Visibility,
 };
 
+pub mod associated;
+pub mod function_declaration;
+pub mod type_alias_declaration;
+
 #[derive(Debug, Clone)]
 pub enum ItemKind {
-    ModuleDeclaration(Span, String, Vec<Item>),
-    FunctionDeclaration {
-        recursive_keyword_span: Option<Span>,
-        runtime_keyword_span: Option<Span>,
-        name_span: Span,
-        name: String,
+    InherentImplementationItem {
         generic_names: Vec<String>,
-        parameters: Vec<(Pattern, DataType)>,
-        return_type: DataType,
-        body: BlockExpression,
+        data_type: DataType,
+        associated_items: Vec<AssociatedItem>,
     },
+    ModuleDeclaration(Span, String, Vec<Item>),
+    FunctionDeclaration(FunctionDeclarationItem),
     MCFNDeclaration(ResourceLocation, BlockExpression),
-    TypeAliasDeclaration(Span, String, Vec<String>, DataType),
+    TypeAliasDeclaration(TypeAliasDeclarationItem),
     StructStructDeclaration(Span, String, Vec<String>, HashMap<String, DataType>),
     TupleStructDeclaration(Span, String, Vec<String>, Vec<DataType>),
     Use(UseTree),
@@ -61,6 +64,11 @@ impl Item {
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleItem> {
         Some(match self.kind {
+            ItemKind::InherentImplementationItem {
+                generic_names,
+                data_type,
+                associated_items,
+            } => todo!(),
             ItemKind::ModuleDeclaration(name_span, name, items) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
@@ -85,7 +93,7 @@ impl Item {
 
                 MiddleItem::ModuleDeclaration
             }
-            ItemKind::FunctionDeclaration {
+            ItemKind::FunctionDeclaration(FunctionDeclarationItem {
                 recursive_keyword_span,
                 runtime_keyword_span,
                 name_span: _,
@@ -94,7 +102,7 @@ impl Item {
                 parameters,
                 return_type,
                 body,
-            } => {
+            }) => {
                 let parameter_types = parameters
                     .iter()
                     .map(|(_, data_type)| {
@@ -288,7 +296,12 @@ impl Item {
 
                 MiddleItem::MCFNDeclaration(resource_location, body)
             }
-            ItemKind::TypeAliasDeclaration(name_span, name, generic_names, alias) => {
+            ItemKind::TypeAliasDeclaration(TypeAliasDeclarationItem {
+                name_span,
+                name,
+                generic_names,
+                alias,
+            }) => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));

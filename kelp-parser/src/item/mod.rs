@@ -14,6 +14,10 @@ use crate::{
             expect_function_declaration_item_kind, lower_function_declaration_item_kind,
             try_parse_function_declaration_item_kind,
         },
+        implementation::inherent::{
+            expect_inherent_implementation_item_kind, lower_inherent_implementation_item,
+            try_parse_inherent_implementation_item_kind,
+        },
         mcfn_declaration::{
             expect_mcfn_declaration_item_kind, lower_mcfn_declaration_item_kind,
             try_parse_mcfn_declaration_item_kind,
@@ -37,7 +41,9 @@ use crate::{
     syntax::SyntaxKind,
 };
 
+pub mod associated;
 pub mod function_declaration;
+pub mod implementation;
 pub mod mcfn_declaration;
 pub mod module_declaration;
 pub mod struct_declaration;
@@ -51,6 +57,7 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
     };
 
     match identifier {
+        "impl" => try_parse_inherent_implementation_item_kind(parser),
         "use" => try_parse_use_item_kind(parser),
         "mod" => try_parse_module_declaration_item_kind(parser),
         "recursive" | "runtime" | "fn" => try_parse_function_declaration_item_kind(parser),
@@ -70,30 +77,6 @@ fn recover_item(parser: &mut Parser) {
         .map_or((false, bytes.len()), |value| (true, value));
 
     parser.add_token(SyntaxKind::Garbage, length + usize::from(not_end));
-}
-
-pub fn expect_item_kind(parser: &mut Parser) {
-    let Some(identifier) = parser.peek_identifier() else {
-        parser.error("Expected item");
-
-        recover_item(parser);
-
-        return;
-    };
-
-    match identifier {
-        "use" => expect_use_item_kind(parser),
-        "mod" => expect_module_declaration_item_kind(parser),
-        "recursive" | "runtime" | "fn" => expect_function_declaration_item_kind(parser),
-        "mcfn" => expect_mcfn_declaration_item_kind(parser),
-        "struct" => expect_struct_declaration_item_kind(parser),
-        "type" => expect_type_alias_declaration_item_kind(parser),
-        _ => {
-            parser.error_with_len("Expected item", identifier.len());
-
-            parser.add_token(SyntaxKind::Garbage, identifier.len());
-        }
-    }
 }
 
 #[must_use]
@@ -140,7 +123,28 @@ pub fn expect_item(parser: &mut Parser) -> bool {
         None
     };
 
-    expect_item_kind(parser);
+    let Some(identifier) = parser.peek_identifier() else {
+        parser.error("Expected item");
+
+        recover_item(parser);
+
+        return true;
+    };
+
+    match identifier {
+        "impl" => expect_inherent_implementation_item_kind(parser),
+        "use" => expect_use_item_kind(parser),
+        "mod" => expect_module_declaration_item_kind(parser),
+        "recursive" | "runtime" | "fn" => expect_function_declaration_item_kind(parser),
+        "mcfn" => expect_mcfn_declaration_item_kind(parser),
+        "struct" => expect_struct_declaration_item_kind(parser),
+        "type" => expect_type_alias_declaration_item_kind(parser),
+        _ => {
+            parser.error_with_len("Expected item", identifier.len());
+
+            parser.add_token(SyntaxKind::Garbage, identifier.len());
+        }
+    }
 
     parser.finish_node();
 
@@ -151,10 +155,13 @@ pub fn expect_item(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Option<ItemKind> {
     match node {
-        CSTItemKind::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
-        CSTItemKind::FunctionDeclarationItem(node) => {
-            lower_function_declaration_item_kind(node, ctx)
+        CSTItemKind::InherentImplementationItem(node) => {
+            lower_inherent_implementation_item(node, ctx)
         }
+        CSTItemKind::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
+        CSTItemKind::FunctionDeclarationItem(node) => Some(ItemKind::FunctionDeclaration(
+            lower_function_declaration_item_kind(node, ctx)?,
+        )),
         CSTItemKind::MCFNDeclarationItem(node) => lower_mcfn_declaration_item_kind(node, ctx),
         CSTItemKind::StructStructDeclarationItem(node) => {
             let struct_name_token = node.name()?;
@@ -194,7 +201,9 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
                 fields,
             ))
         }
-        CSTItemKind::TypeAliasDeclarationItem(node) => lower_type_alias_declaration_item(node),
+        CSTItemKind::TypeAliasDeclarationItem(node) => Some(ItemKind::TypeAliasDeclaration(
+            lower_type_alias_declaration_item(node)?,
+        )),
         CSTItemKind::UseItem(node) => lower_use_item(node),
     }
 }

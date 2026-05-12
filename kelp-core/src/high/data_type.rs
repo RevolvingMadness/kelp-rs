@@ -4,9 +4,8 @@ use std::{
 };
 
 use crate::{
-    high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-    low::data_type::unresolved::UnresolvedDataType,
-    path::generic::GenericPath,
+    high::semantic_analysis::SemanticAnalysisContext,
+    low::data_type::unresolved::UnresolvedDataType, path::generic::GenericPath,
 };
 
 #[derive(Debug, Clone)]

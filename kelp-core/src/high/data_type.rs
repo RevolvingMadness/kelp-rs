@@ -79,12 +79,7 @@ impl DataType {
                 let mut path = path.perform_semantic_analysis(ctx);
 
                 let Some(id) = ctx.get_visible_type_id(&path) else {
-                    let last_segment = path.segments.last().unwrap();
-
-                    let name_span = last_segment.name_span;
-                    let name = last_segment.name.clone();
-
-                    return ctx.add_error_type(name_span, SemanticAnalysisError::UnknownType(name));
+                    return UnresolvedDataType::Error;
                 };
 
                 let last_segment = path.segments.pop().unwrap();

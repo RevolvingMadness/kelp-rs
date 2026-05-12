@@ -159,6 +159,31 @@ struct KelpToml {
     project: Project,
 }
 
+fn display_semantic_analysis_infos(
+    ctx: &SemanticAnalysisContext,
+    main_kelp_path: &str,
+    main_kelp: &str,
+) -> bool {
+    for info in &ctx.infos {
+        match &info.kind {
+            SemanticAnalysisInfoKind::Error(error) => {
+                let span = (main_kelp_path, info.span.into_range());
+                Report::build(ReportKind::Error, span.clone())
+                    .with_label(
+                        Label::new(span)
+                            .with_message(error.display(&ctx.high_environment))
+                            .with_color(Color::Red),
+                    )
+                    .finish()
+                    .print((main_kelp_path, Source::from(main_kelp)))
+                    .unwrap();
+            }
+        }
+    }
+
+    !ctx.infos.is_empty()
+}
+
 fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let root = project_path.unwrap_or_else(|| std::env::current_dir().unwrap());
     let kelp_toml_path_buf = root.join("Kelp.toml");
@@ -249,57 +274,49 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let lower_elapsed = lower_start.elapsed();
 
     let start_semantic = Instant::now();
-    let Some(program) = program.perform_semantic_analysis(&mut semantic_analysis_context) else {
-        for info in &semantic_analysis_context.infos {
-            match &info.kind {
-                SemanticAnalysisInfoKind::Error(error) => {
-                    let span = (&main_kelp_path, info.span.into_range());
-                    Report::build(ReportKind::Error, span.clone())
-                        .with_label(
-                            Label::new(span)
-                                .with_message(
-                                    error.display(&semantic_analysis_context.high_environment),
-                                )
-                                .with_color(Color::Red),
-                        )
-                        .finish()
-                        .print((&main_kelp_path, Source::from(&main_kelp)))
-                        .unwrap();
-                }
+
+    let display_info = |ctx: &SemanticAnalysisContext| {
+        let semantic_elapsed = start_semantic.elapsed();
+        let semantic_analysis_succeeded =
+            !display_semantic_analysis_infos(ctx, &main_kelp_path, &main_kelp);
+
+        let part_1_elapsed = parse_elapsed + lower_elapsed + semantic_elapsed;
+
+        println!(
+            "{}     Parsed kelp code in              {:.2?}",
+            "Done:".cyan(),
+            parse_elapsed.green()
+        );
+        println!(
+            "{}     Lowered kelp code in             {:.2?}",
+            "Done:".cyan(),
+            lower_elapsed.green()
+        );
+        println!(
+            "{}     Performed semantic analysis in   {:.2?}",
+            "Done:".cyan(),
+            if semantic_analysis_succeeded {
+                semantic_elapsed.green()
+            } else {
+                semantic_elapsed.red()
             }
-        }
+        );
+        println!(
+            "{}     Part 1 complete in               {:.4?}\n",
+            "Done:".cyan(),
+            part_1_elapsed.green()
+        );
+
+        (semantic_analysis_succeeded, part_1_elapsed)
+    };
+
+    let Some(program) = program.perform_semantic_analysis(&mut semantic_analysis_context) else {
+        display_info(&semantic_analysis_context);
 
         return;
     };
-    let semantic_elapsed = start_semantic.elapsed();
-    let semantic_analysis_succeeded = semantic_analysis_context.infos.is_empty();
 
-    let part_1_elapsed = parse_elapsed + lower_elapsed + semantic_elapsed;
-
-    println!(
-        "{}     Parsed kelp code in              {:.2?}",
-        "Done:".cyan(),
-        parse_elapsed.green()
-    );
-    println!(
-        "{}     Lowered kelp code in             {:.2?}",
-        "Done:".cyan(),
-        lower_elapsed.green()
-    );
-    println!(
-        "{}     Performed semantic analysis in   {:.2?}",
-        "Done:".cyan(),
-        if semantic_analysis_succeeded {
-            semantic_elapsed.green()
-        } else {
-            semantic_elapsed.red()
-        }
-    );
-    println!(
-        "{}     Part 1 complete in               {:.4?}\n",
-        "Done:".cyan(),
-        part_1_elapsed.green()
-    );
+    let (semantic_analysis_succeeded, part_1_elapsed) = display_info(&semantic_analysis_context);
 
     if semantic_analysis_succeeded && parse_succeeded {
         process_success(

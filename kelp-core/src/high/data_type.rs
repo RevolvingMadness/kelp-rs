@@ -4,8 +4,9 @@ use std::{
 };
 
 use crate::{
-    high::semantic_analysis::SemanticAnalysisContext,
-    low::data_type::unresolved::UnresolvedDataType, path::generic::GenericPath,
+    high::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    low::data_type::unresolved::UnresolvedDataType,
+    path::generic::GenericPath,
 };
 
 #[derive(Debug, Clone)]
@@ -69,26 +70,23 @@ impl Display for DataType {
 
 impl DataType {
     #[must_use]
-    pub fn resolve_partially(
+    pub fn perform_semantic_analysis(
         self,
-        context_generic_names: Option<&[String]>,
         ctx: &mut SemanticAnalysisContext,
     ) -> UnresolvedDataType {
         match self {
             Self::Named(path) => {
-                if path.segments.len() == 1 && path.segments[0].generic_types.is_empty() {
-                    let name = &path.segments[0].name;
-
-                    if context_generic_names.is_some_and(|names| names.contains(name)) {
-                        return UnresolvedDataType::Generic(name.clone());
-                    }
-                }
-
-                let mut path = path.resolve_partially(context_generic_names, ctx);
+                let mut path = path.perform_semantic_analysis(ctx);
 
                 let Some(id) = ctx.get_visible_type_id(&path) else {
-                    return UnresolvedDataType::Error;
+                    let last_segment = path.segments.last().unwrap();
+
+                    let name_span = last_segment.name_span;
+                    let name = last_segment.name.clone();
+
+                    return ctx.add_error_type(name_span, SemanticAnalysisError::UnknownType(name));
                 };
+
                 let last_segment = path.segments.pop().unwrap();
 
                 let declaration = ctx.get_type(id).clone();
@@ -107,13 +105,13 @@ impl DataType {
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .into_iter()
-                    .map(|data_type| data_type.resolve_partially(context_generic_names, ctx))
+                    .map(|data_type| data_type.perform_semantic_analysis(ctx))
                     .collect();
 
                 UnresolvedDataType::Tuple(data_types)
             }
             Self::Reference(data_type) => {
-                let data_type = data_type.resolve_partially(context_generic_names, ctx);
+                let data_type = data_type.perform_semantic_analysis(ctx);
 
                 UnresolvedDataType::Reference(Box::new(data_type))
             }
@@ -121,7 +119,7 @@ impl DataType {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.resolve_partially(context_generic_names, ctx);
+                        let value = value.perform_semantic_analysis(ctx);
 
                         (key, value)
                     })

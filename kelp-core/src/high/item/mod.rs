@@ -107,16 +107,21 @@ impl Item {
                 return_type,
                 body,
             }) => {
+                ctx.enter_scope();
+
+                for generic_name in generic_names.clone() {
+                    ctx.declare_type(
+                        Visibility::Public,
+                        HighTypeDeclarationKind::Generic(generic_name),
+                    );
+                }
+
                 let parameter_types = parameters
                     .iter()
-                    .map(|(_, data_type)| {
-                        data_type
-                            .clone()
-                            .resolve_partially(Some(&generic_names), ctx)
-                    })
+                    .map(|(_, data_type)| data_type.clone().perform_semantic_analysis(ctx))
                     .collect::<Vec<_>>();
 
-                let return_type = return_type.resolve_partially(Some(&generic_names), ctx);
+                let return_type = return_type.perform_semantic_analysis(ctx);
 
                 let mut failed = false;
 
@@ -181,11 +186,13 @@ impl Item {
                     RegularFunctionModifiers::None
                 };
 
+                let scope = ctx.exit_scope();
+
                 let id = ctx.declare_regular_function(
                     self.visibility,
                     modifiers,
                     name,
-                    generic_names.clone(),
+                    generic_names,
                     parameter_types
                         .iter()
                         .cloned()
@@ -198,14 +205,7 @@ impl Item {
                     return None;
                 }
 
-                for generic_name in generic_names {
-                    ctx.declare_type(
-                        Visibility::Public,
-                        HighTypeDeclarationKind::Generic(generic_name),
-                    );
-                }
-
-                ctx.enter_scope();
+                ctx.push_scope(scope);
 
                 let mut calls = HashSet::new();
 
@@ -235,10 +235,9 @@ impl Item {
                     }
                 }
 
-                let Some((body_span, tail_expression_span, body)) =
-                    body.perform_semantic_analysis(ctx)
-                else {
+                let after_body_analysis = |ctx: &mut SemanticAnalysisContext| {
                     let context = ctx.function_contexts.pop().unwrap();
+
                     ctx.exit_scope();
 
                     ctx.high_environment
@@ -248,18 +247,18 @@ impl Item {
                             }
                         });
 
+                    context
+                };
+
+                let Some((body_span, tail_expression_span, body)) =
+                    body.perform_semantic_analysis(ctx)
+                else {
+                    after_body_analysis(ctx);
+
                     return None;
                 };
 
-                let context = ctx.function_contexts.pop().unwrap();
-                ctx.exit_scope();
-
-                ctx.high_environment
-                    .update_regular_function(id, |declaration| {
-                        if let Some(calls) = context.get_calls() {
-                            declaration.calls = Some(calls.clone());
-                        }
-                    });
+                let context = after_body_analysis(ctx);
 
                 if !body.kind.definitely_diverges() {
                     body.data_type.assert_equals(
@@ -311,7 +310,18 @@ impl Item {
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
                 }
 
-                let alias = alias.resolve_partially(Some(&generic_names), ctx);
+                ctx.enter_scope();
+
+                for generic_name in generic_names.clone() {
+                    ctx.declare_type(
+                        Visibility::Public,
+                        HighTypeDeclarationKind::Generic(generic_name),
+                    );
+                }
+
+                let alias = alias.perform_semantic_analysis(ctx);
+
+                ctx.exit_scope();
 
                 ctx.declare_alias(
                     self.visibility,
@@ -330,14 +340,25 @@ impl Item {
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
                 }
 
+                ctx.enter_scope();
+
+                for generic_name in generic_names.clone() {
+                    ctx.declare_type(
+                        Visibility::Public,
+                        HighTypeDeclarationKind::Generic(generic_name),
+                    );
+                }
+
                 let field_types = field_types
                     .into_iter()
                     .map(|(field_name, field_type)| {
-                        let field_type = field_type.resolve_partially(Some(&generic_names), ctx);
+                        let field_type = field_type.perform_semantic_analysis(ctx);
 
                         (field_name, field_type)
                     })
                     .collect();
+
+                ctx.exit_scope();
 
                 ctx.declare_regular_struct(
                     self.visibility,
@@ -356,9 +377,18 @@ impl Item {
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
                 }
 
+                ctx.enter_scope();
+
+                for generic_name in generic_names.clone() {
+                    ctx.declare_type(
+                        Visibility::Public,
+                        HighTypeDeclarationKind::Generic(generic_name),
+                    );
+                }
+
                 let field_types = field_types
                     .into_iter()
-                    .map(|field_type| field_type.resolve_partially(Some(&generic_names), ctx))
+                    .map(|field_type| field_type.perform_semantic_analysis(ctx))
                     .collect::<Vec<_>>();
 
                 let generic_types = generic_names
@@ -366,6 +396,8 @@ impl Item {
                     .cloned()
                     .map(UnresolvedDataType::Generic)
                     .collect::<Vec<_>>();
+
+                ctx.enter_scope();
 
                 let id = ctx.declare_tuple_struct(
                     self.visibility,

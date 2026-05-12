@@ -198,7 +198,7 @@ impl Expression {
     ) -> Option<(Span, UnresolvedPlaceExpression)> {
         let expression = match self.kind {
             ExpressionKind::Path(path) => {
-                let mut path = path.resolve_partially(None, ctx);
+                let mut path = path.perform_semantic_analysis(ctx);
 
                 let id = ctx.get_visible_value_id(&path)?;
 
@@ -616,7 +616,7 @@ impl Expression {
             }
             ExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.perform_semantic_analysis(ctx);
-                let data_type = data_type.resolve_partially(None, ctx);
+                let data_type = data_type.perform_semantic_analysis(ctx);
 
                 let (_, expression) = expression?;
 
@@ -688,7 +688,7 @@ impl Expression {
                     .with(UnresolvedDataType::Tuple(expression_data_types))
             }
             ExpressionKind::RegularStruct(path, field_values) => {
-                let mut path = path.resolve_partially(None, ctx);
+                let mut path = path.perform_semantic_analysis(ctx);
 
                 let id = ctx.get_visible_type_id(&path)?;
 
@@ -954,7 +954,7 @@ impl Expression {
                 .with(UnresolvedDataType::Unit)
             }
             ExpressionKind::Path(path) => {
-                let mut path = path.resolve_partially(None, ctx);
+                let mut path = path.perform_semantic_analysis(ctx);
 
                 let id = ctx.get_visible_value_id(&path)?;
 

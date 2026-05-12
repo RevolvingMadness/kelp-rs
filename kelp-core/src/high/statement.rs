@@ -45,7 +45,7 @@ impl Statement {
             }
             StatementKind::Let(explicit_type, pattern, value) => {
                 let explicit_type =
-                    explicit_type.map(|explicit_type| explicit_type.resolve_partially(None, ctx));
+                    explicit_type.map(|explicit_type| explicit_type.perform_semantic_analysis(ctx));
 
                 let Some((value_span, value)) = value.perform_semantic_analysis(ctx) else {
                     pattern.kind.destructure_unknown(ctx);

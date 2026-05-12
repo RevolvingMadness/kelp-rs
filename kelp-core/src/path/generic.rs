@@ -57,15 +57,14 @@ impl GenericPathSegment<UnresolvedDataType> {
 
 impl GenericPathSegment<DataType> {
     #[must_use]
-    pub fn resolve_partially(
+    pub fn perform_semantic_analysis(
         self,
-        context_generic_names: Option<&[String]>,
         ctx: &mut SemanticAnalysisContext,
     ) -> GenericPathSegment<UnresolvedDataType> {
         let generic_types = self
             .generic_types
             .into_iter()
-            .map(|data_type| data_type.resolve_partially(context_generic_names, ctx))
+            .map(|data_type| data_type.perform_semantic_analysis(ctx))
             .collect();
 
         GenericPathSegment {
@@ -115,15 +114,14 @@ impl GenericPath<UnresolvedDataType> {
 
 impl GenericPath<DataType> {
     #[must_use]
-    pub fn resolve_partially(
+    pub fn perform_semantic_analysis(
         self,
-        context_generic_names: Option<&[String]>,
         ctx: &mut SemanticAnalysisContext,
     ) -> GenericPath<UnresolvedDataType> {
         let segments = self
             .segments
             .into_iter()
-            .map(|segment| segment.resolve_partially(context_generic_names, ctx))
+            .map(|segment| segment.perform_semantic_analysis(ctx))
             .collect();
 
         GenericPath {

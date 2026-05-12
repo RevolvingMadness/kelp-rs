@@ -197,6 +197,11 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
+    pub fn push_scope(&mut self, scope: Scope) {
+        self.scopes.push(scope);
+    }
+
+    #[inline]
     pub fn enter_module(&mut self, name: String) {
         self.current_module_path.push(name);
 
@@ -273,6 +278,8 @@ impl SemanticAnalysisContext {
         None
     }
 
+    #[inline]
+    #[must_use]
     pub fn add_error<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
         self.add_info(SemanticAnalysisInfo {
             span,
@@ -280,13 +287,13 @@ impl SemanticAnalysisContext {
         })
     }
 
+    #[inline]
     pub fn add_error_unit(&mut self, span: Span, error: SemanticAnalysisError) -> Option<()> {
-        self.add_info(SemanticAnalysisInfo {
-            span,
-            kind: SemanticAnalysisInfoKind::Error(error),
-        })
+        self.add_error(span, error)
     }
 
+    #[inline]
+    #[must_use]
     pub fn add_error_type(
         &mut self,
         span: Span,
@@ -551,26 +558,27 @@ impl SemanticAnalysisContext {
             );
         };
 
-        for segment in segments {
+        for next_segment in segments {
             let module = self.get_visible_module(
                 current_segment.name_span,
                 &current_segment.name,
                 current_type_id,
             )?;
 
-            let Some(next_type_id) = module.get_type_id(&segment.name) else {
+            let Some(next_type_id) = module.get_type_id(&next_segment.name) else {
                 let module_name = module.name.clone();
+
                 return self.add_error(
-                    segment.name_span,
+                    next_segment.name_span,
                     SemanticAnalysisError::ModuleDoesntContainType {
                         module_name,
-                        type_name: segment.name.clone(),
+                        type_name: next_segment.name.clone(),
                     },
                 );
             };
 
             current_type_id = next_type_id;
-            current_segment = segment;
+            current_segment = next_segment;
         }
 
         let HighTypeDeclaration {
@@ -809,7 +817,7 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
+    pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
         self.scopes
             .iter()
             .rev()

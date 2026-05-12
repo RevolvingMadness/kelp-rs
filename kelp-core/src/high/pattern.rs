@@ -247,7 +247,7 @@ impl Pattern {
                 PatternKind::RegularStruct(path, field_patterns),
                 UnresolvedDataType::Struct(value_id, value_generic_types),
             ) => {
-                let mut path = path.resolve_partially(None, ctx);
+                let mut path = path.perform_semantic_analysis(ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
                 let pattern_id = HighRegularStructId(pattern_id.0);
@@ -313,7 +313,7 @@ impl Pattern {
                 PatternKind::TupleStruct(path, field_patterns),
                 UnresolvedDataType::Struct(value_id, value_generic_types),
             ) => {
-                let mut path = path.resolve_partially(None, ctx);
+                let mut path = path.perform_semantic_analysis(ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
                 let pattern_id = HighTupleStructId(pattern_id.0);

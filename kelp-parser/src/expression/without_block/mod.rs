@@ -10,13 +10,14 @@ use crate::{
         coordinates::lower_coordinates_expression, data::lower_data_expression,
         entity_selector::lower_entity_selector_expression,
         field_access::lower_field_access_expression, index::lower_index_expression,
-        list::lower_list_expression, numeric::lower_numeric_expression,
-        parenthesized::lower_parenthesized_expression, path::lower_path_expression,
-        resource_location::lower_resource_location_expression, r#return::lower_return_expression,
-        score::lower_score_expression, string::lower_string_expression,
-        r#struct::lower_struct_expression, to_cast::lower_to_cast_expression,
-        tuple::lower_tuple_expression, unary::lower_unary_expression,
-        underscore::lower_underscore_expression, unit::lower_unit_expression,
+        list::lower_list_expression, method_call::lower_method_call_expression,
+        numeric::lower_numeric_expression, parenthesized::lower_parenthesized_expression,
+        path::lower_path_expression, resource_location::lower_resource_location_expression,
+        r#return::lower_return_expression, score::lower_score_expression,
+        string::lower_string_expression, r#struct::lower_struct_expression,
+        to_cast::lower_to_cast_expression, tuple::lower_tuple_expression,
+        unary::lower_unary_expression, underscore::lower_underscore_expression,
+        unit::lower_unit_expression,
     },
 };
 
@@ -34,6 +35,7 @@ pub mod entity_selector;
 pub mod field_access;
 pub mod index;
 pub mod list;
+pub mod method_call;
 pub mod numeric;
 pub mod parenthesized;
 pub mod path;
@@ -85,6 +87,9 @@ pub fn lower_expression_without_block(
         CSTExpressionWithoutBlock::ToCastExpression(node) => lower_to_cast_expression(node, ctx),
         CSTExpressionWithoutBlock::StructExpression(node) => lower_struct_expression(node, ctx),
         CSTExpressionWithoutBlock::IndexExpression(node) => lower_index_expression(node, ctx),
+        CSTExpressionWithoutBlock::MethodCallExpression(node) => {
+            lower_method_call_expression(node, ctx)
+        }
         CSTExpressionWithoutBlock::FieldAccessExpression(node) => {
             lower_field_access_expression(node, ctx)
         }

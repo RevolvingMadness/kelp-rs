@@ -28,7 +28,7 @@ use crate::{
         expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
-    path::generic::GenericPath,
+    path::generic::{GenericPath, GenericPathSegment},
     runtime_storage::RuntimeStorageType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
@@ -65,6 +65,11 @@ pub enum ExpressionKind {
     Condition(bool, Box<ExecuteIfSubcommand>),
     Command(Box<Command>),
     Index(Box<Expression>, Box<Expression>),
+    MethodCall {
+        receiver: Box<Expression>,
+        callee: GenericPathSegment<DataType>,
+        arguments: Vec<Expression>,
+    },
     FieldAccess(Box<Expression>, Span, String),
     AsCast(Box<Expression>, DataType),
     ToCast(Box<Expression>, RuntimeStorageType),
@@ -604,6 +609,23 @@ impl Expression {
 
                 UnresolvedExpressionKind::Index(Box::new(target), Box::new(index))
                     .with(index_result)
+            }
+            ExpressionKind::MethodCall {
+                receiver,
+                callee,
+                arguments,
+            } => {
+                let receiver = receiver.perform_semantic_analysis(ctx);
+                let _callee = callee.perform_semantic_analysis(ctx);
+                let arguments = arguments
+                    .into_iter()
+                    .map(|expression| expression.perform_semantic_analysis(ctx))
+                    .collect_option_all::<Vec<_>>(); // TODO: Remove turbofish
+
+                let (_, _receiver) = receiver?;
+                let _arguments = arguments?;
+
+                todo!()
             }
             ExpressionKind::FieldAccess(expression, field_span, field) => {
                 let (_, place) = expression.perform_semantic_analysis(ctx)?;

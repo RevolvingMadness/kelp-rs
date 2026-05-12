@@ -149,6 +149,7 @@ ExpressionWithoutBlock =
 | StructExpression
 | CompoundExpression
 | IndexExpression
+| MethodCallExpression
 | FieldAccessExpression
 | ReturnExpression
 | ResourceLocationExpression
@@ -232,10 +233,10 @@ UnitExpression =
   '(' ')'
 
 CallExpression =
-  callee:Expression '(' CallArguments ')'
+  callee:Expression '(' CallArguments? ')'
 
 CallArguments =
-  (Expression (',' Expression)* ','?)?
+  Expression (',' Expression)* ','?
 
 ParenthesizedExpression =
   '(' Expression ')'
@@ -281,6 +282,9 @@ CompoundExpressionEntry =
 
 IndexExpression =
   Expression '[' Expression ']'
+
+MethodCallExpression =
+  Expression '.' GenericPathSegment '(' CallArguments? ')'
 
 FieldAccessExpression =
   Expression '.' 'field_name'

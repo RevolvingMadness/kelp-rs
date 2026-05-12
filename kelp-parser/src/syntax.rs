@@ -227,6 +227,7 @@ pub enum SyntaxKind {
     PredicateLoopExpression,
     InfiniteLoopExpression,
     IteratorLoopExpression,
+    MethodCallExpression,
     FieldAccessExpression,
     FieldName,
     AssignmentExpression,

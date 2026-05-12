@@ -73,7 +73,9 @@ pub fn try_parse_generic_path(parser: &mut Parser, is_type: bool) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-fn lower_generic_path_segment(node: CSTGenericPathSegment) -> Option<GenericPathSegment<DataType>> {
+pub fn lower_generic_path_segment(
+    node: CSTGenericPathSegment,
+) -> Option<GenericPathSegment<DataType>> {
     let name_token = node.path_identifier_token()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();

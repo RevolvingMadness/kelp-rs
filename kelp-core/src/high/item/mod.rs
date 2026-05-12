@@ -9,6 +9,7 @@ use crate::{
             HighImpl,
             r#type::{
                 HighTypeDeclarationKind, HighTypeId,
+                alias::HighTypeAliasDeclaration,
                 r#struct::{
                     regular::HighRegularStructDeclaration, tuple::HighTupleStructDeclaration,
                 },
@@ -82,6 +83,15 @@ impl Item {
                 }
 
                 let target_type = target_type.perform_semantic_analysis(ctx);
+
+                ctx.declare_alias(
+                    Visibility::Public,
+                    HighTypeAliasDeclaration {
+                        name: "Self".to_owned(),
+                        generic_ids: Vec::new(),
+                        alias: target_type.clone(),
+                    },
+                );
 
                 let _associated_items = associated_items
                     .into_iter()

@@ -432,8 +432,8 @@ pub enum UnresolvedExpressionKind {
     Data(Box<Data>),
     Condition(bool, Box<MiddleExecuteIfSubcommand>),
     Command(Box<MiddleCommand>),
-    Index(Box<UnresolvedPlaceExpression>, Box<UnresolvedExpression>),
-    FieldAccess(Box<UnresolvedPlaceExpression>, String),
+    Index(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
+    FieldAccess(Box<UnresolvedExpression>, String),
     AsCast(Box<UnresolvedExpression>, UnresolvedDataType),
     ToCast(
         Option<NotNan<f32>>,
@@ -726,18 +726,15 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Score(unique_score)
             }
             Self::Index(target, index) => {
-                let target = target.resolve(datapack, ctx);
+                let target = target.kind.resolve(datapack, ctx);
                 let index = index.kind.resolve(datapack, ctx);
 
-                target.resolve(datapack, ctx).index(ctx, index).unwrap()
+                target.index(ctx, index).unwrap()
             }
             Self::FieldAccess(target, field) => {
-                let target = target.resolve(datapack, ctx);
+                let target = target.kind.resolve(datapack, ctx);
 
-                target
-                    .resolve(datapack, ctx)
-                    .access_field(FieldAccessType::Name, field)
-                    .unwrap()
+                target.access_field(FieldAccessType::Name, field).unwrap()
             }
             Self::AsCast(expression, data_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);

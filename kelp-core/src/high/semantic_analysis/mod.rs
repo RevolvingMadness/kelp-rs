@@ -608,13 +608,13 @@ impl SemanticAnalysisContext {
 
     #[must_use]
     pub fn get_visible_value_id<T>(&mut self, path: &GenericPath<T>) -> Option<HighValueId> {
-        let (module_segment, segments) = path.segments.split_first()?;
+        let (current_segment, segments) = path.segments.split_first()?;
 
         if segments.is_empty() {
-            let Some(resolved_value_id) = self.get_value_id(&module_segment.name) else {
+            let Some(resolved_value_id) = self.get_value_id(&current_segment.name) else {
                 return self.add_error(
-                    module_segment.name_span,
-                    SemanticAnalysisError::UnknownValue(module_segment.name.clone()),
+                    current_segment.name_span,
+                    SemanticAnalysisError::UnknownValue(current_segment.name.clone()),
                 );
             };
 
@@ -623,14 +623,14 @@ impl SemanticAnalysisContext {
 
         let (target_value_segment, segments) = segments.split_last().unwrap();
 
-        let Some(mut current_type_id) = self.get_type_id(&module_segment.name) else {
+        let Some(mut current_type_id) = self.get_type_id(&current_segment.name) else {
             return self.add_error(
-                module_segment.name_span,
-                SemanticAnalysisError::UnknownModule(module_segment.name.clone()),
+                current_segment.name_span,
+                SemanticAnalysisError::UnknownModule(current_segment.name.clone()),
             );
         };
 
-        let mut previous_segment = module_segment;
+        let mut previous_segment = current_segment;
 
         for type_segment in segments {
             let module = self.get_visible_module(
@@ -655,14 +655,48 @@ impl SemanticAnalysisContext {
             previous_segment = type_segment;
         }
 
-        let module = self.get_visible_module(
-            previous_segment.name_span,
-            &previous_segment.name,
-            current_type_id,
-        )?;
+        let container_type = self.get_type(current_type_id);
 
-        let Some(resolved_value_id) = module.get_value_id(&target_value_segment.name) else {
-            let module_name = module.name.clone();
+        let is_visible =
+            self.is_item_visible(&container_type.module_path, container_type.visibility);
+
+        if !is_visible {
+            return self.add_error(
+                previous_segment.name_span,
+                SemanticAnalysisError::TypeNotPublic(previous_segment.name.clone()),
+            );
+        }
+
+        let resolved_value_id = {
+            let container_type = self.get_type(current_type_id);
+            match &container_type.kind {
+                HighTypeDeclarationKind::Module(module) => {
+                    module.get_value_id(&target_value_segment.name)
+                }
+                _ => {
+                    let mut found_id = None;
+                    if let Some(impls) = self.high_environment.impls.get(&current_type_id) {
+                        for implementation in impls {
+                            if let Some(&id) =
+                                implementation.functions.get(&target_value_segment.name)
+                            {
+                                found_id = Some(id);
+                                break;
+                            }
+                        }
+                    }
+                    found_id
+                }
+            }
+        };
+
+        let Some(resolved_value_id) = resolved_value_id else {
+            let container_type = self.get_type(current_type_id);
+
+            let module_name = match &container_type.kind {
+                HighTypeDeclarationKind::Module(module) => module.name.clone(),
+                _ => previous_segment.name.clone(),
+            };
 
             return self.add_error(
                 target_value_segment.name_span,
@@ -793,14 +827,46 @@ impl SemanticAnalysisContext {
             previous_segment = segment;
         }
 
-        let declaration = self.get_visible_module(
-            previous_segment.span,
-            &previous_segment.name,
-            current_type_id,
-        )?;
+        let container_type = self.get_type(current_type_id);
 
-        let Some(resolved_value_id) = declaration.get_value_id(&last_segment.name) else {
-            let module_name = declaration.name.clone();
+        let is_visible =
+            self.is_item_visible(&container_type.module_path, container_type.visibility);
+
+        if !is_visible {
+            return self.add_error(
+                previous_segment.span,
+                SemanticAnalysisError::TypeNotPublic(previous_segment.name.clone()),
+            );
+        }
+
+        let resolved_value_id = {
+            let container_type = self.get_type(current_type_id);
+            match &container_type.kind {
+                HighTypeDeclarationKind::Module(declaration) => {
+                    declaration.get_value_id(&last_segment.name)
+                }
+                _ => {
+                    let mut found_id = None;
+                    if let Some(impls) = self.high_environment.impls.get(&current_type_id) {
+                        for implementation in impls {
+                            if let Some(&id) = implementation.functions.get(&last_segment.name) {
+                                found_id = Some(id);
+                                break;
+                            }
+                        }
+                    }
+                    found_id
+                }
+            }
+        };
+
+        let Some(resolved_value_id) = resolved_value_id else {
+            let container_type = self.get_type(current_type_id);
+            let module_name = match &container_type.kind {
+                HighTypeDeclarationKind::Module(module) => module.name.clone(),
+                _ => previous_segment.name.clone(),
+            };
+
             return self.add_error(
                 last_segment.span,
                 SemanticAnalysisError::ModuleDoesntContainItem {

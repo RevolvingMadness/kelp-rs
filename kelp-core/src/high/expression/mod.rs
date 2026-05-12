@@ -590,7 +590,7 @@ impl Expression {
                     .with(UnresolvedDataType::Integer)
             }
             ExpressionKind::Index(target, index) => {
-                let target = target.as_place_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(ctx);
                 let index = index.perform_semantic_analysis(ctx);
 
                 let (target_span, target) = target?;
@@ -606,7 +606,7 @@ impl Expression {
                     .with(index_result)
             }
             ExpressionKind::FieldAccess(expression, field_span, field) => {
-                let (_, place) = expression.as_place_semantic_analysis(ctx)?;
+                let (_, place) = expression.perform_semantic_analysis(ctx)?;
 
                 let field_result = place
                     .data_type

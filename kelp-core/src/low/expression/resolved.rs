@@ -32,12 +32,9 @@ use crate::{
         CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
         RecursiveRuntimeFunction, RegularRuntimeFunction, RuntimeFunction,
     },
-    high::semantic_analysis::RegularFunctionModifiers,
+    high::{environment::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers},
     low::{
-        data_type::{
-            resolved::{FieldAccessType, ResolvedDataType},
-            unresolved::UnresolvedDataType,
-        },
+        data_type::resolved::{FieldAccessType, ResolvedDataType},
         environment::{
             Environment,
             r#type::r#struct::{RegularStructId, TupleStructId},
@@ -168,9 +165,7 @@ fn compile_compiletime_function(
 
     let mut function_body_ctx = CompileContext::default();
 
-    for ((pattern, data_type), argument) in
-        parameters.into_iter().zip(arguments.clone().into_iter())
-    {
+    for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
         pattern.destructure(datapack, &mut function_body_ctx, data_type, argument);
     }
 
@@ -218,8 +213,7 @@ fn compile_regular_runtime_function(
         let parameter_targets = function.parameter_targets.clone();
         let return_target = function.return_target.clone();
 
-        for (parameter_target, argument) in
-            parameter_targets.clone().into_iter().zip(arguments.clone())
+        for (parameter_target, argument) in parameter_targets.iter().cloned().zip(arguments.clone())
         {
             parameter_target.assign_target(datapack, ctx, argument);
         }
@@ -446,11 +440,17 @@ fn compile_function(
     ctx: &mut CompileContext,
     id: FunctionId,
     modifiers: RegularFunctionModifiers,
+    generic_ids: Vec<HighGenericId>,
+    generic_types: Vec<ResolvedDataType>,
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
     arguments: Vec<ResolvedExpression>,
     body: UnresolvedExpression,
     return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
+    for (generic_id, generic_type) in generic_ids.into_iter().zip(generic_types) {
+        datapack.declare_generic(generic_id, generic_type);
+    }
+
     let RegularFunctionModifiers::Runtime { recursive } = modifiers else {
         return compile_compiletime_function(
             datapack,
@@ -550,20 +550,27 @@ fn format_generics(output: &mut String, generics: &[ResolvedDataType], environme
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ResolvedExpression {
     Boolean(bool),
+
     Byte(i8),
     Short(i16),
     Integer(i32),
     Long(i64),
+
     Float(NotNan<f32>),
     Double(NotNan<f64>),
+
     String(String),
+
     List(Vec<Self>),
     Compound(BTreeMap<String, Self>),
     Tuple(Vec<Self>),
+
     RegularStruct(RegularStructId, BTreeMap<String, Self>),
     TupleStruct(TupleStructId, Vec<Self>),
+
     Unit,
     Never,
+
     ResourceLocation(ResourceLocation),
     EntitySelector(EntitySelector),
     Coordinates(Coordinates),
@@ -657,6 +664,8 @@ impl ResolvedExpression {
                         ctx,
                         id,
                         declaration.modifiers,
+                        declaration.generic_ids.clone(),
+                        declaration.generic_types.clone(),
                         declaration.parameters.clone(),
                         arguments,
                         declaration.body.clone(),
@@ -1707,86 +1716,112 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn cast_to(self, data_type: UnresolvedDataType) -> Option<Self> {
-        Some(match (self, data_type) {
-            (Self::Byte(value), UnresolvedDataType::Short) => Self::Short(i16::from(value)),
-            (Self::Byte(value), UnresolvedDataType::Integer) => Self::Integer(i32::from(value)),
-            (Self::Byte(value), UnresolvedDataType::Long) => Self::Long(i64::from(value)),
-            (Self::Byte(value), UnresolvedDataType::Float) => {
-                Self::Float(NotNan::new(f32::from(value)).unwrap())
-            }
-            (Self::Byte(value), UnresolvedDataType::Double) => {
-                Self::Double(NotNan::new(f64::from(value)).unwrap())
-            }
+    pub fn cast_to(self, data_type: ResolvedDataType) -> Option<Self> {
+        macro_rules! cast_match {
+            (
+                $self_expr:expr, $data_type_expr:expr;
+                identity {
+                    $( $variant:ident $( ( $($variant_args:tt)* ) )? <=> $type:ident $( ( $($type_args:tt)* ) )? ),* $(,)?
+                }
+                casts {
+                    $(
+                        $from_variant:ident($val:ident) => {
+                            $( $to_type:ident => $to_variant:ident($cast_expr:expr) ),* $(,)?
+                        }
+                    ),* $(,)?
+                }
+            ) => {
+                match ($self_expr, $data_type_expr) {
+                    $(
+                        (self_ @ Self::$variant $( ( $($variant_args)* ) )?, ResolvedDataType::$type $( ( $($type_args)* ) )?) => Some(self_),
+                    )*
 
-            (Self::Short(value), UnresolvedDataType::Byte) => Self::Byte(value as i8),
-            (Self::Short(value), UnresolvedDataType::Integer) => Self::Integer(i32::from(value)),
-            (Self::Short(value), UnresolvedDataType::Long) => Self::Long(i64::from(value)),
-            (Self::Short(value), UnresolvedDataType::Float) => {
-                Self::Float(NotNan::new(f32::from(value)).unwrap())
-            }
-            (Self::Short(value), UnresolvedDataType::Double) => {
-                Self::Double(NotNan::new(f64::from(value)).unwrap())
-            }
+                    $(
+                        $(
+                            (Self::$from_variant($val), ResolvedDataType::$to_type) => Some(Self::$to_variant($cast_expr)),
+                        )*
+                    )*
 
-            (Self::Integer(value), UnresolvedDataType::Byte) => Self::Byte(value as i8),
-            (Self::Integer(value), UnresolvedDataType::Short) => Self::Short(value as i16),
-            (Self::Integer(value), UnresolvedDataType::Long) => Self::Long(i64::from(value)),
-            (Self::Integer(value), UnresolvedDataType::Float) => {
-                Self::Float(NotNan::new(value as f32).unwrap())
-            }
-            (Self::Integer(value), UnresolvedDataType::Double) => {
-                Self::Double(NotNan::new(f64::from(value)).unwrap())
-            }
+                    _ => None,
+                }
+            };
+        }
 
-            (Self::Long(value), UnresolvedDataType::Byte) => Self::Byte(value as i8),
-            (Self::Long(value), UnresolvedDataType::Short) => Self::Short(value as i16),
-            (Self::Long(value), UnresolvedDataType::Integer) => Self::Integer(value as i32),
-            (Self::Long(value), UnresolvedDataType::Float) => {
-                Self::Float(NotNan::new(value as f32).unwrap())
-            }
-            (Self::Long(value), UnresolvedDataType::Double) => {
-                Self::Double(NotNan::new(value as f64).unwrap())
-            }
+        cast_match!(self, data_type;
+            identity {
+                Boolean(..) <=> Boolean,
+                Byte(..) <=> Byte,
+                Short(..) <=> Short,
+                Integer(..) <=> Integer,
+                Long(..) <=> Long,
+                Float(..) <=> Float,
+                Double(..) <=> Double,
+                String(..) <=> String,
 
-            (Self::Float(value), UnresolvedDataType::Byte) => Self::Byte(value.into_inner() as i8),
-            (Self::Float(value), UnresolvedDataType::Short) => {
-                Self::Short(value.into_inner() as i16)
-            }
-            (Self::Float(value), UnresolvedDataType::Integer) => {
-                Self::Integer(value.into_inner() as i32)
-            }
-            (Self::Float(value), UnresolvedDataType::Long) => Self::Long(value.into_inner() as i64),
-            (Self::Float(value), UnresolvedDataType::Double) => Self::Double(value.into()),
+                List(..) <=> List(..),
+                Compound(..) <=> Compound(..),
+                Tuple(..) <=> Tuple(..),
+                RegularStruct(..) <=> Struct(..),
+                TupleStruct(..) <=> Struct(..),
 
-            (Self::Double(value), UnresolvedDataType::Byte) => Self::Byte(value.into_inner() as i8),
-            (Self::Double(value), UnresolvedDataType::Short) => {
-                Self::Short(value.into_inner() as i16)
-            }
-            (Self::Double(value), UnresolvedDataType::Integer) => {
-                Self::Integer(value.into_inner() as i32)
-            }
-            (Self::Double(value), UnresolvedDataType::Long) => {
-                Self::Long(value.into_inner() as i64)
-            }
-            (Self::Double(value), UnresolvedDataType::Float) => {
-                Self::Float(unsafe { NotNan::new_unchecked(value.into_inner() as f32) })
-            }
+                Unit <=> Unit,
+                Never <=> Never,
 
-            (self_ @ Self::List(..), UnresolvedDataType::List(..))
-            | (self_ @ Self::Compound(..), UnresolvedDataType::Compound(..))
-            | (self_ @ Self::Boolean(..), UnresolvedDataType::Boolean)
-            | (self_ @ Self::Byte(..), UnresolvedDataType::Byte)
-            | (self_ @ Self::Short(..), UnresolvedDataType::Short)
-            | (self_ @ Self::Integer(..), UnresolvedDataType::Integer)
-            | (self_ @ Self::Long(..), UnresolvedDataType::Long)
-            | (self_ @ Self::Float(..), UnresolvedDataType::Float)
-            | (self_ @ Self::Double(..), UnresolvedDataType::Double)
-            | (self_ @ Self::Data(..), UnresolvedDataType::Data(..))
-            | (self_ @ Self::Score(..), UnresolvedDataType::Score(..)) => self_,
+                ResourceLocation(..) <=> ResourceLocation,
+                EntitySelector(..) <=> EntitySelector,
+                Coordinates(..) <=> Coordinates,
+                Function(..) <=> Function(..),
+                Condition(..) <=> Boolean,
 
-            _ => return None,
-        })
+                Score(..) <=> Score(..),
+                Data(..) <=> Data(..),
+                Reference(..) <=> Reference(..),
+            }
+            casts {
+                Byte(value) => {
+                    Short => Short(i16::from(value)),
+                    Integer => Integer(i32::from(value)),
+                    Long => Long(i64::from(value)),
+                    Float => Float(NotNan::new(f32::from(value)).unwrap()),
+                    Double => Double(NotNan::new(f64::from(value)).unwrap()),
+                },
+                Short(value) => {
+                    Byte => Byte(value as i8),
+                    Integer => Integer(i32::from(value)),
+                    Long => Long(i64::from(value)),
+                    Float => Float(NotNan::new(f32::from(value)).unwrap()),
+                    Double => Double(NotNan::new(f64::from(value)).unwrap()),
+                },
+                Integer(value) => {
+                    Byte => Byte(value as i8),
+                    Short => Short(value as i16),
+                    Long => Long(i64::from(value)),
+                    Float => Float(NotNan::new(value as f32).unwrap()),
+                    Double => Double(NotNan::new(f64::from(value)).unwrap()),
+                },
+                Long(value) => {
+                    Byte => Byte(value as i8),
+                    Short => Short(value as i16),
+                    Integer => Integer(value as i32),
+                    Float => Float(NotNan::new(value as f32).unwrap()),
+                    Double => Double(NotNan::new(value as f64).unwrap()),
+                },
+                Float(value) => {
+                    Byte => Byte(value.into_inner() as i8),
+                    Short => Short(value.into_inner() as i16),
+                    Integer => Integer(value.into_inner() as i32),
+                    Long => Long(value.into_inner() as i64),
+                    Double => Double(value.into()),
+                },
+                Double(value) => {
+                    Byte => Byte(value.into_inner() as i8),
+                    Short => Short(value.into_inner() as i16),
+                    Integer => Integer(value.into_inner() as i32),
+                    Long => Long(value.into_inner() as i64),
+                    Float => Float(unsafe { NotNan::new_unchecked(value.into_inner() as f32) }),
+                }
+            }
+        )
     }
 
     pub fn to_execute_condition(

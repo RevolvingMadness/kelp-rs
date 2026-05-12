@@ -8,9 +8,12 @@ use crate::{
     high::{
         environment::{
             HighEnvironment,
-            r#type::r#struct::{
-                HighStructDeclaration, HighStructId, regular::HighRegularStructId,
-                tuple::HighTupleStructId,
+            r#type::{
+                HighGenericId,
+                r#struct::{
+                    HighStructDeclaration, HighStructId, regular::HighRegularStructId,
+                    tuple::HighTupleStructId,
+                },
             },
             value::function::{HighFunctionDeclaration, HighFunctionId},
         },
@@ -170,7 +173,11 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            UnresolvedDataType::Generic(name) => name.fmt(f),
+            UnresolvedDataType::Generic(id) => {
+                let (_, _, name) = self.high_environment.get_generic(*id);
+
+                name.fmt(f)
+            }
             UnresolvedDataType::Function(id, generic_types) => {
                 // Maybe display full path?
 
@@ -263,7 +270,7 @@ pub enum UnresolvedDataType {
     Data(Box<Self>),
     Reference(Box<Self>),
     Tuple(Vec<Self>),
-    Generic(String),
+    Generic(HighGenericId),
     Function(HighFunctionId, Vec<Self>),
     Struct(HighStructId, Vec<Self>),
     Inferred,
@@ -317,7 +324,7 @@ impl UnresolvedDataType {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_names: &[String],
+        generic_ids: &[HighGenericId],
         field_types: HashMap<String, Self>,
         generic_types: Vec<Self>,
     ) -> RegularStructId {
@@ -325,7 +332,7 @@ impl UnresolvedDataType {
             .into_iter()
             .map(|(name, data_type)| {
                 let data_type = data_type
-                    .substitute_generics(generic_names, &generic_types)
+                    .substitute_generics(generic_ids, &generic_types)
                     .resolve(datapack)
                     .unwrap();
 
@@ -356,7 +363,7 @@ impl UnresolvedDataType {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_names: &[String],
+        generic_ids: &[HighGenericId],
         field_types: Vec<Self>,
         generic_types: Vec<Self>,
     ) -> TupleStructId {
@@ -364,7 +371,7 @@ impl UnresolvedDataType {
             .into_iter()
             .map(|data_type| {
                 data_type
-                    .substitute_generics(generic_names, &generic_types)
+                    .substitute_generics(generic_ids, &generic_types)
                     .resolve(datapack)
                     .unwrap()
             })
@@ -407,7 +414,7 @@ impl UnresolvedDataType {
                     module_path,
                     visibility,
                     declaration.name,
-                    &declaration.generic_names,
+                    &declaration.generic_ids,
                     declaration.field_types,
                     generic_types,
                 )
@@ -422,7 +429,7 @@ impl UnresolvedDataType {
                     module_path,
                     visibility,
                     declaration.name,
-                    &declaration.generic_names,
+                    &declaration.generic_ids,
                     declaration.field_types,
                     generic_types,
                 )
@@ -450,7 +457,7 @@ impl UnresolvedDataType {
             module_path,
             visibility,
             declaration.name.clone(),
-            &declaration.generic_names,
+            &declaration.generic_ids,
             declaration.field_types.clone(),
             generic_types,
         )
@@ -475,14 +482,18 @@ impl UnresolvedDataType {
             module_path,
             visibility,
             declaration.name.clone(),
-            &declaration.generic_names,
+            &declaration.generic_ids,
             declaration.field_types.clone(),
             generic_types,
         )
     }
 
     #[must_use]
-    pub fn substitute_generics(self, generic_names: &[String], generic_types: &[Self]) -> Self {
+    pub fn substitute_generics(
+        self,
+        generic_ids: &[HighGenericId],
+        generic_types: &[Self],
+    ) -> Self {
         match self {
             Self::Boolean => Self::Boolean,
             Self::Byte => Self::Byte,
@@ -495,12 +506,12 @@ impl UnresolvedDataType {
             Self::Unit => Self::Unit,
             Self::Never => Self::Never,
             Self::Score(data_type) => {
-                let data_type = data_type.substitute_generics(generic_names, generic_types);
+                let data_type = data_type.substitute_generics(generic_ids, generic_types);
 
                 Self::Score(Box::new(data_type))
             }
             Self::List(data_type) => {
-                let data_type = data_type.substitute_generics(generic_names, generic_types);
+                let data_type = data_type.substitute_generics(generic_ids, generic_types);
 
                 Self::List(Box::new(data_type))
             }
@@ -508,7 +519,7 @@ impl UnresolvedDataType {
                 let compound = compound
                     .into_iter()
                     .map(|(key, data_type)| {
-                        let data_type = data_type.substitute_generics(generic_names, generic_types);
+                        let data_type = data_type.substitute_generics(generic_ids, generic_types);
 
                         (key, data_type)
                     })
@@ -517,32 +528,32 @@ impl UnresolvedDataType {
                 Self::TypedCompound(compound)
             }
             Self::Compound(data_type) => {
-                let data_type = data_type.substitute_generics(generic_names, generic_types);
+                let data_type = data_type.substitute_generics(generic_ids, generic_types);
 
                 Self::Compound(Box::new(data_type))
             }
             Self::Data(data_type) => {
-                let data_type = data_type.substitute_generics(generic_names, generic_types);
+                let data_type = data_type.substitute_generics(generic_ids, generic_types);
 
                 Self::Data(Box::new(data_type))
             }
             Self::Reference(data_type) => {
-                let data_type = data_type.substitute_generics(generic_names, generic_types);
+                let data_type = data_type.substitute_generics(generic_ids, generic_types);
 
                 Self::Reference(Box::new(data_type))
             }
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .into_iter()
-                    .map(|data_type| data_type.substitute_generics(generic_names, generic_types))
+                    .map(|data_type| data_type.substitute_generics(generic_ids, generic_types))
                     .collect();
 
                 Self::Tuple(data_types)
             }
-            Self::Generic(ref name) => {
-                if let Some(index) = generic_names
+            Self::Generic(target_id) => {
+                if let Some(index) = generic_ids
                     .iter()
-                    .position(|generic_name| generic_name == name)
+                    .position(|generic_id| *generic_id == target_id)
                 {
                     generic_types[index].clone()
                 } else {
@@ -552,7 +563,7 @@ impl UnresolvedDataType {
             Self::Function(id, data_types) => {
                 let data_types = data_types
                     .into_iter()
-                    .map(|data_type| data_type.substitute_generics(generic_names, generic_types))
+                    .map(|data_type| data_type.substitute_generics(generic_ids, generic_types))
                     .collect();
 
                 Self::Function(id, data_types)
@@ -560,7 +571,7 @@ impl UnresolvedDataType {
             Self::Struct(id, data_types) => {
                 let data_types = data_types
                     .into_iter()
-                    .map(|data_type| data_type.substitute_generics(generic_names, generic_types))
+                    .map(|data_type| data_type.substitute_generics(generic_ids, generic_types))
                     .collect();
 
                 Self::Struct(id, data_types)
@@ -633,7 +644,7 @@ impl UnresolvedDataType {
 
                 ResolvedDataType::Tuple(data_types)
             }
-            Self::Generic(..) => return None,
+            Self::Generic(id) => return datapack.resolve_generic(id),
             Self::Function(id, generic_types) => {
                 let id = datapack.get_monomorphized_function_id(id, &generic_types);
 
@@ -672,13 +683,13 @@ impl UnresolvedDataType {
                             .map(|(_, data_type)| {
                                 data_type
                                     .clone()
-                                    .substitute_generics(&declaration.generic_names, generic_types)
+                                    .substitute_generics(&declaration.generic_ids, generic_types)
                             })
                             .collect(),
                         return_type: declaration
                             .return_type
                             .clone()
-                            .substitute_generics(&declaration.generic_names, generic_types),
+                            .substitute_generics(&declaration.generic_ids, generic_types),
                     },
                     HighFunctionDeclaration::Builtin(declaration) => CallInfo {
                         id: None,
@@ -689,13 +700,13 @@ impl UnresolvedDataType {
                             .map(|data_type| {
                                 data_type
                                     .clone()
-                                    .substitute_generics(&declaration.generic_names, generic_types)
+                                    .substitute_generics(&declaration.generic_ids, generic_types)
                             })
                             .collect(),
                         return_type: declaration
                             .return_type
                             .clone()
-                            .substitute_generics(&declaration.generic_names, generic_types),
+                            .substitute_generics(&declaration.generic_ids, generic_types),
                     },
                 }
             }
@@ -991,7 +1002,7 @@ impl UnresolvedDataType {
                 Self::Byte | Self::Short | Self::Integer | Self::Long | Self::Float | Self::Double,
             ) => true,
 
-            _ => false,
+            _ => self == data_type,
         }
     }
 
@@ -1090,7 +1101,7 @@ impl UnresolvedDataType {
                             .map(|(key, data_type)| {
                                 let data_type = data_type
                                     .clone()
-                                    .substitute_generics(&declaration.generic_names, generic_types)
+                                    .substitute_generics(&declaration.generic_ids, generic_types)
                                     .get_data_type(high_environment)?;
 
                                 Some((key.clone(), data_type))
@@ -1106,7 +1117,7 @@ impl UnresolvedDataType {
                             .map(|data_type| {
                                 data_type
                                     .clone()
-                                    .substitute_generics(&declaration.generic_names, generic_types)
+                                    .substitute_generics(&declaration.generic_ids, generic_types)
                                     .get_data_type(high_environment)
                             })
                             .collect::<Option<_>>()?;
@@ -1341,7 +1352,7 @@ impl UnresolvedDataType {
 
                 field_type
                     .clone()
-                    .substitute_generics(declaration.generic_names(), generic_types)
+                    .substitute_generics(declaration.generic_ids(), generic_types)
             }
 
             Self::TypedCompound(compound) => compound.iter().find_map(|(key, data_type)| {
@@ -1467,6 +1478,8 @@ impl UnresolvedDataType {
 
         match (self, other) {
             (Self::Inferred, _) | (_, Self::Inferred) => true,
+
+            (_, Self::Never) => true,
 
             (Self::InferredInteger, rhs) | (rhs, Self::InferredInteger)
                 if rhs.is_integer_like() =>

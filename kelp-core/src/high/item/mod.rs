@@ -169,12 +169,10 @@ impl Item {
 
                 ctx.enter_scope();
 
-                for generic_name in generic_names.clone() {
-                    ctx.declare_type(
-                        Visibility::Public,
-                        HighTypeDeclarationKind::Generic(generic_name),
-                    );
-                }
+                let generic_ids = generic_names
+                    .into_iter()
+                    .map(|generic_name| ctx.declare_generic(Visibility::Public, generic_name))
+                    .collect::<Vec<_>>();
 
                 let field_types = field_types
                     .into_iter()
@@ -191,7 +189,7 @@ impl Item {
                     self.visibility,
                     HighRegularStructDeclaration {
                         name,
-                        generic_names,
+                        generic_ids,
                         field_types,
                     },
                 );
@@ -206,12 +204,11 @@ impl Item {
 
                 ctx.enter_scope();
 
-                for generic_name in generic_names.clone() {
-                    ctx.declare_type(
-                        Visibility::Public,
-                        HighTypeDeclarationKind::Generic(generic_name),
-                    );
-                }
+                let generic_ids = generic_names
+                    .iter()
+                    .cloned()
+                    .map(|generic_name| ctx.declare_generic(Visibility::Public, generic_name))
+                    .collect::<Vec<_>>();
 
                 let field_types = field_types
                     .into_iter()
@@ -219,9 +216,12 @@ impl Item {
                     .collect::<Vec<_>>();
 
                 let generic_types = generic_names
-                    .iter()
-                    .cloned()
-                    .map(UnresolvedDataType::Generic)
+                    .into_iter()
+                    .map(|generic_name| {
+                        let id = ctx.declare_generic(Visibility::Public, generic_name);
+
+                        UnresolvedDataType::Generic(id)
+                    })
                     .collect::<Vec<_>>();
 
                 ctx.enter_scope();
@@ -230,7 +230,7 @@ impl Item {
                     self.visibility,
                     HighTupleStructDeclaration {
                         name: name.clone(),
-                        generic_names: generic_names.clone(),
+                        generic_ids: generic_ids.clone(),
                         field_types: field_types.clone(),
                     },
                 );
@@ -239,7 +239,7 @@ impl Item {
                     Visibility::Public,
                     HighBuiltinFunctionDeclaration {
                         name,
-                        generic_names,
+                        generic_ids,
                         parameters: field_types,
                         return_type: UnresolvedDataType::Struct(id.into(), generic_types.clone()),
                         kind: BuiltinFunctionKind::TupleConstructor(id, generic_types),

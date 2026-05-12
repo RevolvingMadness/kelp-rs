@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use crate::{
     high::{
         data_type::DataType,
-        environment::r#type::HighTypeDeclarationKind,
         expression::block::BlockExpression,
         pattern::Pattern,
         semantic_analysis::{
@@ -36,12 +35,11 @@ impl FunctionDeclarationItem {
     ) -> Option<Item> {
         ctx.enter_scope();
 
-        for generic_name in self.generic_names.clone() {
-            ctx.declare_type(
-                Visibility::Public,
-                HighTypeDeclarationKind::Generic(generic_name),
-            );
-        }
+        let generic_ids = self
+            .generic_names
+            .into_iter()
+            .map(|generic_name| ctx.declare_generic(Visibility::Public, generic_name))
+            .collect::<Vec<_>>();
 
         let parameter_types = self
             .parameters
@@ -116,7 +114,7 @@ impl FunctionDeclarationItem {
             visibility,
             modifiers,
             self.name,
-            self.generic_names,
+            generic_ids,
             parameter_types
                 .iter()
                 .cloned()
@@ -144,9 +142,7 @@ impl FunctionDeclarationItem {
         let mut resolved_parameters = Vec::with_capacity(self.parameters.len());
         let mut resolved_all_parameters = true;
 
-        for ((pattern, _), data_type) in
-            self.parameters.into_iter().zip(parameter_types.into_iter())
-        {
+        for ((pattern, _), data_type) in self.parameters.into_iter().zip(parameter_types) {
             let Some(resolved_pattern) = pattern.perform_semantic_analysis(ctx, &data_type) else {
                 resolved_all_parameters = false;
 

@@ -1,7 +1,10 @@
 use crate::{
-    high::environment::r#type::r#struct::{
-        regular::{HighRegularStructDeclaration, HighRegularStructId},
-        tuple::{HighTupleStructDeclaration, HighTupleStructId},
+    high::environment::r#type::{
+        HighGenericId,
+        r#struct::{
+            regular::{HighRegularStructDeclaration, HighRegularStructId},
+            tuple::{HighTupleStructDeclaration, HighTupleStructId},
+        },
     },
     low::data_type::unresolved::UnresolvedDataType,
 };
@@ -40,18 +43,18 @@ impl HighStructDeclaration {
     }
 
     #[must_use]
-    pub fn generic_names(&self) -> &[String] {
+    pub fn generic_ids(&self) -> &[HighGenericId] {
         match self {
-            Self::Struct(declaration) => &declaration.generic_names,
-            Self::Tuple(declaration) => &declaration.generic_names,
+            Self::Struct(declaration) => &declaration.generic_ids,
+            Self::Tuple(declaration) => &declaration.generic_ids,
         }
     }
 
     #[must_use]
     pub const fn generic_count(&self) -> usize {
         match self {
-            Self::Struct(declaration) => declaration.generic_names.len(),
-            Self::Tuple(declaration) => declaration.generic_names.len(),
+            Self::Struct(declaration) => declaration.generic_ids.len(),
+            Self::Tuple(declaration) => declaration.generic_ids.len(),
         }
     }
 

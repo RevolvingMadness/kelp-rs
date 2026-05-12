@@ -43,8 +43,8 @@ impl HighFunctionDeclaration {
     #[must_use]
     pub const fn generic_count(&self) -> usize {
         match self {
-            Self::Regular(declaration) => declaration.generic_names.len(),
-            Self::Builtin(declaration) => declaration.generic_names.len(),
+            Self::Regular(declaration) => declaration.generic_ids.len(),
+            Self::Builtin(declaration) => declaration.generic_ids.len(),
         }
     }
 

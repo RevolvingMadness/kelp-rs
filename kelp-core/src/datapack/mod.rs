@@ -3,7 +3,7 @@ use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
 use crate::high::environment::HighEnvironment;
-use crate::high::environment::r#type::HighTypeId;
+use crate::high::environment::r#type::{HighGenericId, HighTypeId};
 use crate::high::environment::value::function::{HighFunctionDeclaration, HighFunctionId};
 use crate::high::environment::value::variable::HighVariableId;
 use crate::high::environment::value::{HighValueDeclarationKind, HighValueId};
@@ -159,6 +159,7 @@ pub struct Datapack {
 
     monomorphized_structs: HashbrownMap<MonomorphizedStructKey, StructId>,
     monomorphized_functions: HashbrownMap<MonomorphizedFunctionKey, FunctionId>,
+    generic_mapping: HashMap<HighGenericId, ResolvedDataType>,
     resolved_variables: HashMap<HighVariableId, VariableId>,
     pub cached_runtime_functions: HashMap<FunctionId, RuntimeFunction>,
     pub cached_compiletime_functions: HashbrownMap<CompiletimeFunctionKey, CompiletimeFunction>,
@@ -190,11 +191,24 @@ impl Datapack {
 
             monomorphized_structs: HashbrownMap::new(),
             monomorphized_functions: HashbrownMap::new(),
+            generic_mapping: HashMap::new(),
+
             resolved_variables: HashMap::new(),
             cached_runtime_functions: HashMap::new(),
             cached_compiletime_functions: HashbrownMap::new(),
             prefix_data: None,
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn resolve_generic(&self, id: HighGenericId) -> Option<ResolvedDataType> {
+        self.generic_mapping.get(&id).cloned()
+    }
+
+    #[inline]
+    pub fn declare_generic(&mut self, id: HighGenericId, data_type: ResolvedDataType) {
+        self.generic_mapping.insert(id, data_type);
     }
 
     #[inline]
@@ -704,7 +718,7 @@ impl Datapack {
             HighValueDeclarationKind::Function(..) => {
                 let id = HighFunctionId(id.0);
 
-                let id = self.get_monomorphized_function_id(id, generic_types);
+                let id = self.get_monomorphized_function_id(id, &generic_types);
 
                 Some(id.into())
             }
@@ -749,7 +763,7 @@ impl Datapack {
                         let pattern = pattern.unwrap();
 
                         let data_type = data_type
-                            .substitute_generics(&declaration.generic_names, generic_types)
+                            .substitute_generics(&declaration.generic_ids, generic_types)
                             .resolve(self)
                             .unwrap();
 
@@ -759,21 +773,22 @@ impl Datapack {
 
                 let return_type = declaration
                     .return_type
-                    .substitute_generics(&declaration.generic_names, generic_types)
+                    .substitute_generics(&declaration.generic_ids, generic_types)
                     .resolve(self)
                     .unwrap();
 
-                let body = declaration.body.unwrap();
+                let body = *declaration.body.unwrap();
 
                 let declaration = RegularFunctionDeclaration {
                     module_paths: module_path.clone(),
                     visibility,
                     name: declaration.name,
                     modifiers: declaration.modifiers,
+                    generic_ids: declaration.generic_ids,
                     generic_types: resolved_generic_types,
                     parameters,
                     return_type,
-                    body: *body,
+                    body,
                 };
 
                 self.declare_monomorphized_function(id, module_path, visibility, declaration)
@@ -784,7 +799,7 @@ impl Datapack {
                     .into_iter()
                     .map(|data_type| {
                         data_type
-                            .substitute_generics(&declaration.generic_names, generic_types)
+                            .substitute_generics(&declaration.generic_ids, generic_types)
                             .resolve(self)
                             .unwrap()
                     })
@@ -792,7 +807,7 @@ impl Datapack {
 
                 let return_type = declaration
                     .return_type
-                    .substitute_generics(&declaration.generic_names, generic_types)
+                    .substitute_generics(&declaration.generic_ids, generic_types)
                     .resolve(self)
                     .unwrap();
 

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     high::environment::{
         r#type::{
-            HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
+            HighGenericId, HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
             r#struct::{
                 HighStructDeclaration, HighStructId,
                 regular::{HighRegularStructDeclaration, HighRegularStructId},
@@ -133,6 +133,17 @@ impl HighEnvironment {
         } = &self.types[id.0 as usize];
 
         (module_path, *visibility, declaration)
+    }
+
+    #[must_use]
+    pub fn get_generic(&self, id: HighGenericId) -> (&[String], Visibility, &String) {
+        let (module_path, visibility, HighTypeDeclarationKind::Generic(name)) =
+            self.get_type(id.into())
+        else {
+            unreachable!();
+        };
+
+        (module_path, visibility, name)
     }
 
     #[must_use]

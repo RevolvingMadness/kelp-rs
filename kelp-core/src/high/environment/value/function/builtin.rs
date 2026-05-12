@@ -3,7 +3,7 @@ use strum::EnumIter;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    high::environment::r#type::r#struct::tuple::HighTupleStructId,
+    high::environment::r#type::{HighGenericId, r#struct::tuple::HighTupleStructId},
     low::{data_type::unresolved::UnresolvedDataType, expression::resolved::ResolvedExpression},
 };
 
@@ -13,7 +13,7 @@ pub struct HighBuiltinFunctionId(pub u32);
 #[derive(Debug, Clone)]
 pub struct HighBuiltinFunctionDeclaration {
     pub name: String,
-    pub generic_names: Vec<String>,
+    pub generic_ids: Vec<HighGenericId>,
     pub parameters: Vec<UnresolvedDataType>,
     pub return_type: UnresolvedDataType,
     pub kind: BuiltinFunctionKind,
@@ -48,7 +48,7 @@ impl BuiltinFunctionKind {
             ) => {
                 HighBuiltinFunctionDeclaration {
                     name: stringify!($name).to_owned(),
-                    generic_names: Vec::new(),
+                    generic_ids: Vec::new(),
                     parameters: vec![$($parameters),*],
                     return_type: $return_type,
                     kind: self,

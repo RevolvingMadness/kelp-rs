@@ -261,7 +261,7 @@ impl Pattern {
                     pattern_id.into(),
                 )?;
 
-                let pattern_generic_names = pattern_declaration.generic_names.clone();
+                let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
                 if HighStructId::from(pattern_id) != *value_id
                     || pattern_generic_types != *value_generic_types
@@ -359,7 +359,7 @@ impl Pattern {
                     );
                 }
 
-                let pattern_generic_names = pattern_declaration.generic_names.clone();
+                let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
                 let field_patterns = field_patterns
                     .into_iter()

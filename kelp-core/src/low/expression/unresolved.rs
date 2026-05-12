@@ -741,6 +741,7 @@ impl UnresolvedExpressionKind {
             }
             Self::AsCast(expression, data_type) => {
                 let expression = expression.kind.resolve(datapack, ctx);
+                let data_type = data_type.resolve(datapack).unwrap();
 
                 expression.cast_to(data_type).unwrap()
             }

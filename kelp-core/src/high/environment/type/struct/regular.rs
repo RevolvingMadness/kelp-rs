@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::low::data_type::unresolved::UnresolvedDataType;
+use crate::{
+    high::environment::r#type::HighGenericId, low::data_type::unresolved::UnresolvedDataType,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighRegularStructId(pub u32);
@@ -8,6 +10,6 @@ pub struct HighRegularStructId(pub u32);
 #[derive(Debug, Clone)]
 pub struct HighRegularStructDeclaration {
     pub name: String,
-    pub generic_names: Vec<String>,
+    pub generic_ids: Vec<HighGenericId>,
     pub field_types: HashMap<String, UnresolvedDataType>,
 }

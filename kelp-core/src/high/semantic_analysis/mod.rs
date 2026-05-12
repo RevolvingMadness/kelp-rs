@@ -9,8 +9,8 @@ use crate::{
         environment::{
             HighEnvironment,
             r#type::{
-                HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
-                alias::HighAliasDeclaration,
+                HighGenericId, HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
+                alias::HighTypeAliasDeclaration,
                 builtin_data_type::{BuiltinTypeKind, HighBuiltinTypeDeclaration},
                 module::HighModuleDeclaration,
                 r#struct::{
@@ -411,7 +411,7 @@ impl SemanticAnalysisContext {
     pub fn declare_alias(
         &mut self,
         visibility: Visibility,
-        declaration: HighAliasDeclaration,
+        declaration: HighTypeAliasDeclaration,
     ) -> HighTypeId {
         self.declare_type(visibility, HighTypeDeclarationKind::Alias(declaration))
     }
@@ -447,6 +447,13 @@ impl SemanticAnalysisContext {
         let id = self.declare_struct(visibility, HighStructDeclaration::Tuple(declaration));
 
         HighTupleStructId(id.0)
+    }
+
+    #[inline]
+    pub fn declare_generic(&mut self, visibility: Visibility, name: String) -> HighGenericId {
+        let id = self.declare_type(visibility, HighTypeDeclarationKind::Generic(name));
+
+        HighGenericId(id.0)
     }
 
     #[inline]
@@ -510,7 +517,7 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         modifiers: RegularFunctionModifiers,
         name: String,
-        generic_names: Vec<String>,
+        generic_ids: Vec<HighGenericId>,
         parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
         return_type: UnresolvedDataType,
     ) -> HighRegularFunctionId {
@@ -520,7 +527,7 @@ impl SemanticAnalysisContext {
                 HighRegularFunctionDeclaration {
                     name,
                     modifiers,
-                    generic_names,
+                    generic_ids,
                     parameters,
                     return_type,
                     body: None,

@@ -1,7 +1,7 @@
 use crate::{
     high::{
         data_type::DataType,
-        environment::r#type::{HighTypeDeclarationKind, alias::HighAliasDeclaration},
+        environment::r#type::alias::HighTypeAliasDeclaration,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::item::Item,
@@ -32,12 +32,11 @@ impl TypeAliasDeclarationItem {
 
         ctx.enter_scope();
 
-        for generic_name in self.generic_names.clone() {
-            ctx.declare_type(
-                Visibility::Public,
-                HighTypeDeclarationKind::Generic(generic_name),
-            );
-        }
+        let generic_ids = self
+            .generic_names
+            .into_iter()
+            .map(|generic_name| ctx.declare_generic(Visibility::Public, generic_name))
+            .collect::<Vec<_>>();
 
         let alias = self.alias.perform_semantic_analysis(ctx);
 
@@ -45,9 +44,9 @@ impl TypeAliasDeclarationItem {
 
         ctx.declare_alias(
             visibility,
-            HighAliasDeclaration {
+            HighTypeAliasDeclaration {
                 name: self.name,
-                generic_names: self.generic_names,
+                generic_ids,
                 alias,
             },
         );

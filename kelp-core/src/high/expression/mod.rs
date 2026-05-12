@@ -702,7 +702,7 @@ impl Expression {
                 let data_type =
                     UnresolvedDataType::Struct(id.into(), last_segment.generic_types.clone());
 
-                let generic_names = declaration.generic_names.clone();
+                let generic_ids = declaration.generic_ids.clone();
                 let field_types = declaration.field_types.clone();
 
                 let field_values = field_values
@@ -720,7 +720,7 @@ impl Expression {
 
                         let field_type = field_type
                             .clone()
-                            .substitute_generics(&generic_names, &last_segment.generic_types);
+                            .substitute_generics(&generic_ids, &last_segment.generic_types);
 
                         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
@@ -807,10 +807,8 @@ impl Expression {
 
                 let mut new_arguments = Vec::with_capacity(arguments.len());
 
-                for (data_type, (argument_span, argument)) in call_info
-                    .parameter_types
-                    .into_iter()
-                    .zip(arguments.into_iter())
+                for (data_type, (argument_span, argument)) in
+                    call_info.parameter_types.into_iter().zip(arguments)
                 {
                     if argument.data_type.equals(&data_type) {
                         if !failed {

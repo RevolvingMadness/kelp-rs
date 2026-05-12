@@ -1,5 +1,5 @@
 use crate::{
-    high::semantic_analysis::RegularFunctionModifiers,
+    high::{environment::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers},
     low::{
         data_type::resolved::ResolvedDataType, expression::unresolved::UnresolvedExpression,
         pattern::UnresolvedPattern,
@@ -16,6 +16,7 @@ pub struct RegularFunctionDeclaration {
     pub visibility: Visibility,
     pub modifiers: RegularFunctionModifiers,
     pub name: String,
+    pub generic_ids: Vec<HighGenericId>,
     pub generic_types: Vec<ResolvedDataType>,
     pub parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
     pub return_type: ResolvedDataType,

@@ -1,7 +1,7 @@
 use crate::{
     high::{
         environment::r#type::{
-            alias::HighAliasDeclaration,
+            alias::HighTypeAliasDeclaration,
             builtin_data_type::HighBuiltinTypeDeclaration,
             module::{HighModuleDeclaration, HighModuleId},
             r#struct::{
@@ -20,6 +20,9 @@ pub mod alias;
 pub mod builtin_data_type;
 pub mod module;
 pub mod r#struct;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HighGenericId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighTypeId(pub u32);
@@ -48,11 +51,17 @@ impl From<HighTupleStructId> for HighTypeId {
     }
 }
 
+impl From<HighGenericId> for HighTypeId {
+    fn from(value: HighGenericId) -> Self {
+        Self(value.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum HighTypeDeclarationKind {
     Module(HighModuleDeclaration),
     Struct(HighStructDeclaration),
-    Alias(HighAliasDeclaration),
+    Alias(HighTypeAliasDeclaration),
     Generic(String),
     Builtin(HighBuiltinTypeDeclaration),
 }
@@ -74,7 +83,7 @@ impl HighTypeDeclarationKind {
         Some(match self {
             Self::Module(..) => return None,
             Self::Struct(declaration) => declaration.generic_count(),
-            Self::Alias(declaration) => declaration.generic_names.len(),
+            Self::Alias(declaration) => declaration.generic_ids.len(),
             Self::Generic(..) => 0,
             Self::Builtin(builtin_type) => builtin_type.generic_count,
         })
@@ -126,7 +135,7 @@ impl HighTypeDeclaration {
                 UnresolvedDataType::Struct(id, generic_types)
             }
             HighTypeDeclarationKind::Alias(declaration) => {
-                let expected_generics = declaration.generic_names.len();
+                let expected_generics = declaration.generic_ids.len();
                 let actual_generics = generic_types.len();
 
                 if actual_generics != expected_generics {
@@ -140,9 +149,23 @@ impl HighTypeDeclaration {
 
                 declaration
                     .alias
-                    .substitute_generics(&declaration.generic_names, &generic_types)
+                    .substitute_generics(&declaration.generic_ids, &generic_types)
             }
-            HighTypeDeclarationKind::Generic(name) => UnresolvedDataType::Generic(name),
+            HighTypeDeclarationKind::Generic(name) => {
+                let expected_generics = 0;
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics_type(
+                        path_span,
+                        &name,
+                        expected_generics,
+                        actual_generics,
+                    );
+                }
+
+                UnresolvedDataType::Generic(HighGenericId(id.0))
+            }
             HighTypeDeclarationKind::Builtin(data_type) => data_type
                 .to_data_type_semantic_analysis(ctx, path_span, generic_spans, generic_types),
         }

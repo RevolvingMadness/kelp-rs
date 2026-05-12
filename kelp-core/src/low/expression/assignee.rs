@@ -27,9 +27,8 @@ impl ResolvedAssigneeExpression {
                     unreachable!();
                 };
 
-                for (assignee_expression, value_expression) in assignee_expressions
-                    .into_iter()
-                    .zip(value_expressions.into_iter())
+                for (assignee_expression, value_expression) in
+                    assignee_expressions.into_iter().zip(value_expressions)
                 {
                     assignee_expression.assign(datapack, ctx, value_expression);
                 }

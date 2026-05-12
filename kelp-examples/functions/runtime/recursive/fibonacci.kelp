@@ -8,6 +8,6 @@ recursive runtime fn fibonacci(n: data<integer>) -> data<integer> {
     fibonacci(n - 1 to data) + fibonacci(n - 2 to data) to data
 }
 
-mcfn kelp_project:main {
+mcfn namespace:main {
     tellraw @a fibonacci(10 to data);
 }

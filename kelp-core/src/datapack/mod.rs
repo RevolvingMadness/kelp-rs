@@ -718,7 +718,7 @@ impl Datapack {
             HighValueDeclarationKind::Function(..) => {
                 let id = HighFunctionId(id.0);
 
-                let id = self.get_monomorphized_function_id(id, &generic_types);
+                let id = self.get_monomorphized_function_id(id, generic_types);
 
                 Some(id.into())
             }

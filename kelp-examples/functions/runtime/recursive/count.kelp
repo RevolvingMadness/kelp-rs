@@ -7,11 +7,11 @@ recursive runtime fn count(n: data<integer>) -> data<integer> {
         0 to data
     } else {
         tellraw @a n;
-        
+
         count(n - 1 to data)
     }
 }
 
-mcfn kelp_project:main {
+mcfn namespace:main {
     _ = count(10 to data);
 }

@@ -20,7 +20,9 @@ pub fn lower_method_call_expression(
 
     let callee = lower_generic_path_segment(node.generic_path_segment()?)?;
 
-    let arguments = lower_call_arguments(node.call_arguments()?, ctx);
+    let arguments = node
+        .call_arguments()
+        .map(|arguments| lower_call_arguments(arguments, ctx));
 
     let span = span_of_cst_node(&node);
 
@@ -28,7 +30,7 @@ pub fn lower_method_call_expression(
         ExpressionKind::MethodCall {
             receiver: Box::new(receiver),
             callee,
-            arguments,
+            arguments: arguments.unwrap_or_default(),
         }
         .with_span(span),
     )

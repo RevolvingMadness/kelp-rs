@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[must_use]
-fn try_parse_generic_path_segment(parser: &mut Parser, is_type: bool) -> bool {
+pub fn try_parse_generic_path_segment(parser: &mut Parser, is_type: bool) -> bool {
     let checkpoint = parser.checkpoint();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::PathIdentifier) {

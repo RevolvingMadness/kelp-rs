@@ -15,16 +15,17 @@ use crate::{
             lower_expression_with_block,
         },
         without_block::{
-            command::try_parse_command_expression, coordinates::try_parse_coordinates_expression,
-            data::try_parse_data_expression, entity_selector::try_parse_entity_selector_expression,
-            list::try_parse_list_expression, lower_expression_without_block,
+            call::try_parse_call_arguments, command::try_parse_command_expression,
+            coordinates::try_parse_coordinates_expression, data::try_parse_data_expression,
+            entity_selector::try_parse_entity_selector_expression, list::try_parse_list_expression,
+            lower_expression_without_block,
             resource_location::try_parse_resource_location_expression,
             r#return::try_parse_return_expression, score::try_parse_score_expression,
             r#struct::try_parse_struct_expression_fields,
         },
     },
     parser::Parser,
-    path::generic::try_parse_generic_path,
+    path::generic::{try_parse_generic_path, try_parse_generic_path_segment},
     syntax::SyntaxKind,
 };
 
@@ -439,46 +440,59 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.skip_whitespace();
 
                 if parser.peek_char() != Some(')') {
-                    parser.start_node(SyntaxKind::CallArguments);
-
-                    loop {
-                        if !try_parse_expression(parser) {
-                            break;
-                        }
-
-                        let comma_state = parser.save_state();
-                        parser.skip_whitespace();
-
-                        if !parser.try_bump_char(',') {
-                            parser.restore_state(comma_state);
-
-                            break;
-                        }
-
-                        parser.skip_whitespace();
-
-                        if parser.peek_char() == Some(')') {
-                            break;
-                        }
-                    }
-
-                    parser.finish_node();
+                    try_parse_call_arguments(parser);
                 }
 
                 parser.expect_char(')', "Expected closing parenthesis ')'");
                 parser.finish_node();
             }
             Some('.') => {
-                parser.start_node_at(checkpoint, SyntaxKind::FieldAccessExpression);
+                let dot_state = parser.save_state();
                 parser.bump_char();
                 parser.skip_whitespace();
-                if let Some(identifier) = parser.peek_identifier() {
-                    parser.add_token(SyntaxKind::FieldName, identifier.len());
-                } else if let Some(whole_value) = parser.peek_whole_value() {
-                    parser.add_token(SyntaxKind::FieldName, whole_value.len());
-                } else {
-                    parser.error("Expected field name");
+
+                let mut is_method_call = false;
+
+                if try_parse_generic_path_segment(parser, true) {
+                    parser.skip_whitespace();
+
+                    if parser.peek_char() == Some('(') {
+                        is_method_call = true;
+                    }
                 }
+
+                parser.restore_state(dot_state);
+
+                if is_method_call {
+                    parser.start_node_at(checkpoint, SyntaxKind::MethodCallExpression);
+                    parser.bump_char();
+                    parser.skip_whitespace();
+
+                    assert!(try_parse_generic_path_segment(parser, true));
+
+                    parser.skip_whitespace();
+                    parser.bump_char();
+                    parser.skip_whitespace();
+
+                    if parser.peek_char() != Some(')') {
+                        try_parse_call_arguments(parser);
+                    }
+
+                    parser.expect_char(')', "Expected closing parenthesis ')'");
+                } else {
+                    parser.start_node_at(checkpoint, SyntaxKind::FieldAccessExpression);
+                    parser.bump_char();
+                    parser.skip_whitespace();
+
+                    if let Some(identifier) = parser.peek_identifier() {
+                        parser.add_token(SyntaxKind::FieldName, identifier.len());
+                    } else if let Some(whole_value) = parser.peek_whole_value() {
+                        parser.add_token(SyntaxKind::FieldName, whole_value.len());
+                    } else {
+                        parser.error("Expected field name");
+                    }
+                }
+
                 parser.finish_node();
             }
             _ => {

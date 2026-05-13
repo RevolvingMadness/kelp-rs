@@ -5,9 +5,37 @@ use kelp_core::high::{
 
 use crate::{
     cst::{CSTCallArguments, CSTCallExpression},
-    expression::lower_expression,
+    expression::{lower_expression, try_parse_expression},
+    parser::Parser,
     span::span_of_cst_node,
+    syntax::SyntaxKind,
 };
+
+pub fn try_parse_call_arguments(parser: &mut Parser) {
+    parser.start_node(SyntaxKind::CallArguments);
+
+    loop {
+        if !try_parse_expression(parser) {
+            break;
+        }
+
+        let comma_state = parser.save_state();
+        parser.skip_whitespace();
+
+        if !parser.try_bump_char(',') {
+            parser.restore_state(comma_state);
+            break;
+        }
+
+        parser.skip_whitespace();
+
+        if parser.peek_char() == Some(')') {
+            break;
+        }
+    }
+
+    parser.finish_node();
+}
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]

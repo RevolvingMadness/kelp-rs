@@ -89,7 +89,7 @@ impl UnresolvedStatement {
                 let target = target.kind.resolve(datapack, ctx);
                 let value = value.kind.resolve(datapack, ctx);
 
-                let data = target.to_data(datapack, ctx, false);
+                let data = target.as_data(datapack, ctx, false);
 
                 let modification = value.as_data_command_modification(datapack, ctx);
 
@@ -103,7 +103,7 @@ impl UnresolvedStatement {
             Self::Remove(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let data = expression.to_data(datapack, ctx, false);
+                let data = expression.as_data(datapack, ctx, false);
 
                 data.remove(datapack, ctx);
             }

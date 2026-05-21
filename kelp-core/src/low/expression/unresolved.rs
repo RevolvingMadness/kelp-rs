@@ -135,7 +135,7 @@ fn compile_if_internal(
     let (invert, condition) = condition
         .kind
         .resolve(datapack, ctx)
-        .to_execute_condition(datapack, ctx, false)
+        .to_execute_condition(datapack, ctx)
         .unwrap();
 
     if let Some(else_body) = else_body {
@@ -699,7 +699,20 @@ impl UnresolvedExpressionKind {
             Self::Condition(inverted, condition) => {
                 let condition = condition.compile(datapack, ctx);
 
-                ResolvedExpression::Condition(inverted, Box::new(condition))
+                let unique_score = datapack.get_unique_score();
+
+                ctx.add_command(
+                    datapack,
+                    Command::Execute(ExecuteSubcommand::Store(
+                        StoreType::Success,
+                        ExecuteStoreSubcommand::Score(
+                            unique_score.score.clone(),
+                            Box::new(ExecuteSubcommand::If(inverted, condition)),
+                        ),
+                    )),
+                );
+
+                ResolvedExpression::Score(unique_score)
             }
             Self::Command(command) => {
                 let command = command.compile(datapack, ctx);
@@ -744,14 +757,14 @@ impl UnresolvedExpressionKind {
                         if let Some(scale) = scale {
                             expression.to_score_scale(datapack, ctx, scale)
                         } else {
-                            expression.to_score(datapack, ctx)
+                            expression.to_unique_score(datapack, ctx)
                         }
                     }
                     RuntimeStorageType::Data => {
                         let data = if let Some(scale) = scale {
                             expression.to_data_scale(datapack, ctx, scale)
                         } else {
-                            expression.to_data(datapack, ctx, true)
+                            expression.as_data(datapack, ctx, true)
                         };
 
                         ResolvedExpression::Data(data)
@@ -912,7 +925,7 @@ impl UnresolvedExpressionKind {
                 let (should_be_inverted, condition) = condition
                     .kind
                     .resolve(datapack, &mut condition_ctx)
-                    .to_execute_condition(datapack, &mut condition_ctx, false)
+                    .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
 
                 let subcommand = if body.kind.returns_early() {
@@ -1152,7 +1165,7 @@ impl UnresolvedExpressionKind {
                 let (should_be_inverted, condition) = condition
                     .kind
                     .resolve(datapack, &mut condition_ctx)
-                    .to_execute_condition(datapack, &mut condition_ctx, false)
+                    .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
 
                 let subcommand = if body.kind.returns_early() {

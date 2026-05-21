@@ -83,7 +83,7 @@ impl Command {
 
                 LowCommand::Tellraw(
                     selector.compile(datapack, ctx),
-                    expression.as_text_component(datapack, ctx, false),
+                    expression.as_text_component(datapack, false),
                 )
             }
             Self::Return(command) => match command {
@@ -104,11 +104,7 @@ impl Command {
             Self::Summon(entity, position, nbt) => LowCommand::Summon(
                 entity,
                 position,
-                nbt.map(|nbt| {
-                    nbt.kind
-                        .resolve(datapack, ctx)
-                        .as_snbt_macros( ctx)
-                }),
+                nbt.map(|nbt| nbt.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
         }
     }

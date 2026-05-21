@@ -44,9 +44,9 @@ impl GeneratedPlayerScore {
     }
 
     #[must_use]
-    pub fn to_execute_condition(self, inverted: bool) -> (bool, ExecuteIfSubcommand) {
+    pub fn to_execute_condition(self) -> (bool, ExecuteIfSubcommand) {
         (
-            !inverted,
+            true,
             ExecuteIfSubcommand::Score(
                 self.score,
                 ScoreComparison::Range(IntegerRange::new_single(0)),

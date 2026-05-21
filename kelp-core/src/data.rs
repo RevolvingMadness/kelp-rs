@@ -66,10 +66,9 @@ impl GeneratedData {
 
     #[inline]
     pub fn append_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: Self) {
-        self.modify(
+        self.append(
             datapack,
             ctx,
-            DataCommandModificationMode::Append,
             DataCommandModification::From(data.target.target, Some(data.path)),
         );
     }
@@ -81,20 +80,39 @@ impl GeneratedData {
         ctx: &mut CompileContext,
         value: Macroable<SNBT>,
     ) {
-        self.modify(
-            datapack,
-            ctx,
-            DataCommandModificationMode::Append,
-            DataCommandModification::Value(value),
-        );
+        self.append(datapack, ctx, DataCommandModification::Value(value));
     }
 
     #[inline]
-    pub fn set_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: Self) {
+    pub fn set(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        modification: DataCommandModification,
+    ) {
         self.modify(
             datapack,
             ctx,
             DataCommandModificationMode::Set,
+            modification,
+        );
+    }
+
+    #[inline]
+    pub fn set_value<V: Into<Macroable<SNBT>>>(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        value: V,
+    ) {
+        self.set(datapack, ctx, DataCommandModification::Value(value.into()));
+    }
+
+    #[inline]
+    pub fn set_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: Self) {
+        self.set(
+            datapack,
+            ctx,
             DataCommandModification::From(data.target.target, Some(data.path)),
         );
     }

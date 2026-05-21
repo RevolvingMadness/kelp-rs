@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use minecraft_command_types::{
     command::{
         Command,
-        data::{DataCommand, DataCommandModification, DataCommandModificationMode},
+        data::{DataCommandModification, DataCommandModificationMode},
         enums::store_type::StoreType,
         execute::{
             ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
@@ -353,13 +353,7 @@ fn iterate_data(
 
     let mut condition_ctx = CompileContext::default();
 
-    for_body_ctx.add_command(
-        datapack,
-        Command::Data(DataCommand::Remove(
-            unique_data.target.target.clone(),
-            unique_data.path.clone(),
-        )),
-    );
+    unique_data.clone().remove(datapack, &mut for_body_ctx);
 
     condition_ctx.add_command(
         datapack,

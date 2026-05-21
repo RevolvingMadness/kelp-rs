@@ -4,8 +4,8 @@ members = ["kelp-cli", "kelp-core", "kelp-lsp", "kelp-parser"]
 
 [workspace.dependencies]
 minecraft-command-types = { path = "../minecraft-command-types" }
-minecraft-command-types_derive = { path = "../minecraft-command-types/minecraft-command-types_derive" }
+minecraft-command-types_procedural-macros = { path = "../minecraft-command-types/minecraft-command-types_procedural-macros" }
 ordered-float = "5.3.0"
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 kelp-core = { path = "kelp-core" }
 kelp-parser = { path = "kelp-parser" }

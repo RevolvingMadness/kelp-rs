@@ -590,6 +590,7 @@ impl Datapack {
             overlays: None,
             language: None,
         });
+
         let mut load_function_ctx = CompileContext::default();
 
         let has_constants = !self.used_constants.is_empty();

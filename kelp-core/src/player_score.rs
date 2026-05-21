@@ -38,7 +38,7 @@ impl GeneratedPlayerScore {
     pub fn as_unique_score(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Self {
         let unique_score = datapack.get_unique_score();
 
-        self.assign_to_score(datapack, ctx, unique_score.clone());
+        unique_score.clone().set_from(datapack, ctx, self);
 
         unique_score
     }
@@ -99,14 +99,14 @@ impl GeneratedPlayerScore {
     }
 
     #[inline]
-    pub fn assign_to_score(self, datapack: &mut Datapack, ctx: &mut CompileContext, target: Self) {
+    pub fn set_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, source: Self) {
         ctx.add_command(
             datapack,
             Command::Scoreboard(ScoreboardCommand::Players(
                 PlayersScoreboardCommand::Operation(
-                    target.score,
-                    ScoreOperationOperator::Set,
                     self.score,
+                    ScoreOperationOperator::Set,
+                    source.score,
                 ),
             )),
         );
@@ -121,7 +121,7 @@ impl GeneratedPlayerScore {
     ) {
         let unique_score = datapack.get_unique_score();
 
-        self.assign_to_score(datapack, ctx, unique_score.clone());
+        unique_score.clone().set_from(datapack, ctx, self);
 
         let scale_score = datapack.get_constant_score(scale.into_inner() as i32);
 
@@ -136,7 +136,7 @@ impl GeneratedPlayerScore {
             )),
         );
 
-        unique_score.assign_to_score(datapack, ctx, target);
+        target.set_from(datapack, ctx, unique_score);
     }
 
     pub fn operate_on_score(

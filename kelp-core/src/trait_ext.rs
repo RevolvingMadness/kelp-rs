@@ -141,12 +141,11 @@ pub fn compile_bitwise_and_score(
     source: GeneratedPlayerScore,
 ) {
     let temp_target = datapack.get_unique_score();
-    target
-        .clone()
-        .assign_to_score(datapack, ctx, temp_target.clone());
+
+    temp_target.clone().set_from(datapack, ctx, target.clone());
 
     let temp_source = datapack.get_unique_score();
-    source.assign_to_score(datapack, ctx, temp_source.clone());
+    temp_source.clone().set_from(datapack, ctx, source);
 
     let result = datapack.get_unique_score();
     ctx.add_command(
@@ -284,7 +283,7 @@ pub fn compile_bitwise_and_score(
         },
     );
 
-    result.assign_to_score(datapack, ctx, target);
+    target.set_from(datapack, ctx, result);
 }
 
 pub fn compile_bitwise_or_score(
@@ -294,12 +293,10 @@ pub fn compile_bitwise_or_score(
     source: GeneratedPlayerScore,
 ) {
     let temp_target = datapack.get_unique_score();
-    target
-        .clone()
-        .assign_to_score(datapack, ctx, temp_target.clone());
+    temp_target.clone().set_from(datapack, ctx, target.clone());
 
     let temp_source = datapack.get_unique_score();
-    source.assign_to_score(datapack, ctx, temp_source.clone());
+    temp_source.clone().set_from(datapack, ctx, source);
 
     let result = datapack.get_unique_score();
     ctx.add_command(
@@ -468,7 +465,7 @@ pub fn compile_bitwise_or_score(
         },
     );
 
-    result.assign_to_score(datapack, ctx, target);
+    target.set_from(datapack, ctx, result);
 }
 
 pub fn compile_shift_operation_score(

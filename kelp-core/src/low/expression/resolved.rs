@@ -420,15 +420,9 @@ fn compile_recursive_runtime_function(
 
     let temporary_return_data = datapack.get_unique_data();
 
-    ctx.add_command(
-        datapack,
-        Command::Data(DataCommand::Modify(
-            temporary_return_data.target.target.clone(),
-            temporary_return_data.path.clone(),
-            DataCommandModificationMode::Set,
-            DataCommandModification::From(return_data.target.target, Some(return_data.path)),
-        )),
-    );
+    temporary_return_data
+        .clone()
+        .set_from(datapack, ctx, return_data);
 
     ResolvedExpression::Data(temporary_return_data)
 }
@@ -688,7 +682,7 @@ impl ResolvedExpression {
             Self::Score(score) => {
                 let unique_score = datapack.get_unique_score();
 
-                score.assign_to_score(datapack, ctx, unique_score.clone());
+                unique_score.clone().set_from(datapack, ctx, score);
 
                 Self::Score(unique_score)
             }
@@ -696,15 +690,7 @@ impl ResolvedExpression {
             Self::Data(data) => {
                 let unique_data = datapack.get_unique_data();
 
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        unique_data.target.target.clone(),
-                        unique_data.path.clone(),
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::From(data.target.target, Some(data.path)),
-                    )),
-                );
+                unique_data.clone().set_from(datapack, ctx, data);
 
                 Self::Data(unique_data)
             }
@@ -1014,46 +1000,19 @@ impl ResolvedExpression {
     ) {
         match self.try_into_snbt() {
             Ok(snbt) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        data.target.target,
-                        data.path,
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::Value(Macroable::Regular(snbt)),
-                    )),
-                );
+                data.set_value(datapack, ctx, snbt);
             }
             Err(self_) => match self_ {
                 Self::Score(score) => {
                     score.assign_to_data(datapack, ctx, data);
                 }
                 Self::Data(inner_data) => {
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target,
-                            data.path,
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::From(
-                                inner_data.target.target,
-                                Some(inner_data.path),
-                            ),
-                        )),
-                    );
+                    data.set_from(datapack, ctx, inner_data);
                 }
                 Self::List(list) => {
                     let (constants, non_constants) = split_constants_list(list);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target.clone(),
-                            data.path.clone(),
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::macroable_list(constants)),
-                        )),
-                    );
+                    data.clone().set_value(datapack, ctx, SNBT::list(constants));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -1068,15 +1027,8 @@ impl ResolvedExpression {
                 Self::Compound(compound) => {
                     let (constants, non_constants) = split_constants_compound(compound);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target.clone(),
-                            data.path.clone(),
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::macroable_compound(constants)),
-                        )),
-                    );
+                    data.clone()
+                        .set_value(datapack, ctx, SNBT::macroable_compound(constants));
 
                     for (key, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -1112,15 +1064,8 @@ impl ResolvedExpression {
                 Self::Tuple(expressions) => {
                     let (constants, non_constants) = split_constants_list(expressions);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target.clone(),
-                            data.path.clone(),
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::macroable_list(constants)),
-                        )),
-                    );
+                    data.clone()
+                        .set_value(datapack, ctx, SNBT::macroable_list(constants));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -1164,46 +1109,20 @@ impl ResolvedExpression {
     ) {
         match self.try_into_snbt_scale(scale) {
             Ok(snbt) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Modify(
-                        data.target.target,
-                        data.path,
-                        DataCommandModificationMode::Set,
-                        DataCommandModification::Value(Macroable::Regular(snbt)),
-                    )),
-                );
+                data.set_value(datapack, ctx, snbt);
             }
             Err(self_) => match self_ {
                 Self::Score(score) => {
                     score.assign_to_data_scale(datapack, ctx, data, scale);
                 }
                 Self::Data(inner_data) => {
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target,
-                            data.path,
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::From(
-                                inner_data.target.target,
-                                Some(inner_data.path),
-                            ),
-                        )),
-                    );
+                    data.set_from(datapack, ctx, inner_data);
                 }
                 Self::List(list) => {
                     let (constants, non_constants) = split_constants_list(list);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target.clone(),
-                            data.path.clone(),
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::macroable_list(constants)),
-                        )),
-                    );
+                    data.clone()
+                        .set_value(datapack, ctx, SNBT::macroable_list(constants));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -1218,15 +1137,8 @@ impl ResolvedExpression {
                 Self::Compound(compound) => {
                     let (constants, non_constants) = split_constants_compound(compound);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target.clone(),
-                            data.path.clone(),
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::macroable_compound(constants)),
-                        )),
-                    );
+                    data.clone()
+                        .set_value(datapack, ctx, SNBT::macroable_compound(constants));
 
                     for (key, non_constant) in non_constants {
                         non_constant.assign_to_data_scale(
@@ -1265,15 +1177,7 @@ impl ResolvedExpression {
                 Self::Tuple(expressions) => {
                     let (constants, non_constants) = split_constants_list(expressions);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Data(DataCommand::Modify(
-                            data.target.target.clone(),
-                            data.path.clone(),
-                            DataCommandModificationMode::Set,
-                            DataCommandModification::Value(SNBT::macroable_list(constants)),
-                        )),
-                    );
+                    data.clone().set_value(datapack, ctx, SNBT::list(constants));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data_scale(
@@ -2244,7 +2148,7 @@ impl ResolvedExpression {
                 );
             }
             Self::Score(source) => {
-                source.assign_to_score(datapack, ctx, score);
+                score.set_from(datapack, ctx, source);
             }
             Self::Data(data) => {
                 ctx.add_command(

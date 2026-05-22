@@ -261,23 +261,15 @@ fn iterate_string(
 
     condition_ctx.add_command(
         datapack,
-        ExecuteSubcommand::If(
-            true,
-            ExecuteIfSubcommand::Data(
-                unique_data.target.target,
-                unique_path,
-                Some(Box::new(
-                    Command::Function(
-                        ResourceLocation::new_namespace_paths(
-                            &current_namespace_name,
-                            for_function_paths.clone(),
-                        ),
-                        None,
-                    )
-                    .run(),
-                )),
+        Command::Function(
+            ResourceLocation::new_namespace_paths(
+                &current_namespace_name,
+                for_function_paths.clone(),
             ),
-        ),
+            None,
+        )
+        .run()
+        .unless_data(unique_data.target.target, unique_path),
     );
 
     for_body_ctx.extend_context(condition_ctx.clone());
@@ -327,23 +319,15 @@ fn iterate_data(
 
     condition_ctx.add_command(
         datapack,
-        ExecuteSubcommand::If(
-            false,
-            ExecuteIfSubcommand::Data(
-                unique_data.target.target,
-                unique_data.path,
-                Some(Box::new(
-                    Command::Function(
-                        ResourceLocation::new_namespace_paths(
-                            &current_namespace_name,
-                            for_function_paths.clone(),
-                        ),
-                        None,
-                    )
-                    .run(),
-                )),
+        Command::Function(
+            ResourceLocation::new_namespace_paths(
+                &current_namespace_name,
+                for_function_paths.clone(),
             ),
-        ),
+            None,
+        )
+        .run()
+        .if_data(unique_data.target.target, unique_data.path),
     );
 
     for_body_ctx.extend_context(condition_ctx.clone());

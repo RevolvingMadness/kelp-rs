@@ -1,11 +1,13 @@
 use minecraft_command_types::{
-    command::data::{
-        DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget,
+    command::{
+        Command,
+        data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
     },
     macroable::Macroable,
     nbt_path::{NbtPath, NbtPathNode},
     snbt::SNBT,
 };
+use ordered_float::NotNan;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedData {
@@ -30,23 +32,46 @@ impl GeneratedData {
 
     #[inline]
     #[must_use]
-    pub fn modify(
-        self,
-        mode: DataCommandModificationMode,
-        modification: DataCommandModification,
-    ) -> DataCommand {
-        DataCommand::Modify(self.target.target, self.path, mode, modification)
+    pub fn get_regular(self, scale: Option<NotNan<f32>>) -> Command {
+        Command::Data(DataCommand::Get(self.target.target, Some(self.path), scale))
     }
 
     #[inline]
     #[must_use]
-    pub fn append(self, modification: DataCommandModification) -> DataCommand {
+    pub fn get(self) -> Command {
+        self.get_regular(None)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_scaled(self, scale: NotNan<f32>) -> Command {
+        self.get_regular(Some(scale))
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn modify(
+        self,
+        mode: DataCommandModificationMode,
+        modification: DataCommandModification,
+    ) -> Command {
+        Command::Data(DataCommand::Modify(
+            self.target.target,
+            self.path,
+            mode,
+            modification,
+        ))
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn append(self, modification: DataCommandModification) -> Command {
         self.modify(DataCommandModificationMode::Append, modification)
     }
 
     #[inline]
     #[must_use]
-    pub fn append_from(self, data: Self) -> DataCommand {
+    pub fn append_from(self, data: Self) -> Command {
         self.append(DataCommandModification::From(
             data.target.target,
             Some(data.path),
@@ -55,25 +80,25 @@ impl GeneratedData {
 
     #[inline]
     #[must_use]
-    pub fn append_value<V: Into<Macroable<SNBT>>>(self, value: V) -> DataCommand {
+    pub fn append_value<V: Into<Macroable<SNBT>>>(self, value: V) -> Command {
         self.append(DataCommandModification::Value(value.into()))
     }
 
     #[inline]
     #[must_use]
-    pub fn set(self, modification: DataCommandModification) -> DataCommand {
+    pub fn set(self, modification: DataCommandModification) -> Command {
         self.modify(DataCommandModificationMode::Set, modification)
     }
 
     #[inline]
     #[must_use]
-    pub fn set_value<V: Into<Macroable<SNBT>>>(self, value: V) -> DataCommand {
+    pub fn set_value<V: Into<Macroable<SNBT>>>(self, value: V) -> Command {
         self.set(DataCommandModification::Value(value.into()))
     }
 
     #[inline]
     #[must_use]
-    pub fn set_from(self, data: Self) -> DataCommand {
+    pub fn set_from(self, data: Self) -> Command {
         self.set(DataCommandModification::From(
             data.target.target,
             Some(data.path),
@@ -82,8 +107,8 @@ impl GeneratedData {
 
     #[inline]
     #[must_use]
-    pub fn remove(self) -> DataCommand {
-        DataCommand::Remove(self.target.target, self.path)
+    pub fn remove(self) -> Command {
+        Command::Data(DataCommand::Remove(self.target.target, self.path))
     }
 }
 

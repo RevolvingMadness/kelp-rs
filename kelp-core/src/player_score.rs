@@ -1,11 +1,10 @@
 use minecraft_command_types::{
     command::{
-        Command, PlayerScore, ScoreValue,
+        PlayerScore, ScoreValue,
         enums::{
             numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
         },
         execute::{ExecuteIfSubcommand, ScoreComparison},
-        scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     nbt_path::SNBTCompound,
     range::IntegerRange,
@@ -73,16 +72,7 @@ impl GeneratedPlayerScore {
 
     #[inline]
     pub fn set_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, source: Self) {
-        ctx.add_command(
-            datapack,
-            Command::Scoreboard(ScoreboardCommand::Players(
-                PlayersScoreboardCommand::Operation(
-                    self.score,
-                    ScoreOperationOperator::Set,
-                    source.score,
-                ),
-            )),
-        );
+        ctx.add_command(datapack, self.score.set(source.score));
     }
 
     pub fn assign_to_score_scale(
@@ -100,13 +90,7 @@ impl GeneratedPlayerScore {
 
         ctx.add_command(
             datapack,
-            Command::Scoreboard(ScoreboardCommand::Players(
-                PlayersScoreboardCommand::Operation(
-                    unique_score.score.clone(),
-                    ScoreOperationOperator::Multiply,
-                    scale_score.score,
-                ),
-            )),
+            unique_score.score.clone().multiply(scale_score.score),
         );
 
         target.set_from(datapack, ctx, unique_score);
@@ -147,13 +131,9 @@ impl GeneratedPlayerScore {
             _ => {
                 ctx.add_command(
                     datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            target.score,
-                            operator.try_into().unwrap(),
-                            self.score,
-                        ),
-                    )),
+                    target
+                        .score
+                        .operation(operator.try_into().unwrap(), self.score),
                 );
             }
         }
@@ -168,11 +148,7 @@ impl GeneratedPlayerScore {
     ) {
         ctx.add_command(
             datapack,
-            Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Get(
-                self.score,
-            )))
-            .run()
-            .store_result_data(
+            self.score.get().run().store_result_data(
                 data.target.target,
                 data.path,
                 NumericSNBTType::Integer,
@@ -191,11 +167,7 @@ impl GeneratedPlayerScore {
     ) {
         ctx.add_command(
             datapack,
-            Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Get(
-                self.score,
-            )))
-            .run()
-            .store_result_data(
+            self.score.get().run().store_result_data(
                 data.target.target,
                 data.path,
                 NumericSNBTType::Float,

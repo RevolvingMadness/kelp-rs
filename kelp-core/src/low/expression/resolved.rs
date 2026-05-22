@@ -3,11 +3,10 @@ use std::{collections::BTreeMap, fmt::Write};
 use minecraft_command_types::{
     command::{
         Command, ScoreValue,
-        data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
+        data::{DataCommandModification, DataTarget},
         enums::score_operation_operator::ScoreOperationOperator,
         execute::{ExecuteIfSubcommand, ScoreComparison, ScoreComparisonOperator},
         r#return::ReturnCommand,
-        scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     coordinate::Coordinates,
     entity_selector::EntitySelector,
@@ -1439,14 +1438,10 @@ impl ResolvedExpression {
 
                 ctx.add_command(
                     datapack,
-                    Command::Data(DataCommand::Modify(
-                        unique_data.target.target,
-                        unique_data.path,
-                        DataCommandModificationMode::Set,
-                        data_command_modification,
-                    ))
-                    .run()
-                    .store_success_score(unique_score.score.clone()),
+                    unique_data
+                        .set(data_command_modification)
+                        .run()
+                        .store_success_score(unique_score.score.clone()),
                 );
 
                 if operator == ComparisonOperator::EqualTo {
@@ -2032,12 +2027,7 @@ impl ResolvedExpression {
                 score.set_from(datapack, ctx, source);
             }
             Self::Data(data) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Get(data.target.target, Some(data.path), None))
-                        .run()
-                        .store_result_score(score.score),
-                );
+                ctx.add_command(datapack, data.get().run().store_result_score(score.score));
             }
             Self::Unit | Self::Never => {}
             Self::Tuple(..)
@@ -2113,16 +2103,7 @@ impl ResolvedExpression {
                 source.assign_to_score_scale(datapack, ctx, score, scale);
             }
             Self::Data(data) => {
-                ctx.add_command(
-                    datapack,
-                    Command::Data(DataCommand::Get(
-                        data.target.target,
-                        Some(data.path),
-                        Some(scale),
-                    ))
-                    .run()
-                    .store_result_score(score.score),
-                );
+                ctx.add_command(datapack, data.get().run().store_result_score(score.score));
             }
             _ => {
                 unreachable!("{:?}", self)
@@ -2156,13 +2137,7 @@ impl ResolvedExpression {
 
                 ctx.add_command(
                     datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            unique_score.score.clone(),
-                            ScoreOperationOperator::Multiply,
-                            constant_score.score,
-                        ),
-                    )),
+                    unique_score.score.clone().multiply(constant_score.score),
                 );
 
                 Self::Score(unique_score)
@@ -2176,13 +2151,7 @@ impl ResolvedExpression {
 
                 ctx.add_command(
                     datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            unique_score.score.clone(),
-                            ScoreOperationOperator::Multiply,
-                            constant_score.score,
-                        ),
-                    )),
+                    unique_score.score.clone().multiply(constant_score.score),
                 );
 
                 Self::Score(unique_score)
@@ -2267,7 +2236,7 @@ impl ResolvedExpression {
                         .into_subcommand(other_inverted),
                 );
 
-                function_ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
+                function_ctx.add_command(datapack, ReturnCommand::Fail);
 
                 let function_commands = function_ctx.compile();
 

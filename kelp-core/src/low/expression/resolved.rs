@@ -737,11 +737,11 @@ impl ResolvedExpression {
 
                 SNBT::list(list)
             }
-            Self::Boolean(boolean) => SNBT::byte(i8::from(boolean)),
-            Self::Byte(byte) => SNBT::byte(byte),
-            Self::Short(short) => SNBT::short(short),
-            Self::Integer(integer) => SNBT::integer(integer),
-            Self::Long(long) => SNBT::long(long),
+            Self::Boolean(boolean) => SNBT::Byte(i8::from(boolean)),
+            Self::Byte(byte) => SNBT::Byte(byte),
+            Self::Short(short) => SNBT::Short(short),
+            Self::Integer(integer) => SNBT::Integer(integer),
+            Self::Long(long) => SNBT::Long(long),
             Self::Float(float) => SNBT::float(float),
             Self::Double(double) => SNBT::double(double),
             Self::String(string) => SNBT::snbt_string(SNBTString(false, string)),
@@ -786,7 +786,7 @@ impl ResolvedExpression {
 
                 compound.insert(
                     SNBTString(false, "__kelp_rs_unit__".to_string()),
-                    Macroable::Regular(SNBT::byte(1)),
+                    Macroable::Regular(SNBT::Byte(1)),
                 );
 
                 SNBT::compound(compound)
@@ -796,7 +796,7 @@ impl ResolvedExpression {
 
                 compound.insert(
                     SNBTString(false, "__kelp_rs_never__".to_string()),
-                    Macroable::Regular(SNBT::byte(1)),
+                    Macroable::Regular(SNBT::Byte(1)),
                 );
 
                 SNBT::compound(compound)
@@ -1729,35 +1729,35 @@ impl ResolvedExpression {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::byte(i8::from(value))
+                    SNBT::Byte(i8::from(value))
                 }
             }
             Self::Byte(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::byte(value)
+                    SNBT::Byte(value)
                 }
             }
             Self::Short(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::short(value)
+                    SNBT::Short(value)
                 }
             }
             Self::Integer(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::integer(value)
+                    SNBT::Integer(value)
                 }
             }
             Self::Long(value) => {
                 if force_display {
                     SNBT::string(value)
                 } else {
-                    SNBT::long(value)
+                    SNBT::Long(value)
                 }
             }
             Self::Float(value) => {

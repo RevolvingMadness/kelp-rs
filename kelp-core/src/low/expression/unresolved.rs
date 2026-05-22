@@ -654,28 +654,28 @@ impl UnresolvedExpressionKind {
             Self::Condition(inverted, condition) => {
                 let condition = condition.compile(datapack, ctx);
 
-                let unique_score = datapack.get_unique_score();
+                let result_score = datapack.get_unique_score();
 
                 ctx.add_command(
                     datapack,
                     condition
                         .into_subcommand(inverted)
-                        .store_success_score(unique_score.score.clone()),
+                        .store_success_score(result_score.score.clone()),
                 );
 
-                ResolvedExpression::Score(unique_score)
+                ResolvedExpression::Score(result_score)
             }
             Self::Command(command) => {
                 let command = command.compile(datapack, ctx);
 
-                let unique_score = datapack.get_unique_score();
+                let result_score = datapack.get_unique_score();
 
                 ctx.add_command(
                     datapack,
-                    command.run().store_result_score(unique_score.score.clone()),
+                    command.run().store_result_score(result_score.score.clone()),
                 );
 
-                ResolvedExpression::Score(unique_score)
+                ResolvedExpression::Score(result_score)
             }
             Self::Index(target, index) => {
                 let target = target.kind.resolve(datapack, ctx);
@@ -867,8 +867,9 @@ impl UnresolvedExpressionKind {
                 );
 
                 let mut condition_ctx = ctx.create_child_ctx();
-                let (should_be_inverted, condition) = condition
+                let (inverted, condition) = condition
                     .kind
+                    .clone()
                     .resolve(datapack, &mut condition_ctx)
                     .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
@@ -882,16 +883,13 @@ impl UnresolvedExpressionKind {
 
                 condition_ctx.add_command(
                     datapack,
-                    condition
-                        .clone()
-                        .into_subcommand(should_be_inverted)
-                        .then(subcommand),
+                    condition.clone().into_subcommand(inverted).then(subcommand),
                 );
 
                 let mut while_body_ctx = ctx.create_child_ctx();
                 while_body_ctx.loop_info = Some(LoopInfo {
                     resource_location: while_function_resource_location,
-                    type_: LoopType::While(should_be_inverted, Box::new(condition)),
+                    type_: LoopType::While(inverted, Box::new(condition)),
                 });
 
                 body.kind
@@ -1096,8 +1094,9 @@ impl UnresolvedExpressionKind {
                 );
 
                 let mut condition_ctx = ctx.create_child_ctx();
-                let (should_be_inverted, condition) = condition
+                let (inverted, condition) = condition
                     .kind
+                    .clone()
                     .resolve(datapack, &mut condition_ctx)
                     .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
@@ -1111,16 +1110,13 @@ impl UnresolvedExpressionKind {
 
                 condition_ctx.add_command(
                     datapack,
-                    condition
-                        .clone()
-                        .into_subcommand(should_be_inverted)
-                        .then(subcommand),
+                    condition.clone().into_subcommand(inverted).then(subcommand),
                 );
 
                 let mut while_body_ctx = ctx.create_child_ctx();
                 while_body_ctx.loop_info = Some(LoopInfo {
                     resource_location: while_function_resource_location,
-                    type_: LoopType::While(should_be_inverted, Box::new(condition)),
+                    type_: LoopType::While(inverted, Box::new(condition)),
                 });
 
                 body.kind

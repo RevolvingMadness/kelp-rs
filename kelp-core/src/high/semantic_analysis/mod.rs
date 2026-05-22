@@ -75,37 +75,13 @@ pub enum FunctionContext {
     Regular {
         modifiers: RegularFunctionModifiers,
         return_type: UnresolvedDataType,
+        callee_id: HighRegularFunctionId,
         calls: HashSet<HighFunctionId>,
     },
     MCFunction,
 }
 
 impl FunctionContext {
-    #[must_use]
-    pub fn calls(&self, id: &HighFunctionId) -> bool {
-        match self {
-            Self::Regular { calls, .. } => calls.contains(id),
-            Self::MCFunction => false,
-        }
-    }
-
-    #[must_use]
-    pub const fn get_calls(&self) -> Option<&HashSet<HighFunctionId>> {
-        match self {
-            Self::Regular { calls, .. } => Some(calls),
-            Self::MCFunction => None,
-        }
-    }
-
-    pub fn add_call(&mut self, id: HighFunctionId) {
-        match self {
-            Self::Regular { calls, .. } => {
-                calls.insert(id);
-            }
-            Self::MCFunction => {}
-        }
-    }
-
     #[must_use]
     pub const fn is_recursive(&self) -> Option<bool> {
         match self {

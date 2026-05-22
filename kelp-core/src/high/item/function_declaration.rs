@@ -129,14 +129,11 @@ impl FunctionDeclarationItem {
 
         ctx.push_scope(scope);
 
-        let mut calls = HashSet::new();
-
-        calls.insert(id.into());
-
         ctx.function_contexts.push(FunctionContext::Regular {
             modifiers,
             return_type,
-            calls,
+            callee_id: id,
+            calls: HashSet::new(),
         });
 
         let mut resolved_parameters = Vec::with_capacity(self.parameters.len());
@@ -161,7 +158,7 @@ impl FunctionDeclarationItem {
 
             ctx.high_environment
                 .update_regular_function(id, |declaration| {
-                    if let Some(calls) = context.get_calls() {
+                    if let FunctionContext::Regular { calls, .. } = &context {
                         declaration.calls = Some(calls.clone());
                     }
                 });

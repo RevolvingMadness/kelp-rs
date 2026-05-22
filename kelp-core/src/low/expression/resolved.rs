@@ -172,19 +172,13 @@ fn compile_compiletime_function(
         },
     );
 
-    datapack.function_return_targets.push(return_target);
     let result = body.kind.resolve(datapack, &mut function_body_ctx);
-    let return_target = datapack.function_return_targets.pop().unwrap();
-
-    return_target
-        .clone()
-        .assign(datapack, &mut function_body_ctx, result);
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
     ctx.add_command(datapack, Command::Function(resource_location, None));
 
-    return_target.to_expression()
+    result
 }
 
 #[must_use]
@@ -1367,6 +1361,38 @@ impl ResolvedExpression {
     }
 
     #[must_use]
+    pub fn augmented_assign(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        operator: ArithmeticOperator,
+        other: Self,
+    ) -> Option<Self> {
+        Some(match (self, other) {
+            (Self::Score(score), other) => {
+                other.operate_on_score(datapack, ctx, score, operator);
+
+                return None;
+            }
+
+            (Self::Data(data), other) => {
+                let unique_score = datapack.get_unique_score();
+
+                data.clone()
+                    .assign_to_score(datapack, ctx, unique_score.clone());
+                other.operate_on_score(datapack, ctx, unique_score.clone(), operator);
+                unique_score.assign_to_data(datapack, ctx, data);
+
+                return None;
+            }
+
+            (left_kind, right_kind) => {
+                left_kind.perform_arithmetic(datapack, ctx, operator, right_kind)
+            }
+        })
+    }
+
+    #[must_use]
     pub fn perform_comparison(
         self,
         datapack: &mut Datapack,
@@ -2027,7 +2053,7 @@ impl ResolvedExpression {
                 score.set_from(datapack, ctx, source);
             }
             Self::Data(data) => {
-                ctx.add_command(datapack, data.get().run().store_result_score(score.score));
+                data.assign_to_score(datapack, ctx, score);
             }
             Self::Unit | Self::Never => {}
             Self::Tuple(..)
@@ -2115,6 +2141,7 @@ impl ResolvedExpression {
     pub fn invert(self) -> Option<Self> {
         Some(match self {
             Self::Boolean(value) => Self::Boolean(!value),
+
             _ => return None,
         })
     }

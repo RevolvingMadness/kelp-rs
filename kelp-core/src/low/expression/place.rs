@@ -82,9 +82,11 @@ impl ResolvedPlaceExpression {
             Self::Variable(_) | Self::FieldAccess(..) | Self::Index(..) => {
                 let old_value = self.clone().resolve(datapack, ctx);
 
-                let new_value = old_value.perform_arithmetic(datapack, ctx, operator, value);
+                let new_value = old_value.augmented_assign(datapack, ctx, operator, value);
 
-                self.assign(datapack, ctx, new_value);
+                if let Some(new_value) = new_value {
+                    self.assign(datapack, ctx, new_value);
+                }
             }
             Self::Score(score) => {
                 value.operate_on_score(datapack, ctx, score, operator);

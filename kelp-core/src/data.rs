@@ -9,6 +9,10 @@ use minecraft_command_types::{
 };
 use ordered_float::NotNan;
 
+use crate::{
+    compile_context::CompileContext, datapack::Datapack, player_score::GeneratedPlayerScore,
+};
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedData {
     pub target: GeneratedDataTarget,
@@ -16,6 +20,15 @@ pub struct GeneratedData {
 }
 
 impl GeneratedData {
+    pub fn assign_to_score(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        target: GeneratedPlayerScore,
+    ) {
+        ctx.add_command(datapack, self.get().run().store_result_score(target.score));
+    }
+
     #[must_use]
     pub fn with_path_node(self, node: NbtPathNode) -> Self {
         Self {

@@ -10,7 +10,9 @@ use crate::{
         data::DataTarget,
         data_type::DataType,
         entity_selector::EntitySelector,
-        environment::r#type::r#struct::regular::HighRegularStructId,
+        environment::{
+            r#type::r#struct::regular::HighRegularStructId, value::function::HighFunctionId,
+        },
         expression::{
             assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionKind},
             block::BlockExpression,
@@ -19,7 +21,9 @@ use crate::{
         nbt_path::NbtPath,
         pattern::Pattern,
         player_score::PlayerScore,
-        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        semantic_analysis::{
+            FunctionContext, SemanticAnalysisContext, info::error::SemanticAnalysisError,
+        },
         supports_expression_sigil::SupportsExpressionSigil,
     },
     low::{
@@ -449,28 +453,27 @@ impl Expression {
                 UnresolvedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
                     .with(UnresolvedDataType::Boolean)
             }
-            ExpressionKind::AugmentedAssignment(target, _operator_span, operator, value) => {
+            ExpressionKind::AugmentedAssignment(target, operator_span, operator, value) => {
                 let target = target.as_place_semantic_analysis(ctx);
                 let value = value.perform_semantic_analysis(ctx);
 
                 let (_, target) = target?;
                 let (_, value) = value?;
 
-                // TODO
-                // if target
-                //     .data_type
-                //     .get_arithmetic_result(&value.data_type)
-                //     .is_none()
-                // {
-                //     return ctx.add_error(
-                //         operator_span,
-                //         SemanticAnalysisError::CannotPerformArithmeticOperation {
-                //             left: target.data_type,
-                //             operator,
-                //             right: value.data_type,
-                //         },
-                //     );
-                // }
+                if target
+                    .data_type
+                    .get_arithmetic_result(&value.data_type)
+                    .is_none()
+                {
+                    return ctx.add_error(
+                        operator_span,
+                        SemanticAnalysisError::CannotPerformArithmeticOperation {
+                            left: target.data_type,
+                            operator,
+                            right: value.data_type,
+                        },
+                    );
+                }
 
                 UnresolvedExpressionKind::AugmentedAssignment(
                     Box::new(target),
@@ -800,15 +803,20 @@ impl Expression {
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
 
-                if let Some(id) = call_info.id {
-                    let context = ctx.function_contexts.last_mut().unwrap();
-
-                    if context.is_recursive() == Some(false) && context.calls(&id) {
+                if let Some(id) = call_info.id
+                    && let FunctionContext::Regular {
+                        modifiers,
+                        callee_id,
+                        calls,
+                        ..
+                    } = ctx.function_contexts.last_mut().unwrap()
+                {
+                    if !modifiers.is_recursive() && id == HighFunctionId(callee_id.0) {
                         return ctx
                             .add_error(callee_span, SemanticAnalysisError::RecursiveFunctionCall);
                     }
 
-                    context.add_call(id);
+                    calls.insert(id);
                 }
 
                 let parameter_count = call_info.parameter_types.len();

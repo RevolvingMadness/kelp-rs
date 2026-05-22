@@ -64,7 +64,9 @@ impl CompileContext {
         self.commands.len()
     }
 
-    pub fn add_command(&mut self, datapack: &mut Datapack, command: Command) {
+    pub fn add_command<C: Into<Command>>(&mut self, datapack: &mut Datapack, command: C) {
+        let command = command.into();
+
         if !command.has_macro() {
             self.commands.push(command);
 

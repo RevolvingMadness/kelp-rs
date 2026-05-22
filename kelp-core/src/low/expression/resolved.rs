@@ -2,13 +2,10 @@ use std::{collections::BTreeMap, fmt::Write};
 
 use minecraft_command_types::{
     command::{
-        Command,
+        Command, ScoreValue,
         data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
-        enums::{score_operation_operator::ScoreOperationOperator, store_type::StoreType},
-        execute::{
-            ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
-            ScoreComparisonOperator,
-        },
+        enums::score_operation_operator::ScoreOperationOperator,
+        execute::{ExecuteIfSubcommand, ScoreComparison, ScoreComparisonOperator},
         r#return::ReturnCommand,
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
@@ -37,10 +34,7 @@ use crate::{
             r#type::r#struct::{RegularStructId, TupleStructId},
             value::function::{FunctionDeclaration, FunctionId},
         },
-        expression::{
-            place::ResolvedPlaceExpression, unresolved::UnresolvedExpression,
-            utils::push_scoreboard_players,
-        },
+        expression::{place::ResolvedPlaceExpression, unresolved::UnresolvedExpression},
         pattern::UnresolvedPattern,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
@@ -52,7 +46,7 @@ pub fn compile_shift_operation(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     target: &GeneratedPlayerScore,
-    amount: i32,
+    amount: ScoreValue,
     operator: ScoreOperationOperator,
 ) {
     if amount <= 0 {
@@ -64,7 +58,10 @@ pub fn compile_shift_operation(
     for _ in 0..amount {
         ctx.add_command(
             datapack,
-            target.clone().operation(operator, constant_two.clone()),
+            target
+                .score
+                .clone()
+                .operation(operator, constant_two.score.clone()),
         );
     }
 }
@@ -299,39 +296,36 @@ fn compile_recursive_runtime_function(
         let return_data = function.return_data.clone();
         let prefix_data = function.prefix_data.clone();
 
-        arguments_stack.clone().append_value(
+        ctx.add_command(
             datapack,
-            ctx,
-            SNBT::macroable_list(Vec::<SNBT>::new()),
+            arguments_stack.clone().append_value(SNBT::empty_list()),
         );
 
         let arguments_data = arguments_stack.index(-1);
 
         for argument_data in arguments {
-            arguments_data
-                .clone()
-                .append_from(datapack, ctx, argument_data);
+            ctx.add_command(datapack, arguments_data.clone().append_from(argument_data));
         }
 
-        prefix_data.clone().append_value(
+        ctx.add_command(
             datapack,
-            ctx,
-            SNBT::macroable_compound(SNBTCompound::new()),
+            prefix_data.clone().append_value(SNBT::empty_compound()),
         );
 
         let this_prefix_data = prefix_data.index(-1);
 
         ctx.add_command(datapack, Command::Function(resource_location, None));
 
-        arguments_data.remove(datapack, ctx);
+        ctx.add_command(datapack, arguments_data.remove());
 
-        this_prefix_data.remove(datapack, ctx);
+        ctx.add_command(datapack, this_prefix_data.remove());
 
         let temporary_return_data = datapack.get_unique_data();
 
-        temporary_return_data
-            .clone()
-            .set_from(datapack, ctx, return_data);
+        ctx.add_command(
+            datapack,
+            temporary_return_data.clone().set_from(return_data),
+        );
 
         return ResolvedExpression::Data(temporary_return_data);
     }
@@ -349,21 +343,21 @@ fn compile_recursive_runtime_function(
 
     datapack.prefix_data = old_prefix_data;
 
-    arguments_stack
-        .clone()
-        .append_value(datapack, ctx, SNBT::macroable_list(Vec::<SNBT>::new()));
+    ctx.add_command(
+        datapack,
+        arguments_stack.clone().append_value(SNBT::empty_list()),
+    );
 
     let arguments_data = arguments_stack.clone().index(-1);
 
     for argument_data in arguments {
-        arguments_data
-            .clone()
-            .append_from(datapack, ctx, argument_data);
+        ctx.add_command(datapack, arguments_data.clone().append_from(argument_data));
     }
 
-    prefix_data
-        .clone()
-        .append_value(datapack, ctx, SNBT::macroable_compound(SNBTCompound::new()));
+    ctx.add_command(
+        datapack,
+        prefix_data.clone().append_value(SNBT::empty_compound()),
+    );
 
     let this_prefix_data = prefix_data.clone().index(-1);
 
@@ -411,15 +405,16 @@ fn compile_recursive_runtime_function(
 
     ctx.add_command(datapack, Command::Function(resource_location, None));
 
-    arguments_data.remove(datapack, ctx);
+    ctx.add_command(datapack, arguments_data.remove());
 
-    this_prefix_data.remove(datapack, ctx);
+    ctx.add_command(datapack, this_prefix_data.remove());
 
     let temporary_return_data = datapack.get_unique_data();
 
-    temporary_return_data
-        .clone()
-        .set_from(datapack, ctx, return_data);
+    ctx.add_command(
+        datapack,
+        temporary_return_data.clone().set_from(return_data),
+    );
 
     ResolvedExpression::Data(temporary_return_data)
 }
@@ -589,16 +584,9 @@ impl ResolvedExpression {
 
                     ctx.add_command(
                         datapack,
-                        Command::Execute(ExecuteSubcommand::Store(
-                            StoreType::Result,
-                            ExecuteStoreSubcommand::Score(
-                                unique_score.score.clone(),
-                                Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
-                                    resource_location,
-                                    None,
-                                )))),
-                            ),
-                        )),
+                        Command::Function(resource_location, None)
+                            .run()
+                            .store_result_score(unique_score.score.clone()),
                     );
 
                     Self::Score(unique_score)
@@ -649,7 +637,7 @@ impl ResolvedExpression {
             Self::Data(data) => {
                 let unique_data = datapack.get_unique_data();
 
-                unique_data.clone().set_from(datapack, ctx, data);
+                ctx.add_command(datapack, unique_data.clone().set_from(data));
 
                 Self::Data(unique_data)
             }
@@ -963,19 +951,19 @@ impl ResolvedExpression {
     ) {
         match self.try_into_snbt() {
             Ok(snbt) => {
-                data.set_value(datapack, ctx, snbt);
+                ctx.add_command(datapack, data.set_value(snbt));
             }
             Err(self_) => match self_ {
                 Self::Score(score) => {
                     score.assign_to_data(datapack, ctx, data);
                 }
                 Self::Data(inner_data) => {
-                    data.set_from(datapack, ctx, inner_data);
+                    ctx.add_command(datapack, data.set_from(inner_data));
                 }
                 Self::List(list) => {
                     let (constants, non_constants) = split_constants_list(list);
 
-                    data.clone().set_value(datapack, ctx, SNBT::list(constants));
+                    ctx.add_command(datapack, data.clone().set_value(SNBT::list(constants)));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -990,8 +978,7 @@ impl ResolvedExpression {
                 Self::Compound(compound) => {
                     let (constants, non_constants) = split_constants_compound(compound);
 
-                    data.clone()
-                        .set_value(datapack, ctx, SNBT::macroable_compound(constants));
+                    ctx.add_command(datapack, data.clone().set_value(SNBT::compound(constants)));
 
                     for (key, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -1027,8 +1014,7 @@ impl ResolvedExpression {
                 Self::Tuple(expressions) => {
                     let (constants, non_constants) = split_constants_list(expressions);
 
-                    data.clone()
-                        .set_value(datapack, ctx, SNBT::macroable_list(constants));
+                    ctx.add_command(datapack, data.clone().set_value(SNBT::list(constants)));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -1057,20 +1043,19 @@ impl ResolvedExpression {
     ) {
         match self.try_into_snbt_scale(scale) {
             Ok(snbt) => {
-                data.set_value(datapack, ctx, snbt);
+                ctx.add_command(datapack, data.set_value(snbt));
             }
             Err(self_) => match self_ {
                 Self::Score(score) => {
                     score.assign_to_data_scale(datapack, ctx, data, scale);
                 }
                 Self::Data(inner_data) => {
-                    data.set_from(datapack, ctx, inner_data);
+                    ctx.add_command(datapack, data.set_from(inner_data));
                 }
                 Self::List(list) => {
                     let (constants, non_constants) = split_constants_list(list);
 
-                    data.clone()
-                        .set_value(datapack, ctx, SNBT::macroable_list(constants));
+                    ctx.add_command(datapack, data.clone().set_value(SNBT::list(constants)));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data(
@@ -1085,8 +1070,10 @@ impl ResolvedExpression {
                 Self::Compound(compound) => {
                     let (constants, non_constants) = split_constants_compound(compound);
 
-                    data.clone()
-                        .set_value(datapack, ctx, SNBT::macroable_compound(constants));
+                    ctx.add_command(
+                        datapack,
+                        data.clone().set_value(SNBT::macroable_compound(constants)),
+                    );
 
                     for (key, non_constant) in non_constants {
                         non_constant.assign_to_data_scale(
@@ -1125,7 +1112,7 @@ impl ResolvedExpression {
                 Self::Tuple(expressions) => {
                     let (constants, non_constants) = split_constants_list(expressions);
 
-                    data.clone().set_value(datapack, ctx, SNBT::list(constants));
+                    ctx.add_command(datapack, data.clone().set_value(SNBT::list(constants)));
 
                     for (index, non_constant) in non_constants {
                         non_constant.assign_to_data_scale(
@@ -1222,18 +1209,10 @@ impl ResolvedExpression {
         if let Some(value) = self.try_as_i32(true) {
             return match operator {
                 ArithmeticOperator::Add => {
-                    push_scoreboard_players(
-                        datapack,
-                        ctx,
-                        PlayersScoreboardCommand::Add(score.score, value),
-                    );
+                    ctx.add_command(datapack, score.score.add_value(value));
                 }
                 ArithmeticOperator::Subtract => {
-                    push_scoreboard_players(
-                        datapack,
-                        ctx,
-                        PlayersScoreboardCommand::Remove(score.score, value),
-                    );
+                    ctx.add_command(datapack, score.score.remove(value));
                 }
                 ArithmeticOperator::And | ArithmeticOperator::Or => {
                     datapack
@@ -1261,14 +1240,12 @@ impl ResolvedExpression {
                 _ => {
                     let constant_score = datapack.get_constant_score(value);
 
-                    push_scoreboard_players(
+                    ctx.add_command(
                         datapack,
-                        ctx,
-                        PlayersScoreboardCommand::Operation(
-                            score.score.clone(),
-                            operator.try_into().unwrap(),
-                            constant_score.score,
-                        ),
+                        score
+                            .score
+                            .clone()
+                            .operation(operator.try_into().unwrap(), constant_score.score),
                     );
                 }
             };
@@ -1462,35 +1439,26 @@ impl ResolvedExpression {
 
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Modify(
-                                    unique_data.target.target,
-                                    unique_data.path,
-                                    DataCommandModificationMode::Set,
-                                    data_command_modification,
-                                ),
-                            )))),
-                        ),
-                    )),
+                    Command::Data(DataCommand::Modify(
+                        unique_data.target.target,
+                        unique_data.path,
+                        DataCommandModificationMode::Set,
+                        data_command_modification,
+                    ))
+                    .run()
+                    .store_success_score(unique_score.score.clone()),
                 );
 
                 if operator == ComparisonOperator::EqualTo {
                     ctx.add_command(
                         datapack,
-                        ExecuteSubcommand::If(
-                            operator.should_execute_if_be_inverted(),
-                            ExecuteIfSubcommand::Score(
-                                unique_score.score.clone(),
-                                ScoreComparison::Range(IntegerRange::new_single(0)),
-                                None,
-                            ),
+                        ExecuteIfSubcommand::Score(
+                            unique_score.score.clone(),
+                            ScoreComparison::Range(IntegerRange::new_single(0)),
+                            None,
                         )
-                        .store_result_score(unique_score.score.clone())
-                        .into_command(),
+                        .into_subcommand(operator.should_execute_if_be_inverted())
+                        .store_result_score(unique_score.score.clone()),
                     );
                 }
 
@@ -1514,8 +1482,7 @@ impl ResolvedExpression {
                         None,
                     )
                     .into_subcommand(operator.should_execute_if_be_inverted())
-                    .store_result_score(result_score.score.clone())
-                    .into_command(),
+                    .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -1535,8 +1502,7 @@ impl ResolvedExpression {
                             None,
                         )
                         .into_subcommand(operator.should_execute_if_be_inverted())
-                        .store_result_score(result_score.score.clone())
-                        .into_command(),
+                        .store_result_score(result_score.score.clone()),
                     );
 
                     return Self::Score(result_score);
@@ -1557,8 +1523,7 @@ impl ResolvedExpression {
                         None,
                     )
                     .into_subcommand(operator.should_execute_if_be_inverted())
-                    .store_result_score(result_score.score.clone())
-                    .into_command(),
+                    .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -1579,8 +1544,7 @@ impl ResolvedExpression {
                         None,
                     )
                     .into_subcommand(operator.should_execute_if_be_inverted())
-                    .store_result_score(result_score.score.clone())
-                    .into_command(),
+                    .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -1705,11 +1669,7 @@ impl ResolvedExpression {
         if let Some(value) = self.try_as_i32(true) {
             let unique_score = datapack.get_unique_score();
 
-            push_scoreboard_players(
-                datapack,
-                ctx,
-                PlayersScoreboardCommand::Set(unique_score.score.clone(), value),
-            );
+            ctx.add_command(datapack, unique_score.score.clone().set_value(value));
 
             return Some(unique_score.to_execute_condition());
         }
@@ -2033,74 +1993,40 @@ impl ResolvedExpression {
     ) {
         match self {
             Self::Boolean(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, i32::from(value)),
-                );
+                ctx.add_command(datapack, score.score.set_value(ScoreValue::from(value)));
             }
             Self::Byte(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, i32::from(value)),
-                );
+                ctx.add_command(datapack, score.score.set_value(ScoreValue::from(value)));
             }
             Self::Short(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, i32::from(value)),
-                );
+                ctx.add_command(datapack, score.score.set_value(ScoreValue::from(value)));
             }
             Self::Integer(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, value),
-                );
+                ctx.add_command(datapack, score.score.set_value(value));
             }
             Self::Long(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, value as i32),
-                );
+                ctx.add_command(datapack, score.score.set_value(value as ScoreValue));
             }
             Self::Float(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, value.into_inner() as i32),
+                    score.score.set_value(value.into_inner() as ScoreValue),
                 );
             }
             Self::Double(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, value.into_inner() as i32),
+                    score.score.set_value(value.into_inner() as ScoreValue),
                 );
             }
             Self::String(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, value.len() as i32),
-                );
+                ctx.add_command(datapack, score.score.set_value(value.len() as ScoreValue));
             }
             Self::List(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, value.len() as i32),
-                );
+                ctx.add_command(datapack, score.score.set_value(value.len() as ScoreValue));
             }
             Self::Compound(value) => {
-                push_scoreboard_players(
-                    datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(score.score, value.len() as i32),
-                );
+                ctx.add_command(datapack, score.score.set_value(value.len() as ScoreValue));
             }
             Self::Score(source) => {
                 score.set_from(datapack, ctx, source);
@@ -2108,15 +2034,9 @@ impl ResolvedExpression {
             Self::Data(data) => {
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            score.score,
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(data.target.target, Some(data.path), None),
-                            )))),
-                        ),
-                    )),
+                    Command::Data(DataCommand::Get(data.target.target, Some(data.path), None))
+                        .run()
+                        .store_result_score(score.score),
                 );
             }
             Self::Unit | Self::Never => {}
@@ -2142,62 +2062,50 @@ impl ResolvedExpression {
     ) {
         match self {
             Self::Byte(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        score.score,
-                        (f32::from(value) * scale.into_inner()) as i32,
-                    ),
+                    score
+                        .score
+                        .set_value((f32::from(value) * scale.into_inner()) as ScoreValue),
                 );
             }
             Self::Short(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        score.score,
-                        (f32::from(value) * scale.into_inner()) as i32,
-                    ),
+                    score
+                        .score
+                        .set_value((f32::from(value) * scale.into_inner()) as ScoreValue),
                 );
             }
             Self::Integer(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        score.score,
-                        (value as f32 * scale.into_inner()) as i32,
-                    ),
+                    score
+                        .score
+                        .set_value((value as f32 * scale.into_inner()) as ScoreValue),
                 );
             }
             Self::Long(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        score.score,
-                        (value as f32 * scale.into_inner()) as i32,
-                    ),
+                    score
+                        .score
+                        .set_value((value as f32 * scale.into_inner()) as ScoreValue),
                 );
             }
             Self::Float(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        score.score,
-                        (value.into_inner() * scale.into_inner()) as i32,
-                    ),
+                    score
+                        .score
+                        .set_value((value.into_inner() * scale.into_inner()) as ScoreValue),
                 );
             }
             Self::Double(value) => {
-                push_scoreboard_players(
+                ctx.add_command(
                     datapack,
-                    ctx,
-                    PlayersScoreboardCommand::Set(
-                        score.score,
-                        (value.into_inner() * f64::from(scale.into_inner())) as i32,
+                    score.score.set_value(
+                        (value.into_inner() * f64::from(scale.into_inner())) as ScoreValue,
                     ),
                 );
             }
@@ -2207,15 +2115,13 @@ impl ResolvedExpression {
             Self::Data(data) => {
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            score.score,
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(data.target.target, Some(data.path), Some(scale)),
-                            )))),
-                        ),
-                    )),
+                    Command::Data(DataCommand::Get(
+                        data.target.target,
+                        Some(data.path),
+                        Some(scale),
+                    ))
+                    .run()
+                    .store_result_score(score.score),
                 );
             }
             _ => {
@@ -2303,27 +2209,17 @@ impl ResolvedExpression {
                     other.to_execute_condition(datapack, ctx).unwrap();
 
                 // 2.
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-                        unique_score.score.clone(),
-                        0,
-                    ))),
-                );
+                ctx.add_command(datapack, unique_score.score.clone().set_value(0));
 
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::If(
-                        self_inverted,
-                        self_condition.then(ExecuteSubcommand::If(
-                            right_inverted,
-                            right_condition.then(ExecuteSubcommand::Run(Box::new(
-                                Command::Scoreboard(ScoreboardCommand::Players(
-                                    PlayersScoreboardCommand::Set(unique_score.score.clone(), 1),
-                                )),
-                            ))),
-                        )),
-                    )),
+                    unique_score
+                        .score
+                        .clone()
+                        .set_value(1)
+                        .run()
+                        .conditionally(right_inverted, right_condition)
+                        .conditionally(self_inverted, self_condition),
                 );
 
                 Self::Score(unique_score)
@@ -2332,34 +2228,23 @@ impl ResolvedExpression {
                 let unique_function_paths = datapack.get_unique_function_paths();
 
                 let unique_score = datapack.get_unique_score();
+                ctx.add_command(datapack, unique_score.score.clone().set_value(0));
                 ctx.add_command(
                     datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-                        unique_score.score.clone(),
-                        0,
-                    ))),
-                );
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Function(
-                                ResourceLocation::new_namespace_paths(
-                                    datapack.current_namespace_name(),
-                                    unique_function_paths.clone(),
-                                ),
-                                None,
-                            )))),
+                    Command::Function(
+                        ResourceLocation::new_namespace_paths(
+                            datapack.current_namespace_name(),
+                            unique_function_paths.clone(),
                         ),
-                    )),
+                        None,
+                    )
+                    .run()
+                    .store_success_score(unique_score.score.clone()),
                 );
 
                 let mut function_ctx = CompileContext::default();
 
-                let return_one_subcommand =
-                    ExecuteSubcommand::Run(Box::new(Command::Return(ReturnCommand::Value(1))));
+                let return_1 = Command::Return(ReturnCommand::Value(1)).run();
 
                 let (self_inverted, left_condition) = self
                     .to_execute_condition(datapack, &mut function_ctx)
@@ -2367,10 +2252,9 @@ impl ResolvedExpression {
 
                 function_ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::If(
-                        self_inverted,
-                        left_condition.then(return_one_subcommand.clone()),
-                    )),
+                    left_condition
+                        .then(return_1.clone())
+                        .into_subcommand(self_inverted),
                 );
                 let (other_inverted, other_condition) = other
                     .to_execute_condition(datapack, &mut function_ctx)
@@ -2378,11 +2262,11 @@ impl ResolvedExpression {
 
                 function_ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::If(
-                        other_inverted,
-                        other_condition.then(return_one_subcommand),
-                    )),
+                    other_condition
+                        .then(return_1)
+                        .into_subcommand(other_inverted),
                 );
+
                 function_ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
 
                 let function_commands = function_ctx.compile();

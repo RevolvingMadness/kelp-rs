@@ -4,4 +4,3 @@ pub mod literal;
 pub mod place;
 pub mod resolved;
 pub mod unresolved;
-pub mod utils;

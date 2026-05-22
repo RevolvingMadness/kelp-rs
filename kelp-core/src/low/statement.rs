@@ -5,7 +5,6 @@ use crate::low::item::Item;
 use crate::low::pattern::UnresolvedPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
 use minecraft_command_types::command::Command;
-use minecraft_command_types::command::data::DataCommandModificationMode;
 use minecraft_command_types::command::execute::ExecuteSubcommand;
 use minecraft_command_types::command::r#return::ReturnCommand;
 
@@ -93,19 +92,14 @@ impl UnresolvedStatement {
 
                 let modification = value.as_data_command_modification(datapack, ctx);
 
-                data.modify(
-                    datapack,
-                    ctx,
-                    DataCommandModificationMode::Append,
-                    modification,
-                );
+                ctx.add_command(datapack, data.append(modification));
             }
             Self::Remove(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
                 let data = expression.as_data(datapack, ctx, false);
 
-                data.remove(datapack, ctx);
+                ctx.add_command(datapack, data.remove());
             }
             Self::Break => {
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));

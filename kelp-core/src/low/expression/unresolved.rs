@@ -3,11 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use minecraft_command_types::{
     command::{
         Command,
-        data::{DataCommandModification, DataCommandModificationMode},
-        enums::store_type::StoreType,
-        execute::{
-            ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
-        },
+        data::DataCommandModification,
+        execute::{ExecuteIfSubcommand, ExecuteSubcommand, ScoreComparison},
         r#return::ReturnCommand,
     },
     nbt_path::{NbtPath as LowNbtPath, NbtPathNode, SNBTCompound},
@@ -67,12 +64,7 @@ fn compile_if(
         for command in body_ctx.commands {
             caller_ctx.add_command(
                 datapack,
-                Command::Execute(ExecuteSubcommand::If(
-                    inverted,
-                    condition
-                        .clone()
-                        .then(ExecuteSubcommand::Run(Box::new(command))),
-                )),
+                command.run().conditionally(inverted, condition.clone()),
             );
         }
     } else {
@@ -85,28 +77,17 @@ fn compile_if(
         if contains_early_return {
             caller_ctx.add_command(
                 datapack,
-                Command::Execute(ExecuteSubcommand::If(
-                    inverted,
-                    condition.then(ExecuteSubcommand::If(
-                        true,
-                        ExecuteIfSubcommand::Function(
-                            body_function_resource_location,
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
-                                ReturnCommand::Fail,
-                            )))),
-                        ),
-                    )),
-                )),
+                Command::Return(ReturnCommand::Fail)
+                    .run()
+                    .unless_function(body_function_resource_location)
+                    .conditionally(inverted, condition),
             );
         } else {
             caller_ctx.add_command(
                 datapack,
-                Command::Execute(ExecuteSubcommand::If(inverted, condition).then(
-                    ExecuteSubcommand::Run(Box::new(Command::Function(
-                        body_function_resource_location,
-                        None,
-                    ))),
-                )),
+                Command::Function(body_function_resource_location, None)
+                    .run()
+                    .conditionally(inverted, condition),
             );
         }
 
@@ -154,13 +135,9 @@ fn compile_if_internal(
 
             ctx.add_command(
                 datapack,
-                Command::Execute(ExecuteSubcommand::Store(
-                    StoreType::Result,
-                    ExecuteStoreSubcommand::Score(
-                        unique_score.score.clone(),
-                        Box::new(ExecuteSubcommand::If(invert, condition)),
-                    ),
-                )),
+                condition
+                    .into_subcommand(invert)
+                    .store_result_score(unique_score.score.clone()),
             );
 
             (
@@ -200,13 +177,9 @@ fn compile_if_internal(
 
             ctx.add_command(
                 datapack,
-                Command::Execute(ExecuteSubcommand::Store(
-                    StoreType::Result,
-                    ExecuteStoreSubcommand::Score(
-                        unique_score.score.clone(),
-                        Box::new(ExecuteSubcommand::If(invert, condition)),
-                    ),
-                )),
+                condition
+                    .into_subcommand(invert)
+                    .store_success_score(unique_score.score.clone()),
             );
 
             (
@@ -254,16 +227,14 @@ fn iterate_string(
         ResolvedExpression::Data(unique_data_2.clone()),
     );
 
-    unique_data_2.modify(
+    for_body_ctx.add_command(
         datapack,
-        &mut for_body_ctx,
-        DataCommandModificationMode::Set,
-        DataCommandModification::String(
+        unique_data_2.set(DataCommandModification::String(
             unique_data.target.target.clone(),
             Some(unique_data.path.clone()),
             Some(if is_reversed { -1 } else { 0 }),
             if is_reversed { None } else { Some(1) },
-        ),
+        )),
     );
 
     body.kind.compile_as_statement(datapack, &mut for_body_ctx);
@@ -274,16 +245,14 @@ fn iterate_string(
 
     let mut condition_ctx = CompileContext::default();
 
-    unique_data.clone().modify(
+    for_body_ctx.add_command(
         datapack,
-        &mut for_body_ctx,
-        DataCommandModificationMode::Set,
-        DataCommandModification::String(
+        unique_data.clone().set(DataCommandModification::String(
             unique_data.target.target.clone(),
             Some(unique_data.path.clone()),
             Some(i32::from(!is_reversed)),
             if is_reversed { Some(-1) } else { None },
-        ),
+        )),
     );
 
     let mut map = SNBTCompound::new();
@@ -292,22 +261,23 @@ fn iterate_string(
 
     condition_ctx.add_command(
         datapack,
-        Command::Execute(ExecuteSubcommand::If(
+        ExecuteSubcommand::If(
             true,
             ExecuteIfSubcommand::Data(
                 unique_data.target.target,
                 unique_path,
-                Some(Box::new(ExecuteSubcommand::Run(Box::new(
+                Some(Box::new(
                     Command::Function(
                         ResourceLocation::new_namespace_paths(
                             &current_namespace_name,
                             for_function_paths.clone(),
                         ),
                         None,
-                    ),
-                )))),
+                    )
+                    .run(),
+                )),
             ),
-        )),
+        ),
     );
 
     for_body_ctx.extend_context(condition_ctx.clone());
@@ -353,26 +323,27 @@ fn iterate_data(
 
     let mut condition_ctx = CompileContext::default();
 
-    unique_data.clone().remove(datapack, &mut for_body_ctx);
+    for_body_ctx.add_command(datapack, unique_data.clone().remove());
 
     condition_ctx.add_command(
         datapack,
-        Command::Execute(ExecuteSubcommand::If(
+        ExecuteSubcommand::If(
             false,
             ExecuteIfSubcommand::Data(
                 unique_data.target.target,
                 unique_data.path,
-                Some(Box::new(ExecuteSubcommand::Run(Box::new(
+                Some(Box::new(
                     Command::Function(
                         ResourceLocation::new_namespace_paths(
                             &current_namespace_name,
                             for_function_paths.clone(),
                         ),
                         None,
-                    ),
-                )))),
+                    )
+                    .run(),
+                )),
             ),
-        )),
+        ),
     );
 
     for_body_ctx.extend_context(condition_ctx.clone());
@@ -703,13 +674,9 @@ impl UnresolvedExpressionKind {
 
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Success,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::If(inverted, condition)),
-                        ),
-                    )),
+                    condition
+                        .into_subcommand(inverted)
+                        .store_success_score(unique_score.score.clone()),
                 );
 
                 ResolvedExpression::Score(unique_score)
@@ -721,13 +688,7 @@ impl UnresolvedExpressionKind {
 
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(command))),
-                        ),
-                    )),
+                    command.run().store_result_score(unique_score.score.clone()),
                 );
 
                 ResolvedExpression::Score(unique_score)
@@ -929,28 +890,18 @@ impl UnresolvedExpressionKind {
                     .unwrap();
 
                 let subcommand = if body.kind.returns_early() {
-                    ExecuteSubcommand::If(
-                        true,
-                        ExecuteIfSubcommand::Function(
-                            while_function_resource_location.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Return(
-                                ReturnCommand::Fail,
-                            )))),
-                        ),
-                    )
+                    ExecuteSubcommand::run_return_fail()
+                        .unless_function(while_function_resource_location.clone())
                 } else {
-                    ExecuteSubcommand::Run(Box::new(Command::Function(
-                        while_function_resource_location.clone(),
-                        None,
-                    )))
+                    Command::Function(while_function_resource_location.clone(), None).run()
                 };
 
                 condition_ctx.add_command(
                     datapack,
-                    Command::Execute(
-                        ExecuteSubcommand::If(should_be_inverted, condition.clone())
-                            .then(subcommand),
-                    ),
+                    condition
+                        .clone()
+                        .into_subcommand(should_be_inverted)
+                        .then(subcommand),
                 );
 
                 let mut while_body_ctx = ctx.create_child_ctx();
@@ -977,18 +928,20 @@ impl UnresolvedExpressionKind {
                 );
 
                 let iteration_command = if body.kind.returns_early() {
-                    Command::Execute(ExecuteSubcommand::If(
+                    ExecuteSubcommand::If(
                         true,
                         ExecuteIfSubcommand::Function(
                             loop_function_resource_location.clone(),
                             Box::new(ExecuteSubcommand::run_return_fail()),
                         ),
-                    ))
+                    )
+                    .into()
                 } else {
                     Command::Function(loop_function_resource_location.clone(), None)
                 };
 
                 let mut loop_body_ctx = ctx.create_child_ctx();
+
                 loop_body_ctx.loop_info = Some(LoopInfo {
                     resource_location: loop_function_resource_location,
                     type_: LoopType::Loop,
@@ -1104,10 +1057,7 @@ impl UnresolvedExpressionKind {
             Self::Condition(_, condition) => {
                 let condition = condition.compile(datapack, ctx);
 
-                ctx.add_command(
-                    datapack,
-                    Command::Execute(ExecuteSubcommand::If(false, condition)),
-                );
+                ctx.add_command(datapack, condition.into_subcommand(false));
             }
             Self::Command(command) => {
                 let command = command.compile(datapack, ctx);
@@ -1169,26 +1119,18 @@ impl UnresolvedExpressionKind {
                     .unwrap();
 
                 let subcommand = if body.kind.returns_early() {
-                    ExecuteSubcommand::If(
-                        true,
-                        ExecuteIfSubcommand::Function(
-                            while_function_resource_location.clone(),
-                            Box::new(ExecuteSubcommand::run_return_fail()),
-                        ),
-                    )
+                    ExecuteSubcommand::run_return_fail()
+                        .unless_function(while_function_resource_location.clone())
                 } else {
-                    ExecuteSubcommand::Run(Box::new(Command::Function(
-                        while_function_resource_location.clone(),
-                        None,
-                    )))
+                    Command::Function(while_function_resource_location.clone(), None).run()
                 };
 
                 condition_ctx.add_command(
                     datapack,
-                    Command::Execute(
-                        ExecuteSubcommand::If(should_be_inverted, condition.clone())
-                            .then(subcommand),
-                    ),
+                    condition
+                        .clone()
+                        .into_subcommand(should_be_inverted)
+                        .then(subcommand),
                 );
 
                 let mut while_body_ctx = ctx.create_child_ctx();
@@ -1213,13 +1155,13 @@ impl UnresolvedExpressionKind {
                 );
 
                 let iteration_command = if body.kind.returns_early() {
-                    Command::Execute(ExecuteSubcommand::If(
-                        true,
+                    Command::Execute(
                         ExecuteIfSubcommand::Function(
                             loop_function_resource_location.clone(),
                             Box::new(ExecuteSubcommand::run_return_fail()),
-                        ),
-                    ))
+                        )
+                        .unless(),
+                    )
                 } else {
                     Command::Function(loop_function_resource_location.clone(), None)
                 };

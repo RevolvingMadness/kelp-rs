@@ -1,4 +1,5 @@
 use minecraft_command_types::command::{
+    ScoreValue,
     enums::score_operation_operator::ScoreOperationOperator,
     scoreboard::{
         PlayersDisplayScoreboardCommand as LowPlayersDisplayScoreboardCommand,
@@ -31,10 +32,10 @@ impl ScoreboardNumberFormat {
         match self {
             Self::Blank => LowScoreboardNumberFormat::Blank,
             Self::Fixed(expression) => LowScoreboardNumberFormat::Fixed(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros( ctx),
+                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
             Self::Styled(expression) => LowScoreboardNumberFormat::Styled(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros( ctx),
+                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
             ),
         }
     }
@@ -57,7 +58,7 @@ impl PlayersDisplayScoreboardCommand {
             Self::Name(score, expression) => {
                 let score = score.compile(datapack, ctx).score;
                 let snbt = expression
-                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros( ctx));
+                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx));
 
                 LowPlayersDisplayScoreboardCommand::Name(score, snbt)
             }
@@ -76,9 +77,9 @@ impl PlayersDisplayScoreboardCommand {
 pub enum PlayersScoreboardCommand {
     List(Option<EntitySelector>),
     Get(PlayerScore),
-    Set(PlayerScore, i32),
-    Add(PlayerScore, i32),
-    Remove(PlayerScore, i32),
+    Set(PlayerScore, ScoreValue),
+    Add(PlayerScore, ScoreValue),
+    Remove(PlayerScore, ScoreValue),
     Reset(EntitySelector, Option<String>),
     Enable(PlayerScore),
     Operation(PlayerScore, ScoreOperationOperator, PlayerScore),

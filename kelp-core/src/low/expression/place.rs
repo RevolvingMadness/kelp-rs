@@ -1,9 +1,4 @@
-use minecraft_command_types::command::{
-    Command,
-    data::DataCommand,
-    enums::store_type::StoreType,
-    execute::{ExecuteStoreSubcommand, ExecuteSubcommand},
-};
+use minecraft_command_types::command::{Command, data::DataCommand};
 
 use crate::{
     compile_context::CompileContext,
@@ -101,19 +96,13 @@ impl ResolvedPlaceExpression {
 
                 ctx.add_command(
                     datapack,
-                    Command::Execute(ExecuteSubcommand::Store(
-                        StoreType::Result,
-                        ExecuteStoreSubcommand::Score(
-                            unique_score.score.clone(),
-                            Box::new(ExecuteSubcommand::Run(Box::new(Command::Data(
-                                DataCommand::Get(
-                                    data.target.target.clone(),
-                                    Some(data.path.clone()),
-                                    None,
-                                ),
-                            )))),
-                        ),
-                    )),
+                    Command::Data(DataCommand::Get(
+                        data.target.target.clone(),
+                        Some(data.path.clone()),
+                        None,
+                    ))
+                    .run()
+                    .store_result_score(unique_score.score.clone()),
                 );
 
                 value.operate_on_score(datapack, ctx, unique_score.clone(), operator);

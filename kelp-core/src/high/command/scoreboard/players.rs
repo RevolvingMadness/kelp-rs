@@ -1,4 +1,6 @@
-use minecraft_command_types::command::enums::score_operation_operator::ScoreOperationOperator;
+use minecraft_command_types::command::{
+    ScoreValue, enums::score_operation_operator::ScoreOperationOperator,
+};
 
 use crate::{
     high::{
@@ -88,9 +90,9 @@ impl PlayersDisplayScoreboardCommand {
 pub enum PlayersScoreboardCommand {
     List(Option<EntitySelector>),
     Get(PlayerScore),
-    Set(PlayerScore, i32),
-    Add(PlayerScore, i32),
-    Remove(PlayerScore, i32),
+    Set(PlayerScore, ScoreValue),
+    Add(PlayerScore, ScoreValue),
+    Remove(PlayerScore, ScoreValue),
     Reset(EntitySelector, Option<String>),
     Enable(PlayerScore),
     Operation(PlayerScore, ScoreOperationOperator, PlayerScore),

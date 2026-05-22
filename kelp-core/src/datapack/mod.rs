@@ -27,11 +27,11 @@ use crate::runtime_storage::RuntimeStorageTarget;
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
-use minecraft_command_types::command::execute::{ExecuteIfSubcommand, ExecuteSubcommand};
+use minecraft_command_types::command::execute::ExecuteIfSubcommand;
 use minecraft_command_types::command::scoreboard::{
-    ObjectivesScoreboardCommand, PlayersScoreboardCommand, ScoreboardCommand,
+    ObjectivesScoreboardCommand, ScoreboardCommand,
 };
-use minecraft_command_types::command::{Command, PlayerScore};
+use minecraft_command_types::command::{Command, PlayerScore, ScoreValue};
 use minecraft_command_types::datapack::pack::Pack;
 use minecraft_command_types::datapack::pack::format::Format;
 use minecraft_command_types::datapack::tag::{Tag, TagType, TagValue};
@@ -154,7 +154,7 @@ pub struct Datapack {
     namespaces: HashMap<String, DatapackNamespace>,
     namespace_stack: Vec<String>,
     counter: usize,
-    used_constants: HashSet<i32>,
+    used_scoreboard_constants: HashSet<ScoreValue>,
     used_data: Vec<(GeneratedDataTarget, String)>,
 
     monomorphized_structs: HashbrownMap<MonomorphizedStructKey, StructId>,
@@ -186,7 +186,7 @@ impl Datapack {
             namespaces: HashMap::new(),
             namespace_stack: Vec::new(),
             counter: 0,
-            used_constants: HashSet::new(),
+            used_scoreboard_constants: HashSet::new(),
             used_data: Vec::new(),
 
             monomorphized_structs: HashbrownMap::new(),
@@ -423,8 +423,8 @@ impl Datapack {
         )
     }
 
-    pub fn get_constant_score(&mut self, constant: i32) -> GeneratedPlayerScore {
-        self.used_constants.insert(constant);
+    pub fn get_constant_score(&mut self, constant: ScoreValue) -> GeneratedPlayerScore {
+        self.used_scoreboard_constants.insert(constant);
 
         GeneratedPlayerScore {
             is_generated: true,
@@ -443,7 +443,7 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_constant_selector(constant: i32) -> EntitySelector {
+    pub fn get_constant_selector(constant: ScoreValue) -> EntitySelector {
         EntitySelector::Name(format!("__kelp_constant_{}__", constant))
     }
 
@@ -501,14 +501,9 @@ impl Datapack {
 
         ctx.add_command(
             self,
-            Command::Execute(
-                ExecuteSubcommand::If(should_be_inverted, execute_condition.clone()).then(
-                    ExecuteSubcommand::Run(Box::new(Command::Function(
-                        loop_function_location.clone(),
-                        None,
-                    ))),
-                ),
-            ),
+            Command::Function(loop_function_location.clone(), None)
+                .run()
+                .conditionally(should_be_inverted, execute_condition.clone()),
         );
 
         let mut loop_ctx = CompileContext::default();
@@ -516,14 +511,9 @@ impl Datapack {
 
         loop_ctx.add_command(
             self,
-            Command::Execute(
-                ExecuteSubcommand::If(should_be_inverted, execute_condition).then(
-                    ExecuteSubcommand::Run(Box::new(Command::Function(
-                        loop_function_location,
-                        None,
-                    ))),
-                ),
-            ),
+            Command::Function(loop_function_location, None)
+                .run()
+                .conditionally(should_be_inverted, execute_condition),
         );
 
         self.compile_and_add_to_function(&loop_function_paths, &mut loop_ctx);
@@ -593,32 +583,28 @@ impl Datapack {
 
         let mut load_function_ctx = CompileContext::default();
 
-        let has_constants = !self.used_constants.is_empty();
+        let has_constants = !self.used_scoreboard_constants.is_empty();
 
         if has_constants {
             let constants_objective = self.get_constants_objective();
 
             load_function_ctx.add_command(
                 &mut self,
-                Command::Scoreboard(ScoreboardCommand::Objectives(
-                    ObjectivesScoreboardCommand::Add(
-                        constants_objective.clone(),
-                        "dummy".to_string(),
-                        None,
-                    ),
+                ScoreboardCommand::Objectives(ObjectivesScoreboardCommand::Add(
+                    constants_objective.clone(),
+                    "dummy".to_string(),
+                    None,
                 )),
             );
 
-            for constant in take(&mut self.used_constants) {
+            for constant in take(&mut self.used_scoreboard_constants) {
                 load_function_ctx.add_command(
                     &mut self,
-                    Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-                        PlayerScore::new(
-                            EntitySelector::Name(format!("__kelp_constant_{}__", constant)),
-                            constants_objective.clone(),
-                        ),
-                        constant,
-                    ))),
+                    PlayerScore::new(
+                        EntitySelector::Name(format!("__kelp_constant_{}__", constant)),
+                        constants_objective.clone(),
+                    )
+                    .set_value(constant),
                 );
             }
         }
@@ -629,10 +615,10 @@ impl Datapack {
             for (target, name) in take(&mut self.used_data) {
                 load_function_ctx.add_command(
                     &mut self,
-                    Command::Data(DataCommand::Remove(
+                    DataCommand::Remove(
                         target.target,
                         LowNbtPath(vec![LowNbtPathNode::named_string(name)]),
-                    )),
+                    ),
                 );
             }
         }

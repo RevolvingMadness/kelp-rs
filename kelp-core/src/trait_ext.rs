@@ -1,11 +1,10 @@
 use minecraft_command_types::{
     command::{
-        Command,
+        Command, ScoreValue,
         enums::score_operation_operator::ScoreOperationOperator,
         execute::{
             ExecuteIfSubcommand, ExecuteSubcommand, ScoreComparison, ScoreComparisonOperator,
         },
-        scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     range::IntegerRange,
     resource_location::ResourceLocation,
@@ -148,66 +147,36 @@ pub fn compile_bitwise_and_score(
     temp_source.clone().set_from(datapack, ctx, source);
 
     let result = datapack.get_unique_score();
-    ctx.add_command(
-        datapack,
-        Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            result.score.clone(),
-            0,
-        ))),
-    );
+    ctx.add_command(datapack, result.score.clone().set_value(0));
 
     let sign_bit_val = -2_147_483_648;
     let sign_bit_const = datapack.get_constant_score(sign_bit_val);
 
     ctx.add_command(
         datapack,
-        Command::Execute(ExecuteSubcommand::If(
-            false,
-            ExecuteIfSubcommand::Score(
-                temp_target.score.clone(),
-                ScoreComparison::Range(IntegerRange::new(None, Some(-1))),
-                Some(Box::new(ExecuteSubcommand::If(
-                    false,
-                    ExecuteIfSubcommand::Score(
-                        temp_source.score.clone(),
-                        ScoreComparison::Range(IntegerRange::new(None, Some(-1))),
-                        Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                            result
-                                .clone()
-                                .operation(ScoreOperationOperator::Add, sign_bit_const.clone()),
-                        )))),
-                    ),
-                ))),
-            ),
-        )),
+        result
+            .clone()
+            .score
+            .add(sign_bit_const.score.clone())
+            .run()
+            .if_score_range(temp_source.score.clone(), None, Some(-1))
+            .if_score_range(temp_target.score.clone(), None, Some(-1)),
     );
 
     for score in [&temp_target, &temp_source] {
         ctx.add_command(
             datapack,
-            Command::Execute(ExecuteSubcommand::If(
-                false,
-                ExecuteIfSubcommand::Score(
-                    score.score.clone(),
-                    ScoreComparison::Range(IntegerRange::new(None, Some(-1))),
-                    Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                        score
-                            .clone()
-                            .operation(ScoreOperationOperator::Subtract, sign_bit_const.clone()),
-                    )))),
-                ),
-            )),
+            score
+                .score
+                .clone()
+                .subtract(sign_bit_const.score.clone())
+                .run()
+                .if_score_range(score.score.clone(), None, Some(-1)),
         );
     }
 
     let power_of_2 = datapack.get_unique_score();
-    ctx.add_command(
-        datapack,
-        Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            power_of_2.score.clone(),
-            1_073_741_824,
-        ))),
-    );
+    ctx.add_command(datapack, power_of_2.score.clone().set_value(1_073_741_824));
 
     datapack.while_loop(
         ctx,
@@ -240,11 +209,9 @@ pub fn compile_bitwise_and_score(
                                     ScoreComparisonOperator::GreaterThanOrEqualTo,
                                     power_of_2.score.clone(),
                                 ),
-                                Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                                    result
-                                        .clone()
-                                        .operation(ScoreOperationOperator::Add, power_of_2.clone()),
-                                )))),
+                                Some(Box::new(
+                                    result.score.clone().add(power_of_2.score.clone()).run(),
+                                )),
                             ),
                         ))),
                     ),
@@ -262,23 +229,19 @@ pub fn compile_bitwise_and_score(
                                 ScoreComparisonOperator::GreaterThanOrEqualTo,
                                 power_of_2.score.clone(),
                             ),
-                            Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                                score.clone().operation(
-                                    ScoreOperationOperator::Subtract,
-                                    power_of_2.clone(),
-                                ),
-                            )))),
+                            Some(Box::new(
+                                score.score.clone().subtract(power_of_2.score.clone()).run(),
+                            )),
                         ),
                     )),
                 );
             }
 
             let constant_two = datapack.get_constant_score(2);
+
             loop_ctx.add_command(
                 datapack,
-                power_of_2
-                    .clone()
-                    .operation(ScoreOperationOperator::Divide, constant_two),
+                power_of_2.score.clone().divide(constant_two.score),
             );
         },
     );
@@ -299,32 +262,21 @@ pub fn compile_bitwise_or_score(
     temp_source.clone().set_from(datapack, ctx, source);
 
     let result = datapack.get_unique_score();
-    ctx.add_command(
-        datapack,
-        Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            result.score.clone(),
-            0,
-        ))),
-    );
 
-    let sign_bit_val = -2_147_483_648;
-    let sign_bit_const = datapack.get_constant_score(sign_bit_val);
+    ctx.add_command(datapack, result.score.clone().set_value(0));
+
+    let sign_bit_const = datapack.get_constant_score(ScoreValue::MIN);
 
     ctx.add_command(
         datapack,
-        Command::Execute(ExecuteSubcommand::If(
-            false,
-            ExecuteIfSubcommand::Score(
-                temp_target.score.clone(),
-                ScoreComparison::Range(IntegerRange::new(None, Some(-1))),
-                Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                    result
-                        .clone()
-                        .operation(ScoreOperationOperator::Add, sign_bit_const.clone()),
-                )))),
-            ),
-        )),
+        result
+            .score
+            .clone()
+            .add(sign_bit_const.score.clone())
+            .run()
+            .if_score_range(temp_target.score.clone(), None, Some(-1)),
     );
+
     ctx.add_command(
         datapack,
         Command::Execute(ExecuteSubcommand::If(
@@ -337,11 +289,9 @@ pub fn compile_bitwise_or_score(
                     ExecuteIfSubcommand::Score(
                         temp_source.score.clone(),
                         ScoreComparison::Range(IntegerRange::new(None, Some(-1))),
-                        Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                            result
-                                .clone()
-                                .operation(ScoreOperationOperator::Add, sign_bit_const.clone()),
-                        )))),
+                        Some(Box::new(
+                            result.score.clone().add(sign_bit_const.score.clone()).run(),
+                        )),
                     ),
                 ))),
             ),
@@ -356,21 +306,20 @@ pub fn compile_bitwise_or_score(
                 ExecuteIfSubcommand::Score(
                     score.score.clone(),
                     ScoreComparison::Range(IntegerRange::new(None, Some(-1))),
-                    Some(Box::new(ExecuteSubcommand::Run(Box::new(
+                    Some(Box::new(
                         score
+                            .score
                             .clone()
-                            .operation(ScoreOperationOperator::Subtract, sign_bit_const.clone()),
-                    )))),
+                            .subtract(sign_bit_const.score.clone())
+                            .run(),
+                    )),
                 ),
             )),
         );
     }
 
     let power_of_2 = datapack.get_unique_score();
-    ctx.add_command(
-        datapack,
-        power_of_2.clone().create_set_command(1_073_741_824),
-    );
+    ctx.add_command(datapack, power_of_2.score.clone().set_value(1_073_741_824));
 
     datapack.while_loop(
         ctx,
@@ -395,11 +344,9 @@ pub fn compile_bitwise_or_score(
                             ScoreComparisonOperator::GreaterThanOrEqualTo,
                             power_of_2.score.clone(),
                         ),
-                        Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                            result
-                                .clone()
-                                .operation(ScoreOperationOperator::Add, power_of_2.clone()),
-                        )))),
+                        Some(Box::new(
+                            result.score.clone().add(power_of_2.score.clone()).run(),
+                        )),
                     ),
                 )),
             );
@@ -422,11 +369,9 @@ pub fn compile_bitwise_or_score(
                                     ScoreComparisonOperator::GreaterThanOrEqualTo,
                                     power_of_2.score.clone(),
                                 ),
-                                Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                                    result
-                                        .clone()
-                                        .operation(ScoreOperationOperator::Add, power_of_2.clone()),
-                                )))),
+                                Some(Box::new(
+                                    result.score.clone().add(power_of_2.score.clone()).run(),
+                                )),
                             ),
                         ))),
                     ),
@@ -444,23 +389,19 @@ pub fn compile_bitwise_or_score(
                                 ScoreComparisonOperator::GreaterThanOrEqualTo,
                                 power_of_2.score.clone(),
                             ),
-                            Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                                score.clone().operation(
-                                    ScoreOperationOperator::Subtract,
-                                    power_of_2.clone(),
-                                ),
-                            )))),
+                            Some(Box::new(
+                                score.score.clone().subtract(power_of_2.score.clone()).run(),
+                            )),
                         ),
                     )),
                 );
             }
 
             let constant_two = datapack.get_constant_score(2);
+
             loop_ctx.add_command(
                 datapack,
-                power_of_2
-                    .clone()
-                    .operation(ScoreOperationOperator::Divide, constant_two),
+                power_of_2.score.clone().divide(constant_two.score),
             );
         },
     );
@@ -482,36 +423,25 @@ pub fn compile_shift_operation_score(
 
     ctx.add_command(
         datapack,
-        Command::Execute(ExecuteSubcommand::If(
-            false,
-            ExecuteIfSubcommand::Score(
-                amount.score.clone(),
-                ScoreComparison::Range(IntegerRange::new(Some(1), None)),
-                Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                    Command::Function(loop_function_location.clone(), None),
-                )))),
-            ),
-        )),
+        Command::Function(loop_function_location.clone(), None)
+            .run()
+            .if_score_range(amount.score.clone(), Some(1), None),
     );
 
     let mut loop_ctx = CompileContext::default();
     let constant_two = datapack.get_constant_score(2);
 
-    loop_ctx.add_command(datapack, target.operation(operator, constant_two));
-    loop_ctx.add_command(datapack, amount.clone().create_remove_command(1));
+    loop_ctx.add_command(
+        datapack,
+        target.score.operation(operator, constant_two.score),
+    );
+    loop_ctx.add_command(datapack, amount.score.clone().remove(1));
 
     loop_ctx.add_command(
         datapack,
-        Command::Execute(ExecuteSubcommand::If(
-            false,
-            ExecuteIfSubcommand::Score(
-                amount.score,
-                ScoreComparison::Range(IntegerRange::new(Some(1), None)),
-                Some(Box::new(ExecuteSubcommand::Run(Box::new(
-                    Command::Function(loop_function_location, None),
-                )))),
-            ),
-        )),
+        Command::Function(loop_function_location, None)
+            .run()
+            .if_score_range(amount.score, Some(1), None),
     );
 
     datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_ctx);

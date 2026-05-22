@@ -1,8 +1,6 @@
-use crate::{compile_context::CompileContext, datapack::Datapack};
 use minecraft_command_types::{
-    command::{
-        Command,
-        data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
+    command::data::{
+        DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget,
     },
     macroable::Macroable,
     nbt_path::{NbtPath, NbtPathNode},
@@ -31,98 +29,61 @@ impl GeneratedData {
     }
 
     #[inline]
+    #[must_use]
     pub fn modify(
         self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
         mode: DataCommandModificationMode,
         modification: DataCommandModification,
-    ) {
-        ctx.add_command(
-            datapack,
-            Command::Data(DataCommand::Modify(
-                self.target.target,
-                self.path,
-                mode,
-                modification,
-            )),
-        );
+    ) -> DataCommand {
+        DataCommand::Modify(self.target.target, self.path, mode, modification)
     }
 
     #[inline]
-    pub fn append(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        modification: DataCommandModification,
-    ) {
-        self.modify(
-            datapack,
-            ctx,
-            DataCommandModificationMode::Append,
-            modification,
-        );
+    #[must_use]
+    pub fn append(self, modification: DataCommandModification) -> DataCommand {
+        self.modify(DataCommandModificationMode::Append, modification)
     }
 
     #[inline]
-    pub fn append_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: Self) {
-        self.append(
-            datapack,
-            ctx,
-            DataCommandModification::From(data.target.target, Some(data.path)),
-        );
+    #[must_use]
+    pub fn append_from(self, data: Self) -> DataCommand {
+        self.append(DataCommandModification::From(
+            data.target.target,
+            Some(data.path),
+        ))
     }
 
     #[inline]
-    pub fn append_value(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        value: Macroable<SNBT>,
-    ) {
-        self.append(datapack, ctx, DataCommandModification::Value(value));
+    #[must_use]
+    pub fn append_value<V: Into<Macroable<SNBT>>>(self, value: V) -> DataCommand {
+        self.append(DataCommandModification::Value(value.into()))
     }
 
     #[inline]
-    pub fn set(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        modification: DataCommandModification,
-    ) {
-        self.modify(
-            datapack,
-            ctx,
-            DataCommandModificationMode::Set,
-            modification,
-        );
+    #[must_use]
+    pub fn set(self, modification: DataCommandModification) -> DataCommand {
+        self.modify(DataCommandModificationMode::Set, modification)
     }
 
     #[inline]
-    pub fn set_value<V: Into<Macroable<SNBT>>>(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        value: V,
-    ) {
-        self.set(datapack, ctx, DataCommandModification::Value(value.into()));
+    #[must_use]
+    pub fn set_value<V: Into<Macroable<SNBT>>>(self, value: V) -> DataCommand {
+        self.set(DataCommandModification::Value(value.into()))
     }
 
     #[inline]
-    pub fn set_from(self, datapack: &mut Datapack, ctx: &mut CompileContext, data: Self) {
-        self.set(
-            datapack,
-            ctx,
-            DataCommandModification::From(data.target.target, Some(data.path)),
-        );
+    #[must_use]
+    pub fn set_from(self, data: Self) -> DataCommand {
+        self.set(DataCommandModification::From(
+            data.target.target,
+            Some(data.path),
+        ))
     }
 
     #[inline]
-    pub fn remove(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
-        ctx.add_command(
-            datapack,
-            Command::Data(DataCommand::Remove(self.target.target, self.path)),
-        );
+    #[must_use]
+    pub fn remove(self) -> DataCommand {
+        DataCommand::Remove(self.target.target, self.path)
     }
 }
 

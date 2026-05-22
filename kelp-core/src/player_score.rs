@@ -1,13 +1,10 @@
 use minecraft_command_types::{
     command::{
-        Command, PlayerScore,
+        Command, PlayerScore, ScoreValue,
         enums::{
             numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
-            store_type::StoreType,
         },
-        execute::{
-            ExecuteIfSubcommand, ExecuteStoreSubcommand, ExecuteSubcommand, ScoreComparison,
-        },
+        execute::{ExecuteIfSubcommand, ScoreComparison},
         scoreboard::{PlayersScoreboardCommand, ScoreboardCommand},
     },
     nbt_path::SNBTCompound,
@@ -55,30 +52,6 @@ impl GeneratedPlayerScore {
         )
     }
 
-    #[inline]
-    #[must_use]
-    pub fn operation(self, operator: ScoreOperationOperator, other: Self) -> Command {
-        Command::Scoreboard(ScoreboardCommand::Players(
-            PlayersScoreboardCommand::Operation(self.score, operator, other.score),
-        ))
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn create_remove_command(self, value: i32) -> Command {
-        Command::Scoreboard(ScoreboardCommand::Players(
-            PlayersScoreboardCommand::Remove(self.score, value),
-        ))
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn create_set_command(self, value: i32) -> Command {
-        Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Set(
-            self.score, value,
-        )))
-    }
-
     #[must_use]
     pub fn to_text_component(self) -> SNBT {
         let mut text_component = SNBTCompound::new();
@@ -123,7 +96,7 @@ impl GeneratedPlayerScore {
 
         unique_score.clone().set_from(datapack, ctx, self);
 
-        let scale_score = datapack.get_constant_score(scale.into_inner() as i32);
+        let scale_score = datapack.get_constant_score(scale.into_inner() as ScoreValue);
 
         ctx.add_command(
             datapack,
@@ -195,18 +168,16 @@ impl GeneratedPlayerScore {
     ) {
         ctx.add_command(
             datapack,
-            Command::Execute(ExecuteSubcommand::Store(
-                StoreType::Result,
-                ExecuteStoreSubcommand::Data(
-                    data.target.target,
-                    data.path,
-                    NumericSNBTType::Integer,
-                    NotNan::new(1.0).unwrap(),
-                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(
-                        ScoreboardCommand::Players(PlayersScoreboardCommand::Get(self.score)),
-                    )))),
-                ),
-            )),
+            Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Get(
+                self.score,
+            )))
+            .run()
+            .store_result_data(
+                data.target.target,
+                data.path,
+                NumericSNBTType::Integer,
+                NotNan::new(1.0).unwrap(),
+            ),
         );
     }
 
@@ -220,18 +191,16 @@ impl GeneratedPlayerScore {
     ) {
         ctx.add_command(
             datapack,
-            Command::Execute(ExecuteSubcommand::Store(
-                StoreType::Result,
-                ExecuteStoreSubcommand::Data(
-                    data.target.target,
-                    data.path,
-                    NumericSNBTType::Float,
-                    scale,
-                    Box::new(ExecuteSubcommand::Run(Box::new(Command::Scoreboard(
-                        ScoreboardCommand::Players(PlayersScoreboardCommand::Get(self.score)),
-                    )))),
-                ),
-            )),
+            Command::Scoreboard(ScoreboardCommand::Players(PlayersScoreboardCommand::Get(
+                self.score,
+            )))
+            .run()
+            .store_result_data(
+                data.target.target,
+                data.path,
+                NumericSNBTType::Float,
+                scale,
+            ),
         );
     }
 
@@ -245,91 +214,36 @@ impl GeneratedPlayerScore {
         match operator {
             ArithmeticOperator::Add => {
                 if let Some(constant) = value.try_as_i32(true) {
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Add(self.score, constant),
-                        )),
-                    );
+                    ctx.add_command(datapack, self.score.add_value(constant));
                 } else {
                     let right_score = value.as_score(datapack, ctx, false);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Operation(
-                                self.score,
-                                ScoreOperationOperator::Add,
-                                right_score.score,
-                            ),
-                        )),
-                    );
+                    ctx.add_command(datapack, self.score.add(right_score.score));
                 }
             }
             ArithmeticOperator::Subtract => {
                 if let Some(constant) = value.try_as_i32(true) {
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Remove(self.score, constant),
-                        )),
-                    );
+                    ctx.add_command(datapack, self.score.remove(constant));
                 } else {
                     let right_score = value.as_score(datapack, ctx, false);
 
-                    ctx.add_command(
-                        datapack,
-                        Command::Scoreboard(ScoreboardCommand::Players(
-                            PlayersScoreboardCommand::Operation(
-                                self.score,
-                                ScoreOperationOperator::Subtract,
-                                right_score.score,
-                            ),
-                        )),
-                    );
+                    ctx.add_command(datapack, self.score.subtract(right_score.score));
                 }
             }
             ArithmeticOperator::Multiply => {
                 let right_score = value.as_score(datapack, ctx, false);
 
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self.score,
-                            ScoreOperationOperator::Multiply,
-                            right_score.score,
-                        ),
-                    )),
-                );
+                ctx.add_command(datapack, self.score.multiply(right_score.score));
             }
             ArithmeticOperator::FloorDivide => {
                 let right_score = value.as_score(datapack, ctx, false);
 
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self.score,
-                            ScoreOperationOperator::Divide,
-                            right_score.score,
-                        ),
-                    )),
-                );
+                ctx.add_command(datapack, self.score.divide(right_score.score));
             }
             ArithmeticOperator::Modulo => {
                 let right_score = value.as_score(datapack, ctx, false);
 
-                ctx.add_command(
-                    datapack,
-                    Command::Scoreboard(ScoreboardCommand::Players(
-                        PlayersScoreboardCommand::Operation(
-                            self.score,
-                            ScoreOperationOperator::Modulo,
-                            right_score.score,
-                        ),
-                    )),
-                );
+                ctx.add_command(datapack, self.score.modulo(right_score.score));
             }
             ArithmeticOperator::And => {
                 let right_score = value.as_score(datapack, ctx, false);

@@ -126,7 +126,7 @@ impl Equivalent<CompiletimeFunctionKey> for CompiletimeFunctionKeyRef<'_> {
 #[derive(Debug, Clone)]
 pub struct CompiletimeFunction {
     pub resource_location: ResourceLocation,
-    pub return_target: RuntimeStorageTarget,
+    pub return_value: ResolvedExpression,
 }
 
 #[derive(Default, Clone, Copy)]

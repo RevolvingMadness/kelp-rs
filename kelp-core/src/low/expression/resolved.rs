@@ -134,7 +134,6 @@ fn compile_compiletime_function(
     parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
     arguments: Vec<ResolvedExpression>,
     body: UnresolvedExpression,
-    return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
     if let Some(function) = datapack
         .cached_compiletime_functions
@@ -144,11 +143,11 @@ fn compile_compiletime_function(
         })
     {
         let resource_location = function.resource_location.clone();
-        let return_target = function.return_target.clone();
+        let return_value = function.return_value.clone();
 
         ctx.add_command(datapack, Command::Function(resource_location, None));
 
-        return return_target.to_expression();
+        return return_value;
     }
 
     let paths = datapack.get_unique_function_paths();
@@ -162,23 +161,21 @@ fn compile_compiletime_function(
         pattern.destructure(datapack, &mut function_body_ctx, data_type, argument);
     }
 
-    let return_target = return_runtime_storage_type.instantiate(datapack);
+    let return_value = body.kind.resolve(datapack, &mut function_body_ctx);
+
+    datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
+
+    ctx.add_command(datapack, Command::Function(resource_location.clone(), None));
 
     datapack.cached_compiletime_functions.insert(
         CompiletimeFunctionKey { id, arguments },
         CompiletimeFunction {
-            resource_location: resource_location.clone(),
-            return_target: return_target.clone(),
+            resource_location,
+            return_value: return_value.clone(),
         },
     );
 
-    let result = body.kind.resolve(datapack, &mut function_body_ctx);
-
-    datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
-
-    ctx.add_command(datapack, Command::Function(resource_location, None));
-
-    result
+    return_value
 }
 
 #[must_use]
@@ -431,15 +428,7 @@ fn compile_function(
     }
 
     let RegularFunctionModifiers::Runtime { recursive } = modifiers else {
-        return compile_compiletime_function(
-            datapack,
-            ctx,
-            id,
-            parameters,
-            arguments,
-            body,
-            return_runtime_storage_type,
-        );
+        return compile_compiletime_function(datapack, ctx, id, parameters, arguments, body);
     };
 
     if recursive {

@@ -167,42 +167,36 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
             lower_minecraft_function_declaration_item_kind(node, ctx)
         }
         CSTItemKind::RegularStructDeclarationItem(node) => {
-            let struct_name_token = node.name()?;
-            let struct_name_span = text_range_to_span(struct_name_token.text_range());
-            let struct_name = struct_name_token.text().to_owned();
+            let name_token = node.name()?;
+            let name_range = name_token.text_range();
+            let name = name_token.text();
 
-            let generics = node.generic_names().and_then(lower_generic_names);
+            let generic_names = node.generic_names().and_then(lower_generic_names);
 
-            let fields = node
-                .struct_fields()
-                .and_then(lower_struct_fields)
-                .unwrap_or_default();
+            let field_types = node.struct_fields().and_then(lower_struct_fields);
 
-            Some(ItemKind::RegularStructDeclaration(
-                struct_name_span,
-                struct_name,
-                generics.unwrap_or_default(),
-                fields,
-            ))
+            Some(ItemKind::RegularStructDeclaration {
+                name_span: text_range_to_span(name_range),
+                name: name.to_owned(),
+                generic_names: generic_names.unwrap_or_default(),
+                field_types: field_types.unwrap_or_default(),
+            })
         }
         CSTItemKind::TupleStructDeclarationItem(node) => {
-            let struct_name_token = node.name()?;
-            let struct_name_span = text_range_to_span(struct_name_token.text_range());
-            let struct_name = struct_name_token.text().to_owned();
+            let name_token = node.name()?;
+            let name_range = name_token.text_range();
+            let name = name_token.text();
 
-            let generics = node.generic_names().and_then(lower_generic_names);
+            let generic_names = node.generic_names().and_then(lower_generic_names);
 
-            let fields = node
-                .tuple_fields()
-                .and_then(lower_tuple_fields)
-                .unwrap_or_default();
+            let field_types = node.tuple_fields().and_then(lower_tuple_fields);
 
-            Some(ItemKind::TupleStructDeclaration(
-                struct_name_span,
-                struct_name,
-                generics.unwrap_or_default(),
-                fields,
-            ))
+            Some(ItemKind::TupleStructDeclaration {
+                name_span: text_range_to_span(name_range),
+                name: name.to_owned(),
+                generic_names: generic_names.unwrap_or_default(),
+                field_types: field_types.unwrap_or_default(),
+            })
         }
         CSTItemKind::TypeAliasDeclarationItem(node) => Some(ItemKind::TypeAliasDeclaration(
             lower_type_alias_declaration_item(node)?,

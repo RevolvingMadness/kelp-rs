@@ -402,11 +402,12 @@ pub enum UnresolvedExpressionKind {
         Vec<UnresolvedDataType>,
         Vec<UnresolvedExpression>,
     ),
-    If(
-        Box<UnresolvedExpression>,
-        Box<UnresolvedExpression>,
-        Option<Box<UnresolvedExpression>>,
-    ),
+    If {
+        condition: Box<UnresolvedExpression>,
+
+        body: Box<UnresolvedExpression>,
+        else_body: Option<Box<UnresolvedExpression>>,
+    },
     Block(Vec<UnresolvedStatement>, Option<Box<UnresolvedExpression>>),
     WhileLoop(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
     Loop(Box<UnresolvedExpression>),
@@ -451,8 +452,12 @@ impl UnresolvedExpressionKind {
                     .is_some_and(|expression| expression.kind.definitely_diverges())
             }
 
-            Self::If(expression, body, else_body) => {
-                if expression.kind.definitely_diverges() {
+            Self::If {
+                condition,
+                body,
+                else_body,
+            } => {
+                if condition.kind.definitely_diverges() {
                     return true;
                 }
 
@@ -509,7 +514,9 @@ impl UnresolvedExpressionKind {
     #[must_use]
     pub fn get_early_return_type(&self) -> Option<EarlyReturnType> {
         match self {
-            Self::If(_, body, else_body) => body.kind.get_early_return_type().or_else(|| {
+            Self::If {
+                body, else_body, ..
+            } => body.kind.get_early_return_type().or_else(|| {
                 else_body
                     .as_ref()
                     .and_then(|else_body| else_body.kind.get_early_return_type())
@@ -835,7 +842,11 @@ impl UnresolvedExpressionKind {
                     tail_expression.kind.resolve(datapack, ctx)
                 })
             }
-            Self::If(condition, body, else_body) => {
+            Self::If {
+                condition,
+                body,
+                else_body,
+            } => {
                 let output_data = datapack.get_unique_data();
 
                 compile_if_internal(
@@ -1073,7 +1084,11 @@ impl UnresolvedExpressionKind {
                     tail_expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
-            Self::If(condition, body, else_body) => {
+            Self::If {
+                condition,
+                body,
+                else_body,
+            } => {
                 compile_if_internal(datapack, ctx, *condition, *body, else_body, None);
             }
             Self::Call(callee, arguments) => {

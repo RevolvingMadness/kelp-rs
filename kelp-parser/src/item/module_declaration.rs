@@ -78,7 +78,7 @@ pub fn lower_module_declaration_item(
     ctx: &mut SemanticAnalysisContext,
 ) -> Option<ItemKind> {
     let name_token = node.module_name_token()?;
-    let name_span = text_range_to_span(name_token.text_range());
+    let name_range = name_token.text_range();
     let name = name_token.text();
 
     let items = node
@@ -86,9 +86,9 @@ pub fn lower_module_declaration_item(
         .filter_map(|item| lower_item(item, ctx))
         .collect();
 
-    Some(ItemKind::ModuleDeclaration(
-        name_span,
-        name.to_owned(),
+    Some(ItemKind::ModuleDeclaration {
+        name_span: text_range_to_span(name_range),
+        name: name.to_owned(),
         items,
-    ))
+    })
 }

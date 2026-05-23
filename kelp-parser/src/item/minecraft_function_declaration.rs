@@ -66,8 +66,8 @@ pub fn lower_minecraft_function_declaration_item_kind(
     let resource_location = assert_not_sigil(resource_location, resource_location_span, ctx)?;
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ItemKind::MinecraftFunctionDeclaration(
+    Some(ItemKind::MinecraftFunctionDeclaration {
         resource_location,
         body,
-    ))
+    })
 }

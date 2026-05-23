@@ -84,11 +84,11 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
     },
-    If(
-        Box<Expression>,
-        Box<BlockExpression>,
-        Option<Box<Expression>>,
-    ),
+    If {
+        condition: Box<Expression>,
+        body: Box<BlockExpression>,
+        else_body: Option<Box<Expression>>,
+    },
     Block(BlockExpression),
     WhileLoop(Box<Expression>, Box<BlockExpression>),
     Loop(Box<BlockExpression>),
@@ -864,7 +864,11 @@ impl Expression {
                 UnresolvedExpressionKind::Call(Box::new(callee), new_arguments)
                     .with(call_info.return_type)
             }
-            ExpressionKind::If(condition, body, else_body) => {
+            ExpressionKind::If {
+                condition,
+                body,
+                else_body,
+            } => {
                 let condition = condition.perform_semantic_analysis(ctx);
                 let body = body.perform_semantic_analysis(ctx);
                 let else_body = else_body.map(|else_body| else_body.perform_semantic_analysis(ctx));
@@ -902,11 +906,11 @@ impl Expression {
 
                 let data_type = body.data_type.clone().reduce(else_type).unwrap();
 
-                UnresolvedExpressionKind::If(
-                    Box::new(condition),
-                    Box::new(body),
-                    else_body.map(|(_, else_body)| Box::new(else_body)),
-                )
+                UnresolvedExpressionKind::If {
+                    condition: Box::new(condition),
+                    body: Box::new(body),
+                    else_body: else_body.map(|(_, else_body)| Box::new(else_body)),
+                }
                 .with(data_type)
             }
             ExpressionKind::Block(expression) => {

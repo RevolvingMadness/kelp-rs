@@ -46,12 +46,29 @@ pub enum ItemKind {
         target_type: DataType,
         associated_items: Vec<AssociatedItem>,
     },
-    ModuleDeclaration(Span, String, Vec<Item>),
+    ModuleDeclaration {
+        name_span: Span,
+        name: String,
+        items: Vec<Item>,
+    },
     FunctionDeclaration(FunctionDeclarationItem),
-    MinecraftFunctionDeclaration(ResourceLocation, BlockExpression),
+    MinecraftFunctionDeclaration {
+        resource_location: ResourceLocation,
+        body: BlockExpression,
+    },
     TypeAliasDeclaration(TypeAliasDeclarationItem),
-    RegularStructDeclaration(Span, String, Vec<String>, HashMap<String, DataType>),
-    TupleStructDeclaration(Span, String, Vec<String>, Vec<DataType>),
+    RegularStructDeclaration {
+        name_span: Span,
+        name: String,
+        generic_names: Vec<String>,
+        field_types: HashMap<String, DataType>,
+    },
+    TupleStructDeclaration {
+        name_span: Span,
+        name: String,
+        generic_names: Vec<String>,
+        field_types: Vec<DataType>,
+    },
     Use(UseTree),
 }
 
@@ -126,7 +143,11 @@ impl Item {
 
                 MiddleItem::InherentImplementation
             }
-            ItemKind::ModuleDeclaration(name_span, name, items) => {
+            ItemKind::ModuleDeclaration {
+                name_span,
+                name,
+                items,
+            } => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
@@ -153,7 +174,10 @@ impl Item {
             ItemKind::FunctionDeclaration(item) => {
                 return item.perform_semantic_analysis(ctx, self.visibility);
             }
-            ItemKind::MinecraftFunctionDeclaration(resource_location, body) => {
+            ItemKind::MinecraftFunctionDeclaration {
+                resource_location,
+                body,
+            } => {
                 ctx.function_contexts.push(FunctionContext::MCFunction);
 
                 let (body_span, tail_expression_span, body) =
@@ -172,7 +196,12 @@ impl Item {
             ItemKind::TypeAliasDeclaration(item) => {
                 return item.perform_semantic_analysis(ctx, self.visibility);
             }
-            ItemKind::RegularStructDeclaration(name_span, name, generic_names, field_types) => {
+            ItemKind::RegularStructDeclaration {
+                name_span,
+                name,
+                generic_names,
+                field_types,
+            } => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
@@ -207,7 +236,12 @@ impl Item {
 
                 MiddleItem::RegularStructDeclaration
             }
-            ItemKind::TupleStructDeclaration(name_span, name, generic_names, field_types) => {
+            ItemKind::TupleStructDeclaration {
+                name_span,
+                name,
+                generic_names,
+                field_types,
+            } => {
                 if ctx.type_is_declared_in_current_scope(&name) {
                     return ctx
                         .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));

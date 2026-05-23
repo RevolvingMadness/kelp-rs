@@ -80,5 +80,12 @@ pub fn lower_if_expression(
         .or_else(|| lower_if_expression(node.else_body_if()?, ctx))
         .map(Box::new);
 
-    Some(ExpressionKind::If(Box::new(condition), Box::new(body), else_body).with_span(span))
+    Some(
+        ExpressionKind::If {
+            condition: Box::new(condition),
+            body: Box::new(body),
+            else_body,
+        }
+        .with_span(span),
+    )
 }

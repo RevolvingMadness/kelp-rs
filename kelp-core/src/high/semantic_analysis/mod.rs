@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use hashbrown::HashMap;
 use smallvec::SmallVec;
 use strum::IntoEnumIterator;
 
@@ -37,8 +36,7 @@ use crate::{
         },
     },
     low::{
-        data_type::unresolved::UnresolvedDataType,
-        environment::{Environment, value::variable::VariableId},
+        data_type::unresolved::UnresolvedDataType, environment::Environment,
         pattern::UnresolvedPattern,
     },
     path::{generic::GenericPath, regular::Path},
@@ -123,7 +121,6 @@ pub struct SemanticAnalysisContext {
     max_infos: usize,
     pub environment: Environment,
     pub high_environment: HighEnvironment,
-    resolved_variables: HashMap<HighValueId, VariableId>,
 }
 
 impl SemanticAnalysisContext {
@@ -135,7 +132,6 @@ impl SemanticAnalysisContext {
             environment: Environment::default(),
             high_environment: HighEnvironment::default(),
             scopes: vec![Scope::default()],
-            resolved_variables: HashMap::new(),
             loop_depth: 0,
             current_module_path: Vec::new(),
             function_contexts: SmallVec::new(),
@@ -456,17 +452,6 @@ impl SemanticAnalysisContext {
         self.current_scope_mut().declare_type(name, id);
 
         id
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_resolved_variable(&self, original_id: HighValueId) -> Option<VariableId> {
-        self.resolved_variables.get(&original_id).copied()
-    }
-
-    #[inline]
-    pub fn declare_resolved_variable(&mut self, original_id: HighValueId, resolved_id: VariableId) {
-        self.resolved_variables.insert(original_id, resolved_id);
     }
 
     fn declare_value(

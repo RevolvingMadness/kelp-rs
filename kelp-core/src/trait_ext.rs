@@ -183,7 +183,7 @@ pub fn compile_bitwise_and_score(
                 false,
                 ExecuteIfSubcommand::Score(
                     power_of_2.score.clone(),
-                    ScoreComparison::Range(IntegerRange::new(Some(1), None)),
+                    ScoreComparison::Range(IntegerRange::new_min(1)),
                     None,
                 ),
             )
@@ -294,7 +294,7 @@ pub fn compile_bitwise_or_score(
                 false,
                 ExecuteIfSubcommand::Score(
                     power_of_2.score.clone(),
-                    ScoreComparison::Range(IntegerRange::new(Some(1), None)),
+                    ScoreComparison::Range(IntegerRange::new_min(1)),
                     None,
                 ),
             )

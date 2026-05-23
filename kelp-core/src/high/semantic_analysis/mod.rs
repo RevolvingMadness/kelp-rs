@@ -187,11 +187,7 @@ impl SemanticAnalysisContext {
 
         let scope = self.exit_scope();
 
-        HighModuleDeclaration {
-            name,
-            types: scope.types,
-            values: scope.values,
-        }
+        scope.into_module_declaration(name)
     }
 
     pub fn exit_module_and_declare(&mut self, visibility: Visibility) {
@@ -290,12 +286,17 @@ impl SemanticAnalysisContext {
             data_type,
         );
 
-        self.scopes
-            .last_mut()
-            .expect("No scopes")
-            .declare_value(name, id.into());
+        self.current_scope_mut().declare_value(name, id.into());
 
         id
+    }
+
+    #[must_use]
+    pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get_type_id(name))
     }
 
     #[must_use]
@@ -303,13 +304,18 @@ impl SemanticAnalysisContext {
         self.scopes
             .iter()
             .rev()
-            .find_map(|scope| scope.values.get(name))
-            .copied()
+            .find_map(|scope| scope.get_value_id(name))
     }
 
     #[must_use]
     pub fn type_is_declared_in_current_scope(&self, name: &str) -> bool {
-        self.scopes.last().unwrap().types.contains_key(name)
+        self.current_scope().type_is_declared(name)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn current_scope(&self) -> &Scope {
+        self.scopes.last().unwrap()
     }
 
     #[inline]
@@ -321,13 +327,13 @@ impl SemanticAnalysisContext {
     pub fn declare_type_in_current_scope(&mut self, name_span: Span, name: String, id: HighTypeId) {
         let scope = self.current_scope_mut();
 
-        if scope.types.contains_key(&name) {
+        if scope.type_is_declared(&name) {
             self.add_error_unit(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
 
             return;
         }
 
-        scope.types.insert(name, id);
+        scope.declare_type(name, id);
     }
 
     pub fn declare_value_in_current_scope(
@@ -338,7 +344,7 @@ impl SemanticAnalysisContext {
     ) {
         let scope = self.current_scope_mut();
 
-        if scope.values.contains_key(&name) {
+        if scope.value_is_declared(&name) {
             self.add_error_unit(
                 name_span,
                 SemanticAnalysisError::ValueIsAlreadyDefined(name),
@@ -347,27 +353,27 @@ impl SemanticAnalysisContext {
             return;
         }
 
-        scope.values.insert(name, id);
+        scope.declare_value(name, id);
     }
 
     pub fn declare_type_if_not_defined(&mut self, name: String, id: HighTypeId) {
         let scope = self.current_scope_mut();
 
-        if scope.types.contains_key(&name) {
+        if scope.type_is_declared(&name) {
             return;
         }
 
-        scope.types.insert(name, id);
+        scope.declare_type(name, id);
     }
 
     pub fn declare_value_if_not_defined(&mut self, name: String, id: HighValueId) {
         let scope = self.current_scope_mut();
 
-        if scope.values.contains_key(&name) {
+        if scope.value_is_declared(&name) {
             return;
         }
 
-        scope.values.insert(name, id);
+        scope.declare_value(name, id);
     }
 
     #[inline]
@@ -848,15 +854,6 @@ impl SemanticAnalysisContext {
         }
 
         Some(ResolvedItem::Value(resolved_value_id))
-    }
-
-    #[must_use]
-    pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
-        self.scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.types.get(name))
-            .copied()
     }
 
     #[must_use]

@@ -35,6 +35,7 @@ use crate::{
 
 pub mod associated;
 pub mod function_declaration;
+pub mod name_resolution_context;
 pub mod type_alias_declaration;
 
 #[derive(Debug, Clone)]

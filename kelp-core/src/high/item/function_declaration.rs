@@ -35,6 +35,7 @@ pub struct FunctionDeclarationItem {
     pub name_span: Span,
     pub name: String,
     pub generic_names: Vec<String>,
+    pub is_method: bool,
     pub parameters: Vec<(Pattern, DataType)>,
     pub return_type: DataType,
     pub body: BlockExpression,

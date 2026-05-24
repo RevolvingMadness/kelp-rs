@@ -513,6 +513,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "runtime" => "RuntimeKeyword",
         "recursive" => "RecursiveKeyword",
         "impl" => "ImplKeyword",
+        "self" => "SelfKeyword",
         _ => todo!("{:?}", token),
     }
 }

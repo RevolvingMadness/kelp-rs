@@ -24,8 +24,9 @@ pub fn try_parse_function_parameter(parser: &mut Parser) -> bool {
     parser.start_node(SyntaxKind::FunctionParameter);
 
     if !try_parse_pattern(parser) {
-        parser.error("Expected parameter pattern");
+        parser.error("Expected pattern");
         parser.finish_node();
+
         return false;
     }
 
@@ -37,6 +38,30 @@ pub fn try_parse_function_parameter(parser: &mut Parser) -> bool {
 
     if !try_parse_data_type(parser) && parsed_colon {
         parser.error("Expected data type");
+    }
+
+    parser.finish_node();
+
+    true
+}
+
+#[must_use]
+pub fn try_parse_self_function_parameter(parser: &mut Parser) -> bool {
+    if parser.peek_identifier() != Some("self") {
+        return false;
+    }
+
+    parser.start_node(SyntaxKind::SelfFunctionParameter);
+    parser.bump_str(SyntaxKind::SelfKeyword, "self");
+
+    parser.skip_whitespace();
+
+    if parser.try_bump_char(':') {
+        parser.skip_whitespace();
+
+        if !try_parse_data_type(parser) {
+            parser.error("Expected data type");
+        }
     }
 
     parser.finish_node();
@@ -55,21 +80,31 @@ pub fn try_parse_function_parameters(parser: &mut Parser) -> bool {
     parser.skip_whitespace();
 
     if parser.peek_char() != Some(')') {
-        loop {
-            if !try_parse_function_parameter(parser) {
-                break;
-            }
-
+        if try_parse_self_function_parameter(parser) {
             parser.skip_whitespace();
 
-            if !parser.try_bump_char(',') {
-                break;
+            if parser.try_bump_char(',') {
+                parser.skip_whitespace();
             }
+        }
 
-            parser.skip_whitespace();
+        if parser.peek_char() != Some(')') {
+            loop {
+                if !try_parse_function_parameter(parser) {
+                    break;
+                }
 
-            if parser.peek_char() == Some(')') {
-                break;
+                parser.skip_whitespace();
+
+                if !parser.try_bump_char(',') {
+                    break;
+                }
+
+                parser.skip_whitespace();
+
+                if parser.peek_char() == Some(')') {
+                    break;
+                }
             }
         }
     }
@@ -208,13 +243,15 @@ pub fn lower_function_parameter(
 pub fn lower_function_parameters(
     node: CSTFunctionParameters,
     ctx: &mut SemanticAnalysisContext,
-) -> Option<Vec<(Pattern, DataType)>> {
+) -> Option<(bool, Vec<(Pattern, DataType)>)> {
+    let is_method = node.self_function_parameters().count() != 0;
+
     let parameters = node
         .parameters()
         .map(|parameter| lower_function_parameter(parameter, ctx))
         .collect_option_all()?;
 
-    Some(parameters)
+    Some((is_method, parameters))
 }
 
 #[must_use]
@@ -248,10 +285,10 @@ pub fn lower_function_declaration_item_kind(
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    let parameters = match parameters {
-        Some(Some(parameters)) => Some(parameters),
+    let (is_method, parameters) = match parameters {
+        Some(Some(value)) => value,
         Some(None) => return None,
-        None => None,
+        None => (false, Vec::new()),
     };
 
     Some(FunctionDeclarationItem {
@@ -260,7 +297,8 @@ pub fn lower_function_declaration_item_kind(
         name_span: text_range_to_span(name_span),
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),
-        parameters: parameters.unwrap_or_default(),
+        is_method,
+        parameters,
         return_type,
         body,
 

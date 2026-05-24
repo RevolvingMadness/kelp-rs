@@ -58,7 +58,16 @@ FunctionDeclarationItem =
   BlockExpression
 
 FunctionParameters =
-  parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?
+  (SelfFunctionParameter ','?)
+| (
+    (SelfFunctionParameter ',')?
+    parameters:FunctionParameter
+    (',' parameters:FunctionParameter)*
+    ','?
+  )
+
+SelfFunctionParameter =
+  'self' (':' DataType)?
 
 FunctionParameter =
   Pattern ':' DataType

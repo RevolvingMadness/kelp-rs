@@ -52,10 +52,13 @@ FunctionDeclarationItem =
   name:'function_name'
   GenericNames
   '('
-  (parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?)?
+  FunctionParameters?
   ')'
   ('->' DataType)?
   BlockExpression
+
+FunctionParameters =
+  parameters:FunctionParameter (',' parameters:FunctionParameter)* ','?
 
 FunctionParameter =
   Pattern ':' DataType

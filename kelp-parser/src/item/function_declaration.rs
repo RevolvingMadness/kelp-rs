@@ -1,10 +1,13 @@
-use kelp_core::high::{
-    data_type::DataType, item::function_declaration::FunctionDeclarationItem,
-    semantic_analysis::SemanticAnalysisContext,
+use kelp_core::{
+    high::{
+        data_type::DataType, item::function_declaration::FunctionDeclarationItem, pattern::Pattern,
+        semantic_analysis::SemanticAnalysisContext,
+    },
+    trait_ext::CollectOptionAllIterExt,
 };
 
 use crate::{
-    cst::CSTFunctionDeclarationItem,
+    cst::{CSTFunctionDeclarationItem, CSTFunctionParameter, CSTFunctionParameters},
     data_type::{
         generics::{lower_generic_names, try_parse_generic_names},
         lower_data_type, try_parse_data_type,
@@ -17,75 +20,45 @@ use crate::{
 };
 
 #[must_use]
-pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
+pub fn try_parse_function_parameter(parser: &mut Parser) -> bool {
+    parser.start_node(SyntaxKind::FunctionParameter);
 
-    parser.start_node(SyntaxKind::FunctionDeclarationItem);
-
-    let mut is_recursive = false;
-
-    if parser.peek_identifier() == Some("recursive") {
-        parser.bump_str(SyntaxKind::RecursiveKeyword, "recursive");
-
-        if !parser.expect_whitespace() {
-            parser.restore_state(state);
-
-            return false;
-        }
-
-        is_recursive = true;
-    }
-
-    if parser.peek_identifier() == Some("runtime") {
-        parser.bump_str(SyntaxKind::RuntimeKeyword, "runtime");
-
-        if !parser.expect_whitespace() && !is_recursive {
-            parser.restore_state(state);
-
-            return false;
-        }
-    }
-
-    parser.bump_str(SyntaxKind::FNKeyword, "fn");
-
-    if !parser.expect_whitespace() || !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
-        parser.restore_state(state);
-
+    if !try_parse_pattern(parser) {
+        parser.error("Expected parameter pattern");
+        parser.finish_node();
         return false;
     }
 
     parser.skip_whitespace();
 
-    if try_parse_generic_names(parser) {
-        parser.skip_whitespace();
+    let parsed_colon = parser.expect_char(':', "Expected ':'");
+
+    parser.skip_whitespace();
+
+    if !try_parse_data_type(parser) && parsed_colon {
+        parser.error("Expected data type");
     }
 
-    parser.expect_char('(', "Expected '('");
+    parser.finish_node();
+    true
+}
+
+#[must_use]
+pub fn try_parse_function_parameters(parser: &mut Parser) -> bool {
+    parser.start_node(SyntaxKind::FunctionParameters);
+
+    if !parser.expect_char('(', "Expected '('") {
+        parser.finish_node();
+        return false;
+    }
 
     parser.skip_whitespace();
 
     if parser.peek_char() != Some(')') {
         loop {
-            parser.start_node(SyntaxKind::FunctionParameter);
-
-            if !try_parse_pattern(parser) {
-                parser.error("Expected parameter pattern");
-                parser.finish_node();
-
+            if !try_parse_function_parameter(parser) {
                 break;
             }
-
-            parser.skip_whitespace();
-
-            let parsed_colon = parser.expect_char(':', "Expected ':'");
-
-            parser.skip_whitespace();
-
-            if !try_parse_data_type(parser) && parsed_colon {
-                parser.error("Expected data type");
-            }
-
-            parser.finish_node();
 
             parser.skip_whitespace();
 
@@ -102,6 +75,52 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
     }
 
     parser.expect_char(')', "Expected ')'");
+    parser.finish_node();
+    true
+}
+
+#[must_use]
+pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
+    let state = parser.save_state();
+
+    parser.start_node(SyntaxKind::FunctionDeclarationItem);
+
+    let mut is_recursive = false;
+
+    if parser.peek_identifier() == Some("recursive") {
+        parser.bump_str(SyntaxKind::RecursiveKeyword, "recursive");
+
+        if !parser.expect_whitespace() {
+            parser.restore_state(state);
+            return false;
+        }
+
+        is_recursive = true;
+    }
+
+    if parser.peek_identifier() == Some("runtime") {
+        parser.bump_str(SyntaxKind::RuntimeKeyword, "runtime");
+
+        if !parser.expect_whitespace() && !is_recursive {
+            parser.restore_state(state);
+            return false;
+        }
+    }
+
+    parser.bump_str(SyntaxKind::FNKeyword, "fn");
+
+    if !parser.expect_whitespace() || !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
+        parser.restore_state(state);
+        return false;
+    }
+
+    parser.skip_whitespace();
+
+    if try_parse_generic_names(parser) {
+        parser.skip_whitespace();
+    }
+
+    let _ = try_parse_function_parameters(parser);
 
     parser.skip_whitespace();
 
@@ -129,18 +148,15 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 
     if parser.peek_identifier() == Some("recursive") {
         parser.bump_str(SyntaxKind::RecursiveKeyword, "recursive");
-
         parser.expect_whitespace();
     }
 
     if parser.peek_identifier() == Some("runtime") {
         parser.bump_str(SyntaxKind::RuntimeKeyword, "runtime");
-
         parser.expect_whitespace();
     }
 
     parser.bump_str(SyntaxKind::FNKeyword, "fn");
-
     parser.expect_whitespace();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
@@ -153,48 +169,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
         parser.skip_whitespace();
     }
 
-    parser.expect_char('(', "Expected '('");
-
-    parser.skip_whitespace();
-
-    if parser.peek_char() != Some(')') {
-        loop {
-            parser.start_node(SyntaxKind::FunctionParameter);
-
-            if !try_parse_pattern(parser) {
-                parser.error("Expected parameter pattern");
-                parser.finish_node();
-
-                break;
-            }
-
-            parser.skip_whitespace();
-
-            let parsed_colon = parser.expect_char(':', "Expected ':'");
-
-            parser.skip_whitespace();
-
-            if !try_parse_data_type(parser) && parsed_colon {
-                parser.error("Expected data type");
-            }
-
-            parser.finish_node();
-
-            parser.skip_whitespace();
-
-            if !parser.try_bump_char(',') {
-                break;
-            }
-
-            parser.skip_whitespace();
-
-            if parser.peek_char() == Some(')') {
-                break;
-            }
-        }
-    }
-
-    parser.expect_char(')', "Expected ')'");
+    let _ = try_parse_function_parameters(parser);
 
     parser.skip_whitespace();
 
@@ -213,6 +188,33 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
     }
 
     parser.finish_node();
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_function_parameter(
+    node: CSTFunctionParameter,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<(Pattern, DataType)> {
+    let pattern = lower_pattern(node.pattern()?, ctx)?;
+
+    let data_type = lower_data_type(node.data_type()?)?;
+
+    Some((pattern, data_type))
+}
+
+#[must_use]
+#[allow(clippy::needless_pass_by_value)]
+pub fn lower_function_parameters(
+    node: CSTFunctionParameters,
+    ctx: &mut SemanticAnalysisContext,
+) -> Option<Vec<(Pattern, DataType)>> {
+    let parameters = node
+        .parameters()
+        .map(|parameter| lower_function_parameter(parameter, ctx))
+        .collect_option_all()?;
+
+    Some(parameters)
 }
 
 #[must_use]
@@ -236,14 +238,8 @@ pub fn lower_function_declaration_item_kind(
     let generic_names = node.generic_names().and_then(lower_generic_names);
 
     let parameters = node
-        .parameters()
-        .filter_map(|parameter| {
-            let pattern = lower_pattern(parameter.pattern()?, ctx)?;
-            let data_type = lower_data_type(parameter.data_type()?)?;
-
-            Some((pattern, data_type))
-        })
-        .collect();
+        .function_parameters()
+        .map(|parameters| lower_function_parameters(parameters, ctx));
 
     let return_type = node
         .data_type()
@@ -252,13 +248,19 @@ pub fn lower_function_declaration_item_kind(
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
+    let parameters = match parameters {
+        Some(Some(parameters)) => Some(parameters),
+        Some(None) => return None,
+        None => None,
+    };
+
     Some(FunctionDeclarationItem {
         recursive_keyword_span,
         runtime_keyword_span,
         name_span: text_range_to_span(name_span),
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),
-        parameters,
+        parameters: parameters.unwrap_or_default(),
         return_type,
         body,
 

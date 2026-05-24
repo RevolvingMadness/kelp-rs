@@ -173,6 +173,7 @@ pub enum SyntaxKind {
     ModuleDeclarationItem,
     FunctionDeclarationItem,
     FunctionName,
+    FunctionParameters,
     FunctionParameter,
     MinecraftFunctionDeclarationItem,
     RegularStructDeclarationItem,

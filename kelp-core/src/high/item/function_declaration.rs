@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use crate::{
     high::{
         data_type::DataType,
+        environment::value::function::regular::HighRegularFunctionId,
         expression::block::BlockExpression,
         pattern::Pattern,
         semantic_analysis::{
@@ -25,26 +26,70 @@ pub struct FunctionDeclarationItem {
     pub parameters: Vec<(Pattern, DataType)>,
     pub return_type: DataType,
     pub body: BlockExpression,
+    pub id: Option<HighRegularFunctionId>,
 }
 
 impl FunctionDeclarationItem {
-    pub fn perform_semantic_analysis(
-        self,
+    pub fn resolve_types(
+        &mut self,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
-    ) -> Option<Item> {
+    ) -> Option<()> {
+        let id = self.id.unwrap();
+
         ctx.enter_scope();
 
         let generic_ids = self
             .generic_names
-            .into_iter()
-            .map(|generic_name| ctx.declare_generic(Visibility::Public, generic_name))
+            .iter()
+            .cloned()
+            .map(|name| ctx.declare_generic(Visibility::Public, name))
             .collect::<Vec<_>>();
+
+        let parameters = self
+            .parameters
+            .iter()
+            .map(|(_, parameter_type)| {
+                let parameter_type = parameter_type.clone().perform_semantic_analysis(ctx);
+
+                (None, parameter_type)
+            })
+            .collect::<Vec<_>>();
+
+        let return_type = self.return_type.clone().perform_semantic_analysis(ctx);
+
+        ctx.exit_scope();
+
+        let modifiers = if self.runtime_keyword_span.is_some() {
+            RegularFunctionModifiers::Runtime {
+                recursive: self.recursive_keyword_span.is_some(),
+            }
+        } else {
+            RegularFunctionModifiers::None
+        };
+
+        ctx.declare_regular_function(
+            id.into(),
+            visibility,
+            modifiers,
+            self.name.clone(),
+            generic_ids,
+            parameters,
+            return_type,
+        );
+
+        Some(())
+    }
+
+    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
+        let id = self.id.unwrap();
+
+        ctx.enter_scope();
 
         let parameter_types = self
             .parameters
             .iter()
-            .map(|(_, data_type)| data_type.clone().perform_semantic_analysis(ctx))
+            .map(|(_, parameter_type)| parameter_type.clone().perform_semantic_analysis(ctx))
             .collect::<Vec<_>>();
 
         let return_type = self.return_type.perform_semantic_analysis(ctx);
@@ -110,19 +155,6 @@ impl FunctionDeclarationItem {
 
         let scope = ctx.exit_scope();
 
-        let id = ctx.declare_regular_function(
-            visibility,
-            modifiers,
-            self.name,
-            generic_ids,
-            parameter_types
-                .iter()
-                .cloned()
-                .map(|parameter_type| (None, parameter_type))
-                .collect(),
-            return_type.clone(),
-        );
-
         if failed {
             return None;
         }
@@ -159,7 +191,7 @@ impl FunctionDeclarationItem {
             ctx.high_environment
                 .update_regular_function(id, |declaration| {
                     if let FunctionContext::Regular { calls, .. } = &context {
-                        declaration.calls = Some(calls.clone());
+                        declaration.calls.clone_from(calls);
                     }
                 });
 

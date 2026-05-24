@@ -7,15 +7,15 @@ use crate::{
     high::{
         environment::{
             HighEnvironment,
+            names::{BasicHighTypeDeclaration, BasicHighValueDeclaration, NamesEnvironment},
             r#type::{
                 HighGenericId, HighTypeDeclaration, HighTypeDeclarationKind, HighTypeId,
                 alias::HighTypeAliasDeclaration,
                 builtin_data_type::{BuiltinTypeKind, HighBuiltinTypeDeclaration},
                 module::HighModuleDeclaration,
                 r#struct::{
-                    HighStructDeclaration, HighStructId,
-                    regular::{HighRegularStructDeclaration, HighRegularStructId},
-                    tuple::{HighTupleStructDeclaration, HighTupleStructId},
+                    HighStructDeclaration, regular::HighRegularStructDeclaration,
+                    tuple::HighTupleStructDeclaration,
                 },
             },
             value::{
@@ -74,7 +74,7 @@ pub enum FunctionContext {
         modifiers: RegularFunctionModifiers,
         return_type: UnresolvedDataType,
         callee_id: HighRegularFunctionId,
-        calls: HashSet<HighFunctionId>,
+        calls: HashSet<(Span, HighFunctionId)>,
     },
     MCFunction,
 }
@@ -118,9 +118,13 @@ pub struct SemanticAnalysisContext {
     pub loop_depth: u32,
     pub current_module_path: Vec<String>,
     pub function_contexts: SmallVec<[FunctionContext; 5]>,
-    max_infos: usize,
+    pub max_infos: usize,
     pub environment: Environment,
+    pub names_environment: NamesEnvironment,
     pub high_environment: HighEnvironment,
+
+    pub type_id_counter: u32,
+    pub value_id_counter: u32,
 }
 
 impl SemanticAnalysisContext {
@@ -130,11 +134,15 @@ impl SemanticAnalysisContext {
             infos: Vec::new(),
             max_infos,
             environment: Environment::default(),
+            names_environment: NamesEnvironment::default(),
             high_environment: HighEnvironment::default(),
             scopes: vec![Scope::default()],
             loop_depth: 0,
             current_module_path: Vec::new(),
             function_contexts: SmallVec::new(),
+
+            type_id_counter: 0,
+            value_id_counter: 0,
         };
 
         self_.declare_std_module();
@@ -155,7 +163,7 @@ impl SemanticAnalysisContext {
             self.declare_builtin_function(Visibility::Public, builtin_function.declaration());
         }
 
-        self.exit_module_and_declare(Visibility::Public);
+        self.exit_module_and_declare_auto(Visibility::Public);
     }
 
     #[inline]
@@ -181,7 +189,6 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    #[must_use]
     pub fn exit_module(&mut self) -> HighModuleDeclaration {
         let name = self.current_module_path.pop().unwrap();
 
@@ -190,10 +197,16 @@ impl SemanticAnalysisContext {
         scope.into_module_declaration(name)
     }
 
-    pub fn exit_module_and_declare(&mut self, visibility: Visibility) {
+    pub fn exit_module_and_declare(&mut self, id: HighTypeId, visibility: Visibility) {
         let module = self.exit_module();
 
-        self.declare_module(visibility, module);
+        self.declare_module(id, visibility, module);
+    }
+
+    pub fn exit_module_and_declare_auto(&mut self, visibility: Visibility) {
+        let module = self.exit_module();
+
+        self.declare_module_auto(visibility, module);
     }
 
     #[must_use]
@@ -246,6 +259,20 @@ impl SemanticAnalysisContext {
         None
     }
 
+    pub fn add_info_static<T>(
+        infos: &mut Vec<SemanticAnalysisInfo>,
+        max_infos: usize,
+        info: SemanticAnalysisInfo,
+    ) -> Option<T> {
+        if infos.len() >= max_infos {
+            return None;
+        }
+
+        infos.push(info);
+
+        None
+    }
+
     #[inline]
     #[must_use]
     pub fn add_error<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
@@ -256,8 +283,36 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
+    #[must_use]
+    pub fn add_error_static<T>(
+        infos: &mut Vec<SemanticAnalysisInfo>,
+        max_infos: usize,
+        span: Span,
+        error: SemanticAnalysisError,
+    ) -> Option<T> {
+        Self::add_info_static(
+            infos,
+            max_infos,
+            SemanticAnalysisInfo {
+                span,
+                kind: SemanticAnalysisInfoKind::Error(error),
+            },
+        )
+    }
+
+    #[inline]
     pub fn add_error_unit(&mut self, span: Span, error: SemanticAnalysisError) -> Option<()> {
         self.add_error(span, error)
+    }
+
+    #[inline]
+    pub fn add_error_unit_static(
+        infos: &mut Vec<SemanticAnalysisInfo>,
+        max_infos: usize,
+        span: Span,
+        error: SemanticAnalysisError,
+    ) -> Option<()> {
+        Self::add_error_static(infos, max_infos, span, error)
     }
 
     #[inline]
@@ -279,7 +334,12 @@ impl SemanticAnalysisContext {
         name: String,
         data_type: UnresolvedDataType,
     ) -> HighVariableId {
-        let id = self.high_environment.declare_variable(
+        let id = HighVariableId(self.value_id_counter);
+
+        self.value_id_counter += 1;
+
+        self.high_environment.declare_variable(
+            id,
             visibility,
             self.current_module_path.clone(),
             name.clone(),
@@ -287,6 +347,15 @@ impl SemanticAnalysisContext {
         );
 
         self.current_scope_mut().declare_value(name, id.into());
+
+        self.names_environment.declare_value(
+            id.into(),
+            BasicHighValueDeclaration {
+                module_path: self.current_module_path.clone(),
+                visibility,
+                id: id.into(),
+            },
+        );
 
         id
     }
@@ -307,11 +376,6 @@ impl SemanticAnalysisContext {
             .find_map(|scope| scope.get_value_id(name))
     }
 
-    #[must_use]
-    pub fn type_is_declared_in_current_scope(&self, name: &str) -> bool {
-        self.current_scope().type_is_declared(name)
-    }
-
     #[inline]
     #[must_use]
     pub fn current_scope(&self) -> &Scope {
@@ -324,7 +388,13 @@ impl SemanticAnalysisContext {
         self.scopes.last_mut().unwrap()
     }
 
-    pub fn declare_type_in_current_scope(&mut self, name_span: Span, name: String, id: HighTypeId) {
+    pub fn declare_type_in_current_scope(
+        &mut self,
+        visibility: Visibility,
+        name_span: Span,
+        name: String,
+        id: HighTypeId,
+    ) {
         let scope = self.current_scope_mut();
 
         if scope.type_is_declared(&name) {
@@ -333,11 +403,21 @@ impl SemanticAnalysisContext {
             return;
         }
 
-        scope.declare_type(name, id);
+        self.current_scope_mut().declare_type(name, id);
+
+        self.names_environment.declare_type(
+            id,
+            BasicHighTypeDeclaration {
+                module_path: self.current_module_path.clone(),
+                visibility,
+                id,
+            },
+        );
     }
 
     pub fn declare_value_in_current_scope(
         &mut self,
+        visibility: Visibility,
         name_span: Span,
         name: String,
         id: HighValueId,
@@ -345,44 +425,88 @@ impl SemanticAnalysisContext {
         let scope = self.current_scope_mut();
 
         if scope.value_is_declared(&name) {
-            self.add_error_unit(
-                name_span,
-                SemanticAnalysisError::ValueIsAlreadyDefined(name),
-            );
+            self.add_error_unit(name_span, SemanticAnalysisError::ValueAlreadyDeclared(name));
 
             return;
         }
 
-        scope.declare_value(name, id);
+        self.current_scope_mut().declare_value(name, id);
+
+        self.names_environment.declare_value(
+            id,
+            BasicHighValueDeclaration {
+                module_path: self.current_module_path.clone(),
+                visibility,
+                id,
+            },
+        );
     }
 
-    pub fn declare_type_if_not_defined(&mut self, name: String, id: HighTypeId) {
+    pub fn declare_type_if_not_defined(
+        &mut self,
+        visibility: Visibility,
+        name: String,
+        id: HighTypeId,
+    ) {
         let scope = self.current_scope_mut();
 
         if scope.type_is_declared(&name) {
             return;
         }
 
-        scope.declare_type(name, id);
+        self.current_scope_mut().declare_type(name, id);
+
+        self.names_environment.declare_type(
+            id,
+            BasicHighTypeDeclaration {
+                module_path: self.current_module_path.clone(),
+                visibility,
+                id,
+            },
+        );
     }
 
-    pub fn declare_value_if_not_defined(&mut self, name: String, id: HighValueId) {
+    pub fn declare_value_if_not_defined(
+        &mut self,
+        visibility: Visibility,
+        name: String,
+        id: HighValueId,
+    ) {
         let scope = self.current_scope_mut();
 
         if scope.value_is_declared(&name) {
             return;
         }
 
-        scope.declare_value(name, id);
+        self.current_scope_mut().declare_value(name, id);
+
+        self.names_environment.declare_value(
+            id,
+            BasicHighValueDeclaration {
+                module_path: self.current_module_path.clone(),
+                visibility,
+                id,
+            },
+        );
     }
 
     #[inline]
     pub fn declare_module(
         &mut self,
+        id: HighTypeId,
         visibility: Visibility,
         declaration: HighModuleDeclaration,
-    ) -> HighTypeId {
-        self.declare_type(visibility, HighTypeDeclarationKind::Module(declaration))
+    ) {
+        self.declare_type(id, visibility, HighTypeDeclarationKind::Module(declaration));
+    }
+
+    #[inline]
+    pub fn declare_module_auto(
+        &mut self,
+        visibility: Visibility,
+        declaration: HighModuleDeclaration,
+    ) {
+        self.declare_type_auto(visibility, HighTypeDeclarationKind::Module(declaration));
     }
 
     #[inline]
@@ -391,104 +515,133 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         declaration: HighTypeAliasDeclaration,
     ) -> HighTypeId {
-        self.declare_type(visibility, HighTypeDeclarationKind::Alias(declaration))
+        self.declare_type_auto(visibility, HighTypeDeclarationKind::Alias(declaration))
     }
 
-    #[inline]
-    fn declare_struct(
-        &mut self,
-        visibility: Visibility,
-        declaration: HighStructDeclaration,
-    ) -> HighStructId {
-        let id = self.declare_type(visibility, HighTypeDeclarationKind::Struct(declaration));
-
-        HighStructId(id.0)
-    }
-
-    #[inline]
-    pub fn declare_regular_struct(
-        &mut self,
-        visibility: Visibility,
-        declaration: HighRegularStructDeclaration,
-    ) -> HighRegularStructId {
-        let id = self.declare_struct(visibility, HighStructDeclaration::Struct(declaration));
-
-        HighRegularStructId(id.0)
-    }
-
-    #[inline]
-    pub fn declare_tuple_struct(
-        &mut self,
-        visibility: Visibility,
-        declaration: HighTupleStructDeclaration,
-    ) -> HighTupleStructId {
-        let id = self.declare_struct(visibility, HighStructDeclaration::Tuple(declaration));
-
-        HighTupleStructId(id.0)
-    }
-
-    #[inline]
     pub fn declare_generic(&mut self, visibility: Visibility, name: String) -> HighGenericId {
-        let id = self.declare_type(visibility, HighTypeDeclarationKind::Generic(name));
+        let id = self.declare_type_auto(visibility, HighTypeDeclarationKind::Generic(name));
 
         HighGenericId(id.0)
     }
 
-    #[inline]
-    pub fn declare_builtin_type(&mut self, data_type: HighBuiltinTypeDeclaration) -> HighTypeId {
-        self.declare_type(
+    pub fn declare_builtin_type(&mut self, data_type: HighBuiltinTypeDeclaration) {
+        self.declare_type_auto(
             Visibility::Public,
             HighTypeDeclarationKind::Builtin(data_type),
-        )
+        );
     }
 
-    pub fn declare_type(
+    #[inline]
+    pub fn declare_scope_type(&mut self, visibility: Visibility, name: String) -> HighTypeId {
+        let id = HighTypeId(self.type_id_counter);
+
+        self.type_id_counter += 1;
+
+        self.current_scope_mut().declare_type(name, id);
+
+        self.names_environment.declare_type(
+            id,
+            BasicHighTypeDeclaration {
+                module_path: self.current_module_path.clone(),
+                visibility,
+                id,
+            },
+        );
+
+        id
+    }
+
+    #[inline]
+    pub fn declare_scope_value(&mut self, visibility: Visibility, name: String) -> HighValueId {
+        let id = HighValueId(self.value_id_counter);
+
+        self.value_id_counter += 1;
+
+        self.current_scope_mut().declare_value(name, id);
+
+        self.names_environment.declare_value(
+            id,
+            BasicHighValueDeclaration {
+                module_path: self.current_module_path.clone(),
+                visibility,
+                id,
+            },
+        );
+
+        id
+    }
+
+    pub fn declare_type_auto(
         &mut self,
         visibility: Visibility,
         declaration: HighTypeDeclarationKind,
     ) -> HighTypeId {
-        let name = declaration.name().to_owned();
+        let id = self.declare_scope_type(visibility, declaration.name().to_owned());
 
-        let id = self.high_environment.declare_type(HighTypeDeclaration {
-            visibility,
-            module_path: self.current_module_path.clone(),
-            kind: declaration,
-        });
-
-        self.current_scope_mut().declare_type(name, id);
+        self.declare_type(id, visibility, declaration);
 
         id
     }
 
-    fn declare_value(
+    #[inline]
+    pub fn declare_type(
+        &mut self,
+        id: HighTypeId,
+        visibility: Visibility,
+        declaration: HighTypeDeclarationKind,
+    ) {
+        self.high_environment.declare_type(
+            id,
+            HighTypeDeclaration {
+                visibility,
+                module_path: self.current_module_path.clone(),
+                kind: declaration,
+            },
+        );
+    }
+
+    pub fn declare_value_auto(
         &mut self,
         visibility: Visibility,
         declaration: HighValueDeclarationKind,
     ) -> HighValueId {
-        let name = declaration.name().to_owned();
+        let id = self.declare_scope_value(visibility, declaration.name().to_owned());
 
-        let id = self.high_environment.declare_value(
-            visibility,
-            self.current_module_path.clone(),
-            declaration,
-        );
-
-        self.current_scope_mut().declare_value(name, id);
+        self.declare_value(id, visibility, declaration);
 
         id
+    }
+
+    #[inline]
+    pub fn declare_value(
+        &mut self,
+        id: HighValueId,
+        visibility: Visibility,
+        kind: HighValueDeclarationKind,
+    ) {
+        self.high_environment.declare_value(
+            id,
+            HighValueDeclaration {
+                visibility,
+                module_path: self.current_module_path.clone(),
+                kind,
+            },
+        );
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn declare_regular_function(
         &mut self,
+        id: HighValueId,
         visibility: Visibility,
         modifiers: RegularFunctionModifiers,
         name: String,
         generic_ids: Vec<HighGenericId>,
         parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
         return_type: UnresolvedDataType,
-    ) -> HighRegularFunctionId {
-        let id = self.declare_value(
+    ) {
+        self.declare_value(
+            id,
             visibility,
             HighValueDeclarationKind::Function(Box::new(HighFunctionDeclaration::Regular(
                 HighRegularFunctionDeclaration {
@@ -498,12 +651,10 @@ impl SemanticAnalysisContext {
                     parameters,
                     return_type,
                     body: None,
-                    calls: None,
+                    calls: HashSet::new(),
                 },
             ))),
         );
-
-        HighRegularFunctionId(id.0)
     }
 
     pub fn declare_builtin_function(
@@ -511,7 +662,7 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         declaration: HighBuiltinFunctionDeclaration,
     ) -> HighBuiltinFunctionId {
-        let id = self.declare_value(
+        let id = self.declare_value_auto(
             visibility,
             HighValueDeclarationKind::Function(Box::new(HighFunctionDeclaration::Builtin(
                 declaration,
@@ -727,13 +878,9 @@ impl SemanticAnalysisContext {
             }
 
             if found_type {
-                let HighTypeDeclaration {
-                    visibility,
-                    module_path,
-                    ..
-                } = self.get_type(current_type_id);
+                let declaration = self.names_environment.get_type(current_type_id);
 
-                let is_visible = self.is_item_visible(module_path, *visibility);
+                let is_visible = declaration.is_visible(&self.current_module_path);
 
                 if !is_visible {
                     let last_segment = path.segments.last().unwrap();
@@ -858,12 +1005,12 @@ impl SemanticAnalysisContext {
 
     #[must_use]
     pub fn get_type(&self, id: HighTypeId) -> &HighTypeDeclaration {
-        &self.high_environment.types[id.0 as usize]
+        self.high_environment.get_type(id)
     }
 
     #[must_use]
     pub fn get_value(&self, id: HighValueId) -> &HighValueDeclaration {
-        &self.high_environment.values[id.0 as usize]
+        self.high_environment.get_value(id)
     }
 
     #[must_use]
@@ -908,9 +1055,13 @@ impl SemanticAnalysisContext {
         name: &str,
         id: HighTypeId,
     ) -> Option<(&[String], Visibility, &HighRegularStructDeclaration)> {
-        let (module_path, visibility, declaration) = self.high_environment.get_type(id);
+        let HighTypeDeclaration {
+            module_path,
+            visibility,
+            kind: declaration,
+        } = self.high_environment.get_type(id);
 
-        let is_visible = self.is_item_visible(module_path, visibility);
+        let is_visible = self.is_item_visible(module_path, *visibility);
 
         if !is_visible {
             return self.add_error(
@@ -933,16 +1084,16 @@ impl SemanticAnalysisContext {
             );
         };
 
-        let (
+        let HighTypeDeclaration {
             module_path,
             visibility,
-            HighTypeDeclarationKind::Struct(HighStructDeclaration::Struct(declaration)),
-        ) = self.high_environment.get_type(id)
+            kind: HighTypeDeclarationKind::Struct(HighStructDeclaration::Struct(declaration)),
+        } = self.high_environment.get_type(id)
         else {
             unreachable!();
         };
 
-        Some((module_path, visibility, declaration))
+        Some((module_path, *visibility, declaration))
     }
 
     #[must_use]
@@ -952,9 +1103,13 @@ impl SemanticAnalysisContext {
         name: &str,
         id: HighTypeId,
     ) -> Option<(&[String], Visibility, &HighTupleStructDeclaration)> {
-        let (module_path, visibility, declaration) = self.high_environment.get_type(id);
+        let HighTypeDeclaration {
+            module_path,
+            visibility,
+            kind: declaration,
+        } = self.high_environment.get_type(id);
 
-        let is_visible = self.is_item_visible(module_path, visibility);
+        let is_visible = self.is_item_visible(module_path, *visibility);
 
         if !is_visible {
             return self.add_error(
@@ -977,15 +1132,15 @@ impl SemanticAnalysisContext {
             );
         };
 
-        let (
+        let HighTypeDeclaration {
             module_path,
             visibility,
-            HighTypeDeclarationKind::Struct(HighStructDeclaration::Tuple(declaration)),
-        ) = self.high_environment.get_type(id)
+            kind: HighTypeDeclarationKind::Struct(HighStructDeclaration::Tuple(declaration)),
+        } = self.high_environment.get_type(id)
         else {
             unreachable!();
         };
 
-        Some((module_path, visibility, declaration))
+        Some((module_path, *visibility, declaration))
     }
 }

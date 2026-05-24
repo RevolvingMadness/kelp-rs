@@ -10,9 +10,7 @@ use crate::{
         data::DataTarget,
         data_type::DataType,
         entity_selector::EntitySelector,
-        environment::{
-            r#type::r#struct::regular::HighRegularStructId, value::function::HighFunctionId,
-        },
+        environment::r#type::r#struct::regular::HighRegularStructId,
         expression::{
             assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionKind},
             block::BlockExpression,
@@ -804,19 +802,10 @@ impl Expression {
                 };
 
                 if let Some(id) = call_info.id
-                    && let FunctionContext::Regular {
-                        modifiers,
-                        callee_id,
-                        calls,
-                        ..
-                    } = ctx.function_contexts.last_mut().unwrap()
+                    && let FunctionContext::Regular { calls, .. } =
+                        ctx.function_contexts.last_mut().unwrap()
                 {
-                    if !modifiers.is_recursive() && id == HighFunctionId(callee_id.0) {
-                        return ctx
-                            .add_error(callee_span, SemanticAnalysisError::RecursiveFunctionCall);
-                    }
-
-                    calls.insert(id);
+                    calls.insert((callee_span, id));
                 }
 
                 let parameter_count = call_info.parameter_types.len();

@@ -23,7 +23,7 @@ impl TypeAliasDeclarationItem {
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
     ) -> Option<Item> {
-        if ctx.type_is_declared_in_current_scope(&self.name) {
+        if ctx.current_scope().type_is_declared(&self.name) {
             return ctx.add_error(
                 self.name_span,
                 SemanticAnalysisError::TypeAlreadyDeclared(self.name),

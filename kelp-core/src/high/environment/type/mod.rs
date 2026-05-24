@@ -113,10 +113,9 @@ impl HighTypeDeclaration {
         path_span: Span,
     ) -> UnresolvedDataType {
         match self.kind {
-            HighTypeDeclarationKind::Module(..) => ctx.add_error_type(
-                path_span,
-                SemanticAnalysisError::NotAType(self.kind.name().to_owned()),
-            ),
+            HighTypeDeclarationKind::Module(HighModuleDeclaration { name, .. }) => {
+                ctx.add_error_type(path_span, SemanticAnalysisError::NotAType(name))
+            }
             HighTypeDeclarationKind::Struct(declaration) => {
                 let id = HighStructId(id.0);
 

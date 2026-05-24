@@ -90,5 +90,6 @@ pub fn lower_module_declaration_item(
         name_span: text_range_to_span(name_range),
         name: name.to_owned(),
         items,
+        id: None,
     })
 }

@@ -1,6 +1,8 @@
 use crate::{
     high::{
-        expression::Expression, semantic_analysis::SemanticAnalysisContext, statement::Statement,
+        expression::Expression,
+        semantic_analysis::SemanticAnalysisContext,
+        statement::{Statement, StatementKind},
     },
     low::{
         data_type::unresolved::UnresolvedDataType,
@@ -33,10 +35,34 @@ pub struct BlockExpression {
 impl BlockExpression {
     #[must_use]
     pub fn perform_semantic_analysis(
-        self,
+        mut self,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<(Span, Option<Span>, UnresolvedExpression)> {
         ctx.enter_scope();
+
+        for statement in &mut self.info.statements {
+            let StatementKind::Item(item) = &mut statement.kind else {
+                continue;
+            };
+
+            item.resolve_names(ctx);
+        }
+
+        for statement in &mut self.info.statements {
+            let StatementKind::Item(item) = &mut statement.kind else {
+                continue;
+            };
+
+            item.resolve_imports(ctx);
+        }
+
+        for statement in &mut self.info.statements {
+            let StatementKind::Item(item) = &mut statement.kind else {
+                continue;
+            };
+
+            item.resolve_types(ctx);
+        }
 
         let body = self
             .info

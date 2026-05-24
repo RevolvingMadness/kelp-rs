@@ -178,6 +178,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
             Some(ItemKind::RegularStructDeclaration {
                 name_span: text_range_to_span(name_range),
                 name: name.to_owned(),
+                id: None,
                 generic_names: generic_names.unwrap_or_default(),
                 field_types: field_types.unwrap_or_default(),
             })
@@ -196,6 +197,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
                 field_types: field_types.unwrap_or_default(),
+                id: None,
             })
         }
         CSTItemKind::TypeAliasDeclarationItem(node) => Some(ItemKind::TypeAliasDeclaration(

@@ -6,7 +6,9 @@ use crate::high::environment::HighEnvironment;
 use crate::high::environment::r#type::{HighGenericId, HighTypeId};
 use crate::high::environment::value::function::{HighFunctionDeclaration, HighFunctionId};
 use crate::high::environment::value::variable::HighVariableId;
-use crate::high::environment::value::{HighValueDeclarationKind, HighValueId};
+use crate::high::environment::value::{
+    HighValueDeclaration, HighValueDeclarationKind, HighValueId,
+};
 use crate::low::data_type::resolved::ResolvedDataType;
 use crate::low::data_type::unresolved::UnresolvedDataType;
 use crate::low::environment::Environment;
@@ -213,12 +215,6 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_resolved_variable(&self, id: HighVariableId) -> Option<VariableId> {
-        self.resolved_variables.get(&id).copied()
-    }
-
-    #[inline]
-    #[must_use]
     pub fn create_resource_location(&self, paths: Vec<String>) -> ResourceLocation {
         ResourceLocation::new_namespace_paths(self.current_namespace_name(), paths)
     }
@@ -254,11 +250,15 @@ impl Datapack {
         data_type: ResolvedDataType,
         value: ResolvedExpression,
     ) {
-        let (module_path, visibility, declaration) = self.high_environment.get_value(id.into());
+        let HighValueDeclaration {
+            module_path,
+            visibility,
+            kind: declaration,
+        } = self.high_environment.get_value(id.into());
 
         let resolved_id = self.environment.declare_variable(
-            module_path.to_vec(),
-            visibility,
+            module_path.clone(),
+            *visibility,
             declaration.name().to_owned(),
             data_type.clone(),
         );
@@ -690,7 +690,9 @@ impl Datapack {
     ) -> Option<ValueId> {
         let id = id.into();
 
-        let (_, _, declaration) = self.high_environment.get_value(id);
+        let HighValueDeclaration {
+            kind: declaration, ..
+        } = self.high_environment.get_value(id);
 
         match declaration {
             HighValueDeclarationKind::Variable(..) => {

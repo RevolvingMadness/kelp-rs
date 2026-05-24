@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Iter};
 
 use crate::{
     high::environment::{
@@ -24,6 +24,7 @@ use crate::{
     visibility::Visibility,
 };
 
+pub mod names;
 pub mod r#type;
 pub mod value;
 
@@ -36,42 +37,25 @@ pub struct HighImpl {
 
 #[derive(Debug, Clone, Default)]
 pub struct HighEnvironment {
-    pub types: Vec<HighTypeDeclaration>,
-    pub values: Vec<HighValueDeclaration>,
+    types: HashMap<HighTypeId, HighTypeDeclaration>,
+    values: HashMap<HighValueId, HighValueDeclaration>,
 
     pub impls: HashMap<HighTypeId, Vec<HighImpl>>,
 }
 
 impl HighEnvironment {
-    #[must_use]
-    pub fn declare_type(&mut self, declaration: HighTypeDeclaration) -> HighTypeId {
-        let id = HighTypeId(self.types.len() as u32);
-
-        self.types.push(declaration);
-
-        id
+    #[inline]
+    pub fn declare_type(&mut self, id: HighTypeId, declaration: HighTypeDeclaration) {
+        self.types.insert(id, declaration);
     }
 
-    #[must_use]
-    pub fn declare_value(
-        &mut self,
-        visibility: Visibility,
-        module_path: Vec<String>,
-        declaration: HighValueDeclarationKind,
-    ) -> HighValueId {
-        let id = HighValueId(self.values.len() as u32);
-
-        self.values.push(HighValueDeclaration {
-            visibility,
-            module_path,
-            kind: declaration,
-        });
-
-        id
+    #[inline]
+    pub fn declare_value(&mut self, id: HighValueId, declaration: HighValueDeclaration) {
+        self.values.insert(id, declaration);
     }
 
     pub fn update_value(&mut self, id: HighValueId, f: impl FnOnce(&mut HighValueDeclaration)) {
-        let declaration = &mut self.values[id.0 as usize];
+        let declaration = self.values.get_mut(&id).unwrap();
 
         f(declaration);
     }
@@ -98,63 +82,68 @@ impl HighEnvironment {
         });
     }
 
-    #[must_use]
     pub fn declare_variable(
         &mut self,
-        visiblity: Visibility,
+        id: HighVariableId,
+        visibility: Visibility,
         module_path: Vec<String>,
         name: String,
         data_type: UnresolvedDataType,
-    ) -> HighVariableId {
-        let id = self.declare_value(
-            visiblity,
-            module_path,
-            HighValueDeclarationKind::Variable(HighVariableDeclaration { name, data_type }),
+    ) {
+        self.declare_value(
+            id.into(),
+            HighValueDeclaration {
+                visibility,
+                module_path,
+                kind: HighValueDeclarationKind::Variable(HighVariableDeclaration {
+                    name,
+                    data_type,
+                }),
+            },
         );
-
-        HighVariableId(id.0)
     }
 
     #[must_use]
     pub fn declare_function(&mut self, declaration: HighValueDeclaration) -> HighRegularFunctionId {
         let id = HighRegularFunctionId(self.values.len() as u32);
 
-        self.values.push(declaration);
+        self.values.insert(id.into(), declaration);
 
         id
     }
 
+    #[inline]
     #[must_use]
-    pub fn get_type(&self, id: HighTypeId) -> (&[String], Visibility, &HighTypeDeclarationKind) {
-        let HighTypeDeclaration {
-            module_path,
-            visibility,
-            kind: declaration,
-        } = &self.types[id.0 as usize];
-
-        (module_path, *visibility, declaration)
+    pub fn get_type(&self, id: HighTypeId) -> &HighTypeDeclaration {
+        self.types.get(&id).unwrap()
     }
 
     #[must_use]
     pub fn get_generic(&self, id: HighGenericId) -> (&[String], Visibility, &String) {
-        let (module_path, visibility, HighTypeDeclarationKind::Generic(name)) =
-            self.get_type(id.into())
+        let HighTypeDeclaration {
+            module_path,
+            visibility,
+            kind: HighTypeDeclarationKind::Generic(name),
+        } = self.get_type(id.into())
         else {
             unreachable!();
         };
 
-        (module_path, visibility, name)
+        (module_path, *visibility, name)
     }
 
     #[must_use]
     pub fn get_struct(&self, id: HighStructId) -> (&[String], Visibility, &HighStructDeclaration) {
-        let (module_path, visibility, HighTypeDeclarationKind::Struct(declaration)) =
-            self.get_type(id.into())
+        let HighTypeDeclaration {
+            module_path,
+            visibility,
+            kind: HighTypeDeclarationKind::Struct(declaration),
+        } = self.get_type(id.into())
         else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        (module_path, *visibility, declaration)
     }
 
     #[must_use]
@@ -185,15 +174,10 @@ impl HighEnvironment {
         (module_path, visibility, declaration)
     }
 
+    #[inline]
     #[must_use]
-    pub fn get_value(&self, id: HighValueId) -> (&[String], Visibility, &HighValueDeclarationKind) {
-        let HighValueDeclaration {
-            module_path,
-            visibility,
-            kind: declaration,
-        } = &self.values[id.0 as usize];
-
-        (module_path, *visibility, declaration)
+    pub fn get_value(&self, id: HighValueId) -> &HighValueDeclaration {
+        self.values.get(&id).unwrap()
     }
 
     #[must_use]
@@ -201,13 +185,16 @@ impl HighEnvironment {
         &self,
         id: HighVariableId,
     ) -> (&[String], Visibility, &HighVariableDeclaration) {
-        let (module_path, visibility, HighValueDeclarationKind::Variable(declaration)) =
-            self.get_value(id.into())
+        let HighValueDeclaration {
+            module_path,
+            visibility,
+            kind: HighValueDeclarationKind::Variable(declaration),
+        } = self.get_value(id.into())
         else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        (module_path, *visibility, declaration)
     }
 
     #[must_use]
@@ -215,13 +202,16 @@ impl HighEnvironment {
         &self,
         id: HighFunctionId,
     ) -> (&[String], Visibility, &HighFunctionDeclaration) {
-        let (module_path, visibility, HighValueDeclarationKind::Function(declaration)) =
-            self.get_value(id.into())
+        let HighValueDeclaration {
+            module_path,
+            visibility,
+            kind: HighValueDeclarationKind::Function(declaration),
+        } = self.get_value(id.into())
         else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        (module_path, *visibility, declaration)
     }
 
     #[must_use]
@@ -250,5 +240,15 @@ impl HighEnvironment {
         };
 
         (module_path, visibility, declaration)
+    }
+
+    #[must_use]
+    pub fn iter_types(&self) -> Iter<'_, HighTypeId, HighTypeDeclaration> {
+        self.types.iter()
+    }
+
+    #[must_use]
+    pub fn iter_values(&self) -> Iter<'_, HighValueId, HighValueDeclaration> {
+        self.values.iter()
     }
 }

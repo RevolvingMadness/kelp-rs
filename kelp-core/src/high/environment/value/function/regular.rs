@@ -9,6 +9,7 @@ use crate::{
         data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
         pattern::UnresolvedPattern,
     },
+    span::Span,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -22,5 +23,5 @@ pub struct HighRegularFunctionDeclaration {
     pub parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
     pub return_type: UnresolvedDataType,
     pub body: Option<Box<UnresolvedExpression>>,
-    pub calls: Option<HashSet<HighFunctionId>>,
+    pub calls: HashSet<(Span, HighFunctionId)>,
 }

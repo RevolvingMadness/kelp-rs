@@ -31,9 +31,7 @@ impl AssociatedItem {
         visibility: Visibility,
     ) -> Option<Item> {
         match self.kind {
-            AssociatedItemKind::FunctionDeclaration(item) => {
-                item.perform_semantic_analysis(ctx, visibility)
-            }
+            AssociatedItemKind::FunctionDeclaration(item) => item.perform_semantic_analysis(ctx),
             AssociatedItemKind::TypeAliasDeclaration(item) => {
                 item.perform_semantic_analysis(ctx, visibility)
             }

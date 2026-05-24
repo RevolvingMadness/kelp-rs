@@ -155,7 +155,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     name
                 )
             }
-            SemanticAnalysisError::ValueIsAlreadyDefined(name) => {
+            SemanticAnalysisError::ValueAlreadyDeclared(name) => {
                 write!(
                     f,
                     "A value with the name `{}` has already been declared",
@@ -413,7 +413,7 @@ pub enum SemanticAnalysisError {
     UnexpectedKey(String),
     MissingField(String),
     TypeAlreadyDeclared(String),
-    ValueIsAlreadyDefined(String),
+    ValueAlreadyDeclared(String),
     PatternIsNotIrrefutable,
     TypeIsNotCondition(UnresolvedDataType),
     TypeIsNotScoreCompatible(UnresolvedDataType),

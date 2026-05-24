@@ -3,7 +3,19 @@ use std::collections::HashSet;
 use crate::{
     high::{
         data_type::DataType,
-        environment::value::function::regular::HighRegularFunctionId,
+        environment::{
+            resolved::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
+            unresolved::{
+                r#type::UnresolvedTypeDeclarationKind,
+                value::{
+                    UnresolvedValueDeclarationKind,
+                    function::{
+                        UnresolvedFunctionDeclaration,
+                        regular::UnresolvedRegularFunctionDeclaration,
+                    },
+                },
+            },
+        },
         expression::block::BlockExpression,
         pattern::Pattern,
         semantic_analysis::{
@@ -26,25 +38,68 @@ pub struct FunctionDeclarationItem {
     pub parameters: Vec<(Pattern, DataType)>,
     pub return_type: DataType,
     pub body: BlockExpression,
+
     pub id: Option<HighRegularFunctionId>,
+    pub generic_ids: Option<Vec<HighGenericId>>,
 }
 
 impl FunctionDeclarationItem {
-    pub fn resolve_types(
+    pub fn resolve_names(
         &mut self,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
     ) -> Option<()> {
-        let id = self.id.unwrap();
-
-        ctx.enter_scope();
+        if ctx.current_scope().value_is_declared(&self.name) {
+            return ctx.add_error(
+                self.name_span,
+                SemanticAnalysisError::ValueAlreadyDeclared(self.name.clone()),
+            );
+        }
 
         let generic_ids = self
             .generic_names
             .iter()
             .cloned()
-            .map(|name| ctx.declare_generic(Visibility::Public, name))
+            .map(|generic_name| {
+                let id = ctx.declare_unresolved_type(
+                    Visibility::Public,
+                    UnresolvedTypeDeclarationKind::Generic(generic_name),
+                );
+
+                HighGenericId(id.0)
+            })
             .collect::<Vec<_>>();
+
+        self.generic_ids = Some(generic_ids.clone());
+
+        let id = ctx.declare_unresolved_value(
+            visibility,
+            UnresolvedValueDeclarationKind::Function(Box::new(
+                UnresolvedFunctionDeclaration::Regular(UnresolvedRegularFunctionDeclaration {
+                    name: self.name.clone(),
+                    generic_ids,
+                }),
+            )),
+        );
+
+        self.id = Some(HighRegularFunctionId(id.0));
+
+        Some(())
+    }
+
+    pub fn resolve_types(&mut self, ctx: &mut SemanticAnalysisContext, visibility: Visibility) {
+        let id = self.id.unwrap();
+        let generic_ids = self.generic_ids.as_ref().unwrap();
+
+        ctx.enter_scope();
+
+        for (generic_id, generic_name) in generic_ids
+            .iter()
+            .copied()
+            .zip(self.generic_names.iter().cloned())
+        {
+            ctx.declare_generic(generic_id, Visibility::Public, generic_name);
+        }
 
         let parameters = self
             .parameters
@@ -73,12 +128,10 @@ impl FunctionDeclarationItem {
             visibility,
             modifiers,
             self.name.clone(),
-            generic_ids,
+            generic_ids.clone(),
             parameters,
             return_type,
         );
-
-        Some(())
     }
 
     pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
@@ -188,7 +241,7 @@ impl FunctionDeclarationItem {
 
             ctx.exit_scope();
 
-            ctx.high_environment
+            ctx.resolved_environment
                 .update_regular_function(id, |declaration| {
                     if let FunctionContext::Regular { calls, .. } = &context {
                         declaration.calls.clone_from(calls);
@@ -217,7 +270,7 @@ impl FunctionDeclarationItem {
         }
 
         if resolved_all_parameters {
-            ctx.high_environment
+            ctx.resolved_environment
                 .update_regular_function(id, |declaration| {
                     declaration.parameters = resolved_parameters
                         .into_iter()

@@ -1,10 +1,12 @@
 use crate::{
     high::{
         data_type::DataType,
-        environment::r#type::alias::HighTypeAliasDeclaration,
+        environment::{
+            resolved::r#type::{HighGenericId, HighTypeId, alias::ResolvedTypeAliasDeclaration},
+            unresolved::r#type::UnresolvedTypeDeclarationKind,
+        },
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    low::item::Item,
     span::Span,
     visibility::Visibility,
 };
@@ -15,18 +17,21 @@ pub struct TypeAliasDeclarationItem {
     pub name: String,
     pub generic_names: Vec<String>,
     pub alias: DataType,
+
+    pub id: Option<HighTypeId>,
+    pub generic_ids: Option<Vec<HighGenericId>>,
 }
 
 impl TypeAliasDeclarationItem {
-    pub fn perform_semantic_analysis(
-        self,
+    pub fn resolve_names(
+        &mut self,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
-    ) -> Option<Item> {
+    ) -> Option<()> {
         if ctx.current_scope().type_is_declared(&self.name) {
             return ctx.add_error(
                 self.name_span,
-                SemanticAnalysisError::TypeAlreadyDeclared(self.name),
+                SemanticAnalysisError::TypeAlreadyDeclared(self.name.clone()),
             );
         }
 
@@ -34,23 +39,61 @@ impl TypeAliasDeclarationItem {
 
         let generic_ids = self
             .generic_names
-            .into_iter()
-            .map(|generic_name| ctx.declare_generic(Visibility::Public, generic_name))
-            .collect::<Vec<_>>();
+            .iter()
+            .cloned()
+            .map(|generic_name| {
+                let id = ctx.declare_unresolved_type(
+                    Visibility::Public,
+                    UnresolvedTypeDeclarationKind::Generic(generic_name),
+                );
 
-        let alias = self.alias.perform_semantic_analysis(ctx);
+                HighGenericId(id.0)
+            })
+            .collect();
+
+        self.generic_ids = Some(generic_ids);
+
+        ctx.exit_scope();
+
+        let id = ctx.declare_unresolved_type(
+            visibility,
+            UnresolvedTypeDeclarationKind::Generic(self.name.clone()),
+        );
+
+        self.id = Some(id);
+
+        Some(())
+    }
+
+    pub fn resolve_types(&mut self, ctx: &mut SemanticAnalysisContext, visibility: Visibility) {
+        let id = self.id.unwrap();
+        let generic_ids = self.generic_ids.as_ref().unwrap();
+
+        ctx.enter_scope();
+
+        for (generic_id, generic_name) in generic_ids
+            .iter()
+            .copied()
+            .zip(self.generic_names.iter().cloned())
+        {
+            ctx.declare_generic(generic_id, Visibility::Public, generic_name);
+        }
+
+        let alias = self.alias.clone().perform_semantic_analysis(ctx);
 
         ctx.exit_scope();
 
         ctx.declare_alias(
+            id,
             visibility,
-            HighTypeAliasDeclaration {
-                name: self.name,
-                generic_ids,
+            ResolvedTypeAliasDeclaration {
+                name: self.name.clone(),
+                generic_ids: generic_ids
+                    .iter()
+                    .map(|generic_id| HighGenericId(generic_id.0))
+                    .collect(),
                 alias,
             },
         );
-
-        Some(Item::TypeAliasDeclaration)
     }
 }

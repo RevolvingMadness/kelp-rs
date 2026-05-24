@@ -25,7 +25,9 @@ use crate::{
         CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
         RecursiveRuntimeFunction, RegularRuntimeFunction, RuntimeFunction,
     },
-    high::{environment::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers},
+    high::{
+        environment::resolved::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers,
+    },
     low::{
         data_type::resolved::{FieldAccessType, ResolvedDataType},
         environment::{
@@ -1706,7 +1708,12 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn as_text_component(self, datapack: &mut Datapack, force_display: bool) -> SNBT {
+    pub fn as_text_component(
+        self,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+        force_display: bool,
+    ) -> SNBT {
         match self {
             Self::Score(player_score) => player_score.to_text_component(),
             Self::Data(data) => {
@@ -1798,7 +1805,7 @@ impl ResolvedExpression {
             }
             Self::List(list) => SNBT::list(
                 list.into_iter()
-                    .map(|element| element.as_text_component(datapack, false))
+                    .map(|element| element.as_text_component(datapack, ctx, false))
                     .collect(),
             ),
             Self::Compound(compound) => SNBT::compound(
@@ -1807,7 +1814,7 @@ impl ResolvedExpression {
                     .map(|(key, value)| {
                         (
                             SNBTString(false, key),
-                            value.as_text_component(datapack, false),
+                            value.as_text_component(datapack, ctx, false),
                         )
                     })
                     .collect(),
@@ -1822,7 +1829,7 @@ impl ResolvedExpression {
                         list.push(SNBT::string(", "));
                     }
 
-                    list.push(element.as_text_component(datapack, true));
+                    list.push(element.as_text_component(datapack, ctx, true));
                 }
 
                 list.push(SNBT::string(")"));
@@ -1831,12 +1838,10 @@ impl ResolvedExpression {
             }
             Self::Never => SNBT::string('!'),
             Self::Unit => SNBT::string("()"),
-            Self::Reference(_place) => {
-                // // Should '&' be displayed?
-
-                // place.as_text_component(datapack, force_display)
-
-                todo!()
+            Self::Reference(place) => {
+                place
+                    .resolve(datapack, ctx)
+                    .as_text_component(datapack, ctx, force_display)
             }
             Self::Function(id) => {
                 let (_, _, declaration) = datapack.get_function(id);
@@ -1911,7 +1916,7 @@ impl ResolvedExpression {
                         }
 
                         output.push(SNBT::string(format!("{}: ", key)));
-                        output.push(value.clone().as_text_component(datapack, true));
+                        output.push(value.clone().as_text_component(datapack, ctx, true));
                     }
 
                     if fields.is_empty() {
@@ -1927,7 +1932,7 @@ impl ResolvedExpression {
                     for (field_name, field_value) in fields {
                         output.insert(
                             SNBTString(false, field_name),
-                            Macroable::Regular(field_value.as_text_component(datapack, false)),
+                            Macroable::Regular(field_value.as_text_component(datapack, ctx, false)),
                         );
                     }
 
@@ -1971,7 +1976,7 @@ impl ResolvedExpression {
                             output.push(SNBT::string(", "));
                         }
 
-                        output.push(value.clone().as_text_component(datapack, true));
+                        output.push(value.clone().as_text_component(datapack, ctx, true));
                     }
 
                     output.push(SNBT::string(")"));
@@ -1982,7 +1987,7 @@ impl ResolvedExpression {
 
                     for field_value in fields {
                         output.push(Macroable::Regular(
-                            field_value.as_text_component(datapack, false),
+                            field_value.as_text_component(datapack, ctx, false),
                         ));
                     }
 

@@ -1,5 +1,7 @@
 use crate::{
-    high::{environment::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers},
+    high::{
+        environment::resolved::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers,
+    },
     low::{
         data_type::resolved::ResolvedDataType, expression::unresolved::UnresolvedExpression,
         pattern::UnresolvedPattern,

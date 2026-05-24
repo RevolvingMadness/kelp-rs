@@ -1,11 +1,11 @@
 use crate::{
     high::{
-        environment::value::{
+        environment::resolved::value::{
             function::{
-                HighFunctionDeclaration, HighFunctionId, builtin::HighBuiltinFunctionId,
+                HighFunctionId, ResolvedFunctionDeclaration, builtin::HighBuiltinFunctionId,
                 regular::HighRegularFunctionId,
             },
-            variable::{HighVariableDeclaration, HighVariableId},
+            variable::{HighVariableId, ResolvedVariableDeclaration},
         },
         semantic_analysis::SemanticAnalysisContext,
     },
@@ -45,12 +45,12 @@ impl From<HighBuiltinFunctionId> for HighValueId {
 }
 
 #[derive(Debug, Clone)]
-pub enum HighValueDeclarationKind {
-    Variable(HighVariableDeclaration),
-    Function(Box<HighFunctionDeclaration>),
+pub enum ResolvedValueDeclarationKind {
+    Variable(ResolvedVariableDeclaration),
+    Function(Box<ResolvedFunctionDeclaration>),
 }
 
-impl HighValueDeclarationKind {
+impl ResolvedValueDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -61,13 +61,13 @@ impl HighValueDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct HighValueDeclaration {
+pub struct ResolvedValueDeclaration {
     pub visibility: Visibility,
     pub module_path: Vec<String>,
-    pub kind: HighValueDeclarationKind,
+    pub kind: ResolvedValueDeclarationKind,
 }
 
-impl HighValueDeclaration {
+impl ResolvedValueDeclaration {
     pub fn resolve_fully(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -76,14 +76,14 @@ impl HighValueDeclaration {
         path_span: Span,
     ) -> Option<(HighValueId, UnresolvedDataType)> {
         match self.kind {
-            HighValueDeclarationKind::Variable(declaration) => {
+            ResolvedValueDeclarationKind::Variable(declaration) => {
                 let expected_generics = 0;
                 let actual_generics = generic_types.len();
 
                 if actual_generics != expected_generics {
                     let type_name = &declaration
                         .data_type
-                        .display(&ctx.high_environment)
+                        .display(&ctx.resolved_environment)
                         .to_string();
 
                     return ctx.add_invalid_generics(
@@ -96,7 +96,7 @@ impl HighValueDeclaration {
 
                 Some((original_id, declaration.data_type))
             }
-            HighValueDeclarationKind::Function(declaration) => {
+            ResolvedValueDeclarationKind::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
                 let expected_generics = declaration.generic_count();
@@ -126,8 +126,8 @@ impl HighValueDeclaration {
         generic_types: &[UnresolvedDataType],
     ) -> UnresolvedDataType {
         match &self.kind {
-            HighValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
-            HighValueDeclarationKind::Function(..) => {
+            ResolvedValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
+            ResolvedValueDeclarationKind::Function(..) => {
                 UnresolvedDataType::Function(HighFunctionId(id.0), generic_types.to_vec())
             }
         }

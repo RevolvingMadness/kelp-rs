@@ -25,16 +25,28 @@ pub struct AssociatedItem {
 }
 
 impl AssociatedItem {
-    pub fn perform_semantic_analysis(
-        self,
+    pub fn resolve_names(
+        &mut self,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
-    ) -> Option<Item> {
+    ) -> Option<()> {
+        match &mut self.kind {
+            AssociatedItemKind::FunctionDeclaration(item) => item.resolve_names(ctx, visibility),
+            AssociatedItemKind::TypeAliasDeclaration(item) => item.resolve_names(ctx, visibility),
+        }
+    }
+
+    pub fn resolve_types(&mut self, ctx: &mut SemanticAnalysisContext, visibility: Visibility) {
+        match &mut self.kind {
+            AssociatedItemKind::FunctionDeclaration(item) => item.resolve_types(ctx, visibility),
+            AssociatedItemKind::TypeAliasDeclaration(item) => item.resolve_types(ctx, visibility),
+        }
+    }
+
+    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
         match self.kind {
             AssociatedItemKind::FunctionDeclaration(item) => item.perform_semantic_analysis(ctx),
-            AssociatedItemKind::TypeAliasDeclaration(item) => {
-                item.perform_semantic_analysis(ctx, visibility)
-            }
+            AssociatedItemKind::TypeAliasDeclaration(..) => Some(Item::TypeAliasDeclaration),
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    high::environment::value::function::builtin::BuiltinFunctionKind,
+    high::environment::resolved::value::function::builtin::BuiltinFunctionKind,
     low::data_type::resolved::ResolvedDataType,
 };
 

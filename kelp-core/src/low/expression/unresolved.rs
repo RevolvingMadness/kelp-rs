@@ -19,7 +19,7 @@ use crate::{
     data::GeneratedData,
     datapack::Datapack,
     high::{
-        environment::{
+        environment::resolved::{
             r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
             value::HighValueId,
         },
@@ -731,7 +731,7 @@ impl UnresolvedExpressionKind {
             ),
             Self::RegularStruct(id, generic_types, field_expressions) => {
                 let (module_path, visiblity, declaration) =
-                    datapack.high_environment.get_regular_struct(id);
+                    datapack.resolved_environment.get_regular_struct(id);
 
                 let module_path = module_path.to_vec();
                 let name = declaration.name.clone();
@@ -772,7 +772,7 @@ impl UnresolvedExpressionKind {
             }
             Self::TupleStruct(id, generic_types, field_expressions) => {
                 let (module_path, visiblity, declaration) =
-                    datapack.high_environment.get_tuple_struct(id);
+                    datapack.resolved_environment.get_tuple_struct(id);
 
                 let module_path = module_path.to_vec();
                 let name = declaration.name.clone();

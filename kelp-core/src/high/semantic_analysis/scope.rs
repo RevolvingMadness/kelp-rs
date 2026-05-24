@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::high::environment::{
-    r#type::{HighTypeId, module::HighModuleDeclaration},
-    value::HighValueId,
+    resolved::{r#type::HighTypeId, value::HighValueId},
+    unresolved::r#type::module::UnresolvedModuleDeclaration,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -12,6 +12,12 @@ pub struct Scope {
 }
 
 impl Scope {
+    #[inline]
+    #[must_use]
+    pub fn into_tuple(self) -> (HashMap<String, HighTypeId>, HashMap<String, HighValueId>) {
+        (self.types, self.values)
+    }
+
     #[inline]
     pub fn declare_type(&mut self, name: String, id: HighTypeId) {
         self.types.insert(name, id);
@@ -48,8 +54,8 @@ impl Scope {
 
     #[inline]
     #[must_use]
-    pub fn into_module_declaration(self, module_name: String) -> HighModuleDeclaration {
-        HighModuleDeclaration {
+    pub fn into_module_declaration(self, module_name: String) -> UnresolvedModuleDeclaration {
+        UnresolvedModuleDeclaration {
             name: module_name,
             types: self.types,
             values: self.values,

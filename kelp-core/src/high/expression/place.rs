@@ -1,7 +1,7 @@
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    high::{environment::value::HighValueId, semantic_analysis::SemanticAnalysisContext},
+    high::{environment::resolved::value::HighValueId, semantic_analysis::SemanticAnalysisContext},
     low::{
         data::Data,
         data_type::unresolved::UnresolvedDataType,

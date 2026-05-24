@@ -83,7 +83,7 @@ impl DataType {
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let declaration = ctx.get_type(id).clone();
+                let declaration = ctx.get_resolved_type(id).clone();
 
                 declaration.resolve_partially(
                     ctx,

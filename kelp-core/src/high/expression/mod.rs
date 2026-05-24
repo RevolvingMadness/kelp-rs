@@ -10,7 +10,7 @@ use crate::{
         data::DataTarget,
         data_type::DataType,
         entity_selector::EntitySelector,
-        environment::r#type::r#struct::regular::HighRegularStructId,
+        environment::resolved::r#type::r#struct::regular::HighRegularStructId,
         expression::{
             assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionKind},
             block::BlockExpression,
@@ -209,7 +209,7 @@ impl Expression {
 
                 let id = ctx.get_visible_value_id(&path)?;
 
-                let value_declaration = ctx.get_value(id).clone();
+                let value_declaration = ctx.get_resolved_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 
@@ -674,8 +674,9 @@ impl Expression {
                         UnresolvedDataType::Score(Box::new(expression.data_type.clone()))
                     }
                     RuntimeStorageType::Data => {
-                        let Some(data_type) =
-                            expression.data_type.get_data_type(&ctx.high_environment)
+                        let Some(data_type) = expression
+                            .data_type
+                            .get_data_type(&ctx.resolved_environment)
                         else {
                             return ctx.add_error(
                                 expression_span,
@@ -796,7 +797,8 @@ impl Expression {
                     .map(|argument| argument.perform_semantic_analysis(ctx))
                     .collect_option_all::<Vec<_>>()?;
 
-                let Some(call_info) = callee.data_type.get_call_info(&ctx.high_environment)? else {
+                let Some(call_info) = callee.data_type.get_call_info(&ctx.resolved_environment)?
+                else {
                     return ctx
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
@@ -979,7 +981,7 @@ impl Expression {
 
                 let id = ctx.get_visible_value_id(&path)?;
 
-                let value_declaration = ctx.get_value(id).clone();
+                let value_declaration = ctx.get_resolved_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 

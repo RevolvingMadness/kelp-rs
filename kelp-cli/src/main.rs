@@ -2,7 +2,7 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
-use kelp_core::high::environment::HighEnvironment;
+use kelp_core::high::environment::resolved::ResolvedEnvironment;
 use kelp_core::high::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::high::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::low::program::Program as MiddleProgram;
@@ -171,7 +171,7 @@ fn display_semantic_analysis_infos(
                 Report::build(ReportKind::Error, span.clone())
                     .with_label(
                         Label::new(span)
-                            .with_message(error.display(&ctx.high_environment))
+                            .with_message(error.display(&ctx.resolved_environment))
                             .with_color(Color::Red),
                     )
                     .finish()
@@ -320,7 +320,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     if semantic_analysis_succeeded && parse_succeeded {
         process_success(
-            semantic_analysis_context.high_environment,
+            semantic_analysis_context.resolved_environment,
             program,
             &main_kelp_path,
             &main_kelp,
@@ -331,7 +331,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 }
 
 fn process_success(
-    high_environment: HighEnvironment,
+    resolved_environment: ResolvedEnvironment,
     program: MiddleProgram,
     _file_name: &str,
     _source_text: &str,
@@ -341,7 +341,11 @@ fn process_success(
     let project_name = kelp_toml.project.name;
     let project_description = kelp_toml.project.description;
 
-    let mut datapack = Datapack::new(high_environment, project_name.clone(), project_description);
+    let mut datapack = Datapack::new(
+        resolved_environment,
+        project_name.clone(),
+        project_description,
+    );
     datapack.settings.num_match_cases_to_split = 5;
     datapack.push_namespace("main");
     datapack.push_function_to_current_namespace(vec!["main".to_string()]);

@@ -8,7 +8,7 @@ use minecraft_command_types::{
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    high::environment::{
+    high::environment::resolved::{
         r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
         value::variable::HighVariableId,
     },

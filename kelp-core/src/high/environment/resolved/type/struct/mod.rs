@@ -1,9 +1,9 @@
 use crate::{
-    high::environment::r#type::{
+    high::environment::resolved::r#type::{
         HighGenericId,
         r#struct::{
-            regular::{HighRegularStructDeclaration, HighRegularStructId},
-            tuple::{HighTupleStructDeclaration, HighTupleStructId},
+            regular::{HighRegularStructId, ResolvedRegularStructDeclaration},
+            tuple::{HighTupleStructId, ResolvedTupleStructDeclaration},
         },
     },
     low::data_type::unresolved::UnresolvedDataType,
@@ -28,12 +28,12 @@ impl From<HighTupleStructId> for HighStructId {
 }
 
 #[derive(Debug, Clone)]
-pub enum HighStructDeclaration {
-    Struct(HighRegularStructDeclaration),
-    Tuple(HighTupleStructDeclaration),
+pub enum ResolvedStructDeclaration {
+    Struct(ResolvedRegularStructDeclaration),
+    Tuple(ResolvedTupleStructDeclaration),
 }
 
-impl HighStructDeclaration {
+impl ResolvedStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

@@ -83,7 +83,7 @@ impl Command {
 
                 LowCommand::Tellraw(
                     selector.compile(datapack, ctx),
-                    expression.as_text_component(datapack, false),
+                    expression.as_text_component(datapack, ctx, false),
                 )
             }
             Self::Return(command) => match command {

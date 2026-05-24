@@ -2,13 +2,13 @@ use std::collections::HashSet;
 
 use crate::{
     high::{
-        environment::{
-            HighEnvironment,
+        environment::resolved::{
+            ResolvedEnvironment,
             value::{
-                HighValueDeclaration, HighValueDeclarationKind,
+                ResolvedValueDeclaration, ResolvedValueDeclarationKind,
                 function::{
-                    HighFunctionDeclaration, HighFunctionId,
-                    regular::HighRegularFunctionDeclaration,
+                    HighFunctionId, ResolvedFunctionDeclaration,
+                    regular::ResolvedRegularFunctionDeclaration,
                 },
             },
         },
@@ -20,7 +20,7 @@ use crate::{
 };
 
 fn calls_recursively(
-    high_environment: &HighEnvironment,
+    resolved_environment: &ResolvedEnvironment,
     callee_id: HighFunctionId,
     call_id: HighFunctionId,
     visited_calls: &mut HashSet<HighFunctionId>,
@@ -33,14 +33,17 @@ fn calls_recursively(
         return false;
     }
 
-    let (_, _, HighFunctionDeclaration::Regular(HighRegularFunctionDeclaration { calls, .. })) =
-        high_environment.get_function(call_id)
+    let (
+        _,
+        _,
+        ResolvedFunctionDeclaration::Regular(ResolvedRegularFunctionDeclaration { calls, .. }),
+    ) = resolved_environment.get_function(call_id)
     else {
         return false;
     };
 
     for (_, call_id) in calls {
-        if calls_recursively(high_environment, callee_id, *call_id, visited_calls) {
+        if calls_recursively(resolved_environment, callee_id, *call_id, visited_calls) {
             return true;
         }
     }
@@ -78,18 +81,18 @@ impl Program {
 
         let mut failed = false;
 
-        for (callee_id, value) in ctx.high_environment.iter_values() {
+        for (callee_id, value) in ctx.resolved_environment.iter_values() {
             let callee_id = HighFunctionId(callee_id.0);
 
-            let HighValueDeclaration {
-                kind: HighValueDeclarationKind::Function(declaration),
+            let ResolvedValueDeclaration {
+                kind: ResolvedValueDeclarationKind::Function(declaration),
                 ..
             } = value
             else {
                 continue;
             };
 
-            let HighFunctionDeclaration::Regular(HighRegularFunctionDeclaration {
+            let ResolvedFunctionDeclaration::Regular(ResolvedRegularFunctionDeclaration {
                 modifiers,
                 calls,
                 ..
@@ -103,7 +106,7 @@ impl Program {
                     let mut visited_calls = HashSet::new();
 
                     if calls_recursively(
-                        &ctx.high_environment,
+                        &ctx.resolved_environment,
                         callee_id,
                         *call_id,
                         &mut visited_calls,

@@ -1,12 +1,13 @@
 use crate::{
-    high::environment::r#type::HighGenericId, low::data_type::unresolved::UnresolvedDataType,
+    high::environment::resolved::r#type::HighGenericId,
+    low::data_type::unresolved::UnresolvedDataType,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighTupleStructId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct HighTupleStructDeclaration {
+pub struct ResolvedTupleStructDeclaration {
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
     pub field_types: Vec<UnresolvedDataType>,

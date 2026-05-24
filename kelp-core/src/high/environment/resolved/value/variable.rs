@@ -4,7 +4,7 @@ use crate::low::data_type::unresolved::UnresolvedDataType;
 pub struct HighVariableId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct HighVariableDeclaration {
+pub struct ResolvedVariableDeclaration {
     pub name: String,
     pub data_type: UnresolvedDataType,
 }

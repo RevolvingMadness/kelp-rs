@@ -6,16 +6,16 @@ use std::{
 use crate::{
     datapack::Datapack,
     high::{
-        environment::{
-            HighEnvironment,
+        environment::resolved::{
+            ResolvedEnvironment,
             r#type::{
                 HighGenericId,
                 r#struct::{
-                    HighStructDeclaration, HighStructId, regular::HighRegularStructId,
+                    HighStructId, ResolvedStructDeclaration, regular::HighRegularStructId,
                     tuple::HighTupleStructId,
                 },
             },
-            value::function::{HighFunctionDeclaration, HighFunctionId},
+            value::function::{HighFunctionId, ResolvedFunctionDeclaration},
         },
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
@@ -83,7 +83,7 @@ pub struct CallInfo {
 
 pub struct UnresolvedDataTypeDisplay<'a> {
     pub data_type: &'a UnresolvedDataType,
-    pub high_environment: &'a HighEnvironment,
+    pub resolved_environment: &'a ResolvedEnvironment,
 }
 
 impl Display for UnresolvedDataTypeDisplay<'_> {
@@ -101,14 +101,14 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
             UnresolvedDataType::Never => f.write_char('!'),
             UnresolvedDataType::Score(data_type) => {
                 f.write_str("score<")?;
-                data_type.display(self.high_environment).fmt(f)?;
+                data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
             UnresolvedDataType::List(data_type) => {
                 f.write_str("list<")?;
-                data_type.display(self.high_environment).fmt(f)?;
+                data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
@@ -127,7 +127,7 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
 
                     write!(f, "{}: ", key)?;
 
-                    value_data_type.display(self.high_environment).fmt(f)?;
+                    value_data_type.display(self.resolved_environment).fmt(f)?;
                 }
 
                 if !compound.is_empty() {
@@ -140,21 +140,21 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
             }
             UnresolvedDataType::Compound(data_type) => {
                 f.write_str("compound<")?;
-                data_type.display(self.high_environment).fmt(f)?;
+                data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
             UnresolvedDataType::Data(data_type) => {
                 f.write_str("data<")?;
-                data_type.display(self.high_environment).fmt(f)?;
+                data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
             UnresolvedDataType::Reference(data_type) => {
                 f.write_char('&')?;
-                data_type.display(self.high_environment).fmt(f)?;
+                data_type.display(self.resolved_environment).fmt(f)?;
 
                 Ok(())
             }
@@ -166,7 +166,7 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
                         f.write_str(", ")?;
                     }
 
-                    data_type.display(self.high_environment).fmt(f)?;
+                    data_type.display(self.resolved_environment).fmt(f)?;
                 }
 
                 f.write_char(')')?;
@@ -174,14 +174,14 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
                 Ok(())
             }
             UnresolvedDataType::Generic(id) => {
-                let (_, _, name) = self.high_environment.get_generic(*id);
+                let (_, _, name) = self.resolved_environment.get_generic(*id);
 
                 name.fmt(f)
             }
             UnresolvedDataType::Function(id, generic_types) => {
                 // Maybe display full path?
 
-                let (_, _, declaration) = self.high_environment.get_function(*id);
+                let (_, _, declaration) = self.resolved_environment.get_function(*id);
 
                 write!(f, "fn {}", declaration.name())?;
 
@@ -193,7 +193,7 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
                             f.write_str(", ")?;
                         }
 
-                        data_type.display(self.high_environment).fmt(f)?;
+                        data_type.display(self.resolved_environment).fmt(f)?;
                     }
 
                     f.write_str(">")?;
@@ -206,13 +206,13 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
                         f.write_str(", ")?;
                     }
 
-                    data_type.display(self.high_environment).fmt(f)?;
+                    data_type.display(self.resolved_environment).fmt(f)?;
                 }
 
                 write!(
                     f,
                     ") -> {}",
-                    declaration.return_type().display(self.high_environment)
+                    declaration.return_type().display(self.resolved_environment)
                 )?;
 
                 Ok(())
@@ -220,7 +220,7 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
             UnresolvedDataType::Struct(id, generic_types) => {
                 // Maybe display full path?
 
-                let (_, _, declaration) = self.high_environment.get_struct(*id);
+                let (_, _, declaration) = self.resolved_environment.get_struct(*id);
 
                 f.write_str(declaration.name())?;
 
@@ -232,7 +232,7 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
                             f.write_str(", ")?;
                         }
 
-                        generic_type.display(self.high_environment).fmt(f)?;
+                        generic_type.display(self.resolved_environment).fmt(f)?;
                     }
 
                     f.write_str(">")?;
@@ -399,13 +399,14 @@ impl UnresolvedDataType {
         generic_types: Vec<Self>,
     ) -> StructId {
         let (module_path, visibility, declaration) = {
-            let (module_path, visiblity, declaration) = datapack.high_environment.get_struct(id);
+            let (module_path, visiblity, declaration) =
+                datapack.resolved_environment.get_struct(id);
 
             (module_path.to_vec(), visiblity, declaration.clone())
         };
 
         match declaration {
-            HighStructDeclaration::Struct(declaration) => {
+            ResolvedStructDeclaration::Struct(declaration) => {
                 let id = HighRegularStructId(id.0);
 
                 Self::inner_resolve_regular_struct(
@@ -420,7 +421,7 @@ impl UnresolvedDataType {
                 )
                 .into()
             }
-            HighStructDeclaration::Tuple(declaration) => {
+            ResolvedStructDeclaration::Tuple(declaration) => {
                 let id = HighTupleStructId(id.0);
 
                 Self::inner_resolve_tuple_struct(
@@ -446,7 +447,7 @@ impl UnresolvedDataType {
     ) -> RegularStructId {
         let (module_path, visibility, declaration) = {
             let (module_path, visiblity, declaration) =
-                datapack.high_environment.get_regular_struct(id);
+                datapack.resolved_environment.get_regular_struct(id);
 
             (module_path.to_vec(), visiblity, declaration.clone())
         };
@@ -471,7 +472,7 @@ impl UnresolvedDataType {
     ) -> TupleStructId {
         let (module_path, visibility, declaration) = {
             let (module_path, visiblity, declaration) =
-                datapack.high_environment.get_tuple_struct(id);
+                datapack.resolved_environment.get_tuple_struct(id);
 
             (module_path.to_vec(), visiblity, declaration.clone())
         };
@@ -666,15 +667,18 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    pub fn get_call_info(&self, high_environment: &HighEnvironment) -> Option<Option<CallInfo>> {
+    pub fn get_call_info(
+        &self,
+        resolved_environment: &ResolvedEnvironment,
+    ) -> Option<Option<CallInfo>> {
         Some(Some(match self {
             Self::Error => return None,
 
             Self::Function(id, generic_types) => {
-                let (_, _, declaration) = high_environment.get_function(*id);
+                let (_, _, declaration) = resolved_environment.get_function(*id);
 
                 match declaration {
-                    HighFunctionDeclaration::Regular(declaration) => CallInfo {
+                    ResolvedFunctionDeclaration::Regular(declaration) => CallInfo {
                         id: Some(*id),
                         name: Some(declaration.name.clone()),
                         parameter_types: declaration
@@ -691,7 +695,7 @@ impl UnresolvedDataType {
                             .clone()
                             .substitute_generics(&declaration.generic_ids, generic_types),
                     },
-                    HighFunctionDeclaration::Builtin(declaration) => CallInfo {
+                    ResolvedFunctionDeclaration::Builtin(declaration) => CallInfo {
                         id: None,
                         name: Some(declaration.name.clone()),
                         parameter_types: declaration
@@ -863,11 +867,11 @@ impl UnresolvedDataType {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        high_environment: &'a HighEnvironment,
+        resolved_environment: &'a ResolvedEnvironment,
     ) -> UnresolvedDataTypeDisplay<'a> {
         UnresolvedDataTypeDisplay {
             data_type: self,
-            high_environment,
+            resolved_environment,
         }
     }
 }
@@ -1037,7 +1041,7 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    pub fn get_data_type(&self, high_environment: &HighEnvironment) -> Option<Self> {
+    pub fn get_data_type(&self, resolved_environment: &ResolvedEnvironment) -> Option<Self> {
         check_error!(self);
 
         Some(match self {
@@ -1053,9 +1057,9 @@ impl UnresolvedDataType {
             Self::String => Self::String,
             Self::Unit => Self::Unit,
             Self::Never => Self::Never,
-            Self::Score(data_type) => data_type.get_data_type(high_environment)?,
+            Self::Score(data_type) => data_type.get_data_type(resolved_environment)?,
             Self::List(data_type) => {
-                let data_type = data_type.get_data_type(high_environment)?;
+                let data_type = data_type.get_data_type(resolved_environment)?;
 
                 Self::List(Box::new(data_type))
             }
@@ -1063,7 +1067,7 @@ impl UnresolvedDataType {
                 let compound = compound
                     .iter()
                     .map(|(key, data_type)| {
-                        let data_type = data_type.get_data_type(high_environment)?;
+                        let data_type = data_type.get_data_type(resolved_environment)?;
 
                         Some((key.clone(), data_type))
                     })
@@ -1072,29 +1076,29 @@ impl UnresolvedDataType {
                 Self::TypedCompound(compound)
             }
             Self::Compound(data_type) => {
-                let data_type = data_type.get_data_type(high_environment)?;
+                let data_type = data_type.get_data_type(resolved_environment)?;
 
                 Self::Compound(Box::new(data_type))
             }
-            Self::Data(data_type) => data_type.get_data_type(high_environment)?,
+            Self::Data(data_type) => data_type.get_data_type(resolved_environment)?,
             Self::Reference(data_type) => {
-                let data_type = data_type.get_data_type(high_environment)?;
+                let data_type = data_type.get_data_type(resolved_environment)?;
 
                 Self::Reference(Box::new(data_type))
             }
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .iter()
-                    .map(|data_type| data_type.get_data_type(high_environment))
+                    .map(|data_type| data_type.get_data_type(resolved_environment))
                     .collect::<Option<_>>()?;
 
                 Self::Tuple(data_types)
             }
             Self::Struct(id, generic_types) => {
-                let (_, _, declaration) = high_environment.get_struct(*id);
+                let (_, _, declaration) = resolved_environment.get_struct(*id);
 
                 match declaration {
-                    HighStructDeclaration::Struct(declaration) => {
+                    ResolvedStructDeclaration::Struct(declaration) => {
                         let compound = declaration
                             .field_types
                             .iter()
@@ -1102,7 +1106,7 @@ impl UnresolvedDataType {
                                 let data_type = data_type
                                     .clone()
                                     .substitute_generics(&declaration.generic_ids, generic_types)
-                                    .get_data_type(high_environment)?;
+                                    .get_data_type(resolved_environment)?;
 
                                 Some((key.clone(), data_type))
                             })
@@ -1110,7 +1114,7 @@ impl UnresolvedDataType {
 
                         Self::TypedCompound(compound)
                     }
-                    HighStructDeclaration::Tuple(declaration) => {
+                    ResolvedStructDeclaration::Tuple(declaration) => {
                         let data_types = declaration
                             .field_types
                             .iter()
@@ -1118,7 +1122,7 @@ impl UnresolvedDataType {
                                 data_type
                                     .clone()
                                     .substitute_generics(&declaration.generic_ids, generic_types)
-                                    .get_data_type(high_environment)
+                                    .get_data_type(resolved_environment)
                             })
                             .collect::<Option<_>>()?;
 
@@ -1339,14 +1343,18 @@ impl UnresolvedDataType {
         Some(index_result_type)
     }
 
-    fn get_field_result(&self, high_environment: &HighEnvironment, field: &str) -> Option<Self> {
+    fn get_field_result(
+        &self,
+        resolved_environment: &ResolvedEnvironment,
+        field: &str,
+    ) -> Option<Self> {
         check_error!(self);
 
         Some(match self {
-            Self::Reference(inner) => inner.get_field_result(high_environment, field)?,
+            Self::Reference(inner) => inner.get_field_result(resolved_environment, field)?,
 
             Self::Struct(id, generic_types) => {
-                let (_, _, declaration) = high_environment.get_struct(*id);
+                let (_, _, declaration) = resolved_environment.get_struct(*id);
 
                 let field_type = declaration.get_field(field)?;
 
@@ -1367,7 +1375,7 @@ impl UnresolvedDataType {
 
             Self::Data(data_type) => Self::Data(Box::new(
                 data_type
-                    .get_field_result(high_environment, field)
+                    .get_field_result(resolved_environment, field)
                     .unwrap_or(Self::Inferred),
             )),
 
@@ -1395,7 +1403,7 @@ impl UnresolvedDataType {
             );
         }
 
-        match self.get_field_result(&ctx.high_environment, field) {
+        match self.get_field_result(&ctx.resolved_environment, field) {
             Some(result) => Some(result),
             None => ctx.add_error(
                 span,
@@ -1601,7 +1609,7 @@ impl UnresolvedDataType {
         ctx: &mut SemanticAnalysisContext,
         span: Span,
     ) -> Option<()> {
-        if self.get_data_type(&ctx.high_environment).is_some() {
+        if self.get_data_type(&ctx.resolved_environment).is_some() {
             return Some(());
         }
 

@@ -163,7 +163,7 @@ impl Backend {
                             source: Some("kelp-lsp".to_string()),
                             message: match &info.kind {
                                 SemanticAnalysisInfoKind::Error(error) => error
-                                    .display(&semantic_analysis_context.high_environment)
+                                    .display(&semantic_analysis_context.resolved_environment)
                                     .to_string(),
                             },
                             ..Default::default()

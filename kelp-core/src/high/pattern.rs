@@ -4,7 +4,7 @@ use crate::{
     high::{
         data::Data,
         data_type::DataType,
-        environment::r#type::r#struct::{
+        environment::resolved::r#type::r#struct::{
             HighStructId, regular::HighRegularStructId, tuple::HighTupleStructId,
         },
         player_score::PlayerScore,
@@ -169,7 +169,10 @@ impl Pattern {
             (PatternKind::Data(data), _) => {
                 let data = data.perform_semantic_analysis(ctx)?;
 
-                if variable_type.get_data_type(&ctx.high_environment).is_none() {
+                if variable_type
+                    .get_data_type(&ctx.resolved_environment)
+                    .is_none()
+                {
                     return ctx.add_error(
                         self.span,
                         SemanticAnalysisError::MismatchedPatternTypes {

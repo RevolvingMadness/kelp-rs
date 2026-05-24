@@ -10,13 +10,13 @@ use crate::{
 pub struct HighBuiltinTypeId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct HighBuiltinTypeDeclaration {
+pub struct ResolvedBuiltinTypeDeclaration {
     pub name: String,
     pub generic_count: usize,
     pub kind: BuiltinTypeKind,
 }
 
-impl HighBuiltinTypeDeclaration {
+impl ResolvedBuiltinTypeDeclaration {
     #[must_use]
     pub fn to_data_type_semantic_analysis(
         self,
@@ -59,7 +59,7 @@ impl HighBuiltinTypeDeclaration {
             BuiltinTypeKind::Data => {
                 let element_type = generic_types.remove(0);
 
-                let Some(data_type) = element_type.get_data_type(&ctx.high_environment) else {
+                let Some(data_type) = element_type.get_data_type(&ctx.resolved_environment) else {
                     let element_span = generic_spans.remove(0);
 
                     return ctx.add_error_type(
@@ -112,14 +112,14 @@ pub enum BuiltinTypeKind {
 
 impl BuiltinTypeKind {
     #[must_use]
-    pub fn declaration(self) -> HighBuiltinTypeDeclaration {
+    pub fn declaration(self) -> ResolvedBuiltinTypeDeclaration {
         macro_rules! declaration {
             ($name:ident) => {
                 declaration!($name<0>)
             };
 
             ($name:ident<$generic_count:literal>) => {
-                HighBuiltinTypeDeclaration {
+                ResolvedBuiltinTypeDeclaration {
                     name: stringify!($name).to_owned(),
                     generic_count: $generic_count,
                     kind: self,

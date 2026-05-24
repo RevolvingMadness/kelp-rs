@@ -3,7 +3,7 @@ use strum::EnumIter;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    high::environment::r#type::{HighGenericId, r#struct::tuple::HighTupleStructId},
+    high::environment::resolved::r#type::{HighGenericId, r#struct::tuple::HighTupleStructId},
     low::{data_type::unresolved::UnresolvedDataType, expression::resolved::ResolvedExpression},
 };
 
@@ -11,7 +11,7 @@ use crate::{
 pub struct HighBuiltinFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct HighBuiltinFunctionDeclaration {
+pub struct ResolvedBuiltinFunctionDeclaration {
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
     pub parameters: Vec<UnresolvedDataType>,
@@ -29,12 +29,12 @@ pub enum BuiltinFunctionKind {
 
 impl BuiltinFunctionKind {
     #[must_use]
-    pub fn declaration(self) -> HighBuiltinFunctionDeclaration {
+    pub fn declaration(self) -> ResolvedBuiltinFunctionDeclaration {
         macro_rules! declaration {
             (
                 fn $name:ident ( $($parameters:expr),* $(,)? )
             ) => {
-                HighBuiltinFunctionDeclaration {
+                ResolvedBuiltinFunctionDeclaration {
                     name: stringify!($name).to_owned(),
                     generic_names: Vec::new(),
                     parameters: vec![$($parameters),*],
@@ -46,7 +46,7 @@ impl BuiltinFunctionKind {
             (
                 fn $name:ident ( $($parameters:expr),* $(,)? ) -> $return_type:expr
             ) => {
-                HighBuiltinFunctionDeclaration {
+                ResolvedBuiltinFunctionDeclaration {
                     name: stringify!($name).to_owned(),
                     generic_ids: Vec::new(),
                     parameters: vec![$($parameters),*],
@@ -64,7 +64,7 @@ impl BuiltinFunctionKind {
             (
                 fn $name:ident < $($generic:ident),+ > ( $($parameters:expr),* $(,)? ) -> $return_type:expr
             ) => {
-                HighBuiltinFunctionDeclaration {
+                ResolvedBuiltinFunctionDeclaration {
                     name: stringify!($name).to_owned(),
                     generic_names: vec![$(stringify!($generic).to_owned()),+],
                     parameters: vec![$($parameters),*],

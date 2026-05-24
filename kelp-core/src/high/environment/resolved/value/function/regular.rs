@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     high::{
-        environment::{r#type::HighGenericId, value::function::HighFunctionId},
+        environment::resolved::{r#type::HighGenericId, value::function::HighFunctionId},
         semantic_analysis::RegularFunctionModifiers,
     },
     low::{
@@ -16,7 +16,7 @@ use crate::{
 pub struct HighRegularFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct HighRegularFunctionDeclaration {
+pub struct ResolvedRegularFunctionDeclaration {
     pub name: String,
     pub modifiers: RegularFunctionModifiers,
     pub generic_ids: Vec<HighGenericId>,

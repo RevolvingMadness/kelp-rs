@@ -2,9 +2,9 @@ pub mod builtin;
 pub mod regular;
 
 use crate::{
-    high::environment::value::function::{
-        builtin::{HighBuiltinFunctionDeclaration, HighBuiltinFunctionId},
-        regular::{HighRegularFunctionDeclaration, HighRegularFunctionId},
+    high::environment::resolved::value::function::{
+        builtin::{HighBuiltinFunctionId, ResolvedBuiltinFunctionDeclaration},
+        regular::{HighRegularFunctionId, ResolvedRegularFunctionDeclaration},
     },
     low::{data_type::unresolved::UnresolvedDataType, pattern::UnresolvedPattern},
     parameter_types_iter::{ParameterTypesIter, take_second},
@@ -26,12 +26,12 @@ impl From<HighBuiltinFunctionId> for HighFunctionId {
 }
 
 #[derive(Debug, Clone)]
-pub enum HighFunctionDeclaration {
-    Regular(HighRegularFunctionDeclaration),
-    Builtin(HighBuiltinFunctionDeclaration),
+pub enum ResolvedFunctionDeclaration {
+    Regular(ResolvedRegularFunctionDeclaration),
+    Builtin(ResolvedBuiltinFunctionDeclaration),
 }
 
-impl HighFunctionDeclaration {
+impl ResolvedFunctionDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

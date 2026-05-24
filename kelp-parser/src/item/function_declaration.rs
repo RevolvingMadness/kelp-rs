@@ -261,6 +261,8 @@ pub fn lower_function_declaration_item_kind(
         parameters,
         return_type,
         body,
+
         id: None,
+        generic_ids: None,
     })
 }

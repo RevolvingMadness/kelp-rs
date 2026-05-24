@@ -2,12 +2,14 @@ use crate::compile_context::CompileContext;
 use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
-use crate::high::environment::HighEnvironment;
-use crate::high::environment::r#type::{HighGenericId, HighTypeId};
-use crate::high::environment::value::function::{HighFunctionDeclaration, HighFunctionId};
-use crate::high::environment::value::variable::HighVariableId;
-use crate::high::environment::value::{
-    HighValueDeclaration, HighValueDeclarationKind, HighValueId,
+use crate::high::environment::resolved::ResolvedEnvironment;
+use crate::high::environment::resolved::r#type::{HighGenericId, HighTypeId};
+use crate::high::environment::resolved::value::function::{
+    HighFunctionId, ResolvedFunctionDeclaration,
+};
+use crate::high::environment::resolved::value::variable::HighVariableId;
+use crate::high::environment::resolved::value::{
+    HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
 };
 use crate::low::data_type::resolved::ResolvedDataType;
 use crate::low::data_type::unresolved::UnresolvedDataType;
@@ -149,7 +151,7 @@ pub struct Datapack {
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub high_environment: HighEnvironment,
+    pub resolved_environment: ResolvedEnvironment,
     pub variable_values: HashMap<VariableId, (ResolvedDataType, ResolvedExpression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
@@ -171,7 +173,7 @@ pub struct Datapack {
 impl Datapack {
     #[must_use]
     pub fn new(
-        high_environment: HighEnvironment,
+        resolved_environment: ResolvedEnvironment,
         name: String,
         description: Option<String>,
     ) -> Self {
@@ -180,7 +182,7 @@ impl Datapack {
             description,
             requirements: Cell::new(DatapackRequirements::default()),
             settings: DatapackSettings::default(),
-            high_environment,
+            resolved_environment,
             environment: Environment::default(),
             variable_values: HashMap::new(),
             function_values: HashMap::new(),
@@ -250,11 +252,11 @@ impl Datapack {
         data_type: ResolvedDataType,
         value: ResolvedExpression,
     ) {
-        let HighValueDeclaration {
+        let ResolvedValueDeclaration {
             module_path,
             visibility,
             kind: declaration,
-        } = self.high_environment.get_value(id.into());
+        } = self.resolved_environment.get_value(id.into());
 
         let resolved_id = self.environment.declare_variable(
             module_path.clone(),
@@ -690,12 +692,12 @@ impl Datapack {
     ) -> Option<ValueId> {
         let id = id.into();
 
-        let HighValueDeclaration {
+        let ResolvedValueDeclaration {
             kind: declaration, ..
-        } = self.high_environment.get_value(id);
+        } = self.resolved_environment.get_value(id);
 
         match declaration {
-            HighValueDeclarationKind::Variable(..) => {
+            ResolvedValueDeclarationKind::Variable(..) => {
                 assert!(generic_types.is_empty());
 
                 let id = HighVariableId(id.0);
@@ -704,7 +706,7 @@ impl Datapack {
 
                 Some(id.into())
             }
-            HighValueDeclarationKind::Function(..) => {
+            ResolvedValueDeclarationKind::Function(..) => {
                 let id = HighFunctionId(id.0);
 
                 let id = self.get_monomorphized_function_id(id, generic_types);
@@ -738,13 +740,13 @@ impl Datapack {
             return *id;
         }
 
-        let (module_path, visibility, declaration) = self.high_environment.get_function(id);
+        let (module_path, visibility, declaration) = self.resolved_environment.get_function(id);
 
         let module_path = module_path.to_vec();
         let declaration = declaration.clone();
 
         match declaration {
-            HighFunctionDeclaration::Regular(declaration) => {
+            ResolvedFunctionDeclaration::Regular(declaration) => {
                 let parameters = declaration
                     .parameters
                     .into_iter()
@@ -782,7 +784,7 @@ impl Datapack {
 
                 self.declare_monomorphized_function(id, module_path, visibility, declaration)
             }
-            HighFunctionDeclaration::Builtin(declaration) => {
+            ResolvedFunctionDeclaration::Builtin(declaration) => {
                 let parameters = declaration
                     .parameters
                     .into_iter()

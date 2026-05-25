@@ -15,10 +15,10 @@ use crate::{
                         tuple::ResolvedTupleStructDeclaration,
                     },
                 },
-                value::HighValueId,
             },
             unresolved::r#type::{
                 UnresolvedTypeDeclaration, UnresolvedTypeDeclarationKind,
+                alias::UnresolvedTypeAliasDeclaration,
                 r#struct::{
                     UnresolvedStructDeclaration, regular::UnresolvedRegularStructDeclaration,
                     tuple::UnresolvedTupleStructDeclaration,
@@ -32,6 +32,7 @@ use crate::{
         },
         semantic_analysis::{
             FunctionContext, SemanticAnalysisContext, info::error::SemanticAnalysisError,
+            scope::Scope,
         },
         use_tree::UseTree,
     },
@@ -53,8 +54,7 @@ pub enum ItemKind {
         target_type: DataType,
         associated_items: Vec<AssociatedItem>,
 
-        types: Option<HashMap<String, HighTypeId>>,
-        values: Option<HashMap<String, HighValueId>>,
+        scope: Option<Scope>,
     },
     ModuleDeclaration {
         name_span: Span,
@@ -100,31 +100,42 @@ impl Item {
     pub fn resolve_names(&mut self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
         match &mut self.kind {
             ItemKind::InherentImplementationItem {
+                generic_names,
                 associated_items,
-                types,
-                values,
+                scope: this_scope,
                 ..
             } => {
                 ctx.enter_scope();
 
-                // ctx.declare_alias(
-                //     Visibility::Public,
-                //     HighTypeAliasDeclaration {
-                //         name: "Self".to_owned(),
-                //         generic_ids: Vec::new(),
-                //         alias: target_type.clone(),
-                //     },
-                // );
+                let generic_ids = generic_names
+                    .iter()
+                    .cloned()
+                    .map(|generic_name| {
+                        let id = ctx.declare_unresolved_type(
+                            Visibility::Public,
+                            UnresolvedTypeDeclarationKind::Generic(generic_name),
+                        );
+
+                        HighGenericId(id.0)
+                    })
+                    .collect::<Vec<_>>();
+
+                ctx.declare_unresolved_type(
+                    Visibility::Public,
+                    UnresolvedTypeDeclarationKind::Alias(UnresolvedTypeAliasDeclaration {
+                        name: "Self".to_owned(),
+                        generic_ids,
+                    }),
+                );
 
                 let _associated_items = associated_items
                     .iter_mut()
                     .map(|item| item.resolve_names(ctx, self.visibility))
                     .collect_option_all::<Vec<_>>();
 
-                let (scope_types, scope_values) = ctx.exit_scope().into_tuple();
+                let scope = ctx.exit_scope();
 
-                *types = Some(scope_types);
-                *values = Some(scope_values);
+                *this_scope = Some(scope);
 
                 Some(())
             }
@@ -158,8 +169,8 @@ impl Item {
                 name_span,
                 name,
                 generic_names,
-                id: type_id,
-                generic_ids: type_generic_ids,
+                id: this_id,
+                generic_ids: this_generic_ids,
                 ..
             } => {
                 if ctx.current_scope().type_is_declared(name) {
@@ -184,7 +195,7 @@ impl Item {
                     })
                     .collect::<Vec<_>>();
 
-                *type_generic_ids = Some(generic_ids.clone());
+                *this_generic_ids = Some(generic_ids.clone());
 
                 ctx.exit_scope();
 
@@ -198,7 +209,7 @@ impl Item {
                     )),
                 );
 
-                *type_id = Some(id);
+                *this_id = Some(id);
 
                 Some(())
             }
@@ -406,15 +417,18 @@ impl Item {
                 target_type_span,
                 target_type,
                 associated_items,
-                types,
-                values,
+                scope: this_scope,
+                ..
             } => {
-                let types = types.as_ref().unwrap();
-                let values = values.as_ref().unwrap();
+                let scope = this_scope.take().unwrap();
 
+                ctx.push_scope(scope);
                 for item in associated_items {
                     item.resolve_types(ctx, self.visibility);
                 }
+                let scope = ctx.exit_scope();
+                let (types, values) = scope.clone().into_tuple();
+                *this_scope = Some(scope);
 
                 let target_type = target_type.clone().perform_semantic_analysis(ctx);
 
@@ -423,8 +437,8 @@ impl Item {
                         let implementation = HighImpl {
                             generic_names: generic_names.clone(),
                             target_type,
-                            types: types.clone(),
-                            values: values.clone(),
+                            types,
+                            values,
                         };
 
                         ctx.resolved_environment
@@ -433,6 +447,8 @@ impl Item {
                             .or_default()
                             .push(implementation);
                     }
+
+                    UnresolvedDataType::Error => return None,
 
                     _ => {
                         return ctx.add_error(

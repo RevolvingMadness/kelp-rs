@@ -112,7 +112,6 @@ pub fn lower_inherent_implementation_item(
         target_type,
         associated_items,
 
-        types: None,
-        values: None,
+        scope: None,
     })
 }

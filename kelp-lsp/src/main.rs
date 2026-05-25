@@ -1,5 +1,6 @@
 use kelp_core::high::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfoKind};
 use kelp_parser::cst::CSTProgram;
+use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
 use kelp_parser::program::lower_program;
 use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
@@ -144,10 +145,31 @@ impl Backend {
 
             let root_syntax = match CSTProgram::cast(root) {
                 Ok(cst_program) => {
+                    let source = Some("kelp-lsp".to_owned());
+
+                    let mut lower_context = LowerContext::new(usize::MAX);
+
+                    let program = lower_program(&cst_program, &mut lower_context);
+
+                    for info in lower_context.infos {
+                        diagnostics.push(Diagnostic {
+                            range: Range {
+                                start: line_index.offset_to_position(info.span.start),
+                                end: line_index.offset_to_position(info.span.end),
+                            },
+                            severity: Some(match info.kind {
+                                LowerInfoKind::Error(..) => DiagnosticSeverity::ERROR,
+                            }),
+                            source: source.clone(),
+                            message: match &info.kind {
+                                LowerInfoKind::Error(error) => error.to_string(),
+                            },
+                            ..Default::default()
+                        });
+                    }
+
                     let mut semantic_analysis_context =
                         SemanticAnalysisContext::new("mod", usize::MAX);
-
-                    let program = lower_program(&cst_program, &mut semantic_analysis_context);
 
                     program.perform_semantic_analysis(&mut semantic_analysis_context);
 
@@ -160,7 +182,7 @@ impl Backend {
                             severity: Some(match info.kind {
                                 SemanticAnalysisInfoKind::Error(..) => DiagnosticSeverity::ERROR,
                             }),
-                            source: Some("kelp-lsp".to_string()),
+                            source: source.clone(),
                             message: match &info.kind {
                                 SemanticAnalysisInfoKind::Error(error) => error
                                     .display(&semantic_analysis_context.resolved_environment)

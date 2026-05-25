@@ -1,4 +1,4 @@
-use kelp_core::high::{data::Data, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::data::Data;
 
 use crate::{
     cst::CSTData,
@@ -6,6 +6,7 @@ use crate::{
         nbt_path::{lower_nbt_path, try_parse_nbt_path},
         target::{lower_data_target, try_parse_data_target},
     },
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -36,7 +37,7 @@ pub fn try_parse_data(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_data(node: CSTData, ctx: &mut SemanticAnalysisContext) -> Option<Data> {
+pub fn lower_data(node: CSTData, ctx: &mut LowerContext) -> Option<Data> {
     let target = lower_data_target(node.data_target()?, ctx)?;
     let path = lower_nbt_path(node.n_b_t_path()?, ctx)?;
 

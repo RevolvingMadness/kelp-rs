@@ -1,4 +1,4 @@
-use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::expression::Expression;
 
 use crate::{
     cst::CSTExpressionWithoutBlock,
@@ -19,6 +19,7 @@ use crate::{
         unary::lower_unary_expression, underscore::lower_underscore_expression,
         unit::lower_unit_expression,
     },
+    lower_context::LowerContext,
 };
 
 pub mod as_cast;
@@ -54,7 +55,7 @@ pub mod unit;
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_expression_without_block(
     node: CSTExpressionWithoutBlock,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     match node {
         CSTExpressionWithoutBlock::UnaryExpression(node) => lower_unary_expression(node, ctx),

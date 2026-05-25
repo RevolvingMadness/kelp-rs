@@ -1,13 +1,13 @@
 use kelp_core::high::{
     command::Command,
     expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{
     cst::CSTTellrawCommandExpression,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
@@ -44,7 +44,7 @@ pub fn try_parse_tellraw_command_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_tellraw_command_expression(
     node: CSTTellrawCommandExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 

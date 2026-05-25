@@ -1,11 +1,11 @@
 use kelp_core::high::{
     command::Command,
     expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{
     cst::CSTFunctionCommandExpression,
+    lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
     span::span_of_cst_node,
@@ -33,7 +33,7 @@ pub fn try_parse_function_command_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_function_command_expression(
     node: CSTFunctionCommandExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 

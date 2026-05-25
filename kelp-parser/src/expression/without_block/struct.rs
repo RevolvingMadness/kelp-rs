@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 
 use kelp_core::{
-    high::{
-        expression::{Expression, ExpressionKind},
-        semantic_analysis::SemanticAnalysisContext,
-    },
+    high::expression::{Expression, ExpressionKind},
     span::Span,
 };
 
 use crate::{
     cst::{CSTStructExpression, CSTStructExpressionField, CSTStructExpressionFields},
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     path::generic::lower_generic_path,
     span::{span_of_cst_node, text_range_to_span},
@@ -21,7 +19,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 fn lower_struct_expression_field(
     node: CSTStructExpressionField,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<((Span, String), Expression)> {
     let name_token = node.name()?;
     let name_span = text_range_to_span(name_token.text_range());
@@ -63,7 +61,7 @@ fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_expression_fields(
     node: CSTStructExpressionFields,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<HashMap<(Span, String), Expression>> {
     let fields = node
         .struct_expression_fields()
@@ -108,7 +106,7 @@ pub fn try_parse_struct_expression_fields(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_expression(
     node: CSTStructExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 

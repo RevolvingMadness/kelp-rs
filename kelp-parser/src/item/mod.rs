@@ -1,8 +1,5 @@
 use kelp_core::{
-    high::{
-        item::{Item, ItemKind},
-        semantic_analysis::SemanticAnalysisContext,
-    },
+    high::item::{Item, ItemKind},
     visibility::Visibility,
 };
 
@@ -36,6 +33,7 @@ use crate::{
         },
         r#use::{expect_use_item_kind, lower_use_item, try_parse_use_item_kind},
     },
+    lower_context::LowerContext,
     parser::Parser,
     span::{span_of_cst_node, text_range_to_span},
     r#struct::{lower_struct_fields, lower_tuple_fields},
@@ -154,7 +152,7 @@ pub fn expect_item(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Option<ItemKind> {
+fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ItemKind> {
     match node {
         CSTItemKind::InherentImplementationItem(node) => {
             lower_inherent_implementation_item(node, ctx)
@@ -213,7 +211,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut SemanticAnalysisContext) -> Opti
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_item(node: CSTItem, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
+pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<Item> {
     let span = span_of_cst_node(&node);
 
     let visibility = if node.pub_keyword_token().is_some() {

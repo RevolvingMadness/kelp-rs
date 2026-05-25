@@ -1,7 +1,6 @@
 use kelp_core::{
     high::{
         data_type::DataType, item::function_declaration::FunctionDeclarationItem, pattern::Pattern,
-        semantic_analysis::SemanticAnalysisContext,
     },
     trait_ext::CollectOptionAllIterExt,
 };
@@ -13,6 +12,7 @@ use crate::{
         lower_data_type, try_parse_data_type,
     },
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
+    lower_context::LowerContext,
     parser::Parser,
     pattern::{lower_pattern, try_parse_pattern},
     span::text_range_to_span,
@@ -229,7 +229,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_function_parameter(
     node: CSTFunctionParameter,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<(Pattern, DataType)> {
     let pattern = lower_pattern(node.pattern()?, ctx)?;
 
@@ -242,7 +242,7 @@ pub fn lower_function_parameter(
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_function_parameters(
     node: CSTFunctionParameters,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<(bool, Vec<(Pattern, DataType)>)> {
     let is_method = node.self_function_parameters().count() != 0;
 
@@ -258,7 +258,7 @@ pub fn lower_function_parameters(
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_function_declaration_item_kind(
     node: CSTFunctionDeclarationItem,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<FunctionDeclarationItem> {
     let recursive_keyword_span = node
         .recursive_keyword_token()

@@ -1,11 +1,9 @@
-use kelp_core::high::{
-    pattern::{Pattern, PatternKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::pattern::{Pattern, PatternKind};
 
 use crate::{
     cst::CSTDataPattern,
     data::{lower_data, try_parse_data},
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
@@ -28,10 +26,7 @@ pub fn try_parse_data_pattern(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_data_pattern(
-    node: CSTDataPattern,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<Pattern> {
+pub fn lower_data_pattern(node: CSTDataPattern, ctx: &mut LowerContext) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
 
     let data = lower_data(node.data()?, ctx)?;

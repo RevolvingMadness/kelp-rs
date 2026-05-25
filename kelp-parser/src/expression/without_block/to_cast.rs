@@ -1,14 +1,12 @@
 use kelp_core::{
-    high::{
-        expression::{Expression, ExpressionKind},
-        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-    },
+    high::expression::{Expression, ExpressionKind},
     runtime_storage::RuntimeStorageType,
 };
 
 use crate::{
     cst::CSTToCastExpression,
     expression::lower_expression,
+    lower_context::{LowerContext, LowerError},
     span::{span_of_cst_node, text_range_to_span},
 };
 
@@ -16,7 +14,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_to_cast_expression(
     node: CSTToCastExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 
@@ -28,7 +26,7 @@ pub fn lower_to_cast_expression(
         _ => {
             ctx.add_error_unit(
                 text_range_to_span(runtime_storage_type_token.text_range()),
-                SemanticAnalysisError::UnknownRuntimeStorageType,
+                LowerError::UnknownRuntimeStorageType,
             );
 
             return Some(ExpressionKind::Invalid.with_span(span));

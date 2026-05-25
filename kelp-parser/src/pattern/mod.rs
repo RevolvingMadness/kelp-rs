@@ -1,7 +1,8 @@
-use kelp_core::high::{pattern::Pattern, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::pattern::Pattern;
 
 use crate::{
     cst::CSTPattern,
+    lower_context::LowerContext,
     parser::Parser,
     path::generic::try_parse_generic_path,
     pattern::{
@@ -179,7 +180,7 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_pattern(node: CSTPattern, ctx: &mut SemanticAnalysisContext) -> Option<Pattern> {
+pub fn lower_pattern(node: CSTPattern, ctx: &mut LowerContext) -> Option<Pattern> {
     match node {
         CSTPattern::WildcardPattern(node) => lower_wildcard_pattern(node),
         CSTPattern::TuplePattern(node) => lower_tuple_pattern(node, ctx),

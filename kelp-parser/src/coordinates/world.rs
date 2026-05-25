@@ -1,8 +1,9 @@
-use kelp_core::high::{coordinate::WorldCoordinate, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::coordinate::WorldCoordinate;
 
 use crate::{
     cst::CSTWorldCoordinate,
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -39,7 +40,7 @@ pub fn try_parse_world_coordinate(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_world_coordinate(
     node: CSTWorldCoordinate,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<WorldCoordinate> {
     let is_relative = node.tilde_token().is_some() || node.caret_token().is_some();
 

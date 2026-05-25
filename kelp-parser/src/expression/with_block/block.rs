@@ -1,13 +1,11 @@
-use kelp_core::high::{
-    expression::block::{BlockExpression, BlockExpressionInfo},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::block::{BlockExpression, BlockExpressionInfo};
 
 use crate::{
     cst::{CSTBlockExpression, CSTStatement},
     expression::{
         with_block::lower_expression_with_block, without_block::lower_expression_without_block,
     },
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     statement::{lower_statement, try_parse_statement},
@@ -46,7 +44,7 @@ pub fn try_parse_block_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_block_expression(
     node: CSTBlockExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<BlockExpression> {
     let span = span_of_cst_node(&node);
 

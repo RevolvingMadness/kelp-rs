@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 
 use kelp_core::{
-    high::{
-        expression::{Expression, ExpressionKind},
-        semantic_analysis::SemanticAnalysisContext,
-    },
+    high::expression::{Expression, ExpressionKind},
     span::Span,
 };
 
 use crate::{
     cst::CSTCompoundExpression,
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
@@ -104,7 +102,7 @@ fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_compound_expression_inner(
     node: CSTCompoundExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<(Span, HashMap<String, Expression>)> {
     let mut compound = HashMap::new();
 
@@ -132,7 +130,7 @@ pub fn lower_compound_expression_inner(
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_compound_expression(
     node: CSTCompoundExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let (span, compound) = lower_compound_expression_inner(node, ctx)?;
 

@@ -1,9 +1,7 @@
-use kelp_core::high::{
-    item::associated::{AssociatedItem, AssociatedItemKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::item::associated::{AssociatedItem, AssociatedItemKind};
 use kelp_core::visibility::Visibility;
 
+use crate::lower_context::LowerContext;
 use crate::{
     cst::{CSTAssociatedItem, CSTAssociatedItemKind},
     item::{
@@ -55,7 +53,7 @@ pub fn expect_associated_item(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_associated_item(
     node: CSTAssociatedItem,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<AssociatedItem> {
     let span = span_of_cst_node(&node);
 

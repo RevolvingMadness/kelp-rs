@@ -1,8 +1,9 @@
-use kelp_core::high::{player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::player_score::PlayerScore;
 
 use crate::{
     cst::CSTPlayerScore,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -44,10 +45,7 @@ pub fn try_parse_player_score(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_player_score(
-    node: CSTPlayerScore,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<PlayerScore> {
+pub fn lower_player_score(node: CSTPlayerScore, ctx: &mut LowerContext) -> Option<PlayerScore> {
     let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
 
     let objective_token = node.scoreboard_objective_token()?;

@@ -1,7 +1,4 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::{Expression, ExpressionKind};
 
 use crate::{
     cst::CSTDataExpression,
@@ -9,6 +6,7 @@ use crate::{
         nbt_path::{lower_nbt_path, try_parse_nbt_path},
         target::{lower_data_target, try_parse_data_target},
     },
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
@@ -38,7 +36,7 @@ pub fn try_parse_data_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_data_expression(
     node: CSTDataExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 

@@ -1,18 +1,18 @@
 use kelp_core::{
-    high::{expression::{Expression, ExpressionKind}, semantic_analysis::SemanticAnalysisContext},
+    high::expression::{Expression, ExpressionKind},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
 };
 
 use crate::{
-    cst::CSTBinaryExpression, expression::lower_expression, span::span_of_cst_node,
-    syntax::SyntaxKind,
+    cst::CSTBinaryExpression, expression::lower_expression, lower_context::LowerContext,
+    span::span_of_cst_node, syntax::SyntaxKind,
 };
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_binary_expression(
     node: CSTBinaryExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 

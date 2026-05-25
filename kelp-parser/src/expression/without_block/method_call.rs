@@ -1,11 +1,9 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::{Expression, ExpressionKind};
 
 use crate::{
     cst::CSTMethodCallExpression,
     expression::{lower_expression, without_block::call::lower_call_arguments},
+    lower_context::LowerContext,
     path::generic::lower_generic_path_segment,
     span::span_of_cst_node,
 };
@@ -14,7 +12,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_method_call_expression(
     node: CSTMethodCallExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let receiver = lower_expression(node.expression()?, ctx)?;
 

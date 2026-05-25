@@ -1,14 +1,9 @@
-use kelp_core::{
-    high::{
-        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-        supports_expression_sigil::SupportsExpressionSigil,
-    },
-    span::Span,
-};
+use kelp_core::{high::supports_expression_sigil::SupportsExpressionSigil, span::Span};
 
 use crate::{
     cst::CSTExpressionSigil,
     expression::{lower_expression, try_parse_expression},
+    lower_context::{LowerContext, LowerError},
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -37,7 +32,7 @@ pub fn try_parse_expression_sigil(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_expression_sigil<T>(
     node: CSTExpressionSigil,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<SupportsExpressionSigil<T>> {
     let expression = lower_expression(node.expression()?, ctx)?;
 
@@ -47,12 +42,12 @@ pub fn lower_expression_sigil<T>(
 pub fn assert_not_sigil<T>(
     sigil: SupportsExpressionSigil<T>,
     span: Span,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<T> {
     match sigil {
         SupportsExpressionSigil::Regular(value) => Some(value),
         SupportsExpressionSigil::Sigil(..) => {
-            ctx.add_error(span, SemanticAnalysisError::ExpressionSigilNotAllowed)
+            ctx.add_error(span, LowerError::ExpressionSigilNotAllowed)
         }
     }
 }

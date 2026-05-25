@@ -1,8 +1,9 @@
-use kelp_core::high::{program::Program, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::program::Program;
 
 use crate::{
     cst::CSTProgram,
     item::{expect_item, lower_item},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -24,7 +25,7 @@ pub fn parse_program(parser: &mut Parser) {
 }
 
 #[must_use]
-pub fn lower_program(program: &CSTProgram, ctx: &mut SemanticAnalysisContext) -> Program {
+pub fn lower_program(program: &CSTProgram, ctx: &mut LowerContext) -> Program {
     let items = program
         .items()
         .filter_map(|item| lower_item(item, ctx))

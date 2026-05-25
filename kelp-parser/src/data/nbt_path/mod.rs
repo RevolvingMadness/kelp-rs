@@ -1,4 +1,4 @@
-use kelp_core::high::{nbt_path::NbtPath, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::nbt_path::NbtPath;
 
 use crate::{
     cst::CSTNBTPath,
@@ -6,6 +6,7 @@ use crate::{
         index::try_parse_index_nbt_path_node, lower_nbt_path_node,
         named::try_parse_named_nbt_path_node, try_parse_start_nbt_path_node,
     },
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -49,7 +50,7 @@ pub fn try_parse_nbt_path(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_nbt_path(node: CSTNBTPath, ctx: &mut SemanticAnalysisContext) -> Option<NbtPath> {
+pub fn lower_nbt_path(node: CSTNBTPath, ctx: &mut LowerContext) -> Option<NbtPath> {
     let nodes = node
         .n_b_t_path_nodes()
         .filter_map(|nbt_path_node| lower_nbt_path_node(nbt_path_node, ctx))

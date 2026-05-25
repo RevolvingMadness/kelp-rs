@@ -1,4 +1,4 @@
-use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::expression::Expression;
 
 use crate::{
     cst::CSTLoopExpression,
@@ -6,6 +6,7 @@ use crate::{
         infinite::lower_infinite_loop_expression, iterator::lower_iterator_loop_expression,
         predicate::lower_predicate_loop_expression,
     },
+    lower_context::LowerContext,
 };
 
 pub mod infinite;
@@ -16,7 +17,7 @@ pub mod predicate;
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_loop_expression(
     node: CSTLoopExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     match node {
         CSTLoopExpression::PredicateLoopExpression(node) => {

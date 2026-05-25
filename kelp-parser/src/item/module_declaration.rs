@@ -1,8 +1,9 @@
-use kelp_core::high::{item::ItemKind, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::item::ItemKind;
 
 use crate::{
     cst::CSTModuleDeclarationItem,
     item::{expect_item, lower_item},
+    lower_context::LowerContext,
     parser::Parser,
     span::text_range_to_span,
     syntax::SyntaxKind,
@@ -75,7 +76,7 @@ pub fn expect_module_declaration_item_kind(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_module_declaration_item(
     node: CSTModuleDeclarationItem,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<ItemKind> {
     let name_token = node.module_name_token()?;
     let name_range = name_token.text_range();

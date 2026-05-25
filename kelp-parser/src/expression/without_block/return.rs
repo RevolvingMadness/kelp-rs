@@ -1,11 +1,9 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::{Expression, ExpressionKind};
 
 use crate::{
     cst::CSTReturnExpression,
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     span::{span_of_cst_node, text_range_to_span},
     syntax::SyntaxKind,
@@ -29,7 +27,7 @@ pub fn try_parse_return_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_return_expression(
     node: CSTReturnExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let keyword_span = text_range_to_span(node.return_keyword_token()?.text_range());
     let full_span = span_of_cst_node(&node);

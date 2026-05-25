@@ -1,4 +1,4 @@
-use kelp_core::high::{item::ItemKind, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::item::ItemKind;
 
 use crate::{
     cst::CSTInherentImplementationItem,
@@ -7,6 +7,7 @@ use crate::{
         lower_data_type, try_parse_data_type,
     },
     item::associated::{expect_associated_item, lower_associated_item},
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
@@ -94,7 +95,7 @@ pub fn expect_inherent_implementation_item_kind(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_inherent_implementation_item(
     node: CSTInherentImplementationItem,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<ItemKind> {
     let generic_names = node.generic_names().and_then(lower_generic_names);
     let target_type = node.data_type()?;

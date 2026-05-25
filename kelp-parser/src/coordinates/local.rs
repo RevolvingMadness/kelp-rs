@@ -1,8 +1,9 @@
-use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::expression::Expression;
 
 use crate::{
     cst::CSTLocalCoordinate,
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -23,7 +24,7 @@ pub fn parse_local_coordinate(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_local_coordinate(
     node: CSTLocalCoordinate,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Option<Expression>> {
     let result = node
         .expression()

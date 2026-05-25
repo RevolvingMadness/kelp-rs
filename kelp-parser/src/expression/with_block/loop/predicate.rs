@@ -1,7 +1,4 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::{Expression, ExpressionKind};
 
 use crate::{
     cst::CSTPredicateLoopExpression,
@@ -9,6 +6,7 @@ use crate::{
         lower_expression, try_parse_expression,
         with_block::block::{lower_block_expression, try_parse_block_expression},
     },
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
@@ -43,7 +41,7 @@ pub fn try_parse_predicate_loop_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_predicate_loop_expression(
     node: CSTPredicateLoopExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 

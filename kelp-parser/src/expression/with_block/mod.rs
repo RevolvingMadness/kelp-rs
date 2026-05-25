@@ -1,13 +1,11 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::{Expression, ExpressionKind};
 
 use crate::{
     cst::CSTExpressionWithBlock,
     expression::with_block::{
         block::lower_block_expression, r#if::lower_if_expression, r#loop::lower_loop_expression,
     },
+    lower_context::LowerContext,
     span::span_of_cst_node,
 };
 
@@ -19,7 +17,7 @@ pub mod r#loop;
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_expression_with_block(
     node: CSTExpressionWithBlock,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     match node {
         CSTExpressionWithBlock::BlockExpression(node) => {

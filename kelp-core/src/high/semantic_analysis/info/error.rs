@@ -79,9 +79,6 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                     data_type.display(self.resolved_environment)
                 )
             }
-            SemanticAnalysisError::ExpressionSigilNotAllowed => {
-                write!(f, "An expression sigil is not allowed here")
-            }
             SemanticAnalysisError::MismatchedTypes { expected, actual } => {
                 write!(
                     f,
@@ -117,23 +114,6 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 write!(
                     f,
                     "The type `{}` cannot be represented as a float",
-                    data_type.display(self.resolved_environment)
-                )
-            }
-            SemanticAnalysisError::UnknownRuntimeStorageType => {
-                write!(f, "Unknown runtime storage type")
-            }
-            SemanticAnalysisError::ValueTooLarge(data_type) => {
-                write!(
-                    f,
-                    "This value is too big to fit in the type `{}`",
-                    data_type.display(self.resolved_environment)
-                )
-            }
-            SemanticAnalysisError::ValueTooSmall(data_type) => {
-                write!(
-                    f,
-                    "This value is too small to fit in the type `{}`",
                     data_type.display(self.resolved_environment)
                 )
             }
@@ -405,11 +385,7 @@ pub enum SemanticAnalysisError {
         to: UnresolvedDataType,
     },
     CannotUseReturnInCompiletimeFunction,
-    ExpressionSigilNotAllowed,
     CannotBeRepresentedAsFloat(UnresolvedDataType),
-    UnknownRuntimeStorageType,
-    ValueTooLarge(UnresolvedDataType),
-    ValueTooSmall(UnresolvedDataType),
     RecursiveFunctionCall,
     CompiletimeValueMutationInRuntimeLoop,
     MissingKey(String),

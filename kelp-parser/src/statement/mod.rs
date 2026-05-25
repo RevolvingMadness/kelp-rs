@@ -1,7 +1,4 @@
-use kelp_core::high::{
-    semantic_analysis::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
-};
+use kelp_core::high::statement::{Statement, StatementKind};
 
 use crate::{
     cst::{CSTExpressionStatement, CSTStatement},
@@ -10,6 +7,7 @@ use crate::{
         try_parse_expression_without_block, with_block::lower_expression_with_block,
         without_block::lower_expression_without_block,
     },
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     statement::{
@@ -137,7 +135,7 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_expression_statement(
     node: CSTExpressionStatement,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Statement> {
     let expression = if let Some(without_block) = node.expression_without_block() {
         lower_expression_without_block(without_block, ctx)?
@@ -152,7 +150,7 @@ pub fn lower_expression_statement(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_statement(node: CSTStatement, ctx: &mut SemanticAnalysisContext) -> Option<Statement> {
+pub fn lower_statement(node: CSTStatement, ctx: &mut LowerContext) -> Option<Statement> {
     match node {
         CSTStatement::ExpressionStatement(node) => lower_expression_statement(node, ctx),
         CSTStatement::LetStatement(statement) => lower_let_statement(statement, ctx),

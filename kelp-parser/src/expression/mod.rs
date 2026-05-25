@@ -1,4 +1,4 @@
-use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::expression::Expression;
 
 use crate::{
     cst::CSTExpression,
@@ -24,6 +24,7 @@ use crate::{
             r#struct::try_parse_struct_expression_fields,
         },
     },
+    lower_context::LowerContext,
     parser::Parser,
     path::generic::{try_parse_generic_path, try_parse_generic_path_segment},
     syntax::SyntaxKind,
@@ -762,10 +763,7 @@ pub fn try_parse_expression_with_block(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_expression(
-    node: CSTExpression,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<Expression> {
+pub fn lower_expression(node: CSTExpression, ctx: &mut LowerContext) -> Option<Expression> {
     match node {
         CSTExpression::ExpressionWithBlock(node) => lower_expression_with_block(node, ctx),
         CSTExpression::ExpressionWithoutBlock(node) => lower_expression_without_block(node, ctx),

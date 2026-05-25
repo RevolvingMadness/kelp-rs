@@ -1,4 +1,4 @@
-use kelp_core::high::{expression::Expression, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::expression::Expression;
 
 use crate::{
     cst::CSTCommandExpression,
@@ -7,6 +7,7 @@ use crate::{
         stopwatch::{lower_stopwatch_command_expression, try_parse_stopwatch_command_expression},
         tellraw::{lower_tellraw_command_expression, try_parse_tellraw_command_expression},
     },
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -34,7 +35,7 @@ pub fn try_parse_command_expression(parser: &mut Parser, name: &str) -> bool {
 
 pub fn lower_command_expression(
     node: CSTCommandExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     match node {
         CSTCommandExpression::TellrawCommandExpression(node) => {

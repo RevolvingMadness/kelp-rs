@@ -1,11 +1,9 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::{Expression, ExpressionKind};
 
 use crate::{
     cst::CSTEntitySelectorExpression,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     syntax::SyntaxKind,
@@ -41,7 +39,7 @@ pub fn try_parse_entity_selector_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_entity_selector_expression(
     node: CSTEntitySelectorExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let entity_selector = lower_entity_selector(node.entity_selector()?, ctx)?;
 

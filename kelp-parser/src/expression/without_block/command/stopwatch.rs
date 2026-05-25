@@ -1,7 +1,6 @@
 use kelp_core::high::{
     command::{Command, stopwatch::StopwatchCommand},
     expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
 };
 
 use crate::{
@@ -10,6 +9,7 @@ use crate::{
         CSTStopwatchCommandExpressionOptions, CSTStopwatchCommandExpressionQuery,
         CSTStopwatchCommandExpressionRemove, CSTStopwatchCommandExpressionRestart,
     },
+    lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
     span::span_of_cst_node,
@@ -114,7 +114,7 @@ pub fn try_parse_stopwatch_command_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_create(
     node: CSTStopwatchCommandExpressionCreate,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<StopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
@@ -125,7 +125,7 @@ fn lower_stopwatch_command_expression_create(
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_query(
     node: CSTStopwatchCommandExpressionQuery,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<StopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
@@ -140,7 +140,7 @@ fn lower_stopwatch_command_expression_query(
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_remove(
     node: CSTStopwatchCommandExpressionRemove,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<StopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
@@ -151,7 +151,7 @@ fn lower_stopwatch_command_expression_remove(
 #[allow(clippy::needless_pass_by_value)]
 fn lower_stopwatch_command_expression_restart(
     node: CSTStopwatchCommandExpressionRestart,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<StopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
@@ -161,7 +161,7 @@ fn lower_stopwatch_command_expression_restart(
 #[must_use]
 fn lower_stopwatch_command_expression_options(
     node: CSTStopwatchCommandExpressionOptions,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<StopwatchCommand> {
     match node {
         CSTStopwatchCommandExpressionOptions::StopwatchCommandExpressionCreate(node) => {
@@ -183,7 +183,7 @@ fn lower_stopwatch_command_expression_options(
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_stopwatch_command_expression(
     node: CSTStopwatchCommandExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let span = span_of_cst_node(&node);
 

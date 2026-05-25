@@ -1,6 +1,5 @@
 use kelp_core::high::{
-    entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext,
-    supports_expression_sigil::SupportsExpressionSigil,
+    entity_selector::EntitySelector, supports_expression_sigil::SupportsExpressionSigil,
 };
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
@@ -10,6 +9,7 @@ use crate::{
         CSTVariableEntitySelector,
     },
     expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -199,7 +199,7 @@ pub fn lower_actual_entity_selector(node: CSTActualEntitySelector) -> Option<Ent
 #[must_use]
 pub fn lower_entity_selector(
     node: CSTEntitySelector,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<SupportsExpressionSigil<EntitySelector>> {
     match node {
         CSTEntitySelector::ActualEntitySelector(node) => {

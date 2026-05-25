@@ -1,10 +1,7 @@
-use kelp_core::high::{
-    semantic_analysis::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
-};
+use kelp_core::high::statement::{Statement, StatementKind};
 
 use crate::{
-    cst::CSTBreakStatement, parser::Parser, span::span_of_cst_node,
+    cst::CSTBreakStatement, lower_context::LowerContext, parser::Parser, span::span_of_cst_node,
     statement::expect_semicolon_ending, syntax::SyntaxKind,
 };
 
@@ -25,7 +22,7 @@ pub fn try_parse_break_statement(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_break_statement(
     node: CSTBreakStatement,
-    _ctx: &mut SemanticAnalysisContext,
+    _ctx: &mut LowerContext,
 ) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 

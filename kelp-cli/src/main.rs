@@ -7,6 +7,7 @@ use kelp_core::high::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::high::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::low::program::Program as MiddleProgram;
 use kelp_parser::cst::CSTProgram;
+use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseResult, Parser};
 use kelp_parser::program::lower_program;
 use serde::Deserialize;
@@ -184,6 +185,23 @@ fn display_semantic_analysis_infos(
     !ctx.infos.is_empty()
 }
 
+fn display_parse_infos(ctx: &LowerContext, main_kelp_path: &str, main_kelp: &str) -> bool {
+    for info in &ctx.infos {
+        match &info.kind {
+            LowerInfoKind::Error(error) => {
+                let span = (main_kelp_path, info.span.into_range());
+                Report::build(ReportKind::Error, span.clone())
+                    .with_label(Label::new(span).with_message(error).with_color(Color::Red))
+                    .finish()
+                    .print((main_kelp_path, Source::from(main_kelp)))
+                    .unwrap();
+            }
+        }
+    }
+
+    !ctx.infos.is_empty()
+}
+
 fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let root = project_path.unwrap_or_else(|| std::env::current_dir().unwrap());
     let kelp_toml_path_buf = root.join("Kelp.toml");
@@ -267,11 +285,15 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
             .unwrap();
     }
 
-    let mut semantic_analysis_context = SemanticAnalysisContext::new(&kelp_toml.project.id, 10);
+    let max_infos = 10;
+
+    let mut lower_context = LowerContext::new(max_infos);
 
     let lower_start = Instant::now();
-    let program = lower_program(&root, &mut semantic_analysis_context);
+    let program = lower_program(&root, &mut lower_context);
     let lower_elapsed = lower_start.elapsed();
+
+    let lower_succeeded = !display_parse_infos(&lower_context, &main_kelp_path, &main_kelp);
 
     let start_semantic = Instant::now();
 
@@ -310,6 +332,9 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         (semantic_analysis_succeeded, part_1_elapsed)
     };
 
+    let mut semantic_analysis_context =
+        SemanticAnalysisContext::new(&kelp_toml.project.id, max_infos);
+
     let Some(program) = program.perform_semantic_analysis(&mut semantic_analysis_context) else {
         display_info(&semantic_analysis_context);
 
@@ -318,7 +343,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     let (semantic_analysis_succeeded, part_1_elapsed) = display_info(&semantic_analysis_context);
 
-    if semantic_analysis_succeeded && parse_succeeded {
+    if lower_succeeded && semantic_analysis_succeeded && parse_succeeded {
         process_success(
             semantic_analysis_context.resolved_environment,
             program,

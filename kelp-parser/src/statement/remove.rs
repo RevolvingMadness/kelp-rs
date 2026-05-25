@@ -1,11 +1,9 @@
-use kelp_core::high::{
-    semantic_analysis::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
-};
+use kelp_core::high::statement::{Statement, StatementKind};
 
 use crate::{
     cst::CSTRemoveStatement,
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     span::span_of_cst_node,
     statement::expect_semicolon_ending,
@@ -39,7 +37,7 @@ pub fn try_parse_remove_statement(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_remove_statement(
     node: CSTRemoveStatement,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 

@@ -11,6 +11,9 @@ serde_json = { workspace = true }
 paste = "1.0.15"
 phf = "0.13.1"
 rowan = "0.16.1"
+thiserror = "2.0.18"
+strum = "0.28.0"
+strum_macros = "0.28.0"
 
 [build-dependencies]
 prettyplease = "0.2.37"

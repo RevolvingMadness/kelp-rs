@@ -1,10 +1,8 @@
-use kelp_core::high::{
-    expression::{Expression, ExpressionKind},
-    semantic_analysis::SemanticAnalysisContext,
-};
+use kelp_core::high::expression::{Expression, ExpressionKind};
 
 use crate::{
     cst::CSTResourceLocationExpression,
+    lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
     span::span_of_cst_node,
@@ -41,7 +39,7 @@ pub fn try_parse_resource_location_expression(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_resource_location_expression(
     node: CSTResourceLocationExpression,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Expression> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 

@@ -1,12 +1,10 @@
-use kelp_core::high::{
-    semantic_analysis::SemanticAnalysisContext,
-    statement::{Statement, StatementKind},
-};
+use kelp_core::high::statement::{Statement, StatementKind};
 
 use crate::{
     cst::CSTLetStatement,
     data_type::{lower_data_type, try_parse_data_type},
     expression::{lower_expression, try_parse_expression},
+    lower_context::LowerContext,
     parser::Parser,
     pattern::{lower_pattern, try_parse_pattern},
     span::span_of_cst_node,
@@ -59,10 +57,7 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_let_statement(
-    node: CSTLetStatement,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<Statement> {
+pub fn lower_let_statement(node: CSTLetStatement, ctx: &mut LowerContext) -> Option<Statement> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;

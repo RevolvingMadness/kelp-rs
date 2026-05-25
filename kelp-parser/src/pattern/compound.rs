@@ -1,14 +1,12 @@
 use kelp_core::{
-    high::{
-        pattern::{Pattern, PatternKind},
-        semantic_analysis::SemanticAnalysisContext,
-    },
+    high::pattern::{Pattern, PatternKind},
     path::generic::GenericPath,
     span::Span,
 };
 
 use crate::{
     cst::{CSTCompoundPattern, CSTCompoundPatternEntry},
+    lower_context::LowerContext,
     pattern::lower_pattern,
     span::{span_of_cst_node, text_range_to_span},
 };
@@ -17,7 +15,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_compound_pattern_entry(
     node: CSTCompoundPatternEntry,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<((Span, String), Pattern)> {
     let entry_name_token = node.name()?;
     let entry_name_span = text_range_to_span(entry_name_token.text_range());
@@ -36,10 +34,7 @@ pub fn lower_compound_pattern_entry(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_compound_pattern(
-    node: CSTCompoundPattern,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<Pattern> {
+pub fn lower_compound_pattern(node: CSTCompoundPattern, ctx: &mut LowerContext) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
 
     let entries = node

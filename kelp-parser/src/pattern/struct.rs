@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use kelp_core::{
-    high::{
-        pattern::{Pattern, PatternKind},
-        semantic_analysis::SemanticAnalysisContext,
-    },
+    high::pattern::{Pattern, PatternKind},
     path::generic::GenericPath,
     span::Span,
 };
@@ -14,6 +11,7 @@ use crate::{
         CSTRegularStructPattern, CSTRegularStructPatternField, CSTRegularStructPatternFields,
         CSTTupleStructPattern, CSTTupleStructPatternField, CSTTupleStructPatternFields,
     },
+    lower_context::LowerContext,
     parser::Parser,
     path::generic::lower_generic_path,
     pattern::{lower_pattern, try_parse_pattern},
@@ -25,7 +23,7 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_pattern_field(
     node: CSTRegularStructPatternField,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<((Span, String), Pattern)> {
     let field_name_token = node.struct_field_name_token()?;
     let field_name_span = text_range_to_span(field_name_token.text_range());
@@ -77,7 +75,7 @@ fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 fn lower_struct_pattern_fields(
     node: CSTRegularStructPatternFields,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> HashMap<(Span, String), Pattern> {
     node.regular_struct_pattern_fields()
         .filter_map(|field| lower_struct_pattern_field(field, ctx))
@@ -119,7 +117,7 @@ pub fn try_parse_struct_pattern_fields(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_struct_pattern(
     node: CSTRegularStructPattern,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
 
@@ -137,7 +135,7 @@ pub fn lower_struct_pattern(
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_tuple_struct_pattern_field(
     node: CSTTupleStructPatternField,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Pattern> {
     let field_pattern = lower_pattern(node.pattern()?, ctx)?;
 
@@ -163,7 +161,7 @@ fn try_parse_tuple_struct_pattern_field(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 fn lower_tuple_struct_pattern_fields(
     node: CSTTupleStructPatternFields,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Vec<Pattern> {
     node.tuple_struct_pattern_fields()
         .filter_map(|field| lower_tuple_struct_pattern_field(field, ctx))
@@ -205,7 +203,7 @@ pub fn try_parse_tuple_struct_pattern_fields(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_tuple_struct_pattern(
     node: CSTTupleStructPattern,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Pattern> {
     let span = span_of_cst_node(&node);
 

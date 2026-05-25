@@ -7,10 +7,11 @@ use crate::{
         lower_expression,
         without_block::compound::{lower_compound_expression_inner, try_parse_compound_expression},
     },
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
-use kelp_core::high::{nbt_path::NbtPathNode, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::nbt_path::NbtPathNode;
 
 pub mod index;
 pub mod named;
@@ -37,10 +38,7 @@ pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
     }
 }
 
-pub fn lower_nbt_path_node(
-    node: CSTNBTPathNode,
-    ctx: &mut SemanticAnalysisContext,
-) -> Option<NbtPathNode> {
+pub fn lower_nbt_path_node(node: CSTNBTPathNode, ctx: &mut LowerContext) -> Option<NbtPathNode> {
     match node {
         CSTNBTPathNode::IndexNBTPathNode(node) => {
             let index = node.index();

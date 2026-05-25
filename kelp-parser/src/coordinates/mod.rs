@@ -1,6 +1,5 @@
 use kelp_core::high::{
-    coordinate::Coordinates, semantic_analysis::SemanticAnalysisContext,
-    supports_expression_sigil::SupportsExpressionSigil,
+    coordinate::Coordinates, supports_expression_sigil::SupportsExpressionSigil,
 };
 
 use crate::{
@@ -10,6 +9,7 @@ use crate::{
     },
     cst::{CSTActualCoordinates, CSTCoordinates},
     expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -58,7 +58,7 @@ pub fn try_parse_coordinates(parser: &mut Parser) -> bool {
 #[must_use]
 pub fn lower_actual_coordinates(
     node: CSTActualCoordinates,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<Coordinates> {
     Some(match node {
         CSTActualCoordinates::WorldCoordinates(node) => {
@@ -87,7 +87,7 @@ pub fn lower_actual_coordinates(
 #[must_use]
 pub fn lower_coordinates(
     node: CSTCoordinates,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<SupportsExpressionSigil<Coordinates>> {
     match node {
         CSTCoordinates::ActualCoordinates(node) => {

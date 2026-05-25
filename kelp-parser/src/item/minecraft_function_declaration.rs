@@ -1,10 +1,11 @@
-use kelp_core::high::{item::ItemKind, semantic_analysis::SemanticAnalysisContext};
+use kelp_core::high::item::ItemKind;
 use rowan::ast::AstNode;
 
 use crate::{
     cst::CSTMinecraftFunctionDeclarationItem,
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     expression_sigil::assert_not_sigil,
+    lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
     span::text_range_to_span,
@@ -58,7 +59,7 @@ pub fn expect_minecraft_function_declaration_item_kind(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_minecraft_function_declaration_item_kind(
     node: CSTMinecraftFunctionDeclarationItem,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<ItemKind> {
     let resource_location_token = node.resource_location()?;
     let resource_location_span = text_range_to_span(resource_location_token.syntax().text_range());

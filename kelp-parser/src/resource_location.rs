@@ -1,6 +1,4 @@
-use kelp_core::high::{
-    semantic_analysis::SemanticAnalysisContext, supports_expression_sigil::SupportsExpressionSigil,
-};
+use kelp_core::high::supports_expression_sigil::SupportsExpressionSigil;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
@@ -9,6 +7,7 @@ use crate::{
         CSTResourceLocationPath, CSTResourceLocationPathSegment,
     },
     expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -100,7 +99,7 @@ pub fn lower_actual_resource_location(node: CSTActualResourceLocation) -> Option
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_resource_location(
     node: CSTResourceLocation,
-    ctx: &mut SemanticAnalysisContext,
+    ctx: &mut LowerContext,
 ) -> Option<SupportsExpressionSigil<ResourceLocation>> {
     match node {
         CSTResourceLocation::ActualResourceLocation(node) => {

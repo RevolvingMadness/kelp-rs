@@ -1,5 +1,4 @@
-use kelp_core::high::statement::Statement;
-use la_arena::Idx;
+use kelp_core::high::statement::{Statement, StatementId};
 
 use crate::{
     cst::CSTBreakStatement, lower_context::LowerContext, parser::Parser, span::span_of_cst_node,
@@ -24,7 +23,7 @@ pub fn try_parse_break_statement(parser: &mut Parser) -> bool {
 pub fn lower_break_statement(
     node: CSTBreakStatement,
     ctx: &mut LowerContext,
-) -> Option<Idx<Statement>> {
+) -> Option<StatementId> {
     let span = span_of_cst_node(&node);
 
     Some(ctx.allocator.allocate_statement(span, Statement::Break))

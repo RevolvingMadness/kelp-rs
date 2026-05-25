@@ -1,5 +1,7 @@
-use kelp_core::{high::expression::Expression, operator::ArithmeticOperator};
-use la_arena::Idx;
+use kelp_core::{
+    high::expression::{Expression, ExpressionId},
+    operator::ArithmeticOperator,
+};
 
 use crate::{
     cst::CSTAssignmentExpression,
@@ -14,7 +16,7 @@ use crate::{
 pub fn lower_assignment_expression(
     node: CSTAssignmentExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let target = lower_expression(node.target()?, ctx)?;

@@ -1,21 +1,23 @@
 use la_arena::Idx;
 
-use crate::ast_allocator::high::HighAstAllocator;
+use crate::ast_allocator::high::{HighAstAllocator, Spanned};
 use crate::ast_allocator::low::LowAstAllocator;
 use crate::high::data_type::DataType;
-use crate::high::expression::Expression;
+use crate::high::expression::{Expression, ExpressionId};
 use crate::high::item::Item;
 use crate::high::pattern::Pattern;
 use crate::high::semantic_analysis::SemanticAnalysisContext;
 use crate::high::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::low::statement::{LoopControlFlowKind, UnresolvedStatement};
 
+pub type StatementId = Idx<Spanned<Statement>>;
+
 #[derive(Debug, Clone)]
 pub enum Statement {
-    Expression(Idx<Expression>),
-    Let(Option<DataType>, Idx<Pattern>, Idx<Expression>),
-    Append(Idx<Expression>, Idx<Expression>),
-    Remove(Idx<Expression>),
+    Expression(ExpressionId),
+    Let(Option<DataType>, Idx<Pattern>, ExpressionId),
+    Append(ExpressionId, ExpressionId),
+    Remove(ExpressionId),
     Item(Idx<Item>),
     Break,
     Continue,
@@ -24,12 +26,12 @@ pub enum Statement {
 impl Statement {
     #[must_use]
     pub fn perform_semantic_analysis(
-        id: Idx<Self>,
+        id: StatementId,
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<Idx<UnresolvedStatement>> {
-        Some(match high_allocator.get_statement(id) {
+        Some(match high_allocator.get_statement_value(id) {
             Self::Expression(expression) => {
                 let expression = Expression::perform_semantic_analysis(
                     *expression,

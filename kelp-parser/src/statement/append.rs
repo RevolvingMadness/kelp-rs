@@ -1,5 +1,4 @@
-use kelp_core::high::statement::Statement;
-use la_arena::Idx;
+use kelp_core::high::statement::{Statement, StatementId};
 
 use crate::{
     cst::CSTAppendStatement,
@@ -45,7 +44,7 @@ pub fn try_parse_append_statement(parser: &mut Parser) -> bool {
 pub fn lower_append_statement(
     node: CSTAppendStatement,
     ctx: &mut LowerContext,
-) -> Option<Idx<Statement>> {
+) -> Option<StatementId> {
     let span = span_of_cst_node(&node);
 
     let target = lower_expression(node.target()?, ctx)?;

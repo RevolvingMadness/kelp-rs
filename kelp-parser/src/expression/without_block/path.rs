@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{
     cst::CSTPathExpression, lower_context::LowerContext, path::generic::lower_generic_path,
@@ -11,7 +10,7 @@ use crate::{
 pub fn lower_path_expression(
     node: CSTPathExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;

@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{
     cst::CSTDataExpression,
@@ -38,7 +37,7 @@ pub fn try_parse_data_expression(parser: &mut Parser) -> bool {
 pub fn lower_data_expression(
     node: CSTDataExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let target = lower_data_target(node.data_target()?, ctx)?;

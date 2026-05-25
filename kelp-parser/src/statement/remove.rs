@@ -1,5 +1,4 @@
-use kelp_core::high::statement::Statement;
-use la_arena::Idx;
+use kelp_core::high::statement::{Statement, StatementId};
 
 use crate::{
     cst::CSTRemoveStatement,
@@ -39,7 +38,7 @@ pub fn try_parse_remove_statement(parser: &mut Parser) -> bool {
 pub fn lower_remove_statement(
     node: CSTRemoveStatement,
     ctx: &mut LowerContext,
-) -> Option<Idx<Statement>> {
+) -> Option<StatementId> {
     let span = span_of_cst_node(&node);
 
     let target = lower_expression(node.target()?, ctx)?;

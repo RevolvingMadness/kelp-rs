@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{
     cst::CSTExpressionWithBlock,
@@ -19,7 +18,7 @@ pub mod r#loop;
 pub fn lower_expression_with_block(
     node: CSTExpressionWithBlock,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     match node {
         CSTExpressionWithBlock::BlockExpression(node) => {
             let span = span_of_cst_node(&node);

@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{
     cst::CSTTupleExpression, expression::lower_expression, lower_context::LowerContext,
@@ -11,7 +10,7 @@ use crate::{
 pub fn lower_tuple_expression(
     node: CSTTupleExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let expressions = node

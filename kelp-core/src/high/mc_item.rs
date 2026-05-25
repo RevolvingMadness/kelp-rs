@@ -1,9 +1,11 @@
-use la_arena::Idx;
 use minecraft_command_types::{item::ItemType, resource_location::ResourceLocation};
 
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
-    high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
+    high::{
+        expression::{Expression, ExpressionId},
+        semantic_analysis::SemanticAnalysisContext,
+    },
     low::mc_item::{
         ItemPredicate as MiddleItemPredicate, ItemTest as MiddleItemTest, OrGroup as MiddleOrGroup,
     },
@@ -13,8 +15,8 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ItemTest {
     Component(ResourceLocation),
-    ComponentMatches(ResourceLocation, Idx<Expression>),
-    Predicate(ResourceLocation, Idx<Expression>),
+    ComponentMatches(ResourceLocation, ExpressionId),
+    Predicate(ResourceLocation, ExpressionId),
 }
 
 impl ItemTest {

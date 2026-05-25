@@ -1,7 +1,6 @@
 use std::num::IntErrorKind;
 
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 use ordered_float::NotNan;
 
 use crate::{
@@ -25,7 +24,7 @@ enum NumericKind {
 pub fn lower_numeric_expression(
     node: CSTNumericExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let value_token = node.fractional_value_token()?;

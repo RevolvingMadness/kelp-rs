@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{cst::CSTCharacterExpression, lower_context::LowerContext, span::span_of_cst_node};
 
@@ -8,7 +7,7 @@ use crate::{cst::CSTCharacterExpression, lower_context::LowerContext, span::span
 pub fn lower_character_expression(
     node: CSTCharacterExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let text_token = node.character_literal_token()?;

@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{
     cst::CSTFieldAccessExpression,
@@ -13,7 +12,7 @@ use crate::{
 pub fn lower_field_access_expression(
     node: CSTFieldAccessExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let expression = lower_expression(node.expression()?, ctx)?;
     let field_token = node.field_name_token()?;
 

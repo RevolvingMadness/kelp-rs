@@ -1,5 +1,4 @@
-use kelp_core::high::statement::Statement;
-use la_arena::Idx;
+use kelp_core::high::statement::{Statement, StatementId};
 
 use crate::{
     cst::CSTLetStatement,
@@ -58,10 +57,7 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_let_statement(
-    node: CSTLetStatement,
-    ctx: &mut LowerContext,
-) -> Option<Idx<Statement>> {
+pub fn lower_let_statement(node: CSTLetStatement, ctx: &mut LowerContext) -> Option<StatementId> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;

@@ -1,5 +1,7 @@
-use kelp_core::high::{command::Command, expression::Expression};
-use la_arena::Idx;
+use kelp_core::high::{
+    command::Command,
+    expression::{Expression, ExpressionId},
+};
 
 use crate::{
     cst::CSTFunctionCommandExpression,
@@ -32,7 +34,7 @@ pub fn try_parse_function_command_expression(parser: &mut Parser) -> bool {
 pub fn lower_function_command_expression(
     node: CSTFunctionCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;

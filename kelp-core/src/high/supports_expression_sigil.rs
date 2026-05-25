@@ -1,12 +1,13 @@
 use std::fmt::Display;
 
-use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        coordinate::Coordinates, entity_selector::EntitySelector, expression::Expression,
+        coordinate::Coordinates,
+        entity_selector::EntitySelector,
+        expression::{Expression, ExpressionId},
         semantic_analysis::SemanticAnalysisContext,
     },
     low::{
@@ -19,7 +20,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum SupportsExpressionSigil<T> {
     Regular(T),
-    Sigil(Idx<Expression>),
+    Sigil(ExpressionId),
 }
 
 pub trait RegularSupportsExpressionSigilExt: Sized {

@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{
     cst::CSTMethodCallExpression,
@@ -14,7 +13,7 @@ use crate::{
 pub fn lower_method_call_expression(
     node: CSTMethodCallExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let receiver = lower_expression(node.expression()?, ctx)?;
 
     let callee = lower_generic_path_segment(node.generic_path_segment()?)?;

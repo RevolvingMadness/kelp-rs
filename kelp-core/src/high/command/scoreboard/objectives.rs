@@ -1,10 +1,10 @@
-use la_arena::Idx;
 use minecraft_command_types::command::enums::scoreboard_render_type::ScoreboardRenderType;
 
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        command::scoreboard::players::ScoreboardNumberFormat, expression::Expression,
+        command::scoreboard::players::ScoreboardNumberFormat,
+        expression::{Expression, ExpressionId},
         semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::scoreboard::objectives::{
@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
-    DisplayName(Idx<Expression>),
+    DisplayName(ExpressionId),
     NumberFormat(Option<Box<ScoreboardNumberFormat>>),
     RenderType(ScoreboardRenderType),
 }
@@ -63,7 +63,7 @@ impl ScoreboardModification {
 #[derive(Debug, Clone)]
 pub enum ObjectivesScoreboardCommand {
     List,
-    Add(String, String, Option<Idx<Expression>>),
+    Add(String, String, Option<ExpressionId>),
     Remove(String),
     SetDisplay(String, Option<String>),
     Modify(String, ScoreboardModification),

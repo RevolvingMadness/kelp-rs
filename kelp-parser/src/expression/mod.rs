@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::ExpressionId;
 
 use crate::{
     cst::CSTExpression,
@@ -764,7 +763,7 @@ pub fn try_parse_expression_with_block(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_expression(node: CSTExpression, ctx: &mut LowerContext) -> Option<Idx<Expression>> {
+pub fn lower_expression(node: CSTExpression, ctx: &mut LowerContext) -> Option<ExpressionId> {
     match node {
         CSTExpression::ExpressionWithBlock(node) => lower_expression_with_block(node, ctx),
         CSTExpression::ExpressionWithoutBlock(node) => lower_expression_without_block(node, ctx),

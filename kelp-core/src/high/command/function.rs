@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
-
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        data::DataTarget, expression::Expression, nbt_path::NbtPath,
-        semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
+        data::DataTarget,
+        expression::{Expression, ExpressionId},
+        nbt_path::NbtPath,
+        semantic_analysis::SemanticAnalysisContext,
+        snbt_string::SNBTString,
     },
     low::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
     trait_ext::CollectOptionAllIterExt,
@@ -14,7 +15,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
-    Compound(HashMap<SNBTString, Idx<Expression>>),
+    Compound(HashMap<SNBTString, ExpressionId>),
     DataTarget(Box<(DataTarget, Option<NbtPath>)>),
 }
 

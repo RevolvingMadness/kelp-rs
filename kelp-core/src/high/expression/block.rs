@@ -3,8 +3,10 @@ use la_arena::Idx;
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        expression::Expression, item::Item, semantic_analysis::SemanticAnalysisContext,
-        statement::Statement,
+        expression::{Expression, ExpressionId},
+        item::Item,
+        semantic_analysis::SemanticAnalysisContext,
+        statement::{Statement, StatementId},
     },
     low::{
         data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
@@ -15,8 +17,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct BlockExpressionInfo {
-    pub statements: Vec<Idx<Statement>>,
-    pub tail_expression: Option<Idx<Expression>>,
+    pub statements: Vec<StatementId>,
+    pub tail_expression: Option<ExpressionId>,
 }
 
 impl BlockExpressionInfo {
@@ -49,7 +51,7 @@ impl BlockExpression {
             .iter()
             .copied()
             .filter_map(|statement| {
-                let statement = high_allocator.get_statement(statement);
+                let statement = high_allocator.get_statement_value(statement);
 
                 if let Statement::Item(item) = statement {
                     Some(*item)

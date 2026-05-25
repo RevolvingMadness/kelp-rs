@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{cst::CSTBooleanExpression, lower_context::LowerContext, span::span_of_cst_node};
 
@@ -9,7 +8,7 @@ use crate::{cst::CSTBooleanExpression, lower_context::LowerContext, span::span_o
 pub fn lower_boolean_expression(
     node: CSTBooleanExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     Some(ctx.allocator.allocate_expression(

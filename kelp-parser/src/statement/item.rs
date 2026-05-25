@@ -1,5 +1,4 @@
-use kelp_core::high::statement::Statement;
-use la_arena::Idx;
+use kelp_core::high::statement::{Statement, StatementId};
 
 use crate::{
     cst::CSTItemStatement,
@@ -26,10 +25,7 @@ pub fn try_parse_item_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_item_statement(
-    node: CSTItemStatement,
-    ctx: &mut LowerContext,
-) -> Option<Idx<Statement>> {
+pub fn lower_item_statement(node: CSTItemStatement, ctx: &mut LowerContext) -> Option<StatementId> {
     let span = span_of_cst_node(&node);
 
     let item = lower_item(node.item()?, ctx)?;

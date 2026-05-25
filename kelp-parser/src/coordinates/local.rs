@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::ExpressionId;
 
 use crate::{
     cst::CSTLocalCoordinate,
@@ -26,7 +25,7 @@ pub fn parse_local_coordinate(parser: &mut Parser) {
 pub fn lower_local_coordinate(
     node: CSTLocalCoordinate,
     ctx: &mut LowerContext,
-) -> Option<Option<Idx<Expression>>> {
+) -> Option<Option<ExpressionId>> {
     let result = node
         .expression()
         .map(|expression| lower_expression(expression, ctx));

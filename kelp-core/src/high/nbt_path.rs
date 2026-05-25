@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
-
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
-    high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
+    high::{
+        expression::{Expression, ExpressionId},
+        semantic_analysis::SemanticAnalysisContext,
+    },
     low::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
     trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone)]
 pub enum NbtPathNode {
-    RootCompound(HashMap<String, Idx<Expression>>),
-    Named(String, Option<HashMap<String, Idx<Expression>>>),
-    Index(Option<Idx<Expression>>),
+    RootCompound(HashMap<String, ExpressionId>),
+    Named(String, Option<HashMap<String, ExpressionId>>),
+    Index(Option<ExpressionId>),
 }
 
 impl NbtPathNode {

@@ -1,4 +1,3 @@
-use la_arena::Idx;
 use minecraft_command_types::command::{
     ScoreValue, enums::score_operation_operator::ScoreOperationOperator,
 };
@@ -6,7 +5,9 @@ use minecraft_command_types::command::{
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        entity_selector::EntitySelector, expression::Expression, player_score::PlayerScore,
+        entity_selector::EntitySelector,
+        expression::{Expression, ExpressionId},
+        player_score::PlayerScore,
         semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::scoreboard::players::{
@@ -19,8 +20,8 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 pub enum ScoreboardNumberFormat {
     Blank,
-    Fixed(Idx<Expression>),
-    Styled(Idx<Expression>),
+    Fixed(ExpressionId),
+    Styled(ExpressionId),
 }
 
 impl ScoreboardNumberFormat {
@@ -59,7 +60,7 @@ impl ScoreboardNumberFormat {
 
 #[derive(Debug, Clone)]
 pub enum PlayersDisplayScoreboardCommand {
-    Name(PlayerScore, Option<Idx<Expression>>),
+    Name(PlayerScore, Option<ExpressionId>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
 }
 

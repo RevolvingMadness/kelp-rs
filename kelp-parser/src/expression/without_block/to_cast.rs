@@ -1,5 +1,7 @@
-use kelp_core::{high::expression::Expression, runtime_storage::RuntimeStorageType};
-use la_arena::Idx;
+use kelp_core::{
+    high::expression::{Expression, ExpressionId},
+    runtime_storage::RuntimeStorageType,
+};
 
 use crate::{
     cst::CSTToCastExpression,
@@ -13,7 +15,7 @@ use crate::{
 pub fn lower_to_cast_expression(
     node: CSTToCastExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let expression = lower_expression(node.expression()?, ctx)?;

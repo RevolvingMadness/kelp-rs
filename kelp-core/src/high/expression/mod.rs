@@ -5,7 +5,10 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    ast_allocator::{
+        high::{HighAstAllocator, Spanned},
+        low::LowAstAllocator,
+    },
     high::{
         command::{
             Command,
@@ -43,6 +46,8 @@ pub mod assignee;
 pub mod block;
 pub mod place;
 
+pub type ExpressionId = Idx<Spanned<Expression>>;
+
 #[derive(Debug, Clone)]
 pub enum Expression {
     Boolean(bool),
@@ -57,47 +62,47 @@ pub enum Expression {
     String(String),
     Underscore,
     Unit,
-    Unary(UnaryOperator, Idx<Self>),
-    Arithmetic(Idx<Self>, ArithmeticOperator, Idx<Self>),
-    Comparison(Idx<Self>, ComparisonOperator, Idx<Self>),
-    Logical(Idx<Self>, LogicalOperator, Idx<Self>),
-    AugmentedAssignment(Idx<Self>, Span, ArithmeticOperator, Idx<Self>),
-    Assignment(Idx<Self>, Idx<Self>),
-    List(Vec<Idx<Self>>),
-    Compound(HashMap<String, Idx<Self>>),
+    Unary(UnaryOperator, ExpressionId),
+    Arithmetic(ExpressionId, ArithmeticOperator, ExpressionId),
+    Comparison(ExpressionId, ComparisonOperator, ExpressionId),
+    Logical(ExpressionId, LogicalOperator, ExpressionId),
+    AugmentedAssignment(ExpressionId, Span, ArithmeticOperator, ExpressionId),
+    Assignment(ExpressionId, ExpressionId),
+    List(Vec<ExpressionId>),
+    Compound(HashMap<String, ExpressionId>),
     PlayerScore(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<ExecuteIfSubcommand>),
     Command(Box<Command>),
-    Index(Idx<Self>, Idx<Self>),
+    Index(ExpressionId, ExpressionId),
     MethodCall {
-        receiver: Idx<Self>,
+        receiver: ExpressionId,
         callee: GenericPathSegment<DataType>,
-        arguments: Vec<Idx<Self>>,
+        arguments: Vec<ExpressionId>,
     },
-    FieldAccess(Idx<Self>, Span, String),
-    AsCast(Idx<Self>, DataType),
-    ToCast(Idx<Self>, RuntimeStorageType),
-    Tuple(Vec<Idx<Self>>),
+    FieldAccess(ExpressionId, Span, String),
+    AsCast(ExpressionId, DataType),
+    ToCast(ExpressionId, RuntimeStorageType),
+    Tuple(Vec<ExpressionId>),
     Path(GenericPath<DataType>),
-    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Idx<Self>>),
+    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), ExpressionId>),
     Call {
-        callee: Idx<Self>,
-        arguments: Vec<Idx<Self>>,
+        callee: ExpressionId,
+        arguments: Vec<ExpressionId>,
     },
     If {
-        condition: Idx<Self>,
+        condition: ExpressionId,
         body: Box<BlockExpression>,
-        else_body: Option<Idx<Self>>,
+        else_body: Option<ExpressionId>,
     },
     Block(BlockExpression),
-    WhileLoop(Idx<Self>, Box<BlockExpression>),
+    WhileLoop(ExpressionId, Box<BlockExpression>),
     Loop(Box<BlockExpression>),
-    ForLoop(bool, Idx<Pattern>, Idx<Self>, Box<BlockExpression>),
+    ForLoop(bool, Idx<Pattern>, ExpressionId, Box<BlockExpression>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
     Coordinates(Box<SupportsExpressionSigil<Coordinates>>),
-    Return(Span, Span, Option<Idx<Self>>),
+    Return(Span, Span, Option<ExpressionId>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
@@ -121,8 +126,8 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn try_as_f32(id: Idx<Self>, allocator: &HighAstAllocator) -> Option<NotNan<f32>> {
-        Some(match allocator.get_expression(id) {
+    pub fn try_as_f32(id: ExpressionId, allocator: &HighAstAllocator) -> Option<NotNan<f32>> {
+        Some(match allocator.get_expression_value(id) {
             Self::Byte(value) => NotNan::new(f32::from(*value)).unwrap(),
             Self::Short(value) => NotNan::new(f32::from(*value)).unwrap(),
             Self::Integer(value) | Self::InferredInteger(value) => {
@@ -137,11 +142,11 @@ impl Expression {
 
     #[must_use]
     pub fn extract_scale(
-        id: Idx<Self>,
+        id: ExpressionId,
         allocator: &HighAstAllocator,
-    ) -> (Option<NotNan<f32>>, Idx<Self>) {
+    ) -> (Option<NotNan<f32>>, ExpressionId) {
         if let Self::Arithmetic(left, ArithmeticOperator::Multiply, right) =
-            allocator.get_expression(id)
+            allocator.get_expression_value(id)
         {
             match Self::try_as_f32(*right, allocator) {
                 Some(scale) => (Some(scale), *left),
@@ -159,12 +164,12 @@ impl Expression {
 impl Expression {
     #[must_use]
     pub fn as_place_semantic_analysis(
-        id: Idx<Self>,
+        id: ExpressionId,
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<Idx<UnresolvedPlaceExpression>> {
-        let id = match high_allocator.get_expression(id) {
+        let id = match high_allocator.get_expression_value(id) {
             Self::Path(path) => {
                 let mut path = path.clone().perform_semantic_analysis(ctx);
 
@@ -282,12 +287,12 @@ impl Expression {
 
     #[must_use]
     pub fn as_assignee_perform_semantic_analysis(
-        id: Idx<Self>,
+        id: ExpressionId,
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<Idx<UnresolvedAssigneeExpression>> {
-        Some(match high_allocator.get_expression(id) {
+        Some(match high_allocator.get_expression_value(id) {
             Self::Tuple(expressions) => {
                 let (data_types, expressions) = expressions
                     .iter()
@@ -334,12 +339,12 @@ impl Expression {
 
     #[must_use]
     pub fn perform_semantic_analysis(
-        id: Idx<Self>,
+        id: ExpressionId,
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<Idx<UnresolvedExpression>> {
-        Some(match high_allocator.get_expression(id) {
+        Some(match high_allocator.get_expression_value(id) {
             Self::Invalid => return None,
 
             Self::Unary(operator, expression) => match operator {

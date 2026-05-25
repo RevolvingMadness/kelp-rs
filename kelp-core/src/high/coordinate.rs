@@ -1,11 +1,9 @@
 use std::fmt::{Display, Write};
 
-use la_arena::Idx;
-
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        expression::Expression,
+        expression::{Expression, ExpressionId},
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     low::coordinate::{Coordinates as MiddleCoordinates, WorldCoordinate as MiddleWorldCoordinate},
@@ -13,8 +11,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum WorldCoordinate {
-    Relative(Option<Idx<Expression>>),
-    Absolute(Idx<Expression>),
+    Relative(Option<ExpressionId>),
+    Absolute(ExpressionId),
 }
 
 impl Display for WorldCoordinate {
@@ -73,7 +71,7 @@ impl WorldCoordinate {
     }
 }
 
-pub type LocalCoordinate = Option<Idx<Expression>>;
+pub type LocalCoordinate = Option<ExpressionId>;
 
 #[derive(Debug, Clone)]
 pub enum Coordinates {

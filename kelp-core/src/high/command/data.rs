@@ -1,11 +1,12 @@
-use la_arena::Idx;
 use minecraft_command_types::command::data::DataCommandModificationMode;
 use ordered_float::NotNan;
 
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        data::DataTarget, expression::Expression, nbt_path::NbtPath,
+        data::DataTarget,
+        expression::{Expression, ExpressionId},
+        nbt_path::NbtPath,
         semantic_analysis::SemanticAnalysisContext,
     },
     low::expression::command::data::{
@@ -17,7 +18,7 @@ use crate::{
 pub enum DataCommandModification {
     From(DataTarget, Option<NbtPath>),
     String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
-    Value(Idx<Expression>),
+    Value(ExpressionId),
 }
 
 impl DataCommandModification {
@@ -72,7 +73,7 @@ impl DataCommandModification {
 #[derive(Debug, Clone)]
 pub enum DataCommand {
     Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
-    Merge(DataTarget, Idx<Expression>),
+    Merge(DataTarget, ExpressionId),
     Modify(
         DataTarget,
         NbtPath,

@@ -1,5 +1,4 @@
-use kelp_core::high::expression::Expression;
-use la_arena::Idx;
+use kelp_core::high::expression::{Expression, ExpressionId};
 
 use crate::{
     cst::CSTResourceLocationExpression,
@@ -41,7 +40,7 @@ pub fn try_parse_resource_location_expression(parser: &mut Parser) -> bool {
 pub fn lower_resource_location_expression(
     node: CSTResourceLocationExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     let span = span_of_cst_node(&node);

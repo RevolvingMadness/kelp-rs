@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
 use minecraft_command_types::{
     command::enums::{gamemode::Gamemode, sort::Sort},
     entity_selector::AdvancementChoiceType,
@@ -11,7 +10,10 @@ use ordered_float::NotNan;
 
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
-    high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
+    high::{
+        expression::{Expression, ExpressionId},
+        semantic_analysis::SemanticAnalysisContext,
+    },
     low::entity_selector::option::EntitySelectorOption as MiddleEntitySelectorOption,
 };
 
@@ -32,7 +34,7 @@ pub enum EntitySelectorOption {
     Name(bool, String),
     Type(bool, ResourceLocation),
     Predicate(bool, ResourceLocation),
-    Nbt(bool, Idx<Expression>),
+    Nbt(bool, ExpressionId),
     Gamemode(bool, Gamemode),
     Level(IntegerRange),
     Advancements(HashMap<ResourceLocation, AdvancementChoiceType>),

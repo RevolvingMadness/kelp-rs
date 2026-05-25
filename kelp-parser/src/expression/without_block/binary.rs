@@ -1,8 +1,7 @@
 use kelp_core::{
-    high::expression::Expression,
+    high::expression::{Expression, ExpressionId},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
 };
-use la_arena::Idx;
 
 use crate::{
     cst::CSTBinaryExpression, expression::lower_expression, lower_context::LowerContext,
@@ -14,7 +13,7 @@ use crate::{
 pub fn lower_binary_expression(
     node: CSTBinaryExpression,
     ctx: &mut LowerContext,
-) -> Option<Idx<Expression>> {
+) -> Option<ExpressionId> {
     let span = span_of_cst_node(&node);
 
     let left = lower_expression(node.lhs()?, ctx)?;

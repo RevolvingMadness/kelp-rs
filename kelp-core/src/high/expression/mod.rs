@@ -1,20 +1,24 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        command::{Command, execute::subcommand::r#if::ExecuteIfSubcommand},
+        command::{
+            Command,
+            execute::subcommand::r#if::ExecuteIfSubcommand::{self},
+        },
         coordinate::Coordinates,
         data::DataTarget,
         data_type::DataType,
         entity_selector::EntitySelector,
         environment::resolved::r#type::r#struct::regular::HighRegularStructId,
         expression::{
-            assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionKind},
-            block::BlockExpression,
-            place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionKind},
+            assignee::UnresolvedAssigneeExpression, block::BlockExpression,
+            place::UnresolvedPlaceExpression,
         },
         nbt_path::NbtPath,
         pattern::Pattern,
@@ -25,9 +29,8 @@ use crate::{
         supports_expression_sigil::SupportsExpressionSigil,
     },
     low::{
-        data::Data,
-        data_type::unresolved::UnresolvedDataType,
-        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
+        data::Data, data_type::unresolved::UnresolvedDataType,
+        expression::unresolved::UnresolvedExpression,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     path::generic::{GenericPath, GenericPathSegment},
@@ -41,7 +44,7 @@ pub mod block;
 pub mod place;
 
 #[derive(Debug, Clone)]
-pub enum ExpressionKind {
+pub enum Expression {
     Boolean(bool),
     Byte(i8),
     Short(i16),
@@ -54,59 +57,54 @@ pub enum ExpressionKind {
     String(String),
     Underscore,
     Unit,
-    Unary(UnaryOperator, Box<Expression>),
-    Arithmetic(Box<Expression>, ArithmeticOperator, Box<Expression>),
-    Comparison(Box<Expression>, ComparisonOperator, Box<Expression>),
-    Logical(Box<Expression>, LogicalOperator, Box<Expression>),
-    AugmentedAssignment(Box<Expression>, Span, ArithmeticOperator, Box<Expression>),
-    Assignment(Box<Expression>, Box<Expression>),
-    List(Vec<Expression>),
-    Compound(HashMap<String, Expression>),
+    Unary(UnaryOperator, Idx<Self>),
+    Arithmetic(Idx<Self>, ArithmeticOperator, Idx<Self>),
+    Comparison(Idx<Self>, ComparisonOperator, Idx<Self>),
+    Logical(Idx<Self>, LogicalOperator, Idx<Self>),
+    AugmentedAssignment(Idx<Self>, Span, ArithmeticOperator, Idx<Self>),
+    Assignment(Idx<Self>, Idx<Self>),
+    List(Vec<Idx<Self>>),
+    Compound(HashMap<String, Idx<Self>>),
     PlayerScore(PlayerScore),
     Data(Box<(DataTarget, NbtPath)>),
     Condition(bool, Box<ExecuteIfSubcommand>),
     Command(Box<Command>),
-    Index(Box<Expression>, Box<Expression>),
+    Index(Idx<Self>, Idx<Self>),
     MethodCall {
-        receiver: Box<Expression>,
+        receiver: Idx<Self>,
         callee: GenericPathSegment<DataType>,
-        arguments: Vec<Expression>,
+        arguments: Vec<Idx<Self>>,
     },
-    FieldAccess(Box<Expression>, Span, String),
-    AsCast(Box<Expression>, DataType),
-    ToCast(Box<Expression>, RuntimeStorageType),
-    Tuple(Vec<Expression>),
+    FieldAccess(Idx<Self>, Span, String),
+    AsCast(Idx<Self>, DataType),
+    ToCast(Idx<Self>, RuntimeStorageType),
+    Tuple(Vec<Idx<Self>>),
     Path(GenericPath<DataType>),
-    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Expression>),
+    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Idx<Self>>),
     Call {
-        callee: Box<Expression>,
-        arguments: Vec<Expression>,
+        callee: Idx<Self>,
+        arguments: Vec<Idx<Self>>,
     },
     If {
-        condition: Box<Expression>,
+        condition: Idx<Self>,
         body: Box<BlockExpression>,
-        else_body: Option<Box<Expression>>,
+        else_body: Option<Idx<Self>>,
     },
     Block(BlockExpression),
-    WhileLoop(Box<Expression>, Box<BlockExpression>),
+    WhileLoop(Idx<Self>, Box<BlockExpression>),
     Loop(Box<BlockExpression>),
-    ForLoop(bool, Pattern, Box<Expression>, Box<BlockExpression>),
+    ForLoop(bool, Idx<Pattern>, Idx<Self>, Box<BlockExpression>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
     Coordinates(Box<SupportsExpressionSigil<Coordinates>>),
-    Return(Span, Span, Option<Box<Expression>>),
+    Return(Span, Span, Option<Idx<Self>>),
     Invalid,
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
 }
 
-impl ExpressionKind {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> Expression {
-        Expression { span, kind: self }
-    }
-
+impl Expression {
     #[must_use]
     pub const fn is_f32_compatible(&self) -> bool {
         matches!(
@@ -122,90 +120,53 @@ impl ExpressionKind {
         )
     }
 
-    pub fn try_as_f32(self) -> Result<NotNan<f32>, Self> {
-        Ok(match self {
-            Self::Byte(value) => NotNan::new(f32::from(value)).unwrap(),
-            Self::Short(value) => NotNan::new(f32::from(value)).unwrap(),
+    #[must_use]
+    pub fn try_as_f32(id: Idx<Self>, allocator: &HighAstAllocator) -> Option<NotNan<f32>> {
+        Some(match allocator.get_expression(id) {
+            Self::Byte(value) => NotNan::new(f32::from(*value)).unwrap(),
+            Self::Short(value) => NotNan::new(f32::from(*value)).unwrap(),
             Self::Integer(value) | Self::InferredInteger(value) => {
-                NotNan::new(value as f32).unwrap()
+                NotNan::new(*value as f32).unwrap()
             }
-            Self::Long(value) => NotNan::new(value as f32).unwrap(),
-            Self::Float(value) | Self::InferredFloat(value) => value,
+            Self::Long(value) => NotNan::new(*value as f32).unwrap(),
+            Self::Float(value) | Self::InferredFloat(value) => *value,
             Self::Double(value) => NotNan::new(value.into_inner() as f32).unwrap(),
-            _ => return Err(self),
+            _ => return None,
         })
     }
 
     #[must_use]
-    pub fn extract_scale(self) -> (Option<NotNan<f32>>, Self) {
-        if let Self::Arithmetic(left, ArithmeticOperator::Multiply, right) = self {
-            match right.try_as_f32() {
-                Ok(scale) => (Some(scale), left.kind),
-                Err(right) => match left.try_as_f32() {
-                    Ok(scale) => (Some(scale), right.kind),
-                    Err(left) => (
-                        None,
-                        Self::Arithmetic(
-                            Box::new(left),
-                            ArithmeticOperator::Multiply,
-                            Box::new(right),
-                        ),
-                    ),
+    pub fn extract_scale(
+        id: Idx<Self>,
+        allocator: &HighAstAllocator,
+    ) -> (Option<NotNan<f32>>, Idx<Self>) {
+        if let Self::Arithmetic(left, ArithmeticOperator::Multiply, right) =
+            allocator.get_expression(id)
+        {
+            match Self::try_as_f32(*right, allocator) {
+                Some(scale) => (Some(scale), *left),
+                None => match Self::try_as_f32(*left, allocator) {
+                    Some(scale) => (Some(scale), *right),
+                    None => (None, id),
                 },
             }
         } else {
-            (None, self)
+            (None, id)
         }
     }
-
-    #[must_use]
-    pub const fn into_dummy_expression(self) -> Expression {
-        Expression {
-            span: Span::dummy(),
-            kind: self,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Expression {
-    pub span: Span,
-    pub kind: ExpressionKind,
 }
 
 impl Expression {
-    #[allow(clippy::result_large_err)]
-    pub fn try_as_f32(self) -> Result<NotNan<f32>, Self> {
-        match self.kind.try_as_f32() {
-            Ok(f32) => Ok(f32),
-            Err(kind) => Err(Self {
-                span: self.span,
-                kind,
-            }),
-        }
-    }
-
-    #[must_use]
-    pub fn extract_scale(self) -> (Option<NotNan<f32>>, Self) {
-        let (scale, kind) = self.kind.extract_scale();
-
-        (
-            scale,
-            Self {
-                span: self.span,
-                kind,
-            },
-        )
-    }
-
     #[must_use]
     pub fn as_place_semantic_analysis(
-        self,
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, UnresolvedPlaceExpression)> {
-        let expression = match self.kind {
-            ExpressionKind::Path(path) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+    ) -> Option<Idx<UnresolvedPlaceExpression>> {
+        let id = match high_allocator.get_expression(id) {
+            Self::Path(path) => {
+                let mut path = path.clone().perform_semantic_analysis(ctx);
 
                 let id = ctx.get_visible_value_id(&path)?;
 
@@ -220,224 +181,344 @@ impl Expression {
                     last_segment.name_span,
                 )?;
 
-                UnresolvedPlaceExpressionKind::Value(id, last_segment.generic_types).with(data_type)
+                low_allocator.allocate_place_expression(
+                    UnresolvedPlaceExpression::Value(id, last_segment.generic_types),
+                    data_type,
+                )
             }
-            ExpressionKind::PlayerScore(score) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+            Self::PlayerScore(score) => {
+                let score =
+                    score
+                        .clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
-                UnresolvedPlaceExpressionKind::Score(score).with(UnresolvedDataType::Score(
-                    Box::new(UnresolvedDataType::Integer),
-                ))
+                low_allocator.allocate_place_expression(
+                    UnresolvedPlaceExpression::Score(score),
+                    UnresolvedDataType::Score(Box::new(UnresolvedDataType::Integer)),
+                )
             }
-            ExpressionKind::Data(target_path) => {
-                let (target, path) = *target_path;
+            Self::Data(target_path) => {
+                let (target, path) = &**target_path;
 
-                let target = target.perform_semantic_analysis(ctx)?;
-                let path = path.perform_semantic_analysis(ctx)?;
+                let target =
+                    target
+                        .clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let path =
+                    path.clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
-                UnresolvedPlaceExpressionKind::Data(Box::new(Data { target, path })).with(
+                low_allocator.allocate_place_expression(
+                    UnresolvedPlaceExpression::Data(Box::new(Data { target, path })),
                     UnresolvedDataType::Data(Box::new(UnresolvedDataType::Inferred)),
                 )
             }
-            ExpressionKind::FieldAccess(target, field_span, field) => {
-                let (_, target) = target.as_place_semantic_analysis(ctx)?;
+            Self::FieldAccess(target, field_span, field) => {
+                let target =
+                    Self::as_place_semantic_analysis(*target, high_allocator, low_allocator, ctx)?;
 
-                let field_type = target
-                    .data_type
-                    .get_field_result_semantic_analysis(ctx, field_span, &field)?;
+                let target_type = low_allocator.get_place_expression_type(target);
 
-                UnresolvedPlaceExpressionKind::FieldAccess(Box::new(target), field).with(field_type)
+                let field_type =
+                    target_type.get_field_result_semantic_analysis(ctx, *field_span, field)?;
+
+                low_allocator.allocate_place_expression(
+                    UnresolvedPlaceExpression::FieldAccess(target, field.clone()),
+                    field_type,
+                )
             }
-            ExpressionKind::Index(target, index) => {
-                let target = target.as_place_semantic_analysis(ctx);
-                let index = index.perform_semantic_analysis(ctx);
+            Self::Index(target, index) => {
+                let target_span = high_allocator.get_expression_span(*target);
 
-                let (target_span, target) = target?;
-                let (_, index) = index?;
+                let target =
+                    Self::as_place_semantic_analysis(*target, high_allocator, low_allocator, ctx);
 
-                let index_type = target.data_type.get_index_result_semantic_analysis(
+                let index =
+                    Self::perform_semantic_analysis(*index, high_allocator, low_allocator, ctx);
+
+                let target = target?;
+                let index = index?;
+
+                let target_type = low_allocator.get_place_expression_type(target);
+                let index_type = low_allocator.get_expression_type(index);
+
+                let index_type =
+                    target_type.get_index_result_semantic_analysis(ctx, target_span, index_type)?;
+
+                low_allocator.allocate_place_expression(
+                    UnresolvedPlaceExpression::Index(target, index),
+                    index_type,
+                )
+            }
+            Self::Unary(UnaryOperator::Dereference, expression) => {
+                let place = Self::as_place_semantic_analysis(
+                    *expression,
+                    high_allocator,
+                    low_allocator,
                     ctx,
-                    target_span,
-                    &index.data_type,
                 )?;
 
-                UnresolvedPlaceExpressionKind::Index(Box::new(target), Box::new(index))
-                    .with(index_type)
-            }
-            ExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
-                let (place_span, place) = expression.as_place_semantic_analysis(ctx)?;
+                let place_type = low_allocator.get_place_expression_type(place);
+                let place_span = high_allocator.get_expression_span(*expression);
 
-                let dereferenced_type = place
-                    .data_type
+                let dereferenced_type = place_type
                     .clone()
                     .get_dereferenced_result_semantic_analysis(ctx, place_span)?;
 
-                UnresolvedPlaceExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
+                low_allocator.allocate_place_expression(
+                    UnresolvedPlaceExpression::Dereference(place),
+                    dereferenced_type,
+                )
             }
-            _ => return ctx.add_error(self.span, SemanticAnalysisError::ExpressionIsNotAPlace),
+            _ => {
+                let span = high_allocator.get_expression_span(id);
+
+                return ctx.add_error(span, SemanticAnalysisError::ExpressionIsNotAPlace);
+            }
         };
 
-        Some((self.span, expression))
+        Some(id)
     }
 
     #[must_use]
     pub fn as_assignee_perform_semantic_analysis(
-        self,
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, UnresolvedAssigneeExpression)> {
-        let kind = match self.kind {
-            ExpressionKind::Tuple(expressions) => {
+    ) -> Option<Idx<UnresolvedAssigneeExpression>> {
+        Some(match high_allocator.get_expression(id) {
+            Self::Tuple(expressions) => {
                 let (data_types, expressions) = expressions
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .map(|expression| {
-                        let (_, expression) =
-                            expression.as_assignee_perform_semantic_analysis(ctx)?;
+                        let expression = Self::as_assignee_perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
-                        Some((expression.data_type.clone(), expression))
+                        let expression_type =
+                            low_allocator.get_assignee_expression_type(expression);
+
+                        Some((expression_type.clone(), expression))
                     })
                     .collect_option_all::<Vec<_>>()?
                     .into_iter()
                     .unzip();
 
-                UnresolvedAssigneeExpressionKind::Tuple(expressions)
-                    .with(UnresolvedDataType::Tuple(data_types))
+                low_allocator.allocate_assignee_expression(
+                    UnresolvedAssigneeExpression::Tuple(expressions),
+                    UnresolvedDataType::Tuple(data_types),
+                )
             }
-            ExpressionKind::Underscore => {
-                UnresolvedAssigneeExpressionKind::Underscore.with(UnresolvedDataType::Inferred)
-            }
+            Self::Underscore => low_allocator.allocate_assignee_expression(
+                UnresolvedAssigneeExpression::Underscore,
+                UnresolvedDataType::Inferred,
+            ),
             _ => {
-                let (span, place) = self.as_place_semantic_analysis(ctx)?;
+                let place =
+                    Self::as_place_semantic_analysis(id, high_allocator, low_allocator, ctx)?;
 
-                let data_type = place.data_type.clone();
+                let place_type = low_allocator.get_place_expression_type(place);
 
-                return Some((
-                    span,
-                    UnresolvedAssigneeExpressionKind::Place(place).with(data_type),
-                ));
+                low_allocator.allocate_assignee_expression(
+                    UnresolvedAssigneeExpression::Place(place),
+                    place_type.clone(),
+                )
             }
-        };
-
-        Some((self.span, kind))
+        })
     }
 
     #[must_use]
     pub fn perform_semantic_analysis(
-        self,
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, UnresolvedExpression)> {
-        let expression = match self.kind {
-            ExpressionKind::Invalid => return None,
+    ) -> Option<Idx<UnresolvedExpression>> {
+        Some(match high_allocator.get_expression(id) {
+            Self::Invalid => return None,
 
-            ExpressionKind::Unary(operator, expression) => match operator {
+            Self::Unary(operator, expression) => match operator {
                 UnaryOperator::Negate => {
-                    let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                    let expression = Self::perform_semantic_analysis(
+                        *expression,
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?;
 
-                    let Some(negation_result) = expression.data_type.get_negation_result() else {
+                    let expression_type = low_allocator.get_expression_type(expression);
+
+                    let Some(negation_result) = expression_type.get_negation_result() else {
+                        let span = high_allocator.get_expression_span(id);
+
                         return ctx.add_error(
-                            self.span,
-                            SemanticAnalysisError::CannotNegateType(expression.data_type),
+                            span,
+                            SemanticAnalysisError::CannotNegateType(expression_type.clone()),
                         );
                     };
 
-                    UnresolvedExpressionKind::Negate(Box::new(expression)).with(negation_result)
+                    low_allocator.allocate_expression(
+                        UnresolvedExpression::Negate(expression),
+                        negation_result,
+                    )
                 }
                 UnaryOperator::Invert => {
-                    let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                    let expression_span = high_allocator.get_expression_span(*expression);
 
-                    let Some(inverted_result) = expression.data_type.get_inverted_result() else {
+                    let expression = Self::perform_semantic_analysis(
+                        *expression,
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?;
+
+                    let expression_type = low_allocator.get_expression_type(expression);
+
+                    let Some(inverted_result) = expression_type.get_inverted_result() else {
                         return ctx.add_error(
-                            self.span,
-                            SemanticAnalysisError::CannotInvertType(expression.data_type),
+                            expression_span,
+                            SemanticAnalysisError::CannotInvertType(expression_type.clone()),
                         );
                     };
 
-                    UnresolvedExpressionKind::Invert(Box::new(expression)).with(inverted_result)
+                    low_allocator.allocate_expression(
+                        UnresolvedExpression::Invert(expression),
+                        inverted_result,
+                    )
                 }
                 UnaryOperator::Reference => {
-                    let (_, expression) = expression.as_place_semantic_analysis(ctx)?;
+                    let place = Self::as_place_semantic_analysis(
+                        *expression,
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?;
 
-                    let data_type =
-                        UnresolvedDataType::Reference(Box::new(expression.data_type.clone()));
+                    let place_type = low_allocator.get_place_expression_type(place);
 
-                    UnresolvedExpressionKind::Reference(Box::new(expression)).with(data_type)
+                    low_allocator.allocate_expression(
+                        UnresolvedExpression::Reference(place),
+                        UnresolvedDataType::Reference(Box::new(place_type.clone())),
+                    )
                 }
                 UnaryOperator::Dereference => {
-                    let (span, place) = expression.as_place_semantic_analysis(ctx)?;
+                    let expression_span = high_allocator.get_expression_span(*expression);
 
-                    let dereferenced_type = place
-                        .data_type
+                    let place = Self::as_place_semantic_analysis(
+                        *expression,
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?;
+
+                    let place_type = low_allocator.get_place_expression_type(place);
+
+                    let dereferenced_type = place_type
                         .clone()
-                        .get_dereferenced_result_semantic_analysis(ctx, span)?;
+                        .get_dereferenced_result_semantic_analysis(ctx, expression_span)?;
 
-                    UnresolvedExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
+                    low_allocator.allocate_expression(
+                        UnresolvedExpression::Dereference(place),
+                        dereferenced_type,
+                    )
                 }
             },
-            ExpressionKind::Arithmetic(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx);
-                let right = right.perform_semantic_analysis(ctx);
+            Self::Arithmetic(left, operator, right) => {
+                let operator = *operator;
 
-                let (_, left) = left?;
-                let (_, right) = right?;
+                let left =
+                    Self::perform_semantic_analysis(*left, high_allocator, low_allocator, ctx);
+                let right =
+                    Self::perform_semantic_analysis(*right, high_allocator, low_allocator, ctx);
 
-                let Some(result_type) = left.data_type.get_arithmetic_result(&right.data_type)
-                else {
+                let left = left?;
+                let right = right?;
+
+                let left_type = low_allocator.get_expression_type(left);
+                let right_type = low_allocator.get_expression_type(right);
+
+                let Some(result_type) = left_type.get_arithmetic_result(right_type) else {
+                    let span = high_allocator.get_expression_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::CannotPerformArithmeticOperation {
-                            left: left.data_type,
+                            left: left_type.clone(),
                             operator,
-                            right: right.data_type,
+                            right: right_type.clone(),
                         },
                     );
                 };
 
-                UnresolvedExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
-                    .with(result_type)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Arithmetic(left, operator, right),
+                    result_type,
+                )
             }
-            ExpressionKind::Comparison(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx);
-                let right = right.perform_semantic_analysis(ctx);
+            Self::Comparison(left, operator, right) => {
+                let operator = *operator;
 
-                let (_, left) = left?;
-                let (_, right) = right?;
+                let left =
+                    Self::perform_semantic_analysis(*left, high_allocator, low_allocator, ctx);
+                let right =
+                    Self::perform_semantic_analysis(*right, high_allocator, low_allocator, ctx);
 
-                if !left.data_type.can_perform_comparison(
-                    &ctx.environment,
-                    operator,
-                    &right.data_type,
-                ) {
+                let left = left?;
+                let right = right?;
+
+                let left_type = low_allocator.get_expression_type(left);
+                let right_type = low_allocator.get_expression_type(right);
+
+                if !left_type.can_perform_comparison(&ctx.environment, operator, right_type) {
+                    let span = high_allocator.get_expression_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::CannotPerformComparisonOperation {
-                            left: left.data_type,
+                            left: left_type.clone(),
                             operator,
-                            right: right.data_type,
+                            right: right_type.clone(),
                         },
                     );
                 }
 
-                UnresolvedExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
-                    .with(UnresolvedDataType::Boolean)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Comparison(left, operator, right),
+                    UnresolvedDataType::Boolean,
+                )
             }
-            ExpressionKind::Logical(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx);
-                let right = right.perform_semantic_analysis(ctx);
+            Self::Logical(left, operator, right) => {
+                let operator = *operator;
 
-                let (left_span, left) = left?;
-                let (right_span, right) = right?;
+                let left_span = high_allocator.get_expression_span(*left);
+                let right_span = high_allocator.get_expression_span(*right);
+
+                let left =
+                    Self::perform_semantic_analysis(*left, high_allocator, low_allocator, ctx);
+                let right =
+                    Self::perform_semantic_analysis(*right, high_allocator, low_allocator, ctx);
+
+                let left = left?;
+                let right = right?;
+
+                let left_type = low_allocator.get_expression_type(left);
+                let right_type = low_allocator.get_expression_type(right);
 
                 let mut failed = false;
 
-                if left
-                    .data_type
+                if left_type
                     .assert_equals(ctx, left_span, &UnresolvedDataType::Boolean)
                     .is_none()
                 {
                     failed = true;
                 }
 
-                if right
-                    .data_type
+                if right_type
                     .assert_equals(ctx, right_span, &UnresolvedDataType::Boolean)
                     .is_none()
                 {
@@ -448,240 +529,356 @@ impl Expression {
                     return None;
                 }
 
-                UnresolvedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
-                    .with(UnresolvedDataType::Boolean)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Logical(left, operator, right),
+                    UnresolvedDataType::Boolean,
+                )
             }
-            ExpressionKind::AugmentedAssignment(target, operator_span, operator, value) => {
-                let target = target.as_place_semantic_analysis(ctx);
-                let value = value.perform_semantic_analysis(ctx);
+            Self::AugmentedAssignment(target, operator_span, operator, value) => {
+                let operator_span = *operator_span;
+                let operator = *operator;
 
-                let (_, target) = target?;
-                let (_, value) = value?;
+                let target =
+                    Self::as_place_semantic_analysis(*target, high_allocator, low_allocator, ctx);
+                let value =
+                    Self::perform_semantic_analysis(*value, high_allocator, low_allocator, ctx);
 
-                if target
-                    .data_type
-                    .get_arithmetic_result(&value.data_type)
-                    .is_none()
-                {
+                let target = target?;
+                let value = value?;
+
+                let target_type = low_allocator.get_place_expression_type(target);
+                let value_type = low_allocator.get_expression_type(value);
+
+                if target_type.get_arithmetic_result(value_type).is_none() {
                     return ctx.add_error(
                         operator_span,
                         SemanticAnalysisError::CannotPerformArithmeticOperation {
-                            left: target.data_type,
+                            left: target_type.clone(),
                             operator,
-                            right: value.data_type,
+                            right: value_type.clone(),
                         },
                     );
                 }
 
-                UnresolvedExpressionKind::AugmentedAssignment(
-                    Box::new(target),
-                    operator,
-                    Box::new(value),
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::AugmentedAssignment(target, operator, value),
+                    UnresolvedDataType::Unit,
                 )
-                .with(UnresolvedDataType::Unit)
             }
-            ExpressionKind::Assignment(target, value) => {
-                let target = target.as_assignee_perform_semantic_analysis(ctx);
+            Self::Assignment(target, value) => {
+                let target = Self::as_assignee_perform_semantic_analysis(
+                    *target,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                );
 
-                let value = value.perform_semantic_analysis(ctx);
+                let value_span = high_allocator.get_expression_span(*value);
 
-                let (_, target) = target?;
-                let (value_span, value) = value?;
+                let value =
+                    Self::perform_semantic_analysis(*value, high_allocator, low_allocator, ctx);
 
-                target.perform_assignment_semantic_analysis(ctx, value_span, &value.data_type)?;
+                let target = target?;
+                let value = value?;
 
-                UnresolvedExpressionKind::Assignment(Box::new(target), Box::new(value))
-                    .with(UnresolvedDataType::Unit)
+                let value_type = low_allocator.get_expression_type(value);
+
+                UnresolvedAssigneeExpression::perform_assignment_semantic_analysis(
+                    target,
+                    low_allocator,
+                    ctx,
+                    value_span,
+                    value_type,
+                )?;
+
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Assignment(target, value),
+                    UnresolvedDataType::Unit,
+                )
             }
-            ExpressionKind::List(expressions) => {
+            Self::List(expressions) => {
                 let expressions = expressions
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .map(|expression| {
-                        let result = expression.perform_semantic_analysis(ctx)?;
+                        let expression_span = high_allocator.get_expression_span(expression);
 
-                        Some(result)
+                        let expression = Self::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
+
+                        Some((expression_span, expression))
                     })
                     .collect_option_all::<Vec<_>>()?;
 
-                let element_type = if let Some((_, element_expression)) = expressions.first() {
-                    let mut element_type = element_expression.data_type.clone();
+                let element_type =
+                    if let Some((_, element_expression)) = expressions.first().copied() {
+                        let element_type = low_allocator.get_expression_type(element_expression);
 
-                    let mut has_error = false;
+                        let mut element_type = element_type.clone();
 
-                    for (expression_span, expression) in &expressions {
-                        let Some(reduced_element_type) =
-                            element_type.clone().reduce(&expression.data_type)
-                        else {
-                            has_error = true;
+                        let mut has_error = false;
 
-                            ctx.add_error_unit(
-                                *expression_span,
-                                SemanticAnalysisError::MismatchedTypes {
-                                    expected: element_type.clone(),
-                                    actual: expression.data_type.clone(),
-                                },
-                            );
+                        for (span, expression) in expressions.iter().copied() {
+                            let expression_type = low_allocator.get_expression_type(expression);
 
-                            continue;
-                        };
+                            let Some(reduced_element_type) =
+                                element_type.clone().reduce(expression_type)
+                            else {
+                                has_error = true;
 
-                        element_type = reduced_element_type;
-                    }
+                                ctx.add_error_unit(
+                                    span,
+                                    SemanticAnalysisError::MismatchedTypes {
+                                        expected: element_type.clone(),
+                                        actual: expression_type.clone(),
+                                    },
+                                );
 
-                    if has_error {
-                        return None;
-                    }
+                                continue;
+                            };
 
-                    element_type
-                } else {
-                    UnresolvedDataType::Inferred
-                };
+                            element_type = reduced_element_type;
+                        }
+
+                        if has_error {
+                            return None;
+                        }
+
+                        element_type
+                    } else {
+                        UnresolvedDataType::Inferred
+                    };
 
                 let expressions = expressions
                     .into_iter()
                     .map(|(_, expression)| expression)
                     .collect();
 
-                UnresolvedExpressionKind::List(expressions)
-                    .with(UnresolvedDataType::List(Box::new(element_type)))
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::List(expressions),
+                    UnresolvedDataType::List(Box::new(element_type)),
+                )
             }
-            ExpressionKind::Compound(compound_values) => {
+            Self::Compound(compound_values) => {
                 let compound_values = compound_values
-                    .into_iter()
+                    .iter()
                     .map(|(key, value)| {
-                        let (_, value) = value.perform_semantic_analysis(ctx)?;
+                        let value = Self::perform_semantic_analysis(
+                            *value,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
-                        Some((key, value))
+                        Some((key.clone(), value))
                     })
                     .collect_option_all::<HashMap<_, _>>()?;
 
                 let compound_data_types = compound_values
                     .iter()
-                    .map(|(key, value)| (key.clone(), value.data_type.clone()))
+                    .map(|(key, value)| {
+                        let value_type = low_allocator.get_expression_type(*value);
+
+                        (key.clone(), value_type.clone())
+                    })
                     .collect();
 
-                UnresolvedExpressionKind::Compound(compound_values)
-                    .with(UnresolvedDataType::TypedCompound(compound_data_types))
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Compound(compound_values),
+                    UnresolvedDataType::TypedCompound(compound_data_types),
+                )
             }
-            ExpressionKind::PlayerScore(score) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+            Self::PlayerScore(score) => {
+                let score =
+                    score
+                        .clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
-                UnresolvedExpressionKind::Score(score).with(UnresolvedDataType::Score(Box::new(
-                    UnresolvedDataType::Integer,
-                )))
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Score(score),
+                    UnresolvedDataType::Score(Box::new(UnresolvedDataType::Integer)),
+                )
             }
-            ExpressionKind::Data(target_path) => {
-                let (target, path) = *target_path;
+            Self::Data(target_path) => {
+                let (target, path) = &**target_path;
 
-                let target = target.perform_semantic_analysis(ctx);
-                let path = path.perform_semantic_analysis(ctx);
+                let target =
+                    target
+                        .clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let path =
+                    path.clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let target = target?;
                 let path = path?;
 
-                UnresolvedExpressionKind::Data(Box::new(Data { target, path })).with(
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Data(Box::new(Data { target, path })),
                     UnresolvedDataType::Data(Box::new(UnresolvedDataType::Inferred)),
                 )
             }
-            ExpressionKind::Condition(inverted, condition) => {
-                let condition = condition.perform_semantic_analysis(ctx)?;
+            Self::Condition(inverted, condition) => {
+                let inverted = *inverted;
 
-                UnresolvedExpressionKind::Condition(inverted, Box::new(condition))
-                    .with(UnresolvedDataType::Boolean)
-            }
-            ExpressionKind::Command(command) => {
-                let command = command.perform_semantic_analysis(ctx)?;
-
-                UnresolvedExpressionKind::Command(Box::new(command))
-                    .with(UnresolvedDataType::Integer)
-            }
-            ExpressionKind::Index(target, index) => {
-                let target = target.perform_semantic_analysis(ctx);
-                let index = index.perform_semantic_analysis(ctx);
-
-                let (target_span, target) = target?;
-                let (_, index) = index?;
-
-                let index_result = target.data_type.get_index_result_semantic_analysis(
+                let condition = condition.clone().perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
                     ctx,
-                    target_span,
-                    &index.data_type,
                 )?;
 
-                UnresolvedExpressionKind::Index(Box::new(target), Box::new(index))
-                    .with(index_result)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Condition(inverted, Box::new(condition)),
+                    UnresolvedDataType::Boolean,
+                )
             }
-            ExpressionKind::MethodCall {
+            Self::Command(command) => {
+                let command = command.clone().perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
+
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Command(Box::new(command)),
+                    UnresolvedDataType::Integer,
+                )
+            }
+            Self::Index(target, index) => {
+                let target_span = high_allocator.get_expression_span(*target);
+
+                let target =
+                    Self::perform_semantic_analysis(*target, high_allocator, low_allocator, ctx);
+                let index =
+                    Self::perform_semantic_analysis(*index, high_allocator, low_allocator, ctx);
+
+                let target = target?;
+                let index = index?;
+
+                let target_type = low_allocator.get_expression_type(target);
+                let index_type = low_allocator.get_expression_type(index);
+
+                let index_result =
+                    target_type.get_index_result_semantic_analysis(ctx, target_span, index_type)?;
+
+                low_allocator
+                    .allocate_expression(UnresolvedExpression::Index(target, index), index_result)
+            }
+            Self::MethodCall {
                 receiver,
                 callee,
                 arguments,
             } => {
-                let receiver = receiver.perform_semantic_analysis(ctx);
-                let _callee = callee.perform_semantic_analysis(ctx);
+                let receiver =
+                    Self::perform_semantic_analysis(*receiver, high_allocator, low_allocator, ctx);
+                let _callee = callee.clone().perform_semantic_analysis(ctx);
                 let arguments = arguments
-                    .into_iter()
-                    .map(|expression| expression.perform_semantic_analysis(ctx))
+                    .iter()
+                    .copied()
+                    .map(|expression| {
+                        Self::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )
+                    })
                     .collect_option_all::<Vec<_>>(); // TODO: Remove turbofish
 
-                let (_, _receiver) = receiver?;
+                let _receiver = receiver?;
                 let _arguments = arguments?;
 
                 todo!()
             }
-            ExpressionKind::FieldAccess(expression, field_span, field) => {
-                let (_, place) = expression.perform_semantic_analysis(ctx)?;
+            Self::FieldAccess(expression, field_span, field) => {
+                let place = Self::perform_semantic_analysis(
+                    *expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
-                let field_result = place
-                    .data_type
-                    .get_field_result_semantic_analysis(ctx, field_span, &field)?;
+                let place_type = low_allocator.get_expression_type(place);
 
-                UnresolvedExpressionKind::FieldAccess(Box::new(place), field).with(field_result)
+                let field_result =
+                    place_type.get_field_result_semantic_analysis(ctx, *field_span, field)?;
+
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::FieldAccess(place, field.clone()),
+                    field_result,
+                )
             }
-            ExpressionKind::AsCast(expression, data_type) => {
-                let expression = expression.perform_semantic_analysis(ctx);
-                let data_type = data_type.perform_semantic_analysis(ctx);
+            Self::AsCast(expression, data_type) => {
+                let expression = Self::perform_semantic_analysis(
+                    *expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                );
+                let data_type = data_type.clone().perform_semantic_analysis(ctx);
 
-                let (_, expression) = expression?;
+                let expression = expression?;
 
-                if !expression.data_type.can_cast_to(&data_type) {
+                let expression_type = low_allocator.get_expression_type(expression);
+
+                if !expression_type.can_cast_to(&data_type) {
+                    let span = high_allocator.get_expression_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::CannotCastType {
-                            from: expression.data_type,
+                            from: expression_type.clone(),
                             to: data_type,
                         },
                     );
                 }
 
-                UnresolvedExpressionKind::AsCast(Box::new(expression), data_type.clone())
-                    .with(data_type)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::AsCast(expression, data_type.clone()),
+                    data_type,
+                )
             }
-            ExpressionKind::ToCast(expression, runtime_storage_type) => {
-                let (scale, expression) = expression.extract_scale();
-                let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
+            Self::ToCast(expression, runtime_storage_type) => {
+                let (scale, expression) = Self::extract_scale(*expression, high_allocator);
+
+                let expression_span = high_allocator.get_expression_span(expression);
+
+                let expression = Self::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
+
+                let expression_type = low_allocator.get_expression_type(expression);
+
+                let runtime_storage_type = *runtime_storage_type;
 
                 let data_type = match runtime_storage_type {
                     RuntimeStorageType::Score => {
-                        if !expression.data_type.can_be_assigned_to_score() {
+                        if !expression_type.can_be_assigned_to_score() {
                             return ctx.add_error(
                                 expression_span,
                                 SemanticAnalysisError::TypeIsNotScoreCompatible(
-                                    expression.data_type,
+                                    expression_type.clone(),
                                 ),
                             );
                         }
 
-                        UnresolvedDataType::Score(Box::new(expression.data_type.clone()))
+                        UnresolvedDataType::Score(Box::new(expression_type.clone()))
                     }
                     RuntimeStorageType::Data => {
-                        let Some(data_type) = expression
-                            .data_type
-                            .get_data_type(&ctx.resolved_environment)
+                        let Some(data_type) =
+                            expression_type.get_data_type(&ctx.resolved_environment)
                         else {
                             return ctx.add_error(
                                 expression_span,
                                 SemanticAnalysisError::TypeIsNotDataCompatible(
-                                    expression.data_type,
+                                    expression_type.clone(),
                                 ),
                             );
                         };
@@ -690,29 +887,38 @@ impl Expression {
                     }
                 };
 
-                UnresolvedExpressionKind::ToCast(scale, Box::new(expression), runtime_storage_type)
-                    .with(data_type)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::ToCast(scale, expression, runtime_storage_type),
+                    data_type,
+                )
             }
-            ExpressionKind::Tuple(expressions) => {
+            Self::Tuple(expressions) => {
                 let expressions = expressions
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .map(|expression| {
-                        expression
-                            .perform_semantic_analysis(ctx)
-                            .map(|(_, expression)| expression)
+                        Self::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )
                     })
                     .collect_option_all::<Vec<_>>()?;
 
-                let expression_data_types = expressions
+                let expression_types = expressions
                     .iter()
-                    .map(|expression| expression.data_type.clone())
+                    .copied()
+                    .map(|expression| low_allocator.get_expression_type(expression).clone())
                     .collect();
 
-                UnresolvedExpressionKind::Tuple(expressions)
-                    .with(UnresolvedDataType::Tuple(expression_data_types))
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Tuple(expressions),
+                    UnresolvedDataType::Tuple(expression_types),
+                )
             }
-            ExpressionKind::RegularStruct(path, field_values) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+            Self::RegularStruct(path, field_values) => {
+                let mut path = path.clone().perform_semantic_analysis(ctx);
 
                 let id = ctx.get_visible_type_id(&path)?;
 
@@ -730,14 +936,14 @@ impl Expression {
                 let field_types = declaration.field_types.clone();
 
                 let field_values = field_values
-                    .into_iter()
+                    .iter()
                     .map(|((key_span, field), value)| {
-                        let Some(field_type) = field_types.get(&field) else {
+                        let Some(field_type) = field_types.get(field) else {
                             return ctx.add_error(
-                                key_span,
+                                *key_span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
                                     data_type: data_type.clone(),
-                                    field,
+                                    field: field.clone(),
                                 },
                             );
                         };
@@ -746,28 +952,37 @@ impl Expression {
                             .clone()
                             .substitute_generics(&generic_ids, &last_segment.generic_types);
 
-                        let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+                        let value_span = high_allocator.get_expression_span(*value);
 
-                        if !value.data_type.equals(&field_type) {
+                        let value = Self::perform_semantic_analysis(
+                            *value,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
+
+                        let value_type = low_allocator.get_expression_type(value);
+
+                        if !value_type.equals(&field_type) {
                             return ctx.add_error(
                                 value_span,
                                 SemanticAnalysisError::MismatchedTypes {
                                     expected: field_type,
-                                    actual: value.data_type,
+                                    actual: value_type.clone(),
                                 },
                             );
                         }
 
-                        Some((field, value))
+                        Some((field.clone(), value))
                     })
                     .collect_option_all::<HashMap<_, _>>()?;
 
                 let mut has_error = false;
 
-                for declared_field_name in field_types.into_keys() {
+                for declared_field_name in field_types.keys() {
                     if !field_values
                         .keys()
-                        .any(|given_field_name| *given_field_name == declared_field_name)
+                        .any(|given_field_name| given_field_name == declared_field_name)
                     {
                         has_error = true;
 
@@ -782,23 +997,44 @@ impl Expression {
                     return None;
                 }
 
-                UnresolvedExpressionKind::RegularStruct(
-                    id,
-                    last_segment.generic_types,
-                    field_values,
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::RegularStruct(
+                        id,
+                        last_segment.generic_types,
+                        field_values,
+                    ),
+                    data_type,
                 )
-                .with(data_type)
             }
-            ExpressionKind::Call { callee, arguments } => {
-                let (callee_span, callee) = callee.perform_semantic_analysis(ctx)?;
+            Self::Call { callee, arguments } => {
+                let callee_span = high_allocator.get_expression_span(*callee);
+
+                let callee =
+                    Self::perform_semantic_analysis(*callee, high_allocator, low_allocator, ctx);
 
                 let arguments = arguments
-                    .into_iter()
-                    .map(|argument| argument.perform_semantic_analysis(ctx))
-                    .collect_option_all::<Vec<_>>()?;
+                    .iter()
+                    .copied()
+                    .map(|argument| {
+                        let argument_span = high_allocator.get_expression_span(argument);
 
-                let Some(call_info) = callee.data_type.get_call_info(&ctx.resolved_environment)?
-                else {
+                        let argument = Self::perform_semantic_analysis(
+                            argument,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
+
+                        Some((argument_span, argument))
+                    })
+                    .collect_option_all::<Vec<_>>();
+
+                let callee = callee?;
+                let arguments = arguments?;
+
+                let callee_type = low_allocator.get_expression_type(callee);
+
+                let Some(call_info) = callee_type.get_call_info(&ctx.resolved_environment)? else {
                     return ctx
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
@@ -831,7 +1067,9 @@ impl Expression {
                 for (data_type, (argument_span, argument)) in
                     call_info.parameter_types.into_iter().zip(arguments)
                 {
-                    if argument.data_type.equals(&data_type) {
+                    let argument_type = low_allocator.get_expression_type(argument);
+
+                    if argument_type.equals(&data_type) {
                         if !failed {
                             new_arguments.push(argument);
                         }
@@ -840,7 +1078,7 @@ impl Expression {
                             argument_span,
                             SemanticAnalysisError::MismatchedTypes {
                                 expected: data_type,
-                                actual: argument.data_type,
+                                actual: argument_type.clone(),
                             },
                         );
 
@@ -852,41 +1090,65 @@ impl Expression {
                     return None;
                 }
 
-                UnresolvedExpressionKind::Call(Box::new(callee), new_arguments)
-                    .with(call_info.return_type)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Call(callee, new_arguments),
+                    call_info.return_type,
+                )
             }
-            ExpressionKind::If {
+            Self::If {
                 condition,
                 body,
                 else_body,
             } => {
-                let condition = condition.perform_semantic_analysis(ctx);
-                let body = body.perform_semantic_analysis(ctx);
-                let else_body = else_body.map(|else_body| else_body.perform_semantic_analysis(ctx));
+                let condition_span = high_allocator.get_expression_span(*condition);
 
-                let (condition_span, condition) = condition?;
+                let condition =
+                    Self::perform_semantic_analysis(*condition, high_allocator, low_allocator, ctx);
 
-                if !condition.data_type.is_condition() {
+                let body =
+                    body.clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let else_body = else_body.map(|else_body| {
+                    let span = high_allocator.get_expression_span(else_body);
+
+                    let expression = Self::perform_semantic_analysis(
+                        else_body,
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?;
+
+                    Some((span, expression))
+                });
+
+                let condition = condition?;
+
+                let condition_type = low_allocator.get_expression_type(condition);
+
+                if !condition_type.is_condition() {
                     return ctx.add_error(
                         condition_span,
-                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
+                        SemanticAnalysisError::TypeIsNotCondition(condition_type.clone()),
                     );
                 }
 
                 let (body_span, tail_expression_span, body) = body?;
+
+                let body_type = low_allocator.get_expression_type(body);
+
                 let else_body = match else_body {
                     Some(else_body) => Some(else_body?),
                     None => None,
                 };
 
-                let else_type = if let Some((else_body_span, else_body)) = &else_body {
-                    else_body
-                        .data_type
-                        .assert_equals(ctx, *else_body_span, &body.data_type)?;
+                let else_type = if let Some((else_body_span, else_body)) = else_body {
+                    let else_body_type = low_allocator.get_expression_type(else_body);
 
-                    &else_body.data_type
+                    else_body_type.assert_equals(ctx, else_body_span, body_type)?;
+
+                    else_body_type
                 } else {
-                    body.data_type.assert_equals(
+                    body_type.assert_equals(
                         ctx,
                         tail_expression_span.unwrap_or(body_span),
                         &UnresolvedDataType::Unit,
@@ -895,68 +1157,101 @@ impl Expression {
                     &UnresolvedDataType::Unit
                 };
 
-                let data_type = body.data_type.clone().reduce(else_type).unwrap();
+                let data_type = body_type.clone().reduce(else_type).unwrap();
 
-                UnresolvedExpressionKind::If {
-                    condition: Box::new(condition),
-                    body: Box::new(body),
-                    else_body: else_body.map(|(_, else_body)| Box::new(else_body)),
-                }
-                .with(data_type)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::If {
+                        condition,
+                        body,
+                        else_body: else_body.map(|(_, else_body)| else_body),
+                    },
+                    data_type,
+                )
             }
-            ExpressionKind::Block(expression) => {
-                let (_, _, expression) = expression.perform_semantic_analysis(ctx)?;
+            Self::Block(expression) => {
+                let (_, _, expression) = expression.clone().perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 expression
             }
-            ExpressionKind::WhileLoop(condition, body) => {
-                let condition = condition.perform_semantic_analysis(ctx);
+            Self::WhileLoop(condition, body) => {
+                let condition_span = high_allocator.get_expression_span(*condition);
+
+                let condition =
+                    Self::perform_semantic_analysis(*condition, high_allocator, low_allocator, ctx);
 
                 ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx);
+                let body =
+                    body.clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 ctx.loop_depth -= 1;
 
-                let (condition_span, condition) = condition?;
+                let condition = condition?;
 
-                condition.data_type.assert_condition(ctx, condition_span)?;
+                let condition_type = low_allocator.get_expression_type(condition);
+
+                condition_type.assert_condition(ctx, condition_span)?;
 
                 let (_, _, body) = body?;
 
-                UnresolvedExpressionKind::WhileLoop(Box::new(condition), Box::new(body))
-                    .with(UnresolvedDataType::Unit)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::WhileLoop(condition, body),
+                    UnresolvedDataType::Unit,
+                )
             }
-            ExpressionKind::Loop(body) => {
+            Self::Loop(body) => {
                 ctx.loop_depth += 1;
-                let body = body.perform_semantic_analysis(ctx);
+                let body =
+                    body.clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 ctx.loop_depth -= 1;
 
                 let (_, _, body) = body?;
 
-                UnresolvedExpressionKind::Loop(Box::new(body)).with(UnresolvedDataType::Unit)
+                low_allocator
+                    .allocate_expression(UnresolvedExpression::Loop(body), UnresolvedDataType::Unit)
             }
-            ExpressionKind::ForLoop(reversed, pattern, iterable, body) => {
-                let (expression_span, iterable) = iterable.perform_semantic_analysis(ctx)?;
+            Self::ForLoop(reversed, pattern, iterable, body) => {
+                let reversed = *reversed;
 
-                let Some(iterable_type) = iterable
-                    .data_type
+                let iterable_span = high_allocator.get_expression_span(*iterable);
+
+                let iterable =
+                    Self::perform_semantic_analysis(*iterable, high_allocator, low_allocator, ctx)?;
+
+                let iterable_type = low_allocator.get_expression_type(iterable);
+
+                let Some(iterable_type) = iterable_type
                     .clone()
-                    .get_iterable_type_semantic_analysis(ctx, expression_span)
+                    .get_iterable_type_semantic_analysis(ctx, iterable_span)
                 else {
-                    pattern.kind.destructure_unknown(ctx);
+                    Pattern::destructure_unknown(*pattern, high_allocator, ctx);
 
                     return None;
                 };
 
                 ctx.enter_scope();
 
-                let Some(pattern) = pattern.perform_semantic_analysis(ctx, &iterable_type) else {
+                let Some(pattern) = Pattern::perform_semantic_analysis(
+                    *pattern,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                    &iterable_type,
+                ) else {
                     ctx.exit_scope();
 
                     return None;
                 };
 
                 ctx.loop_depth += 1;
-                let Some((_, _, body)) = body.perform_semantic_analysis(ctx) else {
+                let Some((_, _, body)) =
+                    body.clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                else {
                     ctx.loop_depth -= 1;
 
                     ctx.exit_scope();
@@ -968,16 +1263,13 @@ impl Expression {
 
                 // TODO: Reorder semantic analysis
 
-                UnresolvedExpressionKind::ForLoop(
-                    reversed,
-                    Box::new(pattern),
-                    Box::new(iterable),
-                    Box::new(body),
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::ForLoop(reversed, pattern, iterable, body),
+                    UnresolvedDataType::Unit,
                 )
-                .with(UnresolvedDataType::Unit)
             }
-            ExpressionKind::Path(path) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+            Self::Path(path) => {
+                let mut path = path.clone().perform_semantic_analysis(ctx);
 
                 let id = ctx.get_visible_value_id(&path)?;
 
@@ -992,80 +1284,114 @@ impl Expression {
                     last_segment.name_span,
                 )?;
 
-                UnresolvedExpressionKind::Value(id, last_segment.generic_types).with(data_type)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Value(id, last_segment.generic_types),
+                    data_type,
+                )
             }
-            ExpressionKind::Boolean(value) => {
-                UnresolvedExpressionKind::Boolean(value).with(UnresolvedDataType::Boolean)
-            }
-            ExpressionKind::Byte(value) => {
-                UnresolvedExpressionKind::Byte(value).with(UnresolvedDataType::Byte)
-            }
-            ExpressionKind::Short(value) => {
-                UnresolvedExpressionKind::Short(value).with(UnresolvedDataType::Short)
-            }
-            ExpressionKind::Integer(value) => {
-                UnresolvedExpressionKind::Integer(value).with(UnresolvedDataType::Integer)
-            }
-            ExpressionKind::InferredInteger(value) => {
-                UnresolvedExpressionKind::InferredInteger(value)
-                    .with(UnresolvedDataType::InferredInteger)
-            }
-            ExpressionKind::Long(value) => {
-                UnresolvedExpressionKind::Long(value).with(UnresolvedDataType::Long)
-            }
-            ExpressionKind::Float(value) => {
-                UnresolvedExpressionKind::Float(value).with(UnresolvedDataType::Float)
-            }
-            ExpressionKind::InferredFloat(value) => UnresolvedExpressionKind::InferredFloat(value)
-                .with(UnresolvedDataType::InferredFloat),
-            ExpressionKind::Double(value) => {
-                UnresolvedExpressionKind::Double(value).with(UnresolvedDataType::Double)
-            }
-            ExpressionKind::String(value) => {
-                UnresolvedExpressionKind::String(value).with(UnresolvedDataType::String)
-            }
-            ExpressionKind::Underscore => {
-                return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
-            }
-            ExpressionKind::Unit => UnresolvedExpressionKind::Unit.with(UnresolvedDataType::Unit),
-            ExpressionKind::ResourceLocation(resource_location) => {
-                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
+            Self::Boolean(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::Boolean(*value),
+                UnresolvedDataType::Boolean,
+            ),
+            Self::Byte(value) => low_allocator
+                .allocate_expression(UnresolvedExpression::Byte(*value), UnresolvedDataType::Byte),
+            Self::Short(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::Short(*value),
+                UnresolvedDataType::Short,
+            ),
+            Self::Integer(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::Integer(*value),
+                UnresolvedDataType::Integer,
+            ),
+            Self::InferredInteger(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::InferredInteger(*value),
+                UnresolvedDataType::InferredInteger,
+            ),
+            Self::Long(value) => low_allocator
+                .allocate_expression(UnresolvedExpression::Long(*value), UnresolvedDataType::Long),
+            Self::Float(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::Float(*value),
+                UnresolvedDataType::Float,
+            ),
+            Self::InferredFloat(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::InferredFloat(*value),
+                UnresolvedDataType::InferredFloat,
+            ),
+            Self::Double(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::Double(*value),
+                UnresolvedDataType::Double,
+            ),
+            Self::String(value) => low_allocator.allocate_expression(
+                UnresolvedExpression::String(value.clone()),
+                UnresolvedDataType::String,
+            ),
+            Self::Underscore => {
+                let span = high_allocator.get_expression_span(id);
 
-                UnresolvedExpressionKind::ResourceLocation(Box::new(resource_location))
-                    .with(UnresolvedDataType::ResourceLocation)
+                return ctx.add_error(span, SemanticAnalysisError::UnderscoreExpression);
             }
-            ExpressionKind::EntitySelector(selector) => {
-                let selector = selector.perform_semantic_analysis(ctx)?;
+            Self::Unit => low_allocator
+                .allocate_expression(UnresolvedExpression::Unit, UnresolvedDataType::Unit),
+            Self::ResourceLocation(resource_location) => {
+                let resource_location = resource_location.clone().perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
-                UnresolvedExpressionKind::EntitySelector(Box::new(selector))
-                    .with(UnresolvedDataType::EntitySelector)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::ResourceLocation(Box::new(resource_location)),
+                    UnresolvedDataType::ResourceLocation,
+                )
             }
-            ExpressionKind::Coordinates(coordinates) => {
-                let coordinates = coordinates.perform_semantic_analysis(ctx)?;
+            Self::EntitySelector(selector) => {
+                let selector = selector.clone().perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
-                UnresolvedExpressionKind::Coordinates(Box::new(coordinates))
-                    .with(UnresolvedDataType::Coordinates)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::EntitySelector(Box::new(selector)),
+                    UnresolvedDataType::EntitySelector,
+                )
             }
-            ExpressionKind::Return(keyword_span, expression_span, expression) => {
+            Self::Coordinates(coordinates) => {
+                let coordinates = coordinates.clone().perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
+
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Coordinates(Box::new(coordinates)),
+                    UnresolvedDataType::Coordinates,
+                )
+            }
+            Self::Return(keyword_span, expression_span, expression) => {
                 let expression = match expression {
-                    Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
-
-                        expression
-                    }
-                    None => UnresolvedExpressionKind::Unit.with(UnresolvedDataType::Unit),
+                    Some(expression) => Self::perform_semantic_analysis(
+                        *expression,
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?,
+                    None => low_allocator
+                        .allocate_expression(UnresolvedExpression::Unit, UnresolvedDataType::Unit),
                 };
+
+                let expression_type = low_allocator.get_expression_type(expression);
 
                 let context = ctx.function_contexts.last().unwrap();
 
                 let return_type = context.return_type();
 
-                if !expression.data_type.equals(return_type) {
+                if !expression_type.equals(return_type) {
                     return ctx.add_error(
-                        expression_span,
+                        *expression_span,
                         SemanticAnalysisError::MismatchedTypes {
                             expected: return_type.clone(),
-                            actual: expression.data_type,
+                            actual: expression_type.clone(),
                         },
                     );
                 }
@@ -1076,16 +1402,16 @@ impl Expression {
                     && !is_runtime
                 {
                     return ctx.add_error(
-                        keyword_span,
+                        *keyword_span,
                         SemanticAnalysisError::CannotUseReturnInCompiletimeFunction,
                     );
                 }
 
-                UnresolvedExpressionKind::Return(Box::new(expression))
-                    .with(UnresolvedDataType::Never)
+                low_allocator.allocate_expression(
+                    UnresolvedExpression::Return(expression),
+                    UnresolvedDataType::Never,
+                )
             }
-        };
-
-        Some((self.span, expression))
+        })
     }
 }

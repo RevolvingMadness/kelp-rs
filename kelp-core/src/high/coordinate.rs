@@ -1,6 +1,9 @@
 use std::fmt::{Display, Write};
 
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         expression::Expression,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
@@ -10,8 +13,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum WorldCoordinate {
-    Relative(Option<Expression>),
-    Absolute(Expression),
+    Relative(Option<Idx<Expression>>),
+    Absolute(Idx<Expression>),
 }
 
 impl Display for WorldCoordinate {
@@ -34,13 +37,20 @@ impl Display for WorldCoordinate {
 impl WorldCoordinate {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleWorldCoordinate> {
         match self {
             Self::Relative(expression) => {
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                        let expression = Expression::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
                         Some(expression)
                     }
@@ -50,7 +60,12 @@ impl WorldCoordinate {
                 Some(MiddleWorldCoordinate::Relative(expression))
             }
             Self::Absolute(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 Some(MiddleWorldCoordinate::Absolute(expression))
             }
@@ -58,10 +73,12 @@ impl WorldCoordinate {
     }
 }
 
+pub type LocalCoordinate = Option<Idx<Expression>>;
+
 #[derive(Debug, Clone)]
 pub enum Coordinates {
     World(WorldCoordinate, WorldCoordinate, WorldCoordinate),
-    Local(Option<Expression>, Option<Expression>, Option<Expression>),
+    Local(LocalCoordinate, LocalCoordinate, LocalCoordinate),
 }
 
 impl Display for Coordinates {
@@ -108,25 +125,36 @@ impl Display for Coordinates {
 impl Coordinates {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleCoordinates> {
         Some(match self {
             Self::World(x, y, z) => {
-                let x = x.perform_semantic_analysis(ctx)?;
-                let y = y.perform_semantic_analysis(ctx)?;
-                let z = z.perform_semantic_analysis(ctx)?;
+                let x = x.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let y = y.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let z = z.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleCoordinates::World(x, y, z)
             }
             Self::Local(x, y, z) => {
                 let x = match x {
                     Some(x) => {
-                        let (x_span, x) = x.perform_semantic_analysis(ctx)?;
+                        let x_span = high_allocator.get_expression_span(x);
 
-                        if !x.data_type.can_be_represented_as_snbt_float_macro() {
+                        let x = Expression::perform_semantic_analysis(
+                            x,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
+
+                        let x_type = low_allocator.get_expression_type(x);
+
+                        if !x_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
                                 x_span,
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat(x.data_type),
+                                SemanticAnalysisError::CannotBeRepresentedAsFloat(x_type.clone()),
                             );
                         }
 
@@ -137,12 +165,21 @@ impl Coordinates {
 
                 let y = match y {
                     Some(y) => {
-                        let (y_span, y) = y.perform_semantic_analysis(ctx)?;
+                        let y_span = high_allocator.get_expression_span(y);
 
-                        if !y.data_type.can_be_represented_as_snbt_float_macro() {
+                        let y = Expression::perform_semantic_analysis(
+                            y,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
+
+                        let y_type = low_allocator.get_expression_type(y);
+
+                        if !y_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
                                 y_span,
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat(y.data_type),
+                                SemanticAnalysisError::CannotBeRepresentedAsFloat(y_type.clone()),
                             );
                         }
 
@@ -153,12 +190,21 @@ impl Coordinates {
 
                 let z = match z {
                     Some(z) => {
-                        let (z_span, z) = z.perform_semantic_analysis(ctx)?;
+                        let z_span = high_allocator.get_expression_span(z);
 
-                        if !z.data_type.can_be_represented_as_snbt_float_macro() {
+                        let z = Expression::perform_semantic_analysis(
+                            z,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
+
+                        let z_type = low_allocator.get_expression_type(z);
+
+                        if !z_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
                                 z_span,
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat(z.data_type),
+                                SemanticAnalysisError::CannotBeRepresentedAsFloat(z_type.clone()),
                             );
                         }
 

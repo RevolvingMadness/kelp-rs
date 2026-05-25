@@ -1,7 +1,9 @@
+use la_arena::Idx;
 use minecraft_command_types::command::data::DataCommandModificationMode;
 use ordered_float::NotNan;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         data::DataTarget, expression::Expression, nbt_path::NbtPath,
         semantic_analysis::SemanticAnalysisContext,
@@ -15,20 +17,24 @@ use crate::{
 pub enum DataCommandModification {
     From(DataTarget, Option<NbtPath>),
     String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
-    Value(Box<Expression>),
+    Value(Idx<Expression>),
 }
 
 impl DataCommandModification {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleDataCommandModification> {
         Some(match self {
             Self::From(target, path) => {
-                let target = target.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
+                    Some(path) => {
+                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -37,9 +43,11 @@ impl DataCommandModification {
                 MiddleDataCommandModification::From(target, path)
             }
             Self::String(target, path, start, end) => {
-                let target = target.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
+                    Some(path) => {
+                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -48,9 +56,14 @@ impl DataCommandModification {
                 MiddleDataCommandModification::String(target, path, start, end)
             }
             Self::Value(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
-                MiddleDataCommandModification::Value(Box::new(expression))
+                MiddleDataCommandModification::Value(expression)
             }
         })
     }
@@ -59,7 +72,7 @@ impl DataCommandModification {
 #[derive(Debug, Clone)]
 pub enum DataCommand {
     Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
-    Merge(DataTarget, Box<Expression>),
+    Merge(DataTarget, Idx<Expression>),
     Modify(
         DataTarget,
         NbtPath,
@@ -72,13 +85,17 @@ pub enum DataCommand {
 impl DataCommand {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleDataCommand> {
         Some(match self {
             Self::Get(target, path, scale) => {
-                let target = target.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
+                    Some(path) => {
+                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -87,18 +104,24 @@ impl DataCommand {
                 MiddleDataCommand::Get(target, path, scale)
             }
             Self::Merge(target, expression) => {
-                let target = target.perform_semantic_analysis(ctx);
-                let expression = expression.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                );
 
                 let target = target?;
-                let (_, expression) = expression?;
+                let expression = expression?;
 
-                MiddleDataCommand::Merge(target, Box::new(expression))
+                MiddleDataCommand::Merge(target, expression)
             }
             Self::Modify(target, path, mode, modification) => {
-                let target = target.perform_semantic_analysis(ctx);
-                let path = path.perform_semantic_analysis(ctx);
-                let modification = modification.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let path = path.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let modification =
+                    modification.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let target = target?;
                 let path = path?;
@@ -107,8 +130,8 @@ impl DataCommand {
                 MiddleDataCommand::Modify(target, path, mode, Box::new(modification))
             }
             Self::Remove(target, path) => {
-                let target = target.perform_semantic_analysis(ctx);
-                let path = path.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let path = path.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let target = target?;
                 let path = path?;

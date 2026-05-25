@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         data_type::DataType,
         environment::{
@@ -17,13 +20,17 @@ use crate::{
             },
         },
         expression::block::BlockExpression,
+        item::Item,
         pattern::Pattern,
         semantic_analysis::{
             FunctionContext, RegularFunctionModifiers, SemanticAnalysisContext,
             info::error::SemanticAnalysisError,
         },
     },
-    low::{data_type::unresolved::UnresolvedDataType, item::Item},
+    low::{
+        data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
+        item::Item as MiddleItem,
+    },
     span::Span,
     visibility::Visibility,
 };
@@ -36,17 +43,15 @@ pub struct FunctionDeclarationItem {
     pub name: String,
     pub generic_names: Vec<String>,
     pub is_method: bool,
-    pub parameters: Vec<(Pattern, DataType)>,
+    pub parameters: Vec<(Idx<Pattern>, DataType)>,
     pub return_type: DataType,
     pub body: BlockExpression,
-
-    pub id: Option<HighRegularFunctionId>,
-    pub generic_ids: Option<Vec<HighGenericId>>,
 }
 
 impl FunctionDeclarationItem {
     pub fn resolve_names(
-        &mut self,
+        &self,
+        item_id: Idx<Item>,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
     ) -> Option<()> {
@@ -71,9 +76,9 @@ impl FunctionDeclarationItem {
             })
             .collect::<Vec<_>>();
 
-        self.generic_ids = Some(generic_ids.clone());
+        ctx.declare_item_generic_ids(item_id, generic_ids.clone());
 
-        let id = ctx.declare_unresolved_value(
+        let value_id = ctx.declare_unresolved_value(
             visibility,
             UnresolvedValueDeclarationKind::Function(Box::new(
                 UnresolvedFunctionDeclaration::Regular(UnresolvedRegularFunctionDeclaration {
@@ -83,14 +88,19 @@ impl FunctionDeclarationItem {
             )),
         );
 
-        self.id = Some(HighRegularFunctionId(id.0));
+        ctx.declare_item_value_id(item_id, value_id);
 
         Some(())
     }
 
-    pub fn resolve_types(&mut self, ctx: &mut SemanticAnalysisContext, visibility: Visibility) {
-        let id = self.id.unwrap();
-        let generic_ids = self.generic_ids.as_ref().unwrap();
+    pub fn resolve_types(
+        &self,
+        id: Idx<Item>,
+        ctx: &mut SemanticAnalysisContext,
+        visibility: Visibility,
+    ) {
+        let generic_ids = ctx.get_item_generic_ids(id).to_vec();
+        let id = ctx.get_item_value_id(id);
 
         ctx.enter_scope();
 
@@ -125,18 +135,25 @@ impl FunctionDeclarationItem {
         };
 
         ctx.declare_regular_function(
-            id.into(),
+            id,
             visibility,
             modifiers,
             self.name.clone(),
-            generic_ids.clone(),
+            generic_ids,
             parameters,
             return_type,
         );
     }
 
-    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
-        let id = self.id.unwrap();
+    #[must_use]
+    pub fn perform_semantic_analysis(
+        &self,
+        id: Idx<Item>,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<Idx<MiddleItem>> {
+        let id = ctx.get_item_value_id(id);
 
         ctx.enter_scope();
 
@@ -146,7 +163,7 @@ impl FunctionDeclarationItem {
             .map(|(_, parameter_type)| parameter_type.clone().perform_semantic_analysis(ctx))
             .collect::<Vec<_>>();
 
-        let return_type = self.return_type.perform_semantic_analysis(ctx);
+        let return_type = self.return_type.clone().perform_semantic_analysis(ctx);
 
         let mut failed = false;
 
@@ -218,15 +235,20 @@ impl FunctionDeclarationItem {
         ctx.function_contexts.push(FunctionContext::Regular {
             modifiers,
             return_type,
-            callee_id: id,
             calls: HashSet::new(),
         });
 
         let mut resolved_parameters = Vec::with_capacity(self.parameters.len());
         let mut resolved_all_parameters = true;
 
-        for ((pattern, _), data_type) in self.parameters.into_iter().zip(parameter_types) {
-            let Some(resolved_pattern) = pattern.perform_semantic_analysis(ctx, &data_type) else {
+        for ((pattern, _), data_type) in self.parameters.iter().zip(parameter_types) {
+            let Some(resolved_pattern) = Pattern::perform_semantic_analysis(
+                *pattern,
+                high_allocator,
+                low_allocator,
+                ctx,
+                &data_type,
+            ) else {
                 resolved_all_parameters = false;
 
                 continue;
@@ -236,6 +258,8 @@ impl FunctionDeclarationItem {
                 resolved_parameters.push((resolved_pattern, data_type));
             }
         }
+
+        let id = HighRegularFunctionId(id.0);
 
         let after_body_analysis = |ctx: &mut SemanticAnalysisContext| {
             let context = ctx.function_contexts.pop().unwrap();
@@ -253,7 +277,8 @@ impl FunctionDeclarationItem {
         };
 
         let Some((body_span, tail_expression_span, body)) =
-            self.body.perform_semantic_analysis(ctx)
+            self.body
+                .perform_semantic_analysis(high_allocator, low_allocator, ctx)
         else {
             after_body_analysis(ctx);
 
@@ -262,8 +287,10 @@ impl FunctionDeclarationItem {
 
         let context = after_body_analysis(ctx);
 
-        if !body.kind.definitely_diverges() {
-            body.data_type.assert_equals(
+        if !UnresolvedExpression::definitely_diverges(body, low_allocator) {
+            let body_type = low_allocator.get_expression_type(body);
+
+            body_type.assert_equals(
                 ctx,
                 tail_expression_span.unwrap_or(body_span),
                 context.return_type(),
@@ -277,12 +304,13 @@ impl FunctionDeclarationItem {
                         .into_iter()
                         .map(|(pattern, data_type)| (Some(pattern), data_type))
                         .collect();
-                    declaration.body = Some(Box::new(body));
+
+                    declaration.body = Some(body);
                 });
         } else {
             return None;
         }
 
-        Some(Item::FunctionDeclaration)
+        Some(low_allocator.allocate_item(MiddleItem::FunctionDeclaration))
     }
 }

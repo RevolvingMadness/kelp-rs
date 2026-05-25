@@ -8,6 +8,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         command::{
             Command,
@@ -50,12 +51,15 @@ impl ExecuteSubcommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleExecuteSubcommand> {
         Some(match self {
             Self::As(selector, next) | Self::At(selector, next) => {
-                let selector = selector.perform_semantic_analysis(ctx);
-                let next = next.perform_semantic_analysis(ctx);
+                let selector =
+                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let selector = selector?;
                 let next = next?;
@@ -63,8 +67,9 @@ impl ExecuteSubcommand {
                 MiddleExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::Positioned(positioned, next) => {
-                let positioned = positioned.perform_semantic_analysis(ctx);
-                let next = next.perform_semantic_analysis(ctx);
+                let positioned =
+                    positioned.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let positioned = positioned?;
                 let next = next?;
@@ -72,18 +77,18 @@ impl ExecuteSubcommand {
                 MiddleExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Align(alignment, next) => {
-                let next = next.perform_semantic_analysis(ctx)?;
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleExecuteSubcommand::Align(alignment, Box::new(next))
             }
             Self::Anchored(anchor, next) => {
-                let next = next.perform_semantic_analysis(ctx)?;
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
             Self::Facing(facing, next) => {
-                let facing = facing.perform_semantic_analysis(ctx);
-                let next = next.perform_semantic_analysis(ctx);
+                let facing = facing.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let facing = facing?;
                 let next = next?;
@@ -91,18 +96,19 @@ impl ExecuteSubcommand {
                 MiddleExecuteSubcommand::Facing(facing, Box::new(next))
             }
             Self::In(resource_location, next) => {
-                let next = next.perform_semantic_analysis(ctx)?;
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleExecuteSubcommand::In(resource_location, Box::new(next))
             }
             Self::On(relation, next) => {
-                let next = next.perform_semantic_analysis(ctx)?;
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleExecuteSubcommand::On(relation, Box::new(next))
             }
             Self::Rotated(rotation, next) => {
-                let rotation = rotation.perform_semantic_analysis(ctx);
-                let next = next.perform_semantic_analysis(ctx);
+                let rotation =
+                    rotation.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let rotation = rotation?;
                 let next = next?;
@@ -110,24 +116,28 @@ impl ExecuteSubcommand {
                 MiddleExecuteSubcommand::Rotated(rotation, Box::new(next))
             }
             Self::Summon(resource_location, next) => {
-                let next = next.perform_semantic_analysis(ctx)?;
+                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleExecuteSubcommand::Summon(resource_location, Box::new(next))
             }
             Self::If(inverted, subcommand) => {
-                let subcommand = subcommand.perform_semantic_analysis(ctx)?;
+                let subcommand =
+                    subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleExecuteSubcommand::If(inverted, subcommand)
             }
             Self::Store(store_type, subcommand) => {
-                let subcommand = subcommand.perform_semantic_analysis(ctx)?;
+                let subcommand =
+                    subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleExecuteSubcommand::Store(store_type, subcommand)
             }
             Self::Run(commands) => {
                 let commands = commands
                     .into_iter()
-                    .map(|command| command.perform_semantic_analysis(ctx))
+                    .map(|command| {
+                        command.perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                    })
                     .collect_option_all()?;
 
                 MiddleExecuteSubcommand::Run(commands)
@@ -135,7 +145,9 @@ impl ExecuteSubcommand {
             Self::Multiple(subcommands) => {
                 let subcommands = subcommands
                     .into_iter()
-                    .map(|subcommand| subcommand.perform_semantic_analysis(ctx))
+                    .map(|subcommand| {
+                        subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                    })
                     .collect_option_all()?;
 
                 MiddleExecuteSubcommand::Multiple(subcommands)

@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         data::Data,
         data_type::DataType,
@@ -17,12 +20,12 @@ use crate::{
     path::generic::GenericPath,
     pattern_type::PatternType,
     span::Span,
-    trait_ext::CollectOptionAllIterExt,
+    trait_ext::CollectOptionAllIterExt as _,
     visibility::Visibility,
 };
 
 #[derive(Debug, Clone)]
-pub enum PatternKind {
+pub enum Pattern {
     Literal(LiteralExpression),
 
     Wildcard,
@@ -31,22 +34,17 @@ pub enum PatternKind {
     Score(PlayerScore),
     Data(Box<Data>),
 
-    Tuple(Vec<Pattern>),
-    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Pattern>),
-    TupleStruct(GenericPath<DataType>, Vec<Pattern>),
+    Tuple(Vec<Idx<Self>>),
+    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Idx<Self>>),
+    TupleStruct(GenericPath<DataType>, Vec<Idx<Self>>),
 
-    Compound(HashMap<(Span, String), Pattern>),
+    Compound(HashMap<(Span, String), Idx<Self>>),
 }
 
-impl PatternKind {
+impl Pattern {
     #[must_use]
-    pub const fn with_span(self, span: Span) -> Pattern {
-        Pattern { span, kind: self }
-    }
-
-    #[must_use]
-    pub fn get_type(&self) -> PatternType {
-        match self {
+    pub fn get_type(id: Idx<Self>, allocator: &HighAstAllocator) -> PatternType {
+        match allocator.get_pattern(id) {
             Self::Literal(expression) => expression.get_pattern_type(),
             Self::Score(score) => PatternType::Score(score.clone()),
             Self::Data(data) => PatternType::Data(data.clone()),
@@ -54,34 +52,38 @@ impl PatternKind {
             Self::Tuple(patterns) => PatternType::Tuple(
                 patterns
                     .iter()
-                    .map(|pattern| pattern.kind.get_type())
+                    .map(|pattern| Self::get_type(*pattern, allocator))
                     .collect(),
             ),
             Self::Compound(compound) => PatternType::Compound(
                 compound
                     .iter()
-                    .map(|((_, key), pattern)| (key.clone(), pattern.kind.get_type()))
+                    .map(|((_, key), pattern)| (key.clone(), Self::get_type(*pattern, allocator)))
                     .collect(),
             ),
             Self::RegularStruct(path, field_patterns) => PatternType::RegularStruct(
                 path.clone(),
                 field_patterns
                     .iter()
-                    .map(|((_, key), pattern)| (key.clone(), pattern.kind.get_type()))
+                    .map(|((_, key), pattern)| (key.clone(), Self::get_type(*pattern, allocator)))
                     .collect(),
             ),
             Self::TupleStruct(path, field_patterns) => PatternType::TupleStruct(
                 path.clone(),
                 field_patterns
                     .iter()
-                    .map(|pattern| pattern.kind.get_type())
+                    .map(|pattern| Self::get_type(*pattern, allocator))
                     .collect(),
             ),
         }
     }
 
-    pub fn destructure_unknown(self, ctx: &mut SemanticAnalysisContext) {
-        match self {
+    pub fn destructure_unknown(
+        id: Idx<Self>,
+        allocator: &HighAstAllocator,
+        ctx: &mut SemanticAnalysisContext,
+    ) {
+        match allocator.get_pattern(id) {
             Self::Literal(..) | Self::Score(..) | Self::Data(..) | Self::Wildcard => {}
 
             Self::Binding(path) => {
@@ -94,69 +96,72 @@ impl PatternKind {
                 let _ = ctx.declare_variable(Visibility::Public, name, UnresolvedDataType::Error);
             }
             Self::Tuple(patterns) => {
-                for pattern in patterns {
-                    pattern.kind.destructure_unknown(ctx);
+                for pattern in patterns.iter().copied() {
+                    Self::destructure_unknown(pattern, allocator, ctx);
                 }
             }
             Self::Compound(compound) => {
-                for pattern in compound.into_values() {
-                    pattern.kind.destructure_unknown(ctx);
+                for pattern in compound.values().copied() {
+                    Self::destructure_unknown(pattern, allocator, ctx);
                 }
             }
             Self::RegularStruct(_, field_patterns) => {
-                for pattern in field_patterns.into_values() {
-                    pattern.kind.destructure_unknown(ctx);
+                for pattern in field_patterns.values().copied() {
+                    Self::destructure_unknown(pattern, allocator, ctx);
                 }
             }
             Self::TupleStruct(_, field_patterns) => {
-                for pattern in field_patterns {
-                    pattern.kind.destructure_unknown(ctx);
+                for pattern in field_patterns.iter().copied() {
+                    Self::destructure_unknown(pattern, allocator, ctx);
                 }
             }
         }
     }
-}
 
-#[derive(Debug, Clone)]
-pub struct Pattern {
-    pub span: Span,
-    pub kind: PatternKind,
-}
-
-impl Pattern {
     pub fn perform_semantic_analysis(
-        self,
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
         variable_type: &UnresolvedDataType,
-    ) -> Option<UnresolvedPattern> {
-        let self_type = self.kind.get_type();
+    ) -> Option<Idx<UnresolvedPattern>> {
+        let pattern = high_allocator.get_pattern(id);
+
+        let self_type = Self::get_type(id, high_allocator);
 
         let (wrappers, inner_type) = variable_type.unwrap();
 
-        Some(match (self.kind, inner_type) {
-            (PatternKind::Literal(expression), _) => UnresolvedPattern::Literal(expression),
-            (PatternKind::Wildcard, _) => UnresolvedPattern::Wildcard,
-            (PatternKind::Binding(path), _) => {
+        Some(match (pattern, inner_type) {
+            (Self::Literal(expression), _) => {
+                low_allocator.allocate_pattern(UnresolvedPattern::Literal(expression.clone()))
+            }
+            (Self::Wildcard, _) => low_allocator.allocate_pattern(UnresolvedPattern::Wildcard),
+            (Self::Binding(path), _) => {
                 if path.segments.len() == 1 {
                     let segment = &path.segments[0];
                     let name = segment.name.clone();
 
                     let id = ctx.declare_variable(Visibility::Public, name, variable_type.clone());
 
-                    UnresolvedPattern::Binding(id)
+                    low_allocator.allocate_pattern(UnresolvedPattern::Binding(id))
                 } else {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::UnknownItem(path.to_string()),
-                    );
+                    let span = high_allocator.get_pattern_span(id);
+
+                    return ctx
+                        .add_error(span, SemanticAnalysisError::UnknownItem(path.to_string()));
                 }
             }
-            (PatternKind::Score(score), _) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+            (Self::Score(score), _) => {
+                let score =
+                    score
+                        .clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 if !variable_type.can_be_assigned_to_score() {
+                    let span = high_allocator.get_pattern_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type.clone(),
                             actual: Box::new(self_type),
@@ -164,17 +169,21 @@ impl Pattern {
                     );
                 }
 
-                UnresolvedPattern::Score(score)
+                low_allocator.allocate_pattern(UnresolvedPattern::Score(score))
             }
-            (PatternKind::Data(data), _) => {
-                let data = data.perform_semantic_analysis(ctx)?;
+            (Self::Data(data), _) => {
+                let data =
+                    data.clone()
+                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 if variable_type
                     .get_data_type(&ctx.resolved_environment)
                     .is_none()
                 {
+                    let span = high_allocator.get_pattern_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type.clone(),
                             actual: Box::new(self_type),
@@ -182,75 +191,96 @@ impl Pattern {
                     );
                 }
 
-                UnresolvedPattern::Data(data)
+                low_allocator.allocate_pattern(UnresolvedPattern::Data(data))
             }
-            (PatternKind::Tuple(patterns), UnresolvedDataType::Tuple(data_types))
+            (Self::Tuple(patterns), UnresolvedDataType::Tuple(data_types))
                 if patterns.len() == data_types.len() =>
             {
                 let patterns = patterns
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .zip(data_types)
                     .map(|(pattern, data_type)| {
-                        pattern.perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))
+                        Self::perform_semantic_analysis(
+                            pattern,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                            &data_type.clone().wrap(&wrappers),
+                        )
                     })
                     .collect_option_all()?;
 
-                UnresolvedPattern::Tuple(patterns)
+                low_allocator.allocate_pattern(UnresolvedPattern::Tuple(patterns))
             }
             (
-                PatternKind::Compound(compound_patterns),
+                Self::Compound(compound_patterns),
                 UnresolvedDataType::TypedCompound(compound_types),
             ) => {
                 let compound = compound_patterns
-                    .into_iter()
+                    .iter()
                     .map(|((key_span, key), pattern)| {
+                        let pattern = *pattern;
+
                         let Some(data_type) =
                             compound_types.iter().find_map(|(typed_key, data_type)| {
-                                if *typed_key == key {
+                                if typed_key == key {
                                     Some(data_type)
                                 } else {
                                     None
                                 }
                             })
                         else {
-                            pattern.kind.destructure_unknown(ctx);
+                            Self::destructure_unknown(pattern, high_allocator, ctx);
 
                             return ctx.add_error(
-                                key_span,
+                                *key_span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
                                     data_type: variable_type.clone(),
-                                    field: key,
+                                    field: key.clone(),
                                 },
                             );
                         };
 
-                        let pattern = pattern
-                            .perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))?;
+                        let pattern = Self::perform_semantic_analysis(
+                            pattern,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                            &data_type.clone().wrap(&wrappers),
+                        )?;
 
-                        Some((key, pattern))
+                        Some((key.clone(), pattern))
                     })
                     .collect_option_all()?;
 
-                UnresolvedPattern::Compound(compound)
+                low_allocator.allocate_pattern(UnresolvedPattern::Compound(compound))
             }
-            (PatternKind::Compound(compound_patterns), UnresolvedDataType::Compound(data_type)) => {
+            (Self::Compound(compound_patterns), UnresolvedDataType::Compound(data_type)) => {
                 let compound = compound_patterns
-                    .into_iter()
+                    .iter()
                     .map(|((_, key), pattern)| {
-                        let pattern = pattern
-                            .perform_semantic_analysis(ctx, &data_type.clone().wrap(&wrappers))?;
+                        let pattern = *pattern;
 
-                        Some((key, pattern))
+                        let pattern = Self::perform_semantic_analysis(
+                            pattern,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                            &data_type.clone().wrap(&wrappers),
+                        )?;
+
+                        Some((key.clone(), pattern))
                     })
                     .collect_option_all()?;
 
-                UnresolvedPattern::Compound(compound)
+                low_allocator.allocate_pattern(UnresolvedPattern::Compound(compound))
             }
             (
-                PatternKind::RegularStruct(path, field_patterns),
+                Self::RegularStruct(path, field_patterns),
                 UnresolvedDataType::Struct(value_id, value_generic_types),
             ) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let mut path = path.clone().perform_semantic_analysis(ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
                 let pattern_id = HighRegularStructId(pattern_id.0);
@@ -269,12 +299,14 @@ impl Pattern {
                 if HighStructId::from(pattern_id) != *value_id
                     || pattern_generic_types != *value_generic_types
                 {
-                    for pattern in field_patterns.into_values() {
-                        pattern.kind.destructure_unknown(ctx);
+                    for pattern in field_patterns.values().copied() {
+                        Self::destructure_unknown(pattern, high_allocator, ctx);
                     }
 
+                    let span = high_allocator.get_pattern_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type.clone(),
                             actual: Box::new(self_type),
@@ -285,16 +317,18 @@ impl Pattern {
                 let field_types = pattern_declaration.field_types.clone();
 
                 let field_patterns = field_patterns
-                    .into_iter()
+                    .iter()
                     .map(|((name_span, name), pattern)| {
-                        let Some(field_type) = field_types.get(&name) else {
-                            pattern.kind.destructure_unknown(ctx);
+                        let pattern = *pattern;
+
+                        let Some(field_type) = field_types.get(name) else {
+                            Self::destructure_unknown(pattern, high_allocator, ctx);
 
                             return ctx.add_error(
-                                name_span,
+                                *name_span,
                                 SemanticAnalysisError::TypeDoesntHaveField {
                                     data_type: variable_type.clone(),
-                                    field: name,
+                                    field: name.clone(),
                                 },
                             );
                         };
@@ -303,20 +337,29 @@ impl Pattern {
                             .clone()
                             .substitute_generics(&pattern_generic_names, &pattern_generic_types);
 
-                        let pattern =
-                            pattern.perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
+                        let pattern = Self::perform_semantic_analysis(
+                            pattern,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                            &field_type.wrap(&wrappers),
+                        )?;
 
-                        Some((name, pattern))
+                        Some((name.clone(), pattern))
                     })
                     .collect_option_all()?;
 
-                UnresolvedPattern::RegularStruct(pattern_id, pattern_generic_types, field_patterns)
+                low_allocator.allocate_pattern(UnresolvedPattern::RegularStruct(
+                    pattern_id,
+                    pattern_generic_types,
+                    field_patterns,
+                ))
             }
             (
-                PatternKind::TupleStruct(path, field_patterns),
+                Self::TupleStruct(path, field_patterns),
                 UnresolvedDataType::Struct(value_id, value_generic_types),
             ) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let mut path = path.clone().perform_semantic_analysis(ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
                 let pattern_id = HighTupleStructId(pattern_id.0);
@@ -333,12 +376,14 @@ impl Pattern {
                 if HighStructId::from(pattern_id) != *value_id
                     || pattern_generic_types != *value_generic_types
                 {
-                    for pattern in field_patterns {
-                        pattern.kind.destructure_unknown(ctx);
+                    for pattern in field_patterns.iter().copied() {
+                        Self::destructure_unknown(pattern, high_allocator, ctx);
                     }
 
+                    let span = high_allocator.get_pattern_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::MismatchedPatternTypes {
                             expected: variable_type.clone(),
                             actual: Box::new(self_type),
@@ -365,26 +410,38 @@ impl Pattern {
                 let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
                 let field_patterns = field_patterns
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .zip(field_types)
                     .map(|(field_pattern, field_type)| {
                         let field_type = field_type
                             .substitute_generics(&pattern_generic_names, &pattern_generic_types);
 
-                        let pattern = field_pattern
-                            .perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
+                        let pattern = Self::perform_semantic_analysis(
+                            field_pattern,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                            &field_type.wrap(&wrappers),
+                        )?;
 
                         Some(pattern)
                     })
                     .collect_option_all()?;
 
-                UnresolvedPattern::TupleStruct(pattern_id, pattern_generic_types, field_patterns)
+                low_allocator.allocate_pattern(UnresolvedPattern::TupleStruct(
+                    pattern_id,
+                    pattern_generic_types,
+                    field_patterns,
+                ))
             }
-            (kind, _) => {
-                kind.destructure_unknown(ctx);
+            _ => {
+                Self::destructure_unknown(id, high_allocator, ctx);
+
+                let span = high_allocator.get_pattern_span(id);
 
                 return ctx.add_error(
-                    self.span,
+                    span,
                     SemanticAnalysisError::MismatchedPatternTypes {
                         expected: variable_type.clone(),
                         actual: Box::new(self_type),

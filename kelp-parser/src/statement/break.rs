@@ -1,4 +1,5 @@
-use kelp_core::high::statement::{Statement, StatementKind};
+use kelp_core::high::statement::Statement;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTBreakStatement, lower_context::LowerContext, parser::Parser, span::span_of_cst_node,
@@ -22,9 +23,9 @@ pub fn try_parse_break_statement(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_break_statement(
     node: CSTBreakStatement,
-    _ctx: &mut LowerContext,
-) -> Option<Statement> {
+    ctx: &mut LowerContext,
+) -> Option<Idx<Statement>> {
     let span = span_of_cst_node(&node);
 
-    Some(StatementKind::Break.with_span(span))
+    Some(ctx.allocator.allocate_statement(span, Statement::Break))
 }

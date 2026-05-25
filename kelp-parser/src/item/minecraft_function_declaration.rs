@@ -1,4 +1,4 @@
-use kelp_core::high::item::ItemKind;
+use kelp_core::high::item::Item;
 use rowan::ast::AstNode;
 
 use crate::{
@@ -60,14 +60,14 @@ pub fn expect_minecraft_function_declaration_item_kind(parser: &mut Parser) {
 pub fn lower_minecraft_function_declaration_item_kind(
     node: CSTMinecraftFunctionDeclarationItem,
     ctx: &mut LowerContext,
-) -> Option<ItemKind> {
+) -> Option<Item> {
     let resource_location_token = node.resource_location()?;
     let resource_location_span = text_range_to_span(resource_location_token.syntax().text_range());
     let resource_location = lower_resource_location(resource_location_token, ctx)?;
     let resource_location = assert_not_sigil(resource_location, resource_location_span, ctx)?;
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ItemKind::MinecraftFunctionDeclaration {
+    Some(Item::MinecraftFunctionDeclaration {
         resource_location,
         body,
     })

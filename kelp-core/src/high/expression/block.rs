@@ -1,21 +1,22 @@
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        expression::Expression,
-        semantic_analysis::SemanticAnalysisContext,
-        statement::{Statement, StatementKind},
+        expression::Expression, item::Item, semantic_analysis::SemanticAnalysisContext,
+        statement::Statement,
     },
     low::{
-        data_type::unresolved::UnresolvedDataType,
-        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionKind},
+        data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
     },
     span::Span,
-    trait_ext::CollectOptionAllIterExt,
+    trait_ext::CollectOptionAllIterExt as _,
 };
 
 #[derive(Debug, Clone)]
 pub struct BlockExpressionInfo {
-    pub statements: Vec<Statement>,
-    pub tail_expression: Option<Box<Expression>>,
+    pub statements: Vec<Idx<Statement>>,
+    pub tail_expression: Option<Idx<Expression>>,
 }
 
 impl BlockExpressionInfo {
@@ -35,46 +36,63 @@ pub struct BlockExpression {
 impl BlockExpression {
     #[must_use]
     pub fn perform_semantic_analysis(
-        mut self,
+        &self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, Option<Span>, UnresolvedExpression)> {
+    ) -> Option<(Span, Option<Span>, Idx<UnresolvedExpression>)> {
         ctx.enter_scope();
 
-        for statement in &mut self.info.statements {
-            let StatementKind::Item(item) = &mut statement.kind else {
-                continue;
-            };
+        let items = self
+            .info
+            .statements
+            .iter()
+            .copied()
+            .filter_map(|statement| {
+                let statement = high_allocator.get_statement(statement);
 
-            item.resolve_names(ctx);
+                if let Statement::Item(item) = statement {
+                    Some(*item)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for item in items.iter().copied() {
+            Item::resolve_names(item, high_allocator, ctx);
         }
 
-        for statement in &mut self.info.statements {
-            let StatementKind::Item(item) = &mut statement.kind else {
-                continue;
-            };
-
-            item.resolve_imports(ctx);
+        for item in items.iter().copied() {
+            Item::resolve_imports(item, high_allocator, ctx);
         }
 
-        for statement in &mut self.info.statements {
-            let StatementKind::Item(item) = &mut statement.kind else {
-                continue;
-            };
+        for item in items.iter().copied() {
+            Item::resolve_types(item, high_allocator, ctx);
+        }
 
-            item.resolve_types(ctx);
+        for item in items.iter().copied() {
+            Item::resolve_value_types(item, high_allocator, ctx);
         }
 
         let body = self
             .info
             .statements
-            .into_iter()
-            .map(|statement| statement.perform_semantic_analysis(ctx))
+            .iter()
+            .copied()
+            .map(|statement| {
+                Statement::perform_semantic_analysis(statement, high_allocator, low_allocator, ctx)
+            })
             .collect_option_all::<Vec<_>>();
 
-        let tail_expression = self
-            .info
-            .tail_expression
-            .map(|tail_expression| tail_expression.perform_semantic_analysis(ctx));
+        let tail_expression = self.info.tail_expression.map(|tail_expression| {
+            Expression::perform_semantic_analysis(
+                tail_expression,
+                high_allocator,
+                low_allocator,
+                ctx,
+            )
+        });
 
         ctx.exit_scope();
 
@@ -85,20 +103,19 @@ impl BlockExpression {
             None => None,
         };
 
-        let data_type = tail_expression
-            .as_ref()
-            .map_or(UnresolvedDataType::Unit, |(_, tail_expression)| {
-                tail_expression.data_type.clone()
-            });
+        let data_type = tail_expression.map_or(UnresolvedDataType::Unit, |tail_expression| {
+            low_allocator.get_expression_type(tail_expression).clone()
+        });
 
         Some((
             self.span,
-            tail_expression.as_ref().map(|(span, _)| *span),
-            UnresolvedExpressionKind::Block(
-                body,
-                tail_expression.map(|(_, tail_expression)| Box::new(tail_expression)),
-            )
-            .with(data_type),
+            self.info
+                .tail_expression
+                .map(|tail_expression| high_allocator.get_expression_span(tail_expression)),
+            low_allocator.allocate_expression(
+                UnresolvedExpression::Block(body, tail_expression),
+                data_type,
+            ),
         ))
     }
 }

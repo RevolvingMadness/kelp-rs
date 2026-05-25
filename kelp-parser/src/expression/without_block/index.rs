@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTIndexExpression, expression::lower_expression, lower_context::LowerContext,
@@ -10,7 +11,7 @@ use crate::{
 pub fn lower_index_expression(
     node: CSTIndexExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let mut expressions = node.expressions();
@@ -18,5 +19,8 @@ pub fn lower_index_expression(
     let expression = lower_expression(expressions.next()?, ctx)?;
     let index = lower_expression(expressions.next()?, ctx)?;
 
-    Some(ExpressionKind::Index(Box::new(expression), Box::new(index)).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::Index(expression, index)),
+    )
 }

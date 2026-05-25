@@ -5,7 +5,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
     low::supports_expression_sigil::SupportsExpressionSigil,
 };
 
@@ -22,25 +22,30 @@ pub enum StopwatchCommand {
 
 impl StopwatchCommand {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowStopwatchCommand {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> LowStopwatchCommand {
         match self {
             Self::Create(resource_location) => {
-                let resource_location = resource_location.compile(datapack, ctx);
+                let resource_location = resource_location.compile(allocator, datapack, ctx);
 
                 LowStopwatchCommand::Create(resource_location)
             }
             Self::Query(resource_location, scale) => {
-                let resource_location = resource_location.compile(datapack, ctx);
+                let resource_location = resource_location.compile(allocator, datapack, ctx);
 
                 LowStopwatchCommand::Query(resource_location, scale)
             }
             Self::Restart(resource_location) => {
-                let resource_location = resource_location.compile(datapack, ctx);
+                let resource_location = resource_location.compile(allocator, datapack, ctx);
 
                 LowStopwatchCommand::Restart(resource_location)
             }
             Self::Remove(resource_location) => {
-                let resource_location = resource_location.compile(datapack, ctx);
+                let resource_location = resource_location.compile(allocator, datapack, ctx);
 
                 LowStopwatchCommand::Remove(resource_location)
             }

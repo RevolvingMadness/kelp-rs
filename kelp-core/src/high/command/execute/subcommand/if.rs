@@ -4,6 +4,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         block::BlockState, command::execute::subcommand::ExecuteSubcommand, data::DataTarget,
         entity_selector::EntitySelector, item_source::ItemSource, mc_item::ItemPredicate,
@@ -57,14 +58,18 @@ impl ExecuteIfSubcommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleExecuteIfSubcommand> {
         Some(match self {
             Self::Biome(coordinates, biome, next) => {
-                let biome = biome.perform_semantic_analysis(ctx);
+                let biome = biome.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -73,9 +78,12 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Biome(coordinates, biome, next.map(Box::new))
             }
             Self::Block(coordinates, block_state, next) => {
-                let block_state = block_state.perform_semantic_analysis(ctx);
+                let block_state =
+                    block_state.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -85,17 +93,21 @@ impl ExecuteIfSubcommand {
             }
             Self::Blocks(start, end, desination, mode, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
                 MiddleExecuteIfSubcommand::Blocks(start, end, desination, mode, next.map(Box::new))
             }
             Self::Data(target, path, next) => {
-                let target = target.perform_semantic_analysis(ctx);
-                let path = path.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let path = path.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -105,10 +117,13 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Data(target, path, next.map(Box::new))
             }
             Self::Dimension(dimension, next) => {
-                let dimension = dimension.perform_semantic_analysis(ctx);
+                let dimension =
+                    dimension.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -117,9 +132,12 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Dimension(dimension, next.map(Box::new))
             }
             Self::Entity(selector, next) => {
-                let selector = selector.perform_semantic_analysis(ctx);
+                let selector =
+                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -128,10 +146,13 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Entity(selector, next.map(Box::new))
             }
             Self::Function(function, next) => {
-                let function = function.perform_semantic_analysis(ctx);
+                let function =
+                    function.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -140,10 +161,14 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Function(function, next.map(Box::new))
             }
             Self::Items(item_source, slot, item_predicate, next) => {
-                let item_source = item_source.perform_semantic_analysis(ctx);
-                let item_predicate = item_predicate.perform_semantic_analysis(ctx);
+                let item_source =
+                    item_source.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let item_predicate =
+                    item_predicate.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -159,17 +184,22 @@ impl ExecuteIfSubcommand {
             }
             Self::Loaded(column_position, next) => {
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
                 MiddleExecuteIfSubcommand::Loaded(column_position, next.map(Box::new))
             }
             Self::Predicate(predicate, next) => {
-                let predicate = predicate.perform_semantic_analysis(ctx);
+                let predicate =
+                    predicate.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 
@@ -178,10 +208,13 @@ impl ExecuteIfSubcommand {
                 MiddleExecuteIfSubcommand::Predicate(predicate, next.map(Box::new))
             }
             Self::Score(score, score_comparison, next) => {
-                let score = score.perform_semantic_analysis(ctx);
-                let score_comparison = score_comparison.perform_semantic_analysis(ctx);
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let score_comparison =
+                    score_comparison.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let next = match next {
-                    Some(next) => Some(next.perform_semantic_analysis(ctx)?),
+                    Some(next) => {
+                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 

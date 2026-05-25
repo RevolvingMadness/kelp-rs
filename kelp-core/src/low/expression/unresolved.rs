@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use la_arena::Idx;
 use minecraft_command_types::{
     command::{
         Command,
@@ -15,6 +16,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedData,
     datapack::Datapack,
@@ -98,31 +100,31 @@ fn compile_if(
 }
 
 fn compile_if_internal(
+    allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    condition: UnresolvedExpression,
-    body: UnresolvedExpression,
-    else_body: Option<Box<UnresolvedExpression>>,
+    condition: Idx<UnresolvedExpression>,
+    body: Idx<UnresolvedExpression>,
+    else_body: Option<Idx<UnresolvedExpression>>,
     output_data: Option<GeneratedData>,
 ) {
     let mut body_ctx = ctx.create_child_ctx();
-    let main_body_returns_early = body.kind.returns_early();
-    let body = body.kind.resolve(datapack, &mut body_ctx);
+    let main_body_returns_early = UnresolvedExpression::returns_early(body, allocator);
+    let body = UnresolvedExpression::resolve(body, allocator, datapack, &mut body_ctx);
 
     if let Some(output_data) = &output_data {
         body.assign_to_data(datapack, &mut body_ctx, output_data.clone());
     }
 
-    let (invert, condition) = condition
-        .kind
-        .resolve(datapack, ctx)
+    let (invert, condition) = UnresolvedExpression::resolve(condition, allocator, datapack, ctx)
         .to_execute_condition(datapack, ctx)
         .unwrap();
 
     if let Some(else_body) = else_body {
         let mut else_body_ctx = ctx.create_child_ctx();
-        let else_body_returns_early = else_body.kind.returns_early();
-        let else_body = else_body.kind.resolve(datapack, &mut else_body_ctx);
+        let else_body_returns_early = UnresolvedExpression::returns_early(else_body, allocator);
+        let else_body =
+            UnresolvedExpression::resolve(else_body, allocator, datapack, &mut else_body_ctx);
 
         if let Some(output_data) = output_data {
             else_body.assign_to_data(datapack, &mut else_body_ctx, output_data);
@@ -206,12 +208,13 @@ fn compile_if_internal(
 }
 
 fn iterate_string(
+    allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     is_reversed: bool,
-    pattern: UnresolvedPattern,
+    pattern: Idx<UnresolvedPattern>,
     iterable: ResolvedExpression,
-    body: UnresolvedExpression,
+    body: Idx<UnresolvedExpression>,
 ) {
     let (unique_data, name) = datapack.get_unique_data_named();
     let unique_data_2 = datapack.get_unique_data();
@@ -220,7 +223,9 @@ fn iterate_string(
 
     let mut for_body_ctx = CompileContext::default();
 
-    pattern.destructure(
+    UnresolvedPattern::destructure(
+        pattern,
+        allocator,
         datapack,
         &mut for_body_ctx,
         ResolvedDataType::String,
@@ -237,7 +242,7 @@ fn iterate_string(
         )),
     );
 
-    body.kind.compile_as_statement(datapack, &mut for_body_ctx);
+    UnresolvedExpression::compile_as_statement(body, allocator, datapack, &mut for_body_ctx);
 
     let current_namespace_name = datapack.current_namespace_name().to_string();
 
@@ -278,14 +283,16 @@ fn iterate_string(
     datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn iterate_data(
+    allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     is_reversed: bool,
-    pattern: UnresolvedPattern,
+    pattern: Idx<UnresolvedPattern>,
     iterable_type: ResolvedDataType,
     iterable: ResolvedExpression,
-    body: UnresolvedExpression,
+    body: Idx<UnresolvedExpression>,
 ) {
     let unique_data = datapack.get_unique_data();
 
@@ -300,14 +307,16 @@ fn iterate_data(
                 if is_reversed { -1 } else { 0 },
             ))));
 
-    pattern.destructure(
+    UnresolvedPattern::destructure(
+        pattern,
+        allocator,
         datapack,
         &mut for_body_ctx,
         iterable_type,
         ResolvedExpression::Data(destructure_unique_data),
     );
 
-    body.kind.compile_as_statement(datapack, &mut for_body_ctx);
+    UnresolvedExpression::compile_as_statement(body, allocator, datapack, &mut for_body_ctx);
 
     let current_namespace_name = datapack.current_namespace_name().to_string();
 
@@ -337,7 +346,7 @@ fn iterate_data(
 }
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedExpressionKind {
+pub enum UnresolvedExpression {
     Boolean(bool),
     Byte(i8),
     Short(i16),
@@ -350,106 +359,73 @@ pub enum UnresolvedExpressionKind {
     String(String),
     Unit,
     Underscore,
-    Negate(Box<UnresolvedExpression>),
-    Invert(Box<UnresolvedExpression>),
-    Reference(Box<UnresolvedPlaceExpression>),
-    Dereference(Box<UnresolvedPlaceExpression>),
-    Arithmetic(
-        Box<UnresolvedExpression>,
-        ArithmeticOperator,
-        Box<UnresolvedExpression>,
-    ),
-    Comparison(
-        Box<UnresolvedExpression>,
-        ComparisonOperator,
-        Box<UnresolvedExpression>,
-    ),
-    Logical(
-        Box<UnresolvedExpression>,
-        LogicalOperator,
-        Box<UnresolvedExpression>,
-    ),
+    Negate(Idx<Self>),
+    Invert(Idx<Self>),
+    Reference(Idx<UnresolvedPlaceExpression>),
+    Dereference(Idx<UnresolvedPlaceExpression>),
+    Arithmetic(Idx<Self>, ArithmeticOperator, Idx<Self>),
+    Comparison(Idx<Self>, ComparisonOperator, Idx<Self>),
+    Logical(Idx<Self>, LogicalOperator, Idx<Self>),
     AugmentedAssignment(
-        Box<UnresolvedPlaceExpression>,
+        Idx<UnresolvedPlaceExpression>,
         ArithmeticOperator,
-        Box<UnresolvedExpression>,
+        Idx<Self>,
     ),
-    Assignment(Box<UnresolvedAssigneeExpression>, Box<UnresolvedExpression>),
-    List(Vec<UnresolvedExpression>),
-    Compound(HashMap<String, UnresolvedExpression>),
+    Assignment(Idx<UnresolvedAssigneeExpression>, Idx<Self>),
+    List(Vec<Idx<Self>>),
+    Compound(HashMap<String, Idx<Self>>),
     Score(PlayerScore),
     Data(Box<Data>),
     Condition(bool, Box<MiddleExecuteIfSubcommand>),
     Command(Box<MiddleCommand>),
-    Index(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
-    FieldAccess(Box<UnresolvedExpression>, String),
-    AsCast(Box<UnresolvedExpression>, UnresolvedDataType),
-    ToCast(
-        Option<NotNan<f32>>,
-        Box<UnresolvedExpression>,
-        RuntimeStorageType,
-    ),
-    Tuple(Vec<UnresolvedExpression>),
-    Call(Box<UnresolvedExpression>, Vec<UnresolvedExpression>),
+    Index(Idx<Self>, Idx<Self>),
+    FieldAccess(Idx<Self>, String),
+    AsCast(Idx<Self>, UnresolvedDataType),
+    ToCast(Option<NotNan<f32>>, Idx<Self>, RuntimeStorageType),
+    Tuple(Vec<Idx<Self>>),
+    Call(Idx<Self>, Vec<Idx<Self>>),
     Value(HighValueId, Vec<UnresolvedDataType>),
     RegularStruct(
         HighRegularStructId,
         Vec<UnresolvedDataType>,
-        HashMap<String, UnresolvedExpression>,
+        HashMap<String, Idx<Self>>,
     ),
-    TupleStruct(
-        HighTupleStructId,
-        Vec<UnresolvedDataType>,
-        Vec<UnresolvedExpression>,
-    ),
+    TupleStruct(HighTupleStructId, Vec<UnresolvedDataType>, Vec<Idx<Self>>),
     If {
-        condition: Box<UnresolvedExpression>,
+        condition: Idx<Self>,
 
-        body: Box<UnresolvedExpression>,
-        else_body: Option<Box<UnresolvedExpression>>,
+        body: Idx<Self>,
+        else_body: Option<Idx<Self>>,
     },
-    Block(Vec<UnresolvedStatement>, Option<Box<UnresolvedExpression>>),
-    WhileLoop(Box<UnresolvedExpression>, Box<UnresolvedExpression>),
-    Loop(Box<UnresolvedExpression>),
-    ForLoop(
-        bool,
-        Box<UnresolvedPattern>,
-        Box<UnresolvedExpression>,
-        Box<UnresolvedExpression>,
-    ),
+    Block(Vec<Idx<UnresolvedStatement>>, Option<Idx<Self>>),
+    WhileLoop(Idx<Self>, Idx<Self>),
+    Loop(Idx<Self>),
+    ForLoop(bool, Idx<UnresolvedPattern>, Idx<Self>, Idx<Self>),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
     Coordinates(Box<SupportsExpressionSigil<Coordinates>>),
-    Return(Box<UnresolvedExpression>),
+    Return(Idx<Self>),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
 }
 
-impl UnresolvedExpressionKind {
+impl UnresolvedExpression {
     #[must_use]
-    pub const fn with(self, data_type: UnresolvedDataType) -> UnresolvedExpression {
-        UnresolvedExpression {
-            kind: self,
-            data_type,
-        }
-    }
-
-    #[must_use]
-    pub fn definitely_diverges(&self) -> bool {
-        match self {
+    pub fn definitely_diverges(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
+        match allocator.get_expression(id) {
             Self::Return(..) => true,
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    if statement.definitely_diverges() {
+                    if UnresolvedStatement::definitely_diverges(*statement, allocator) {
                         return true;
                     }
                 }
 
                 tail_expression
                     .as_ref()
-                    .is_some_and(|expression| expression.kind.definitely_diverges())
+                    .is_some_and(|expression| Self::definitely_diverges(*expression, allocator))
             }
 
             Self::If {
@@ -457,49 +433,51 @@ impl UnresolvedExpressionKind {
                 body,
                 else_body,
             } => {
-                if condition.kind.definitely_diverges() {
+                if Self::definitely_diverges(*condition, allocator) {
                     return true;
                 }
 
                 if let Some(else_body) = else_body {
-                    body.kind.definitely_diverges() && else_body.kind.definitely_diverges()
+                    Self::definitely_diverges(*body, allocator)
+                        && Self::definitely_diverges(*else_body, allocator)
                 } else {
                     false
                 }
             }
 
-            Self::Loop(body) => !body.kind.contains_break(),
+            Self::Loop(body) => !Self::contains_break(*body, allocator),
 
             Self::Arithmetic(left, _, right)
             | Self::Comparison(left, _, right)
             | Self::Logical(left, _, right) => {
-                left.kind.definitely_diverges() || right.kind.definitely_diverges()
+                Self::definitely_diverges(*left, allocator)
+                    || Self::definitely_diverges(*right, allocator)
             }
 
             Self::AugmentedAssignment(_, _, right)
             | Self::Assignment(_, right)
-            | Self::Index(_, right) => right.kind.definitely_diverges(),
+            | Self::Index(_, right) => Self::definitely_diverges(*right, allocator),
 
             Self::Negate(expression)
             | Self::Invert(expression)
             | Self::AsCast(expression, _)
-            | Self::ToCast(_, expression, _) => expression.kind.definitely_diverges(),
+            | Self::ToCast(_, expression, _) => Self::definitely_diverges(*expression, allocator),
             Self::Call(callee, arguments) => {
-                callee.kind.definitely_diverges()
+                Self::definitely_diverges(*callee, allocator)
                     || arguments
                         .iter()
-                        .any(|expression| expression.kind.definitely_diverges())
+                        .any(|expression| Self::definitely_diverges(*expression, allocator))
             }
             Self::List(expressions)
             | Self::Tuple(expressions)
             | Self::TupleStruct(_, _, expressions) => expressions
                 .iter()
-                .any(|expression| expression.kind.definitely_diverges()),
+                .any(|expression| Self::definitely_diverges(*expression, allocator)),
             Self::Compound(compound) | Self::RegularStruct(_, _, compound) => compound
                 .values()
-                .any(|expression| expression.kind.definitely_diverges()),
-            Self::WhileLoop(expression, _) => expression.kind.definitely_diverges(),
-            Self::ForLoop(_, _, expression, _) => expression.kind.definitely_diverges(),
+                .any(|expression| Self::definitely_diverges(*expression, allocator)),
+            Self::WhileLoop(expression, _) => Self::definitely_diverges(*expression, allocator),
+            Self::ForLoop(_, _, expression, _) => Self::definitely_diverges(*expression, allocator),
 
             _ => false,
         }
@@ -507,30 +485,38 @@ impl UnresolvedExpressionKind {
 
     #[inline]
     #[must_use]
-    pub fn contains_break(&self) -> bool {
-        matches!(self.get_early_return_type(), Some(EarlyReturnType::Break))
+    pub fn contains_break(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
+        matches!(
+            Self::get_early_return_type(id, allocator),
+            Some(EarlyReturnType::Break)
+        )
     }
 
     #[must_use]
-    pub fn get_early_return_type(&self) -> Option<EarlyReturnType> {
-        match self {
+    pub fn get_early_return_type(
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
+    ) -> Option<EarlyReturnType> {
+        match allocator.get_expression(id) {
             Self::If {
                 body, else_body, ..
-            } => body.kind.get_early_return_type().or_else(|| {
+            } => Self::get_early_return_type(*body, allocator).or_else(|| {
                 else_body
                     .as_ref()
-                    .and_then(|else_body| else_body.kind.get_early_return_type())
+                    .and_then(|else_body| Self::get_early_return_type(*else_body, allocator))
             }),
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    if let Some(kind) = statement.get_early_return_type() {
+                    if let Some(kind) =
+                        UnresolvedStatement::get_early_return_type(*statement, allocator)
+                    {
                         return Some(kind);
                     }
                 }
 
                 if let Some(tail_expression) = tail_expression
-                    && let Some(kind) = tail_expression.kind.get_early_return_type()
+                    && let Some(kind) = Self::get_early_return_type(*tail_expression, allocator)
                 {
                     return Some(kind);
                 }
@@ -538,9 +524,9 @@ impl UnresolvedExpressionKind {
                 None
             }
 
-            Self::WhileLoop(_, body) => body.kind.get_early_return_type(),
-            Self::Loop(body) => body.kind.get_early_return_type(),
-            Self::ForLoop(_, _, _, body) => body.kind.get_early_return_type(),
+            Self::WhileLoop(_, body) => Self::get_early_return_type(*body, allocator),
+            Self::Loop(body) => Self::get_early_return_type(*body, allocator),
+            Self::ForLoop(_, _, _, body) => Self::get_early_return_type(*body, allocator),
 
             Self::Return(..) => Some(EarlyReturnType::Return),
 
@@ -550,8 +536,8 @@ impl UnresolvedExpressionKind {
 
     #[inline]
     #[must_use]
-    pub fn returns_early(&self) -> bool {
-        self.get_early_return_type().is_some()
+    pub fn returns_early(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
+        Self::get_early_return_type(id, allocator).is_some()
     }
 
     #[must_use]
@@ -560,42 +546,31 @@ impl UnresolvedExpressionKind {
     }
 
     #[must_use]
-    pub const fn is_index_out_of_bounds(&self, index: &UnresolvedExpression) -> Option<bool> {
-        let Self::List(expressions) = self else {
-            return None;
-        };
-
-        let UnresolvedExpression {
-            kind: Self::Integer(index) | Self::InferredInteger(index),
-            ..
-        } = index
-        else {
-            return None;
-        };
-
-        Some((*index as usize) >= expressions.len())
-    }
-
-    #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ResolvedExpression {
-        match self {
+    pub fn resolve(
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> ResolvedExpression {
+        match allocator.get_expression(id) {
             Self::Negate(expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let expression = Self::resolve(*expression, allocator, datapack, ctx);
 
                 expression.negate(datapack, ctx).unwrap()
             }
             Self::Invert(expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let expression = Self::resolve(*expression, allocator, datapack, ctx);
 
                 expression.invert().unwrap()
             }
             Self::Reference(expression) => {
-                let expression = expression.resolve(datapack, ctx);
+                let expression =
+                    UnresolvedPlaceExpression::resolve(*expression, allocator, datapack, ctx);
 
                 ResolvedExpression::Reference(Box::new(expression))
             }
             Self::Dereference(place) => {
-                let place = place.resolve(datapack, ctx);
+                let place = UnresolvedPlaceExpression::resolve(*place, allocator, datapack, ctx);
 
                 place
                     .resolve(datapack, ctx)
@@ -603,34 +578,35 @@ impl UnresolvedExpressionKind {
                     .unwrap()
             }
             Self::Arithmetic(left, operator, right) => {
-                let left = left.kind.resolve(datapack, ctx);
-                let right = right.kind.resolve(datapack, ctx);
+                let left = Self::resolve(*left, allocator, datapack, ctx);
+                let right = Self::resolve(*right, allocator, datapack, ctx);
 
-                left.perform_arithmetic(datapack, ctx, operator, right)
+                left.perform_arithmetic(datapack, ctx, *operator, right)
             }
             Self::Comparison(left, operator, right) => {
-                let left = left.kind.resolve(datapack, ctx);
-                let right = right.kind.resolve(datapack, ctx);
+                let left = Self::resolve(*left, allocator, datapack, ctx);
+                let right = Self::resolve(*right, allocator, datapack, ctx);
 
-                left.perform_comparison(datapack, ctx, operator, right)
+                left.perform_comparison(datapack, ctx, *operator, right)
             }
             Self::Logical(left, operator, right) => {
-                let left = left.kind.resolve(datapack, ctx);
-                let right = right.kind.resolve(datapack, ctx);
+                let left = Self::resolve(*left, allocator, datapack, ctx);
+                let right = Self::resolve(*right, allocator, datapack, ctx);
 
-                left.perform_logical_operation(datapack, ctx, operator, right)
+                left.perform_logical_operation(datapack, ctx, *operator, right)
             }
             Self::AugmentedAssignment(target, operator, value) => {
-                let target = target.resolve(datapack, ctx);
-                let value = value.kind.resolve(datapack, ctx);
+                let target = UnresolvedPlaceExpression::resolve(*target, allocator, datapack, ctx);
+                let value = Self::resolve(*value, allocator, datapack, ctx);
 
-                target.augmented_assign(datapack, ctx, operator, value);
+                target.augmented_assign(datapack, ctx, *operator, value);
 
                 ResolvedExpression::Unit
             }
             Self::Assignment(target, value) => {
-                let target = target.resolve(datapack, ctx);
-                let value = value.kind.resolve(datapack, ctx);
+                let target =
+                    UnresolvedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
+                let value = Self::resolve(*value, allocator, datapack, ctx);
 
                 target.assign(datapack, ctx, value);
 
@@ -638,28 +614,33 @@ impl UnresolvedExpressionKind {
             }
             Self::List(expressions) => ResolvedExpression::List(
                 expressions
-                    .into_iter()
-                    .map(|expr| expr.kind.resolve(datapack, ctx))
+                    .iter()
+                    .copied()
+                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
                     .collect::<Vec<_>>(),
             ),
             Self::Compound(compound) => ResolvedExpression::Compound(
                 compound
-                    .into_iter()
-                    .map(|(key, value)| (key, value.kind.resolve(datapack, ctx)))
+                    .iter()
+                    .map(|(key, value)| {
+                        (key.clone(), Self::resolve(*value, allocator, datapack, ctx))
+                    })
                     .collect::<BTreeMap<_, _>>(),
             ),
             Self::Score(score) => {
-                let score = score.compile(datapack, ctx);
+                let score = score.clone().compile(allocator, datapack, ctx);
 
                 ResolvedExpression::Score(score)
             }
             Self::Data(data) => {
-                let data = data.compile(datapack, ctx);
+                let data = data.clone().compile(allocator, datapack, ctx);
 
                 ResolvedExpression::Data(data)
             }
             Self::Condition(inverted, condition) => {
-                let condition = condition.compile(datapack, ctx);
+                let inverted = *inverted;
+
+                let condition = condition.clone().compile(allocator, datapack, ctx);
 
                 let result_score = datapack.get_unique_score();
 
@@ -673,7 +654,7 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Score(result_score)
             }
             Self::Command(command) => {
-                let command = command.compile(datapack, ctx);
+                let command = command.clone().compile(allocator, datapack, ctx);
 
                 let result_score = datapack.get_unique_score();
 
@@ -685,36 +666,36 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Score(result_score)
             }
             Self::Index(target, index) => {
-                let target = target.kind.resolve(datapack, ctx);
-                let index = index.kind.resolve(datapack, ctx);
+                let target = Self::resolve(*target, allocator, datapack, ctx);
+                let index = Self::resolve(*index, allocator, datapack, ctx);
 
                 target.index(ctx, index).unwrap()
             }
             Self::FieldAccess(target, field) => {
-                let target = target.kind.resolve(datapack, ctx);
+                let target = Self::resolve(*target, allocator, datapack, ctx);
 
                 target.access_field(FieldAccessType::Name, field).unwrap()
             }
             Self::AsCast(expression, data_type) => {
-                let expression = expression.kind.resolve(datapack, ctx);
-                let data_type = data_type.resolve(datapack).unwrap();
+                let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                let data_type = data_type.clone().resolve(datapack).unwrap();
 
                 expression.cast_to(data_type).unwrap()
             }
             Self::ToCast(scale, expression, runtime_storage_type) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let expression = Self::resolve(*expression, allocator, datapack, ctx);
 
                 match runtime_storage_type {
                     RuntimeStorageType::Score => {
                         if let Some(scale) = scale {
-                            expression.to_score_scale(datapack, ctx, scale)
+                            expression.to_score_scale(datapack, ctx, *scale)
                         } else {
                             expression.to_unique_score(datapack, ctx)
                         }
                     }
                     RuntimeStorageType::Data => {
                         let data = if let Some(scale) = scale {
-                            expression.to_data_scale(datapack, ctx, scale)
+                            expression.to_data_scale(datapack, ctx, *scale)
                         } else {
                             expression.as_data(datapack, ctx, true)
                         };
@@ -725,11 +706,14 @@ impl UnresolvedExpressionKind {
             }
             Self::Tuple(expressions) => ResolvedExpression::Tuple(
                 expressions
-                    .into_iter()
-                    .map(|expression| expression.kind.resolve(datapack, ctx))
+                    .iter()
+                    .copied()
+                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
                     .collect(),
             ),
             Self::RegularStruct(id, generic_types, field_expressions) => {
+                let id = *id;
+
                 let (module_path, visiblity, declaration) =
                     datapack.resolved_environment.get_regular_struct(id);
 
@@ -737,14 +721,17 @@ impl UnresolvedExpressionKind {
                 let name = declaration.name.clone();
 
                 let generic_types = generic_types
-                    .into_iter()
+                    .iter()
+                    .cloned()
                     .map(|data_type| data_type.resolve(datapack).unwrap())
                     .collect();
 
                 let field_types = field_expressions
                     .iter()
                     .map(|(name, expression)| {
-                        let data_type = expression.data_type.clone().resolve(datapack).unwrap();
+                        let data_type = allocator.get_expression_type(*expression).clone();
+
+                        let data_type = data_type.resolve(datapack).unwrap();
 
                         (name.clone(), data_type)
                     })
@@ -760,17 +747,19 @@ impl UnresolvedExpressionKind {
                 );
 
                 let field_expressions = field_expressions
-                    .into_iter()
+                    .iter()
                     .map(|(name, expression)| {
-                        let expression = expression.kind.resolve(datapack, ctx);
+                        let expression = Self::resolve(*expression, allocator, datapack, ctx);
 
-                        (name, expression)
+                        (name.clone(), expression)
                     })
                     .collect();
 
                 ResolvedExpression::RegularStruct(id, field_expressions)
             }
             Self::TupleStruct(id, generic_types, field_expressions) => {
+                let id = *id;
+
                 let (module_path, visiblity, declaration) =
                     datapack.resolved_environment.get_tuple_struct(id);
 
@@ -778,13 +767,18 @@ impl UnresolvedExpressionKind {
                 let name = declaration.name.clone();
 
                 let generic_types = generic_types
-                    .into_iter()
+                    .iter()
+                    .cloned()
                     .map(|data_type| data_type.resolve(datapack).unwrap())
                     .collect();
 
                 let field_types = field_expressions
                     .iter()
-                    .map(|expression| expression.data_type.clone().resolve(datapack).unwrap())
+                    .map(|expression| {
+                        let data_type = allocator.get_expression_type(*expression).clone();
+
+                        data_type.resolve(datapack).unwrap()
+                    })
                     .collect();
 
                 let id = datapack.declare_monomorphized_tuple_struct(
@@ -797,27 +791,28 @@ impl UnresolvedExpressionKind {
                 );
 
                 let field_expressions = field_expressions
-                    .into_iter()
-                    .map(|expression| expression.kind.resolve(datapack, ctx))
+                    .iter()
+                    .copied()
+                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
                     .collect();
 
                 ResolvedExpression::TupleStruct(id, field_expressions)
             }
             Self::Underscore => unreachable!(),
-            Self::Boolean(value) => ResolvedExpression::Boolean(value),
-            Self::Byte(value) => ResolvedExpression::Byte(value),
-            Self::Short(value) => ResolvedExpression::Short(value),
+            Self::Boolean(value) => ResolvedExpression::Boolean(*value),
+            Self::Byte(value) => ResolvedExpression::Byte(*value),
+            Self::Short(value) => ResolvedExpression::Short(*value),
             Self::Integer(value) | Self::InferredInteger(value) => {
-                ResolvedExpression::Integer(value)
+                ResolvedExpression::Integer(*value)
             }
-            Self::Long(value) => ResolvedExpression::Long(value),
-            Self::Float(value) | Self::InferredFloat(value) => ResolvedExpression::Float(value),
-            Self::Double(value) => ResolvedExpression::Double(value),
-            Self::String(value) => ResolvedExpression::String(value),
+            Self::Long(value) => ResolvedExpression::Long(*value),
+            Self::Float(value) | Self::InferredFloat(value) => ResolvedExpression::Float(*value),
+            Self::Double(value) => ResolvedExpression::Double(*value),
+            Self::String(value) => ResolvedExpression::String(value.clone()),
             Self::Unit => ResolvedExpression::Unit,
             Self::Value(id, generic_types) => {
                 let id = datapack
-                    .get_monomorphized_value_id(id, &generic_types)
+                    .get_monomorphized_value_id(*id, generic_types)
                     .unwrap();
 
                 let declaration = datapack.get_value(id);
@@ -835,11 +830,11 @@ impl UnresolvedExpressionKind {
             }
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    statement.compile_as_statement(datapack, ctx);
+                    UnresolvedStatement::compile_as_statement(*statement, allocator, datapack, ctx);
                 }
 
                 tail_expression.map_or(ResolvedExpression::Unit, |tail_expression| {
-                    tail_expression.kind.resolve(datapack, ctx)
+                    Self::resolve(tail_expression, allocator, datapack, ctx)
                 })
             }
             Self::If {
@@ -850,25 +845,29 @@ impl UnresolvedExpressionKind {
                 let output_data = datapack.get_unique_data();
 
                 compile_if_internal(
+                    allocator,
                     datapack,
                     ctx,
                     *condition,
                     *body,
-                    else_body,
+                    *else_body,
                     Some(output_data.clone()),
                 );
 
                 ResolvedExpression::Data(output_data)
             }
             Self::Call(callee, arguments) => {
-                let callee = callee.kind.resolve(datapack, ctx);
+                let callee = Self::resolve(*callee, allocator, datapack, ctx);
 
                 let arguments = arguments
-                    .into_iter()
-                    .map(|argument| argument.kind.resolve(datapack, ctx))
+                    .iter()
+                    .copied()
+                    .map(|argument| Self::resolve(argument, allocator, datapack, ctx))
                     .collect::<Vec<_>>();
 
-                callee.call(datapack, ctx, arguments, true).unwrap()
+                callee
+                    .call(allocator, datapack, ctx, arguments, true)
+                    .unwrap()
             }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -878,14 +877,11 @@ impl UnresolvedExpressionKind {
                 );
 
                 let mut condition_ctx = ctx.create_child_ctx();
-                let (inverted, condition) = condition
-                    .kind
-                    .clone()
-                    .resolve(datapack, &mut condition_ctx)
+                let (inverted, condition) = Self::resolve(*condition, allocator, datapack, ctx)
                     .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
 
-                let subcommand = if body.kind.returns_early() {
+                let subcommand = if Self::returns_early(*body, allocator) {
                     ExecuteSubcommand::run_return_fail()
                         .unless_function(while_function_resource_location.clone())
                 } else {
@@ -903,8 +899,7 @@ impl UnresolvedExpressionKind {
                     type_: LoopType::While(inverted, Box::new(condition)),
                 });
 
-                body.kind
-                    .compile_as_statement(datapack, &mut while_body_ctx);
+                Self::compile_as_statement(*body, allocator, datapack, &mut while_body_ctx);
 
                 while_body_ctx.extend_context(condition_ctx.clone());
                 ctx.extend_context(condition_ctx);
@@ -920,7 +915,7 @@ impl UnresolvedExpressionKind {
                     loop_function_paths.clone(),
                 );
 
-                let iteration_command = if body.kind.returns_early() {
+                let iteration_command = if Self::returns_early(*body, allocator) {
                     ExecuteSubcommand::If(
                         true,
                         ExecuteIfSubcommand::Function(
@@ -940,7 +935,7 @@ impl UnresolvedExpressionKind {
                     type_: LoopType::Loop,
                 });
 
-                body.kind.compile_as_statement(datapack, &mut loop_body_ctx);
+                Self::compile_as_statement(*body, allocator, datapack, &mut loop_body_ctx);
 
                 loop_body_ctx.add_command(datapack, iteration_command.clone());
                 ctx.add_command(datapack, iteration_command);
@@ -950,35 +945,45 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Unit
             }
             Self::ForLoop(is_reversed, pattern, iterable, body) => {
-                let iterable_type = iterable
-                    .data_type
-                    .resolve(datapack)
-                    .unwrap()
-                    .get_iterable_type()
-                    .unwrap();
+                let is_reversed = *is_reversed;
 
-                let iterable = iterable.kind.resolve(datapack, ctx);
+                let iterable_type = allocator.get_expression_type(*iterable).clone();
+
+                let iterable_type = iterable_type.resolve(datapack).unwrap();
+
+                let iterable_type = iterable_type.get_iterable_type().unwrap();
+
+                let iterable = Self::resolve(*iterable, allocator, datapack, ctx);
 
                 match iterable.try_into_iter(is_reversed) {
                     Ok(expressions) => {
-                        let pattern = *pattern;
-
                         for expression in expressions {
-                            pattern.clone().destructure(
+                            UnresolvedPattern::destructure(
+                                *pattern,
+                                allocator,
                                 datapack,
                                 ctx,
                                 iterable_type.clone(),
                                 expression,
                             );
 
-                            body.kind.clone().compile_as_statement(datapack, ctx);
+                            Self::compile_as_statement(*body, allocator, datapack, ctx);
                         }
                     }
                     Err(iterable) => {
                         if iterable_type.equals(&ResolvedDataType::String) {
-                            iterate_string(datapack, ctx, is_reversed, *pattern, iterable, *body);
+                            iterate_string(
+                                allocator,
+                                datapack,
+                                ctx,
+                                is_reversed,
+                                *pattern,
+                                iterable,
+                                *body,
+                            );
                         } else {
                             iterate_data(
+                                allocator,
                                 datapack,
                                 ctx,
                                 is_reversed,
@@ -994,22 +999,22 @@ impl UnresolvedExpressionKind {
                 ResolvedExpression::Unit
             }
             Self::ResourceLocation(resource_location) => {
-                let resource_location = resource_location.compile(datapack, ctx);
+                let resource_location = resource_location.clone().compile(allocator, datapack, ctx);
 
                 ResolvedExpression::ResourceLocation(resource_location)
             }
             Self::EntitySelector(selector) => {
-                let selector = selector.compile(datapack, ctx);
+                let selector = selector.clone().compile(allocator, datapack, ctx);
 
                 ResolvedExpression::EntitySelector(selector)
             }
             Self::Coordinates(coordinates) => {
-                let coordinates = coordinates.compile(datapack, ctx);
+                let coordinates = coordinates.clone().compile(allocator, datapack, ctx);
 
                 ResolvedExpression::Coordinates(coordinates)
             }
             Self::Return(expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let expression = Self::resolve(*expression, allocator, datapack, ctx);
 
                 let target = datapack.function_return_targets.last().unwrap().clone();
 
@@ -1022,66 +1027,74 @@ impl UnresolvedExpressionKind {
         }
     }
 
-    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
-        match self {
+    pub fn compile_as_statement(
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) {
+        match allocator.get_expression(id) {
             Self::Assignment(target, value) => {
-                let target = target.resolve(datapack, ctx);
+                let target =
+                    UnresolvedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
 
-                let value = value.kind.resolve(datapack, ctx);
+                let value = Self::resolve(*value, allocator, datapack, ctx);
 
                 target.assign(datapack, ctx, value);
             }
             Self::AugmentedAssignment(target, operator, value) => {
-                let target = target.resolve(datapack, ctx);
-                let value = value.kind.resolve(datapack, ctx);
+                let operator = *operator;
+
+                let target = UnresolvedPlaceExpression::resolve(*target, allocator, datapack, ctx);
+                let value = Self::resolve(*value, allocator, datapack, ctx);
 
                 target.augmented_assign(datapack, ctx, operator, value);
             }
             Self::List(list) => {
                 for element in list {
-                    element.kind.compile_as_statement(datapack, ctx);
+                    Self::compile_as_statement(*element, allocator, datapack, ctx);
                 }
             }
             Self::Compound(compound) => {
-                for value in compound.into_values() {
-                    value.kind.compile_as_statement(datapack, ctx);
+                for value in compound.values().copied() {
+                    Self::compile_as_statement(value, allocator, datapack, ctx);
                 }
             }
             Self::Condition(_, condition) => {
-                let condition = condition.compile(datapack, ctx);
+                let condition = condition.clone().compile(allocator, datapack, ctx);
 
                 ctx.add_command(datapack, condition.into_subcommand(false));
             }
             Self::Command(command) => {
-                let command = command.compile(datapack, ctx);
+                let command = command.clone().compile(allocator, datapack, ctx);
 
                 ctx.add_command(datapack, command);
             }
             Self::AsCast(expression, _) | Self::ToCast(_, expression, _) => {
-                expression.kind.compile_as_statement(datapack, ctx);
+                Self::compile_as_statement(*expression, allocator, datapack, ctx);
             }
             Self::Tuple(tuple) => {
                 for element in tuple {
-                    element.kind.compile_as_statement(datapack, ctx);
+                    Self::compile_as_statement(*element, allocator, datapack, ctx);
                 }
             }
             Self::RegularStruct(_, _, field_expressions) => {
-                for field_expression in field_expressions.into_values() {
-                    field_expression.kind.compile_as_statement(datapack, ctx);
+                for field_expression in field_expressions.values().copied() {
+                    Self::compile_as_statement(field_expression, allocator, datapack, ctx);
                 }
             }
             Self::TupleStruct(_, _, field_expressions) => {
                 for field_expression in field_expressions {
-                    field_expression.kind.compile_as_statement(datapack, ctx);
+                    Self::compile_as_statement(*field_expression, allocator, datapack, ctx);
                 }
             }
             Self::Block(statements, tail_expression) => {
-                for statement in statements {
-                    statement.compile_as_statement(datapack, ctx);
+                for statement in statements.iter().copied() {
+                    UnresolvedStatement::compile_as_statement(statement, allocator, datapack, ctx);
                 }
 
                 if let Some(tail_expression) = tail_expression {
-                    tail_expression.kind.compile_as_statement(datapack, ctx);
+                    Self::compile_as_statement(*tail_expression, allocator, datapack, ctx);
                 }
             }
             Self::If {
@@ -1089,17 +1102,20 @@ impl UnresolvedExpressionKind {
                 body,
                 else_body,
             } => {
-                compile_if_internal(datapack, ctx, *condition, *body, else_body, None);
+                compile_if_internal(
+                    allocator, datapack, ctx, *condition, *body, *else_body, None,
+                );
             }
             Self::Call(callee, arguments) => {
-                let callee = callee.kind.resolve(datapack, ctx);
+                let callee = Self::resolve(*callee, allocator, datapack, ctx);
 
                 let arguments = arguments
-                    .into_iter()
-                    .map(|argument| argument.kind.resolve(datapack, ctx))
+                    .iter()
+                    .copied()
+                    .map(|argument| Self::resolve(argument, allocator, datapack, ctx))
                     .collect::<Vec<_>>();
 
-                callee.call(datapack, ctx, arguments, false);
+                callee.call(allocator, datapack, ctx, arguments, false);
             }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -1109,14 +1125,11 @@ impl UnresolvedExpressionKind {
                 );
 
                 let mut condition_ctx = ctx.create_child_ctx();
-                let (inverted, condition) = condition
-                    .kind
-                    .clone()
-                    .resolve(datapack, &mut condition_ctx)
+                let (inverted, condition) = Self::resolve(*condition, allocator, datapack, ctx)
                     .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
 
-                let subcommand = if body.kind.returns_early() {
+                let subcommand = if Self::returns_early(*body, allocator) {
                     ExecuteSubcommand::run_return_fail()
                         .unless_function(while_function_resource_location.clone())
                 } else {
@@ -1134,8 +1147,7 @@ impl UnresolvedExpressionKind {
                     type_: LoopType::While(inverted, Box::new(condition)),
                 });
 
-                body.kind
-                    .compile_as_statement(datapack, &mut while_body_ctx);
+                Self::compile_as_statement(*body, allocator, datapack, &mut while_body_ctx);
 
                 while_body_ctx.extend_context(condition_ctx.clone());
                 ctx.extend_context(condition_ctx);
@@ -1149,7 +1161,7 @@ impl UnresolvedExpressionKind {
                     loop_function_paths.clone(),
                 );
 
-                let iteration_command = if body.kind.returns_early() {
+                let iteration_command = if Self::returns_early(*body, allocator) {
                     Command::Execute(
                         ExecuteIfSubcommand::Function(
                             loop_function_resource_location.clone(),
@@ -1167,7 +1179,7 @@ impl UnresolvedExpressionKind {
                     type_: LoopType::Loop,
                 });
 
-                body.kind.compile_as_statement(datapack, &mut loop_body_ctx);
+                Self::compile_as_statement(*body, allocator, datapack, &mut loop_body_ctx);
 
                 loop_body_ctx.add_command(datapack, iteration_command.clone());
                 ctx.add_command(datapack, iteration_command);
@@ -1175,35 +1187,49 @@ impl UnresolvedExpressionKind {
                 datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
             }
             Self::ForLoop(is_reversed, pattern, iterable, body) => {
-                let iterable_type = iterable
-                    .data_type
+                let is_reversed = *is_reversed;
+
+                let iterable_type = allocator
+                    .get_expression_type(*iterable)
+                    .clone()
                     .resolve(datapack)
                     .unwrap()
                     .get_iterable_type()
                     .unwrap();
 
-                let iterable = iterable.kind.resolve(datapack, ctx);
+                let iterable = Self::resolve(*iterable, allocator, datapack, ctx);
 
                 match iterable.try_into_iter(is_reversed) {
                     Ok(expressions) => {
                         let pattern = *pattern;
 
                         for expression in expressions {
-                            pattern.clone().destructure(
+                            UnresolvedPattern::destructure(
+                                pattern,
+                                allocator,
                                 datapack,
                                 ctx,
                                 iterable_type.clone(),
                                 expression,
                             );
 
-                            body.kind.clone().compile_as_statement(datapack, ctx);
+                            Self::compile_as_statement(*body, allocator, datapack, ctx);
                         }
                     }
                     Err(iterable) => {
                         if iterable_type.equals(&ResolvedDataType::String) {
-                            iterate_string(datapack, ctx, is_reversed, *pattern, iterable, *body);
+                            iterate_string(
+                                allocator,
+                                datapack,
+                                ctx,
+                                is_reversed,
+                                *pattern,
+                                iterable,
+                                *body,
+                            );
                         } else {
                             iterate_data(
+                                allocator,
                                 datapack,
                                 ctx,
                                 is_reversed,
@@ -1221,10 +1247,12 @@ impl UnresolvedExpressionKind {
                 unreachable!();
             }
             Self::EntitySelector(selector) => {
-                selector.compile_as_statement(datapack, ctx);
+                selector
+                    .clone()
+                    .compile_as_statement(allocator, datapack, ctx);
             }
             Self::Return(expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let expression = Self::resolve(*expression, allocator, datapack, ctx);
 
                 let target = datapack.function_return_targets.last().unwrap().clone();
 
@@ -1233,39 +1261,43 @@ impl UnresolvedExpressionKind {
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
             }
             Self::Data(data) => {
-                let _ = data.compile(datapack, ctx);
+                let _ = data.clone().compile(allocator, datapack, ctx);
             }
             Self::Negate(expression) => {
-                expression.kind.compile_as_statement(datapack, ctx);
+                Self::compile_as_statement(*expression, allocator, datapack, ctx);
             }
             Self::Invert(expression) => {
-                expression.kind.compile_as_statement(datapack, ctx);
+                Self::compile_as_statement(*expression, allocator, datapack, ctx);
             }
             Self::Reference(_) | Self::Dereference(_) => {}
             Self::Arithmetic(left, _, right) => {
-                left.kind.compile_as_statement(datapack, ctx);
-                right.kind.compile_as_statement(datapack, ctx);
+                Self::compile_as_statement(*left, allocator, datapack, ctx);
+                Self::compile_as_statement(*right, allocator, datapack, ctx);
             }
             Self::Comparison(left, _, right) => {
-                left.kind.compile_as_statement(datapack, ctx);
-                right.kind.compile_as_statement(datapack, ctx);
+                Self::compile_as_statement(*left, allocator, datapack, ctx);
+                Self::compile_as_statement(*right, allocator, datapack, ctx);
             }
             Self::Logical(left, _, right) => {
-                left.kind.compile_as_statement(datapack, ctx);
-                right.kind.compile_as_statement(datapack, ctx);
+                Self::compile_as_statement(*left, allocator, datapack, ctx);
+                Self::compile_as_statement(*right, allocator, datapack, ctx);
             }
             Self::Score(score) => {
-                let _ = score.compile(datapack, ctx);
+                let _ = score.clone().compile(allocator, datapack, ctx);
             }
             Self::Index(_, index) => {
-                index.kind.compile_as_statement(datapack, ctx);
+                Self::compile_as_statement(*index, allocator, datapack, ctx);
             }
             Self::FieldAccess(_, _) => {}
             Self::ResourceLocation(resource_location) => {
-                resource_location.compile_as_statement(datapack, ctx);
+                resource_location
+                    .clone()
+                    .compile_as_statement(allocator, datapack, ctx);
             }
             Self::Coordinates(coordinates) => {
-                coordinates.compile_as_statement(datapack, ctx);
+                coordinates
+                    .clone()
+                    .compile_as_statement(allocator, datapack, ctx);
             }
             Self::Boolean(..) => {}
             Self::Byte(..) => {}
@@ -1281,10 +1313,4 @@ impl UnresolvedExpressionKind {
             Self::Value(..) => {}
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct UnresolvedExpression {
-    pub kind: UnresolvedExpressionKind,
-    pub data_type: UnresolvedDataType,
 }

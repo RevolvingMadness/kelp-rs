@@ -4,7 +4,8 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, low::entity_selector::EntitySelector,
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
+    low::entity_selector::EntitySelector,
 };
 
 #[derive(Debug, Clone)]
@@ -15,10 +16,15 @@ pub enum Positioned {
 }
 
 impl Positioned {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowPositioned {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> LowPositioned {
         match self {
             Self::Position(position) => LowPositioned::Position(position),
-            Self::As(selector) => LowPositioned::As(selector.compile(datapack, ctx)),
+            Self::As(selector) => LowPositioned::As(selector.compile(allocator, datapack, ctx)),
             Self::Over(heightmap) => LowPositioned::Over(heightmap),
         }
     }

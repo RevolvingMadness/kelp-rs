@@ -1,4 +1,5 @@
 use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTExpressionWithoutBlock,
@@ -56,7 +57,7 @@ pub mod unit;
 pub fn lower_expression_without_block(
     node: CSTExpressionWithoutBlock,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     match node {
         CSTExpressionWithoutBlock::UnaryExpression(node) => lower_unary_expression(node, ctx),
         CSTExpressionWithoutBlock::PathExpression(node) => lower_path_expression(node, ctx),

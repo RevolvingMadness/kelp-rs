@@ -1,7 +1,5 @@
-use kelp_core::high::{
-    command::Command,
-    expression::{Expression, ExpressionKind},
-};
+use kelp_core::high::{command::Command, expression::Expression};
+use la_arena::Idx;
 
 use crate::{
     cst::CSTFunctionCommandExpression,
@@ -34,13 +32,13 @@ pub fn try_parse_function_command_expression(parser: &mut Parser) -> bool {
 pub fn lower_function_command_expression(
     node: CSTFunctionCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
-    Some(
-        ExpressionKind::Command(Box::new(Command::Function(resource_location, None)))
-            .with_span(span),
-    )
+    Some(ctx.allocator.allocate_expression(
+        span,
+        Expression::Command(Box::new(Command::Function(resource_location, None))),
+    ))
 }

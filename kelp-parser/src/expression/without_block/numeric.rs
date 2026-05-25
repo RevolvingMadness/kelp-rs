@@ -1,6 +1,7 @@
 use std::num::IntErrorKind;
 
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 use ordered_float::NotNan;
 
 use crate::{
@@ -24,7 +25,7 @@ enum NumericKind {
 pub fn lower_numeric_expression(
     node: CSTNumericExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let value_token = node.fractional_value_token()?;
@@ -46,137 +47,136 @@ pub fn lower_numeric_expression(
             })
         });
 
-    Some(
-        (match suffix {
-            Some(NumericKind::Byte) => match value_text.parse::<i8>() {
-                Ok(value) => ExpressionKind::Byte(value),
-                Err(error) => match error.kind() {
-                    IntErrorKind::PosOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooBig(LowerDataType::Byte),
-                        );
+    let expression = match suffix {
+        Some(NumericKind::Byte) => match value_text.parse::<i8>() {
+            Ok(value) => Expression::Byte(value),
+            Err(error) => match error.kind() {
+                IntErrorKind::PosOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooBig(LowerDataType::Byte),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    IntErrorKind::NegOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooSmall(LowerDataType::Byte),
-                        );
+                    Expression::Invalid
+                }
+                IntErrorKind::NegOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooSmall(LowerDataType::Byte),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    _ => unreachable!(),
-                },
+                    Expression::Invalid
+                }
+                _ => unreachable!(),
             },
-            Some(NumericKind::Short) => match value_text.parse::<i16>() {
-                Ok(value) => ExpressionKind::Short(value),
-                Err(error) => match error.kind() {
-                    IntErrorKind::PosOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooBig(LowerDataType::Short),
-                        );
+        },
+        Some(NumericKind::Short) => match value_text.parse::<i16>() {
+            Ok(value) => Expression::Short(value),
+            Err(error) => match error.kind() {
+                IntErrorKind::PosOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooBig(LowerDataType::Short),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    IntErrorKind::NegOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooSmall(LowerDataType::Short),
-                        );
+                    Expression::Invalid
+                }
+                IntErrorKind::NegOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooSmall(LowerDataType::Short),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    _ => unreachable!(),
-                },
+                    Expression::Invalid
+                }
+                _ => unreachable!(),
             },
-            Some(NumericKind::Integer) => match value_text.parse::<i32>() {
-                Ok(value) => ExpressionKind::Integer(value),
-                Err(error) => match error.kind() {
-                    IntErrorKind::PosOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooBig(LowerDataType::Integer),
-                        );
+        },
+        Some(NumericKind::Integer) => match value_text.parse::<i32>() {
+            Ok(value) => Expression::Integer(value),
+            Err(error) => match error.kind() {
+                IntErrorKind::PosOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooBig(LowerDataType::Integer),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    IntErrorKind::NegOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooSmall(LowerDataType::Integer),
-                        );
+                    Expression::Invalid
+                }
+                IntErrorKind::NegOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooSmall(LowerDataType::Integer),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    _ => unreachable!(),
-                },
+                    Expression::Invalid
+                }
+                _ => unreachable!(),
             },
-            Some(NumericKind::Long) => match value_text.parse::<i64>() {
-                Ok(value) => ExpressionKind::Long(value),
-                Err(error) => match error.kind() {
-                    IntErrorKind::PosOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooBig(LowerDataType::Long),
-                        );
+        },
+        Some(NumericKind::Long) => match value_text.parse::<i64>() {
+            Ok(value) => Expression::Long(value),
+            Err(error) => match error.kind() {
+                IntErrorKind::PosOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooBig(LowerDataType::Long),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    IntErrorKind::NegOverflow => {
-                        ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
-                            LowerError::ValueTooSmall(LowerDataType::Long),
-                        );
+                    Expression::Invalid
+                }
+                IntErrorKind::NegOverflow => {
+                    ctx.add_error_unit(
+                        text_range_to_span(value_token.text_range()),
+                        LowerError::ValueTooSmall(LowerDataType::Long),
+                    );
 
-                        ExpressionKind::Invalid
-                    }
-                    _ => unreachable!(),
-                },
+                    Expression::Invalid
+                }
+                _ => unreachable!(),
             },
-            Some(NumericKind::Float) => {
+        },
+        Some(NumericKind::Float) => {
+            let value = value_text.parse().unwrap();
+
+            Expression::Float(NotNan::new(value).unwrap())
+        }
+        Some(NumericKind::Double) => {
+            let value = value_text.parse().unwrap();
+
+            Expression::Double(value)
+        }
+        None => {
+            if value_text.contains('.') {
                 let value = value_text.parse().unwrap();
 
-                ExpressionKind::Float(NotNan::new(value).unwrap())
-            }
-            Some(NumericKind::Double) => {
-                let value = value_text.parse().unwrap();
+                Expression::InferredFloat(value)
+            } else {
+                match value_text.parse::<i32>() {
+                    Ok(value) => Expression::InferredInteger(value),
+                    Err(error) => match error.kind() {
+                        IntErrorKind::PosOverflow => {
+                            ctx.add_error_unit(
+                                text_range_to_span(value_token.text_range()),
+                                LowerError::ValueTooBig(LowerDataType::Integer),
+                            );
 
-                ExpressionKind::Double(value)
-            }
-            None => {
-                if value_text.contains('.') {
-                    let value = value_text.parse().unwrap();
+                            Expression::Invalid
+                        }
+                        IntErrorKind::NegOverflow => {
+                            ctx.add_error_unit(
+                                text_range_to_span(value_token.text_range()),
+                                LowerError::ValueTooSmall(LowerDataType::Integer),
+                            );
 
-                    ExpressionKind::InferredFloat(value)
-                } else {
-                    match value_text.parse::<i32>() {
-                        Ok(value) => ExpressionKind::InferredInteger(value),
-                        Err(error) => match error.kind() {
-                            IntErrorKind::PosOverflow => {
-                                ctx.add_error_unit(
-                                    text_range_to_span(value_token.text_range()),
-                                    LowerError::ValueTooBig(LowerDataType::Integer),
-                                );
-
-                                ExpressionKind::Invalid
-                            }
-                            IntErrorKind::NegOverflow => {
-                                ctx.add_error_unit(
-                                    text_range_to_span(value_token.text_range()),
-                                    LowerError::ValueTooSmall(LowerDataType::Integer),
-                                );
-
-                                ExpressionKind::Invalid
-                            }
-                            _ => unreachable!(),
-                        },
-                    }
+                            Expression::Invalid
+                        }
+                        _ => unreachable!(),
+                    },
                 }
             }
-        })
-        .with_span(span),
-    )
+        }
+    };
+
+    Some(ctx.allocator.allocate_expression(span, expression))
 }

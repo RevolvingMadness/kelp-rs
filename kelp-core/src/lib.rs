@@ -1,3 +1,4 @@
+pub mod ast_allocator;
 pub mod compile_context;
 pub mod data;
 pub mod datapack;

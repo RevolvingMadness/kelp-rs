@@ -3,9 +3,9 @@ use std::fmt::{Display, Write};
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        entity_selector::option::EntitySelectorOption,
-        semantic_analysis::SemanticAnalysisContext,
+        entity_selector::option::EntitySelectorOption, semantic_analysis::SemanticAnalysisContext,
     },
     low::entity_selector::EntitySelector as MiddleEntitySelector,
     trait_ext::CollectOptionAllIterExt,
@@ -41,13 +41,17 @@ impl EntitySelector {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleEntitySelector> {
         Some(match self {
             Self::Variable(variable, options) => {
                 let options = options
                     .into_iter()
-                    .map(|option| option.perform_semantic_analysis(ctx))
+                    .map(|option| {
+                        option.perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                    })
                     .collect_option_all()?;
 
                 MiddleEntitySelector::Variable(variable, options)

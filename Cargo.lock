@@ -513,6 +513,7 @@ name = "kelp-core"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
+ "la-arena",
  "minecraft-command-types",
  "minecraft-command-types_procedural-macros",
  "ordered-float",
@@ -538,6 +539,7 @@ name = "kelp-parser"
 version = "0.1.0"
 dependencies = [
  "kelp-core",
+ "la-arena",
  "minecraft-command-types",
  "ordered-float",
  "paste",
@@ -553,6 +555,12 @@ dependencies = [
  "thiserror",
  "ungrammar",
 ]
+
+[[package]]
+name = "la-arena"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3752f229dcc5a481d60f385fa479ff46818033d881d2d801aa27dffcfb5e8306"
 
 [[package]]
 name = "libc"

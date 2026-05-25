@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTInfiniteLoopExpression,
@@ -33,10 +34,13 @@ pub fn try_parse_infinite_loop_expression(parser: &mut Parser) -> bool {
 pub fn lower_infinite_loop_expression(
     node: CSTInfiniteLoopExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ExpressionKind::Loop(Box::new(body)).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::Loop(Box::new(body))),
+    )
 }

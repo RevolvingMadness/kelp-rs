@@ -44,9 +44,7 @@ pub fn lower_nbt_path_node(node: CSTNBTPathNode, ctx: &mut LowerContext) -> Opti
             let index = node.index();
 
             Some(NbtPathNode::Index(
-                index
-                    .and_then(|expression| lower_expression(expression, ctx))
-                    .map(Box::new),
+                index.and_then(|expression| lower_expression(expression, ctx)),
             ))
         }
         CSTNBTPathNode::NamedNBTPathNode(node) => {

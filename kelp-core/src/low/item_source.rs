@@ -3,7 +3,8 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, low::entity_selector::EntitySelector,
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
+    low::entity_selector::EntitySelector,
 };
 
 #[derive(Debug, Clone)]
@@ -14,11 +15,16 @@ pub enum ItemSource {
 
 impl ItemSource {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemSource {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> LowItemSource {
         match self {
             Self::Block(coordinates) => LowItemSource::Block(coordinates),
             Self::Entity(selector) => {
-                let selector = selector.compile(datapack, ctx);
+                let selector = selector.compile(allocator, datapack, ctx);
 
                 LowItemSource::Entity(selector)
             }

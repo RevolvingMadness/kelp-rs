@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTListExpression,
@@ -58,7 +59,7 @@ pub fn try_parse_list_expression(parser: &mut Parser) -> bool {
 pub fn lower_list_expression(
     node: CSTListExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let expressions = node
@@ -66,5 +67,8 @@ pub fn lower_list_expression(
         .filter_map(|expression| lower_expression(expression, ctx))
         .collect();
 
-    Some(ExpressionKind::List(expressions).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::List(expressions)),
+    )
 }

@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
-use kelp_core::{
-    high::pattern::{Pattern, PatternKind},
-    path::generic::GenericPath,
-    span::Span,
-};
+use kelp_core::{high::pattern::Pattern, path::generic::GenericPath, span::Span};
+use la_arena::Idx;
 
 use crate::{
     cst::{
@@ -24,7 +21,7 @@ use crate::{
 pub fn lower_struct_pattern_field(
     node: CSTRegularStructPatternField,
     ctx: &mut LowerContext,
-) -> Option<((Span, String), Pattern)> {
+) -> Option<((Span, String), Idx<Pattern>)> {
     let field_name_token = node.struct_field_name_token()?;
     let field_name_span = text_range_to_span(field_name_token.text_range());
     let field_name = field_name_token.text();
@@ -32,9 +29,11 @@ pub fn lower_struct_pattern_field(
     let field_pattern = node
         .pattern()
         .and_then(|pattern| lower_pattern(pattern, ctx))
-        .unwrap_or_else(|| Pattern {
-            span: field_name_span,
-            kind: PatternKind::Binding(GenericPath::single(field_name_span, field_name)),
+        .unwrap_or_else(|| {
+            ctx.allocator.allocate_pattern(
+                field_name_span,
+                Pattern::Binding(GenericPath::single(field_name_span, field_name)),
+            )
         });
 
     Some(((field_name_span, field_name.to_owned()), field_pattern))
@@ -76,7 +75,7 @@ fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
 fn lower_struct_pattern_fields(
     node: CSTRegularStructPatternFields,
     ctx: &mut LowerContext,
-) -> HashMap<(Span, String), Pattern> {
+) -> HashMap<(Span, String), Idx<Pattern>> {
     node.regular_struct_pattern_fields()
         .filter_map(|field| lower_struct_pattern_field(field, ctx))
         .collect()
@@ -118,7 +117,7 @@ pub fn try_parse_struct_pattern_fields(parser: &mut Parser) -> bool {
 pub fn lower_struct_pattern(
     node: CSTRegularStructPattern,
     ctx: &mut LowerContext,
-) -> Option<Pattern> {
+) -> Option<Idx<Pattern>> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;
@@ -128,7 +127,10 @@ pub fn lower_struct_pattern(
         .map(|fields| lower_struct_pattern_fields(fields, ctx))
         .unwrap_or_default();
 
-    Some(PatternKind::RegularStruct(path, fields).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_pattern(span, Pattern::RegularStruct(path, fields)),
+    )
 }
 
 #[must_use]
@@ -136,7 +138,7 @@ pub fn lower_struct_pattern(
 pub fn lower_tuple_struct_pattern_field(
     node: CSTTupleStructPatternField,
     ctx: &mut LowerContext,
-) -> Option<Pattern> {
+) -> Option<Idx<Pattern>> {
     let field_pattern = lower_pattern(node.pattern()?, ctx)?;
 
     Some(field_pattern)
@@ -162,7 +164,7 @@ fn try_parse_tuple_struct_pattern_field(parser: &mut Parser) -> bool {
 fn lower_tuple_struct_pattern_fields(
     node: CSTTupleStructPatternFields,
     ctx: &mut LowerContext,
-) -> Vec<Pattern> {
+) -> Vec<Idx<Pattern>> {
     node.tuple_struct_pattern_fields()
         .filter_map(|field| lower_tuple_struct_pattern_field(field, ctx))
         .collect()
@@ -204,7 +206,7 @@ pub fn try_parse_tuple_struct_pattern_fields(parser: &mut Parser) -> bool {
 pub fn lower_tuple_struct_pattern(
     node: CSTTupleStructPattern,
     ctx: &mut LowerContext,
-) -> Option<Pattern> {
+) -> Option<Idx<Pattern>> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;
@@ -214,5 +216,8 @@ pub fn lower_tuple_struct_pattern(
         .map(|fields| lower_tuple_struct_pattern_fields(fields, ctx))
         .unwrap_or_default();
 
-    Some(PatternKind::TupleStruct(path, fields).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_pattern(span, Pattern::TupleStruct(path, fields)),
+    )
 }

@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTIfExpression,
@@ -58,7 +59,10 @@ pub fn try_parse_if_expression(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_if_expression(node: CSTIfExpression, ctx: &mut LowerContext) -> Option<Expression> {
+pub fn lower_if_expression(
+    node: CSTIfExpression,
+    ctx: &mut LowerContext,
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let condition = lower_expression(node.condition()?, ctx)?;
@@ -70,17 +74,19 @@ pub fn lower_if_expression(node: CSTIfExpression, ctx: &mut LowerContext) -> Opt
 
             let expression = lower_block_expression(expression, ctx)?;
 
-            Some(ExpressionKind::Block(expression).with_span(span))
+            Some(
+                ctx.allocator
+                    .allocate_expression(span, Expression::Block(expression)),
+            )
         })
-        .or_else(|| lower_if_expression(node.else_body_if()?, ctx))
-        .map(Box::new);
+        .or_else(|| lower_if_expression(node.else_body_if()?, ctx));
 
-    Some(
-        ExpressionKind::If {
-            condition: Box::new(condition),
+    Some(ctx.allocator.allocate_expression(
+        span,
+        Expression::If {
+            condition,
             body: Box::new(body),
             else_body,
-        }
-        .with_span(span),
-    )
+        },
+    ))
 }

@@ -3,6 +3,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext},
     low::expression::command::execute::facing::Facing as MiddleFacing,
 };
@@ -17,12 +18,15 @@ impl Facing {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleFacing> {
         Some(match self {
             Self::Position(coordinates) => MiddleFacing::Position(coordinates),
             Self::Entity(selector, anchor) => {
-                let selector = selector.perform_semantic_analysis(ctx)?;
+                let selector =
+                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleFacing::Entity(selector, anchor)
             }

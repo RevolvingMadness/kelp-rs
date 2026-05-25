@@ -3,6 +3,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     data::{GeneratedData, GeneratedDataTarget},
     datapack::Datapack,
@@ -23,9 +24,14 @@ pub struct Data {
 
 impl Data {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> GeneratedData {
-        let target = self.target.compile(datapack, ctx);
-        let path = self.path.compile(datapack, ctx);
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> GeneratedData {
+        let target = self.target.compile(allocator, datapack, ctx);
+        let path = self.path.compile(allocator, datapack, ctx);
 
         GeneratedData { target, path }
     }
@@ -75,18 +81,23 @@ pub struct DataTarget {
 }
 
 impl DataTarget {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> GeneratedDataTarget {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> GeneratedDataTarget {
         GeneratedDataTarget {
             is_generated: self.is_generated,
             target: match self.kind {
                 DataTargetKind::Block(coordinates) => {
-                    LowDataTarget::Block(coordinates.compile(datapack, ctx))
+                    LowDataTarget::Block(coordinates.compile(allocator, datapack, ctx))
                 }
                 DataTargetKind::Entity(entity_selector) => {
-                    LowDataTarget::Entity(entity_selector.compile(datapack, ctx))
+                    LowDataTarget::Entity(entity_selector.compile(allocator, datapack, ctx))
                 }
                 DataTargetKind::Storage(resource_location) => {
-                    let resource_location = resource_location.compile(datapack, ctx);
+                    let resource_location = resource_location.compile(allocator, datapack, ctx);
 
                     LowDataTarget::Storage(resource_location)
                 }

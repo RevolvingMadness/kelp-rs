@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
 use minecraft_command_types::{
     command::function::FunctionCommandArguments as LowFunctionCommandArguments, snbt::SNBTString,
 };
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::{data::DataTarget, expression::unresolved::UnresolvedExpression, nbt_path::NbtPath},
@@ -12,13 +14,14 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
-    Compound(HashMap<SNBTString, UnresolvedExpression>),
+    Compound(HashMap<SNBTString, Idx<UnresolvedExpression>>),
     DataTarget(DataTarget, Option<NbtPath>),
 }
 
 impl FunctionCommandArguments {
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowFunctionCommandArguments {
@@ -27,15 +30,16 @@ impl FunctionCommandArguments {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros( ctx);
+                        let value = UnresolvedExpression::resolve(value, allocator, datapack, ctx)
+                            .as_snbt_macros(ctx);
 
                         (key, value)
                     })
                     .collect(),
             ),
             Self::DataTarget(target, path) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.map(|path| path.compile(datapack, ctx));
+                let target = target.compile(allocator, datapack, ctx);
+                let path = path.map(|path| path.compile(allocator, datapack, ctx));
 
                 LowFunctionCommandArguments::DataTarget(target.target, path)
             }

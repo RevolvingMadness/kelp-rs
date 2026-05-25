@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         environment::resolved::{
             ResolvedEnvironment,
@@ -53,30 +56,36 @@ fn calls_recursively(
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub items: Vec<Item>,
+    pub items: Vec<Idx<Item>>,
 }
 
 impl Program {
     pub fn perform_semantic_analysis(
-        mut self,
+        self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleProgram> {
-        for item in &mut self.items {
-            item.resolve_names(ctx);
+        for item in self.items.iter().copied() {
+            Item::resolve_names(item, high_allocator, ctx);
         }
 
-        for item in &mut self.items {
-            item.resolve_imports(ctx);
+        for item in self.items.iter().copied() {
+            Item::resolve_imports(item, high_allocator, ctx);
         }
 
-        for item in &mut self.items {
-            item.resolve_types(ctx);
+        for item in self.items.iter().copied() {
+            Item::resolve_types(item, high_allocator, ctx);
+        }
+
+        for item in self.items.iter().copied() {
+            Item::resolve_value_types(item, high_allocator, ctx);
         }
 
         let items = self
             .items
             .into_iter()
-            .map(|item| item.perform_semantic_analysis(ctx))
+            .map(|item| Item::perform_semantic_analysis(item, high_allocator, low_allocator, ctx))
             .collect_option_all()?;
 
         let mut failed = false;

@@ -28,7 +28,7 @@ impl ResolvedPlaceExpression {
             Self::Data(data) => ResolvedExpression::Data(data),
             Self::FieldAccess(place, access_type, field) => place
                 .resolve(datapack, ctx)
-                .access_field(access_type, field)
+                .access_field(access_type, &field)
                 .unwrap(),
             Self::Index(place, index) => place.resolve(datapack, ctx).index(ctx, index).unwrap(),
         }

@@ -768,7 +768,7 @@ impl Datapack {
                     .resolve(self)
                     .unwrap();
 
-                let body = *declaration.body.unwrap();
+                let body = declaration.body.unwrap();
 
                 let declaration = RegularFunctionDeclaration {
                     module_paths: module_path.clone(),

@@ -1,14 +1,24 @@
-use crate::{compile_context::CompileContext, datapack::Datapack, low::item::Item};
+use la_arena::Idx;
+
+use crate::{
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
+    low::item::Item,
+};
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub items: Vec<Item>,
+    pub items: Vec<Idx<Item>>,
 }
 
 impl Program {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) {
         for item in self.items {
-            item.compile(datapack, ctx);
+            Item::compile(item, allocator, datapack, ctx);
         }
     }
 }

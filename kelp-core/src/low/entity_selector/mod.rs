@@ -3,7 +3,7 @@ use minecraft_command_types::entity_selector::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
     low::entity_selector::option::EntitySelectorOption,
 };
 
@@ -16,24 +16,34 @@ pub enum EntitySelector {
 }
 
 impl EntitySelector {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowEntitySelector {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> LowEntitySelector {
         match self {
             Self::Variable(variable, options) => LowEntitySelector::Variable(
                 variable,
                 options
                     .into_iter()
-                    .map(|option| option.compile(datapack, ctx))
+                    .map(|option| option.compile(allocator, datapack, ctx))
                     .collect(),
             ),
             Self::Name(name) => LowEntitySelector::Name(name),
         }
     }
 
-    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+    pub fn compile_as_statement(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) {
         match self {
             Self::Variable(_, options) => {
                 for option in options {
-                    option.compile_as_statement(datapack, ctx);
+                    option.compile_as_statement(allocator, datapack, ctx);
                 }
             }
             Self::Name(..) => {}

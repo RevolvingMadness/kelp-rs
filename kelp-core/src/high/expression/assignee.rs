@@ -1,4 +1,7 @@
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     high::{
@@ -11,70 +14,65 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedAssigneeExpressionKind {
-    Place(UnresolvedPlaceExpression),
+pub enum UnresolvedAssigneeExpression {
+    Place(Idx<UnresolvedPlaceExpression>),
 
-    Tuple(Vec<UnresolvedAssigneeExpression>),
+    Tuple(Vec<Idx<Self>>),
     Underscore,
-}
-
-impl UnresolvedAssigneeExpressionKind {
-    #[inline]
-    #[must_use]
-    pub const fn with(self, data_type: UnresolvedDataType) -> UnresolvedAssigneeExpression {
-        UnresolvedAssigneeExpression {
-            kind: self,
-            data_type,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UnresolvedAssigneeExpression {
-    pub kind: UnresolvedAssigneeExpressionKind,
-    pub data_type: UnresolvedDataType,
 }
 
 impl UnresolvedAssigneeExpression {
     #[must_use]
     pub fn resolve(
-        self,
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ResolvedAssigneeExpression {
-        match self.kind {
-            UnresolvedAssigneeExpressionKind::Place(expression) => {
-                let expression = expression.resolve(datapack, ctx);
+        match allocator.get_assignee_expression(id) {
+            Self::Place(expression) => {
+                let expression =
+                    UnresolvedPlaceExpression::resolve(*expression, allocator, datapack, ctx);
 
                 ResolvedAssigneeExpression::Place(expression)
             }
-            UnresolvedAssigneeExpressionKind::Tuple(expressions) => {
+            Self::Tuple(expressions) => {
                 let expressions = expressions
-                    .into_iter()
-                    .map(|expression| expression.resolve(datapack, ctx))
+                    .iter()
+                    .copied()
+                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
                     .collect();
 
                 ResolvedAssigneeExpression::Tuple(expressions)
             }
-            UnresolvedAssigneeExpressionKind::Underscore => ResolvedAssigneeExpression::Underscore,
+            Self::Underscore => ResolvedAssigneeExpression::Underscore,
         }
     }
 
     #[must_use]
     pub fn perform_assignment_semantic_analysis(
-        &self,
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         value_type: &UnresolvedDataType,
     ) -> Option<()> {
-        match &self.kind {
-            UnresolvedAssigneeExpressionKind::Place(expression) => {
-                expression.perform_assignment_semantic_analysis(ctx, value_span, value_type)
+        match allocator.get_assignee_expression(id) {
+            Self::Place(expression) => {
+                UnresolvedPlaceExpression::perform_assignment_semantic_analysis(
+                    *expression,
+                    allocator,
+                    ctx,
+                    value_span,
+                    value_type,
+                )
             }
-            UnresolvedAssigneeExpressionKind::Tuple(..) => {
-                self.data_type.assert_equals(ctx, value_span, value_type)
+            Self::Tuple(..) => {
+                let data_type = allocator.get_assignee_expression_type(id);
+
+                data_type.assert_equals(ctx, value_span, value_type)
             }
-            UnresolvedAssigneeExpressionKind::Underscore => Some(()),
+            Self::Underscore => Some(()),
         }
     }
 }

@@ -1,9 +1,11 @@
+use la_arena::Idx;
 use minecraft_command_types::{
     command::enums::difficulty::Difficulty, coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         command::{
             data::DataCommand, execute::subcommand::ExecuteSubcommand,
@@ -39,45 +41,60 @@ pub enum Command {
         SupportsExpressionSigil<ResourceLocation>,
         Option<FunctionCommandArguments>,
     ),
-    Tellraw(SupportsExpressionSigil<EntitySelector>, Expression),
+    Tellraw(SupportsExpressionSigil<EntitySelector>, Idx<Expression>),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
     Stopwatch(StopwatchCommand),
-    Summon(ResourceLocation, Option<Coordinates>, Option<Expression>),
+    Summon(
+        ResourceLocation,
+        Option<Coordinates>,
+        Option<Idx<Expression>>,
+    ),
 }
 
 impl Command {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleCommand> {
         Some(match self {
             Self::Data(command) => {
-                let command = command.perform_semantic_analysis(ctx)?;
+                let command =
+                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleCommand::Data(command)
             }
             Self::Difficulty(difficulty) => MiddleCommand::Difficulty(difficulty),
             Self::Stopwatch(command) => {
-                let command = command.perform_semantic_analysis(ctx)?;
+                let command =
+                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleCommand::Stopwatch(command)
             }
             Self::Enchant(selector, enchantment, level) => {
-                let selector = selector.perform_semantic_analysis(ctx)?;
+                let selector =
+                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleCommand::Enchant(selector, enchantment, level)
             }
             Self::Execute(subcommand) => {
-                let subcommand = subcommand.perform_semantic_analysis(ctx)?;
+                let subcommand =
+                    subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleCommand::Execute(subcommand)
             }
             Self::Function(resource_location, arguments) => {
-                let resource_location = resource_location.perform_semantic_analysis(ctx);
+                let resource_location =
+                    resource_location.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let arguments = match arguments {
-                    Some(arguments) => Some(arguments.perform_semantic_analysis(ctx))?,
+                    Some(arguments) => Some(arguments.perform_semantic_analysis(
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    ))?,
                     None => None,
                 };
 
@@ -86,28 +103,41 @@ impl Command {
                 MiddleCommand::Function(resource_location, arguments)
             }
             Self::Tellraw(selector, expression) => {
-                let selector = selector.perform_semantic_analysis(ctx);
-                let expression = expression.perform_semantic_analysis(ctx);
+                let selector =
+                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                );
 
                 let selector = selector?;
-                let (_, expression) = expression?;
+                let expression = expression?;
 
                 MiddleCommand::Tellraw(selector, expression)
             }
             Self::Return(command) => {
-                let command = command.perform_semantic_analysis(ctx)?;
+                let command =
+                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleCommand::Return(command)
             }
             Self::Scoreboard(command) => {
-                let command = command.perform_semantic_analysis(ctx)?;
+                let command =
+                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleCommand::Scoreboard(command)
             }
             Self::Summon(resource_location, coordinates, expression) => {
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                        let expression = Expression::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
                         Some(expression)
                     }

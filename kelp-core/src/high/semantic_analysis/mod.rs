@@ -1,5 +1,6 @@
 use std::{collections::HashSet, fmt::Debug};
 
+use la_arena::{ArenaMap, Idx};
 use smallvec::SmallVec;
 use strum::IntoEnumIterator;
 
@@ -27,7 +28,7 @@ use crate::{
                             BuiltinFunctionKind, HighBuiltinFunctionId,
                             ResolvedBuiltinFunctionDeclaration,
                         },
-                        regular::{HighRegularFunctionId, ResolvedRegularFunctionDeclaration},
+                        regular::ResolvedRegularFunctionDeclaration,
                     },
                     variable::{HighVariableId, ResolvedVariableDeclaration},
                 },
@@ -44,6 +45,7 @@ use crate::{
                 },
             },
         },
+        item::Item,
         semantic_analysis::{
             info::{SemanticAnalysisInfo, SemanticAnalysisInfoKind, error::SemanticAnalysisError},
             scope::Scope,
@@ -90,7 +92,6 @@ pub enum FunctionContext {
     Regular {
         modifiers: RegularFunctionModifiers,
         return_type: UnresolvedDataType,
-        callee_id: HighRegularFunctionId,
         calls: HashSet<(Span, HighFunctionId)>,
     },
     MCFunction,
@@ -133,6 +134,11 @@ pub struct SemanticAnalysisContext {
     pub environment: Environment,
     pub unresolved_environment: UnresolvedEnvironment,
     pub resolved_environment: ResolvedEnvironment,
+
+    pub item_type_ids: ArenaMap<Idx<Item>, HighTypeId>,
+    pub item_value_ids: ArenaMap<Idx<Item>, HighValueId>,
+    pub item_generic_ids: ArenaMap<Idx<Item>, Vec<HighGenericId>>,
+    pub item_scopes: ArenaMap<Idx<Item>, Scope>,
 }
 
 impl SemanticAnalysisContext {
@@ -148,6 +154,11 @@ impl SemanticAnalysisContext {
             loop_depth: 0,
             current_module_path: Vec::new(),
             function_contexts: SmallVec::new(),
+
+            item_type_ids: ArenaMap::default(),
+            item_value_ids: ArenaMap::default(),
+            item_generic_ids: ArenaMap::default(),
+            item_scopes: ArenaMap::default(),
         };
 
         self_.declare_std_module();
@@ -591,7 +602,7 @@ impl SemanticAnalysisContext {
         modifiers: RegularFunctionModifiers,
         name: String,
         generic_ids: Vec<HighGenericId>,
-        parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
+        parameters: Vec<(Option<Idx<UnresolvedPattern>>, UnresolvedDataType)>,
         return_type: UnresolvedDataType,
     ) {
         self.declare_resolved_value(
@@ -959,5 +970,51 @@ impl SemanticAnalysisContext {
         };
 
         Some((module_path, *visibility, declaration))
+    }
+}
+
+impl SemanticAnalysisContext {
+    #[inline]
+    pub fn declare_item_type_id(&mut self, id: Idx<Item>, type_id: HighTypeId) {
+        self.item_type_ids.insert(id, type_id);
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_item_type_id(&self, id: Idx<Item>) -> HighTypeId {
+        *self.item_type_ids.get(id).unwrap()
+    }
+
+    #[inline]
+    pub fn declare_item_value_id(&mut self, id: Idx<Item>, value_id: HighValueId) {
+        self.item_value_ids.insert(id, value_id);
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_item_value_id(&self, id: Idx<Item>) -> HighValueId {
+        *self.item_value_ids.get(id).unwrap()
+    }
+
+    #[inline]
+    pub fn declare_item_generic_ids(&mut self, id: Idx<Item>, ids: Vec<HighGenericId>) {
+        self.item_generic_ids.insert(id, ids);
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_item_generic_ids(&self, id: Idx<Item>) -> &[HighGenericId] {
+        self.item_generic_ids.get(id).unwrap()
+    }
+
+    #[inline]
+    pub fn declare_item_scope(&mut self, id: Idx<Item>, scope: Scope) {
+        self.item_scopes.insert(id, scope);
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_item_scope(&self, id: Idx<Item>) -> &Scope {
+        self.item_scopes.get(id).unwrap()
     }
 }

@@ -1,13 +1,20 @@
-use kelp_core::high::pattern::{Pattern, PatternKind};
+use kelp_core::high::pattern::Pattern;
+use la_arena::Idx;
 
-use crate::{cst::CSTBindingPattern, path::generic::lower_generic_path, span::span_of_cst_node};
+use crate::{
+    cst::CSTBindingPattern, lower_context::LowerContext, path::generic::lower_generic_path,
+    span::span_of_cst_node,
+};
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_binding_pattern(node: CSTBindingPattern) -> Option<Pattern> {
+pub fn lower_binding_pattern(
+    node: CSTBindingPattern,
+    ctx: &mut LowerContext,
+) -> Option<Idx<Pattern>> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    Some(PatternKind::Binding(path).with_span(span))
+    Some(ctx.allocator.allocate_pattern(span, Pattern::Binding(path)))
 }

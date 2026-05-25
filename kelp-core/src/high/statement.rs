@@ -1,3 +1,7 @@
+use la_arena::Idx;
+
+use crate::ast_allocator::high::HighAstAllocator;
+use crate::ast_allocator::low::LowAstAllocator;
 use crate::high::data_type::DataType;
 use crate::high::expression::Expression;
 use crate::high::item::Item;
@@ -5,110 +9,136 @@ use crate::high::pattern::Pattern;
 use crate::high::semantic_analysis::SemanticAnalysisContext;
 use crate::high::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::low::statement::{LoopControlFlowKind, UnresolvedStatement};
-use crate::span::Span;
 
 #[derive(Debug, Clone)]
-pub enum StatementKind {
-    Expression(Expression),
-    Let(Option<DataType>, Pattern, Expression),
-    Append(Expression, Box<Expression>),
-    Remove(Expression),
-    Item(Box<Item>),
+pub enum Statement {
+    Expression(Idx<Expression>),
+    Let(Option<DataType>, Idx<Pattern>, Idx<Expression>),
+    Append(Idx<Expression>, Idx<Expression>),
+    Remove(Idx<Expression>),
+    Item(Idx<Item>),
     Break,
     Continue,
-}
-
-impl StatementKind {
-    #[must_use]
-    pub const fn with_span(self, span: Span) -> Statement {
-        Statement { span, kind: self }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Statement {
-    pub span: Span,
-    pub kind: StatementKind,
 }
 
 impl Statement {
     #[must_use]
     pub fn perform_semantic_analysis(
-        self,
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<UnresolvedStatement> {
-        Some(match self.kind {
-            StatementKind::Expression(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+    ) -> Option<Idx<UnresolvedStatement>> {
+        Some(match high_allocator.get_statement(id) {
+            Self::Expression(expression) => {
+                let expression = Expression::perform_semantic_analysis(
+                    *expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
-                UnresolvedStatement::Expression(expression)
+                low_allocator.allocate_statement(UnresolvedStatement::Expression(expression))
             }
-            StatementKind::Let(explicit_type, pattern, value) => {
-                let explicit_type =
-                    explicit_type.map(|explicit_type| explicit_type.perform_semantic_analysis(ctx));
+            Self::Let(explicit_type, pattern, value) => {
+                let explicit_type = explicit_type
+                    .clone()
+                    .map(|explicit_type| explicit_type.perform_semantic_analysis(ctx));
 
-                let Some((value_span, value)) = value.perform_semantic_analysis(ctx) else {
-                    pattern.kind.destructure_unknown(ctx);
+                let value_span = high_allocator.get_expression_span(*value);
+
+                let Some(value) = Expression::perform_semantic_analysis(
+                    *value,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                ) else {
+                    Pattern::destructure_unknown(*pattern, high_allocator, ctx);
 
                     return None;
                 };
 
+                let value_type = low_allocator.get_expression_type(value);
+
                 if let Some(explicit_type) = &explicit_type {
-                    value
-                        .data_type
-                        .assert_equals(ctx, value_span, explicit_type)?;
+                    value_type.assert_equals(ctx, value_span, explicit_type)?;
                 }
 
-                let variable_type = explicit_type.unwrap_or_else(|| value.data_type.clone());
+                let variable_type = explicit_type.unwrap_or_else(|| value_type.clone());
 
-                let pattern = pattern.perform_semantic_analysis(ctx, &variable_type)?;
+                let pattern = Pattern::perform_semantic_analysis(
+                    *pattern,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                    &variable_type,
+                )?;
 
-                UnresolvedStatement::Let(variable_type, pattern, Box::new(value))
+                low_allocator.allocate_statement(UnresolvedStatement::Let(
+                    variable_type,
+                    pattern,
+                    value,
+                ))
             }
-            StatementKind::Append(target, value) => {
-                let target = target.perform_semantic_analysis(ctx);
-                let value = value.perform_semantic_analysis(ctx);
+            Self::Append(target, value) => {
+                let target = Expression::perform_semantic_analysis(
+                    *target,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                );
+                let value = Expression::perform_semantic_analysis(
+                    *value,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                );
 
-                let (_, target) = target?;
-                let (_, value) = value?;
+                let target = target?;
+                let value = value?;
 
-                UnresolvedStatement::Append(target, Box::new(value))
+                low_allocator.allocate_statement(UnresolvedStatement::Append(target, value))
             }
-            StatementKind::Remove(target) => {
-                let (_, target) = target.perform_semantic_analysis(ctx)?;
+            Self::Remove(target) => {
+                let target = Expression::perform_semantic_analysis(
+                    *target,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
-                UnresolvedStatement::Remove(target)
+                low_allocator.allocate_statement(UnresolvedStatement::Remove(target))
             }
-            StatementKind::Break => {
+            Self::Break => {
                 if ctx.loop_depth == 0 {
+                    let span = high_allocator.get_statement_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::ControlFlowNotInLoop(LoopControlFlowKind::Break),
                     );
                 }
 
-                UnresolvedStatement::Break
+                low_allocator.allocate_statement(UnresolvedStatement::Break)
             }
-            StatementKind::Continue => {
+            Self::Continue => {
                 if ctx.loop_depth == 0 {
+                    let span = high_allocator.get_statement_span(id);
+
                     return ctx.add_error(
-                        self.span,
+                        span,
                         SemanticAnalysisError::ControlFlowNotInLoop(LoopControlFlowKind::Continue),
                     );
                 }
 
-                UnresolvedStatement::Continue
+                low_allocator.allocate_statement(UnresolvedStatement::Continue)
             }
-            StatementKind::Item(item) => {
-                let item = item.perform_semantic_analysis(ctx)?;
+            Self::Item(item) => {
+                let item =
+                    Item::perform_semantic_analysis(*item, high_allocator, low_allocator, ctx)?;
 
-                UnresolvedStatement::Item(Box::new(item))
+                low_allocator.allocate_statement(UnresolvedStatement::Item(item))
             }
         })
-    }
-
-    #[must_use]
-    pub const fn new(span: Span, kind: StatementKind) -> Self {
-        Self { span, kind }
     }
 }

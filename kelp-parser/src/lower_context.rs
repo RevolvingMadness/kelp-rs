@@ -1,4 +1,4 @@
-use kelp_core::span::Span;
+use kelp_core::{ast_allocator::high::HighAstAllocator, span::Span};
 use strum::Display;
 use thiserror::Error;
 
@@ -41,14 +41,16 @@ pub struct LowerInfo {
 pub struct LowerContext {
     pub infos: Vec<LowerInfo>,
     pub max_infos: usize,
+    pub allocator: HighAstAllocator,
 }
 
 impl LowerContext {
     #[must_use]
-    pub const fn new(max_infos: usize) -> Self {
+    pub fn new(max_infos: usize) -> Self {
         Self {
             infos: Vec::new(),
             max_infos,
+            allocator: HighAstAllocator::default(),
         }
     }
 

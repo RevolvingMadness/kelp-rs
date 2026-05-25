@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
-        expression::Expression, semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
+        expression::Expression, semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
     },
     low::block::BlockState as MiddleBlockState,
     trait_ext::CollectOptionAllIterExt,
@@ -15,12 +16,14 @@ use crate::{
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: HashMap<String, String>,
-    pub data_tags: Option<HashMap<SNBTString, Expression>>,
+    pub data_tags: Option<HashMap<SNBTString, Idx<Expression>>>,
 }
 
 impl BlockState {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleBlockState> {
         let data_tags = match self.data_tags {
@@ -29,7 +32,12 @@ impl BlockState {
                     .into_iter()
                     .map(|(key, value)| {
                         let (_, key) = key.perform_semantic_analysis(ctx);
-                        let (_, value) = value.perform_semantic_analysis(ctx)?;
+                        let value = Expression::perform_semantic_analysis(
+                            value,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
                         Some((key, value))
                     })

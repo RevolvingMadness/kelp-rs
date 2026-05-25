@@ -1,4 +1,5 @@
-use kelp_core::high::statement::{Statement, StatementKind};
+use kelp_core::high::statement::Statement;
+use la_arena::Idx;
 
 use crate::{
     cst::{CSTExpressionStatement, CSTStatement},
@@ -136,7 +137,7 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
 pub fn lower_expression_statement(
     node: CSTExpressionStatement,
     ctx: &mut LowerContext,
-) -> Option<Statement> {
+) -> Option<Idx<Statement>> {
     let expression = if let Some(without_block) = node.expression_without_block() {
         lower_expression_without_block(without_block, ctx)?
     } else if let Some(with_block) = node.expression_with_block() {
@@ -145,12 +146,17 @@ pub fn lower_expression_statement(
         return None;
     };
 
-    Some(StatementKind::Expression(expression).with_span(span_of_cst_node(&node)))
+    let span = span_of_cst_node(&node);
+
+    Some(
+        ctx.allocator
+            .allocate_statement(span, Statement::Expression(expression)),
+    )
 }
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_statement(node: CSTStatement, ctx: &mut LowerContext) -> Option<Statement> {
+pub fn lower_statement(node: CSTStatement, ctx: &mut LowerContext) -> Option<Idx<Statement>> {
     match node {
         CSTStatement::ExpressionStatement(node) => lower_expression_statement(node, ctx),
         CSTStatement::LetStatement(statement) => lower_let_statement(statement, ctx),

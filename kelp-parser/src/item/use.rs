@@ -1,4 +1,4 @@
-use kelp_core::high::item::ItemKind;
+use kelp_core::high::item::Item;
 
 use crate::{
     cst::CSTUseItem,
@@ -46,8 +46,8 @@ pub fn expect_use_item_kind(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_use_item(node: CSTUseItem) -> Option<ItemKind> {
+pub fn lower_use_item(node: CSTUseItem) -> Option<Item> {
     let tree = lower_use_tree(node.use_tree()?)?;
 
-    Some(ItemKind::Use(tree))
+    Some(Item::Use(tree))
 }

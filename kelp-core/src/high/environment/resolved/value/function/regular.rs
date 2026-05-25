@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use la_arena::Idx;
+
 use crate::{
     high::{
         environment::resolved::{r#type::HighGenericId, value::function::HighFunctionId},
@@ -20,8 +22,8 @@ pub struct ResolvedRegularFunctionDeclaration {
     pub name: String,
     pub modifiers: RegularFunctionModifiers,
     pub generic_ids: Vec<HighGenericId>,
-    pub parameters: Vec<(Option<UnresolvedPattern>, UnresolvedDataType)>,
+    pub parameters: Vec<(Option<Idx<UnresolvedPattern>>, UnresolvedDataType)>,
     pub return_type: UnresolvedDataType,
-    pub body: Option<Box<UnresolvedExpression>>,
+    pub body: Option<Idx<UnresolvedExpression>>,
     pub calls: HashSet<(Span, HighFunctionId)>,
 }

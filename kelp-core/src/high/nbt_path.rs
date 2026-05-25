@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
     low::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
     trait_ext::CollectOptionAllIterExt,
@@ -8,14 +11,16 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum NbtPathNode {
-    RootCompound(HashMap<String, Expression>),
-    Named(String, Option<HashMap<String, Expression>>),
-    Index(Option<Box<Expression>>),
+    RootCompound(HashMap<String, Idx<Expression>>),
+    Named(String, Option<HashMap<String, Idx<Expression>>>),
+    Index(Option<Idx<Expression>>),
 }
 
 impl NbtPathNode {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleNbtPathNode> {
         Some(match self {
@@ -23,7 +28,12 @@ impl NbtPathNode {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, value) = value.perform_semantic_analysis(ctx)?;
+                        let value = Expression::perform_semantic_analysis(
+                            value,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
                         Some((key, value))
                     })
@@ -37,7 +47,12 @@ impl NbtPathNode {
                         compound
                             .into_iter()
                             .map(|(key, value)| {
-                                let (_, value) = value.perform_semantic_analysis(ctx)?;
+                                let value = Expression::perform_semantic_analysis(
+                                    value,
+                                    high_allocator,
+                                    low_allocator,
+                                    ctx,
+                                )?;
 
                                 Some((key, value))
                             })
@@ -51,14 +66,19 @@ impl NbtPathNode {
             Self::Index(expression) => {
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                        let expression = Expression::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
                         Some(expression)
                     }
                     None => None,
                 };
 
-                MiddleNbtPathNode::Index(expression.map(Box::new))
+                MiddleNbtPathNode::Index(expression)
             }
         })
     }
@@ -70,12 +90,14 @@ pub struct NbtPath(pub Vec<NbtPathNode>);
 impl NbtPath {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleNbtPath> {
         Some(MiddleNbtPath(
             self.0
                 .into_iter()
-                .map(|node| node.perform_semantic_analysis(ctx))
+                .map(|node| node.perform_semantic_analysis(high_allocator, low_allocator, ctx))
                 .collect_option_all()?,
         ))
     }

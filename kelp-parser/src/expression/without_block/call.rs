@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::{CSTCallArguments, CSTCallExpression},
@@ -37,7 +38,10 @@ pub fn try_parse_call_arguments(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_call_arguments(node: CSTCallArguments, ctx: &mut LowerContext) -> Vec<Expression> {
+pub fn lower_call_arguments(
+    node: CSTCallArguments,
+    ctx: &mut LowerContext,
+) -> Vec<Idx<Expression>> {
     node.expressions()
         .filter_map(|expression| lower_expression(expression, ctx))
         .collect()
@@ -48,7 +52,7 @@ pub fn lower_call_arguments(node: CSTCallArguments, ctx: &mut LowerContext) -> V
 pub fn lower_call_expression(
     node: CSTCallExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let callee = lower_expression(node.callee()?, ctx)?;
@@ -57,11 +61,11 @@ pub fn lower_call_expression(
         .call_arguments()
         .map(|arguments| lower_call_arguments(arguments, ctx));
 
-    Some(
-        ExpressionKind::Call {
-            callee: Box::new(callee),
+    Some(ctx.allocator.allocate_expression(
+        span,
+        Expression::Call {
+            callee,
             arguments: arguments.unwrap_or_default(),
-        }
-        .with_span(span),
-    )
+        },
+    ))
 }

@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
-use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
-    span::Span,
-};
+use kelp_core::{high::expression::Expression, span::Span};
+use la_arena::Idx;
 
 use crate::{
     cst::CSTCompoundExpression,
@@ -103,7 +101,7 @@ fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
 pub fn lower_compound_expression_inner(
     node: CSTCompoundExpression,
     ctx: &mut LowerContext,
-) -> Option<(Span, HashMap<String, Expression>)> {
+) -> Option<(Span, HashMap<String, Idx<Expression>>)> {
     let mut compound = HashMap::new();
 
     for entry in node.entries() {
@@ -131,8 +129,11 @@ pub fn lower_compound_expression_inner(
 pub fn lower_compound_expression(
     node: CSTCompoundExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let (span, compound) = lower_compound_expression_inner(node, ctx)?;
 
-    Some(ExpressionKind::Compound(compound).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::Compound(compound)),
+    )
 }

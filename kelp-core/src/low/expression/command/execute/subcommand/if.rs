@@ -12,6 +12,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::{
@@ -162,52 +163,53 @@ impl ExecuteIfSubcommand {
 
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowExecuteIfSubcommand {
         match self {
             Self::Biome(coords, biome, next) => {
-                let biome = biome.compile(datapack, ctx);
+                let biome = biome.compile(allocator, datapack, ctx);
 
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
                 LowExecuteIfSubcommand::Biome(coords, biome, next)
             }
             Self::Block(coordinates, state, next) => {
-                let state = state.compile(datapack, ctx);
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let state = state.compile(allocator, datapack, ctx);
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
                 LowExecuteIfSubcommand::Block(coordinates, state, next)
             }
             Self::Blocks(start, end, destination, mode, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
                 LowExecuteIfSubcommand::Blocks(start, end, destination, mode, next)
             }
             Self::Data(target, path, next) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
+                let target = target.compile(allocator, datapack, ctx);
+                let path = path.compile(allocator, datapack, ctx);
 
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
                 LowExecuteIfSubcommand::Data(target.target, path, next)
             }
             Self::Dimension(location, next) => {
-                let location = location.compile(datapack, ctx);
+                let location = location.compile(allocator, datapack, ctx);
 
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
                 LowExecuteIfSubcommand::Dimension(location, next)
             }
             Self::Entity(selector, next) => {
-                let selector = selector.compile(datapack, ctx);
+                let selector = selector.compile(allocator, datapack, ctx);
 
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
                 LowExecuteIfSubcommand::Entity(selector, next)
             }
             Self::Function(location, next) => {
-                let location = location.compile(datapack, ctx);
+                let location = location.compile(allocator, datapack, ctx);
 
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
                 if let Some(next) = next {
                     LowExecuteIfSubcommand::Function(location, next)
@@ -229,29 +231,33 @@ impl ExecuteIfSubcommand {
                 }
             }
             Self::Items(source, name, predicate, next) => {
-                let source = source.compile(datapack, ctx);
-                let predicate = predicate.compile(datapack, ctx);
+                let source = source.compile(allocator, datapack, ctx);
+                let predicate = predicate.compile(allocator, datapack, ctx);
 
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
                 LowExecuteIfSubcommand::Items(source, name, predicate, next)
             }
             Self::Loaded(position, next) => {
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
                 LowExecuteIfSubcommand::Loaded(position, next)
             }
             Self::Predicate(location, next) => {
-                let location = location.compile(datapack, ctx);
+                let location = location.compile(allocator, datapack, ctx);
 
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
                 LowExecuteIfSubcommand::Predicate(location, next)
             }
             Self::Score(score, comparison, next) => {
-                let score = score.compile(datapack, ctx);
-                let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
+                let score = score.compile(allocator, datapack, ctx);
+                let next = next.map(|next| Box::new(next.compile(allocator, datapack, ctx)));
 
-                LowExecuteIfSubcommand::Score(score.score, comparison.compile(datapack, ctx), next)
+                LowExecuteIfSubcommand::Score(
+                    score.score,
+                    comparison.compile(allocator, datapack, ctx),
+                    next,
+                )
             }
         }
     }

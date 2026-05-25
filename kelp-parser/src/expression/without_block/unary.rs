@@ -1,7 +1,5 @@
-use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
-    operator::UnaryOperator,
-};
+use kelp_core::{high::expression::Expression, operator::UnaryOperator};
+use la_arena::Idx;
 
 use crate::{
     cst::CSTUnaryExpression, expression::lower_expression, lower_context::LowerContext,
@@ -13,7 +11,7 @@ use crate::{
 pub fn lower_unary_expression(
     node: CSTUnaryExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let operator = match node.operator()?.kind() {
@@ -26,5 +24,8 @@ pub fn lower_unary_expression(
 
     let operand = lower_expression(node.expression()?, ctx)?;
 
-    Some(ExpressionKind::Unary(operator, Box::new(operand)).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::Unary(operator, operand)),
+    )
 }

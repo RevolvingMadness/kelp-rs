@@ -1,6 +1,7 @@
 use minecraft_command_types::command::scoreboard::ScoreboardCommand as LowScoreboardCommand;
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::expression::command::scoreboard::{
@@ -21,17 +22,18 @@ impl ScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowScoreboardCommand {
         match self {
             Self::Objectives(command) => {
-                let command = command.compile(datapack, ctx);
+                let command = command.compile(allocator, datapack, ctx);
 
                 LowScoreboardCommand::Objectives(command)
             }
             Self::Players(command) => {
-                let command = command.compile(datapack, ctx);
+                let command = command.compile(allocator, datapack, ctx);
 
                 LowScoreboardCommand::Players(command)
             }

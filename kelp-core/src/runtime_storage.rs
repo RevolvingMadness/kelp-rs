@@ -3,7 +3,7 @@ use crate::{
     low::expression::resolved::ResolvedExpression, player_score::GeneratedPlayerScore,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RuntimeStorageType {
     Score,
     Data,

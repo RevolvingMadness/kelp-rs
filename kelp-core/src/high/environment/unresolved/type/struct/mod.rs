@@ -1,7 +1,7 @@
 use crate::high::{
     environment::{
         resolved::{
-            r#type::{HighTypeId, r#struct::ResolvedStructDeclaration},
+            r#type::{HighGenericId, HighTypeId, r#struct::ResolvedStructDeclaration},
             value::HighValueId,
         },
         unresolved::r#type::r#struct::{
@@ -33,8 +33,24 @@ impl UnresolvedStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Struct(declaration) => &declaration.name,
-            Self::Tuple(declaration) => &declaration.name,
+            Self::Struct(declaration) => declaration.name(),
+            Self::Tuple(declaration) => declaration.name(),
+        }
+    }
+
+    #[must_use]
+    pub fn generic_ids(&self) -> &[HighGenericId] {
+        match self {
+            Self::Struct(declaration) => declaration.generic_ids(),
+            Self::Tuple(declaration) => declaration.generic_ids(),
+        }
+    }
+
+    #[must_use]
+    pub const fn generic_count(&self) -> usize {
+        match self {
+            Self::Struct(declaration) => declaration.generic_count(),
+            Self::Tuple(declaration) => declaration.generic_count(),
         }
     }
 

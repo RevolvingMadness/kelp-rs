@@ -1,24 +1,26 @@
+use crate::ast_allocator::low::LowAstAllocator;
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::low::data_type::unresolved::UnresolvedDataType;
 use crate::low::expression::unresolved::UnresolvedExpression;
 use crate::low::item::Item;
 use crate::low::pattern::UnresolvedPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
+use la_arena::Idx;
 use minecraft_command_types::command::Command;
 use minecraft_command_types::command::execute::ExecuteSubcommand;
 use minecraft_command_types::command::r#return::ReturnCommand;
 
 #[derive(Debug, Clone)]
 pub enum UnresolvedStatement {
-    Expression(UnresolvedExpression),
+    Expression(Idx<UnresolvedExpression>),
     Let(
         UnresolvedDataType,
-        UnresolvedPattern,
-        Box<UnresolvedExpression>,
+        Idx<UnresolvedPattern>,
+        Idx<UnresolvedExpression>,
     ),
-    Append(UnresolvedExpression, Box<UnresolvedExpression>),
-    Remove(UnresolvedExpression),
-    Item(Box<Item>),
+    Append(Idx<UnresolvedExpression>, Idx<UnresolvedExpression>),
+    Remove(Idx<UnresolvedExpression>),
+    Item(Idx<Item>),
     Break,
     Continue,
 }
@@ -53,9 +55,14 @@ pub enum EarlyReturnType {
 
 impl UnresolvedStatement {
     #[must_use]
-    pub fn get_early_return_type(&self) -> Option<EarlyReturnType> {
-        match self {
-            Self::Expression(expression) => expression.kind.get_early_return_type(),
+    pub fn get_early_return_type(
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
+    ) -> Option<EarlyReturnType> {
+        match allocator.get_statement(id) {
+            Self::Expression(expression) => {
+                UnresolvedExpression::get_early_return_type(*expression, allocator)
+            }
 
             Self::Break => Some(EarlyReturnType::Break),
 
@@ -64,29 +71,40 @@ impl UnresolvedStatement {
     }
 
     #[must_use]
-    pub fn definitely_diverges(&self) -> bool {
-        match self {
-            Self::Expression(expression) => expression.kind.definitely_diverges(),
+    pub fn definitely_diverges(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
+        match allocator.get_statement(id) {
+            Self::Expression(expression) => {
+                UnresolvedExpression::definitely_diverges(*expression, allocator)
+            }
             Self::Break | Self::Continue => true,
-            Self::Let(_, _, value) => value.kind.definitely_diverges(),
-            Self::Append(_, value) => value.kind.definitely_diverges(),
-            Self::Remove(expr) => expr.kind.definitely_diverges(),
+            Self::Let(_, _, value) => UnresolvedExpression::definitely_diverges(*value, allocator),
+            Self::Append(_, value) => UnresolvedExpression::definitely_diverges(*value, allocator),
+            Self::Remove(expr) => UnresolvedExpression::definitely_diverges(*expr, allocator),
             Self::Item(..) => false,
         }
     }
 
-    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
-        match self {
-            Self::Expression(expression) => expression.kind.compile_as_statement(datapack, ctx),
+    pub fn compile_as_statement(
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) {
+        match allocator.get_statement(id) {
+            Self::Expression(expression) => {
+                UnresolvedExpression::compile_as_statement(*expression, allocator, datapack, ctx);
+            }
             Self::Let(data_type, pattern, value) => {
-                let data_type = data_type.resolve(datapack).unwrap();
-                let value = value.kind.resolve(datapack, ctx);
+                let data_type = data_type.clone().resolve(datapack).unwrap();
+                let value = UnresolvedExpression::resolve(*value, allocator, datapack, ctx);
 
-                pattern.destructure(datapack, ctx, data_type, value);
+                UnresolvedPattern::destructure(
+                    *pattern, allocator, datapack, ctx, data_type, value,
+                );
             }
             Self::Append(target, value) => {
-                let target = target.kind.resolve(datapack, ctx);
-                let value = value.kind.resolve(datapack, ctx);
+                let target = UnresolvedExpression::resolve(*target, allocator, datapack, ctx);
+                let value = UnresolvedExpression::resolve(*value, allocator, datapack, ctx);
 
                 let data = target.as_data(datapack, ctx, false);
 
@@ -95,7 +113,8 @@ impl UnresolvedStatement {
                 ctx.add_command(datapack, data.append(modification));
             }
             Self::Remove(expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let expression =
+                    UnresolvedExpression::resolve(*expression, allocator, datapack, ctx);
 
                 let data = expression.as_data(datapack, ctx, false);
 
@@ -125,7 +144,7 @@ impl UnresolvedStatement {
                     Command::Return(ReturnCommand::Run(Box::new(command))),
                 );
             }
-            Self::Item(item) => item.compile(datapack, ctx),
+            Self::Item(item) => Item::compile(*item, allocator, datapack, ctx),
         }
     }
 }

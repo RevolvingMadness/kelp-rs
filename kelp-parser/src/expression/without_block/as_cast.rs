@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTAsCastExpression, data_type::lower_data_type, expression::lower_expression,
@@ -10,11 +11,14 @@ use crate::{
 pub fn lower_as_cast_expression(
     node: CSTAsCastExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let expression = lower_expression(node.expression()?, ctx)?;
     let data_type = lower_data_type(node.data_type()?)?;
 
-    Some(ExpressionKind::AsCast(Box::new(expression), data_type).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::AsCast(expression, data_type)),
+    )
 }

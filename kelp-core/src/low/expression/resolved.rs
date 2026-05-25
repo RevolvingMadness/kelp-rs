@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write};
 
+use la_arena::Idx;
 use minecraft_command_types::{
     command::{
         Command, ScoreValue,
@@ -19,6 +20,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     data::GeneratedData,
     datapack::{
@@ -130,12 +132,13 @@ fn integer_range_from_comparison_operator(
 
 #[must_use]
 fn compile_compiletime_function(
+    allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
-    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<ResolvedExpression>,
-    body: UnresolvedExpression,
+    body: Idx<UnresolvedExpression>,
 ) -> ResolvedExpression {
     if let Some(function) = datapack
         .cached_compiletime_functions
@@ -160,10 +163,18 @@ fn compile_compiletime_function(
     let mut function_body_ctx = CompileContext::default();
 
     for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
-        pattern.destructure(datapack, &mut function_body_ctx, data_type, argument);
+        UnresolvedPattern::destructure(
+            pattern,
+            allocator,
+            datapack,
+            &mut function_body_ctx,
+            data_type,
+            argument,
+        );
     }
 
-    let return_value = body.kind.resolve(datapack, &mut function_body_ctx);
+    let return_value =
+        UnresolvedExpression::resolve(body, allocator, datapack, &mut function_body_ctx);
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
@@ -181,13 +192,15 @@ fn compile_compiletime_function(
 }
 
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 fn compile_regular_runtime_function(
+    allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
-    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<RuntimeStorageTarget>,
-    body: UnresolvedExpression,
+    body: Idx<UnresolvedExpression>,
     return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
     if let Some(function) = datapack.cached_runtime_functions.get(&id) {
@@ -229,7 +242,9 @@ fn compile_regular_runtime_function(
             .clone()
             .assign_target(datapack, ctx, argument);
 
-        pattern.destructure(
+        UnresolvedPattern::destructure(
+            pattern,
+            allocator,
             datapack,
             &mut function_body_ctx,
             data_type,
@@ -251,7 +266,7 @@ fn compile_regular_runtime_function(
     );
 
     datapack.function_return_targets.push(return_target);
-    let result = body.kind.resolve(datapack, &mut function_body_ctx);
+    let result = UnresolvedExpression::resolve(body, allocator, datapack, &mut function_body_ctx);
     let return_target = datapack.function_return_targets.pop().unwrap();
 
     return_target
@@ -271,12 +286,13 @@ fn compile_regular_runtime_function(
 
 #[must_use]
 fn compile_recursive_runtime_function(
+    allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
-    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<GeneratedData>,
-    body: UnresolvedExpression,
+    body: Idx<UnresolvedExpression>,
 ) -> ResolvedExpression {
     if let Some(function) = datapack.cached_runtime_functions.get(&id) {
         let RuntimeFunction::Recursive(function) = function else {
@@ -373,7 +389,9 @@ fn compile_recursive_runtime_function(
 
         let argument_data = arguments_data.clone().index(index as i32);
 
-        pattern.destructure(
+        UnresolvedPattern::destructure(
+            pattern,
+            allocator,
             datapack,
             &mut function_body_ctx,
             data_type,
@@ -385,7 +403,7 @@ fn compile_recursive_runtime_function(
         .function_return_targets
         .push(RuntimeStorageTarget::Data(return_data.clone()));
 
-    let result = body.kind.resolve(datapack, &mut function_body_ctx);
+    let result = UnresolvedExpression::resolve(body, allocator, datapack, &mut function_body_ctx);
 
     let return_target = datapack.function_return_targets.pop().unwrap();
 
@@ -414,15 +432,16 @@ fn compile_recursive_runtime_function(
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 fn compile_function(
+    allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
     modifiers: RegularFunctionModifiers,
     generic_ids: Vec<HighGenericId>,
     generic_types: Vec<ResolvedDataType>,
-    parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<ResolvedExpression>,
-    body: UnresolvedExpression,
+    body: Idx<UnresolvedExpression>,
     return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
     for (generic_id, generic_type) in generic_ids.into_iter().zip(generic_types) {
@@ -430,7 +449,9 @@ fn compile_function(
     }
 
     let RegularFunctionModifiers::Runtime { recursive } = modifiers else {
-        return compile_compiletime_function(datapack, ctx, id, parameters, arguments, body);
+        return compile_compiletime_function(
+            allocator, datapack, ctx, id, parameters, arguments, body,
+        );
     };
 
     if recursive {
@@ -445,7 +466,15 @@ fn compile_function(
             })
             .collect();
 
-        compile_recursive_runtime_function(datapack, ctx, id, parameters, argument_datas, body)
+        compile_recursive_runtime_function(
+            allocator,
+            datapack,
+            ctx,
+            id,
+            parameters,
+            argument_datas,
+            body,
+        )
     } else {
         let argument_targets = arguments
             .into_iter()
@@ -453,6 +482,7 @@ fn compile_function(
             .collect();
 
         compile_regular_runtime_function(
+            allocator,
             datapack,
             ctx,
             id,
@@ -554,6 +584,7 @@ pub enum ResolvedExpression {
 impl ResolvedExpression {
     pub fn call(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         arguments: Vec<Self>,
@@ -585,6 +616,7 @@ impl ResolvedExpression {
 
                 match declaration {
                     FunctionDeclaration::Regular(declaration) => compile_function(
+                        allocator,
                         datapack,
                         ctx,
                         id,
@@ -593,7 +625,7 @@ impl ResolvedExpression {
                         declaration.generic_types.clone(),
                         declaration.parameters.clone(),
                         arguments,
-                        declaration.body.clone(),
+                        declaration.body,
                         declaration.return_type.get_runtime_storage_type(),
                     ),
                     FunctionDeclaration::Builtin(declaration) => {
@@ -2313,9 +2345,9 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn access_field(self, access_type: FieldAccessType, field: String) -> Option<Self> {
+    pub fn access_field(self, access_type: FieldAccessType, field: &str) -> Option<Self> {
         match self {
-            Self::Compound(mut compound) => compound.remove(&field),
+            Self::Compound(mut compound) => compound.remove(field),
             Self::Tuple(mut expressions) => {
                 let index = field.parse::<usize>().unwrap();
 
@@ -2334,9 +2366,9 @@ impl ResolvedExpression {
                     Some(field_expressions.remove(index))
                 }
             }
-            Self::RegularStruct(_, mut field_expressions) => field_expressions.remove(&field),
+            Self::RegularStruct(_, mut field_expressions) => field_expressions.remove(field),
             Self::Data(data) => {
-                let node = access_type.into_nbt_path_node(field);
+                let node = access_type.into_nbt_path_node(field.to_owned());
 
                 Some(Self::Data(data.with_path_node(node)))
             }

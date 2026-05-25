@@ -1,6 +1,8 @@
+use la_arena::Idx;
 use minecraft_command_types::command::enums::scoreboard_render_type::ScoreboardRenderType;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         command::scoreboard::players::ScoreboardNumberFormat, expression::Expression,
         semantic_analysis::SemanticAnalysisContext,
@@ -14,7 +16,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
-    DisplayName(Box<Expression>),
+    DisplayName(Idx<Expression>),
     NumberFormat(Option<Box<ScoreboardNumberFormat>>),
     RenderType(ScoreboardRenderType),
 }
@@ -23,6 +25,8 @@ impl ScoreboardModification {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleScoreboardModification> {
         Some(match self {
@@ -30,13 +34,22 @@ impl ScoreboardModification {
                 MiddleScoreboardModification::DisplayAutoUpdate(auto_update)
             }
             Self::DisplayName(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 MiddleScoreboardModification::DisplayName(expression)
             }
             Self::NumberFormat(number_format) => {
                 let number_format = match number_format {
-                    Some(number_format) => Some(number_format.perform_semantic_analysis(ctx)?),
+                    Some(number_format) => Some(number_format.perform_semantic_analysis(
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?),
                     None => None,
                 };
 
@@ -50,7 +63,7 @@ impl ScoreboardModification {
 #[derive(Debug, Clone)]
 pub enum ObjectivesScoreboardCommand {
     List,
-    Add(String, String, Option<Box<Expression>>),
+    Add(String, String, Option<Idx<Expression>>),
     Remove(String),
     SetDisplay(String, Option<String>),
     Modify(String, ScoreboardModification),
@@ -59,6 +72,8 @@ pub enum ObjectivesScoreboardCommand {
 impl ObjectivesScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleObjectivesScoreboardCommand> {
         Some(match self {
@@ -66,7 +81,12 @@ impl ObjectivesScoreboardCommand {
             Self::Add(name, criterion, expression) => {
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                        let expression = Expression::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
                         Some(expression)
                     }
@@ -80,7 +100,8 @@ impl ObjectivesScoreboardCommand {
                 MiddleObjectivesScoreboardCommand::SetDisplay(position, objective)
             }
             Self::Modify(objective, modification) => {
-                let modification = modification.perform_semantic_analysis(ctx)?;
+                let modification =
+                    modification.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddleObjectivesScoreboardCommand::Modify(objective, modification)
             }

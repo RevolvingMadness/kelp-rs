@@ -1,5 +1,6 @@
-use kelp_core::high::item::associated::{AssociatedItem, AssociatedItemKind};
+use kelp_core::high::item::Item;
 use kelp_core::visibility::Visibility;
+use la_arena::Idx;
 
 use crate::lower_context::LowerContext;
 use crate::{
@@ -51,10 +52,7 @@ pub fn expect_associated_item(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_associated_item(
-    node: CSTAssociatedItem,
-    ctx: &mut LowerContext,
-) -> Option<AssociatedItem> {
+pub fn lower_associated_item(node: CSTAssociatedItem, ctx: &mut LowerContext) -> Option<Idx<Item>> {
     let span = span_of_cst_node(&node);
 
     let visibility = if node.pub_keyword_token().is_some() {
@@ -63,20 +61,14 @@ pub fn lower_associated_item(
         Visibility::None
     };
 
-    let kind = match node.associated_item_kind()? {
+    let item = match node.associated_item_kind()? {
         CSTAssociatedItemKind::FunctionDeclarationItem(fn_node) => {
-            AssociatedItemKind::FunctionDeclaration(lower_function_declaration_item_kind(
-                fn_node, ctx,
-            )?)
+            Item::FunctionDeclaration(lower_function_declaration_item_kind(fn_node, ctx)?)
         }
         CSTAssociatedItemKind::TypeAliasDeclarationItem(type_node) => {
-            AssociatedItemKind::TypeAliasDeclaration(lower_type_alias_declaration_item(type_node)?)
+            Item::TypeAliasDeclaration(lower_type_alias_declaration_item(type_node)?)
         }
     };
 
-    Some(AssociatedItem {
-        span,
-        visibility,
-        kind,
-    })
+    Some(ctx.allocator.allocate_item(span, visibility, item))
 }

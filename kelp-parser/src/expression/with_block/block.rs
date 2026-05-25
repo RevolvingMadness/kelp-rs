@@ -75,15 +75,15 @@ pub fn lower_block_expression(
             continue;
         }
 
-        if let Some(stmt) = lower_statement(cst_statement, ctx) {
-            statements.push(stmt);
+        if let Some(statement) = lower_statement(cst_statement, ctx) {
+            statements.push(statement);
         }
     }
 
     Some(
         BlockExpressionInfo {
             statements,
-            tail_expression: tail_expression.map(Box::new),
+            tail_expression,
         }
         .with_span(span),
     )

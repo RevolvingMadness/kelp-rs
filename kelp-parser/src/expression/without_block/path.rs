@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTPathExpression, lower_context::LowerContext, path::generic::lower_generic_path,
@@ -9,11 +10,14 @@ use crate::{
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_path_expression(
     node: CSTPathExpression,
-    _ctx: &mut LowerContext,
-) -> Option<Expression> {
+    ctx: &mut LowerContext,
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    Some(ExpressionKind::Path(path).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::Path(path)),
+    )
 }

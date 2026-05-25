@@ -1,3 +1,4 @@
+use la_arena::Idx;
 use minecraft_command_types::command::{
     ScoreValue,
     enums::score_operation_operator::ScoreOperationOperator,
@@ -9,33 +10,39 @@ use minecraft_command_types::command::{
 };
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
-    low::expression::unresolved::UnresolvedExpression,
-    low::{entity_selector::EntitySelector, player_score::PlayerScore},
+    low::{
+        entity_selector::EntitySelector, expression::unresolved::UnresolvedExpression,
+        player_score::PlayerScore,
+    },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ScoreboardNumberFormat {
     Blank,
-    Fixed(UnresolvedExpression),
-    Styled(UnresolvedExpression),
+    Fixed(Idx<UnresolvedExpression>),
+    Styled(Idx<UnresolvedExpression>),
 }
 
 impl ScoreboardNumberFormat {
     #[must_use]
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowScoreboardNumberFormat {
         match self {
             Self::Blank => LowScoreboardNumberFormat::Blank,
             Self::Fixed(expression) => LowScoreboardNumberFormat::Fixed(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
+                UnresolvedExpression::resolve(expression, allocator, datapack, ctx)
+                    .as_snbt_macros(ctx),
             ),
             Self::Styled(expression) => LowScoreboardNumberFormat::Styled(
-                expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx),
+                UnresolvedExpression::resolve(expression, allocator, datapack, ctx)
+                    .as_snbt_macros(ctx),
             ),
         }
     }
@@ -43,7 +50,7 @@ impl ScoreboardNumberFormat {
 
 #[derive(Debug, Clone)]
 pub enum PlayersDisplayScoreboardCommand {
-    Name(PlayerScore, Option<UnresolvedExpression>),
+    Name(PlayerScore, Option<Idx<UnresolvedExpression>>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
 }
 
@@ -51,21 +58,24 @@ impl PlayersDisplayScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowPlayersDisplayScoreboardCommand {
         match self {
             Self::Name(score, expression) => {
-                let score = score.compile(datapack, ctx).score;
-                let snbt = expression
-                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx));
+                let score = score.compile(allocator, datapack, ctx).score;
+                let snbt = expression.map(|expression| {
+                    UnresolvedExpression::resolve(expression, allocator, datapack, ctx)
+                        .as_snbt_macros(ctx)
+                });
 
                 LowPlayersDisplayScoreboardCommand::Name(score, snbt)
             }
             Self::NumberFormat(score, number_format) => {
-                let score = score.compile(datapack, ctx).score;
-                let number_format =
-                    number_format.map(|number_format| number_format.compile(datapack, ctx));
+                let score = score.compile(allocator, datapack, ctx).score;
+                let number_format = number_format
+                    .map(|number_format| number_format.compile(allocator, datapack, ctx));
 
                 LowPlayersDisplayScoreboardCommand::NumberFormat(score, number_format)
             }
@@ -90,53 +100,54 @@ impl PlayersScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowPlayersScoreboardCommand {
         match self {
             Self::List(selector) => {
-                let selector = selector.map(|selector| selector.compile(datapack, ctx));
+                let selector = selector.map(|selector| selector.compile(allocator, datapack, ctx));
 
                 LowPlayersScoreboardCommand::List(selector)
             }
             Self::Get(score) => {
-                let score = score.compile(datapack, ctx).score;
+                let score = score.compile(allocator, datapack, ctx).score;
 
                 LowPlayersScoreboardCommand::Get(score)
             }
             Self::Set(score, value) => {
-                let score = score.compile(datapack, ctx).score;
+                let score = score.compile(allocator, datapack, ctx).score;
 
                 LowPlayersScoreboardCommand::Set(score, value)
             }
             Self::Add(score, amount) => {
-                let score = score.compile(datapack, ctx).score;
+                let score = score.compile(allocator, datapack, ctx).score;
 
                 LowPlayersScoreboardCommand::Add(score, amount)
             }
             Self::Remove(score, amount) => {
-                let score = score.compile(datapack, ctx).score;
+                let score = score.compile(allocator, datapack, ctx).score;
 
                 LowPlayersScoreboardCommand::Remove(score, amount)
             }
             Self::Reset(selector, objective) => {
-                let selector = selector.compile(datapack, ctx);
+                let selector = selector.compile(allocator, datapack, ctx);
 
                 LowPlayersScoreboardCommand::Reset(selector, objective)
             }
             Self::Enable(score) => {
-                let score = score.compile(datapack, ctx).score;
+                let score = score.compile(allocator, datapack, ctx).score;
 
                 LowPlayersScoreboardCommand::Enable(score)
             }
             Self::Operation(left, operator, right) => {
-                let left = left.compile(datapack, ctx).score;
-                let right = right.compile(datapack, ctx).score;
+                let left = left.compile(allocator, datapack, ctx).score;
+                let right = right.compile(allocator, datapack, ctx).score;
 
                 LowPlayersScoreboardCommand::Operation(left, operator, right)
             }
             Self::Display(command) => {
-                let command = command.compile(datapack, ctx);
+                let command = command.compile(allocator, datapack, ctx);
 
                 LowPlayersScoreboardCommand::Display(command)
             }

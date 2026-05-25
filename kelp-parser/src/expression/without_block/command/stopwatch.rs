@@ -1,7 +1,8 @@
 use kelp_core::high::{
     command::{Command, stopwatch::StopwatchCommand},
-    expression::{Expression, ExpressionKind},
+    expression::Expression,
 };
+use la_arena::Idx;
 
 use crate::{
     cst::{
@@ -184,7 +185,7 @@ fn lower_stopwatch_command_expression_options(
 pub fn lower_stopwatch_command_expression(
     node: CSTStopwatchCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let command = lower_stopwatch_command_expression_options(
@@ -192,5 +193,8 @@ pub fn lower_stopwatch_command_expression(
         ctx,
     )?;
 
-    Some(ExpressionKind::Command(Box::new(Command::Stopwatch(command))).with_span(span))
+    Some(ctx.allocator.allocate_expression(
+        span,
+        Expression::Command(Box::new(Command::Stopwatch(command))),
+    ))
 }

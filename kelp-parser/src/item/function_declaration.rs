@@ -4,6 +4,7 @@ use kelp_core::{
     },
     trait_ext::CollectOptionAllIterExt,
 };
+use la_arena::Idx;
 
 use crate::{
     cst::{CSTFunctionDeclarationItem, CSTFunctionParameter, CSTFunctionParameters},
@@ -230,7 +231,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 pub fn lower_function_parameter(
     node: CSTFunctionParameter,
     ctx: &mut LowerContext,
-) -> Option<(Pattern, DataType)> {
+) -> Option<(Idx<Pattern>, DataType)> {
     let pattern = lower_pattern(node.pattern()?, ctx)?;
 
     let data_type = lower_data_type(node.data_type()?)?;
@@ -240,10 +241,11 @@ pub fn lower_function_parameter(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::type_complexity)]
 pub fn lower_function_parameters(
     node: CSTFunctionParameters,
     ctx: &mut LowerContext,
-) -> Option<(bool, Vec<(Pattern, DataType)>)> {
+) -> Option<(bool, Vec<(Idx<Pattern>, DataType)>)> {
     let is_method = node.self_function_parameters().count() != 0;
 
     let parameters = node
@@ -301,8 +303,5 @@ pub fn lower_function_declaration_item_kind(
         parameters,
         return_type,
         body,
-
-        id: None,
-        generic_ids: None,
     })
 }

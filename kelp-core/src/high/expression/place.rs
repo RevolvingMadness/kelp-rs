@@ -1,4 +1,7 @@
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     high::{environment::resolved::value::HighValueId, semantic_analysis::SemanticAnalysisContext},
@@ -13,78 +16,61 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedPlaceExpressionKind {
+pub enum UnresolvedPlaceExpression {
     Value(HighValueId, Vec<UnresolvedDataType>),
     Score(PlayerScore),
     Data(Box<Data>),
-    FieldAccess(Box<UnresolvedPlaceExpression>, String),
-    Index(Box<UnresolvedPlaceExpression>, Box<UnresolvedExpression>),
-    Dereference(Box<UnresolvedPlaceExpression>),
-}
-
-impl UnresolvedPlaceExpressionKind {
-    #[inline]
-    #[must_use]
-    pub const fn with(self, data_type: UnresolvedDataType) -> UnresolvedPlaceExpression {
-        UnresolvedPlaceExpression {
-            kind: self,
-            data_type,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UnresolvedPlaceExpression {
-    pub kind: UnresolvedPlaceExpressionKind,
-    pub data_type: UnresolvedDataType,
+    FieldAccess(Idx<Self>, String),
+    Index(Idx<Self>, Idx<UnresolvedExpression>),
+    Dereference(Idx<Self>),
 }
 
 impl UnresolvedPlaceExpression {
     #[must_use]
     pub fn resolve(
-        self,
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ResolvedPlaceExpression {
-        match self.kind {
-            UnresolvedPlaceExpressionKind::Value(id, generic_types) => {
+        match allocator.get_place_expression(id) {
+            Self::Value(id, generic_types) => {
                 let id = datapack
-                    .get_monomorphized_value_id(id, &generic_types)
+                    .get_monomorphized_value_id(*id, generic_types)
                     .unwrap();
 
                 ResolvedPlaceExpression::Variable(VariableId(id.0))
             }
-            UnresolvedPlaceExpressionKind::Score(score) => {
-                let score = score.compile(datapack, ctx);
+            Self::Score(score) => {
+                let score = score.clone().compile(allocator, datapack, ctx);
 
                 ResolvedPlaceExpression::Score(score)
             }
-            UnresolvedPlaceExpressionKind::Data(data) => {
-                let data = data.compile(datapack, ctx);
+            Self::Data(data) => {
+                let data = data.clone().compile(allocator, datapack, ctx);
 
                 ResolvedPlaceExpression::Data(data)
             }
-            UnresolvedPlaceExpressionKind::FieldAccess(place, field) => {
-                let access_type = place
-                    .data_type
+            Self::FieldAccess(place, field) => {
+                let access_type = allocator
+                    .get_place_expression_type(*place)
                     .clone()
                     .resolve(datapack)
                     .unwrap()
                     .get_field_access_type(&datapack.environment)
                     .unwrap();
 
-                let place = place.resolve(datapack, ctx);
+                let place = Self::resolve(*place, allocator, datapack, ctx);
 
-                ResolvedPlaceExpression::FieldAccess(Box::new(place), access_type, field)
+                ResolvedPlaceExpression::FieldAccess(Box::new(place), access_type, field.clone())
             }
-            UnresolvedPlaceExpressionKind::Index(place, index) => {
-                let place = place.resolve(datapack, ctx);
-                let index = index.kind.resolve(datapack, ctx);
+            Self::Index(place, index) => {
+                let place = Self::resolve(*place, allocator, datapack, ctx);
+                let index = UnresolvedExpression::resolve(*index, allocator, datapack, ctx);
 
                 ResolvedPlaceExpression::Index(Box::new(place), index)
             }
-            UnresolvedPlaceExpressionKind::Dereference(place) => place
-                .resolve(datapack, ctx)
+            Self::Dereference(place) => Self::resolve(*place, allocator, datapack, ctx)
                 .resolve(datapack, ctx)
                 .dereference_place()
                 .unwrap(),
@@ -92,30 +78,37 @@ impl UnresolvedPlaceExpression {
     }
 
     pub fn perform_assignment_semantic_analysis(
-        &self,
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         value_type: &UnresolvedDataType,
     ) -> Option<()> {
-        match &self.kind {
-            UnresolvedPlaceExpressionKind::Value(..) => {
-                value_type.assert_equals(ctx, value_span, &self.data_type)
+        match allocator.get_place_expression(id) {
+            Self::Value(..) => {
+                let data_type = allocator.get_place_expression_type(id);
+
+                value_type.assert_equals(ctx, value_span, data_type)
             }
-            UnresolvedPlaceExpressionKind::Score(..) => {
-                value_type.assert_score_compatible(ctx, value_span)
-            }
-            UnresolvedPlaceExpressionKind::Data(..) => {
-                value_type.assert_data_compatible(ctx, value_span)
-            }
-            UnresolvedPlaceExpressionKind::Index(place, _)
-            | UnresolvedPlaceExpressionKind::FieldAccess(place, _)
-            | UnresolvedPlaceExpressionKind::Dereference(place) => match &place.data_type {
-                UnresolvedDataType::Score(..) => {
-                    value_type.assert_score_compatible(ctx, value_span)
+            Self::Score(..) => value_type.assert_score_compatible(ctx, value_span),
+            Self::Data(..) => value_type.assert_data_compatible(ctx, value_span),
+            Self::Index(place, _) | Self::FieldAccess(place, _) | Self::Dereference(place) => {
+                let data_type = allocator.get_place_expression_type(*place);
+
+                match data_type {
+                    UnresolvedDataType::Score(..) => {
+                        value_type.assert_score_compatible(ctx, value_span)
+                    }
+                    UnresolvedDataType::Data(..) => {
+                        value_type.assert_data_compatible(ctx, value_span)
+                    }
+                    _ => {
+                        let data_type = allocator.get_place_expression_type(id);
+
+                        value_type.assert_equals(ctx, value_span, data_type)
+                    }
                 }
-                UnresolvedDataType::Data(..) => value_type.assert_data_compatible(ctx, value_span),
-                _ => value_type.assert_equals(ctx, value_span, &self.data_type),
-            },
+            }
         }
     }
 }

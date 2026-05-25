@@ -1,4 +1,5 @@
 use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTParenthesizedExpression, expression::lower_expression, lower_context::LowerContext,
@@ -9,7 +10,7 @@ use crate::{
 pub fn lower_parenthesized_expression(
     node: CSTParenthesizedExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let expression = lower_expression(node.expression()?, ctx)?;
 
     Some(expression)

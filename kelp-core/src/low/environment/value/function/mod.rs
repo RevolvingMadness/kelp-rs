@@ -1,3 +1,5 @@
+use la_arena::Idx;
+
 use crate::{
     low::{
         data_type::resolved::ResolvedDataType,
@@ -64,7 +66,9 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub fn parameter_types(&self) -> ParameterTypesIter<'_, UnresolvedPattern, ResolvedDataType> {
+    pub fn parameter_types(
+        &self,
+    ) -> ParameterTypesIter<'_, Idx<UnresolvedPattern>, ResolvedDataType> {
         match self {
             Self::Regular(declaration) => {
                 ParameterTypesIter::Regular(declaration.parameters.iter().map(take_second))

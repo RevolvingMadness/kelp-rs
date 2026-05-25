@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         data_type::DataType,
         environment::{
@@ -27,40 +29,139 @@ use crate::{
         },
         expression::block::BlockExpression,
         item::{
-            associated::AssociatedItem, function_declaration::FunctionDeclarationItem,
+            function_declaration::FunctionDeclarationItem,
             type_alias_declaration::TypeAliasDeclarationItem,
         },
         semantic_analysis::{
             FunctionContext, SemanticAnalysisContext, info::error::SemanticAnalysisError,
-            scope::Scope,
         },
         use_tree::UseTree,
     },
     low::{data_type::unresolved::UnresolvedDataType, item::Item as MiddleItem},
+    path::regular::Path,
     span::Span,
-    trait_ext::CollectOptionAllIterExt,
+    trait_ext::CollectOptionAllIterExt as _,
     visibility::Visibility,
 };
 
-pub mod associated;
 pub mod function_declaration;
 pub mod type_alias_declaration;
 
+fn prepend_path_to_tree(tree: &mut UseTree, prefix: &Path) {
+    match tree {
+        UseTree::Path(path) | UseTree::Wildcard(path) | UseTree::As(path, _, _) => {
+            let mut new_segments = prefix.segments.clone();
+            new_segments.append(&mut path.segments);
+            path.segments = new_segments;
+        }
+        UseTree::Group(nested_prefix, _) => match nested_prefix {
+            Some(new_path) => {
+                let mut new_segments = prefix.segments.clone();
+                new_segments.append(&mut new_path.segments);
+                new_path.segments = new_segments;
+            }
+            None => {
+                *nested_prefix = Some(prefix.clone());
+            }
+        },
+    }
+}
+
+fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+    match tree {
+        UseTree::Path(path) => {
+            let last_segment = path.segments.last().unwrap();
+            let type_result = ctx.try_get_visible_type(path);
+            if let Ok(id) = type_result {
+                ctx.declare_type_in_current_scope(last_segment.span, last_segment.name.clone(), id);
+            }
+
+            let value_result = ctx.try_get_visible_value(path);
+            if let Ok(id) = value_result {
+                ctx.declare_value_in_current_scope(
+                    last_segment.span,
+                    last_segment.name.clone(),
+                    id,
+                );
+            }
+
+            if let Err((type_span, type_error)) = type_result
+                && value_result.is_err()
+            {
+                ctx.add_error_unit(type_span, type_error);
+
+                return None;
+            }
+        }
+        UseTree::Wildcard(path) => {
+            let id = match ctx.try_get_visible_type(path) {
+                Ok(id) => id,
+                Err((span, error)) => return ctx.add_error(span, error),
+            };
+
+            let UnresolvedTypeDeclaration {
+                kind: UnresolvedTypeDeclarationKind::Module(module),
+                ..
+            } = ctx.get_unresolved_type(id).clone()
+            else {
+                let last_segment = path.segments.last().unwrap();
+                return ctx.add_error(
+                    last_segment.span,
+                    SemanticAnalysisError::NotAModule(last_segment.name.clone()),
+                );
+            };
+
+            for (name, id) in module.types {
+                ctx.declare_type_if_not_defined(name, id);
+            }
+            for (name, id) in module.values {
+                ctx.declare_value_if_not_defined(name, id);
+            }
+        }
+        UseTree::As(path, alias_span, alias) => {
+            let type_result = ctx.try_get_visible_type(path);
+            if let Ok(id) = type_result {
+                ctx.declare_type_in_current_scope(*alias_span, alias.clone(), id);
+            }
+
+            let value_result = ctx.try_get_visible_value(path);
+            if let Ok(id) = value_result {
+                ctx.declare_value_in_current_scope(*alias_span, alias.clone(), id);
+            }
+
+            if let Err((type_span, type_error)) = type_result
+                && value_result.is_err()
+            {
+                ctx.add_error_unit(type_span, type_error);
+
+                return None;
+            }
+        }
+        UseTree::Group(prefix, trees) => {
+            for mut tree in trees.iter().cloned() {
+                if let Some(prefix_path) = prefix {
+                    prepend_path_to_tree(&mut tree, prefix_path);
+                }
+
+                resolve_use_tree(&tree, ctx)?;
+            }
+        }
+    }
+    Some(())
+}
+
 #[derive(Debug, Clone)]
-pub enum ItemKind {
+pub enum Item {
     InherentImplementationItem {
         generic_names: Vec<String>,
         target_type_span: Span,
         target_type: DataType,
-        associated_items: Vec<AssociatedItem>,
-
-        scope: Option<Scope>,
+        associated_items: Vec<Idx<Self>>,
     },
     ModuleDeclaration {
         name_span: Span,
         name: String,
-        items: Vec<Item>,
-        id: Option<HighTypeId>,
+        items: Vec<Idx<Self>>,
     },
     FunctionDeclaration(FunctionDeclarationItem),
     MinecraftFunctionDeclaration {
@@ -73,36 +174,26 @@ pub enum ItemKind {
         name: String,
         generic_names: Vec<String>,
         field_types: HashMap<String, DataType>,
-
-        id: Option<HighTypeId>,
-        generic_ids: Option<Vec<HighGenericId>>,
     },
     TupleStructDeclaration {
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
         field_types: Vec<DataType>,
-
-        id: Option<HighTypeId>,
-        generic_ids: Option<Vec<HighGenericId>>,
     },
     Use(UseTree),
 }
 
-#[derive(Debug, Clone)]
-pub struct Item {
-    pub span: Span,
-    pub visibility: Visibility,
-    pub kind: ItemKind,
-}
-
 impl Item {
-    pub fn resolve_names(&mut self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
-        match &mut self.kind {
-            ItemKind::InherentImplementationItem {
+    pub fn resolve_names(
+        id: Idx<Self>,
+        allocator: &HighAstAllocator,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<()> {
+        match &allocator.items[id] {
+            Self::InherentImplementationItem {
                 generic_names,
                 associated_items,
-                scope: this_scope,
                 ..
             } => {
                 ctx.enter_scope();
@@ -128,22 +219,24 @@ impl Item {
                     }),
                 );
 
-                let _associated_items = associated_items
-                    .iter_mut()
-                    .map(|item| item.resolve_names(ctx, self.visibility))
+                let associated_items = associated_items
+                    .iter()
+                    .copied()
+                    .map(|item| Self::resolve_names(item, allocator, ctx))
                     .collect_option_all::<Vec<_>>();
 
                 let scope = ctx.exit_scope();
 
-                *this_scope = Some(scope);
+                let _associated_items = associated_items?;
+
+                ctx.declare_item_scope(id, scope);
 
                 Some(())
             }
-            ItemKind::ModuleDeclaration {
+            Self::ModuleDeclaration {
                 name_span,
                 name,
                 items,
-                id: type_id,
                 ..
             } => {
                 if ctx.current_scope().type_is_declared(name) {
@@ -155,22 +248,33 @@ impl Item {
 
                 ctx.enter_module(name.clone());
 
-                for item in items {
-                    item.resolve_names(ctx);
+                for item in items.iter().copied() {
+                    Self::resolve_names(item, allocator, ctx);
                 }
 
-                let id = ctx.exit_module_and_declare(self.visibility);
+                let visibility = allocator.get_item_visiblity(id);
 
-                *type_id = Some(id);
+                let type_id = ctx.exit_module_and_declare(visibility);
+
+                ctx.declare_item_type_id(id, type_id);
 
                 Some(())
             }
-            ItemKind::RegularStructDeclaration {
+            Self::FunctionDeclaration(item) => {
+                let visibility = allocator.get_item_visiblity(id);
+
+                item.resolve_names(id, ctx, visibility)
+            }
+            Self::MinecraftFunctionDeclaration { .. } => Some(()),
+            Self::TypeAliasDeclaration(item) => {
+                let visibility = allocator.get_item_visiblity(id);
+
+                item.resolve_names(id, ctx, visibility)
+            }
+            Self::RegularStructDeclaration {
                 name_span,
                 name,
                 generic_names,
-                id: this_id,
-                generic_ids: this_generic_ids,
                 ..
             } => {
                 if ctx.current_scope().type_is_declared(name) {
@@ -195,30 +299,27 @@ impl Item {
                     })
                     .collect::<Vec<_>>();
 
-                *this_generic_ids = Some(generic_ids.clone());
-
                 ctx.exit_scope();
 
-                let id = ctx.declare_unresolved_type(
-                    self.visibility,
+                ctx.declare_item_generic_ids(id, generic_ids.clone());
+
+                let visibility = allocator.get_item_visiblity(id);
+
+                let type_id = ctx.declare_unresolved_type(
+                    visibility,
                     UnresolvedTypeDeclarationKind::Struct(UnresolvedStructDeclaration::Struct(
-                        UnresolvedRegularStructDeclaration {
-                            name: name.clone(),
-                            generic_ids,
-                        },
+                        UnresolvedRegularStructDeclaration::new(name, generic_ids),
                     )),
                 );
 
-                *this_id = Some(id);
+                ctx.declare_item_type_id(id, type_id);
 
                 Some(())
             }
-            ItemKind::TupleStructDeclaration {
+            Self::TupleStructDeclaration {
                 name_span,
                 name,
                 generic_names,
-                id: type_id,
-                generic_ids: type_generic_ids,
                 ..
             } => {
                 if ctx.current_scope().type_is_declared(name) {
@@ -243,192 +344,203 @@ impl Item {
                     })
                     .collect::<Vec<_>>();
 
-                *type_generic_ids = Some(generic_ids.clone());
-
                 ctx.exit_scope();
 
-                let id = ctx.declare_unresolved_type(
-                    self.visibility,
+                ctx.declare_item_generic_ids(id, generic_ids.clone());
+
+                let visibility = allocator.get_item_visiblity(id);
+
+                let type_id = ctx.declare_unresolved_type(
+                    visibility,
                     UnresolvedTypeDeclarationKind::Struct(UnresolvedStructDeclaration::Tuple(
-                        UnresolvedTupleStructDeclaration {
-                            name: name.clone(),
-                            generic_ids,
-                        },
+                        UnresolvedTupleStructDeclaration::new(name, generic_ids),
                     )),
                 );
 
-                *type_id = Some(id);
+                ctx.declare_item_type_id(id, type_id);
 
                 Some(())
             }
-            ItemKind::FunctionDeclaration(item) => item.resolve_names(ctx, self.visibility),
-            _ => Some(()),
+            Self::Use(..) => Some(()),
         }
     }
 
-    pub fn resolve_imports(&mut self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
-        match &mut self.kind {
-            ItemKind::ModuleDeclaration { name, items, .. } => {
+    pub fn resolve_imports(
+        id: Idx<Self>,
+        allocator: &HighAstAllocator,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<()> {
+        match allocator.get_item(id) {
+            Self::ModuleDeclaration { name, items, .. } => {
                 ctx.enter_module(name.clone());
 
-                for item in items {
-                    item.resolve_imports(ctx);
+                for item in items.iter().copied() {
+                    Self::resolve_imports(item, allocator, ctx);
                 }
 
                 ctx.exit_module();
             }
-            ItemKind::Use(tree) => match tree {
-                UseTree::Wildcard(path) => {
-                    let mut path = path.clone();
-
-                    let id = match ctx.try_get_visible_type(&path) {
-                        Ok(id) => id,
-                        Err((span, error)) => return ctx.add_error(span, error),
-                    };
-
-                    let UnresolvedTypeDeclaration {
-                        kind: UnresolvedTypeDeclarationKind::Module(module),
-                        ..
-                    } = ctx.get_unresolved_type(id).clone()
-                    else {
-                        let last_segment = path.segments.pop().unwrap();
-
-                        return ctx.add_error(
-                            last_segment.span,
-                            SemanticAnalysisError::NotAModule(last_segment.name),
-                        );
-                    };
-
-                    for (name, id) in module.types {
-                        ctx.declare_type_if_not_defined(name, id);
-                    }
-
-                    for (name, id) in module.values {
-                        ctx.declare_value_if_not_defined(name, id);
-                    }
-                }
-                UseTree::Group(path, use_trees) => {
-                    let mut has_error = false;
-
-                    for mut tree in use_trees {
-                        if let Some(prefix_path) = &path {
-                            match &mut tree {
-                                UseTree::Path(path)
-                                | UseTree::Wildcard(path)
-                                | UseTree::As(path, _, _) => {
-                                    let mut new_segments = prefix_path.segments.clone();
-
-                                    new_segments.append(&mut path.segments);
-
-                                    path.segments = new_segments;
-                                }
-                                UseTree::Group(path, _) => {
-                                    if let Some(path) = path {
-                                        let mut new_segments = prefix_path.segments.clone();
-                                        new_segments.append(&mut path.segments);
-                                        path.segments = new_segments;
-                                    } else {
-                                        *path = Some(prefix_path.clone());
-                                    }
-                                }
-                            }
-                        }
-
-                        let item = Self {
-                            span: self.span,
-                            visibility: self.visibility,
-                            kind: ItemKind::Use(tree.clone()),
-                        };
-
-                        if item.perform_semantic_analysis(ctx).is_none() {
-                            has_error = true;
-                        }
-                    }
-
-                    if has_error {
-                        return None;
-                    }
-                }
-                UseTree::As(path, alias_span, alias) => {
-                    let type_result = ctx.try_get_visible_type(path);
-
-                    if let Ok(id) = type_result {
-                        ctx.declare_type_in_current_scope(*alias_span, alias.clone(), id);
-                    }
-
-                    let value_resilt = ctx.try_get_visible_value(path);
-
-                    if let Ok(id) = value_resilt {
-                        ctx.declare_value_in_current_scope(*alias_span, alias.clone(), id);
-                    }
-
-                    if let Err((type_span, type_error)) = type_result
-                        && let Err((value_span, value_error)) = value_resilt
-                    {
-                        ctx.add_error_unit(type_span, type_error);
-                        ctx.add_error_unit(value_span, value_error);
-
-                        return None;
-                    }
-                }
-                UseTree::Path(path) => {
-                    let last_segment = path.segments.last().unwrap();
-
-                    let type_result = ctx.try_get_visible_type(path);
-
-                    if let Ok(id) = type_result {
-                        ctx.declare_type_in_current_scope(
-                            last_segment.span,
-                            last_segment.name.clone(),
-                            id,
-                        );
-                    }
-
-                    let value_resilt = ctx.try_get_visible_value(path);
-
-                    if let Ok(id) = value_resilt {
-                        ctx.declare_value_in_current_scope(
-                            last_segment.span,
-                            last_segment.name.clone(),
-                            id,
-                        );
-                    }
-
-                    if let Err((type_span, type_error)) = type_result
-                        && let Err((value_span, value_error)) = value_resilt
-                    {
-                        ctx.add_error_unit(type_span, type_error);
-                        ctx.add_error_unit(value_span, value_error);
-
-                        return None;
-                    }
-                }
-            },
+            Self::Use(tree) => {
+                return resolve_use_tree(tree, ctx);
+            }
             _ => {}
         }
 
         Some(())
     }
 
-    pub fn resolve_types(&mut self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
-        match &mut self.kind {
-            ItemKind::InherentImplementationItem {
+    pub fn resolve_types(
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<()> {
+        match high_allocator.get_item(id) {
+            Self::InherentImplementationItem {
+                associated_items, ..
+            } => {
+                let scope = ctx.get_item_scope(id).clone();
+
+                ctx.push_scope(scope);
+                for item in associated_items.iter().copied() {
+                    Self::resolve_types(item, high_allocator, ctx);
+                }
+                ctx.exit_scope();
+
+                Some(())
+            }
+            Self::ModuleDeclaration { name, items, .. } => {
+                ctx.enter_module(name.clone());
+
+                for item in items.iter().copied() {
+                    Self::resolve_types(item, high_allocator, ctx);
+                }
+
+                let _ = ctx.exit_module();
+
+                Some(())
+            }
+            Self::FunctionDeclaration(..) => Some(()),
+            Self::MinecraftFunctionDeclaration { .. } => Some(()),
+            Self::TypeAliasDeclaration(item) => {
+                let visibility = high_allocator.get_item_visiblity(id);
+
+                item.resolve_types(id, ctx, visibility);
+
+                Some(())
+            }
+            Self::RegularStructDeclaration {
+                name,
+                generic_names,
+                field_types,
+                ..
+            } => {
+                let type_id = ctx.get_item_type_id(id);
+                let generic_ids = ctx.get_item_generic_ids(id).to_vec();
+
+                ctx.enter_scope();
+
+                for (generic_id, generic_name) in generic_ids
+                    .iter()
+                    .copied()
+                    .zip(generic_names.iter().cloned())
+                {
+                    ctx.declare_generic(generic_id, Visibility::Public, generic_name);
+                }
+
+                let field_types = field_types
+                    .iter()
+                    .map(|(field_name, field_type)| {
+                        let field_name = field_name.clone();
+                        let field_type = field_type.clone();
+
+                        let field_type = field_type.perform_semantic_analysis(ctx);
+
+                        (field_name, field_type)
+                    })
+                    .collect();
+
+                ctx.exit_scope();
+
+                ctx.declare_resolved_type(
+                    type_id,
+                    Visibility::Public,
+                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Struct(
+                        ResolvedRegularStructDeclaration {
+                            name: name.clone(),
+                            generic_ids,
+                            field_types,
+                        },
+                    )),
+                );
+
+                Some(())
+            }
+            Self::TupleStructDeclaration {
+                name,
+                generic_names,
+                field_types,
+                ..
+            } => {
+                let type_id = ctx.get_item_type_id(id);
+                let generic_ids = ctx.get_item_generic_ids(id).to_vec();
+
+                ctx.enter_scope();
+
+                for (generic_id, generic_name) in generic_ids
+                    .iter()
+                    .copied()
+                    .zip(generic_names.iter().cloned())
+                {
+                    ctx.declare_generic(generic_id, Visibility::Public, generic_name);
+                }
+
+                let field_types = field_types
+                    .iter()
+                    .cloned()
+                    .map(|field_type| field_type.perform_semantic_analysis(ctx))
+                    .collect();
+
+                ctx.exit_scope();
+
+                ctx.declare_resolved_type(
+                    type_id,
+                    Visibility::Public,
+                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Tuple(
+                        ResolvedTupleStructDeclaration {
+                            name: name.clone(),
+                            generic_ids,
+                            field_types,
+                        },
+                    )),
+                );
+
+                Some(())
+            }
+            Self::Use(..) => Some(()),
+        }
+    }
+
+    pub fn resolve_value_types(
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<()> {
+        match high_allocator.get_item(id) {
+            Self::InherentImplementationItem {
                 generic_names,
                 target_type_span,
                 target_type,
                 associated_items,
-                scope: this_scope,
                 ..
             } => {
-                let scope = this_scope.take().unwrap();
+                let scope = ctx.get_item_scope(id).clone();
 
                 ctx.push_scope(scope);
-                for item in associated_items {
-                    item.resolve_types(ctx, self.visibility);
+                for item in associated_items.iter().copied() {
+                    Self::resolve_value_types(item, high_allocator, ctx);
                 }
                 let scope = ctx.exit_scope();
-                let (types, values) = scope.clone().into_tuple();
-                *this_scope = Some(scope);
+                let (types, values) = scope.into_tuple();
 
                 let target_type = target_type.clone().perform_semantic_analysis(ctx);
 
@@ -460,146 +572,65 @@ impl Item {
 
                 Some(())
             }
-            ItemKind::ModuleDeclaration { name, items, .. } => {
+            Self::ModuleDeclaration { name, items, .. } => {
                 ctx.enter_module(name.clone());
 
-                for item in items {
-                    item.resolve_types(ctx);
+                for item in items.iter().copied() {
+                    Self::resolve_value_types(item, high_allocator, ctx);
                 }
 
                 let _ = ctx.exit_module();
 
                 Some(())
             }
-            ItemKind::RegularStructDeclaration {
-                name,
-                generic_names,
-                field_types,
+            Self::FunctionDeclaration(item) => {
+                let visibility = high_allocator.get_item_visiblity(id);
 
-                id,
-                generic_ids,
-                ..
-            } => {
-                let id = id.unwrap();
-                let generic_ids = generic_ids.as_ref().unwrap();
-
-                ctx.enter_scope();
-
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
-                {
-                    ctx.declare_generic(generic_id, Visibility::Public, generic_name);
-                }
-
-                let field_types = field_types
-                    .iter()
-                    .map(|(field_name, field_type)| {
-                        let field_name = field_name.clone();
-                        let field_type = field_type.clone();
-
-                        let field_type = field_type.perform_semantic_analysis(ctx);
-
-                        (field_name, field_type)
-                    })
-                    .collect();
-
-                ctx.exit_scope();
-
-                ctx.declare_resolved_type(
-                    id,
-                    Visibility::Public,
-                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Struct(
-                        ResolvedRegularStructDeclaration {
-                            name: name.clone(),
-                            generic_ids: generic_ids.clone(),
-                            field_types,
-                        },
-                    )),
-                );
+                item.resolve_types(id, ctx, visibility);
 
                 Some(())
             }
-            ItemKind::TupleStructDeclaration {
-                name,
-                generic_names,
-                field_types,
-
-                id,
-                generic_ids,
-                ..
-            } => {
-                let id = id.unwrap();
-                let generic_ids = generic_ids.as_ref().unwrap();
-
-                ctx.enter_scope();
-
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
-                {
-                    ctx.declare_generic(generic_id, Visibility::Public, generic_name);
-                }
-
-                let field_types = field_types
-                    .iter()
-                    .cloned()
-                    .map(|field_type| field_type.perform_semantic_analysis(ctx))
-                    .collect();
-
-                ctx.exit_scope();
-
-                ctx.declare_resolved_type(
-                    id,
-                    Visibility::Public,
-                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Tuple(
-                        ResolvedTupleStructDeclaration {
-                            name: name.clone(),
-                            generic_ids: generic_ids.clone(),
-                            field_types,
-                        },
-                    )),
-                );
-
-                Some(())
-            }
-            ItemKind::FunctionDeclaration(item) => {
-                item.resolve_types(ctx, self.visibility);
-
-                Some(())
-            }
-            _ => Some(()),
+            Self::MinecraftFunctionDeclaration { .. } => Some(()),
+            Self::TypeAliasDeclaration(..) => Some(()),
+            Self::RegularStructDeclaration { .. } => Some(()),
+            Self::TupleStructDeclaration { .. } => Some(()),
+            Self::Use(..) => Some(()),
         }
     }
 
     pub fn perform_semantic_analysis(
-        self,
+        id: Idx<Self>,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItem> {
-        Some(match self.kind {
-            ItemKind::InherentImplementationItem {
+    ) -> Option<Idx<MiddleItem>> {
+        Some(match high_allocator.get_item(id) {
+            Self::InherentImplementationItem {
                 associated_items, ..
             } => {
                 ctx.enter_scope();
 
                 let _associated_items = associated_items
-                    .into_iter()
-                    .map(|item| item.perform_semantic_analysis(ctx))
+                    .iter()
+                    .copied()
+                    .map(|item| {
+                        Self::perform_semantic_analysis(item, high_allocator, low_allocator, ctx)
+                    })
                     .collect_option_all::<Vec<_>>();
 
                 ctx.exit_scope();
 
-                MiddleItem::InherentImplementation
+                low_allocator.allocate_item(MiddleItem::InherentImplementation)
             }
-            ItemKind::ModuleDeclaration { name, items, .. } => {
+            Self::ModuleDeclaration { name, items, .. } => {
                 let mut failed = false;
 
-                ctx.enter_module(name);
+                ctx.enter_module(name.clone());
 
-                for item in items {
-                    if item.perform_semantic_analysis(ctx).is_none() {
+                for item in items.iter().copied() {
+                    if Self::perform_semantic_analysis(item, high_allocator, low_allocator, ctx)
+                        .is_none()
+                    {
                         failed = true;
                     }
                 }
@@ -610,34 +641,46 @@ impl Item {
                     return None;
                 }
 
-                MiddleItem::ModuleDeclaration
+                low_allocator.allocate_item(MiddleItem::ModuleDeclaration)
             }
-            ItemKind::FunctionDeclaration(item) => {
-                return item.perform_semantic_analysis(ctx);
+            Self::FunctionDeclaration(item) => {
+                return item.perform_semantic_analysis(id, high_allocator, low_allocator, ctx);
             }
-            ItemKind::MinecraftFunctionDeclaration {
+            Self::MinecraftFunctionDeclaration {
                 resource_location,
                 body,
             } => {
                 ctx.function_contexts.push(FunctionContext::MCFunction);
 
-                let (body_span, tail_expression_span, body) =
-                    body.perform_semantic_analysis(ctx)?;
+                let (body_span, tail_expression_span, body) = body
+                    .clone()
+                    .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 ctx.function_contexts.pop();
 
-                body.data_type.assert_equals(
+                let body_type = low_allocator.get_expression_type(body);
+
+                body_type.assert_equals(
                     ctx,
                     tail_expression_span.unwrap_or(body_span),
                     &UnresolvedDataType::Unit,
                 )?;
 
-                MiddleItem::MinecraftFunctionDeclaration(resource_location, body)
+                low_allocator.allocate_item(MiddleItem::MinecraftFunctionDeclaration(
+                    resource_location.clone(),
+                    body,
+                ))
             }
-            ItemKind::TypeAliasDeclaration(..) => MiddleItem::TypeAliasDeclaration,
-            ItemKind::RegularStructDeclaration { .. } => MiddleItem::RegularStructDeclaration,
-            ItemKind::TupleStructDeclaration { .. } => MiddleItem::TupleStructDeclaration,
-            ItemKind::Use(..) => MiddleItem::Use,
+            Self::TypeAliasDeclaration(..) => {
+                low_allocator.allocate_item(MiddleItem::TypeAliasDeclaration)
+            }
+            Self::RegularStructDeclaration { .. } => {
+                low_allocator.allocate_item(MiddleItem::RegularStructDeclaration)
+            }
+            Self::TupleStructDeclaration { .. } => {
+                low_allocator.allocate_item(MiddleItem::TupleStructDeclaration)
+            }
+            Self::Use(..) => low_allocator.allocate_item(MiddleItem::Use),
         })
     }
 }

@@ -1,8 +1,10 @@
+use la_arena::Idx;
 use minecraft_command_types::command::{
     ScoreValue, enums::score_operation_operator::ScoreOperationOperator,
 };
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         entity_selector::EntitySelector, expression::Expression, player_score::PlayerScore,
         semantic_analysis::SemanticAnalysisContext,
@@ -14,28 +16,40 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ScoreboardNumberFormat {
     Blank,
-    Fixed(Expression),
-    Styled(Expression),
+    Fixed(Idx<Expression>),
+    Styled(Idx<Expression>),
 }
 
 impl ScoreboardNumberFormat {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleScoreboardNumberFormat> {
         Some(match self {
             Self::Blank => MiddleScoreboardNumberFormat::Blank,
             Self::Fixed(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 MiddleScoreboardNumberFormat::Fixed(expression)
             }
             Self::Styled(expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 MiddleScoreboardNumberFormat::Styled(expression)
             }
@@ -45,7 +59,7 @@ impl ScoreboardNumberFormat {
 
 #[derive(Debug, Clone)]
 pub enum PlayersDisplayScoreboardCommand {
-    Name(PlayerScore, Option<Expression>),
+    Name(PlayerScore, Option<Idx<Expression>>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
 }
 
@@ -53,14 +67,21 @@ impl PlayersDisplayScoreboardCommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddlePlayersDisplayScoreboardCommand> {
         Some(match self {
             Self::Name(score, expression) => {
-                let score = score.perform_semantic_analysis(ctx);
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let expression = match expression {
                     Some(expression) => {
-                        let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                        let expression = Expression::perform_semantic_analysis(
+                            expression,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        )?;
 
                         Some(expression)
                     }
@@ -72,9 +93,13 @@ impl PlayersDisplayScoreboardCommand {
                 MiddlePlayersDisplayScoreboardCommand::Name(score, expression)
             }
             Self::NumberFormat(score, number_format) => {
-                let score = score.perform_semantic_analysis(ctx);
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let number_format = match number_format {
-                    Some(number_format) => Some(number_format.perform_semantic_analysis(ctx)?),
+                    Some(number_format) => Some(number_format.perform_semantic_analysis(
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?),
                     None => None,
                 };
 
@@ -103,50 +128,57 @@ impl PlayersScoreboardCommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddlePlayersScoreboardCommand> {
         Some(match self {
             Self::List(selector) => {
                 let selector = match selector {
-                    Some(selector) => Some(selector.perform_semantic_analysis(ctx)?),
+                    Some(selector) => Some(selector.perform_semantic_analysis(
+                        high_allocator,
+                        low_allocator,
+                        ctx,
+                    )?),
                     None => None,
                 };
 
                 MiddlePlayersScoreboardCommand::List(selector)
             }
             Self::Get(score) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddlePlayersScoreboardCommand::Get(score)
             }
             Self::Set(score, value) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddlePlayersScoreboardCommand::Set(score, value)
             }
             Self::Add(score, amount) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddlePlayersScoreboardCommand::Add(score, amount)
             }
             Self::Remove(score, amount) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddlePlayersScoreboardCommand::Remove(score, amount)
             }
             Self::Reset(selector, objective) => {
-                let selector = selector.perform_semantic_analysis(ctx)?;
+                let selector =
+                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddlePlayersScoreboardCommand::Reset(selector, objective)
             }
             Self::Enable(score) => {
-                let score = score.perform_semantic_analysis(ctx)?;
+                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddlePlayersScoreboardCommand::Enable(score)
             }
             Self::Operation(left, operator, right) => {
-                let left = left.perform_semantic_analysis(ctx);
-                let right = right.perform_semantic_analysis(ctx);
+                let left = left.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let right = right.perform_semantic_analysis(high_allocator, low_allocator, ctx);
 
                 let left = left?;
                 let right = right?;
@@ -154,7 +186,8 @@ impl PlayersScoreboardCommand {
                 MiddlePlayersScoreboardCommand::Operation(left, operator, right)
             }
             Self::Display(command) => {
-                let command = command.perform_semantic_analysis(ctx)?;
+                let command =
+                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 MiddlePlayersScoreboardCommand::Display(Box::new(command))
             }

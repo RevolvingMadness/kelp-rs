@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{cst::CSTStringExpression, lower_context::LowerContext, span::span_of_cst_node};
 
@@ -6,12 +7,15 @@ use crate::{cst::CSTStringExpression, lower_context::LowerContext, span::span_of
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_string_expression(
     node: CSTStringExpression,
-    _ctx: &mut LowerContext,
-) -> Option<Expression> {
+    ctx: &mut LowerContext,
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let text_token = node.string_literal_token()?;
     let string = text_token.text().trim_matches('"');
 
-    Some(ExpressionKind::String(string.to_owned()).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_expression(span, Expression::String(string.to_owned())),
+    )
 }

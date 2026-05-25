@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
+
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         data::DataTarget, expression::Expression, nbt_path::NbtPath,
         semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
@@ -11,13 +14,15 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
-    Compound(HashMap<SNBTString, Expression>),
+    Compound(HashMap<SNBTString, Idx<Expression>>),
     DataTarget(Box<(DataTarget, Option<NbtPath>)>),
 }
 
 impl FunctionCommandArguments {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleFunctionCommandArguments> {
         Some(match self {
@@ -26,9 +31,14 @@ impl FunctionCommandArguments {
                     .into_iter()
                     .map(|(key, value)| {
                         let (_, key) = key.perform_semantic_analysis(ctx);
-                        let value = value.perform_semantic_analysis(ctx);
+                        let value = Expression::perform_semantic_analysis(
+                            value,
+                            high_allocator,
+                            low_allocator,
+                            ctx,
+                        );
 
-                        let (_, value) = value?;
+                        let value = value?;
 
                         Some((key, value))
                     })
@@ -39,9 +49,11 @@ impl FunctionCommandArguments {
             Self::DataTarget(target_path) => {
                 let (target, path) = *target_path;
 
-                let target = target.perform_semantic_analysis(ctx);
+                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
                 let path = match path {
-                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
+                    Some(path) => {
+                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                    }
                     None => None,
                 };
 

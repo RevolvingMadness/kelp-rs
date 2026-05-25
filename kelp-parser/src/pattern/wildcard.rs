@@ -1,9 +1,15 @@
-use kelp_core::high::pattern::{Pattern, PatternKind};
+use kelp_core::high::pattern::Pattern;
+use la_arena::Idx;
 
-use crate::{cst::CSTWildcardPattern, span::span_of_cst_node};
+use crate::{cst::CSTWildcardPattern, lower_context::LowerContext, span::span_of_cst_node};
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_wildcard_pattern(node: CSTWildcardPattern) -> Option<Pattern> {
-    Some(PatternKind::Wildcard.with_span(span_of_cst_node(&node)))
+pub fn lower_wildcard_pattern(
+    node: CSTWildcardPattern,
+    ctx: &mut LowerContext,
+) -> Option<Idx<Pattern>> {
+    let span = span_of_cst_node(&node);
+
+    Some(ctx.allocator.allocate_pattern(span, Pattern::Wildcard))
 }

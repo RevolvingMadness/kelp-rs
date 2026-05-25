@@ -1,3 +1,5 @@
+use la_arena::Idx;
+
 use crate::{
     high::{
         environment::resolved::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers,
@@ -20,7 +22,7 @@ pub struct RegularFunctionDeclaration {
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
     pub generic_types: Vec<ResolvedDataType>,
-    pub parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
+    pub parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     pub return_type: ResolvedDataType,
-    pub body: UnresolvedExpression,
+    pub body: Idx<UnresolvedExpression>,
 }

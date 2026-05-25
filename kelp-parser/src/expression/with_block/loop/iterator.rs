@@ -1,4 +1,5 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::high::expression::Expression;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTIteratorLoopExpression,
@@ -55,7 +56,7 @@ pub fn try_parse_iterator_loop_expression(parser: &mut Parser) -> bool {
 pub fn lower_iterator_loop_expression(
     node: CSTIteratorLoopExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<Idx<Expression>> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;
@@ -64,8 +65,8 @@ pub fn lower_iterator_loop_expression(
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(
-        ExpressionKind::ForLoop(false, pattern, Box::new(expression), Box::new(body))
-            .with_span(span),
-    )
+    Some(ctx.allocator.allocate_expression(
+        span,
+        Expression::ForLoop(false, pattern, expression, Box::new(body)),
+    ))
 }

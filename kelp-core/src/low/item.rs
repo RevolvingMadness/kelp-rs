@@ -1,7 +1,8 @@
+use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
     low::expression::unresolved::UnresolvedExpression,
 };
 
@@ -10,7 +11,7 @@ pub enum Item {
     InherentImplementation,
     ModuleDeclaration,
     FunctionDeclaration,
-    MinecraftFunctionDeclaration(ResourceLocation, UnresolvedExpression),
+    MinecraftFunctionDeclaration(ResourceLocation, Idx<UnresolvedExpression>),
     TypeAliasDeclaration,
     RegularStructDeclaration,
     TupleStructDeclaration,
@@ -18,8 +19,13 @@ pub enum Item {
 }
 
 impl Item {
-    pub fn compile(self, datapack: &mut Datapack, _ctx: &mut CompileContext) {
-        match self {
+    pub fn compile(
+        id: Idx<Self>,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        _ctx: &mut CompileContext,
+    ) {
+        match allocator.get_item(id) {
             Self::InherentImplementation => {}
             Self::ModuleDeclaration => {}
             Self::FunctionDeclaration => {}
@@ -29,9 +35,12 @@ impl Item {
 
                     let mut function_ctx = CompileContext::default();
 
-                    expression
-                        .kind
-                        .compile_as_statement(datapack, &mut function_ctx);
+                    UnresolvedExpression::compile_as_statement(
+                        *expression,
+                        allocator,
+                        datapack,
+                        &mut function_ctx,
+                    );
 
                     let function_commands = function_ctx.compile();
 

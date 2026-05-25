@@ -1,3 +1,4 @@
+use la_arena::Idx;
 use minecraft_command_types::{
     command::{
         Command as LowCommand, enums::difficulty::Difficulty,
@@ -8,6 +9,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::{
@@ -47,7 +49,7 @@ pub enum Command {
     ),
     Tellraw(
         SupportsExpressionSigil<EntitySelector>,
-        UnresolvedExpression,
+        Idx<UnresolvedExpression>,
     ),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
@@ -55,34 +57,42 @@ pub enum Command {
     Summon(
         ResourceLocation,
         Option<Coordinates>,
-        Option<UnresolvedExpression>,
+        Option<Idx<UnresolvedExpression>>,
     ),
 }
 
 impl Command {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowCommand {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> LowCommand {
         match self {
-            Self::Data(data_command) => LowCommand::Data(data_command.compile(datapack, ctx)),
+            Self::Data(data_command) => {
+                LowCommand::Data(data_command.compile(allocator, datapack, ctx))
+            }
             Self::Difficulty(difficulty) => LowCommand::Difficulty(difficulty),
             Self::Enchant(selector, location, level) => {
-                LowCommand::Enchant(selector.compile(datapack, ctx), location, level)
+                LowCommand::Enchant(selector.compile(allocator, datapack, ctx), location, level)
             }
             Self::Execute(execute_subcommand) => {
-                LowCommand::Execute(execute_subcommand.compile(datapack, ctx))
+                LowCommand::Execute(execute_subcommand.compile(allocator, datapack, ctx))
             }
             Self::Function(id, arguments) => {
-                let id = id.compile(datapack, ctx);
+                let id = id.compile(allocator, datapack, ctx);
 
                 let compiled_arguments =
-                    arguments.map(|arguments| arguments.compile(datapack, ctx));
+                    arguments.map(|arguments| arguments.compile(allocator, datapack, ctx));
 
                 LowCommand::Function(id, compiled_arguments)
             }
             Self::Tellraw(selector, expression) => {
-                let expression = expression.kind.resolve(datapack, ctx);
+                let expression =
+                    UnresolvedExpression::resolve(expression, allocator, datapack, ctx);
 
                 LowCommand::Tellraw(
-                    selector.compile(datapack, ctx),
+                    selector.compile(allocator, datapack, ctx),
                     expression.as_text_component(datapack, ctx, false),
                 )
             }
@@ -92,19 +102,25 @@ impl Command {
                 }
                 ReturnCommand::Value(value) => LowCommand::Return(LowReturnCommand::Value(value)),
                 ReturnCommand::Run(command) => LowCommand::Return(LowReturnCommand::Run(Box::new(
-                    command.compile(datapack, ctx),
+                    command.compile(allocator, datapack, ctx),
                 ))),
             },
-            Self::Scoreboard(command) => LowCommand::Scoreboard(command.compile(datapack, ctx)),
+            Self::Scoreboard(command) => {
+                LowCommand::Scoreboard(command.compile(allocator, datapack, ctx))
+            }
             Self::Stopwatch(command) => {
-                let command = command.compile(datapack, ctx);
+                let command = command.compile(allocator, datapack, ctx);
 
                 LowCommand::Stopwatch(command)
             }
             Self::Summon(entity, position, nbt) => LowCommand::Summon(
                 entity,
                 position,
-                nbt.map(|nbt| nbt.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
+                nbt.map(|nbt| {
+                    let nbt = UnresolvedExpression::resolve(nbt, allocator, datapack, ctx);
+
+                    nbt.as_snbt_macros(ctx)
+                }),
             ),
         }
     }

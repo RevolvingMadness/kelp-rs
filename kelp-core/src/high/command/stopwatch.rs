@@ -2,6 +2,7 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::SupportsExpressionSigil,
@@ -23,26 +24,44 @@ pub enum StopwatchCommand {
 impl StopwatchCommand {
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<LowStopwatchCommand> {
         Some(match self {
             Self::Create(resource_location) => {
-                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
+                let resource_location = resource_location.perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 LowStopwatchCommand::Create(resource_location)
             }
             Self::Query(resource_location, scale) => {
-                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
+                let resource_location = resource_location.perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 LowStopwatchCommand::Query(resource_location, scale)
             }
             Self::Restart(resource_location) => {
-                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
+                let resource_location = resource_location.perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 LowStopwatchCommand::Restart(resource_location)
             }
             Self::Remove(resource_location) => {
-                let resource_location = resource_location.perform_semantic_analysis(ctx)?;
+                let resource_location = resource_location.perform_semantic_analysis(
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
                 LowStopwatchCommand::Remove(resource_location)
             }

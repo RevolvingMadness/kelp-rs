@@ -1,3 +1,4 @@
+use la_arena::Idx;
 use minecraft_command_types::command::{
     enums::scoreboard_render_type::ScoreboardRenderType,
     scoreboard::{
@@ -7,6 +8,7 @@ use minecraft_command_types::command::{
 };
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::expression::{
@@ -17,7 +19,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
-    DisplayName(UnresolvedExpression),
+    DisplayName(Idx<UnresolvedExpression>),
     NumberFormat(Option<ScoreboardNumberFormat>),
     RenderType(ScoreboardRenderType),
 }
@@ -26,6 +28,7 @@ impl ScoreboardModification {
     #[must_use]
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowScoreboardModification {
@@ -34,13 +37,14 @@ impl ScoreboardModification {
                 LowScoreboardModification::DisplayAutoUpdate(auto_update)
             }
             Self::DisplayName(expression) => {
-                let snbt = expression.kind.resolve(datapack, ctx).as_snbt_macros( ctx);
+                let snbt = UnresolvedExpression::resolve(expression, allocator, datapack, ctx)
+                    .as_snbt_macros(ctx);
 
                 LowScoreboardModification::DisplayName(snbt)
             }
             Self::NumberFormat(number_format) => {
-                let number_format =
-                    number_format.map(|number_format| number_format.compile(datapack, ctx));
+                let number_format = number_format
+                    .map(|number_format| number_format.compile(allocator, datapack, ctx));
 
                 LowScoreboardModification::NumberFormat(number_format)
             }
@@ -52,7 +56,7 @@ impl ScoreboardModification {
 #[derive(Debug, Clone)]
 pub enum ObjectivesScoreboardCommand {
     List,
-    Add(String, String, Option<UnresolvedExpression>),
+    Add(String, String, Option<Idx<UnresolvedExpression>>),
     Remove(String),
     SetDisplay(String, Option<String>),
     Modify(String, ScoreboardModification),
@@ -62,14 +66,17 @@ impl ObjectivesScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowObjectivesScoreboardCommand {
         match self {
             Self::List => LowObjectivesScoreboardCommand::List,
             Self::Add(objective, criterion, expression) => {
-                let expression = expression
-                    .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros( ctx));
+                let expression = expression.map(|expression| {
+                    UnresolvedExpression::resolve(expression, allocator, datapack, ctx)
+                        .as_snbt_macros(ctx)
+                });
 
                 LowObjectivesScoreboardCommand::Add(objective, criterion, expression)
             }
@@ -78,7 +85,7 @@ impl ObjectivesScoreboardCommand {
                 LowObjectivesScoreboardCommand::SetDisplay(position, objective)
             }
             Self::Modify(objective, modification) => {
-                let modification = modification.compile(datapack, ctx);
+                let modification = modification.compile(allocator, datapack, ctx);
 
                 LowObjectivesScoreboardCommand::Modify(objective, modification)
             }

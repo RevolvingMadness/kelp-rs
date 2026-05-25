@@ -12,6 +12,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::{
@@ -105,67 +106,68 @@ impl ExecuteSubcommand {
 
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowExecuteSubcommand {
         match self {
             Self::Align(axes, next) => {
-                let next = next.compile(datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::Align(axes, Box::new(next))
             }
             Self::Anchored(anchor, next) => {
-                let next = next.compile(datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
             Self::As(selector, next) => {
-                let selector = selector.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
+                let selector = selector.compile(allocator, datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::At(selector, next) => {
-                let selector = selector.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
+                let selector = selector.compile(allocator, datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::At(selector, Box::new(next))
             }
             Self::Facing(facing, next) => {
-                let facing = facing.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
+                let facing = facing.compile(allocator, datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::Facing(facing, Box::new(next))
             }
             Self::In(location, next) => {
-                let next = next.compile(datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::In(location, Box::new(next))
             }
             Self::On(relation, next) => {
-                let next = next.compile(datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::On(relation, Box::new(next))
             }
             Self::Positioned(positioned, next) => {
-                let positioned = positioned.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
+                let positioned = positioned.compile(allocator, datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Rotated(rotated, next) => {
-                let rotated = rotated.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
+                let rotated = rotated.compile(allocator, datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::Rotated(rotated, Box::new(next))
             }
             Self::Summon(entity_id, next) => {
-                let next = next.compile(datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::Summon(entity_id, Box::new(next))
             }
             Self::If(is_if, next) => {
-                let next = next.compile(datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::If(is_if, next)
             }
             Self::Store(store_type, next) => {
-                let next = next.compile(datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
                 LowExecuteSubcommand::Store(store_type, next)
             }
             Self::Run(commands) => {
                 let mut commands = commands
                     .into_iter()
-                    .map(|command| command.compile(datapack, ctx))
+                    .map(|command| command.compile(allocator, datapack, ctx))
                     .collect::<Vec<_>>();
 
                 let last = commands.pop().unwrap();
@@ -176,7 +178,7 @@ impl ExecuteSubcommand {
             Self::Multiple(subcommands) => {
                 let mut subcommands = subcommands
                     .into_iter()
-                    .map(|subcommand| subcommand.compile(datapack, ctx))
+                    .map(|subcommand| subcommand.compile(allocator, datapack, ctx))
                     .collect::<Vec<_>>();
 
                 let last = subcommands.pop().unwrap();

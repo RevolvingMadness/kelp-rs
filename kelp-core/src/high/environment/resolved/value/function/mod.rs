@@ -1,6 +1,8 @@
 pub mod builtin;
 pub mod regular;
 
+use la_arena::Idx;
+
 use crate::{
     high::environment::resolved::value::function::{
         builtin::{HighBuiltinFunctionId, ResolvedBuiltinFunctionDeclaration},
@@ -51,7 +53,7 @@ impl ResolvedFunctionDeclaration {
     #[must_use]
     pub fn parameter_types(
         &self,
-    ) -> ParameterTypesIter<'_, Option<UnresolvedPattern>, UnresolvedDataType> {
+    ) -> ParameterTypesIter<'_, Option<Idx<UnresolvedPattern>>, UnresolvedDataType> {
         match self {
             Self::Regular(declaration) => {
                 ParameterTypesIter::Regular(declaration.parameters.iter().map(take_second))

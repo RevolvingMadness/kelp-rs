@@ -1,4 +1,5 @@
-use kelp_core::high::pattern::{Pattern, PatternKind};
+use kelp_core::high::pattern::Pattern;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTTuplePattern, lower_context::LowerContext, pattern::lower_pattern,
@@ -7,7 +8,7 @@ use crate::{
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_pattern(node: CSTTuplePattern, ctx: &mut LowerContext) -> Option<Pattern> {
+pub fn lower_tuple_pattern(node: CSTTuplePattern, ctx: &mut LowerContext) -> Option<Idx<Pattern>> {
     let span = span_of_cst_node(&node);
 
     let patterns = node
@@ -15,5 +16,8 @@ pub fn lower_tuple_pattern(node: CSTTuplePattern, ctx: &mut LowerContext) -> Opt
         .filter_map(|pattern| lower_pattern(pattern, ctx))
         .collect();
 
-    Some(PatternKind::Tuple(patterns).with_span(span))
+    Some(
+        ctx.allocator
+            .allocate_pattern(span, Pattern::Tuple(patterns)),
+    )
 }

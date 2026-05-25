@@ -3,7 +3,8 @@ use crate::{
         environment::{
             resolved::{
                 r#type::{
-                    HighGenericId, HighTypeId, ResolvedTypeDeclaration, ResolvedTypeDeclarationKind,
+                    HighGenericId, HighTypeId, ResolvedTypeDeclaration,
+                    ResolvedTypeDeclarationKind, r#struct::HighStructId,
                 },
                 value::HighValueId,
             },
@@ -15,6 +16,8 @@ use crate::{
         },
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
+    low::data_type::unresolved::UnresolvedDataType,
+    span::Span,
     visibility::Visibility,
 };
 
@@ -130,6 +133,80 @@ impl UnresolvedTypeDeclaration {
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
                 type_name: self.kind.name().to_owned(),
             }),
+        }
+    }
+
+    pub fn resolve_partially(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        id: HighTypeId,
+        generic_spans: Vec<Span>,
+        generic_types: Vec<UnresolvedDataType>,
+        path_span: Span,
+    ) -> UnresolvedDataType {
+        match self.kind {
+            UnresolvedTypeDeclarationKind::Module(UnresolvedModuleDeclaration { name, .. }) => {
+                ctx.add_error_type(path_span, SemanticAnalysisError::NotAType(name))
+            }
+            UnresolvedTypeDeclarationKind::Struct(declaration) => {
+                let id = HighStructId(id.0);
+
+                let expected_generics = declaration.generic_count();
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics_type(
+                        path_span,
+                        declaration.name(),
+                        expected_generics,
+                        actual_generics,
+                    );
+                }
+
+                UnresolvedDataType::Struct(id, generic_types)
+            }
+            UnresolvedTypeDeclarationKind::Alias(declaration) => {
+                let expected_generics = declaration.generic_ids.len();
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics_type(
+                        path_span,
+                        &declaration.name,
+                        expected_generics,
+                        actual_generics,
+                    );
+                }
+
+                let resolved_declaration = ctx.get_resolved_type(id);
+
+                let ResolvedTypeDeclarationKind::Alias(resolved_alias) = &resolved_declaration.kind
+                else {
+                    unreachable!()
+                };
+
+                resolved_alias
+                    .alias
+                    .clone()
+                    .substitute_generics(&declaration.generic_ids, &generic_types)
+            }
+            UnresolvedTypeDeclarationKind::Generic(name) => {
+                let expected_generics = 0;
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics_type(
+                        path_span,
+                        &name,
+                        expected_generics,
+                        actual_generics,
+                    );
+                }
+
+                UnresolvedDataType::Generic(HighGenericId(id.0))
+            }
+            UnresolvedTypeDeclarationKind::Builtin(data_type) => data_type
+                .to_data_type_semantic_analysis(ctx, path_span, generic_spans, generic_types),
         }
     }
 }

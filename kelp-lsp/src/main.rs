@@ -1,3 +1,4 @@
+use kelp_core::ast_allocator::low::LowAstAllocator;
 use kelp_core::high::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfoKind};
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
@@ -171,7 +172,13 @@ impl Backend {
                     let mut semantic_analysis_context =
                         SemanticAnalysisContext::new("mod", usize::MAX);
 
-                    program.perform_semantic_analysis(&mut semantic_analysis_context);
+                    let mut low_allocator = LowAstAllocator::default();
+
+                    program.perform_semantic_analysis(
+                        &lower_context.allocator,
+                        &mut low_allocator,
+                        &mut semantic_analysis_context,
+                    );
 
                     for info in semantic_analysis_context.infos {
                         diagnostics.push(Diagnostic {

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
+
 use crate::{
     low::{
         data_type::resolved::ResolvedDataType,
@@ -256,8 +258,8 @@ impl Environment {
     pub fn update_regular_function(
         &mut self,
         id: RegularFunctionId,
-        new_parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
-        new_body: UnresolvedExpression,
+        new_parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
+        new_body: Idx<UnresolvedExpression>,
     ) {
         let ValueDeclaration {
             kind: ValueDeclarationKind::Function(declaration),

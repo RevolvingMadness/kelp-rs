@@ -1,4 +1,4 @@
-pub use kelp_core::high::item::ItemKind;
+pub use kelp_core::high::item::Item;
 pub use kelp_core::high::item::type_alias_declaration::TypeAliasDeclarationItem;
 
 use crate::{
@@ -91,8 +91,5 @@ pub fn lower_type_alias_declaration_item(
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),
         alias,
-
-        id: None,
-        generic_ids: None,
     })
 }

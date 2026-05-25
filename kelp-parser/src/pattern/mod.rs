@@ -1,4 +1,5 @@
 use kelp_core::high::pattern::Pattern;
+use la_arena::Idx;
 
 use crate::{
     cst::CSTPattern,
@@ -180,11 +181,11 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_pattern(node: CSTPattern, ctx: &mut LowerContext) -> Option<Pattern> {
+pub fn lower_pattern(node: CSTPattern, ctx: &mut LowerContext) -> Option<Idx<Pattern>> {
     match node {
-        CSTPattern::WildcardPattern(node) => lower_wildcard_pattern(node),
+        CSTPattern::WildcardPattern(node) => lower_wildcard_pattern(node, ctx),
         CSTPattern::TuplePattern(node) => lower_tuple_pattern(node, ctx),
-        CSTPattern::BindingPattern(node) => lower_binding_pattern(node),
+        CSTPattern::BindingPattern(node) => lower_binding_pattern(node, ctx),
         CSTPattern::ScorePattern(node) => lower_score_pattern(node, ctx),
         CSTPattern::DataPattern(node) => lower_data_pattern(node, ctx),
         CSTPattern::RegularStructPattern(node) => lower_struct_pattern(node, ctx),

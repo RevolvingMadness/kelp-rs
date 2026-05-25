@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
 use minecraft_command_types::{
     command::enums::{gamemode::Gamemode, sort::Sort},
     entity_selector::{AdvancementChoiceType, EntitySelectorOption as LowEntitySelectorOption},
@@ -9,7 +10,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
     low::expression::unresolved::UnresolvedExpression,
 };
 
@@ -30,7 +31,7 @@ pub enum EntitySelectorOption {
     Name(bool, String),
     Type(bool, ResourceLocation),
     Predicate(bool, ResourceLocation),
-    Nbt(bool, Box<UnresolvedExpression>),
+    Nbt(bool, Idx<UnresolvedExpression>),
     Gamemode(bool, Gamemode),
     Level(IntegerRange),
     Advancements(HashMap<ResourceLocation, AdvancementChoiceType>),
@@ -41,6 +42,7 @@ pub enum EntitySelectorOption {
 impl EntitySelectorOption {
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowEntitySelectorOption {
@@ -63,10 +65,9 @@ impl EntitySelectorOption {
                 LowEntitySelectorOption::Predicate(inverted, predicate)
             }
             Self::Nbt(inverted, expression) => {
-                let expression = expression
-                    .kind
-                    .resolve(datapack, ctx)
-                    .as_snbt_macros( ctx);
+                let expression =
+                    UnresolvedExpression::resolve(expression, allocator, datapack, ctx);
+                let expression = expression.as_snbt_macros(ctx);
 
                 LowEntitySelectorOption::Nbt(inverted, expression)
             }
@@ -82,10 +83,15 @@ impl EntitySelectorOption {
         }
     }
 
-    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+    pub fn compile_as_statement(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) {
         match self {
             Self::Nbt(_, expression) => {
-                expression.kind.compile_as_statement(datapack, ctx);
+                UnresolvedExpression::compile_as_statement(expression, allocator, datapack, ctx);
             }
             Self::X(..)
             | Self::Y(..)

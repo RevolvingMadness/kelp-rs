@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use la_arena::Idx;
 use minecraft_command_types::{
     command::enums::{gamemode::Gamemode, sort::Sort},
     entity_selector::AdvancementChoiceType,
@@ -9,6 +10,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
+    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{expression::Expression, semantic_analysis::SemanticAnalysisContext},
     low::entity_selector::option::EntitySelectorOption as MiddleEntitySelectorOption,
 };
@@ -30,7 +32,7 @@ pub enum EntitySelectorOption {
     Name(bool, String),
     Type(bool, ResourceLocation),
     Predicate(bool, ResourceLocation),
-    Nbt(bool, Box<Expression>),
+    Nbt(bool, Idx<Expression>),
     Gamemode(bool, Gamemode),
     Level(IntegerRange),
     Advancements(HashMap<ResourceLocation, AdvancementChoiceType>),
@@ -42,6 +44,8 @@ impl EntitySelectorOption {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
+        high_allocator: &HighAstAllocator,
+        low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleEntitySelectorOption> {
         Some(match self {
@@ -67,9 +71,14 @@ impl EntitySelectorOption {
                 MiddleEntitySelectorOption::Predicate(inverted, resource_location)
             }
             Self::Nbt(inverted, expression) => {
-                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                let expression = Expression::perform_semantic_analysis(
+                    expression,
+                    high_allocator,
+                    low_allocator,
+                    ctx,
+                )?;
 
-                MiddleEntitySelectorOption::Nbt(inverted, Box::new(expression))
+                MiddleEntitySelectorOption::Nbt(inverted, expression)
             }
             Self::Gamemode(inverted, gamemode) => {
                 MiddleEntitySelectorOption::Gamemode(inverted, gamemode)

@@ -8,6 +8,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
+    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::{
@@ -57,14 +58,15 @@ impl ExecuteStoreSubcommand {
 
     pub fn compile(
         self,
+        allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> LowExecuteStoreSubcommand {
         match self {
             Self::Data(target, path, numeric_snbt_type, scale, next) => {
-                let target = target.compile(datapack, ctx);
-                let path = path.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
+                let target = target.compile(allocator, datapack, ctx);
+                let path = path.compile(allocator, datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
 
                 LowExecuteStoreSubcommand::Data(
                     target.target,
@@ -77,11 +79,11 @@ impl ExecuteStoreSubcommand {
             Self::Bossbar(location, store_type, next) => LowExecuteStoreSubcommand::Bossbar(
                 location,
                 store_type,
-                Box::new(next.compile(datapack, ctx)),
+                Box::new(next.compile(allocator, datapack, ctx)),
             ),
             Self::Score(score, next) => {
-                let score = score.compile(datapack, ctx);
-                let next = next.compile(datapack, ctx);
+                let score = score.compile(allocator, datapack, ctx);
+                let next = next.compile(allocator, datapack, ctx);
 
                 LowExecuteStoreSubcommand::Score(score.score, Box::new(next))
             }

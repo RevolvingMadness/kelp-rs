@@ -4,7 +4,8 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, low::entity_selector::EntitySelector,
+    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
+    low::entity_selector::EntitySelector,
 };
 
 #[derive(Debug, Clone)]
@@ -14,11 +15,16 @@ pub enum Facing {
 }
 
 impl Facing {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowFacing {
+    pub fn compile(
+        self,
+        allocator: &LowAstAllocator,
+        datapack: &mut Datapack,
+        ctx: &mut CompileContext,
+    ) -> LowFacing {
         match self {
             Self::Position(position) => LowFacing::Position(position),
             Self::Entity(selector, anchor) => {
-                LowFacing::Entity(selector.compile(datapack, ctx), anchor)
+                LowFacing::Entity(selector.compile(allocator, datapack, ctx), anchor)
             }
         }
     }

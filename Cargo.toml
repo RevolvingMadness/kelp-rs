@@ -3,9 +3,36 @@ resolver = "3"
 members = ["kelp-cli", "kelp-core", "kelp-lsp", "kelp-parser"]
 
 [workspace.dependencies]
-minecraft-command-types = { path = "../minecraft-command-types" }
-minecraft-command-types_procedural-macros = { path = "../minecraft-command-types/minecraft-command-types_procedural-macros" }
-ordered-float = "5.3.0"
-serde_json = "1.0.150"
 kelp-core = { path = "kelp-core" }
 kelp-parser = { path = "kelp-parser" }
+minecraft-command-types = { path = "../minecraft-command-types" }
+minecraft-command-types_procedural-macros = { path = "../minecraft-command-types/minecraft-command-types_procedural-macros" }
+
+ariadne = "0.6.0"
+clap = { version = "4.6.1", features = ["derive"] }
+dirs = "6.0.0"
+hashbrown = "0.17.1"
+ordered-float = "5.3.0"
+paste = "1.0.15"
+phf = "0.13.1"
+prettyplease = "0.2.37"
+proc-macro2 = "1.0.106"
+quote = "1.0.45"
+rowan = "0.16.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+smallvec = "1.15.1"
+strum = "0.28.0"
+strum_macros = "0.28.0"
+syn = "2.0.117"
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = [
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "io-std",
+] }
+toml = "1.1.2"
+tower-lsp = "0.20.0"
+ungrammar = "1.16.1"
+yansi = "1.0.1"

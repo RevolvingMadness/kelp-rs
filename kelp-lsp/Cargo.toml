@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tower-lsp = "0.20.0"
-tokio = { version = "1.52.3", features = ["macros", "rt", "rt-multi-thread", "io-std"] }
-kelp-core = { workspace = true }
-kelp-parser = { workspace = true }
-rowan = "0.16.1"
+kelp-core.workspace = true
+kelp-parser.workspace = true
+
+rowan.workspace = true
+tokio.workspace = true
+tower-lsp.workspace = true

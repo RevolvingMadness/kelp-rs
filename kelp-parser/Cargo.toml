@@ -4,20 +4,21 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-kelp-core = { workspace = true }
-ordered-float = { workspace = true }
-minecraft-command-types = { workspace = true }
-serde_json = { workspace = true }
-paste = "1.0.15"
-phf = "0.13.1"
-rowan = "0.16.1"
-thiserror = "2.0.18"
-strum = "0.28.0"
-strum_macros = "0.28.0"
+kelp-core.workspace = true
+
+minecraft-command-types.workspace = true
+ordered-float.workspace = true
+paste.workspace = true
+phf.workspace = true
+rowan.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+strum.workspace = true
+strum_macros.workspace = true
 
 [build-dependencies]
-prettyplease = "0.2.37"
-proc-macro2 = "1.0.106"
-quote = "1.0.45"
-syn = "2.0.117"
-ungrammar = "1.16.1"
+prettyplease.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
+ungrammar.workspace = true

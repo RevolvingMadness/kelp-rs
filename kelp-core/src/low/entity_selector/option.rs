@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
 use minecraft_command_types::{
     command::enums::{gamemode::Gamemode, sort::Sort},
     entity_selector::{AdvancementChoiceType, EntitySelectorOption as LowEntitySelectorOption},
@@ -10,8 +9,10 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
-    low::expression::unresolved::UnresolvedExpression,
+    ast_allocator::low::LowAstAllocator,
+    compile_context::CompileContext,
+    datapack::Datapack,
+    low::expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
 };
 
 #[derive(Debug, Clone)]
@@ -31,7 +32,7 @@ pub enum EntitySelectorOption {
     Name(bool, String),
     Type(bool, ResourceLocation),
     Predicate(bool, ResourceLocation),
-    Nbt(bool, Idx<UnresolvedExpression>),
+    Nbt(bool, UnresolvedExpressionId),
     Gamemode(bool, Gamemode),
     Level(IntegerRange),
     Advancements(HashMap<ResourceLocation, AdvancementChoiceType>),

@@ -1,11 +1,12 @@
 use la_arena::Idx;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
+    ast_allocator::low::{LowAstAllocator, Typed},
     compile_context::CompileContext,
     datapack::Datapack,
     high::{
-        expression::place::UnresolvedPlaceExpression, semantic_analysis::SemanticAnalysisContext,
+        expression::place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
+        semantic_analysis::SemanticAnalysisContext,
     },
     low::{
         data_type::unresolved::UnresolvedDataType, expression::assignee::ResolvedAssigneeExpression,
@@ -13,23 +14,25 @@ use crate::{
     span::Span,
 };
 
+pub type UnresolvedAssigneeExpressionId = Idx<Typed<UnresolvedAssigneeExpression>>;
+
 #[derive(Debug, Clone)]
 pub enum UnresolvedAssigneeExpression {
-    Place(Idx<UnresolvedPlaceExpression>),
+    Place(UnresolvedPlaceExpressionId),
 
-    Tuple(Vec<Idx<Self>>),
+    Tuple(Vec<UnresolvedAssigneeExpressionId>),
     Underscore,
 }
 
 impl UnresolvedAssigneeExpression {
     #[must_use]
     pub fn resolve(
-        id: Idx<Self>,
+        id: UnresolvedAssigneeExpressionId,
         allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ResolvedAssigneeExpression {
-        match allocator.get_assignee_expression(id) {
+        match allocator.get_assignee_expression_value(id) {
             Self::Place(expression) => {
                 let expression =
                     UnresolvedPlaceExpression::resolve(*expression, allocator, datapack, ctx);
@@ -51,13 +54,13 @@ impl UnresolvedAssigneeExpression {
 
     #[must_use]
     pub fn perform_assignment_semantic_analysis(
-        id: Idx<Self>,
+        id: UnresolvedAssigneeExpressionId,
         allocator: &LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         value_type: &UnresolvedDataType,
     ) -> Option<()> {
-        match allocator.get_assignee_expression(id) {
+        match allocator.get_assignee_expression_value(id) {
             Self::Place(expression) => {
                 UnresolvedPlaceExpression::perform_assignment_semantic_analysis(
                     *expression,

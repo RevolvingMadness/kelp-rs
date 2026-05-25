@@ -1,16 +1,18 @@
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
-    low::expression::unresolved::UnresolvedExpression,
+    ast_allocator::low::LowAstAllocator,
+    compile_context::CompileContext,
+    datapack::Datapack,
+    low::expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
 };
-use la_arena::Idx;
+
 use minecraft_command_types::coordinate::{
     Coordinates as LowCoordinates, WorldCoordinate as LowWorldCoordinate,
 };
 
 #[derive(Debug, Clone, Copy)]
 pub enum WorldCoordinate {
-    Relative(Option<Idx<UnresolvedExpression>>),
-    Absolute(Idx<UnresolvedExpression>),
+    Relative(Option<UnresolvedExpressionId>),
+    Absolute(UnresolvedExpressionId),
 }
 
 impl WorldCoordinate {
@@ -66,9 +68,9 @@ impl WorldCoordinate {
 pub enum Coordinates {
     World(WorldCoordinate, WorldCoordinate, WorldCoordinate),
     Local(
-        Option<Idx<UnresolvedExpression>>,
-        Option<Idx<UnresolvedExpression>>,
-        Option<Idx<UnresolvedExpression>>,
+        Option<UnresolvedExpressionId>,
+        Option<UnresolvedExpressionId>,
+        Option<UnresolvedExpressionId>,
     ),
 }
 

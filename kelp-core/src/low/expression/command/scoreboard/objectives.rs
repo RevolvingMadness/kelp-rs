@@ -1,4 +1,3 @@
-use la_arena::Idx;
 use minecraft_command_types::command::{
     enums::scoreboard_render_type::ScoreboardRenderType,
     scoreboard::{
@@ -12,14 +11,15 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     low::expression::{
-        command::scoreboard::players::ScoreboardNumberFormat, unresolved::UnresolvedExpression,
+        command::scoreboard::players::ScoreboardNumberFormat,
+        unresolved::{UnresolvedExpression, UnresolvedExpressionId},
     },
 };
 
 #[derive(Debug, Clone)]
 pub enum ScoreboardModification {
     DisplayAutoUpdate(bool),
-    DisplayName(Idx<UnresolvedExpression>),
+    DisplayName(UnresolvedExpressionId),
     NumberFormat(Option<ScoreboardNumberFormat>),
     RenderType(ScoreboardRenderType),
 }
@@ -56,7 +56,7 @@ impl ScoreboardModification {
 #[derive(Debug, Clone)]
 pub enum ObjectivesScoreboardCommand {
     List,
-    Add(String, String, Option<Idx<UnresolvedExpression>>),
+    Add(String, String, Option<UnresolvedExpressionId>),
     Remove(String),
     SetDisplay(String, Option<String>),
     Modify(String, ScoreboardModification),

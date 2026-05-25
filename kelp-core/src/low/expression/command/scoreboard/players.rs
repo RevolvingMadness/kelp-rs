@@ -1,4 +1,3 @@
-use la_arena::Idx;
 use minecraft_command_types::command::{
     ScoreValue,
     enums::score_operation_operator::ScoreOperationOperator,
@@ -14,7 +13,8 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     low::{
-        entity_selector::EntitySelector, expression::unresolved::UnresolvedExpression,
+        entity_selector::EntitySelector,
+        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
         player_score::PlayerScore,
     },
 };
@@ -22,8 +22,8 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 pub enum ScoreboardNumberFormat {
     Blank,
-    Fixed(Idx<UnresolvedExpression>),
-    Styled(Idx<UnresolvedExpression>),
+    Fixed(UnresolvedExpressionId),
+    Styled(UnresolvedExpressionId),
 }
 
 impl ScoreboardNumberFormat {
@@ -50,7 +50,7 @@ impl ScoreboardNumberFormat {
 
 #[derive(Debug, Clone)]
 pub enum PlayersDisplayScoreboardCommand {
-    Name(PlayerScore, Option<Idx<UnresolvedExpression>>),
+    Name(PlayerScore, Option<UnresolvedExpressionId>),
     NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
 }
 

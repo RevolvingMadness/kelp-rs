@@ -2,8 +2,10 @@ use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
-    low::expression::unresolved::UnresolvedExpression,
+    ast_allocator::low::LowAstAllocator,
+    compile_context::CompileContext,
+    datapack::Datapack,
+    low::expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
 };
 
 #[derive(Debug, Clone)]
@@ -11,7 +13,7 @@ pub enum Item {
     InherentImplementation,
     ModuleDeclaration,
     FunctionDeclaration,
-    MinecraftFunctionDeclaration(ResourceLocation, Idx<UnresolvedExpression>),
+    MinecraftFunctionDeclaration(ResourceLocation, UnresolvedExpressionId),
     TypeAliasDeclaration,
     RegularStructDeclaration,
     TupleStructDeclaration,

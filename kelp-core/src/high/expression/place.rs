@@ -1,7 +1,7 @@
 use la_arena::Idx;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
+    ast_allocator::low::{LowAstAllocator, Typed},
     compile_context::CompileContext,
     datapack::Datapack,
     high::{environment::resolved::value::HighValueId, semantic_analysis::SemanticAnalysisContext},
@@ -9,31 +9,36 @@ use crate::{
         data::Data,
         data_type::unresolved::UnresolvedDataType,
         environment::value::variable::VariableId,
-        expression::{place::ResolvedPlaceExpression, unresolved::UnresolvedExpression},
+        expression::{
+            place::ResolvedPlaceExpression,
+            unresolved::{UnresolvedExpression, UnresolvedExpressionId},
+        },
         player_score::PlayerScore,
     },
     span::Span,
 };
+
+pub type UnresolvedPlaceExpressionId = Idx<Typed<UnresolvedPlaceExpression>>;
 
 #[derive(Debug, Clone)]
 pub enum UnresolvedPlaceExpression {
     Value(HighValueId, Vec<UnresolvedDataType>),
     Score(PlayerScore),
     Data(Box<Data>),
-    FieldAccess(Idx<Self>, String),
-    Index(Idx<Self>, Idx<UnresolvedExpression>),
-    Dereference(Idx<Self>),
+    FieldAccess(UnresolvedPlaceExpressionId, String),
+    Index(UnresolvedPlaceExpressionId, UnresolvedExpressionId),
+    Dereference(UnresolvedPlaceExpressionId),
 }
 
 impl UnresolvedPlaceExpression {
     #[must_use]
     pub fn resolve(
-        id: Idx<Self>,
+        id: UnresolvedPlaceExpressionId,
         allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ResolvedPlaceExpression {
-        match allocator.get_place_expression(id) {
+        match allocator.get_place_expression_value(id) {
             Self::Value(id, generic_types) => {
                 let id = datapack
                     .get_monomorphized_value_id(*id, generic_types)
@@ -78,13 +83,13 @@ impl UnresolvedPlaceExpression {
     }
 
     pub fn perform_assignment_semantic_analysis(
-        id: Idx<Self>,
+        id: UnresolvedPlaceExpressionId,
         allocator: &LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         value_type: &UnresolvedDataType,
     ) -> Option<()> {
-        match allocator.get_place_expression(id) {
+        match allocator.get_place_expression_value(id) {
             Self::Value(..) => {
                 let data_type = allocator.get_place_expression_type(id);
 

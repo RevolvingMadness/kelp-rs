@@ -95,6 +95,7 @@ impl HighAstAllocator {
 
 // Expressions
 impl HighAstAllocator {
+    #[inline]
     #[must_use]
     pub fn allocate_expression(
         &mut self,
@@ -125,6 +126,7 @@ impl HighAstAllocator {
 
 // Statements
 impl HighAstAllocator {
+    #[inline]
     #[must_use]
     pub fn allocate_statement(
         &mut self,

@@ -37,7 +37,10 @@ use crate::{
             r#type::r#struct::{RegularStructId, TupleStructId},
             value::function::{FunctionDeclaration, FunctionId},
         },
-        expression::{place::ResolvedPlaceExpression, unresolved::UnresolvedExpression},
+        expression::{
+            place::ResolvedPlaceExpression,
+            unresolved::{UnresolvedExpression, UnresolvedExpressionId},
+        },
         pattern::UnresolvedPattern,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
@@ -138,7 +141,7 @@ fn compile_compiletime_function(
     id: FunctionId,
     parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<ResolvedExpression>,
-    body: Idx<UnresolvedExpression>,
+    body: UnresolvedExpressionId,
 ) -> ResolvedExpression {
     if let Some(function) = datapack
         .cached_compiletime_functions
@@ -200,7 +203,7 @@ fn compile_regular_runtime_function(
     id: FunctionId,
     parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<RuntimeStorageTarget>,
-    body: Idx<UnresolvedExpression>,
+    body: UnresolvedExpressionId,
     return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
     if let Some(function) = datapack.cached_runtime_functions.get(&id) {
@@ -292,7 +295,7 @@ fn compile_recursive_runtime_function(
     id: FunctionId,
     parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<GeneratedData>,
-    body: Idx<UnresolvedExpression>,
+    body: UnresolvedExpressionId,
 ) -> ResolvedExpression {
     if let Some(function) = datapack.cached_runtime_functions.get(&id) {
         let RuntimeFunction::Recursive(function) = function else {
@@ -441,7 +444,7 @@ fn compile_function(
     generic_types: Vec<ResolvedDataType>,
     parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     arguments: Vec<ResolvedExpression>,
-    body: Idx<UnresolvedExpression>,
+    body: UnresolvedExpressionId,
     return_runtime_storage_type: RuntimeStorageType,
 ) -> ResolvedExpression {
     for (generic_id, generic_type) in generic_ids.into_iter().zip(generic_types) {

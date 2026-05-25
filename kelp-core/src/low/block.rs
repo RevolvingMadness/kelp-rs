@@ -1,20 +1,21 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
 use minecraft_command_types::{
     block::BlockState as LowBlockState, resource_location::ResourceLocation, snbt::SNBTString,
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
-    low::expression::unresolved::UnresolvedExpression,
+    ast_allocator::low::LowAstAllocator,
+    compile_context::CompileContext,
+    datapack::Datapack,
+    low::expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
 };
 
 #[derive(Debug, Clone)]
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: HashMap<String, String>,
-    pub data_tags: Option<HashMap<SNBTString, Idx<UnresolvedExpression>>>,
+    pub data_tags: Option<HashMap<SNBTString, UnresolvedExpressionId>>,
 }
 
 impl BlockState {

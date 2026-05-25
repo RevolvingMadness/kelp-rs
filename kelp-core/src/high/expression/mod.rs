@@ -20,8 +20,9 @@ use crate::{
         entity_selector::EntitySelector,
         environment::resolved::r#type::r#struct::regular::HighRegularStructId,
         expression::{
-            assignee::UnresolvedAssigneeExpression, block::BlockExpression,
-            place::UnresolvedPlaceExpression,
+            assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionId},
+            block::BlockExpression,
+            place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
         },
         nbt_path::NbtPath,
         pattern::Pattern,
@@ -32,8 +33,9 @@ use crate::{
         supports_expression_sigil::SupportsExpressionSigil,
     },
     low::{
-        data::Data, data_type::unresolved::UnresolvedDataType,
-        expression::unresolved::UnresolvedExpression,
+        data::Data,
+        data_type::unresolved::UnresolvedDataType,
+        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     path::generic::{GenericPath, GenericPathSegment},
@@ -168,7 +170,7 @@ impl Expression {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<Idx<UnresolvedPlaceExpression>> {
+    ) -> Option<UnresolvedPlaceExpressionId> {
         let id = match high_allocator.get_expression_value(id) {
             Self::Path(path) => {
                 let mut path = path.clone().perform_semantic_analysis(ctx);
@@ -291,7 +293,7 @@ impl Expression {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<Idx<UnresolvedAssigneeExpression>> {
+    ) -> Option<UnresolvedAssigneeExpressionId> {
         Some(match high_allocator.get_expression_value(id) {
             Self::Tuple(expressions) => {
                 let (data_types, expressions) = expressions
@@ -343,7 +345,7 @@ impl Expression {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<Idx<UnresolvedExpression>> {
+    ) -> Option<UnresolvedExpressionId> {
         Some(match high_allocator.get_expression_value(id) {
             Self::Invalid => return None,
 

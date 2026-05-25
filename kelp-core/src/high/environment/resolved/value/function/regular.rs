@@ -8,7 +8,7 @@ use crate::{
         semantic_analysis::RegularFunctionModifiers,
     },
     low::{
-        data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
+        data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpressionId,
         pattern::UnresolvedPattern,
     },
     span::Span,
@@ -24,6 +24,6 @@ pub struct ResolvedRegularFunctionDeclaration {
     pub generic_ids: Vec<HighGenericId>,
     pub parameters: Vec<(Option<Idx<UnresolvedPattern>>, UnresolvedDataType)>,
     pub return_type: UnresolvedDataType,
-    pub body: Option<Idx<UnresolvedExpression>>,
+    pub body: Option<UnresolvedExpressionId>,
     pub calls: HashSet<(Span, HighFunctionId)>,
 }

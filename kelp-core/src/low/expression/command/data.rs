@@ -1,4 +1,3 @@
-use la_arena::Idx;
 use minecraft_command_types::command::data::{
     DataCommand as LowDataCommand, DataCommandModification as LowDataCommandModification,
     DataCommandModificationMode,
@@ -9,14 +8,18 @@ use crate::{
     ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
-    low::{data::DataTarget, expression::unresolved::UnresolvedExpression, nbt_path::NbtPath},
+    low::{
+        data::DataTarget,
+        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
+        nbt_path::NbtPath,
+    },
 };
 
 #[derive(Debug, Clone)]
 pub enum DataCommandModification {
     From(DataTarget, Option<NbtPath>),
     String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
-    Value(Idx<UnresolvedExpression>),
+    Value(UnresolvedExpressionId),
 }
 
 impl DataCommandModification {
@@ -54,7 +57,7 @@ impl DataCommandModification {
 #[derive(Debug, Clone)]
 pub enum DataCommand {
     Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
-    Merge(DataTarget, Idx<UnresolvedExpression>),
+    Merge(DataTarget, UnresolvedExpressionId),
     Modify(
         DataTarget,
         NbtPath,

@@ -16,7 +16,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
+    ast_allocator::low::{LowAstAllocator, Typed},
     compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedData,
     datapack::Datapack,
@@ -25,7 +25,10 @@ use crate::{
             r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
             value::HighValueId,
         },
-        expression::{assignee::UnresolvedAssigneeExpression, place::UnresolvedPlaceExpression},
+        expression::{
+            assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionId},
+            place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
+        },
     },
     low::{
         coordinate::Coordinates,
@@ -103,9 +106,9 @@ fn compile_if_internal(
     allocator: &LowAstAllocator,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    condition: Idx<UnresolvedExpression>,
-    body: Idx<UnresolvedExpression>,
-    else_body: Option<Idx<UnresolvedExpression>>,
+    condition: UnresolvedExpressionId,
+    body: UnresolvedExpressionId,
+    else_body: Option<UnresolvedExpressionId>,
     output_data: Option<GeneratedData>,
 ) {
     let mut body_ctx = ctx.create_child_ctx();
@@ -214,7 +217,7 @@ fn iterate_string(
     is_reversed: bool,
     pattern: Idx<UnresolvedPattern>,
     iterable: ResolvedExpression,
-    body: Idx<UnresolvedExpression>,
+    body: UnresolvedExpressionId,
 ) {
     let (unique_data, name) = datapack.get_unique_data_named();
     let unique_data_2 = datapack.get_unique_data();
@@ -292,7 +295,7 @@ fn iterate_data(
     pattern: Idx<UnresolvedPattern>,
     iterable_type: ResolvedDataType,
     iterable: ResolvedExpression,
-    body: Idx<UnresolvedExpression>,
+    body: UnresolvedExpressionId,
 ) {
     let unique_data = datapack.get_unique_data();
 
@@ -345,6 +348,8 @@ fn iterate_data(
     datapack.compile_and_add_to_function(&for_function_paths, &mut for_body_ctx);
 }
 
+pub type UnresolvedExpressionId = Idx<Typed<UnresolvedExpression>>;
+
 #[derive(Debug, Clone)]
 pub enum UnresolvedExpression {
     Boolean(bool),
@@ -359,52 +364,80 @@ pub enum UnresolvedExpression {
     String(String),
     Unit,
     Underscore,
-    Negate(Idx<Self>),
-    Invert(Idx<Self>),
-    Reference(Idx<UnresolvedPlaceExpression>),
-    Dereference(Idx<UnresolvedPlaceExpression>),
-    Arithmetic(Idx<Self>, ArithmeticOperator, Idx<Self>),
-    Comparison(Idx<Self>, ComparisonOperator, Idx<Self>),
-    Logical(Idx<Self>, LogicalOperator, Idx<Self>),
-    AugmentedAssignment(
-        Idx<UnresolvedPlaceExpression>,
+    Negate(UnresolvedExpressionId),
+    Invert(UnresolvedExpressionId),
+    Reference(UnresolvedPlaceExpressionId),
+    Dereference(UnresolvedPlaceExpressionId),
+    Arithmetic(
+        UnresolvedExpressionId,
         ArithmeticOperator,
-        Idx<Self>,
+        UnresolvedExpressionId,
     ),
-    Assignment(Idx<UnresolvedAssigneeExpression>, Idx<Self>),
-    List(Vec<Idx<Self>>),
-    Compound(HashMap<String, Idx<Self>>),
+    Comparison(
+        UnresolvedExpressionId,
+        ComparisonOperator,
+        UnresolvedExpressionId,
+    ),
+    Logical(
+        UnresolvedExpressionId,
+        LogicalOperator,
+        UnresolvedExpressionId,
+    ),
+    AugmentedAssignment(
+        UnresolvedPlaceExpressionId,
+        ArithmeticOperator,
+        UnresolvedExpressionId,
+    ),
+    Assignment(UnresolvedAssigneeExpressionId, UnresolvedExpressionId),
+    List(Vec<UnresolvedExpressionId>),
+    Compound(HashMap<String, UnresolvedExpressionId>),
     Score(PlayerScore),
     Data(Box<Data>),
     Condition(bool, Box<MiddleExecuteIfSubcommand>),
     Command(Box<MiddleCommand>),
-    Index(Idx<Self>, Idx<Self>),
-    FieldAccess(Idx<Self>, String),
-    AsCast(Idx<Self>, UnresolvedDataType),
-    ToCast(Option<NotNan<f32>>, Idx<Self>, RuntimeStorageType),
-    Tuple(Vec<Idx<Self>>),
-    Call(Idx<Self>, Vec<Idx<Self>>),
+    Index(UnresolvedExpressionId, UnresolvedExpressionId),
+    FieldAccess(UnresolvedExpressionId, String),
+    AsCast(UnresolvedExpressionId, UnresolvedDataType),
+    ToCast(
+        Option<NotNan<f32>>,
+        UnresolvedExpressionId,
+        RuntimeStorageType,
+    ),
+    Tuple(Vec<UnresolvedExpressionId>),
+    Call(UnresolvedExpressionId, Vec<UnresolvedExpressionId>),
     Value(HighValueId, Vec<UnresolvedDataType>),
     RegularStruct(
         HighRegularStructId,
         Vec<UnresolvedDataType>,
-        HashMap<String, Idx<Self>>,
+        HashMap<String, UnresolvedExpressionId>,
     ),
-    TupleStruct(HighTupleStructId, Vec<UnresolvedDataType>, Vec<Idx<Self>>),
+    TupleStruct(
+        HighTupleStructId,
+        Vec<UnresolvedDataType>,
+        Vec<UnresolvedExpressionId>,
+    ),
     If {
-        condition: Idx<Self>,
+        condition: UnresolvedExpressionId,
 
-        body: Idx<Self>,
-        else_body: Option<Idx<Self>>,
+        body: UnresolvedExpressionId,
+        else_body: Option<UnresolvedExpressionId>,
     },
-    Block(Vec<Idx<UnresolvedStatement>>, Option<Idx<Self>>),
-    WhileLoop(Idx<Self>, Idx<Self>),
-    Loop(Idx<Self>),
-    ForLoop(bool, Idx<UnresolvedPattern>, Idx<Self>, Idx<Self>),
+    Block(
+        Vec<Idx<UnresolvedStatement>>,
+        Option<UnresolvedExpressionId>,
+    ),
+    WhileLoop(UnresolvedExpressionId, UnresolvedExpressionId),
+    Loop(UnresolvedExpressionId),
+    ForLoop(
+        bool,
+        Idx<UnresolvedPattern>,
+        UnresolvedExpressionId,
+        UnresolvedExpressionId,
+    ),
     ResourceLocation(Box<SupportsExpressionSigil<ResourceLocation>>),
     EntitySelector(Box<SupportsExpressionSigil<EntitySelector>>),
     Coordinates(Box<SupportsExpressionSigil<Coordinates>>),
-    Return(Idx<Self>),
+    Return(UnresolvedExpressionId),
     // TODO ByteArray(Vec<i8>),
     // TODO IntegerArray(Vec<i32>),
     // TODO LongArray(Vec<i64>),
@@ -412,8 +445,8 @@ pub enum UnresolvedExpression {
 
 impl UnresolvedExpression {
     #[must_use]
-    pub fn definitely_diverges(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
-        match allocator.get_expression(id) {
+    pub fn definitely_diverges(id: UnresolvedExpressionId, allocator: &LowAstAllocator) -> bool {
+        match allocator.get_expression_value(id) {
             Self::Return(..) => true,
 
             Self::Block(statements, tail_expression) => {
@@ -485,7 +518,7 @@ impl UnresolvedExpression {
 
     #[inline]
     #[must_use]
-    pub fn contains_break(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
+    pub fn contains_break(id: UnresolvedExpressionId, allocator: &LowAstAllocator) -> bool {
         matches!(
             Self::get_early_return_type(id, allocator),
             Some(EarlyReturnType::Break)
@@ -494,10 +527,10 @@ impl UnresolvedExpression {
 
     #[must_use]
     pub fn get_early_return_type(
-        id: Idx<Self>,
+        id: UnresolvedExpressionId,
         allocator: &LowAstAllocator,
     ) -> Option<EarlyReturnType> {
-        match allocator.get_expression(id) {
+        match allocator.get_expression_value(id) {
             Self::If {
                 body, else_body, ..
             } => Self::get_early_return_type(*body, allocator).or_else(|| {
@@ -536,7 +569,7 @@ impl UnresolvedExpression {
 
     #[inline]
     #[must_use]
-    pub fn returns_early(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
+    pub fn returns_early(id: UnresolvedExpressionId, allocator: &LowAstAllocator) -> bool {
         Self::get_early_return_type(id, allocator).is_some()
     }
 
@@ -547,12 +580,12 @@ impl UnresolvedExpression {
 
     #[must_use]
     pub fn resolve(
-        id: Idx<Self>,
+        id: UnresolvedExpressionId,
         allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ResolvedExpression {
-        match allocator.get_expression(id) {
+        match allocator.get_expression_value(id) {
             Self::Negate(expression) => {
                 let expression = Self::resolve(*expression, allocator, datapack, ctx);
 
@@ -1028,12 +1061,12 @@ impl UnresolvedExpression {
     }
 
     pub fn compile_as_statement(
-        id: Idx<Self>,
+        id: UnresolvedExpressionId,
         allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) {
-        match allocator.get_expression(id) {
+        match allocator.get_expression_value(id) {
             Self::Assignment(target, value) => {
                 let target =
                     UnresolvedAssigneeExpression::resolve(*target, allocator, datapack, ctx);

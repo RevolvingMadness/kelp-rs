@@ -1,4 +1,3 @@
-use la_arena::Idx;
 use minecraft_command_types::{
     item::{
         ItemPredicate as LowItemPredicate, ItemTest as LowItemTest, ItemType, OrGroup as LowOrGroup,
@@ -7,15 +6,17 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
-    low::expression::unresolved::UnresolvedExpression,
+    ast_allocator::low::LowAstAllocator,
+    compile_context::CompileContext,
+    datapack::Datapack,
+    low::expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
 };
 
 #[derive(Debug, Clone)]
 pub enum ItemTest {
     Component(ResourceLocation),
-    ComponentMatches(ResourceLocation, Idx<UnresolvedExpression>),
-    Predicate(ResourceLocation, Idx<UnresolvedExpression>),
+    ComponentMatches(ResourceLocation, UnresolvedExpressionId),
+    Predicate(ResourceLocation, UnresolvedExpressionId),
 }
 
 impl ItemTest {

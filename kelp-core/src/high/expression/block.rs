@@ -1,5 +1,3 @@
-use la_arena::Idx;
-
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     high::{
@@ -9,7 +7,8 @@ use crate::{
         statement::{Statement, StatementId},
     },
     low::{
-        data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
+        data_type::unresolved::UnresolvedDataType,
+        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
     },
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
@@ -42,7 +41,7 @@ impl BlockExpression {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, Option<Span>, Idx<UnresolvedExpression>)> {
+    ) -> Option<(Span, Option<Span>, UnresolvedExpressionId)> {
         ctx.enter_scope();
 
         let items = self

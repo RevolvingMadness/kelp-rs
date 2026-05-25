@@ -1,13 +1,40 @@
 use la_arena::{Arena, ArenaMap, Idx};
 
 use crate::{
-    high::expression::{assignee::UnresolvedAssigneeExpression, place::UnresolvedPlaceExpression},
+    high::expression::{
+        assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionId},
+        place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
+    },
     low::{
-        data_type::unresolved::UnresolvedDataType, expression::unresolved::UnresolvedExpression,
-        item::Item, pattern::UnresolvedPattern, statement::UnresolvedStatement,
+        data_type::unresolved::UnresolvedDataType,
+        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
+        item::Item,
+        pattern::UnresolvedPattern,
+        statement::UnresolvedStatement,
     },
     visibility::Visibility,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Typed<T> {
+    pub value: T,
+    pub data_type: UnresolvedDataType,
+}
+
+pub trait TypedExt: Sized {
+    #[must_use]
+    fn with_type(self, span: UnresolvedDataType) -> Typed<Self>;
+}
+
+impl<T> TypedExt for T {
+    #[inline]
+    fn with_type(self, span: UnresolvedDataType) -> Typed<Self> {
+        Typed {
+            value: self,
+            data_type: span,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct LowAstAllocator {
@@ -16,14 +43,11 @@ pub struct LowAstAllocator {
 
     patterns: Arena<UnresolvedPattern>,
 
-    expressions: Arena<UnresolvedExpression>,
-    expression_types: ArenaMap<Idx<UnresolvedExpression>, UnresolvedDataType>,
+    expressions: Arena<Typed<UnresolvedExpression>>,
 
-    place_expressions: Arena<UnresolvedPlaceExpression>,
-    place_expression_types: ArenaMap<Idx<UnresolvedPlaceExpression>, UnresolvedDataType>,
+    place_expressions: Arena<Typed<UnresolvedPlaceExpression>>,
 
-    assignee_expressions: Arena<UnresolvedAssigneeExpression>,
-    assignee_expression_types: ArenaMap<Idx<UnresolvedAssigneeExpression>, UnresolvedDataType>,
+    assignee_expressions: Arena<Typed<UnresolvedAssigneeExpression>>,
 
     statements: Arena<UnresolvedStatement>,
 }
@@ -66,97 +90,114 @@ impl LowAstAllocator {
 
 // Expressions
 impl LowAstAllocator {
+    #[inline]
     #[must_use]
     pub fn allocate_expression(
         &mut self,
         expression: UnresolvedExpression,
         data_type: UnresolvedDataType,
-    ) -> Idx<UnresolvedExpression> {
-        let id = self.expressions.alloc(expression);
-
-        self.expression_types.insert(id, data_type);
-
-        id
+    ) -> UnresolvedExpressionId {
+        self.expressions.alloc(expression.with_type(data_type))
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression(&self, id: Idx<UnresolvedExpression>) -> &UnresolvedExpression {
+    pub fn get_expression(&self, id: UnresolvedExpressionId) -> &Typed<UnresolvedExpression> {
         &self.expressions[id]
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression_type(&self, id: Idx<UnresolvedExpression>) -> &UnresolvedDataType {
-        &self.expression_types[id]
+    pub fn get_expression_value(&self, id: UnresolvedExpressionId) -> &UnresolvedExpression {
+        &self.get_expression(id).value
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_expression_type(&self, id: UnresolvedExpressionId) -> &UnresolvedDataType {
+        &self.get_expression(id).data_type
     }
 }
 
 // Place expressions
 impl LowAstAllocator {
+    #[inline]
     #[must_use]
     pub fn allocate_place_expression(
         &mut self,
         expression: UnresolvedPlaceExpression,
         data_type: UnresolvedDataType,
-    ) -> Idx<UnresolvedPlaceExpression> {
-        let id = self.place_expressions.alloc(expression);
-
-        self.place_expression_types.insert(id, data_type);
-
-        id
+    ) -> UnresolvedPlaceExpressionId {
+        self.place_expressions
+            .alloc(expression.with_type(data_type))
     }
 
     #[inline]
     #[must_use]
     pub fn get_place_expression(
         &self,
-        id: Idx<UnresolvedPlaceExpression>,
-    ) -> &UnresolvedPlaceExpression {
+        id: UnresolvedPlaceExpressionId,
+    ) -> &Typed<UnresolvedPlaceExpression> {
         &self.place_expressions[id]
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_place_expression_value(
+        &self,
+        id: UnresolvedPlaceExpressionId,
+    ) -> &UnresolvedPlaceExpression {
+        &self.get_place_expression(id).value
     }
 
     #[inline]
     #[must_use]
     pub fn get_place_expression_type(
         &self,
-        id: Idx<UnresolvedPlaceExpression>,
+        id: UnresolvedPlaceExpressionId,
     ) -> &UnresolvedDataType {
-        &self.place_expression_types[id]
+        &self.get_place_expression(id).data_type
     }
 }
 
 // Assignee expressions
 impl LowAstAllocator {
+    #[inline]
     #[must_use]
     pub fn allocate_assignee_expression(
         &mut self,
         expression: UnresolvedAssigneeExpression,
         data_type: UnresolvedDataType,
-    ) -> Idx<UnresolvedAssigneeExpression> {
-        let id = self.assignee_expressions.alloc(expression);
-
-        self.assignee_expression_types.insert(id, data_type);
-
-        id
+    ) -> UnresolvedAssigneeExpressionId {
+        self.assignee_expressions
+            .alloc(expression.with_type(data_type))
     }
 
     #[inline]
     #[must_use]
     pub fn get_assignee_expression(
         &self,
-        id: Idx<UnresolvedAssigneeExpression>,
-    ) -> &UnresolvedAssigneeExpression {
+        id: UnresolvedAssigneeExpressionId,
+    ) -> &Typed<UnresolvedAssigneeExpression> {
         &self.assignee_expressions[id]
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_assignee_expression_value(
+        &self,
+        id: UnresolvedAssigneeExpressionId,
+    ) -> &UnresolvedAssigneeExpression {
+        &self.get_assignee_expression(id).value
     }
 
     #[inline]
     #[must_use]
     pub fn get_assignee_expression_type(
         &self,
-        id: Idx<UnresolvedAssigneeExpression>,
+        id: UnresolvedAssigneeExpressionId,
     ) -> &UnresolvedDataType {
-        &self.assignee_expression_types[id]
+        &self.get_assignee_expression(id).data_type
     }
 }
 

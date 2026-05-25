@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
 use minecraft_command_types::{
     command::function::FunctionCommandArguments as LowFunctionCommandArguments, snbt::SNBTString,
 };
@@ -9,12 +8,16 @@ use crate::{
     ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
-    low::{data::DataTarget, expression::unresolved::UnresolvedExpression, nbt_path::NbtPath},
+    low::{
+        data::DataTarget,
+        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
+        nbt_path::NbtPath,
+    },
 };
 
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
-    Compound(HashMap<SNBTString, Idx<UnresolvedExpression>>),
+    Compound(HashMap<SNBTString, UnresolvedExpressionId>),
     DataTarget(DataTarget, Option<NbtPath>),
 }
 

@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 
-use la_arena::Idx;
 use minecraft_command_types::{
     coordinate::Coordinates as LowCoordinates,
     entity_selector::EntitySelector as LowEntitySelector, resource_location::ResourceLocation,
@@ -13,14 +12,17 @@ use crate::{
     low::{
         coordinate::Coordinates,
         entity_selector::EntitySelector,
-        expression::{resolved::ResolvedExpression, unresolved::UnresolvedExpression},
+        expression::{
+            resolved::ResolvedExpression,
+            unresolved::{UnresolvedExpression, UnresolvedExpressionId},
+        },
     },
 };
 
 #[derive(Debug, Clone)]
 pub enum SupportsExpressionSigil<T> {
     Regular(T),
-    Sigil(Idx<UnresolvedExpression>),
+    Sigil(UnresolvedExpressionId),
 }
 
 impl<T> SupportsExpressionSigil<T> {

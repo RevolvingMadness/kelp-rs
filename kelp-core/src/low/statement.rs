@@ -1,7 +1,7 @@
 use crate::ast_allocator::low::LowAstAllocator;
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::low::data_type::unresolved::UnresolvedDataType;
-use crate::low::expression::unresolved::UnresolvedExpression;
+use crate::low::expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId};
 use crate::low::item::Item;
 use crate::low::pattern::UnresolvedPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
@@ -12,14 +12,14 @@ use minecraft_command_types::command::r#return::ReturnCommand;
 
 #[derive(Debug, Clone)]
 pub enum UnresolvedStatement {
-    Expression(Idx<UnresolvedExpression>),
+    Expression(UnresolvedExpressionId),
     Let(
         UnresolvedDataType,
         Idx<UnresolvedPattern>,
-        Idx<UnresolvedExpression>,
+        UnresolvedExpressionId,
     ),
-    Append(Idx<UnresolvedExpression>, Idx<UnresolvedExpression>),
-    Remove(Idx<UnresolvedExpression>),
+    Append(UnresolvedExpressionId, UnresolvedExpressionId),
+    Remove(UnresolvedExpressionId),
     Item(Idx<Item>),
     Break,
     Continue,

@@ -1,4 +1,3 @@
-use la_arena::Idx;
 use minecraft_command_types::{
     command::{
         Command as LowCommand, enums::difficulty::Difficulty,
@@ -20,7 +19,7 @@ use crate::{
                 function::FunctionCommandArguments, r#return::ReturnCommand,
                 scoreboard::ScoreboardCommand, stopwatch::StopwatchCommand,
             },
-            unresolved::UnresolvedExpression,
+            unresolved::{UnresolvedExpression, UnresolvedExpressionId},
         },
         supports_expression_sigil::SupportsExpressionSigil,
     },
@@ -49,7 +48,7 @@ pub enum Command {
     ),
     Tellraw(
         SupportsExpressionSigil<EntitySelector>,
-        Idx<UnresolvedExpression>,
+        UnresolvedExpressionId,
     ),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
@@ -57,7 +56,7 @@ pub enum Command {
     Summon(
         ResourceLocation,
         Option<Coordinates>,
-        Option<Idx<UnresolvedExpression>>,
+        Option<UnresolvedExpressionId>,
     ),
 }
 

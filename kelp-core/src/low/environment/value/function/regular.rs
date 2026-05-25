@@ -5,7 +5,7 @@ use crate::{
         environment::resolved::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers,
     },
     low::{
-        data_type::resolved::ResolvedDataType, expression::unresolved::UnresolvedExpression,
+        data_type::resolved::ResolvedDataType, expression::unresolved::UnresolvedExpressionId,
         pattern::UnresolvedPattern,
     },
     visibility::Visibility,
@@ -24,5 +24,5 @@ pub struct RegularFunctionDeclaration {
     pub generic_types: Vec<ResolvedDataType>,
     pub parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
     pub return_type: ResolvedDataType,
-    pub body: Idx<UnresolvedExpression>,
+    pub body: UnresolvedExpressionId,
 }

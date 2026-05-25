@@ -1,21 +1,22 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
 use minecraft_command_types::{
     nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode, SNBTCompound},
     snbt::SNBTString,
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
-    low::expression::unresolved::UnresolvedExpression,
+    ast_allocator::low::LowAstAllocator,
+    compile_context::CompileContext,
+    datapack::Datapack,
+    low::expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
 };
 
 #[derive(Debug, Clone)]
 pub enum NbtPathNode {
-    RootCompound(HashMap<String, Idx<UnresolvedExpression>>),
-    Named(String, Option<HashMap<String, Idx<UnresolvedExpression>>>),
-    Index(Option<Idx<UnresolvedExpression>>),
+    RootCompound(HashMap<String, UnresolvedExpressionId>),
+    Named(String, Option<HashMap<String, UnresolvedExpressionId>>),
+    Index(Option<UnresolvedExpressionId>),
 }
 
 impl NbtPathNode {

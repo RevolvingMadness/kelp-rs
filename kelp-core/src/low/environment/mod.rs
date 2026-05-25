@@ -22,7 +22,7 @@ use crate::{
                 variable::{VariableDeclaration, VariableId},
             },
         },
-        expression::unresolved::UnresolvedExpression,
+        expression::unresolved::UnresolvedExpressionId,
         pattern::UnresolvedPattern,
     },
     visibility::Visibility,
@@ -259,7 +259,7 @@ impl Environment {
         &mut self,
         id: RegularFunctionId,
         new_parameters: Vec<(Idx<UnresolvedPattern>, ResolvedDataType)>,
-        new_body: Idx<UnresolvedExpression>,
+        new_body: UnresolvedExpressionId,
     ) {
         let ValueDeclaration {
             kind: ValueDeclarationKind::Function(declaration),

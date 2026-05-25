@@ -6,9 +6,9 @@ use kelp_core::high::environment::resolved::ResolvedEnvironment;
 use kelp_core::high::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::high::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::low::program::Program as MiddleProgram;
-use kelp_parser::cst::CSTRoot;
+use kelp_parser::cst::CSTProgram;
 use kelp_parser::parser::{ParseResult, Parser};
-use kelp_parser::root::lower_root;
+use kelp_parser::program::lower_program;
 use serde::Deserialize;
 use std::fs::{self};
 use std::path::{Path, PathBuf};
@@ -247,7 +247,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     #[cfg(debug_assertions)]
     println!("{:#?}", root);
 
-    let root = CSTRoot::cast(root).unwrap();
+    let root = CSTProgram::cast(root).unwrap();
 
     let error_input_text = format!("{} ", main_kelp);
 
@@ -270,7 +270,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let mut semantic_analysis_context = SemanticAnalysisContext::new(&kelp_toml.project.id, 10);
 
     let lower_start = Instant::now();
-    let program = lower_root(&root, &mut semantic_analysis_context);
+    let program = lower_program(&root, &mut semantic_analysis_context);
     let lower_elapsed = lower_start.elapsed();
 
     let start_semantic = Instant::now();

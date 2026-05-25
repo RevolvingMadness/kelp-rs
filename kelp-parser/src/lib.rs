@@ -11,7 +11,7 @@ pub mod path;
 pub mod pattern;
 pub mod player_score;
 pub mod resource_location;
-pub mod root;
+pub mod program;
 pub mod semantic_token;
 pub mod span;
 pub mod statement;

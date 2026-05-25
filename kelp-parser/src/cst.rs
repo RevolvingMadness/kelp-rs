@@ -1,6 +1,6 @@
 include!(concat!(env!("OUT_DIR"), "/cst.rs"));
 
-impl CSTRoot {
+impl CSTProgram {
     pub fn cast(node: SyntaxNode) -> Result<Self, SyntaxNode> {
         if Self::can_cast(node.kind()) {
             Ok(Self { syntax: node })

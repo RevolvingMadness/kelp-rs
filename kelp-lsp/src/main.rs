@@ -1,7 +1,7 @@
 use kelp_core::high::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfoKind};
-use kelp_parser::cst::CSTRoot;
+use kelp_parser::cst::CSTProgram;
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
-use kelp_parser::root::lower_root;
+use kelp_parser::program::lower_program;
 use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
 use kelp_parser::syntax::SyntaxNode;
 use rowan::GreenNode;
@@ -142,12 +142,12 @@ impl Backend {
                 });
             }
 
-            let root_syntax = match CSTRoot::cast(root) {
-                Ok(cst_root) => {
+            let root_syntax = match CSTProgram::cast(root) {
+                Ok(cst_program) => {
                     let mut semantic_analysis_context =
                         SemanticAnalysisContext::new("mod", usize::MAX);
 
-                    let program = lower_root(&cst_root, &mut semantic_analysis_context);
+                    let program = lower_program(&cst_program, &mut semantic_analysis_context);
 
                     program.perform_semantic_analysis(&mut semantic_analysis_context);
 
@@ -170,7 +170,7 @@ impl Backend {
                         });
                     }
 
-                    cst_root.syntax()
+                    cst_program.syntax()
                 }
                 Err(syntax_node) => syntax_node,
             };

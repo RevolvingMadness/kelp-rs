@@ -2,7 +2,7 @@ use kelp_core::span::Span;
 use rowan::GreenNodeBuilder;
 
 use crate::{
-    root::parse_root,
+    program::parse_program,
     syntax::{SyntaxKind, SyntaxNode},
 };
 
@@ -484,7 +484,7 @@ impl Parser<'_> {
     }
 
     pub fn parse(&mut self) -> ParseResult {
-        parse_root(self);
+        parse_program(self);
 
         let (green_node, errors) = self.build_tree();
 

@@ -3,7 +3,7 @@ use rowan::Language;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u16)]
 pub enum SyntaxKind {
-    Root,
+    Program,
 
     Identifier,
     TypeName,

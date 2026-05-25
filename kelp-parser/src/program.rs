@@ -1,14 +1,14 @@
 use kelp_core::high::{program::Program, semantic_analysis::SemanticAnalysisContext};
 
 use crate::{
-    cst::CSTRoot,
+    cst::CSTProgram,
     item::{expect_item, lower_item},
     parser::Parser,
     syntax::SyntaxKind,
 };
 
-pub fn parse_root(parser: &mut Parser) {
-    parser.start_node(SyntaxKind::Root);
+pub fn parse_program(parser: &mut Parser) {
+    parser.start_node(SyntaxKind::Program);
 
     loop {
         parser.skip_whitespace();
@@ -24,8 +24,8 @@ pub fn parse_root(parser: &mut Parser) {
 }
 
 #[must_use]
-pub fn lower_root(root: &CSTRoot, ctx: &mut SemanticAnalysisContext) -> Program {
-    let items = root
+pub fn lower_program(program: &CSTProgram, ctx: &mut SemanticAnalysisContext) -> Program {
+    let items = program
         .items()
         .filter_map(|item| lower_item(item, ctx))
         .collect();

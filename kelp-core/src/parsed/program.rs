@@ -58,23 +58,24 @@ pub struct Program {
 
 impl Program {
     pub fn perform_semantic_analysis(
-        mut self,
+        self,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<SemanticProgram> {
-        for item in &mut self.items {
-            item.resolve_names(ctx);
-        }
+        let mut items = self
+            .items
+            .into_iter()
+            .map(|item| item.resolve_names(ctx))
+            .collect_option_all::<Vec<_>>()?;
 
-        for item in &mut self.items {
+        for item in &mut items {
             item.resolve_imports(ctx);
         }
 
-        for item in &mut self.items {
+        for item in &mut items {
             item.resolve_types(ctx);
         }
 
-        let items = self
-            .items
+        let items = items
             .into_iter()
             .map(|item| item.perform_semantic_analysis(ctx))
             .collect_option_all()?;

@@ -12,7 +12,7 @@ use crate::semantic::environment::{
         },
     },
     value::{
-        HighValueId, SemanticValueDeclarationKind, SemanticValueDeclaration,
+        HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration},

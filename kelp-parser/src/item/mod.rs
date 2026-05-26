@@ -178,9 +178,6 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedIt
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
                 field_types: field_types.unwrap_or_default(),
-
-                id: None,
-                generic_ids: None,
             })
         }
         CSTItemKind::TupleStructDeclarationItem(node) => {
@@ -197,9 +194,6 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedIt
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
                 field_types: field_types.unwrap_or_default(),
-
-                id: None,
-                generic_ids: None,
             })
         }
         CSTItemKind::TypeAliasDeclarationItem(node) => lower_type_alias_declaration_item(node),

@@ -90,8 +90,5 @@ pub fn lower_type_alias_declaration_item(
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),
         alias,
-
-        id: None,
-        generic_ids: None,
     })
 }

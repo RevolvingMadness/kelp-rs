@@ -33,38 +33,40 @@ pub struct ParsedBlockExpression {
 impl ParsedBlockExpression {
     #[must_use]
     pub fn perform_semantic_analysis(
-        mut self,
+        self,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<(Span, Option<Span>, SemanticExpression)> {
         ctx.enter_scope();
 
-        for statement in &mut self.info.statements {
-            let ParsedStatementKind::Item(item) = &mut statement.kind else {
-                continue;
-            };
+        let mut items = Vec::new();
+        let mut statements = Vec::new();
 
-            item.resolve_names(ctx);
+        for statement in self.info.statements {
+            match statement.kind {
+                ParsedStatementKind::Item(item) => items.push(*item),
+                _ => statements.push(statement),
+            }
         }
 
-        for statement in &mut self.info.statements {
-            let ParsedStatementKind::Item(item) = &mut statement.kind else {
-                continue;
-            };
+        let Some(mut items) = items
+            .into_iter()
+            .map(|item| item.resolve_names(ctx))
+            .collect_option_all::<Vec<_>>()
+        else {
+            ctx.exit_scope();
 
+            return None;
+        };
+
+        for item in &mut items {
             item.resolve_imports(ctx);
         }
 
-        for statement in &mut self.info.statements {
-            let ParsedStatementKind::Item(item) = &mut statement.kind else {
-                continue;
-            };
-
+        for item in &mut items {
             item.resolve_types(ctx);
         }
 
-        let body = self
-            .info
-            .statements
+        let body = statements
             .into_iter()
             .map(|statement| statement.perform_semantic_analysis(ctx))
             .collect_option_all::<Vec<_>>();

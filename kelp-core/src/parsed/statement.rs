@@ -99,10 +99,8 @@ impl ParsedStatement {
 
                 SemanticStatement::Continue
             }
-            ParsedStatementKind::Item(item) => {
-                let item = item.perform_semantic_analysis(ctx)?;
-
-                SemanticStatement::Item(item)
+            ParsedStatementKind::Item(..) => {
+                unreachable!();
             }
         })
     }

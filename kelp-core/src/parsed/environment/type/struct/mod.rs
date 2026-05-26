@@ -31,8 +31,17 @@ impl ParsedStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Struct(declaration) => &declaration.name,
-            Self::Tuple(declaration) => &declaration.name,
+            Self::Struct(declaration) => declaration.name(),
+            Self::Tuple(declaration) => declaration.name(),
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn generic_count(&self) -> usize {
+        match self {
+            Self::Struct(declaration) => declaration.generic_count(),
+            Self::Tuple(declaration) => declaration.generic_count(),
         }
     }
 

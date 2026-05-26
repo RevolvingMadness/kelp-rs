@@ -1,5 +1,5 @@
-use crate::semantic::environment::r#type::alias::SemanticTypeAliasDeclaration;
 use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::alias::SemanticTypeAliasDeclaration;
 
 #[derive(Debug, Clone)]
 pub struct ParsedTypeAliasDeclaration {

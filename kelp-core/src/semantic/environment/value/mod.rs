@@ -1,10 +1,7 @@
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::value::{
-    function::{
-        HighFunctionId, SemanticFunctionDeclaration, builtin::HighBuiltinFunctionId,
-        regular::HighRegularFunctionId,
-    },
-    variable::{HighVariableId, SemanticVariableDeclaration},
+    function::{HighFunctionId, SemanticFunctionDeclaration, regular::HighRegularFunctionId},
+    variable::SemanticVariableDeclaration,
 };
 use crate::{
     parsed::semantic_analysis::SemanticAnalysisContext, span::Span, visibility::Visibility,
@@ -15,30 +12,6 @@ pub mod variable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighValueId(pub u32);
-
-impl From<HighVariableId> for HighValueId {
-    fn from(value: HighVariableId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighFunctionId> for HighValueId {
-    fn from(value: HighFunctionId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighRegularFunctionId> for HighValueId {
-    fn from(value: HighRegularFunctionId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighBuiltinFunctionId> for HighValueId {
-    fn from(value: HighBuiltinFunctionId) -> Self {
-        Self(value.0)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum SemanticValueDeclarationKind {

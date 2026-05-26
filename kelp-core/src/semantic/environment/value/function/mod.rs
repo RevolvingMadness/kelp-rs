@@ -2,6 +2,7 @@ pub mod builtin;
 pub mod regular;
 
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::value::function::{
     builtin::SemanticBuiltinFunctionDeclaration, regular::SemanticRegularFunctionDeclaration,
 };
@@ -12,6 +13,12 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighFunctionId(pub u32);
+
+impl From<HighFunctionId> for HighValueId {
+    fn from(value: HighFunctionId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum SemanticFunctionDeclaration {

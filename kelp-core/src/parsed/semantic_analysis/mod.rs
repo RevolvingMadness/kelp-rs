@@ -11,13 +11,13 @@ use crate::parsed::environment::value::{
     ParsedValueDeclaration, ParsedValueDeclarationKind, variable::ParsedVariableDeclaration,
 };
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
         HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
         alias::SemanticTypeAliasDeclaration,
         builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
-        module::SemanticModuleDeclaration,
         r#struct::{
             SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
             tuple::SemanticTupleStructDeclaration,
@@ -193,10 +193,10 @@ impl SemanticAnalysisContext {
         scope.into_module_declaration(name)
     }
 
-    pub fn exit_module_and_declare(&mut self, visibility: Visibility) -> HighTypeId {
+    pub fn exit_module_and_declare(&mut self, visibility: Visibility) -> HighModuleId {
         let module = self.exit_module();
 
-        self.declare_module(visibility, module)
+        self.declare_parsed_module(visibility, module)
     }
 
     #[must_use]
@@ -412,21 +412,15 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_module(
+    pub fn declare_parsed_module(
         &mut self,
         visibility: Visibility,
         declaration: ParsedModuleDeclaration,
-    ) -> HighTypeId {
-        self.declare_parsed_type(visibility, ParsedTypeDeclarationKind::Module(declaration))
-    }
+    ) -> HighModuleId {
+        let id =
+            self.declare_parsed_type(visibility, ParsedTypeDeclarationKind::Module(declaration));
 
-    #[inline]
-    pub fn declare_module_auto(
-        &mut self,
-        visibility: Visibility,
-        declaration: SemanticModuleDeclaration,
-    ) {
-        self.declare_type(visibility, SemanticTypeDeclarationKind::Module(declaration));
+        HighModuleId(id.0)
     }
 
     #[inline]
@@ -436,7 +430,7 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         declaration: SemanticTypeAliasDeclaration,
     ) {
-        self.declare_semantic_type(
+        self.set_semantic_type(
             id,
             visibility,
             SemanticTypeDeclarationKind::Alias(declaration),
@@ -444,12 +438,13 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_generic(&mut self, id: HighGenericId, visibility: Visibility, name: String) {
-        self.declare_semantic_type(
-            id.into(),
-            visibility,
-            SemanticTypeDeclarationKind::Generic(name),
-        );
+    pub fn set_semantic_generic(
+        &mut self,
+        id: HighGenericId,
+        visibility: Visibility,
+        name: String,
+    ) {
+        self.set_semantic_type(id, visibility, SemanticTypeDeclarationKind::Generic(name));
     }
 
     pub fn declare_builtin_type(&mut self, data_type: SemanticBuiltinTypeDeclaration) {
@@ -505,18 +500,20 @@ impl SemanticAnalysisContext {
     ) -> HighTypeId {
         let id = self.declare_parsed_type(visibility, declaration.clone().into());
 
-        self.declare_semantic_type(id, visibility, declaration);
+        self.set_semantic_type(id, visibility, declaration);
 
         id
     }
 
     #[inline]
-    pub fn declare_semantic_type(
+    pub fn set_semantic_type<I: Into<HighTypeId>>(
         &mut self,
-        id: HighTypeId,
+        id: I,
         visibility: Visibility,
         declaration: SemanticTypeDeclarationKind,
     ) {
+        let id = id.into();
+
         let name = declaration.name().to_owned();
 
         self.semantic_environment.declare_type(

@@ -1,18 +1,22 @@
 use strum::EnumIter;
 
-use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
-};
 use crate::low::expression::Expression;
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::{r#struct::tuple::HighTupleStructId, HighGenericId};
+use crate::semantic::environment::r#type::{HighGenericId, r#struct::tuple::HighTupleStructId};
+use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::value::function::HighFunctionId;
+use crate::{compile_context::CompileContext, datapack::Datapack};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighBuiltinFunctionId(pub u32);
 
 impl From<HighBuiltinFunctionId> for HighFunctionId {
+    fn from(value: HighBuiltinFunctionId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighBuiltinFunctionId> for HighValueId {
     fn from(value: HighBuiltinFunctionId) -> Self {
         Self(value.0)
     }

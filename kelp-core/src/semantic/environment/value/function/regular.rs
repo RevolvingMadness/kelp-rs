@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::{r#type::HighGenericId, value::function::HighFunctionId};
 use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,
@@ -12,6 +13,12 @@ use crate::{
 pub struct HighRegularFunctionId(pub u32);
 
 impl From<HighRegularFunctionId> for HighFunctionId {
+    fn from(value: HighRegularFunctionId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighRegularFunctionId> for HighValueId {
     fn from(value: HighRegularFunctionId) -> Self {
         Self(value.0)
     }

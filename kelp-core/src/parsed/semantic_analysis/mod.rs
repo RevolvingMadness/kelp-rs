@@ -660,7 +660,18 @@ impl SemanticAnalysisContext {
     #[must_use]
     pub fn get_visible_type_id<T>(&mut self, path: &GenericPath<T>) -> Option<HighTypeId> {
         if path.segments.len() == 1 {
-            return self.get_type_id(&path.segments[0].name);
+            let segment = &path.segments[0];
+
+            let id = self.get_type_id(&segment.name);
+
+            if id.is_none() {
+                return self.add_error(
+                    segment.name_span,
+                    SemanticAnalysisError::UnknownType(segment.name.clone()),
+                );
+            }
+
+            return id;
         }
 
         let (type_id, last_segment) = self.resolve_type_path(path)?;

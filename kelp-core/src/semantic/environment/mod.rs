@@ -12,7 +12,7 @@ use crate::semantic::environment::{
         },
     },
     value::{
-        HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+        HighValueId, SemanticValueDeclarationKind, SemanticValueDeclaration,
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration},
@@ -30,7 +30,7 @@ pub mod value;
 #[derive(Debug, Clone, Default)]
 pub struct SemanticEnvironment {
     types: HashMap<HighTypeId, SemanticTypeDeclaration>,
-    values: HashMap<HighValueId, ResolvedValueDeclaration>,
+    values: HashMap<HighValueId, SemanticValueDeclaration>,
 
     pub impls: HashMap<HighTypeId, Vec<SemanticImplementation>>,
 }
@@ -42,11 +42,11 @@ impl SemanticEnvironment {
     }
 
     #[inline]
-    pub fn declare_value(&mut self, id: HighValueId, declaration: ResolvedValueDeclaration) {
+    pub fn declare_value(&mut self, id: HighValueId, declaration: SemanticValueDeclaration) {
         self.values.insert(id, declaration);
     }
 
-    pub fn update_value(&mut self, id: HighValueId, f: impl FnOnce(&mut ResolvedValueDeclaration)) {
+    pub fn update_value(&mut self, id: HighValueId, f: impl FnOnce(&mut SemanticValueDeclaration)) {
         let declaration = self.values.get_mut(&id).unwrap();
 
         f(declaration);
@@ -58,8 +58,8 @@ impl SemanticEnvironment {
         f: impl FnOnce(&mut SemanticRegularFunctionDeclaration),
     ) {
         self.update_value(id.into(), |declaration| {
-            let ResolvedValueDeclaration {
-                kind: ResolvedValueDeclarationKind::Function(declaration),
+            let SemanticValueDeclaration {
+                kind: SemanticValueDeclarationKind::Function(declaration),
                 ..
             } = declaration
             else {
@@ -84,10 +84,10 @@ impl SemanticEnvironment {
     ) {
         self.declare_value(
             id.into(),
-            ResolvedValueDeclaration {
+            SemanticValueDeclaration {
                 visibility,
                 module_path,
-                kind: ResolvedValueDeclarationKind::Variable(SemanticVariableDeclaration {
+                kind: SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration {
                     name,
                     data_type,
                 }),
@@ -98,7 +98,7 @@ impl SemanticEnvironment {
     #[must_use]
     pub fn declare_function(
         &mut self,
-        declaration: ResolvedValueDeclaration,
+        declaration: SemanticValueDeclaration,
     ) -> HighRegularFunctionId {
         let id = HighRegularFunctionId(self.values.len() as u32);
 
@@ -174,7 +174,7 @@ impl SemanticEnvironment {
 
     #[inline]
     #[must_use]
-    pub fn get_value(&self, id: HighValueId) -> &ResolvedValueDeclaration {
+    pub fn get_value(&self, id: HighValueId) -> &SemanticValueDeclaration {
         self.values.get(&id).unwrap()
     }
 
@@ -183,10 +183,10 @@ impl SemanticEnvironment {
         &self,
         id: HighVariableId,
     ) -> (&[String], Visibility, &SemanticVariableDeclaration) {
-        let ResolvedValueDeclaration {
+        let SemanticValueDeclaration {
             module_path,
             visibility,
-            kind: ResolvedValueDeclarationKind::Variable(declaration),
+            kind: SemanticValueDeclarationKind::Variable(declaration),
         } = self.get_value(id.into())
         else {
             unreachable!();
@@ -200,10 +200,10 @@ impl SemanticEnvironment {
         &self,
         id: HighFunctionId,
     ) -> (&[String], Visibility, &SemanticFunctionDeclaration) {
-        let ResolvedValueDeclaration {
+        let SemanticValueDeclaration {
             module_path,
             visibility,
-            kind: ResolvedValueDeclarationKind::Function(declaration),
+            kind: SemanticValueDeclarationKind::Function(declaration),
         } = self.get_value(id.into())
         else {
             unreachable!();
@@ -246,7 +246,7 @@ impl SemanticEnvironment {
     }
 
     #[must_use]
-    pub fn iter_values(&self) -> Iter<'_, HighValueId, ResolvedValueDeclaration> {
+    pub fn iter_values(&self) -> Iter<'_, HighValueId, SemanticValueDeclaration> {
         self.values.iter()
     }
 }

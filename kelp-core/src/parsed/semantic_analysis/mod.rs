@@ -24,7 +24,7 @@ use crate::semantic::environment::{
         },
     },
     value::{
-        HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+        HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             builtin::{
@@ -328,7 +328,7 @@ impl SemanticAnalysisContext {
         self.declare_semantic_value(
             id,
             visibility,
-            ResolvedValueDeclarationKind::Variable(SemanticVariableDeclaration { name, data_type }),
+            SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration { name, data_type }),
         );
 
         HighVariableId(id.0)
@@ -536,11 +536,11 @@ impl SemanticAnalysisContext {
         &mut self,
         id: HighValueId,
         visibility: Visibility,
-        kind: ResolvedValueDeclarationKind,
+        kind: SemanticValueDeclarationKind,
     ) {
         self.semantic_environment.declare_value(
             id,
-            ResolvedValueDeclaration {
+            SemanticValueDeclaration {
                 visibility,
                 module_path: self.current_module_path.clone(),
                 kind,
@@ -551,7 +551,7 @@ impl SemanticAnalysisContext {
     pub fn declare_value(
         &mut self,
         visibility: Visibility,
-        declaration: ResolvedValueDeclarationKind,
+        declaration: SemanticValueDeclarationKind,
     ) -> HighValueId {
         let id = self.declare_parsed_value(visibility, declaration.clone().into());
 
@@ -574,7 +574,7 @@ impl SemanticAnalysisContext {
         self.declare_semantic_value(
             id,
             visibility,
-            ResolvedValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Regular(
+            SemanticValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Regular(
                 SemanticRegularFunctionDeclaration {
                     name,
                     modifiers,
@@ -595,7 +595,7 @@ impl SemanticAnalysisContext {
     ) -> HighBuiltinFunctionId {
         let id = self.declare_value(
             visibility,
-            ResolvedValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Builtin(
+            SemanticValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Builtin(
                 declaration,
             ))),
         );
@@ -618,14 +618,14 @@ impl SemanticAnalysisContext {
         let mut current_type_id = self.get_type_id(&first_segment.name)?;
 
         for segment in segments {
-            let declaration = self.get_parsed_type(current_type_id);
+            let declaration = self.parsed_environment.get_type(current_type_id);
 
             let id = match declaration.get_visible_type_id(self, current_type_id, &segment.name) {
                 Ok(id) => id,
                 Err(error) => return self.add_error(segment.name_span, error),
             };
 
-            let declaration = self.get_parsed_type(id);
+            let declaration = self.parsed_environment.get_type(id);
 
             if !declaration.is_visible(&self.current_module_path) {
                 self.add_error_unit(
@@ -659,14 +659,14 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.resolve_type_path(path)?;
 
-        let declaration = self.get_parsed_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = match declaration.get_visible_type_id(self, type_id, &last_segment.name) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
 
-        let declaration = self.get_parsed_type(id);
+        let declaration = self.parsed_environment.get_type(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             self.add_error_unit(
@@ -697,7 +697,7 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.resolve_type_path(path)?;
 
-        let declaration = self.get_parsed_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = match declaration.get_visible_value_id(self, type_id, &last_segment.name) {
             Ok(id) => id,
@@ -737,13 +737,13 @@ impl SemanticAnalysisContext {
         };
 
         for segment in segments {
-            let declaration = self.get_parsed_type(current_type_id);
+            let declaration = self.parsed_environment.get_type(current_type_id);
 
             let id = declaration
                 .get_visible_type_id(self, current_type_id, &segment.name)
                 .map_err(|error| (segment.span, error))?;
 
-            let declaration = self.get_parsed_type(id);
+            let declaration = self.parsed_environment.get_type(id);
 
             if !declaration.is_visible(&self.current_module_path) {
                 self.add_error_unit(
@@ -775,13 +775,13 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let declaration = self.get_parsed_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = declaration
             .get_visible_type_id(self, type_id, &last_segment.name)
             .map_err(|error| (last_segment.span, error))?;
 
-        let declaration = self.get_parsed_type(id);
+        let declaration = self.parsed_environment.get_type(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             return Err((
@@ -810,7 +810,7 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let declaration = self.get_parsed_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = declaration
             .get_visible_value_id(self, type_id, &last_segment.name)
@@ -826,30 +826,6 @@ impl SemanticAnalysisContext {
         }
 
         Ok(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_resolved_type(&self, id: HighTypeId) -> &SemanticTypeDeclaration {
-        self.semantic_environment.get_type(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_parsed_type(&self, id: HighTypeId) -> &ParsedTypeDeclaration {
-        self.parsed_environment.get_type(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_resolved_value(&self, id: HighValueId) -> &ResolvedValueDeclaration {
-        self.semantic_environment.get_value(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_parsed_value(&self, id: HighValueId) -> &ParsedValueDeclaration {
-        self.parsed_environment.get_value(id)
     }
 
     #[must_use]

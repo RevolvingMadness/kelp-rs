@@ -3,11 +3,8 @@ use std::{
     fmt::{Display, Write},
 };
 
-use crate::{
-    parsed::semantic_analysis::SemanticAnalysisContext,
-    path::generic::GenericPath,
-};
 use crate::semantic::data_type::SemanticDataType;
+use crate::{parsed::semantic_analysis::SemanticAnalysisContext, path::generic::GenericPath};
 
 #[derive(Debug, Clone)]
 pub enum ParsedDataType {
@@ -70,10 +67,7 @@ impl Display for ParsedDataType {
 
 impl ParsedDataType {
     #[must_use]
-    pub fn perform_semantic_analysis(
-        self,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> SemanticDataType {
+    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> SemanticDataType {
         match self {
             Self::Named(path) => {
                 let mut path = path.perform_semantic_analysis(ctx);
@@ -84,7 +78,7 @@ impl ParsedDataType {
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let declaration = ctx.get_resolved_type(id).clone();
+                let declaration = ctx.semantic_environment.get_type(id).clone();
 
                 declaration.resolve_partially(
                     ctx,

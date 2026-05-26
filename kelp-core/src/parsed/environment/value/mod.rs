@@ -1,8 +1,8 @@
-use crate::visibility::Visibility;
 use crate::parsed::environment::value::{
     function::ParsedFunctionDeclaration, variable::ParsedVariableDeclaration,
 };
-use crate::semantic::environment::value::ResolvedValueDeclarationKind;
+use crate::semantic::environment::value::SemanticValueDeclarationKind;
+use crate::visibility::Visibility;
 
 pub mod function;
 pub mod variable;
@@ -13,13 +13,13 @@ pub enum ParsedValueDeclarationKind {
     Function(Box<ParsedFunctionDeclaration>),
 }
 
-impl From<ResolvedValueDeclarationKind> for ParsedValueDeclarationKind {
-    fn from(value: ResolvedValueDeclarationKind) -> Self {
+impl From<SemanticValueDeclarationKind> for ParsedValueDeclarationKind {
+    fn from(value: SemanticValueDeclarationKind) -> Self {
         match value {
-            ResolvedValueDeclarationKind::Variable(declaration) => {
+            SemanticValueDeclarationKind::Variable(declaration) => {
                 Self::Variable(declaration.into())
             }
-            ResolvedValueDeclarationKind::Function(declaration) => {
+            SemanticValueDeclarationKind::Function(declaration) => {
                 Self::Function(Box::new((*declaration).into()))
             }
         }

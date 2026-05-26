@@ -288,7 +288,7 @@ impl ParsedItem {
                     let ParsedTypeDeclaration {
                         kind: ParsedTypeDeclarationKind::Module(module),
                         ..
-                    } = ctx.get_parsed_type(id).clone()
+                    } = ctx.parsed_environment.get_type(id).clone()
                     else {
                         let last_segment = path.segments.pop().unwrap();
 

@@ -24,7 +24,7 @@ use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
 use crate::semantic::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
 use crate::semantic::environment::value::variable::HighVariableId;
 use crate::semantic::environment::value::{
-    HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+    HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
 };
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
@@ -245,7 +245,7 @@ impl Datapack {
 
     #[inline]
     pub fn declare_value(&mut self, id: HighVariableId, data_type: DataType, value: Expression) {
-        let ResolvedValueDeclaration {
+        let SemanticValueDeclaration {
             module_path,
             visibility,
             kind: declaration,
@@ -685,12 +685,12 @@ impl Datapack {
     ) -> Option<ValueId> {
         let id = id.into();
 
-        let ResolvedValueDeclaration {
+        let SemanticValueDeclaration {
             kind: declaration, ..
         } = self.resolved_environment.get_value(id);
 
         match declaration {
-            ResolvedValueDeclarationKind::Variable(..) => {
+            SemanticValueDeclarationKind::Variable(..) => {
                 assert!(generic_types.is_empty());
 
                 let id = HighVariableId(id.0);
@@ -699,7 +699,7 @@ impl Datapack {
 
                 Some(id.into())
             }
-            ResolvedValueDeclarationKind::Function(..) => {
+            SemanticValueDeclarationKind::Function(..) => {
                 let id = HighFunctionId(id.0);
 
                 let id = self.get_monomorphized_function_id(id, generic_types);

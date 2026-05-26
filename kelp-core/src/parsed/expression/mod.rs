@@ -234,7 +234,7 @@ impl ParsedExpression {
 
                 let id = ctx.get_visible_value_id(&path)?;
 
-                let value_declaration = ctx.get_resolved_value(id).clone();
+                let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 
@@ -995,7 +995,7 @@ impl ParsedExpression {
 
                 let id = ctx.get_visible_value_id(&path)?;
 
-                let value_declaration = ctx.get_resolved_value(id).clone();
+                let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 

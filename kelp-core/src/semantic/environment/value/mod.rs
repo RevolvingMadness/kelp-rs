@@ -41,12 +41,12 @@ impl From<HighBuiltinFunctionId> for HighValueId {
 }
 
 #[derive(Debug, Clone)]
-pub enum ResolvedValueDeclarationKind {
+pub enum SemanticValueDeclarationKind {
     Variable(SemanticVariableDeclaration),
     Function(Box<SemanticFunctionDeclaration>),
 }
 
-impl ResolvedValueDeclarationKind {
+impl SemanticValueDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -57,13 +57,13 @@ impl ResolvedValueDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct ResolvedValueDeclaration {
+pub struct SemanticValueDeclaration {
     pub visibility: Visibility,
     pub module_path: Vec<String>,
-    pub kind: ResolvedValueDeclarationKind,
+    pub kind: SemanticValueDeclarationKind,
 }
 
-impl ResolvedValueDeclaration {
+impl SemanticValueDeclaration {
     pub fn resolve_fully(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -72,7 +72,7 @@ impl ResolvedValueDeclaration {
         path_span: Span,
     ) -> Option<(HighValueId, SemanticDataType)> {
         match self.kind {
-            ResolvedValueDeclarationKind::Variable(declaration) => {
+            SemanticValueDeclarationKind::Variable(declaration) => {
                 let expected_generics = 0;
                 let actual_generics = generic_types.len();
 
@@ -92,7 +92,7 @@ impl ResolvedValueDeclaration {
 
                 Some((original_id, declaration.data_type))
             }
-            ResolvedValueDeclarationKind::Function(declaration) => {
+            SemanticValueDeclarationKind::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
                 let expected_generics = declaration.generic_count();
@@ -122,8 +122,8 @@ impl ResolvedValueDeclaration {
         generic_types: &[SemanticDataType],
     ) -> SemanticDataType {
         match &self.kind {
-            ResolvedValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
-            ResolvedValueDeclarationKind::Function(..) => {
+            SemanticValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
+            SemanticValueDeclarationKind::Function(..) => {
                 SemanticDataType::Function(HighFunctionId(id.0), generic_types.to_vec())
             }
         }

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::semantic::environment::{
     SemanticEnvironment,
     value::{
-        ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+        SemanticValueDeclaration, SemanticValueDeclarationKind,
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             regular::SemanticRegularFunctionDeclaration,
@@ -84,8 +84,8 @@ impl Program {
         for (callee_id, value) in ctx.semantic_environment.iter_values() {
             let callee_id = HighFunctionId(callee_id.0);
 
-            let ResolvedValueDeclaration {
-                kind: ResolvedValueDeclarationKind::Function(declaration),
+            let SemanticValueDeclaration {
+                kind: SemanticValueDeclarationKind::Function(declaration),
                 ..
             } = value
             else {

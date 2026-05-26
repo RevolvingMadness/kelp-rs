@@ -3,29 +3,29 @@ use std::{
     fmt::{Display, Write},
 };
 
+use crate::low::data_type::DataType;
 use crate::low::environment::{
-    r#type::r#struct::{RegularStructId, StructId, TupleStructId},
     Environment,
+    r#type::r#struct::{RegularStructId, StructId, TupleStructId},
 };
 use crate::semantic::environment::{
+    SemanticEnvironment,
     r#type::{
-        r#struct::{
-            regular::HighRegularStructId, tuple::HighTupleStructId, HighStructId,
-            SemanticStructDeclaration,
-        },
         HighGenericId,
+        r#struct::{
+            HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
+            tuple::HighTupleStructId,
+        },
     },
     value::function::{HighFunctionId, SemanticFunctionDeclaration},
-    SemanticEnvironment,
 };
 use crate::{
     datapack::Datapack,
     operator::{ArithmeticOperator, ComparisonOperator},
-    parsed::semantic_analysis::{info::error::SemanticAnalysisError, SemanticAnalysisContext},
+    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     span::Span,
     visibility::Visibility,
 };
-use crate::low::data_type::DataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum WrapperType {
@@ -1399,7 +1399,7 @@ impl SemanticDataType {
             );
         }
 
-        match self.get_field_result(&ctx.resolved_environment, field) {
+        match self.get_field_result(&ctx.semantic_environment, field) {
             Some(result) => Some(result),
             None => ctx.add_error(
                 span,
@@ -1605,7 +1605,7 @@ impl SemanticDataType {
         ctx: &mut SemanticAnalysisContext,
         span: Span,
     ) -> Option<()> {
-        if self.get_data_type(&ctx.resolved_environment).is_some() {
+        if self.get_data_type(&ctx.semantic_environment).is_some() {
             return Some(());
         }
 

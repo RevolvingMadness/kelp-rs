@@ -2,9 +2,9 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
-use kelp_core::semantic::environment::SemanticEnvironment;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
+use kelp_core::semantic::environment::SemanticEnvironment;
 use kelp_core::semantic::program::Program as MiddleProgram;
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
@@ -172,7 +172,7 @@ fn display_semantic_analysis_infos(
                 Report::build(ReportKind::Error, span.clone())
                     .with_label(
                         Label::new(span)
-                            .with_message(error.display(&ctx.resolved_environment))
+                            .with_message(error.display(&ctx.semantic_environment))
                             .with_color(Color::Red),
                     )
                     .finish()
@@ -345,7 +345,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     if lower_succeeded && semantic_analysis_succeeded && parse_succeeded {
         process_success(
-            semantic_analysis_context.resolved_environment,
+            semantic_analysis_context.semantic_environment,
             program,
             &main_kelp_path,
             &main_kelp,

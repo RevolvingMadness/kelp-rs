@@ -1,23 +1,12 @@
 use std::{collections::BTreeMap, fmt::Write};
 
-use minecraft_command_types::{
-    command::{
-        data::{DataCommandModification, DataTarget}, enums::score_operation_operator::ScoreOperationOperator,
-        execute::{ExecuteIfSubcommand, ScoreComparison, ScoreComparisonOperator},
-        r#return::ReturnCommand,
-        Command,
-        ScoreValue,
-    },
-    coordinate::Coordinates,
-    entity_selector::EntitySelector,
-    macroable::Macroable,
-    nbt_path::{NbtPathNode, SNBTCompound},
-    range::IntegerRange,
-    resource_location::ResourceLocation,
-    snbt::{SNBTString, SNBT},
+use crate::low::data_type::{DataType, FieldAccessType};
+use crate::low::environment::{
+    Environment,
+    r#type::r#struct::{RegularStructId, TupleStructId},
+    value::function::{FunctionDeclaration, FunctionId},
 };
-use ordered_float::NotNan;
-use place::PlaceExpression;
+use crate::semantic::environment::r#type::HighGenericId;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedData,
@@ -29,18 +18,26 @@ use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,
     player_score::GeneratedPlayerScore,
     runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
-    semantic::{
-        expression::unresolved::SemanticExpression,
-        pattern::SemanticPattern,
+    semantic::{expression::SemanticExpression, pattern::SemanticPattern},
+};
+use minecraft_command_types::{
+    command::{
+        Command, ScoreValue,
+        data::{DataCommandModification, DataTarget},
+        enums::score_operation_operator::ScoreOperationOperator,
+        execute::{ExecuteIfSubcommand, ScoreComparison, ScoreComparisonOperator},
+        r#return::ReturnCommand,
     },
+    coordinate::Coordinates,
+    entity_selector::EntitySelector,
+    macroable::Macroable,
+    nbt_path::{NbtPathNode, SNBTCompound},
+    range::IntegerRange,
+    resource_location::ResourceLocation,
+    snbt::{SNBT, SNBTString},
 };
-use crate::low::environment::{
-    r#type::r#struct::{RegularStructId, TupleStructId},
-    value::function::{FunctionDeclaration, FunctionId},
-    Environment,
-};
-use crate::low::data_type::{DataType, FieldAccessType};
-use crate::semantic::environment::r#type::HighGenericId;
+use ordered_float::NotNan;
+use place::PlaceExpression;
 
 pub mod place;
 
@@ -69,9 +66,7 @@ pub fn compile_shift_operation(
 }
 
 #[must_use]
-pub fn split_constants_list(
-    list: Vec<Expression>,
-) -> (Vec<SNBT>, Vec<(usize, Expression)>) {
+pub fn split_constants_list(list: Vec<Expression>) -> (Vec<SNBT>, Vec<(usize, Expression)>) {
     let mut constants = Vec::new();
     let mut non_constants = Vec::new();
 
@@ -1442,41 +1437,41 @@ impl Expression {
                 ComparisonOperator::NotEqualTo => left != right,
             }),
             (left_kind @ Self::Data(..), right_kind)
-            if operator == ComparisonOperator::EqualTo
-                || operator == ComparisonOperator::NotEqualTo =>
-                {
-                    let unique_score = datapack.get_unique_score();
+                if operator == ComparisonOperator::EqualTo
+                    || operator == ComparisonOperator::NotEqualTo =>
+            {
+                let unique_score = datapack.get_unique_score();
 
-                    let unique_data = datapack.get_unique_data();
+                let unique_data = datapack.get_unique_data();
 
-                    left_kind.assign_to_data(datapack, ctx, unique_data.clone());
+                left_kind.assign_to_data(datapack, ctx, unique_data.clone());
 
-                    let data_command_modification =
-                        right_kind.as_data_command_modification(datapack, ctx);
+                let data_command_modification =
+                    right_kind.as_data_command_modification(datapack, ctx);
 
+                ctx.add_command(
+                    datapack,
+                    unique_data
+                        .set(data_command_modification)
+                        .run()
+                        .store_success_score(unique_score.score.clone()),
+                );
+
+                if operator == ComparisonOperator::EqualTo {
                     ctx.add_command(
                         datapack,
-                        unique_data
-                            .set(data_command_modification)
-                            .run()
-                            .store_success_score(unique_score.score.clone()),
+                        ExecuteIfSubcommand::Score(
+                            unique_score.score.clone(),
+                            ScoreComparison::Range(IntegerRange::new_single(0)),
+                            None,
+                        )
+                        .into_subcommand(operator.should_execute_if_be_inverted())
+                        .store_result_score(unique_score.score.clone()),
                     );
-
-                    if operator == ComparisonOperator::EqualTo {
-                        ctx.add_command(
-                            datapack,
-                            ExecuteIfSubcommand::Score(
-                                unique_score.score.clone(),
-                                ScoreComparison::Range(IntegerRange::new_single(0)),
-                                None,
-                            )
-                                .into_subcommand(operator.should_execute_if_be_inverted())
-                                .store_result_score(unique_score.score.clone()),
-                        );
-                    }
-
-                    Self::Score(unique_score)
                 }
+
+                Self::Score(unique_score)
+            }
             (self_ @ Self::Data(..), other) | (other, self_ @ Self::Data(..)) => {
                 let score = self_.as_score(datapack, ctx, false);
 
@@ -1494,8 +1489,8 @@ impl Expression {
                         ),
                         None,
                     )
-                        .into_subcommand(operator.should_execute_if_be_inverted())
-                        .store_result_score(result_score.score.clone()),
+                    .into_subcommand(operator.should_execute_if_be_inverted())
+                    .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -1514,8 +1509,8 @@ impl Expression {
                             )),
                             None,
                         )
-                            .into_subcommand(operator.should_execute_if_be_inverted())
-                            .store_result_score(result_score.score.clone()),
+                        .into_subcommand(operator.should_execute_if_be_inverted())
+                        .store_result_score(result_score.score.clone()),
                     );
 
                     return Self::Score(result_score);
@@ -1535,8 +1530,8 @@ impl Expression {
                         ),
                         None,
                     )
-                        .into_subcommand(operator.should_execute_if_be_inverted())
-                        .store_result_score(result_score.score.clone()),
+                    .into_subcommand(operator.should_execute_if_be_inverted())
+                    .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -1556,8 +1551,8 @@ impl Expression {
                         ),
                         None,
                     )
-                        .into_subcommand(operator.should_execute_if_be_inverted())
-                        .store_result_score(result_score.score.clone()),
+                    .into_subcommand(operator.should_execute_if_be_inverted())
+                    .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -2229,8 +2224,8 @@ impl Expression {
                         ),
                         None,
                     )
-                        .run()
-                        .store_success_score(unique_score.score.clone()),
+                    .run()
+                    .store_success_score(unique_score.score.clone()),
                 );
 
                 let mut function_ctx = CompileContext::default();
@@ -2270,7 +2265,7 @@ impl Expression {
             }
         }
     }
-    
+
     #[must_use]
     pub fn set_field(
         mut self,

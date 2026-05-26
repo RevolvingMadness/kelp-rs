@@ -1,15 +1,12 @@
 use std::collections::HashSet;
 
-use crate::{
-    parsed::semantic_analysis::RegularFunctionModifiers,
-    span::Span,
-    semantic::{
-        expression::unresolved::SemanticExpression,
-        pattern::SemanticPattern,
-    },
-};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::{r#type::HighGenericId, value::function::HighFunctionId};
+use crate::{
+    parsed::semantic_analysis::RegularFunctionModifiers,
+    semantic::{expression::SemanticExpression, pattern::SemanticPattern},
+    span::Span,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighRegularFunctionId(pub u32);

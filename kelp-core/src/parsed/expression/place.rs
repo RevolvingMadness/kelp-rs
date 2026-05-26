@@ -1,18 +1,14 @@
-use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
-    parsed::semantic_analysis::SemanticAnalysisContext,
-    semantic::{
-        data::Data,
-        expression::unresolved::SemanticExpression,
-        player_score::PlayerScore,
-    },
-    span::Span,
-};
 use crate::low::environment::value::variable::VariableId;
 use crate::low::expression::place::PlaceExpression;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::value::HighValueId;
+use crate::{
+    compile_context::CompileContext,
+    datapack::Datapack,
+    parsed::semantic_analysis::SemanticAnalysisContext,
+    semantic::{data::Data, expression::SemanticExpression, player_score::PlayerScore},
+    span::Span,
+};
 
 #[derive(Debug, Clone)]
 pub enum ParsedPlaceExpressionKind {
@@ -43,11 +39,7 @@ pub struct ParsedPlaceExpression {
 
 impl ParsedPlaceExpression {
     #[must_use]
-    pub fn resolve(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> PlaceExpression {
+    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> PlaceExpression {
         match self.kind {
             ParsedPlaceExpressionKind::Value(id, generic_types) => {
                 let id = datapack
@@ -112,9 +104,7 @@ impl ParsedPlaceExpression {
             ParsedPlaceExpressionKind::Index(place, _)
             | ParsedPlaceExpressionKind::FieldAccess(place, _)
             | ParsedPlaceExpressionKind::Dereference(place) => match &place.data_type {
-                SemanticDataType::Score(..) => {
-                    value_type.assert_score_compatible(ctx, value_span)
-                }
+                SemanticDataType::Score(..) => value_type.assert_score_compatible(ctx, value_span),
                 SemanticDataType::Data(..) => value_type.assert_data_compatible(ctx, value_span),
                 _ => value_type.assert_equals(ctx, value_span, &self.data_type),
             },

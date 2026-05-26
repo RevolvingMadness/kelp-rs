@@ -9,8 +9,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
-    semantic::expression::unresolved::SemanticExpression,
+    compile_context::CompileContext, datapack::Datapack, semantic::expression::SemanticExpression,
 };
 
 #[derive(Debug, Clone)]
@@ -63,10 +62,7 @@ impl SemanticEntitySelectorOption {
                 LowEntitySelectorOption::Predicate(inverted, predicate)
             }
             Self::Nbt(inverted, expression) => {
-                let expression = expression
-                    .kind
-                    .resolve(datapack, ctx)
-                    .as_snbt_macros( ctx);
+                let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                 LowEntitySelectorOption::Nbt(inverted, expression)
             }

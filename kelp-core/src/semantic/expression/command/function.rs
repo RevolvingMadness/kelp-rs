@@ -7,7 +7,7 @@ use minecraft_command_types::{
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    semantic::{data::DataTarget, expression::unresolved::SemanticExpression, nbt_path::NbtPath},
+    semantic::{data::DataTarget, expression::SemanticExpression, nbt_path::NbtPath},
 };
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ impl FunctionCommandArguments {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros( ctx);
+                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                         (key, value)
                     })

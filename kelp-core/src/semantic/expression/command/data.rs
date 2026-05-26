@@ -7,7 +7,7 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    semantic::{data::DataTarget, expression::unresolved::SemanticExpression, nbt_path::NbtPath},
+    semantic::{data::DataTarget, expression::SemanticExpression, nbt_path::NbtPath},
 };
 
 #[derive(Debug, Clone)]
@@ -39,7 +39,7 @@ impl DataCommandModification {
             Self::Value(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let expression_snbt = expression.as_snbt_macros( ctx);
+                let expression_snbt = expression.as_snbt_macros(ctx);
 
                 LowDataCommandModification::Value(expression_snbt)
             }
@@ -73,7 +73,7 @@ impl DataCommand {
                 let target = target.compile(datapack, ctx);
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                let snbt = expression.as_snbt_macros( ctx);
+                let snbt = expression.as_snbt_macros(ctx);
 
                 LowDataCommand::Merge(target.target, snbt)
             }

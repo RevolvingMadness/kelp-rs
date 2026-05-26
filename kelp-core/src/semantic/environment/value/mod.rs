@@ -1,15 +1,13 @@
-use crate::{
-    parsed::semantic_analysis::SemanticAnalysisContext,
-    span::Span,
-    visibility::Visibility,
-};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::value::{
     function::{
-        builtin::HighBuiltinFunctionId, regular::HighRegularFunctionId, HighFunctionId,
-        SemanticFunctionDeclaration,
+        HighFunctionId, SemanticFunctionDeclaration, builtin::HighBuiltinFunctionId,
+        regular::HighRegularFunctionId,
     },
     variable::{HighVariableId, SemanticVariableDeclaration},
+};
+use crate::{
+    parsed::semantic_analysis::SemanticAnalysisContext, span::Span, visibility::Visibility,
 };
 
 pub mod function;
@@ -81,7 +79,7 @@ impl ResolvedValueDeclaration {
                 if actual_generics != expected_generics {
                     let type_name = &declaration
                         .data_type
-                        .display(&ctx.resolved_environment)
+                        .display(&ctx.semantic_environment)
                         .to_string();
 
                     return ctx.add_invalid_generics(

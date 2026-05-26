@@ -1,6 +1,6 @@
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::expression::unresolved::SemanticExpression;
+use crate::semantic::expression::SemanticExpression;
 use crate::semantic::item::SemanticItem;
 use crate::semantic::pattern::SemanticPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
@@ -11,11 +11,7 @@ use minecraft_command_types::command::r#return::ReturnCommand;
 #[derive(Debug, Clone)]
 pub enum SemanticStatement {
     Expression(SemanticExpression),
-    Let(
-        SemanticDataType,
-        SemanticPattern,
-        Box<SemanticExpression>,
-    ),
+    Let(SemanticDataType, SemanticPattern, Box<SemanticExpression>),
     Append(SemanticExpression, Box<SemanticExpression>),
     Remove(SemanticExpression),
     Item(SemanticItem),

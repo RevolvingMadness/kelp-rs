@@ -89,7 +89,7 @@ impl ParsedTypeDeclaration {
                 declaration.get_type_id_semantic_analysis(name)
             }
             ParsedTypeDeclarationKind::Struct(declaration) => {
-                if let Some(impls) = ctx.resolved_environment.impls.get(&id) {
+                if let Some(impls) = ctx.semantic_environment.impls.get(&id) {
                     for implementation in impls {
                         if let Some(id) = implementation.types.get(name) {
                             return Ok(*id);

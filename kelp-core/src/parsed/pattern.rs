@@ -1,25 +1,22 @@
 use std::collections::HashMap;
 
+use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::r#struct::{
+    HighStructId, regular::HighRegularStructId, tuple::HighTupleStructId,
+};
 use crate::{
     parsed::{
         data::Data,
         data_type::ParsedDataType,
         player_score::PlayerScore,
-        semantic_analysis::{info::error::SemanticAnalysisError, SemanticAnalysisContext},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     path::generic::GenericPath,
     pattern_type::PatternType,
+    semantic::{expression::literal::LiteralExpression, pattern::SemanticPattern},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
-    semantic::{
-        expression::literal::LiteralExpression,
-        pattern::SemanticPattern,
-    },
     visibility::Visibility,
-};
-use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::r#struct::{
-    regular::HighRegularStructId, tuple::HighTupleStructId, HighStructId,
 };
 
 #[derive(Debug, Clone)]
@@ -33,7 +30,10 @@ pub enum ParsedPatternKind {
     Data(Box<Data>),
 
     Tuple(Vec<ParsedPattern>),
-    RegularStruct(GenericPath<ParsedDataType>, HashMap<(Span, String), ParsedPattern>),
+    RegularStruct(
+        GenericPath<ParsedDataType>,
+        HashMap<(Span, String), ParsedPattern>,
+    ),
     TupleStruct(GenericPath<ParsedDataType>, Vec<ParsedPattern>),
 
     Compound(HashMap<(Span, String), ParsedPattern>),
@@ -171,7 +171,7 @@ impl ParsedPattern {
                 let data = data.perform_semantic_analysis(ctx)?;
 
                 if variable_type
-                    .get_data_type(&ctx.resolved_environment)
+                    .get_data_type(&ctx.semantic_environment)
                     .is_none()
                 {
                     return ctx.add_error(
@@ -234,7 +234,10 @@ impl ParsedPattern {
 
                 SemanticPattern::Compound(compound)
             }
-            (ParsedPatternKind::Compound(compound_patterns), SemanticDataType::Compound(data_type)) => {
+            (
+                ParsedPatternKind::Compound(compound_patterns),
+                SemanticDataType::Compound(data_type),
+            ) => {
                 let compound = compound_patterns
                     .into_iter()
                     .map(|((_, key), pattern)| {

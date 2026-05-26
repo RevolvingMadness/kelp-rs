@@ -5,8 +5,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
-    semantic::expression::unresolved::SemanticExpression,
+    compile_context::CompileContext, datapack::Datapack, semantic::expression::SemanticExpression,
 };
 
 #[derive(Debug, Clone)]
@@ -25,10 +24,7 @@ impl BlockState {
                 value
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = value
-                            .kind
-                            .resolve(datapack, ctx)
-                            .as_snbt_macros( ctx);
+                        let value = value.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
                         (key, value)
                     })

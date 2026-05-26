@@ -30,7 +30,7 @@ use crate::{
     runtime_storage::RuntimeStorageType,
     semantic::{
         data::Data,
-        expression::unresolved::{SemanticExpression, SemanticExpressionKind},
+        expression::{SemanticExpression, SemanticExpressionKind},
     },
     span::Span,
     trait_ext::CollectOptionAllIterExt,
@@ -284,8 +284,7 @@ impl ParsedExpression {
                     &index.data_type,
                 )?;
 
-                ParsedPlaceExpressionKind::Index(Box::new(target), Box::new(index))
-                    .with(index_type)
+                ParsedPlaceExpressionKind::Index(Box::new(target), Box::new(index)).with(index_type)
             }
             ParsedExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
                 let (place_span, place) = expression.as_place_semantic_analysis(ctx)?;
@@ -695,7 +694,7 @@ impl ParsedExpression {
                     RuntimeStorageType::Data => {
                         let Some(data_type) = expression
                             .data_type
-                            .get_data_type(&ctx.resolved_environment)
+                            .get_data_type(&ctx.semantic_environment)
                         else {
                             return ctx.add_error(
                                 expression_span,
@@ -812,7 +811,7 @@ impl ParsedExpression {
                     .map(|argument| argument.perform_semantic_analysis(ctx))
                     .collect_option_all::<Vec<_>>()?;
 
-                let Some(call_info) = callee.data_type.get_call_info(&ctx.resolved_environment)?
+                let Some(call_info) = callee.data_type.get_call_info(&ctx.semantic_environment)?
                 else {
                     return ctx
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);

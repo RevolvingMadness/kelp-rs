@@ -1,30 +1,27 @@
 use std::collections::HashMap;
 
-use crate::{
-    semantic::{
-        expression::unresolved::SemanticExpression,
-        pattern::SemanticPattern,
-    },
-    visibility::Visibility,
-};
+use crate::low::data_type::DataType;
 use crate::low::environment::{
     r#type::{
+        TypeDeclaration, TypeDeclarationKind,
         r#struct::{
             RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
             TupleStructDeclaration, TupleStructId,
-        }, TypeDeclaration,
-        TypeDeclarationKind,
+        },
     },
     value::{
+        ValueDeclaration, ValueDeclarationKind, ValueId,
         function::{
-            regular::{RegularFunctionDeclaration, RegularFunctionId}, FunctionDeclaration,
-            FunctionId,
-        }, variable::{VariableDeclaration, VariableId}, ValueDeclaration,
-        ValueDeclarationKind,
-        ValueId,
+            FunctionDeclaration, FunctionId,
+            regular::{RegularFunctionDeclaration, RegularFunctionId},
+        },
+        variable::{VariableDeclaration, VariableId},
     },
 };
-use crate::low::data_type::DataType;
+use crate::{
+    semantic::{expression::SemanticExpression, pattern::SemanticPattern},
+    visibility::Visibility,
+};
 
 pub mod r#type;
 pub mod value;

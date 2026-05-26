@@ -110,7 +110,7 @@ impl ParsedItem {
                     .iter()
                     .cloned()
                     .map(|generic_name| {
-                        let id = ctx.declare_unresolved_type(
+                        let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(generic_name),
                         );
@@ -119,7 +119,7 @@ impl ParsedItem {
                     })
                     .collect::<Vec<_>>();
 
-                ctx.declare_unresolved_type(
+                ctx.declare_parsed_type(
                     Visibility::Public,
                     ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
                         name: "Self".to_owned(),
@@ -185,7 +185,7 @@ impl ParsedItem {
                     .iter()
                     .cloned()
                     .map(|generic_name| {
-                        let id = ctx.declare_unresolved_type(
+                        let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(generic_name),
                         );
@@ -198,7 +198,7 @@ impl ParsedItem {
 
                 ctx.exit_scope();
 
-                let id = ctx.declare_unresolved_type(
+                let id = ctx.declare_parsed_type(
                     self.visibility,
                     ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Struct(
                         ParsedRegularStructDeclaration {
@@ -233,7 +233,7 @@ impl ParsedItem {
                     .iter()
                     .cloned()
                     .map(|generic_name| {
-                        let id = ctx.declare_unresolved_type(
+                        let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(generic_name),
                         );
@@ -246,7 +246,7 @@ impl ParsedItem {
 
                 ctx.exit_scope();
 
-                let id = ctx.declare_unresolved_type(
+                let id = ctx.declare_parsed_type(
                     self.visibility,
                     ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Tuple(
                         ParsedTupleStructDeclaration {
@@ -288,7 +288,7 @@ impl ParsedItem {
                     let ParsedTypeDeclaration {
                         kind: ParsedTypeDeclarationKind::Module(module),
                         ..
-                    } = ctx.get_unresolved_type(id).clone()
+                    } = ctx.get_parsed_type(id).clone()
                     else {
                         let last_segment = path.segments.pop().unwrap();
 
@@ -440,7 +440,7 @@ impl ParsedItem {
                             values,
                         };
 
-                        ctx.resolved_environment
+                        ctx.semantic_environment
                             .impls
                             .entry(HighTypeId(id.0))
                             .or_default()
@@ -506,7 +506,7 @@ impl ParsedItem {
 
                 ctx.exit_scope();
 
-                ctx.declare_resolved_type(
+                ctx.declare_semantic_type(
                     id,
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
@@ -550,7 +550,7 @@ impl ParsedItem {
 
                 ctx.exit_scope();
 
-                ctx.declare_resolved_type(
+                ctx.declare_semantic_type(
                     id,
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(

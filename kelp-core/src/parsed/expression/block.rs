@@ -1,14 +1,14 @@
+use crate::semantic::data_type::SemanticDataType;
 use crate::{
     parsed::{
         expression::ParsedExpression,
         semantic_analysis::SemanticAnalysisContext,
         statement::{ParsedStatement, ParsedStatementKind},
     },
+    semantic::expression::{SemanticExpression, SemanticExpressionKind},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
-    semantic::expression::unresolved::{SemanticExpression, SemanticExpressionKind},
 };
-use crate::semantic::data_type::SemanticDataType;
 
 #[derive(Debug, Clone)]
 pub struct ParsedBlockExpressionInfo {

@@ -1,8 +1,7 @@
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
-    semantic::expression::unresolved::SemanticExpression,
+    compile_context::CompileContext, datapack::Datapack, semantic::expression::SemanticExpression,
 };
 
 #[derive(Debug, Clone)]

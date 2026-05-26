@@ -1,22 +1,22 @@
 use std::collections::HashSet;
 
+use crate::semantic::environment::{
+    SemanticEnvironment,
+    value::{
+        ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+        function::{
+            HighFunctionId, SemanticFunctionDeclaration,
+            regular::SemanticRegularFunctionDeclaration,
+        },
+    },
+};
 use crate::{
     parsed::{
         item::ParsedItem,
-        semantic_analysis::{info::error::SemanticAnalysisError, SemanticAnalysisContext},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    trait_ext::CollectOptionAllIterExt,
     semantic::program::Program as MiddleProgram,
-};
-use crate::semantic::environment::{
-    value::{
-        function::{
-            regular::SemanticRegularFunctionDeclaration, HighFunctionId,
-            SemanticFunctionDeclaration,
-        }, ResolvedValueDeclaration,
-        ResolvedValueDeclarationKind,
-    },
-    SemanticEnvironment,
+    trait_ext::CollectOptionAllIterExt,
 };
 
 fn calls_recursively(
@@ -81,7 +81,7 @@ impl Program {
 
         let mut failed = false;
 
-        for (callee_id, value) in ctx.resolved_environment.iter_values() {
+        for (callee_id, value) in ctx.semantic_environment.iter_values() {
             let callee_id = HighFunctionId(callee_id.0);
 
             let ResolvedValueDeclaration {
@@ -106,7 +106,7 @@ impl Program {
                     let mut visited_calls = HashSet::new();
 
                     if calls_recursively(
-                        &ctx.resolved_environment,
+                        &ctx.semantic_environment,
                         callee_id,
                         *call_id,
                         &mut visited_calls,

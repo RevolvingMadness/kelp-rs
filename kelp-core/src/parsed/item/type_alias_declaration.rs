@@ -42,7 +42,7 @@ impl TypeAliasDeclarationItem {
             .iter()
             .cloned()
             .map(|generic_name| {
-                let id = ctx.declare_unresolved_type(
+                let id = ctx.declare_parsed_type(
                     Visibility::Public,
                     ParsedTypeDeclarationKind::Generic(generic_name),
                 );
@@ -55,7 +55,7 @@ impl TypeAliasDeclarationItem {
 
         ctx.exit_scope();
 
-        let id = ctx.declare_unresolved_type(
+        let id = ctx.declare_parsed_type(
             visibility,
             ParsedTypeDeclarationKind::Generic(self.name.clone()),
         );

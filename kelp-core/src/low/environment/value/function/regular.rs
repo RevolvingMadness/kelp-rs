@@ -1,13 +1,10 @@
-use crate::{
-    parsed::semantic_analysis::RegularFunctionModifiers,
-    semantic::{
-        expression::unresolved::SemanticExpression,
-        pattern::SemanticPattern,
-    },
-    visibility::Visibility,
-};
 use crate::low::data_type::DataType;
 use crate::semantic::environment::r#type::HighGenericId;
+use crate::{
+    parsed::semantic_analysis::RegularFunctionModifiers,
+    semantic::{expression::SemanticExpression, pattern::SemanticPattern},
+    visibility::Visibility,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RegularFunctionId(pub u32);

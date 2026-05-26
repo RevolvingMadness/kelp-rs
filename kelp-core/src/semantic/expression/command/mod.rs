@@ -13,12 +13,12 @@ use crate::{
     semantic::{
         entity_selector::SemanticEntitySelector,
         expression::{
+            SemanticExpression,
             command::{
                 data::DataCommand, execute::subcommand::SemanticExecuteSubcommand,
                 function::FunctionCommandArguments, r#return::ReturnCommand,
                 scoreboard::ScoreboardCommand, stopwatch::StopwatchCommand,
             },
-            unresolved::SemanticExpression,
         },
         supports_expression_sigil::SemanticSupportsExpressionSigil,
     },

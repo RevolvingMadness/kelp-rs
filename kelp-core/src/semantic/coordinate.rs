@@ -1,6 +1,5 @@
 use crate::{
-    compile_context::CompileContext, datapack::Datapack,
-    semantic::expression::unresolved::SemanticExpression,
+    compile_context::CompileContext, datapack::Datapack, semantic::expression::SemanticExpression,
 };
 use minecraft_command_types::coordinate::{
     Coordinates as LowCoordinates, WorldCoordinate as LowWorldCoordinate,
@@ -54,7 +53,11 @@ impl SemanticWorldCoordinate {
 
 #[derive(Debug, Clone)]
 pub enum SemanticCoordinates {
-    World(SemanticWorldCoordinate, SemanticWorldCoordinate, SemanticWorldCoordinate),
+    World(
+        SemanticWorldCoordinate,
+        SemanticWorldCoordinate,
+        SemanticWorldCoordinate,
+    ),
     Local(
         Option<SemanticExpression>,
         Option<SemanticExpression>,

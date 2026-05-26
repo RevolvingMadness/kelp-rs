@@ -1,9 +1,9 @@
-use crate::{
-    parsed::semantic_analysis::{info::error::SemanticAnalysisError, SemanticAnalysisContext},
-    span::Span,
-};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::builtin_data_type::BuiltinTypeKind;
+use crate::{
+    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    span::Span,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BuiltinTypeId(pub u32);
@@ -58,7 +58,7 @@ impl BuiltinTypeDeclaration {
             BuiltinTypeKind::Data => {
                 let element_type = generic_types.remove(0);
 
-                let Some(data_type) = element_type.get_data_type(&ctx.resolved_environment) else {
+                let Some(data_type) = element_type.get_data_type(&ctx.semantic_environment) else {
                     let element_span = generic_spans.remove(0);
 
                     return ctx.add_error_type(

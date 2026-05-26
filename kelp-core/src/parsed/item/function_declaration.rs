@@ -2,9 +2,10 @@ use std::collections::HashSet;
 
 use crate::parsed::environment::r#type::ParsedTypeDeclarationKind;
 use crate::parsed::environment::value::{
-    function::{regular::ParsedRegularFunctionDeclaration, ParsedFunctionDeclaration},
     ParsedValueDeclarationKind,
+    function::{ParsedFunctionDeclaration, regular::ParsedRegularFunctionDeclaration},
 };
+use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::{
     r#type::HighGenericId, value::function::regular::HighRegularFunctionId,
 };
@@ -14,15 +15,14 @@ use crate::{
         expression::block::ParsedBlockExpression,
         pattern::ParsedPattern,
         semantic_analysis::{
-            info::error::SemanticAnalysisError, FunctionContext, RegularFunctionModifiers,
-            SemanticAnalysisContext,
+            FunctionContext, RegularFunctionModifiers, SemanticAnalysisContext,
+            info::error::SemanticAnalysisError,
         },
     },
-    span::Span,
     semantic::item::SemanticItem,
+    span::Span,
     visibility::Visibility,
 };
-use crate::semantic::data_type::SemanticDataType;
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclarationItem {
@@ -58,7 +58,7 @@ impl FunctionDeclarationItem {
             .iter()
             .cloned()
             .map(|generic_name| {
-                let id = ctx.declare_unresolved_type(
+                let id = ctx.declare_parsed_type(
                     Visibility::Public,
                     ParsedTypeDeclarationKind::Generic(generic_name),
                 );
@@ -69,14 +69,14 @@ impl FunctionDeclarationItem {
 
         self.generic_ids = Some(generic_ids.clone());
 
-        let id = ctx.declare_unresolved_value(
+        let id = ctx.declare_parsed_value(
             visibility,
-            ParsedValueDeclarationKind::Function(Box::new(
-                ParsedFunctionDeclaration::Regular(ParsedRegularFunctionDeclaration {
+            ParsedValueDeclarationKind::Function(Box::new(ParsedFunctionDeclaration::Regular(
+                ParsedRegularFunctionDeclaration {
                     name: self.name.clone(),
                     generic_ids,
-                }),
-            )),
+                },
+            ))),
         );
 
         self.id = Some(HighRegularFunctionId(id.0));
@@ -131,7 +131,10 @@ impl FunctionDeclarationItem {
         );
     }
 
-    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<SemanticItem> {
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<SemanticItem> {
         let id = self.id.unwrap();
 
         ctx.enter_scope();
@@ -168,9 +171,9 @@ impl FunctionDeclarationItem {
 
             if let Some(recursive_keyword_span) = self.recursive_keyword_span {
                 let all_types_are_data = {
-                    let parameter_types_valid = parameter_types.iter().all(|parameter_type| {
-                        matches!(parameter_type, SemanticDataType::Data(..))
-                    });
+                    let parameter_types_valid = parameter_types
+                        .iter()
+                        .all(|parameter_type| matches!(parameter_type, SemanticDataType::Data(..)));
 
                     let return_type_valid = matches!(return_type, SemanticDataType::Data(..));
 
@@ -238,7 +241,7 @@ impl FunctionDeclarationItem {
 
             ctx.exit_scope();
 
-            ctx.resolved_environment
+            ctx.semantic_environment
                 .update_regular_function(id, |declaration| {
                     if let FunctionContext::Regular { calls, .. } = &context {
                         declaration.calls.clone_from(calls);
@@ -267,7 +270,7 @@ impl FunctionDeclarationItem {
         }
 
         if resolved_all_parameters {
-            ctx.resolved_environment
+            ctx.semantic_environment
                 .update_regular_function(id, |declaration| {
                     declaration.parameters = resolved_parameters
                         .into_iter()

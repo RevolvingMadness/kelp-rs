@@ -11,7 +11,7 @@ use minecraft_command_types::command::{
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    semantic::expression::unresolved::SemanticExpression,
+    semantic::expression::SemanticExpression,
     semantic::{entity_selector::SemanticEntitySelector, player_score::PlayerScore},
 };
 

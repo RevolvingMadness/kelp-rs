@@ -5,16 +5,15 @@ use minecraft_command_types::{
     entity_selector::EntitySelector as LowEntitySelector, resource_location::ResourceLocation,
 };
 
+use crate::low::expression::Expression;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     semantic::{
-        coordinate::SemanticCoordinates,
-        entity_selector::SemanticEntitySelector,
-        expression::unresolved::SemanticExpression,
+        coordinate::SemanticCoordinates, entity_selector::SemanticEntitySelector,
+        expression::SemanticExpression,
     },
 };
-use crate::low::expression::Expression;
 
 #[derive(Debug, Clone)]
 pub enum SemanticSupportsExpressionSigil<T> {
@@ -42,8 +41,7 @@ macro_rules! impl_supports_expression_sigil {
                     Self::Sigil(expression) => {
                         let expression = expression.kind.resolve(datapack, ctx);
 
-                        let Expression::$resolved_expression_variant(value) = expression
-                        else {
+                        let Expression::$resolved_expression_variant(value) = expression else {
                             unreachable!();
                         };
 

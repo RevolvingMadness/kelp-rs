@@ -1,4 +1,4 @@
-use kelp_core::high::pattern::{Pattern, PatternKind};
+use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 
 use crate::{
     cst::CSTScorePattern,
@@ -26,10 +26,10 @@ pub fn try_parse_score_pattern(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_score_pattern(node: CSTScorePattern, ctx: &mut LowerContext) -> Option<Pattern> {
+pub fn lower_score_pattern(node: CSTScorePattern, ctx: &mut LowerContext) -> Option<ParsedPattern> {
     let span = span_of_cst_node(&node);
 
     let player_score = lower_player_score(node.player_score()?, ctx)?;
 
-    Some(PatternKind::Score(player_score).with_span(span))
+    Some(ParsedPatternKind::Score(player_score).with_span(span))
 }

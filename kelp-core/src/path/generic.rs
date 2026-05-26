@@ -2,10 +2,11 @@ use std::fmt::{Display, Write};
 
 use crate::{
     datapack::Datapack,
-    high::{data_type::DataType, semantic_analysis::SemanticAnalysisContext},
-    low::data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
+    parsed::{data_type::ParsedDataType, semantic_analysis::SemanticAnalysisContext},
     span::Span,
 };
+use crate::low::data_type::DataType;
+use crate::semantic::data_type::SemanticDataType;
 
 #[derive(Debug, Clone)]
 pub struct GenericPathSegment<T> {
@@ -15,7 +16,7 @@ pub struct GenericPathSegment<T> {
     pub generic_types: Vec<T>,
 }
 
-impl Display for GenericPathSegment<DataType> {
+impl Display for GenericPathSegment<ParsedDataType> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
 
@@ -37,9 +38,9 @@ impl Display for GenericPathSegment<DataType> {
     }
 }
 
-impl GenericPathSegment<UnresolvedDataType> {
+impl GenericPathSegment<SemanticDataType> {
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack) -> Option<GenericPathSegment<ResolvedDataType>> {
+    pub fn resolve(self, datapack: &mut Datapack) -> Option<GenericPathSegment<DataType>> {
         let generic_types = self
             .generic_types
             .into_iter()
@@ -55,12 +56,12 @@ impl GenericPathSegment<UnresolvedDataType> {
     }
 }
 
-impl GenericPathSegment<DataType> {
+impl GenericPathSegment<ParsedDataType> {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> GenericPathSegment<UnresolvedDataType> {
+    ) -> GenericPathSegment<SemanticDataType> {
         let generic_types = self
             .generic_types
             .into_iter()
@@ -82,7 +83,7 @@ pub struct GenericPath<T> {
     pub segments: Vec<GenericPathSegment<T>>,
 }
 
-impl Display for GenericPath<DataType> {
+impl Display for GenericPath<ParsedDataType> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, segment) in self.segments.iter().enumerate() {
             if i != 0 {
@@ -96,9 +97,9 @@ impl Display for GenericPath<DataType> {
     }
 }
 
-impl GenericPath<UnresolvedDataType> {
+impl GenericPath<SemanticDataType> {
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack) -> Option<GenericPath<ResolvedDataType>> {
+    pub fn resolve(self, datapack: &mut Datapack) -> Option<GenericPath<DataType>> {
         let segments = self
             .segments
             .into_iter()
@@ -112,12 +113,12 @@ impl GenericPath<UnresolvedDataType> {
     }
 }
 
-impl GenericPath<DataType> {
+impl GenericPath<ParsedDataType> {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> GenericPath<UnresolvedDataType> {
+    ) -> GenericPath<SemanticDataType> {
         let segments = self
             .segments
             .into_iter()

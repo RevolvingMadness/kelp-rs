@@ -1,4 +1,4 @@
-use kelp_core::high::item::associated::{AssociatedItem, AssociatedItemKind};
+use kelp_core::parsed::item::associated::{AssociatedItem, AssociatedItemKind};
 use kelp_core::visibility::Visibility;
 
 use crate::lower_context::LowerContext;

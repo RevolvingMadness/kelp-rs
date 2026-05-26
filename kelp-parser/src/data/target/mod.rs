@@ -1,4 +1,4 @@
-use kelp_core::high::data::{DataTarget, DataTargetKind};
+use kelp_core::parsed::data::{DataTarget, DataTargetKind};
 
 use crate::{
     coordinates::{lower_coordinates, try_parse_coordinates},

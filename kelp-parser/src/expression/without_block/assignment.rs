@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
+    parsed::expression::{ParsedExpression, ParsedExpressionKind},
     operator::ArithmeticOperator,
 };
 
@@ -16,7 +16,7 @@ use crate::{
 pub fn lower_assignment_expression(
     node: CSTAssignmentExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let target = lower_expression(node.target()?, ctx)?;
@@ -41,14 +41,14 @@ pub fn lower_assignment_expression(
 
     Some(
         (if let Some(operator) = operator {
-            ExpressionKind::AugmentedAssignment(
+            ParsedExpressionKind::AugmentedAssignment(
                 Box::new(target),
                 operator_span,
                 operator,
                 Box::new(value),
             )
         } else {
-            ExpressionKind::Assignment(Box::new(target), Box::new(value))
+            ParsedExpressionKind::Assignment(Box::new(target), Box::new(value))
         })
         .with_span(span),
     )

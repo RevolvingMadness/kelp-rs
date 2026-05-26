@@ -1,4 +1,5 @@
-use crate::{low::environment::r#type::r#struct::StructDeclaration, visibility::Visibility};
+use crate::visibility::Visibility;
+use crate::low::environment::r#type::r#struct::StructDeclaration;
 
 pub mod builtin_data_type;
 pub mod r#struct;

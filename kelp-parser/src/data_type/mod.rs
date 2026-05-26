@@ -1,4 +1,4 @@
-use kelp_core::high::data_type::DataType;
+use kelp_core::parsed::data_type::ParsedDataType;
 
 use crate::{
     cst::{CSTDataType, CSTTypedCompoundDataTypeField},
@@ -83,7 +83,7 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_typed_compound_data_type_field(
     node: CSTTypedCompoundDataTypeField,
-) -> Option<(String, DataType)> {
+) -> Option<(String, ParsedDataType)> {
     let name_token = node.name()?;
     let name = name_token.text();
     let data_type = lower_data_type(node.data_type()?)?;
@@ -92,23 +92,23 @@ pub fn lower_typed_compound_data_type_field(
 }
 
 #[must_use]
-pub fn lower_data_type(node: CSTDataType) -> Option<DataType> {
+pub fn lower_data_type(node: CSTDataType) -> Option<ParsedDataType> {
     match node {
         CSTDataType::ReferenceDataType(node) => lower_reference_data_type(node),
         CSTDataType::TupleDataType(node) => {
             let data_types = node.data_types().filter_map(lower_data_type).collect();
 
-            Some(DataType::Tuple(data_types))
+            Some(ParsedDataType::Tuple(data_types))
         }
-        CSTDataType::UnitDataType(..) => Some(DataType::Unit),
-        CSTDataType::NeverDataType(..) => Some(DataType::Never),
+        CSTDataType::UnitDataType(..) => Some(ParsedDataType::Unit),
+        CSTDataType::NeverDataType(..) => Some(ParsedDataType::Never),
         CSTDataType::TypedCompoundDataType(data_type) => {
             let fields = data_type
                 .fields()
                 .filter_map(lower_typed_compound_data_type_field)
                 .collect();
 
-            Some(DataType::TypedCompound(fields))
+            Some(ParsedDataType::TypedCompound(fields))
         }
         CSTDataType::PathDataType(node) => lower_path_data_type(node),
         CSTDataType::InferredDataType(node) => lower_inferred_data_type(node),

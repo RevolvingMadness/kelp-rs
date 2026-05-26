@@ -1,4 +1,4 @@
-use kelp_core::high::statement::{Statement, StatementKind};
+use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
     cst::CSTBreakStatement, lower_context::LowerContext, parser::Parser, span::span_of_cst_node,
@@ -23,8 +23,8 @@ pub fn try_parse_break_statement(parser: &mut Parser) -> bool {
 pub fn lower_break_statement(
     node: CSTBreakStatement,
     _ctx: &mut LowerContext,
-) -> Option<Statement> {
+) -> Option<ParsedStatement> {
     let span = span_of_cst_node(&node);
 
-    Some(StatementKind::Break.with_span(span))
+    Some(ParsedStatementKind::Break.with_span(span))
 }

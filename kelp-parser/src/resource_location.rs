@@ -1,4 +1,4 @@
-use kelp_core::high::supports_expression_sigil::SupportsExpressionSigil;
+use kelp_core::parsed::supports_expression_sigil::ParsedSupportsExpressionSigil;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
@@ -100,10 +100,10 @@ pub fn lower_actual_resource_location(node: CSTActualResourceLocation) -> Option
 pub fn lower_resource_location(
     node: CSTResourceLocation,
     ctx: &mut LowerContext,
-) -> Option<SupportsExpressionSigil<ResourceLocation>> {
+) -> Option<ParsedSupportsExpressionSigil<ResourceLocation>> {
     match node {
         CSTResourceLocation::ActualResourceLocation(node) => {
-            lower_actual_resource_location(node).map(SupportsExpressionSigil::Regular)
+            lower_actual_resource_location(node).map(ParsedSupportsExpressionSigil::Regular)
         }
         CSTResourceLocation::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
     }

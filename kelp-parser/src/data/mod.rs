@@ -1,4 +1,4 @@
-use kelp_core::high::data::Data;
+use kelp_core::parsed::data::Data;
 
 use crate::{
     cst::CSTData,

@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::pattern::{Pattern, PatternKind},
+    parsed::pattern::{ParsedPattern, ParsedPatternKind},
     path::generic::GenericPath,
     span::Span,
 };
@@ -16,7 +16,7 @@ use crate::{
 pub fn lower_compound_pattern_entry(
     node: CSTCompoundPatternEntry,
     ctx: &mut LowerContext,
-) -> Option<((Span, String), Pattern)> {
+) -> Option<((Span, String), ParsedPattern)> {
     let entry_name_token = node.name()?;
     let entry_name_span = text_range_to_span(entry_name_token.text_range());
     let entry_name = entry_name_token.text();
@@ -24,9 +24,9 @@ pub fn lower_compound_pattern_entry(
     let entry_pattern = node
         .pattern()
         .and_then(|pattern| lower_pattern(pattern, ctx))
-        .unwrap_or_else(|| Pattern {
+        .unwrap_or_else(|| ParsedPattern {
             span: entry_name_span,
-            kind: PatternKind::Binding(GenericPath::single(entry_name_span, entry_name)),
+            kind: ParsedPatternKind::Binding(GenericPath::single(entry_name_span, entry_name)),
         });
 
     Some(((entry_name_span, entry_name.to_owned()), entry_pattern))
@@ -34,7 +34,7 @@ pub fn lower_compound_pattern_entry(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_compound_pattern(node: CSTCompoundPattern, ctx: &mut LowerContext) -> Option<Pattern> {
+pub fn lower_compound_pattern(node: CSTCompoundPattern, ctx: &mut LowerContext) -> Option<ParsedPattern> {
     let span = span_of_cst_node(&node);
 
     let entries = node
@@ -42,5 +42,5 @@ pub fn lower_compound_pattern(node: CSTCompoundPattern, ctx: &mut LowerContext) 
         .filter_map(|entry| lower_compound_pattern_entry(entry, ctx))
         .collect();
 
-    Some(PatternKind::Compound(entries).with_span(span))
+    Some(ParsedPatternKind::Compound(entries).with_span(span))
 }

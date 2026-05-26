@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{cst::CSTUnitExpression, lower_context::LowerContext, span::span_of_cst_node};
 
@@ -7,8 +7,8 @@ use crate::{cst::CSTUnitExpression, lower_context::LowerContext, span::span_of_c
 pub fn lower_unit_expression(
     node: CSTUnitExpression,
     _ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
-    Some(ExpressionKind::Unit.with_span(span))
+    Some(ParsedExpressionKind::Unit.with_span(span))
 }

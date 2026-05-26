@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
+    parsed::expression::{ParsedExpression, ParsedExpressionKind},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
 };
 
@@ -13,7 +13,7 @@ use crate::{
 pub fn lower_binary_expression(
     node: CSTBinaryExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let left = lower_expression(node.lhs()?, ctx)?;
@@ -43,7 +43,7 @@ pub fn lower_binary_expression(
                     SyntaxKind::RightArrowRightArrow => ArithmeticOperator::RightShift,
                     _ => unreachable!(),
                 };
-                ExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
+                ParsedExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
             }
             SyntaxKind::EqualEqual
             | SyntaxKind::ExclamationMarkEqual
@@ -60,7 +60,7 @@ pub fn lower_binary_expression(
                     SyntaxKind::LeftArrowEqual => ComparisonOperator::LessThanOrEqualTo,
                     _ => unreachable!(),
                 };
-                ExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
+                ParsedExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
             }
             SyntaxKind::AmpersandAmpersand | SyntaxKind::PipePipe => {
                 let operator = match operator.kind() {
@@ -68,7 +68,7 @@ pub fn lower_binary_expression(
                     SyntaxKind::PipePipe => LogicalOperator::Or,
                     _ => unreachable!(),
                 };
-                ExpressionKind::Logical(Box::new(left), operator, Box::new(right))
+                ParsedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
             }
             _ => return None,
         })

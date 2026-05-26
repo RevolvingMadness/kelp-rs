@@ -1,4 +1,4 @@
-use kelp_core::high::expression::Expression;
+use kelp_core::parsed::expression::ParsedExpression;
 
 use crate::{
     cst::CSTLocalCoordinate,
@@ -25,7 +25,7 @@ pub fn parse_local_coordinate(parser: &mut Parser) {
 pub fn lower_local_coordinate(
     node: CSTLocalCoordinate,
     ctx: &mut LowerContext,
-) -> Option<Option<Expression>> {
+) -> Option<Option<ParsedExpression>> {
     let result = node
         .expression()
         .map(|expression| lower_expression(expression, ctx));

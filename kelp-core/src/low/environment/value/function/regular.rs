@@ -1,13 +1,13 @@
 use crate::{
-    high::{
-        environment::resolved::r#type::HighGenericId, semantic_analysis::RegularFunctionModifiers,
-    },
-    low::{
-        data_type::resolved::ResolvedDataType, expression::unresolved::UnresolvedExpression,
-        pattern::UnresolvedPattern,
+    parsed::semantic_analysis::RegularFunctionModifiers,
+    semantic::{
+        expression::unresolved::SemanticExpression,
+        pattern::SemanticPattern,
     },
     visibility::Visibility,
 };
+use crate::low::data_type::DataType;
+use crate::semantic::environment::r#type::HighGenericId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RegularFunctionId(pub u32);
@@ -19,8 +19,8 @@ pub struct RegularFunctionDeclaration {
     pub modifiers: RegularFunctionModifiers,
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
-    pub generic_types: Vec<ResolvedDataType>,
-    pub parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
-    pub return_type: ResolvedDataType,
-    pub body: UnresolvedExpression,
+    pub generic_types: Vec<DataType>,
+    pub parameters: Vec<(SemanticPattern, DataType)>,
+    pub return_type: DataType,
+    pub body: SemanticExpression,
 }

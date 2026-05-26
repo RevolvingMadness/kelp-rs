@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use kelp_core::{
-    high::expression::{Expression, ExpressionKind},
+    parsed::expression::{ParsedExpression, ParsedExpressionKind},
     span::Span,
 };
 
@@ -20,7 +20,7 @@ use crate::{
 fn lower_struct_expression_field(
     node: CSTStructExpressionField,
     ctx: &mut LowerContext,
-) -> Option<((Span, String), Expression)> {
+) -> Option<((Span, String), ParsedExpression)> {
     let name_token = node.name()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
@@ -62,7 +62,7 @@ fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
 pub fn lower_struct_expression_fields(
     node: CSTStructExpressionFields,
     ctx: &mut LowerContext,
-) -> Option<HashMap<(Span, String), Expression>> {
+) -> Option<HashMap<(Span, String), ParsedExpression>> {
     let fields = node
         .struct_expression_fields()
         .filter_map(|field| lower_struct_expression_field(field, ctx))
@@ -107,7 +107,7 @@ pub fn try_parse_struct_expression_fields(parser: &mut Parser) -> bool {
 pub fn lower_struct_expression(
     node: CSTStructExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;
@@ -117,5 +117,5 @@ pub fn lower_struct_expression(
         .and_then(|fields| lower_struct_expression_fields(fields, ctx))
         .unwrap_or_default();
 
-    Some(ExpressionKind::RegularStruct(path, fields).with_span(span))
+    Some(ParsedExpressionKind::RegularStruct(path, fields).with_span(span))
 }

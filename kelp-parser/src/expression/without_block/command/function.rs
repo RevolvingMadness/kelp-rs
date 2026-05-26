@@ -1,6 +1,6 @@
-use kelp_core::high::{
-    command::Command,
-    expression::{Expression, ExpressionKind},
+use kelp_core::parsed::{
+    command::ParsedCommand,
+    expression::{ParsedExpression, ParsedExpressionKind},
 };
 
 use crate::{
@@ -34,13 +34,13 @@ pub fn try_parse_function_command_expression(parser: &mut Parser) -> bool {
 pub fn lower_function_command_expression(
     node: CSTFunctionCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     Some(
-        ExpressionKind::Command(Box::new(Command::Function(resource_location, None)))
+        ParsedExpressionKind::Command(Box::new(ParsedCommand::Function(resource_location, None)))
             .with_span(span),
     )
 }

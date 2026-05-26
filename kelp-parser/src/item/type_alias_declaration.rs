@@ -1,5 +1,5 @@
-pub use kelp_core::high::item::ItemKind;
-pub use kelp_core::high::item::type_alias_declaration::TypeAliasDeclarationItem;
+pub use kelp_core::parsed::item::ItemKind;
+pub use kelp_core::parsed::item::type_alias_declaration::TypeAliasDeclarationItem;
 
 use crate::{
     cst::CSTTypeAliasDeclarationItem,

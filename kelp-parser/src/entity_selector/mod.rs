@@ -1,5 +1,5 @@
-use kelp_core::high::{
-    entity_selector::EntitySelector, supports_expression_sigil::SupportsExpressionSigil,
+use kelp_core::parsed::{
+    entity_selector::ParsedEntitySelector, supports_expression_sigil::ParsedSupportsExpressionSigil,
 };
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
@@ -160,7 +160,7 @@ fn parse_options(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_variable_entity_selector(node: CSTVariableEntitySelector) -> Option<EntitySelector> {
+pub fn lower_variable_entity_selector(node: CSTVariableEntitySelector) -> Option<ParsedEntitySelector> {
     let variable_token = node.entity_selector_variable_token()?;
     let variable = variable_token.text();
 
@@ -174,20 +174,20 @@ pub fn lower_variable_entity_selector(node: CSTVariableEntitySelector) -> Option
         _ => return None,
     };
 
-    Some(EntitySelector::Variable(variable, Vec::new()))
+    Some(ParsedEntitySelector::Variable(variable, Vec::new()))
 }
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_name_entity_selector(node: CSTNameEntitySelector) -> Option<EntitySelector> {
+pub fn lower_name_entity_selector(node: CSTNameEntitySelector) -> Option<ParsedEntitySelector> {
     let name_token = node.identifier_token()?;
     let name = name_token.text();
 
-    Some(EntitySelector::Name(name.to_string()))
+    Some(ParsedEntitySelector::Name(name.to_string()))
 }
 
 #[must_use]
-pub fn lower_actual_entity_selector(node: CSTActualEntitySelector) -> Option<EntitySelector> {
+pub fn lower_actual_entity_selector(node: CSTActualEntitySelector) -> Option<ParsedEntitySelector> {
     match node {
         CSTActualEntitySelector::VariableEntitySelector(node) => {
             lower_variable_entity_selector(node)
@@ -200,10 +200,10 @@ pub fn lower_actual_entity_selector(node: CSTActualEntitySelector) -> Option<Ent
 pub fn lower_entity_selector(
     node: CSTEntitySelector,
     ctx: &mut LowerContext,
-) -> Option<SupportsExpressionSigil<EntitySelector>> {
+) -> Option<ParsedSupportsExpressionSigil<ParsedEntitySelector>> {
     match node {
         CSTEntitySelector::ActualEntitySelector(node) => {
-            lower_actual_entity_selector(node).map(SupportsExpressionSigil::Regular)
+            lower_actual_entity_selector(node).map(ParsedSupportsExpressionSigil::Regular)
         }
         CSTEntitySelector::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
     }

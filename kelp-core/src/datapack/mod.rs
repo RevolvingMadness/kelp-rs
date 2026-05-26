@@ -2,17 +2,6 @@ use crate::compile_context::CompileContext;
 use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
-use crate::high::environment::resolved::ResolvedEnvironment;
-use crate::high::environment::resolved::r#type::{HighGenericId, HighTypeId};
-use crate::high::environment::resolved::value::function::{
-    HighFunctionId, ResolvedFunctionDeclaration,
-};
-use crate::high::environment::resolved::value::variable::HighVariableId;
-use crate::high::environment::resolved::value::{
-    HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
-};
-use crate::low::data_type::resolved::ResolvedDataType;
-use crate::low::data_type::unresolved::UnresolvedDataType;
 use crate::low::environment::Environment;
 use crate::low::environment::r#type::r#struct::{
     RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
@@ -25,9 +14,18 @@ use crate::low::environment::value::function::regular::{
 use crate::low::environment::value::function::{FunctionDeclaration, FunctionId};
 use crate::low::environment::value::variable::VariableId;
 use crate::low::environment::value::{ValueDeclaration, ValueId};
-use crate::low::expression::resolved::ResolvedExpression;
 use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
+use crate::low::data_type::DataType;
+use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::ResolvedEnvironment;
+use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
+use crate::semantic::environment::value::function::{HighFunctionId, ResolvedFunctionDeclaration};
+use crate::semantic::environment::value::variable::HighVariableId;
+use crate::semantic::environment::value::{
+    HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+};
+use crate::semantic::expression::resolved::ResolvedExpression;
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
@@ -55,13 +53,13 @@ pub mod namespace;
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct MonomorphizedStructKey {
     pub original_id: HighTypeId,
-    pub generics: Vec<ResolvedDataType>,
+    pub generics: Vec<DataType>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 struct MonomorphizedStructKeyRef<'a> {
     pub original_id: HighTypeId,
-    pub generics: &'a [ResolvedDataType],
+    pub generics: &'a [DataType],
 }
 
 impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
@@ -73,13 +71,13 @@ impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct MonomorphizedFunctionKey {
     pub original_id: HighFunctionId,
-    pub generic_types: Vec<ResolvedDataType>,
+    pub generic_types: Vec<DataType>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 struct MonomorphizedFunctionKeyRef<'a> {
     pub original_id: HighFunctionId,
-    pub generic_types: &'a [ResolvedDataType],
+    pub generic_types: &'a [DataType],
 }
 
 impl Equivalent<MonomorphizedFunctionKey> for MonomorphizedFunctionKeyRef<'_> {
@@ -152,7 +150,7 @@ pub struct Datapack {
     pub settings: DatapackSettings,
     pub environment: Environment,
     pub resolved_environment: ResolvedEnvironment,
-    pub variable_values: HashMap<VariableId, (ResolvedDataType, ResolvedExpression)>,
+    pub variable_values: HashMap<VariableId, (DataType, ResolvedExpression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
@@ -163,7 +161,7 @@ pub struct Datapack {
 
     monomorphized_structs: HashbrownMap<MonomorphizedStructKey, StructId>,
     monomorphized_functions: HashbrownMap<MonomorphizedFunctionKey, FunctionId>,
-    generic_mapping: HashMap<HighGenericId, ResolvedDataType>,
+    generic_mapping: HashMap<HighGenericId, DataType>,
     resolved_variables: HashMap<HighVariableId, VariableId>,
     pub cached_runtime_functions: HashMap<FunctionId, RuntimeFunction>,
     pub cached_compiletime_functions: HashbrownMap<CompiletimeFunctionKey, CompiletimeFunction>,
@@ -206,12 +204,12 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn resolve_generic(&self, id: HighGenericId) -> Option<ResolvedDataType> {
+    pub fn resolve_generic(&self, id: HighGenericId) -> Option<DataType> {
         self.generic_mapping.get(&id).cloned()
     }
 
     #[inline]
-    pub fn declare_generic(&mut self, id: HighGenericId, data_type: ResolvedDataType) {
+    pub fn declare_generic(&mut self, id: HighGenericId, data_type: DataType) {
         self.generic_mapping.insert(id, data_type);
     }
 
@@ -249,7 +247,7 @@ impl Datapack {
     pub fn declare_value(
         &mut self,
         id: HighVariableId,
-        data_type: ResolvedDataType,
+        data_type: DataType,
         value: ResolvedExpression,
     ) {
         let ResolvedValueDeclaration {
@@ -674,7 +672,7 @@ impl Datapack {
     pub fn get_monomorphized_struct_id(
         &self,
         id: HighTypeId,
-        generic_types: &[ResolvedDataType],
+        generic_types: &[DataType],
     ) -> Option<StructId> {
         let key = MonomorphizedStructKeyRef {
             original_id: id,
@@ -688,7 +686,7 @@ impl Datapack {
     pub fn get_monomorphized_value_id<I: Into<HighValueId>>(
         &mut self,
         id: I,
-        generic_types: &[UnresolvedDataType],
+        generic_types: &[SemanticDataType],
     ) -> Option<ValueId> {
         let id = id.into();
 
@@ -721,7 +719,7 @@ impl Datapack {
     pub fn get_monomorphized_function_id<I: Into<HighFunctionId>>(
         &mut self,
         original_id: I,
-        generic_types: &[UnresolvedDataType],
+        generic_types: &[SemanticDataType],
     ) -> FunctionId {
         let id = original_id.into();
 
@@ -819,7 +817,7 @@ impl Datapack {
         &mut self,
         original_id: HighTypeId,
         monomorphized_id: StructId,
-        generic_types: Vec<ResolvedDataType>,
+        generic_types: Vec<DataType>,
     ) {
         let key = MonomorphizedStructKey {
             original_id,
@@ -836,8 +834,8 @@ impl Datapack {
         visibility: Visibility,
         original_id: HighTypeId,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: HashMap<String, ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: HashMap<String, DataType>,
     ) -> RegularStructId {
         let monomorphized_id = self.environment.declare_regular_struct(
             module_path,
@@ -859,8 +857,8 @@ impl Datapack {
         visibility: Visibility,
         original_id: HighTypeId,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: Vec<ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: Vec<DataType>,
     ) -> TupleStructId {
         let monomorphized_id = self.environment.declare_tuple_struct(
             module_path,

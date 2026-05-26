@@ -1,6 +1,6 @@
 use crate::{
     compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
-    low::expression::resolved::ResolvedExpression, player_score::GeneratedPlayerScore,
+    semantic::expression::resolved::ResolvedExpression, player_score::GeneratedPlayerScore,
 };
 
 #[derive(Debug, Clone)]

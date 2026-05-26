@@ -1,0 +1,107 @@
+use crate::{
+    compile_context::CompileContext, datapack::Datapack,
+    semantic::expression::unresolved::SemanticExpression,
+};
+use minecraft_command_types::coordinate::{
+    Coordinates as LowCoordinates, WorldCoordinate as LowWorldCoordinate,
+};
+
+#[derive(Debug, Clone)]
+pub enum SemanticWorldCoordinate {
+    Relative(Option<SemanticExpression>),
+    Absolute(SemanticExpression),
+}
+
+impl SemanticWorldCoordinate {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowWorldCoordinate {
+        match self {
+            Self::Relative(expression) => {
+                let expression = expression.map(|expression| {
+                    expression
+                        .kind
+                        .resolve(datapack, ctx)
+                        .as_snbt_double(ctx)
+                        .unwrap()
+                });
+
+                LowWorldCoordinate::Relative(expression)
+            }
+            Self::Absolute(expression) => {
+                let expression = expression
+                    .kind
+                    .resolve(datapack, ctx)
+                    .as_snbt_double(ctx)
+                    .unwrap();
+
+                LowWorldCoordinate::Absolute(expression)
+            }
+        }
+    }
+
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+        match self {
+            Self::Relative(expression) => {
+                if let Some(expression) = expression {
+                    expression.kind.compile_as_statement(datapack, ctx);
+                }
+            }
+            Self::Absolute(expression) => {
+                expression.kind.compile_as_statement(datapack, ctx);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum SemanticCoordinates {
+    World(SemanticWorldCoordinate, SemanticWorldCoordinate, SemanticWorldCoordinate),
+    Local(
+        Option<SemanticExpression>,
+        Option<SemanticExpression>,
+        Option<SemanticExpression>,
+    ),
+}
+
+impl SemanticCoordinates {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowCoordinates {
+        match self {
+            Self::World(x, y, z) => {
+                let x = x.compile(datapack, ctx);
+                let y = y.compile(datapack, ctx);
+                let z = z.compile(datapack, ctx);
+
+                LowCoordinates::World(x, y, z)
+            }
+            Self::Local(x, y, z) => {
+                let x = x.map(|x| x.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
+                let y = y.map(|y| y.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
+                let z = z.map(|z| z.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
+
+                LowCoordinates::Local(x, y, z)
+            }
+        }
+    }
+
+    pub fn compile_as_statement(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+        match self {
+            Self::World(x, y, z) => {
+                x.compile_as_statement(datapack, ctx);
+                y.compile_as_statement(datapack, ctx);
+                z.compile_as_statement(datapack, ctx);
+            }
+            Self::Local(x, y, z) => {
+                if let Some(x) = x {
+                    x.kind.compile_as_statement(datapack, ctx);
+                }
+
+                if let Some(y) = y {
+                    y.kind.compile_as_statement(datapack, ctx);
+                }
+
+                if let Some(z) = z {
+                    z.kind.compile_as_statement(datapack, ctx);
+                }
+            }
+        }
+    }
+}

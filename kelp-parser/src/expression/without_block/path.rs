@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTPathExpression, lower_context::LowerContext, path::generic::lower_generic_path,
@@ -10,10 +10,10 @@ use crate::{
 pub fn lower_path_expression(
     node: CSTPathExpression,
     _ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    Some(ExpressionKind::Path(path).with_span(span))
+    Some(ParsedExpressionKind::Path(path).with_span(span))
 }

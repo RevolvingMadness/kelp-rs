@@ -1,6 +1,6 @@
-use kelp_core::high::{
-    command::{Command, stopwatch::StopwatchCommand},
-    expression::{Expression, ExpressionKind},
+use kelp_core::parsed::{
+    command::{ParsedCommand, stopwatch::StopwatchCommand},
+    expression::{ParsedExpression, ParsedExpressionKind},
 };
 
 use crate::{
@@ -184,7 +184,7 @@ fn lower_stopwatch_command_expression_options(
 pub fn lower_stopwatch_command_expression(
     node: CSTStopwatchCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let command = lower_stopwatch_command_expression_options(
@@ -192,5 +192,5 @@ pub fn lower_stopwatch_command_expression(
         ctx,
     )?;
 
-    Some(ExpressionKind::Command(Box::new(Command::Stopwatch(command))).with_span(span))
+    Some(ParsedExpressionKind::Command(Box::new(ParsedCommand::Stopwatch(command))).with_span(span))
 }

@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTDataExpression,
@@ -37,11 +37,11 @@ pub fn try_parse_data_expression(parser: &mut Parser) -> bool {
 pub fn lower_data_expression(
     node: CSTDataExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let target = lower_data_target(node.data_target()?, ctx)?;
     let path = lower_nbt_path(node.n_b_t_path()?, ctx)?;
 
-    Some(ExpressionKind::Data(Box::new((target, path))).with_span(span))
+    Some(ParsedExpressionKind::Data(Box::new((target, path))).with_span(span))
 }

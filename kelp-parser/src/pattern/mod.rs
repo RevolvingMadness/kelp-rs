@@ -1,4 +1,4 @@
-use kelp_core::high::pattern::Pattern;
+use kelp_core::parsed::pattern::ParsedPattern;
 
 use crate::{
     cst::CSTPattern,
@@ -180,7 +180,7 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_pattern(node: CSTPattern, ctx: &mut LowerContext) -> Option<Pattern> {
+pub fn lower_pattern(node: CSTPattern, ctx: &mut LowerContext) -> Option<ParsedPattern> {
     match node {
         CSTPattern::WildcardPattern(node) => lower_wildcard_pattern(node),
         CSTPattern::TuplePattern(node) => lower_tuple_pattern(node, ctx),

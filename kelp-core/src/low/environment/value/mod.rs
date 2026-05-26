@@ -1,9 +1,7 @@
-use crate::{
-    low::environment::value::{
-        function::{FunctionDeclaration, FunctionId},
-        variable::{VariableDeclaration, VariableId},
-    },
-    visibility::Visibility,
+use crate::visibility::Visibility;
+use crate::low::environment::value::{
+    function::{FunctionDeclaration, FunctionId},
+    variable::{VariableDeclaration, VariableId},
 };
 
 pub mod function;

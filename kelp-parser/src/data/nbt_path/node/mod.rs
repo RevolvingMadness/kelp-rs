@@ -11,7 +11,7 @@ use crate::{
     parser::Parser,
     syntax::SyntaxKind,
 };
-use kelp_core::high::nbt_path::NbtPathNode;
+use kelp_core::parsed::nbt_path::NbtPathNode;
 
 pub mod index;
 pub mod named;

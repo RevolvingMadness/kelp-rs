@@ -1,4 +1,4 @@
-use kelp_core::high::coordinate::WorldCoordinate;
+use kelp_core::parsed::coordinate::ParsedWorldCoordinate;
 
 use crate::{
     cst::CSTWorldCoordinate,
@@ -41,7 +41,7 @@ pub fn try_parse_world_coordinate(parser: &mut Parser) -> bool {
 pub fn lower_world_coordinate(
     node: CSTWorldCoordinate,
     ctx: &mut LowerContext,
-) -> Option<WorldCoordinate> {
+) -> Option<ParsedWorldCoordinate> {
     let is_relative = node.tilde_token().is_some() || node.caret_token().is_some();
 
     let value = node
@@ -49,8 +49,8 @@ pub fn lower_world_coordinate(
         .and_then(|expression| lower_expression(expression, ctx));
 
     if is_relative {
-        Some(WorldCoordinate::Relative(value))
+        Some(ParsedWorldCoordinate::Relative(value))
     } else {
-        value.map(WorldCoordinate::Absolute)
+        value.map(ParsedWorldCoordinate::Absolute)
     }
 }

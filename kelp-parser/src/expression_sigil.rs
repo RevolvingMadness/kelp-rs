@@ -1,4 +1,4 @@
-use kelp_core::{high::supports_expression_sigil::SupportsExpressionSigil, span::Span};
+use kelp_core::{parsed::supports_expression_sigil::ParsedSupportsExpressionSigil, span::Span};
 
 use crate::{
     cst::CSTExpressionSigil,
@@ -33,20 +33,20 @@ pub fn try_parse_expression_sigil(parser: &mut Parser) -> bool {
 pub fn lower_expression_sigil<T>(
     node: CSTExpressionSigil,
     ctx: &mut LowerContext,
-) -> Option<SupportsExpressionSigil<T>> {
+) -> Option<ParsedSupportsExpressionSigil<T>> {
     let expression = lower_expression(node.expression()?, ctx)?;
 
-    Some(SupportsExpressionSigil::Sigil(expression))
+    Some(ParsedSupportsExpressionSigil::Sigil(expression))
 }
 
 pub fn assert_not_sigil<T>(
-    sigil: SupportsExpressionSigil<T>,
+    sigil: ParsedSupportsExpressionSigil<T>,
     span: Span,
     ctx: &mut LowerContext,
 ) -> Option<T> {
     match sigil {
-        SupportsExpressionSigil::Regular(value) => Some(value),
-        SupportsExpressionSigil::Sigil(..) => {
+        ParsedSupportsExpressionSigil::Regular(value) => Some(value),
+        ParsedSupportsExpressionSigil::Sigil(..) => {
             ctx.add_error(span, LowerError::ExpressionSigilNotAllowed)
         }
     }

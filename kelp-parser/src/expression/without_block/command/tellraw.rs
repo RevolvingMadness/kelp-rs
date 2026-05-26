@@ -1,6 +1,6 @@
-use kelp_core::high::{
-    command::Command,
-    expression::{Expression, ExpressionKind},
+use kelp_core::parsed::{
+    command::ParsedCommand,
+    expression::{ParsedExpression, ParsedExpressionKind},
 };
 
 use crate::{
@@ -45,11 +45,11 @@ pub fn try_parse_tellraw_command_expression(parser: &mut Parser) -> bool {
 pub fn lower_tellraw_command_expression(
     node: CSTTellrawCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
     let value = lower_expression(node.expression()?, ctx)?;
 
-    Some(ExpressionKind::Command(Box::new(Command::Tellraw(selector, value))).with_span(span))
+    Some(ParsedExpressionKind::Command(Box::new(ParsedCommand::Tellraw(selector, value))).with_span(span))
 }

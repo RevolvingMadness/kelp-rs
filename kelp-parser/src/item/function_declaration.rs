@@ -1,6 +1,6 @@
 use kelp_core::{
-    high::{
-        data_type::DataType, item::function_declaration::FunctionDeclarationItem, pattern::Pattern,
+    parsed::{
+        data_type::ParsedDataType, item::function_declaration::FunctionDeclarationItem, pattern::ParsedPattern,
     },
     trait_ext::CollectOptionAllIterExt,
 };
@@ -230,7 +230,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
 pub fn lower_function_parameter(
     node: CSTFunctionParameter,
     ctx: &mut LowerContext,
-) -> Option<(Pattern, DataType)> {
+) -> Option<(ParsedPattern, ParsedDataType)> {
     let pattern = lower_pattern(node.pattern()?, ctx)?;
 
     let data_type = lower_data_type(node.data_type()?)?;
@@ -243,7 +243,7 @@ pub fn lower_function_parameter(
 pub fn lower_function_parameters(
     node: CSTFunctionParameters,
     ctx: &mut LowerContext,
-) -> Option<(bool, Vec<(Pattern, DataType)>)> {
+) -> Option<(bool, Vec<(ParsedPattern, ParsedDataType)>)> {
     let is_method = node.self_function_parameters().count() != 0;
 
     let parameters = node
@@ -281,7 +281,7 @@ pub fn lower_function_declaration_item_kind(
     let return_type = node
         .data_type()
         .and_then(lower_data_type)
-        .unwrap_or(DataType::Unit);
+        .unwrap_or(ParsedDataType::Unit);
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 

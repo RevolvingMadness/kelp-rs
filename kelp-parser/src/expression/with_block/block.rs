@@ -1,4 +1,4 @@
-use kelp_core::high::expression::block::{BlockExpression, BlockExpressionInfo};
+use kelp_core::parsed::expression::block::{ParsedBlockExpression, ParsedBlockExpressionInfo};
 
 use crate::{
     cst::{CSTBlockExpression, CSTStatement},
@@ -45,7 +45,7 @@ pub fn try_parse_block_expression(parser: &mut Parser) -> bool {
 pub fn lower_block_expression(
     node: CSTBlockExpression,
     ctx: &mut LowerContext,
-) -> Option<BlockExpression> {
+) -> Option<ParsedBlockExpression> {
     let span = span_of_cst_node(&node);
 
     let cst_statements: Vec<_> = node.statements().collect();
@@ -81,7 +81,7 @@ pub fn lower_block_expression(
     }
 
     Some(
-        BlockExpressionInfo {
+        ParsedBlockExpressionInfo {
             statements,
             tail_expression: tail_expression.map(Box::new),
         }

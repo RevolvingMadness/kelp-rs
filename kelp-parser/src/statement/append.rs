@@ -1,4 +1,4 @@
-use kelp_core::high::statement::{Statement, StatementKind};
+use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
     cst::CSTAppendStatement,
@@ -44,11 +44,11 @@ pub fn try_parse_append_statement(parser: &mut Parser) -> bool {
 pub fn lower_append_statement(
     node: CSTAppendStatement,
     ctx: &mut LowerContext,
-) -> Option<Statement> {
+) -> Option<ParsedStatement> {
     let span = span_of_cst_node(&node);
 
     let target = lower_expression(node.target()?, ctx)?;
     let value = lower_expression(node.value()?, ctx)?;
 
-    Some(StatementKind::Append(target, Box::new(value)).with_span(span))
+    Some(ParsedStatementKind::Append(target, Box::new(value)).with_span(span))
 }

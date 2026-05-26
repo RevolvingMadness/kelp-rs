@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{cst::CSTUnderscoreExpression, lower_context::LowerContext, span::span_of_cst_node};
 
@@ -7,8 +7,8 @@ use crate::{cst::CSTUnderscoreExpression, lower_context::LowerContext, span::spa
 pub fn lower_underscore_expression(
     node: CSTUnderscoreExpression,
     _ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
-    Some(ExpressionKind::Underscore.with_span(span))
+    Some(ParsedExpressionKind::Underscore.with_span(span))
 }

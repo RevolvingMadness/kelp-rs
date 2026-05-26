@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTAsCastExpression, data_type::lower_data_type, expression::lower_expression,
@@ -10,11 +10,11 @@ use crate::{
 pub fn lower_as_cast_expression(
     node: CSTAsCastExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let expression = lower_expression(node.expression()?, ctx)?;
     let data_type = lower_data_type(node.data_type()?)?;
 
-    Some(ExpressionKind::AsCast(Box::new(expression), data_type).with_span(span))
+    Some(ParsedExpressionKind::AsCast(Box::new(expression), data_type).with_span(span))
 }

@@ -1,8 +1,8 @@
 pub mod compile_context;
 pub mod data;
 pub mod datapack;
-pub mod high;
-pub mod low;
+pub mod parsed;
+pub mod semantic;
 pub mod operator;
 pub mod parameter_types_iter;
 pub mod path;
@@ -12,3 +12,4 @@ pub mod runtime_storage;
 pub mod span;
 pub mod trait_ext;
 pub mod visibility;
+pub mod low;

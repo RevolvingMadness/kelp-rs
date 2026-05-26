@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{cst::CSTCharacterExpression, lower_context::LowerContext, span::span_of_cst_node};
 
@@ -7,11 +7,11 @@ use crate::{cst::CSTCharacterExpression, lower_context::LowerContext, span::span
 pub fn lower_character_expression(
     node: CSTCharacterExpression,
     _ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let text_token = node.character_literal_token()?;
     let text = text_token.text().trim_matches('\'');
 
-    Some(ExpressionKind::String(text.to_owned()).with_span(span))
+    Some(ParsedExpressionKind::String(text.to_owned()).with_span(span))
 }

@@ -1,4 +1,4 @@
-use kelp_core::high::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfoKind};
+use kelp_core::parsed::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfoKind};
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseError, ParseResult, Parser};

@@ -1,4 +1,4 @@
-use kelp_core::high::expression::Expression;
+use kelp_core::parsed::expression::ParsedExpression;
 
 use crate::{
     cst::CSTParenthesizedExpression, expression::lower_expression, lower_context::LowerContext,
@@ -9,7 +9,7 @@ use crate::{
 pub fn lower_parenthesized_expression(
     node: CSTParenthesizedExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let expression = lower_expression(node.expression()?, ctx)?;
 
     Some(expression)

@@ -1,4 +1,4 @@
-use kelp_core::high::statement::{Statement, StatementKind};
+use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
     cst::CSTContinueStatement, lower_context::LowerContext, parser::Parser, span::span_of_cst_node,
@@ -23,8 +23,8 @@ pub fn try_parse_continue_statement(parser: &mut Parser) -> bool {
 pub fn lower_continue_statement(
     node: CSTContinueStatement,
     _ctx: &mut LowerContext,
-) -> Option<Statement> {
+) -> Option<ParsedStatement> {
     let span = span_of_cst_node(&node);
 
-    Some(StatementKind::Continue.with_span(span))
+    Some(ParsedStatementKind::Continue.with_span(span))
 }

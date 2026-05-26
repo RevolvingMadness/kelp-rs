@@ -1,5 +1,5 @@
-use kelp_core::high::{
-    coordinate::Coordinates, supports_expression_sigil::SupportsExpressionSigil,
+use kelp_core::parsed::{
+    coordinate::ParsedCoordinates, supports_expression_sigil::ParsedSupportsExpressionSigil,
 };
 
 use crate::{
@@ -59,7 +59,7 @@ pub fn try_parse_coordinates(parser: &mut Parser) -> bool {
 pub fn lower_actual_coordinates(
     node: CSTActualCoordinates,
     ctx: &mut LowerContext,
-) -> Option<Coordinates> {
+) -> Option<ParsedCoordinates> {
     Some(match node {
         CSTActualCoordinates::WorldCoordinates(node) => {
             let mut coordinates = node.world_coordinates();
@@ -68,7 +68,7 @@ pub fn lower_actual_coordinates(
             let y = lower_world_coordinate(coordinates.next()?, ctx)?;
             let z = lower_world_coordinate(coordinates.next()?, ctx)?;
 
-            Coordinates::World(x, y, z)
+            ParsedCoordinates::World(x, y, z)
         }
         CSTActualCoordinates::LocalCoordinates(node) => {
             let mut coordinates = node
@@ -79,7 +79,7 @@ pub fn lower_actual_coordinates(
             let y = coordinates.next().unwrap()?;
             let z = coordinates.next().unwrap()?;
 
-            Coordinates::Local(x, y, z)
+            ParsedCoordinates::Local(x, y, z)
         }
     })
 }
@@ -88,10 +88,10 @@ pub fn lower_actual_coordinates(
 pub fn lower_coordinates(
     node: CSTCoordinates,
     ctx: &mut LowerContext,
-) -> Option<SupportsExpressionSigil<Coordinates>> {
+) -> Option<ParsedSupportsExpressionSigil<ParsedCoordinates>> {
     match node {
         CSTCoordinates::ActualCoordinates(node) => {
-            lower_actual_coordinates(node, ctx).map(SupportsExpressionSigil::Regular)
+            lower_actual_coordinates(node, ctx).map(ParsedSupportsExpressionSigil::Regular)
         }
         CSTCoordinates::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
     }

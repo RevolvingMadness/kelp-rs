@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::item::{Item, ItemKind},
+    parsed::item::{ParsedItem, ItemKind},
     visibility::Visibility,
 };
 
@@ -211,7 +211,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ItemKind
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<Item> {
+pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<ParsedItem> {
     let span = span_of_cst_node(&node);
 
     let visibility = if node.pub_keyword_token().is_some() {
@@ -222,7 +222,7 @@ pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<Item> {
 
     let kind = lower_item_kind(node.item_kind()?, ctx)?;
 
-    Some(Item {
+    Some(ParsedItem {
         span,
         visibility,
         kind,

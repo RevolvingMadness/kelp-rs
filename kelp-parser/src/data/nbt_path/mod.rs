@@ -1,4 +1,4 @@
-use kelp_core::high::nbt_path::NbtPath;
+use kelp_core::parsed::nbt_path::NbtPath;
 
 use crate::{
     cst::CSTNBTPath,

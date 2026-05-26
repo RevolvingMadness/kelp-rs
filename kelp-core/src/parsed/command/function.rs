@@ -1,0 +1,54 @@
+use std::collections::HashMap;
+
+use crate::{
+    parsed::{
+        data::DataTarget, expression::ParsedExpression, nbt_path::NbtPath,
+        semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
+    },
+    semantic::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
+    trait_ext::CollectOptionAllIterExt,
+};
+
+#[derive(Debug, Clone)]
+pub enum FunctionCommandArguments {
+    Compound(HashMap<SNBTString, ParsedExpression>),
+    DataTarget(Box<(DataTarget, Option<NbtPath>)>),
+}
+
+impl FunctionCommandArguments {
+    pub fn perform_semantic_analysis(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+    ) -> Option<MiddleFunctionCommandArguments> {
+        Some(match self {
+            Self::Compound(compound) => {
+                let compound = compound
+                    .into_iter()
+                    .map(|(key, value)| {
+                        let (_, key) = key.perform_semantic_analysis(ctx);
+                        let value = value.perform_semantic_analysis(ctx);
+
+                        let (_, value) = value?;
+
+                        Some((key, value))
+                    })
+                    .collect_option_all()?;
+
+                MiddleFunctionCommandArguments::Compound(compound)
+            }
+            Self::DataTarget(target_path) => {
+                let (target, path) = *target_path;
+
+                let target = target.perform_semantic_analysis(ctx);
+                let path = match path {
+                    Some(path) => Some(path.perform_semantic_analysis(ctx)?),
+                    None => None,
+                };
+
+                let target = target?;
+
+                MiddleFunctionCommandArguments::DataTarget(target, path)
+            }
+        })
+    }
+}

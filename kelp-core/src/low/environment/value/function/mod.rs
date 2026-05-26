@@ -1,14 +1,12 @@
 use crate::{
-    low::{
-        data_type::resolved::ResolvedDataType,
-        environment::value::function::{
-            builtin::{BuiltinFunctionDeclaration, BuiltinFunctionId},
-            regular::{RegularFunctionDeclaration, RegularFunctionId},
-        },
-        pattern::UnresolvedPattern,
-    },
-    parameter_types_iter::{ParameterTypesIter, take_second},
+    parameter_types_iter::{take_second, ParameterTypesIter},
+    semantic::pattern::SemanticPattern,
 };
+use crate::low::environment::value::function::{
+    builtin::{BuiltinFunctionDeclaration, BuiltinFunctionId},
+    regular::{RegularFunctionDeclaration, RegularFunctionId},
+};
+use crate::low::data_type::DataType;
 
 pub mod builtin;
 pub mod regular;
@@ -56,7 +54,7 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub fn generic_types(&self) -> &[ResolvedDataType] {
+    pub fn generic_types(&self) -> &[DataType] {
         match self {
             Self::Regular(declaration) => &declaration.generic_types,
             Self::Builtin(declaration) => &declaration.generic_types,
@@ -64,7 +62,7 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub fn parameter_types(&self) -> ParameterTypesIter<'_, UnresolvedPattern, ResolvedDataType> {
+    pub fn parameter_types(&self) -> ParameterTypesIter<'_, SemanticPattern, DataType> {
         match self {
             Self::Regular(declaration) => {
                 ParameterTypesIter::Regular(declaration.parameters.iter().map(take_second))
@@ -76,7 +74,7 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub const fn return_type(&self) -> &ResolvedDataType {
+    pub const fn return_type(&self) -> &DataType {
         match self {
             Self::Regular(declaration) => &declaration.return_type,
             Self::Builtin(declaration) => &declaration.return_type,

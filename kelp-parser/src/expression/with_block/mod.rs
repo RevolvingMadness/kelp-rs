@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTExpressionWithBlock,
@@ -18,14 +18,14 @@ pub mod r#loop;
 pub fn lower_expression_with_block(
     node: CSTExpressionWithBlock,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     match node {
         CSTExpressionWithBlock::BlockExpression(node) => {
             let span = span_of_cst_node(&node);
 
             let expression = lower_block_expression(node, ctx)?;
 
-            Some(ExpressionKind::Block(expression).with_span(span))
+            Some(ParsedExpressionKind::Block(expression).with_span(span))
         }
         CSTExpressionWithBlock::IfExpression(node) => lower_if_expression(node, ctx),
         CSTExpressionWithBlock::LoopExpression(node) => lower_loop_expression(node, ctx),

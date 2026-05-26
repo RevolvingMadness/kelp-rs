@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionKind};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     coordinates::{lower_coordinates, try_parse_coordinates},
@@ -40,10 +40,10 @@ pub fn try_parse_coordinates_expression(parser: &mut Parser) -> bool {
 pub fn lower_coordinates_expression(
     node: CSTCoordinatesExpression,
     ctx: &mut LowerContext,
-) -> Option<Expression> {
+) -> Option<ParsedExpression> {
     let coordinates = lower_coordinates(node.coordinates()?, ctx)?;
 
     let span = span_of_cst_node(&node);
 
-    Some(ExpressionKind::Coordinates(Box::new(coordinates)).with_span(span))
+    Some(ParsedExpressionKind::Coordinates(Box::new(coordinates)).with_span(span))
 }

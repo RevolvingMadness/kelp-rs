@@ -1,4 +1,4 @@
-use kelp_core::high::statement::{Statement, StatementKind};
+use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
     cst::CSTLetStatement,
@@ -57,7 +57,7 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_let_statement(node: CSTLetStatement, ctx: &mut LowerContext) -> Option<Statement> {
+pub fn lower_let_statement(node: CSTLetStatement, ctx: &mut LowerContext) -> Option<ParsedStatement> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;
@@ -66,5 +66,5 @@ pub fn lower_let_statement(node: CSTLetStatement, ctx: &mut LowerContext) -> Opt
 
     let value = lower_expression(node.expression()?, ctx)?;
 
-    Some(StatementKind::Let(data_type, pattern, value).with_span(span))
+    Some(ParsedStatementKind::Let(data_type, pattern, value).with_span(span))
 }

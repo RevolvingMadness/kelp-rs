@@ -1,11 +1,9 @@
 use crate::{
-    high::{
-        environment::resolved::r#type::builtin_data_type::BuiltinTypeKind,
-        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-    },
-    low::data_type::unresolved::UnresolvedDataType,
+    parsed::semantic_analysis::{info::error::SemanticAnalysisError, SemanticAnalysisContext},
     span::Span,
 };
+use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::builtin_data_type::BuiltinTypeKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BuiltinTypeId(pub u32);
@@ -24,8 +22,8 @@ impl BuiltinTypeDeclaration {
         ctx: &mut SemanticAnalysisContext,
         span: Span,
         mut generic_spans: Vec<Span>,
-        mut generic_types: Vec<UnresolvedDataType>,
-    ) -> UnresolvedDataType {
+        mut generic_types: Vec<SemanticDataType>,
+    ) -> SemanticDataType {
         let expected_generic_count = self.generic_count;
         let actual_generic_count = generic_types.len();
 
@@ -39,23 +37,23 @@ impl BuiltinTypeDeclaration {
         }
 
         match self.kind {
-            BuiltinTypeKind::Boolean => UnresolvedDataType::Boolean,
-            BuiltinTypeKind::Byte => UnresolvedDataType::Byte,
-            BuiltinTypeKind::Short => UnresolvedDataType::Short,
-            BuiltinTypeKind::Integer => UnresolvedDataType::Integer,
-            BuiltinTypeKind::Long => UnresolvedDataType::Long,
-            BuiltinTypeKind::Float => UnresolvedDataType::Float,
-            BuiltinTypeKind::Double => UnresolvedDataType::Double,
-            BuiltinTypeKind::String => UnresolvedDataType::String,
+            BuiltinTypeKind::Boolean => SemanticDataType::Boolean,
+            BuiltinTypeKind::Byte => SemanticDataType::Byte,
+            BuiltinTypeKind::Short => SemanticDataType::Short,
+            BuiltinTypeKind::Integer => SemanticDataType::Integer,
+            BuiltinTypeKind::Long => SemanticDataType::Long,
+            BuiltinTypeKind::Float => SemanticDataType::Float,
+            BuiltinTypeKind::Double => SemanticDataType::Double,
+            BuiltinTypeKind::String => SemanticDataType::String,
             BuiltinTypeKind::List => {
                 let element_type = generic_types.remove(0);
 
-                UnresolvedDataType::List(Box::new(element_type))
+                SemanticDataType::List(Box::new(element_type))
             }
             BuiltinTypeKind::Compound => {
                 let element_type = generic_types.remove(0);
 
-                UnresolvedDataType::Compound(Box::new(element_type))
+                SemanticDataType::Compound(Box::new(element_type))
             }
             BuiltinTypeKind::Data => {
                 let element_type = generic_types.remove(0);
@@ -69,7 +67,7 @@ impl BuiltinTypeDeclaration {
                     );
                 };
 
-                UnresolvedDataType::Data(Box::new(data_type))
+                SemanticDataType::Data(Box::new(data_type))
             }
             BuiltinTypeKind::Score => {
                 let element_type = generic_types.remove(0);
@@ -83,11 +81,11 @@ impl BuiltinTypeDeclaration {
                     );
                 }
 
-                UnresolvedDataType::Score(Box::new(element_type))
+                SemanticDataType::Score(Box::new(element_type))
             }
-            BuiltinTypeKind::EntitySelector => UnresolvedDataType::EntitySelector,
-            BuiltinTypeKind::ResourceLocation => UnresolvedDataType::ResourceLocation,
-            BuiltinTypeKind::Coordinates => UnresolvedDataType::Coordinates,
+            BuiltinTypeKind::EntitySelector => SemanticDataType::EntitySelector,
+            BuiltinTypeKind::ResourceLocation => SemanticDataType::ResourceLocation,
+            BuiltinTypeKind::Coordinates => SemanticDataType::Coordinates,
         }
     }
 }

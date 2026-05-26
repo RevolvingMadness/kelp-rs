@@ -1,30 +1,30 @@
 use std::collections::HashMap;
 
 use crate::{
-    low::{
-        data_type::resolved::ResolvedDataType,
-        environment::{
-            r#type::{
-                TypeDeclaration, TypeDeclarationKind,
-                r#struct::{
-                    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
-                    TupleStructDeclaration, TupleStructId,
-                },
-            },
-            value::{
-                ValueDeclaration, ValueDeclarationKind, ValueId,
-                function::{
-                    FunctionDeclaration, FunctionId,
-                    regular::{RegularFunctionDeclaration, RegularFunctionId},
-                },
-                variable::{VariableDeclaration, VariableId},
-            },
-        },
-        expression::unresolved::UnresolvedExpression,
-        pattern::UnresolvedPattern,
+    semantic::{
+        expression::unresolved::SemanticExpression,
+        pattern::SemanticPattern,
     },
     visibility::Visibility,
 };
+use crate::low::environment::{
+    r#type::{
+        r#struct::{
+            RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
+            TupleStructDeclaration, TupleStructId,
+        }, TypeDeclaration,
+        TypeDeclarationKind,
+    },
+    value::{
+        function::{
+            regular::{RegularFunctionDeclaration, RegularFunctionId}, FunctionDeclaration,
+            FunctionId,
+        }, variable::{VariableDeclaration, VariableId}, ValueDeclaration,
+        ValueDeclarationKind,
+        ValueId,
+    },
+};
+use crate::low::data_type::DataType;
 
 pub mod r#type;
 pub mod value;
@@ -78,8 +78,8 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: HashMap<String, ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: HashMap<String, DataType>,
     ) -> RegularStructId {
         let id = self.declare_struct(
             module_path,
@@ -101,8 +101,8 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: Vec<ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: Vec<DataType>,
     ) -> TupleStructId {
         let id = self.declare_struct(
             module_path,
@@ -205,7 +205,7 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        data_type: ResolvedDataType,
+        data_type: DataType,
     ) -> VariableId {
         let id = VariableId(self.values.len() as u32);
 
@@ -256,8 +256,8 @@ impl Environment {
     pub fn update_regular_function(
         &mut self,
         id: RegularFunctionId,
-        new_parameters: Vec<(UnresolvedPattern, ResolvedDataType)>,
-        new_body: UnresolvedExpression,
+        new_parameters: Vec<(SemanticPattern, DataType)>,
+        new_body: SemanticExpression,
     ) {
         let ValueDeclaration {
             kind: ValueDeclarationKind::Function(declaration),

@@ -1,5 +1,5 @@
 use kelp_core::{
-    parsed::item::{ParsedItem, ItemKind},
+    parsed::item::{ParsedItem, ParsedItemKind},
     visibility::Visibility,
 };
 
@@ -152,15 +152,15 @@ pub fn expect_item(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ItemKind> {
+fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedItemKind> {
     match node {
         CSTItemKind::InherentImplementationItem(node) => {
             lower_inherent_implementation_item(node, ctx)
         }
         CSTItemKind::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
-        CSTItemKind::FunctionDeclarationItem(node) => Some(ItemKind::FunctionDeclaration(
-            lower_function_declaration_item_kind(node, ctx)?,
-        )),
+        CSTItemKind::FunctionDeclarationItem(node) => {
+            lower_function_declaration_item_kind(node, ctx)
+        }
         CSTItemKind::MinecraftFunctionDeclarationItem(node) => {
             lower_minecraft_function_declaration_item_kind(node, ctx)
         }
@@ -173,7 +173,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ItemKind
 
             let field_types = node.struct_fields().and_then(lower_struct_fields);
 
-            Some(ItemKind::RegularStructDeclaration {
+            Some(ParsedItemKind::RegularStructDeclaration {
                 name_span: text_range_to_span(name_range),
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
@@ -192,7 +192,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ItemKind
 
             let field_types = node.tuple_fields().and_then(lower_tuple_fields);
 
-            Some(ItemKind::TupleStructDeclaration {
+            Some(ParsedItemKind::TupleStructDeclaration {
                 name_span: text_range_to_span(name_range),
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
@@ -202,9 +202,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ItemKind
                 generic_ids: None,
             })
         }
-        CSTItemKind::TypeAliasDeclarationItem(node) => Some(ItemKind::TypeAliasDeclaration(
-            lower_type_alias_declaration_item(node)?,
-        )),
+        CSTItemKind::TypeAliasDeclarationItem(node) => lower_type_alias_declaration_item(node),
         CSTItemKind::UseItem(node) => lower_use_item(node),
     }
 }

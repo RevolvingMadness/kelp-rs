@@ -1,5 +1,4 @@
-pub use kelp_core::parsed::item::ItemKind;
-pub use kelp_core::parsed::item::type_alias_declaration::TypeAliasDeclarationItem;
+pub use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
     cst::CSTTypeAliasDeclarationItem,
@@ -79,14 +78,14 @@ pub fn expect_type_alias_declaration_item_kind(parser: &mut Parser) {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_type_alias_declaration_item(
     node: CSTTypeAliasDeclarationItem,
-) -> Option<TypeAliasDeclarationItem> {
+) -> Option<ParsedItemKind> {
     let name_token = node.name()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
     let generic_names = node.generic_names().and_then(lower_generic_names);
     let alias = lower_data_type(node.data_type()?)?;
 
-    Some(TypeAliasDeclarationItem {
+    Some(ParsedItemKind::TypeAliasDeclaration {
         name_span,
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),

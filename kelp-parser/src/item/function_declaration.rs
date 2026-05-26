@@ -1,7 +1,5 @@
 use kelp_core::{
-    parsed::{
-        data_type::ParsedDataType, item::function_declaration::FunctionDeclarationItem, pattern::ParsedPattern,
-    },
+    parsed::{data_type::ParsedDataType, item::ParsedItemKind, pattern::ParsedPattern},
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -259,7 +257,7 @@ pub fn lower_function_parameters(
 pub fn lower_function_declaration_item_kind(
     node: CSTFunctionDeclarationItem,
     ctx: &mut LowerContext,
-) -> Option<FunctionDeclarationItem> {
+) -> Option<ParsedItemKind> {
     let recursive_keyword_span = node
         .recursive_keyword_token()
         .map(|token| text_range_to_span(token.text_range()));
@@ -291,7 +289,7 @@ pub fn lower_function_declaration_item_kind(
         None => (false, Vec::new()),
     };
 
-    Some(FunctionDeclarationItem {
+    Some(ParsedItemKind::FunctionDeclaration {
         recursive_keyword_span,
         runtime_keyword_span,
         name_span: text_range_to_span(name_span),

@@ -1,4 +1,4 @@
-use kelp_core::parsed::item::associated::{AssociatedItem, AssociatedItemKind};
+use kelp_core::parsed::item::ParsedItem;
 use kelp_core::visibility::Visibility;
 
 use crate::lower_context::LowerContext;
@@ -54,7 +54,7 @@ pub fn expect_associated_item(parser: &mut Parser) {
 pub fn lower_associated_item(
     node: CSTAssociatedItem,
     ctx: &mut LowerContext,
-) -> Option<AssociatedItem> {
+) -> Option<ParsedItem> {
     let span = span_of_cst_node(&node);
 
     let visibility = if node.pub_keyword_token().is_some() {
@@ -65,16 +65,14 @@ pub fn lower_associated_item(
 
     let kind = match node.associated_item_kind()? {
         CSTAssociatedItemKind::FunctionDeclarationItem(fn_node) => {
-            AssociatedItemKind::FunctionDeclaration(lower_function_declaration_item_kind(
-                fn_node, ctx,
-            )?)
+            lower_function_declaration_item_kind(fn_node, ctx)?
         }
         CSTAssociatedItemKind::TypeAliasDeclarationItem(type_node) => {
-            AssociatedItemKind::TypeAliasDeclaration(lower_type_alias_declaration_item(type_node)?)
+            lower_type_alias_declaration_item(type_node)?
         }
     };
 
-    Some(AssociatedItem {
+    Some(ParsedItem {
         span,
         visibility,
         kind,

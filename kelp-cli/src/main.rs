@@ -11,7 +11,7 @@ use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseResult, Parser};
 use kelp_parser::program::lower_program;
 use serde::Deserialize;
-use std::fs::{self};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use yansi::Paint;

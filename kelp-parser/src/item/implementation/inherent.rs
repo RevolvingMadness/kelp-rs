@@ -1,4 +1,4 @@
-use kelp_core::parsed::item::ItemKind;
+use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
     cst::CSTInherentImplementationItem,
@@ -96,7 +96,7 @@ pub fn expect_inherent_implementation_item_kind(parser: &mut Parser) {
 pub fn lower_inherent_implementation_item(
     node: CSTInherentImplementationItem,
     ctx: &mut LowerContext,
-) -> Option<ItemKind> {
+) -> Option<ParsedItemKind> {
     let generic_names = node.generic_names().and_then(lower_generic_names);
     let target_type = node.data_type()?;
     let target_type_span = span_of_cst_node(&target_type);
@@ -107,7 +107,7 @@ pub fn lower_inherent_implementation_item(
         .filter_map(|item| lower_associated_item(item, ctx))
         .collect();
 
-    Some(ItemKind::InherentImplementationItem {
+    Some(ParsedItemKind::InherentImplementationItem {
         generic_names: generic_names.unwrap_or_default(),
         target_type_span,
         target_type,

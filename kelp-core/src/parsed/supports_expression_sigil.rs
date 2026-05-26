@@ -9,9 +9,8 @@ use crate::{
         expression::ParsedExpression, semantic_analysis::SemanticAnalysisContext,
     },
     semantic::{
-        coordinate::SemanticCoordinates as LowCoordinates,
-        entity_selector::SemanticEntitySelector as LowEntitySelector,
-        supports_expression_sigil::SemanticSupportsExpressionSigil as LowSupportsExpressionSigil,
+        coordinate::SemanticCoordinates, entity_selector::SemanticEntitySelector,
+        supports_expression_sigil::SemanticSupportsExpressionSigil,
     },
 };
 
@@ -45,9 +44,9 @@ impl ParsedSupportsExpressionSigil<ResourceLocation> {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<LowSupportsExpressionSigil<ResourceLocation>> {
+    ) -> Option<SemanticSupportsExpressionSigil<ResourceLocation>> {
         Some(match self {
-            Self::Regular(value) => LowSupportsExpressionSigil::Regular(value),
+            Self::Regular(value) => SemanticSupportsExpressionSigil::Regular(value),
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
 
@@ -57,7 +56,7 @@ impl ParsedSupportsExpressionSigil<ResourceLocation> {
                     &SemanticDataType::ResourceLocation,
                 )?;
 
-                LowSupportsExpressionSigil::Sigil(expression)
+                SemanticSupportsExpressionSigil::Sigil(expression)
             }
         })
     }
@@ -68,12 +67,12 @@ impl ParsedSupportsExpressionSigil<ParsedEntitySelector> {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<LowSupportsExpressionSigil<LowEntitySelector>> {
+    ) -> Option<SemanticSupportsExpressionSigil<SemanticEntitySelector>> {
         Some(match self {
             Self::Regular(value) => {
                 let value = value.perform_semantic_analysis(ctx)?;
 
-                LowSupportsExpressionSigil::Regular(value)
+                SemanticSupportsExpressionSigil::Regular(value)
             }
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
@@ -84,7 +83,7 @@ impl ParsedSupportsExpressionSigil<ParsedEntitySelector> {
                     &SemanticDataType::EntitySelector,
                 )?;
 
-                LowSupportsExpressionSigil::Sigil(expression)
+                SemanticSupportsExpressionSigil::Sigil(expression)
             }
         })
     }
@@ -95,12 +94,12 @@ impl ParsedSupportsExpressionSigil<ParsedCoordinates> {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<LowSupportsExpressionSigil<LowCoordinates>> {
+    ) -> Option<SemanticSupportsExpressionSigil<SemanticCoordinates>> {
         Some(match self {
             Self::Regular(coordinates) => {
                 let coordinates = coordinates.perform_semantic_analysis(ctx)?;
 
-                LowSupportsExpressionSigil::Regular(coordinates)
+                SemanticSupportsExpressionSigil::Regular(coordinates)
             }
             Self::Sigil(expression) => {
                 let (expression_span, expression) = expression.perform_semantic_analysis(ctx)?;
@@ -111,7 +110,7 @@ impl ParsedSupportsExpressionSigil<ParsedCoordinates> {
                     &SemanticDataType::Coordinates,
                 )?;
 
-                LowSupportsExpressionSigil::Sigil(expression)
+                SemanticSupportsExpressionSigil::Sigil(expression)
             }
         })
     }

@@ -1,29 +1,27 @@
 use std::collections::HashMap;
 
-use minecraft_command_types::{
-    command::function::FunctionCommandArguments as LowFunctionCommandArguments, snbt::SNBTString,
-};
+use minecraft_command_types::{command::function::FunctionCommandArguments, snbt::SNBTString};
 
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    semantic::{data::DataTarget, expression::SemanticExpression, nbt_path::NbtPath},
+    semantic::{data::SemanticDataTarget, expression::SemanticExpression, nbt_path::SemanticNbtPath},
 };
 
 #[derive(Debug, Clone)]
-pub enum FunctionCommandArguments {
+pub enum SemanticFunctionCommandArguments {
     Compound(HashMap<SNBTString, SemanticExpression>),
-    DataTarget(DataTarget, Option<NbtPath>),
+    DataTarget(SemanticDataTarget, Option<SemanticNbtPath>),
 }
 
-impl FunctionCommandArguments {
+impl SemanticFunctionCommandArguments {
     pub fn compile(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> LowFunctionCommandArguments {
+    ) -> FunctionCommandArguments {
         match self {
-            Self::Compound(compound) => LowFunctionCommandArguments::Compound(
+            Self::Compound(compound) => FunctionCommandArguments::Compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -37,7 +35,7 @@ impl FunctionCommandArguments {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                LowFunctionCommandArguments::DataTarget(target.target, path)
+                FunctionCommandArguments::DataTarget(target.target, path)
             }
         }
     }

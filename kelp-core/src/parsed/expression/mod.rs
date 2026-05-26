@@ -10,7 +10,7 @@ use crate::{
     parsed::{
         command::{ParsedCommand, execute::subcommand::r#if::ParsedExecuteIfSubcommand},
         coordinate::ParsedCoordinates,
-        data::DataTarget,
+        data::ParsedDataTarget,
         data_type::ParsedDataType,
         entity_selector::ParsedEntitySelector,
         expression::{
@@ -29,7 +29,7 @@ use crate::{
     path::generic::{GenericPath, GenericPathSegment},
     runtime_storage::RuntimeStorageType,
     semantic::{
-        data::Data,
+        data::SemanticData,
         expression::{SemanticExpression, SemanticExpressionKind},
     },
     span::Span,
@@ -80,7 +80,7 @@ pub enum ParsedExpressionKind {
     List(Vec<ParsedExpression>),
     Compound(HashMap<String, ParsedExpression>),
     PlayerScore(PlayerScore),
-    Data(Box<(DataTarget, NbtPath)>),
+    Data(Box<(ParsedDataTarget, NbtPath)>),
     Condition(bool, Box<ParsedExecuteIfSubcommand>),
     Command(Box<ParsedCommand>),
     Index(Box<ParsedExpression>, Box<ParsedExpression>),
@@ -259,7 +259,7 @@ impl ParsedExpression {
                 let target = target.perform_semantic_analysis(ctx)?;
                 let path = path.perform_semantic_analysis(ctx)?;
 
-                ParsedPlaceExpressionKind::Data(Box::new(Data { target, path }))
+                ParsedPlaceExpressionKind::Data(Box::new(SemanticData { target, path }))
                     .with(SemanticDataType::Data(Box::new(SemanticDataType::Inferred)))
             }
             ParsedExpressionKind::FieldAccess(target, field_span, field) => {
@@ -600,7 +600,7 @@ impl ParsedExpression {
                 let target = target?;
                 let path = path?;
 
-                SemanticExpressionKind::Data(Box::new(Data { target, path }))
+                SemanticExpressionKind::Data(Box::new(SemanticData { target, path }))
                     .with(SemanticDataType::Data(Box::new(SemanticDataType::Inferred)))
             }
             ParsedExpressionKind::Condition(inverted, condition) => {

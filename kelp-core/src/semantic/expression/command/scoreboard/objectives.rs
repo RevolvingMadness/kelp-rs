@@ -10,19 +10,19 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     semantic::expression::{
-        SemanticExpression, command::scoreboard::players::ScoreboardNumberFormat,
+        SemanticExpression, command::scoreboard::players::SemanticScoreboardNumberFormat,
     },
 };
 
 #[derive(Debug, Clone)]
-pub enum ScoreboardModification {
+pub enum SemanticScoreboardModification {
     DisplayAutoUpdate(bool),
     DisplayName(SemanticExpression),
-    NumberFormat(Option<ScoreboardNumberFormat>),
+    NumberFormat(Option<SemanticScoreboardNumberFormat>),
     RenderType(ScoreboardRenderType),
 }
 
-impl ScoreboardModification {
+impl SemanticScoreboardModification {
     #[must_use]
     pub fn compile(
         self,
@@ -55,7 +55,7 @@ pub enum ObjectivesScoreboardCommand {
     Add(String, String, Option<SemanticExpression>),
     Remove(String),
     SetDisplay(String, Option<String>),
-    Modify(String, ScoreboardModification),
+    Modify(String, SemanticScoreboardModification),
 }
 
 impl ObjectivesScoreboardCommand {

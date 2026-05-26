@@ -6,15 +6,15 @@ use ordered_float::NotNan;
 
 use crate::{
     parsed::{
-        command::execute::subcommand::ParsedExecuteSubcommand, data::DataTarget, nbt_path::NbtPath,
-        player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
+        command::execute::subcommand::ParsedExecuteSubcommand, data::ParsedDataTarget,
+        nbt_path::NbtPath, player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
     },
-    semantic::expression::command::execute::subcommand::store::ExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
+    semantic::expression::command::execute::subcommand::store::SemanticExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
 };
 
 #[derive(Debug, Clone)]
 pub struct ExecuteStoreDataSubcommand {
-    pub target: DataTarget,
+    pub target: ParsedDataTarget,
     pub path: NbtPath,
     pub snbt_type: NumericSNBTType,
     pub scale: NotNan<f32>,
@@ -24,7 +24,11 @@ pub struct ExecuteStoreDataSubcommand {
 #[derive(Debug, Clone)]
 pub enum ExecuteStoreSubcommand {
     Data(Box<ExecuteStoreDataSubcommand>),
-    Bossbar(ResourceLocation, BossbarStoreType, Box<ParsedExecuteSubcommand>),
+    Bossbar(
+        ResourceLocation,
+        BossbarStoreType,
+        Box<ParsedExecuteSubcommand>,
+    ),
     Score(PlayerScore, Box<ParsedExecuteSubcommand>),
 }
 

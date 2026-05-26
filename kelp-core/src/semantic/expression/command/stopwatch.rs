@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum StopwatchCommand {
+pub enum SemanticStopwatchCommand {
     Create(SemanticSupportsExpressionSigil<ResourceLocation>),
     Query(
         SemanticSupportsExpressionSigil<ResourceLocation>,
@@ -20,7 +20,7 @@ pub enum StopwatchCommand {
     Remove(SemanticSupportsExpressionSigil<ResourceLocation>),
 }
 
-impl StopwatchCommand {
+impl SemanticStopwatchCommand {
     #[must_use]
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowStopwatchCommand {
         match self {

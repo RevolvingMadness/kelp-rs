@@ -2,7 +2,7 @@ use minecraft_command_types::{command::enums::heightmap::Heightmap, coordinate::
 
 use crate::{
     parsed::{entity_selector::ParsedEntitySelector, semantic_analysis::SemanticAnalysisContext},
-    semantic::expression::command::execute::positioned::Positioned as MiddlePositioned,
+    semantic::expression::command::execute::positioned::SemanticPositioned as MiddlePositioned,
 };
 
 #[derive(Debug, Clone)]

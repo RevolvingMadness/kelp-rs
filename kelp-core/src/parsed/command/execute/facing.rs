@@ -4,7 +4,7 @@ use minecraft_command_types::{
 
 use crate::{
     parsed::{entity_selector::ParsedEntitySelector, semantic_analysis::SemanticAnalysisContext},
-    semantic::expression::command::execute::facing::Facing as MiddleFacing,
+    semantic::expression::command::execute::facing::SemanticFacing as MiddleFacing,
 };
 
 #[derive(Debug, Clone)]

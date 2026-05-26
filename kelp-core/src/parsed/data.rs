@@ -9,14 +9,15 @@ use crate::{
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
     semantic::data::{
-        Data as MiddleData, DataTarget as MiddleDataTarget, DataTargetKind as MiddleDataTargetKind,
+        SemanticData as MiddleData, SemanticDataTarget as MiddleDataTarget,
+        SemanticDataTargetKind as MiddleDataTargetKind,
     },
     span::Span,
 };
 
 #[derive(Debug, Clone)]
 pub struct Data {
-    pub target: DataTarget,
+    pub target: ParsedDataTarget,
     pub path: NbtPath,
 }
 
@@ -43,16 +44,16 @@ impl Data {
 }
 
 #[derive(Debug, Clone)]
-pub enum DataTargetKind {
+pub enum ParsedDataTargetKind {
     Block(Box<ParsedSupportsExpressionSigil<ParsedCoordinates>>),
     Entity(ParsedSupportsExpressionSigil<ParsedEntitySelector>),
     Storage(ParsedSupportsExpressionSigil<ResourceLocation>),
 }
 
-impl DataTargetKind {
+impl ParsedDataTargetKind {
     #[must_use]
-    pub const fn with_regular_span(self, span: Span) -> DataTarget {
-        DataTarget {
+    pub const fn with_regular_span(self, span: Span) -> ParsedDataTarget {
+        ParsedDataTarget {
             is_generated: false,
             span,
             kind: self,
@@ -60,8 +61,8 @@ impl DataTargetKind {
     }
 
     #[must_use]
-    pub const fn with_generated_span(self) -> DataTarget {
-        DataTarget {
+    pub const fn with_generated_span(self) -> ParsedDataTarget {
+        ParsedDataTarget {
             is_generated: true,
             span: Span::dummy(),
             kind: self,
@@ -70,25 +71,25 @@ impl DataTargetKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct DataTarget {
+pub struct ParsedDataTarget {
     pub is_generated: bool,
     pub span: Span,
-    pub kind: DataTargetKind,
+    pub kind: ParsedDataTargetKind,
 }
 
-impl Display for DataTarget {
+impl Display for ParsedDataTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            DataTargetKind::Block(coordinates) => write!(f, "block {}", coordinates),
-            DataTargetKind::Entity(selector) => write!(f, "entity {}", selector),
-            DataTargetKind::Storage(resource_location) => {
+            ParsedDataTargetKind::Block(coordinates) => write!(f, "block {}", coordinates),
+            ParsedDataTargetKind::Entity(selector) => write!(f, "entity {}", selector),
+            ParsedDataTargetKind::Storage(resource_location) => {
                 write!(f, "storage {}", resource_location)
             }
         }
     }
 }
 
-impl DataTarget {
+impl ParsedDataTarget {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -96,17 +97,17 @@ impl DataTarget {
         Some(MiddleDataTarget {
             is_generated: self.is_generated,
             kind: match self.kind {
-                DataTargetKind::Block(coordinates) => {
+                ParsedDataTargetKind::Block(coordinates) => {
                     let coordinates = coordinates.perform_semantic_analysis(ctx)?;
 
                     MiddleDataTargetKind::Block(coordinates.map(Box::new))
                 }
-                DataTargetKind::Entity(selector) => {
+                ParsedDataTargetKind::Entity(selector) => {
                     let selector = selector.perform_semantic_analysis(ctx)?;
 
                     MiddleDataTargetKind::Entity(selector)
                 }
-                DataTargetKind::Storage(resource_location) => {
+                ParsedDataTargetKind::Storage(resource_location) => {
                     let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
                     MiddleDataTargetKind::Storage(resource_location)

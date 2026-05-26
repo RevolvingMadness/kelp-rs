@@ -6,7 +6,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::expression::command::stopwatch::StopwatchCommand as LowStopwatchCommand,
+    semantic::expression::command::stopwatch::SemanticStopwatchCommand as LowStopwatchCommand,
 };
 
 #[derive(Debug, Clone)]

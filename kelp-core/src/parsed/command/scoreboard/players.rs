@@ -4,13 +4,13 @@ use minecraft_command_types::command::{
 
 use crate::{
     parsed::{
-        entity_selector::ParsedEntitySelector, expression::ParsedExpression, player_score::PlayerScore,
-        semantic_analysis::SemanticAnalysisContext,
+        entity_selector::ParsedEntitySelector, expression::ParsedExpression,
+        player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
     },
     semantic::expression::command::scoreboard::players::{
-        PlayersDisplayScoreboardCommand as MiddlePlayersDisplayScoreboardCommand,
-        PlayersScoreboardCommand as MiddlePlayersScoreboardCommand,
-        ScoreboardNumberFormat as MiddleScoreboardNumberFormat,
+        SemanticPlayersDisplayScoreboardCommand as MiddlePlayersDisplayScoreboardCommand,
+        SemanticPlayersScoreboardCommand as MiddlePlayersScoreboardCommand,
+        SemanticScoreboardNumberFormat as MiddleScoreboardNumberFormat,
     },
 };
 

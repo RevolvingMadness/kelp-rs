@@ -1,8 +1,5 @@
 use minecraft_command_types::{
-    command::{
-        Command as LowCommand, enums::difficulty::Difficulty,
-        r#return::ReturnCommand as LowReturnCommand,
-    },
+    command::{Command, enums::difficulty::Difficulty, r#return::ReturnCommand},
     coordinate::Coordinates,
     resource_location::ResourceLocation,
 };
@@ -16,8 +13,8 @@ use crate::{
             SemanticExpression,
             command::{
                 data::DataCommand, execute::subcommand::SemanticExecuteSubcommand,
-                function::FunctionCommandArguments, r#return::ReturnCommand,
-                scoreboard::ScoreboardCommand, stopwatch::StopwatchCommand,
+                function::SemanticFunctionCommandArguments, r#return::SemanticReturnCommand,
+                scoreboard::SemanticScoreboardCommand, stopwatch::SemanticStopwatchCommand,
             },
         },
         supports_expression_sigil::SemanticSupportsExpressionSigil,
@@ -32,7 +29,7 @@ pub mod scoreboard;
 pub mod stopwatch;
 
 #[derive(Debug, Clone)]
-pub enum Command {
+pub enum SemanticCommand {
     Data(DataCommand),
     Difficulty(Option<Difficulty>),
     Enchant(
@@ -43,15 +40,15 @@ pub enum Command {
     Execute(SemanticExecuteSubcommand),
     Function(
         SemanticSupportsExpressionSigil<ResourceLocation>,
-        Option<FunctionCommandArguments>,
+        Option<SemanticFunctionCommandArguments>,
     ),
     Tellraw(
         SemanticSupportsExpressionSigil<SemanticEntitySelector>,
         SemanticExpression,
     ),
-    Return(ReturnCommand),
-    Scoreboard(ScoreboardCommand),
-    Stopwatch(StopwatchCommand),
+    Return(SemanticReturnCommand),
+    Scoreboard(SemanticScoreboardCommand),
+    Stopwatch(SemanticStopwatchCommand),
     Summon(
         ResourceLocation,
         Option<Coordinates>,
@@ -59,16 +56,16 @@ pub enum Command {
     ),
 }
 
-impl Command {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowCommand {
+impl SemanticCommand {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Command {
         match self {
-            Self::Data(data_command) => LowCommand::Data(data_command.compile(datapack, ctx)),
-            Self::Difficulty(difficulty) => LowCommand::Difficulty(difficulty),
+            Self::Data(data_command) => Command::Data(data_command.compile(datapack, ctx)),
+            Self::Difficulty(difficulty) => Command::Difficulty(difficulty),
             Self::Enchant(selector, location, level) => {
-                LowCommand::Enchant(selector.compile(datapack, ctx), location, level)
+                Command::Enchant(selector.compile(datapack, ctx), location, level)
             }
             Self::Execute(execute_subcommand) => {
-                LowCommand::Execute(execute_subcommand.compile(datapack, ctx))
+                Command::Execute(execute_subcommand.compile(datapack, ctx))
             }
             Self::Function(id, arguments) => {
                 let id = id.compile(datapack, ctx);
@@ -76,32 +73,32 @@ impl Command {
                 let compiled_arguments =
                     arguments.map(|arguments| arguments.compile(datapack, ctx));
 
-                LowCommand::Function(id, compiled_arguments)
+                Command::Function(id, compiled_arguments)
             }
             Self::Tellraw(selector, expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
-                LowCommand::Tellraw(
+                Command::Tellraw(
                     selector.compile(datapack, ctx),
                     expression.as_text_component(datapack, ctx, false),
                 )
             }
             Self::Return(command) => match command {
-                ReturnCommand::Fail | ReturnCommand::Value(0) => {
-                    LowCommand::Return(LowReturnCommand::Fail)
+                SemanticReturnCommand::Fail | SemanticReturnCommand::Value(0) => {
+                    Command::Return(ReturnCommand::Fail)
                 }
-                ReturnCommand::Value(value) => LowCommand::Return(LowReturnCommand::Value(value)),
-                ReturnCommand::Run(command) => LowCommand::Return(LowReturnCommand::Run(Box::new(
-                    command.compile(datapack, ctx),
-                ))),
+                SemanticReturnCommand::Value(value) => Command::Return(ReturnCommand::Value(value)),
+                SemanticReturnCommand::Run(command) => {
+                    Command::Return(ReturnCommand::Run(Box::new(command.compile(datapack, ctx))))
+                }
             },
-            Self::Scoreboard(command) => LowCommand::Scoreboard(command.compile(datapack, ctx)),
+            Self::Scoreboard(command) => Command::Scoreboard(command.compile(datapack, ctx)),
             Self::Stopwatch(command) => {
                 let command = command.compile(datapack, ctx);
 
-                LowCommand::Stopwatch(command)
+                Command::Stopwatch(command)
             }
-            Self::Summon(entity, position, nbt) => LowCommand::Summon(
+            Self::Summon(entity, position, nbt) => Command::Summon(
                 entity,
                 position,
                 nbt.map(|nbt| nbt.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),

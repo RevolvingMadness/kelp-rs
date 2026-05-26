@@ -1,10 +1,8 @@
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::HighTypeId;
 use crate::semantic::environment::r#type::{
-    r#struct::{
-        regular::{HighRegularStructId, SemanticRegularStructDeclaration},
-        tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
-    },
     HighGenericId,
+    r#struct::{regular::SemanticRegularStructDeclaration, tuple::SemanticTupleStructDeclaration},
 };
 
 pub mod regular;
@@ -13,14 +11,8 @@ pub mod tuple;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighStructId(pub u32);
 
-impl From<HighRegularStructId> for HighStructId {
-    fn from(value: HighRegularStructId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighTupleStructId> for HighStructId {
-    fn from(value: HighTupleStructId) -> Self {
+impl From<HighStructId> for HighTypeId {
+    fn from(value: HighStructId) -> Self {
         Self(value.0)
     }
 }

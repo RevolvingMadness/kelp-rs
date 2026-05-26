@@ -6,15 +6,17 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     parsed::semantic_analysis::SemanticAnalysisContext,
-    semantic::{data::Data, expression::SemanticExpression, player_score::PlayerScore},
+    semantic::{
+        data::SemanticData, expression::SemanticExpression, player_score::SemanticPlayerScore,
+    },
     span::Span,
 };
 
 #[derive(Debug, Clone)]
 pub enum ParsedPlaceExpressionKind {
     Value(HighValueId, Vec<SemanticDataType>),
-    Score(PlayerScore),
-    Data(Box<Data>),
+    Score(SemanticPlayerScore),
+    Data(Box<SemanticData>),
     FieldAccess(Box<ParsedPlaceExpression>, String),
     Index(Box<ParsedPlaceExpression>, Box<SemanticExpression>),
     Dereference(Box<ParsedPlaceExpression>),

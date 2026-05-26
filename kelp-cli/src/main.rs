@@ -5,7 +5,7 @@ use kelp_core::datapack::Datapack;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::semantic::environment::SemanticEnvironment;
-use kelp_core::semantic::program::Program as MiddleProgram;
+use kelp_core::semantic::program::SemanticProgram as MiddleProgram;
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseResult, Parser};

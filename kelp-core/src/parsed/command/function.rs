@@ -2,17 +2,17 @@ use std::collections::HashMap;
 
 use crate::{
     parsed::{
-        data::DataTarget, expression::ParsedExpression, nbt_path::NbtPath,
+        data::ParsedDataTarget, expression::ParsedExpression, nbt_path::NbtPath,
         semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
     },
-    semantic::expression::command::function::FunctionCommandArguments as MiddleFunctionCommandArguments,
+    semantic::expression::command::function::SemanticFunctionCommandArguments as MiddleFunctionCommandArguments,
     trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
     Compound(HashMap<SNBTString, ParsedExpression>),
-    DataTarget(Box<(DataTarget, Option<NbtPath>)>),
+    DataTarget(Box<(ParsedDataTarget, Option<NbtPath>)>),
 }
 
 impl FunctionCommandArguments {

@@ -1,17 +1,14 @@
-use crate::{
-    parsed::semantic_analysis::{info::error::SemanticAnalysisError, SemanticAnalysisContext},
-    span::Span,
-    visibility::Visibility,
-};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::{
     alias::SemanticTypeAliasDeclaration,
     builtin_data_type::SemanticBuiltinTypeDeclaration,
-    module::{HighModuleId, SemanticModuleDeclaration},
-    r#struct::{
-        regular::HighRegularStructId, tuple::HighTupleStructId, HighStructId,
-        SemanticStructDeclaration,
-    },
+    module::SemanticModuleDeclaration,
+    r#struct::{HighStructId, SemanticStructDeclaration},
+};
+use crate::{
+    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    span::Span,
+    visibility::Visibility,
 };
 
 pub mod alias;
@@ -22,38 +19,14 @@ pub mod r#struct;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighGenericId(pub u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighTypeId(pub u32);
-
-impl From<HighModuleId> for HighTypeId {
-    fn from(value: HighModuleId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighStructId> for HighTypeId {
-    fn from(value: HighStructId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighRegularStructId> for HighTypeId {
-    fn from(value: HighRegularStructId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighTupleStructId> for HighTypeId {
-    fn from(value: HighTupleStructId) -> Self {
-        Self(value.0)
-    }
-}
-
 impl From<HighGenericId> for HighTypeId {
     fn from(value: HighGenericId) -> Self {
         Self(value.0)
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HighTypeId(pub u32);
 
 #[derive(Debug, Clone)]
 pub enum SemanticTypeDeclarationKind {

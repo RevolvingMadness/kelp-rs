@@ -15,7 +15,7 @@ use crate::{
         item::ParsedItem,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    semantic::program::Program as MiddleProgram,
+    semantic::program::SemanticProgram as MiddleProgram,
     trait_ext::CollectOptionAllIterExt,
 };
 

@@ -4,16 +4,17 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, semantic::entity_selector::SemanticEntitySelector,
+    compile_context::CompileContext, datapack::Datapack,
+    semantic::entity_selector::SemanticEntitySelector,
 };
 
 #[derive(Debug, Clone)]
-pub enum Facing {
+pub enum SemanticFacing {
     Position(Coordinates),
     Entity(SemanticEntitySelector, EntityAnchor),
 }
 
-impl Facing {
+impl SemanticFacing {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowFacing {
         match self {
             Self::Position(position) => LowFacing::Position(position),

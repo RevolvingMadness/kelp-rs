@@ -9,19 +9,19 @@ use crate::{
     semantic::{
         coordinate::SemanticCoordinates,
         entity_selector::SemanticEntitySelector,
-        nbt_path::{NbtPath, NbtPathNode},
+        nbt_path::{SemanticNbtPath, SemanticNbtPathNode},
         supports_expression_sigil::SemanticSupportsExpressionSigil,
     },
     span::Span,
 };
 
 #[derive(Debug, Clone)]
-pub struct Data {
-    pub target: DataTarget,
-    pub path: NbtPath,
+pub struct SemanticData {
+    pub target: SemanticDataTarget,
+    pub path: SemanticNbtPath,
 }
 
-impl Data {
+impl SemanticData {
     #[must_use]
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> GeneratedData {
         let target = self.target.compile(datapack, ctx);
@@ -32,7 +32,7 @@ impl Data {
 
     #[inline]
     #[must_use]
-    pub fn with_path_node(self, node: NbtPathNode) -> Self {
+    pub fn with_path_node(self, node: SemanticNbtPathNode) -> Self {
         Self {
             path: self.path.with_node(node),
             ..self
@@ -41,51 +41,31 @@ impl Data {
 }
 
 #[derive(Debug, Clone)]
-pub enum DataTargetKind {
+pub enum SemanticDataTargetKind {
     Block(SemanticSupportsExpressionSigil<Box<SemanticCoordinates>>),
     Entity(SemanticSupportsExpressionSigil<SemanticEntitySelector>),
     Storage(SemanticSupportsExpressionSigil<ResourceLocation>),
 }
 
-impl DataTargetKind {
-    #[must_use]
-    pub const fn with_regular_span(self, span: Span) -> DataTarget {
-        DataTarget {
-            is_generated: false,
-            span,
-            kind: self,
-        }
-    }
-
-    #[must_use]
-    pub const fn with_generated_span(self) -> DataTarget {
-        DataTarget {
-            is_generated: true,
-            span: Span::dummy(),
-            kind: self,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
-pub struct DataTarget {
+pub struct SemanticDataTarget {
     pub is_generated: bool,
     pub span: Span,
-    pub kind: DataTargetKind,
+    pub kind: SemanticDataTargetKind,
 }
 
-impl DataTarget {
+impl SemanticDataTarget {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> GeneratedDataTarget {
         GeneratedDataTarget {
             is_generated: self.is_generated,
             target: match self.kind {
-                DataTargetKind::Block(coordinates) => {
+                SemanticDataTargetKind::Block(coordinates) => {
                     LowDataTarget::Block(coordinates.compile(datapack, ctx))
                 }
-                DataTargetKind::Entity(entity_selector) => {
+                SemanticDataTargetKind::Entity(entity_selector) => {
                     LowDataTarget::Entity(entity_selector.compile(datapack, ctx))
                 }
-                DataTargetKind::Storage(resource_location) => {
+                SemanticDataTargetKind::Storage(resource_location) => {
                     let resource_location = resource_location.compile(datapack, ctx);
 
                     LowDataTarget::Storage(resource_location)

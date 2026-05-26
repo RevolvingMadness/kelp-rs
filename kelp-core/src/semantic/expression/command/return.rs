@@ -1,8 +1,8 @@
-use crate::semantic::expression::command::Command;
+use crate::semantic::expression::command::SemanticCommand;
 
 #[derive(Debug, Clone)]
-pub enum ReturnCommand {
+pub enum SemanticReturnCommand {
     Value(i32),
     Fail,
-    Run(Box<Command>),
+    Run(Box<SemanticCommand>),
 }

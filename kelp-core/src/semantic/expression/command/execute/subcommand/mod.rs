@@ -2,11 +2,11 @@ use std::collections::BTreeSet;
 
 use minecraft_command_types::{
     command::{
-        Command as LowCommand,
+        Command,
         enums::{
             axis::Axis, entity_anchor::EntityAnchor, relation::Relation, store_type::StoreType,
         },
-        execute::ExecuteSubcommand as LowExecuteSubcommand,
+        execute::ExecuteSubcommand,
     },
     resource_location::ResourceLocation,
 };
@@ -17,12 +17,14 @@ use crate::{
     semantic::{
         entity_selector::SemanticEntitySelector,
         expression::command::{
-            Command,
+            SemanticCommand,
             execute::{
-                facing::Facing,
-                positioned::Positioned,
-                rotated::Rotated,
-                subcommand::{r#if::SemanticExecuteIfSubcommand, store::ExecuteStoreSubcommand},
+                facing::SemanticFacing,
+                positioned::SemanticPositioned,
+                rotated::SemanticRotated,
+                subcommand::{
+                    r#if::SemanticExecuteIfSubcommand, store::SemanticExecuteStoreSubcommand,
+                },
             },
         },
     },
@@ -37,15 +39,15 @@ pub enum SemanticExecuteSubcommand {
     Anchored(EntityAnchor, Box<Self>),
     As(SemanticEntitySelector, Box<Self>),
     At(SemanticEntitySelector, Box<Self>),
-    Facing(Facing, Box<Self>),
+    Facing(SemanticFacing, Box<Self>),
     In(ResourceLocation, Box<Self>),
     On(Relation, Box<Self>),
-    Positioned(Positioned, Box<Self>),
-    Rotated(Rotated, Box<Self>),
+    Positioned(SemanticPositioned, Box<Self>),
+    Rotated(SemanticRotated, Box<Self>),
     Summon(ResourceLocation, Box<Self>),
     If(bool, Box<SemanticExecuteIfSubcommand>),
-    Store(StoreType, ExecuteStoreSubcommand),
-    Run(Vec<Command>),
+    Store(StoreType, SemanticExecuteStoreSubcommand),
+    Run(Vec<SemanticCommand>),
     Multiple(Vec<Self>),
 }
 
@@ -103,64 +105,60 @@ impl SemanticExecuteSubcommand {
         }
     }
 
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowExecuteSubcommand {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ExecuteSubcommand {
         match self {
             Self::Align(axes, next) => {
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Align(axes, Box::new(next))
+                ExecuteSubcommand::Align(axes, Box::new(next))
             }
             Self::Anchored(anchor, next) => {
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Anchored(anchor, Box::new(next))
+                ExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
             Self::As(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::As(selector, Box::new(next))
+                ExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::At(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::At(selector, Box::new(next))
+                ExecuteSubcommand::At(selector, Box::new(next))
             }
             Self::Facing(facing, next) => {
                 let facing = facing.compile(datapack, ctx);
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Facing(facing, Box::new(next))
+                ExecuteSubcommand::Facing(facing, Box::new(next))
             }
             Self::In(location, next) => {
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::In(location, Box::new(next))
+                ExecuteSubcommand::In(location, Box::new(next))
             }
             Self::On(relation, next) => {
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::On(relation, Box::new(next))
+                ExecuteSubcommand::On(relation, Box::new(next))
             }
             Self::Positioned(positioned, next) => {
                 let positioned = positioned.compile(datapack, ctx);
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Positioned(positioned, Box::new(next))
+                ExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Rotated(rotated, next) => {
                 let rotated = rotated.compile(datapack, ctx);
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Rotated(rotated, Box::new(next))
+                ExecuteSubcommand::Rotated(rotated, Box::new(next))
             }
             Self::Summon(entity_id, next) => {
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Summon(entity_id, Box::new(next))
+                ExecuteSubcommand::Summon(entity_id, Box::new(next))
             }
             Self::If(is_if, next) => {
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::If(is_if, next)
+                ExecuteSubcommand::If(is_if, next)
             }
             Self::Store(store_type, next) => {
                 let next = next.compile(datapack, ctx);
-                LowExecuteSubcommand::Store(store_type, next)
+                ExecuteSubcommand::Store(store_type, next)
             }
             Self::Run(commands) => {
                 let mut commands = commands
@@ -171,7 +169,7 @@ impl SemanticExecuteSubcommand {
                 let last = commands.pop().unwrap();
                 ctx.add_commands(datapack, commands);
 
-                LowExecuteSubcommand::Run(Box::new(last))
+                ExecuteSubcommand::Run(Box::new(last))
             }
             Self::Multiple(subcommands) => {
                 let mut subcommands = subcommands
@@ -180,7 +178,7 @@ impl SemanticExecuteSubcommand {
                     .collect::<Vec<_>>();
 
                 let last = subcommands.pop().unwrap();
-                let commands = subcommands.into_iter().map(LowCommand::Execute).collect();
+                let commands = subcommands.into_iter().map(Command::Execute).collect();
                 ctx.add_commands(datapack, commands);
 
                 last

@@ -4,7 +4,7 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     semantic::expression::command::scoreboard::{
-        objectives::ObjectivesScoreboardCommand, players::PlayersScoreboardCommand,
+        objectives::ObjectivesScoreboardCommand, players::SemanticPlayersScoreboardCommand,
     },
 };
 
@@ -12,12 +12,12 @@ pub mod objectives;
 pub mod players;
 
 #[derive(Debug, Clone)]
-pub enum ScoreboardCommand {
+pub enum SemanticScoreboardCommand {
     Objectives(Box<ObjectivesScoreboardCommand>),
-    Players(PlayersScoreboardCommand),
+    Players(SemanticPlayersScoreboardCommand),
 }
 
-impl ScoreboardCommand {
+impl SemanticScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,

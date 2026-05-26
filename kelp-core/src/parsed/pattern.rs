@@ -13,7 +13,7 @@ use crate::{
     },
     path::generic::GenericPath,
     pattern_type::PatternType,
-    semantic::{expression::literal::LiteralExpression, pattern::SemanticPattern},
+    semantic::{expression::literal::SemanticLiteralExpression, pattern::SemanticPattern},
     span::Span,
     trait_ext::CollectOptionAllIterExt,
     visibility::Visibility,
@@ -21,7 +21,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum ParsedPatternKind {
-    Literal(LiteralExpression),
+    Literal(SemanticLiteralExpression),
 
     Wildcard,
     Binding(GenericPath<ParsedDataType>),

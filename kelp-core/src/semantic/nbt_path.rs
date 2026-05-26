@@ -10,13 +10,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum NbtPathNode {
+pub enum SemanticNbtPathNode {
     RootCompound(HashMap<String, SemanticExpression>),
     Named(String, Option<HashMap<String, SemanticExpression>>),
     Index(Option<Box<SemanticExpression>>),
 }
 
-impl NbtPathNode {
+impl SemanticNbtPathNode {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPathNode {
         match self {
             Self::RootCompound(compound) => LowNbtPathNode::RootCompound(
@@ -51,9 +51,9 @@ impl NbtPathNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct NbtPath(pub Vec<NbtPathNode>);
+pub struct SemanticNbtPath(pub Vec<SemanticNbtPathNode>);
 
-impl NbtPath {
+impl SemanticNbtPath {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPath {
         LowNbtPath(
             self.0
@@ -64,7 +64,7 @@ impl NbtPath {
     }
 
     #[must_use]
-    pub fn with_node(mut self, node: NbtPathNode) -> Self {
+    pub fn with_node(mut self, node: SemanticNbtPathNode) -> Self {
         self.0.push(node);
 
         self

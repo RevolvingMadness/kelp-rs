@@ -3,7 +3,7 @@ use ordered_float::NotNan;
 use crate::{parsed::snbt_string::SNBTString, pattern_type::PatternType};
 
 #[derive(Debug, Clone)]
-pub enum LiteralExpression {
+pub enum SemanticLiteralExpression {
     Boolean(bool),
     Byte(i8),
     Short(i16),
@@ -14,7 +14,7 @@ pub enum LiteralExpression {
     String(SNBTString),
 }
 
-impl LiteralExpression {
+impl SemanticLiteralExpression {
     #[must_use]
     pub const fn get_pattern_type(&self) -> PatternType {
         match self {

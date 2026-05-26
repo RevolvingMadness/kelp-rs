@@ -9,13 +9,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct BlockState {
+pub struct SemanticBlockState {
     pub id: ResourceLocation,
     pub block_states: HashMap<String, String>,
     pub data_tags: Option<HashMap<SNBTString, SemanticExpression>>,
 }
 
-impl BlockState {
+impl SemanticBlockState {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowBlockState {
         LowBlockState {
             id: self.id,

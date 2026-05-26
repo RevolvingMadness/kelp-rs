@@ -1,6 +1,6 @@
 use crate::{
     parsed::{command::ParsedCommand, semantic_analysis::SemanticAnalysisContext},
-    semantic::expression::command::r#return::ReturnCommand as MiddleReturnCommand,
+    semantic::expression::command::r#return::SemanticReturnCommand as MiddleReturnCommand,
 };
 
 #[derive(Debug, Clone)]

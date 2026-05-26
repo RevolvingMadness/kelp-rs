@@ -5,10 +5,11 @@ use minecraft_command_types::{
 
 use crate::{
     parsed::{
-        block::BlockState, command::execute::subcommand::ParsedExecuteSubcommand, data::DataTarget,
-        entity_selector::ParsedEntitySelector, item_source::ParsedItemSource,
-        mc_item::ItemPredicate, nbt_path::NbtPath, player_score::PlayerScore,
-        score_comparison::ScoreComparison, semantic_analysis::SemanticAnalysisContext,
+        block::BlockState, command::execute::subcommand::ParsedExecuteSubcommand,
+        data::ParsedDataTarget, entity_selector::ParsedEntitySelector,
+        item_source::ParsedItemSource, mc_item::ItemPredicate, nbt_path::NbtPath,
+        player_score::PlayerScore, score_comparison::ScoreComparison,
+        semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
     semantic::expression::command::execute::subcommand::r#if::SemanticExecuteIfSubcommand as MiddleExecuteIfSubcommand,
@@ -33,7 +34,11 @@ pub enum ParsedExecuteIfSubcommand {
         IfBlocksMode,
         Option<Box<ParsedExecuteSubcommand>>,
     ),
-    Data(DataTarget, NbtPath, Option<Box<ParsedExecuteSubcommand>>),
+    Data(
+        ParsedDataTarget,
+        NbtPath,
+        Option<Box<ParsedExecuteSubcommand>>,
+    ),
     Dimension(
         ParsedSupportsExpressionSigil<ResourceLocation>,
         Option<Box<ParsedExecuteSubcommand>>,

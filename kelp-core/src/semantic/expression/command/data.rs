@@ -7,17 +7,24 @@ use ordered_float::NotNan;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    semantic::{data::DataTarget, expression::SemanticExpression, nbt_path::NbtPath},
+    semantic::{
+        data::SemanticDataTarget, expression::SemanticExpression, nbt_path::SemanticNbtPath,
+    },
 };
 
 #[derive(Debug, Clone)]
-pub enum DataCommandModification {
-    From(DataTarget, Option<NbtPath>),
-    String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
+pub enum SemanticDataCommandModification {
+    From(SemanticDataTarget, Option<SemanticNbtPath>),
+    String(
+        SemanticDataTarget,
+        Option<SemanticNbtPath>,
+        Option<i32>,
+        Option<i32>,
+    ),
     Value(Box<SemanticExpression>),
 }
 
-impl DataCommandModification {
+impl SemanticDataCommandModification {
     pub fn compile(
         self,
         datapack: &mut Datapack,
@@ -49,15 +56,19 @@ impl DataCommandModification {
 
 #[derive(Debug, Clone)]
 pub enum DataCommand {
-    Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
-    Merge(DataTarget, Box<SemanticExpression>),
-    Modify(
-        DataTarget,
-        NbtPath,
-        DataCommandModificationMode,
-        Box<DataCommandModification>,
+    Get(
+        SemanticDataTarget,
+        Option<SemanticNbtPath>,
+        Option<NotNan<f32>>,
     ),
-    Remove(DataTarget, NbtPath),
+    Merge(SemanticDataTarget, Box<SemanticExpression>),
+    Modify(
+        SemanticDataTarget,
+        SemanticNbtPath,
+        DataCommandModificationMode,
+        Box<SemanticDataCommandModification>,
+    ),
+    Remove(SemanticDataTarget, SemanticNbtPath),
 }
 
 impl DataCommand {

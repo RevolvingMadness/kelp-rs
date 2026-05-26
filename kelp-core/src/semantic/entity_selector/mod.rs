@@ -1,6 +1,4 @@
-use minecraft_command_types::entity_selector::{
-    EntitySelector as LowEntitySelector, EntitySelectorVariable,
-};
+use minecraft_command_types::entity_selector::{EntitySelector, EntitySelectorVariable};
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack,
@@ -16,16 +14,16 @@ pub enum SemanticEntitySelector {
 }
 
 impl SemanticEntitySelector {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowEntitySelector {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> EntitySelector {
         match self {
-            Self::Variable(variable, options) => LowEntitySelector::Variable(
+            Self::Variable(variable, options) => EntitySelector::Variable(
                 variable,
                 options
                     .into_iter()
                     .map(|option| option.compile(datapack, ctx))
                     .collect(),
             ),
-            Self::Name(name) => LowEntitySelector::Name(name),
+            Self::Name(name) => EntitySelector::Name(name),
         }
     }
 

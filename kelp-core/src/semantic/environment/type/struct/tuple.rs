@@ -1,8 +1,21 @@
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::r#struct::HighStructId;
+use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighTupleStructId(pub u32);
+
+impl From<HighTupleStructId> for HighStructId {
+    fn from(value: HighTupleStructId) -> Self {
+        Self(value.0)
+    }
+}
+
+impl From<HighTupleStructId> for HighTypeId {
+    fn from(value: HighTupleStructId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct SemanticTupleStructDeclaration {

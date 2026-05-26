@@ -1,4 +1,4 @@
-use kelp_core::parsed::data::{DataTarget, DataTargetKind};
+use kelp_core::parsed::data::{ParsedDataTarget, ParsedDataTargetKind};
 
 use crate::{
     coordinates::{lower_coordinates, try_parse_coordinates},
@@ -61,7 +61,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
 }
 
 #[must_use]
-pub fn lower_data_target(node: CSTDataTarget, ctx: &mut LowerContext) -> Option<DataTarget> {
+pub fn lower_data_target(node: CSTDataTarget, ctx: &mut LowerContext) -> Option<ParsedDataTarget> {
     let span = span_of_cst_node(&node);
 
     Some(
@@ -69,17 +69,17 @@ pub fn lower_data_target(node: CSTDataTarget, ctx: &mut LowerContext) -> Option<
             CSTDataTarget::EntityDataTarget(node) => {
                 let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
 
-                DataTargetKind::Entity(selector)
+                ParsedDataTargetKind::Entity(selector)
             }
             CSTDataTarget::BlockDataTarget(node) => {
                 let coordinates = lower_coordinates(node.coordinates()?, ctx)?;
 
-                DataTargetKind::Block(Box::new(coordinates))
+                ParsedDataTargetKind::Block(Box::new(coordinates))
             }
             CSTDataTarget::StorageDataTarget(node) => {
                 let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
-                DataTargetKind::Storage(resource_location)
+                ParsedDataTargetKind::Storage(resource_location)
             }
         })
         .with_regular_span(span),

@@ -4,17 +4,18 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, semantic::entity_selector::SemanticEntitySelector,
+    compile_context::CompileContext, datapack::Datapack,
+    semantic::entity_selector::SemanticEntitySelector,
 };
 
 #[derive(Debug, Clone)]
-pub enum Positioned {
+pub enum SemanticPositioned {
     Position(Coordinates),
     As(SemanticEntitySelector),
     Over(Heightmap),
 }
 
-impl Positioned {
+impl SemanticPositioned {
     pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowPositioned {
         match self {
             Self::Position(position) => LowPositioned::Position(position),

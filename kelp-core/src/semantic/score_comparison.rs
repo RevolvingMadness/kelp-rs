@@ -5,12 +5,12 @@ use minecraft_command_types::range::IntegerRange;
 
 use crate::compile_context::CompileContext;
 use crate::datapack::Datapack;
-use crate::semantic::player_score::PlayerScore;
+use crate::semantic::player_score::SemanticPlayerScore;
 
 #[derive(Debug, Clone)]
 pub enum ScoreComparison {
     Range(IntegerRange),
-    Score(ScoreComparisonOperator, PlayerScore),
+    Score(ScoreComparisonOperator, SemanticPlayerScore),
 }
 
 impl ScoreComparison {

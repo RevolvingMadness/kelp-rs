@@ -2,7 +2,7 @@ use minecraft_command_types::rotation::Rotation;
 
 use crate::{
     parsed::{entity_selector::ParsedEntitySelector, semantic_analysis::SemanticAnalysisContext},
-    semantic::expression::command::execute::rotated::Rotated as MiddleRotated,
+    semantic::expression::command::execute::rotated::SemanticRotated as MiddleRotated,
 };
 
 #[derive(Debug, Clone)]

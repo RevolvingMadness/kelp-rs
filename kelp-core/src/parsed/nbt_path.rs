@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     parsed::{expression::ParsedExpression, semantic_analysis::SemanticAnalysisContext},
-    semantic::nbt_path::{NbtPath as MiddleNbtPath, NbtPathNode as MiddleNbtPathNode},
+    semantic::nbt_path::{
+        SemanticNbtPath as MiddleNbtPath, SemanticNbtPathNode as MiddleNbtPathNode,
+    },
     trait_ext::CollectOptionAllIterExt,
 };
 

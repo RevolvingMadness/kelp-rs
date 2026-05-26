@@ -1,7 +1,7 @@
 use minecraft_command_types::{
     command::{
         enums::{bossbar_store_type::BossbarStoreType, numeric_snbt_type::NumericSNBTType},
-        execute::ExecuteStoreSubcommand as LowExecuteStoreSubcommand,
+        execute::ExecuteStoreSubcommand,
     },
     resource_location::ResourceLocation,
 };
@@ -11,25 +11,30 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     semantic::{
-        data::DataTarget, expression::command::execute::subcommand::SemanticExecuteSubcommand,
-        nbt_path::NbtPath, player_score::PlayerScore,
+        data::SemanticDataTarget,
+        expression::command::execute::subcommand::SemanticExecuteSubcommand, nbt_path::SemanticNbtPath,
+        player_score::SemanticPlayerScore,
     },
 };
 
 #[derive(Debug, Clone)]
-pub enum ExecuteStoreSubcommand {
+pub enum SemanticExecuteStoreSubcommand {
     Data(
-        DataTarget,
-        NbtPath,
+        SemanticDataTarget,
+        SemanticNbtPath,
         NumericSNBTType,
         NotNan<f32>,
         Box<SemanticExecuteSubcommand>,
     ),
-    Bossbar(ResourceLocation, BossbarStoreType, Box<SemanticExecuteSubcommand>),
-    Score(PlayerScore, Box<SemanticExecuteSubcommand>),
+    Bossbar(
+        ResourceLocation,
+        BossbarStoreType,
+        Box<SemanticExecuteSubcommand>,
+    ),
+    Score(SemanticPlayerScore, Box<SemanticExecuteSubcommand>),
 }
 
-impl ExecuteStoreSubcommand {
+impl SemanticExecuteStoreSubcommand {
     #[must_use]
     pub fn then(self, next: SemanticExecuteSubcommand) -> Self {
         match self {
@@ -59,14 +64,14 @@ impl ExecuteStoreSubcommand {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> LowExecuteStoreSubcommand {
+    ) -> ExecuteStoreSubcommand {
         match self {
             Self::Data(target, path, numeric_snbt_type, scale, next) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
                 let next = next.compile(datapack, ctx);
 
-                LowExecuteStoreSubcommand::Data(
+                ExecuteStoreSubcommand::Data(
                     target.target,
                     path,
                     numeric_snbt_type,
@@ -74,7 +79,7 @@ impl ExecuteStoreSubcommand {
                     Box::new(next),
                 )
             }
-            Self::Bossbar(location, store_type, next) => LowExecuteStoreSubcommand::Bossbar(
+            Self::Bossbar(location, store_type, next) => ExecuteStoreSubcommand::Bossbar(
                 location,
                 store_type,
                 Box::new(next.compile(datapack, ctx)),
@@ -83,7 +88,7 @@ impl ExecuteStoreSubcommand {
                 let score = score.compile(datapack, ctx);
                 let next = next.compile(datapack, ctx);
 
-                LowExecuteStoreSubcommand::Score(score.score, Box::new(next))
+                ExecuteStoreSubcommand::Score(score.score, Box::new(next))
             }
         }
     }

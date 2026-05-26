@@ -7,7 +7,7 @@ use crate::{
     },
     semantic::expression::command::scoreboard::objectives::{
         ObjectivesScoreboardCommand as MiddleObjectivesScoreboardCommand,
-        ScoreboardModification as MiddleScoreboardModification,
+        SemanticScoreboardModification as MiddleScoreboardModification,
     },
 };
 

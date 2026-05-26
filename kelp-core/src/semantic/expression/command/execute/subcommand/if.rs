@@ -2,10 +2,7 @@ use minecraft_command_types::{
     column_position::ColumnPosition,
     command::{
         enums::if_blocks_mode::IfBlocksMode,
-        execute::{
-            ExecuteIfSubcommand as LowExecuteIfSubcommand,
-            ExecuteSubcommand as LowExecuteSubcommand,
-        },
+        execute::{ExecuteIfSubcommand, ExecuteSubcommand},
     },
     coordinate::Coordinates,
     resource_location::ResourceLocation,
@@ -15,10 +12,12 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     semantic::{
-        block::BlockState, data::DataTarget, entity_selector::SemanticEntitySelector,
-        expression::command::execute::subcommand::SemanticExecuteSubcommand, item_source::SemanticItemSource,
-        mc_item::ItemPredicate, nbt_path::NbtPath, player_score::PlayerScore,
-        score_comparison::ScoreComparison, supports_expression_sigil::SemanticSupportsExpressionSigil,
+        block::SemanticBlockState, data::SemanticDataTarget,
+        entity_selector::SemanticEntitySelector,
+        expression::command::execute::subcommand::SemanticExecuteSubcommand,
+        item_source::SemanticItemSource, mc_item::SemanticItemPredicate, nbt_path::SemanticNbtPath,
+        player_score::SemanticPlayerScore, score_comparison::ScoreComparison,
+        supports_expression_sigil::SemanticSupportsExpressionSigil,
     },
 };
 
@@ -29,7 +28,11 @@ pub enum SemanticExecuteIfSubcommand {
         SemanticSupportsExpressionSigil<ResourceLocation>,
         Option<Box<SemanticExecuteSubcommand>>,
     ),
-    Block(Coordinates, BlockState, Option<Box<SemanticExecuteSubcommand>>),
+    Block(
+        Coordinates,
+        SemanticBlockState,
+        Option<Box<SemanticExecuteSubcommand>>,
+    ),
     Blocks(
         Coordinates,
         Coordinates,
@@ -37,12 +40,19 @@ pub enum SemanticExecuteIfSubcommand {
         IfBlocksMode,
         Option<Box<SemanticExecuteSubcommand>>,
     ),
-    Data(DataTarget, NbtPath, Option<Box<SemanticExecuteSubcommand>>),
+    Data(
+        SemanticDataTarget,
+        SemanticNbtPath,
+        Option<Box<SemanticExecuteSubcommand>>,
+    ),
     Dimension(
         SemanticSupportsExpressionSigil<ResourceLocation>,
         Option<Box<SemanticExecuteSubcommand>>,
     ),
-    Entity(SemanticEntitySelector, Option<Box<SemanticExecuteSubcommand>>),
+    Entity(
+        SemanticEntitySelector,
+        Option<Box<SemanticExecuteSubcommand>>,
+    ),
     Function(
         SemanticSupportsExpressionSigil<ResourceLocation>,
         Option<Box<SemanticExecuteSubcommand>>,
@@ -50,7 +60,7 @@ pub enum SemanticExecuteIfSubcommand {
     Items(
         SemanticItemSource,
         String,
-        ItemPredicate,
+        SemanticItemPredicate,
         Option<Box<SemanticExecuteSubcommand>>,
     ),
     Loaded(ColumnPosition, Option<Box<SemanticExecuteSubcommand>>),
@@ -58,7 +68,11 @@ pub enum SemanticExecuteIfSubcommand {
         SemanticSupportsExpressionSigil<ResourceLocation>,
         Option<Box<SemanticExecuteSubcommand>>,
     ),
-    Score(PlayerScore, ScoreComparison, Option<Box<SemanticExecuteSubcommand>>),
+    Score(
+        SemanticPlayerScore,
+        ScoreComparison,
+        Option<Box<SemanticExecuteSubcommand>>,
+    ),
 }
 
 impl SemanticExecuteIfSubcommand {
@@ -160,27 +174,23 @@ impl SemanticExecuteIfSubcommand {
         }
     }
 
-    pub fn compile(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) -> LowExecuteIfSubcommand {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ExecuteIfSubcommand {
         match self {
             Self::Biome(coords, biome, next) => {
                 let biome = biome.compile(datapack, ctx);
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                LowExecuteIfSubcommand::Biome(coords, biome, next)
+                ExecuteIfSubcommand::Biome(coords, biome, next)
             }
             Self::Block(coordinates, state, next) => {
                 let state = state.compile(datapack, ctx);
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Block(coordinates, state, next)
+                ExecuteIfSubcommand::Block(coordinates, state, next)
             }
             Self::Blocks(start, end, destination, mode, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Blocks(start, end, destination, mode, next)
+                ExecuteIfSubcommand::Blocks(start, end, destination, mode, next)
             }
             Self::Data(target, path, next) => {
                 let target = target.compile(datapack, ctx);
@@ -188,21 +198,21 @@ impl SemanticExecuteIfSubcommand {
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                LowExecuteIfSubcommand::Data(target.target, path, next)
+                ExecuteIfSubcommand::Data(target.target, path, next)
             }
             Self::Dimension(location, next) => {
                 let location = location.compile(datapack, ctx);
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                LowExecuteIfSubcommand::Dimension(location, next)
+                ExecuteIfSubcommand::Dimension(location, next)
             }
             Self::Entity(selector, next) => {
                 let selector = selector.compile(datapack, ctx);
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                LowExecuteIfSubcommand::Entity(selector, next)
+                ExecuteIfSubcommand::Entity(selector, next)
             }
             Self::Function(location, next) => {
                 let location = location.compile(datapack, ctx);
@@ -210,17 +220,17 @@ impl SemanticExecuteIfSubcommand {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
                 if let Some(next) = next {
-                    LowExecuteIfSubcommand::Function(location, next)
+                    ExecuteIfSubcommand::Function(location, next)
                 } else {
                     let mut req = datapack.requirements.get();
                     req.always_succeed_predicate = true;
                     datapack.requirements.set(req);
 
-                    LowExecuteIfSubcommand::Function(
+                    ExecuteIfSubcommand::Function(
                         location,
-                        Box::new(LowExecuteSubcommand::If(
+                        Box::new(ExecuteSubcommand::If(
                             false,
-                            LowExecuteIfSubcommand::Predicate(
+                            ExecuteIfSubcommand::Predicate(
                                 ResourceLocation::new_namespace_path("kelp", "always_succeed"),
                                 None,
                             ),
@@ -234,24 +244,24 @@ impl SemanticExecuteIfSubcommand {
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                LowExecuteIfSubcommand::Items(source, name, predicate, next)
+                ExecuteIfSubcommand::Items(source, name, predicate, next)
             }
             Self::Loaded(position, next) => {
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
-                LowExecuteIfSubcommand::Loaded(position, next)
+                ExecuteIfSubcommand::Loaded(position, next)
             }
             Self::Predicate(location, next) => {
                 let location = location.compile(datapack, ctx);
 
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                LowExecuteIfSubcommand::Predicate(location, next)
+                ExecuteIfSubcommand::Predicate(location, next)
             }
             Self::Score(score, comparison, next) => {
                 let score = score.compile(datapack, ctx);
                 let next = next.map(|next| Box::new(next.compile(datapack, ctx)));
 
-                LowExecuteIfSubcommand::Score(score.score, comparison.compile(datapack, ctx), next)
+                ExecuteIfSubcommand::Score(score.score, comparison.compile(datapack, ctx), next)
             }
         }
     }

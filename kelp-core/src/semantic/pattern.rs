@@ -2,25 +2,24 @@ use std::collections::HashMap;
 
 use minecraft_command_types::{
     nbt_path::NbtPathNode,
-    snbt::{SNBTString, SNBT},
+    snbt::{SNBT, SNBTString},
 };
 
-use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
-    semantic::{
-        data::Data,
-        expression::literal::LiteralExpression,
-        player_score::PlayerScore,
-    },
-};
-use crate::low::environment::r#type::r#struct::{RegularStructId, TupleStructId};
 use crate::low::data_type::DataType;
+use crate::low::environment::r#type::r#struct::{RegularStructId, TupleStructId};
 use crate::low::expression::Expression;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::{
     r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
     value::variable::HighVariableId,
+};
+use crate::{
+    compile_context::CompileContext,
+    datapack::Datapack,
+    semantic::{
+        data::SemanticData, expression::literal::SemanticLiteralExpression,
+        player_score::SemanticPlayerScore,
+    },
 };
 
 fn destructure_tuple(
@@ -46,9 +45,9 @@ fn destructure_tuple(
         (DataType::Tuple(data_types), Expression::Data(data)) => {
             for (i, (pattern, data_type)) in patterns.into_iter().zip(data_types).enumerate() {
                 let expression =
-                    Expression::Data(data.clone().with_path_node(NbtPathNode::Index(
-                        Some(SNBT::macroable_integer(i as i32)),
-                    )));
+                    Expression::Data(data.clone().with_path_node(NbtPathNode::Index(Some(
+                        SNBT::macroable_integer(i as i32),
+                    ))));
 
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
@@ -68,10 +67,7 @@ fn destructure_compound(
     value: Expression,
 ) {
     match (data_type, value) {
-        (
-            DataType::TypedCompound(data_types),
-            Expression::Compound(expressions),
-        ) => {
+        (DataType::TypedCompound(data_types), Expression::Compound(expressions)) => {
             for ((key, pattern), (_, expression)) in patterns.into_iter().zip(expressions) {
                 let expression = expression.clone();
                 let data_type = data_types.get(&key).unwrap().clone();
@@ -212,13 +208,13 @@ fn destructure_tuple_struct(
 
 #[derive(Debug, Clone)]
 pub enum SemanticPattern {
-    Literal(LiteralExpression),
+    Literal(SemanticLiteralExpression),
 
     Wildcard,
     Binding(HighVariableId),
 
-    Score(PlayerScore),
-    Data(Data),
+    Score(SemanticPlayerScore),
+    Data(SemanticData),
 
     Tuple(Vec<Self>),
     RegularStruct(

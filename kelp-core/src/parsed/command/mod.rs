@@ -15,7 +15,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::expression::command::Command as MiddleCommand,
+    semantic::expression::command::SemanticCommand as MiddleCommand,
 };
 
 pub mod data;
@@ -39,11 +39,18 @@ pub enum ParsedCommand {
         ParsedSupportsExpressionSigil<ResourceLocation>,
         Option<FunctionCommandArguments>,
     ),
-    Tellraw(ParsedSupportsExpressionSigil<ParsedEntitySelector>, ParsedExpression),
+    Tellraw(
+        ParsedSupportsExpressionSigil<ParsedEntitySelector>,
+        ParsedExpression,
+    ),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
     Stopwatch(StopwatchCommand),
-    Summon(ResourceLocation, Option<Coordinates>, Option<ParsedExpression>),
+    Summon(
+        ResourceLocation,
+        Option<Coordinates>,
+        Option<ParsedExpression>,
+    ),
 }
 
 impl ParsedCommand {

@@ -3,18 +3,19 @@ use ordered_float::NotNan;
 
 use crate::{
     parsed::{
-        data::DataTarget, expression::ParsedExpression, nbt_path::NbtPath,
+        data::ParsedDataTarget, expression::ParsedExpression, nbt_path::NbtPath,
         semantic_analysis::SemanticAnalysisContext,
     },
     semantic::expression::command::data::{
-        DataCommand as MiddleDataCommand, DataCommandModification as MiddleDataCommandModification,
+        DataCommand as MiddleDataCommand,
+        SemanticDataCommandModification as MiddleDataCommandModification,
     },
 };
 
 #[derive(Debug, Clone)]
 pub enum DataCommandModification {
-    From(DataTarget, Option<NbtPath>),
-    String(DataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
+    From(ParsedDataTarget, Option<NbtPath>),
+    String(ParsedDataTarget, Option<NbtPath>, Option<i32>, Option<i32>),
     Value(Box<ParsedExpression>),
 }
 
@@ -58,15 +59,15 @@ impl DataCommandModification {
 
 #[derive(Debug, Clone)]
 pub enum DataCommand {
-    Get(DataTarget, Option<NbtPath>, Option<NotNan<f32>>),
-    Merge(DataTarget, Box<ParsedExpression>),
+    Get(ParsedDataTarget, Option<NbtPath>, Option<NotNan<f32>>),
+    Merge(ParsedDataTarget, Box<ParsedExpression>),
     Modify(
-        DataTarget,
+        ParsedDataTarget,
         NbtPath,
         DataCommandModificationMode,
         Box<DataCommandModification>,
     ),
-    Remove(DataTarget, NbtPath),
+    Remove(ParsedDataTarget, NbtPath),
 }
 
 impl DataCommand {

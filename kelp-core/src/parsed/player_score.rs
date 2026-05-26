@@ -5,7 +5,7 @@ use crate::{
         entity_selector::ParsedEntitySelector, semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::player_score::PlayerScore as MiddlePlayerScore,
+    semantic::player_score::SemanticPlayerScore as MiddlePlayerScore,
 };
 
 #[derive(Debug, Clone)]

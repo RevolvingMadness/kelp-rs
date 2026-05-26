@@ -1,7 +1,5 @@
 use minecraft_command_types::{
-    item::{
-        ItemPredicate as LowItemPredicate, ItemTest as LowItemTest, ItemType, OrGroup as LowOrGroup,
-    },
+    item::{ItemPredicate, ItemTest, ItemType, OrGroup},
     resource_location::ResourceLocation,
 };
 
@@ -10,38 +8,38 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum ItemTest {
+pub enum SemanticItemTest {
     Component(ResourceLocation),
     ComponentMatches(ResourceLocation, SemanticExpression),
     Predicate(ResourceLocation, SemanticExpression),
 }
 
-impl ItemTest {
+impl SemanticItemTest {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemTest {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ItemTest {
         match self {
-            Self::Component(resource_location) => LowItemTest::Component(resource_location),
+            Self::Component(resource_location) => ItemTest::Component(resource_location),
             Self::ComponentMatches(resource_location, expression) => {
                 let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
-                LowItemTest::ComponentMatches(resource_location, expression)
+                ItemTest::ComponentMatches(resource_location, expression)
             }
             Self::Predicate(resource_location, expression) => {
                 let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
-                LowItemTest::Predicate(resource_location, expression)
+                ItemTest::Predicate(resource_location, expression)
             }
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct OrGroup(pub Vec<(bool, ItemTest)>);
+pub struct SemanticOrGroup(pub Vec<(bool, SemanticItemTest)>);
 
-impl OrGroup {
+impl SemanticOrGroup {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowOrGroup {
-        LowOrGroup(
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> OrGroup {
+        OrGroup(
             self.0
                 .into_iter()
                 .map(|(negated, test)| (negated, test.compile(datapack, ctx)))
@@ -51,15 +49,15 @@ impl OrGroup {
 }
 
 #[derive(Debug, Clone)]
-pub struct ItemPredicate {
+pub struct SemanticItemPredicate {
     pub id: ItemType,
-    pub or_groups: Vec<OrGroup>,
+    pub or_groups: Vec<SemanticOrGroup>,
 }
 
-impl ItemPredicate {
+impl SemanticItemPredicate {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemPredicate {
-        LowItemPredicate {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ItemPredicate {
+        ItemPredicate {
             id: self.id,
             or_groups: self
                 .or_groups

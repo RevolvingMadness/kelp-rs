@@ -34,18 +34,22 @@ use crate::{
             r#type::r#struct::{RegularStructId, TupleStructId},
             value::function::{FunctionDeclaration, FunctionId},
         },
+        expression::place::PlaceExpression,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     parsed::semantic_analysis::RegularFunctionModifiers,
     player_score::GeneratedPlayerScore,
     runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
-    typed::arena::TypedAstArena,
     typed::{
+        arena::TypedAstArena,
         environment::r#type::HighGenericId,
-        expression::{TypedExpression, TypedExpressionId, place::TypedPlaceExpression},
+        expression::{TypedExpression, TypedExpressionId},
         pattern::TypedPattern,
     },
 };
+
+pub mod assignee;
+pub mod place;
 
 pub fn compile_shift_operation(
     datapack: &mut Datapack,
@@ -572,7 +576,7 @@ pub enum Expression {
     EntitySelector(EntitySelector),
     Coordinates(Coordinates),
     Function(FunctionId),
-    Reference(Box<TypedPlaceExpression>),
+    Reference(Box<PlaceExpression>),
 
     Score(GeneratedPlayerScore),
     Data(GeneratedData),
@@ -660,13 +664,13 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn dereference_place(self) -> Option<TypedPlaceExpression> {
+    pub fn dereference_place(self) -> Option<PlaceExpression> {
         Some(match self {
             Self::Reference(place) => *place,
 
-            Self::Score(score) => TypedPlaceExpression::Score(score),
+            Self::Score(score) => PlaceExpression::Score(score),
 
-            Self::Data(data) => TypedPlaceExpression::Data(data),
+            Self::Data(data) => PlaceExpression::Data(data),
 
             _ => return None,
         })

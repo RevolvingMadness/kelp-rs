@@ -1,39 +1,77 @@
+use la_arena::Idx;
+
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    typed::expression::{Expression, place::TypedPlaceExpression},
+    low::expression::assignee::AssigneeExpression,
+    parsed::semantic_analysis::SemanticAnalysisContext,
+    span::Span,
+    typed::{
+        arena::{Typed, TypedAstArena},
+        data_type::SemanticDataType,
+        expression::place::{TypedPlaceExpression, TypedPlaceExpressionId},
+    },
 };
+
+pub type TypedAssigneeExpressionId = Idx<Typed<TypedAssigneeExpression>>;
 
 #[derive(Debug, Clone)]
 pub enum TypedAssigneeExpression {
-    Place(TypedPlaceExpression),
+    Place(TypedPlaceExpressionId),
 
-    Tuple(Vec<Self>),
+    Tuple(Vec<TypedAssigneeExpressionId>),
     Underscore,
 }
 
 impl TypedAssigneeExpression {
-    pub fn assign(
-        self,
+    #[must_use]
+    pub fn resolve(
+        id: TypedAssigneeExpressionId,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        value_expression: Expression,
-    ) {
-        match self {
-            Self::Place(expression) => expression.assign(datapack, ctx, value_expression),
+    ) -> AssigneeExpression {
+        match arena.get_assignee_expression_value(id) {
+            Self::Place(expression) => {
+                let expression = TypedPlaceExpression::resolve(*expression, arena, datapack, ctx);
 
-            Self::Tuple(assignee_expressions) => {
-                let Expression::Tuple(value_expressions) = value_expression else {
-                    unreachable!();
-                };
-
-                for (assignee_expression, value_expression) in
-                    assignee_expressions.into_iter().zip(value_expressions)
-                {
-                    assignee_expression.assign(datapack, ctx, value_expression);
-                }
+                AssigneeExpression::Place(Box::new(expression))
             }
-            Self::Underscore => {}
+            Self::Tuple(expressions) => {
+                let expressions = expressions
+                    .iter()
+                    .copied()
+                    .map(|expression| Self::resolve(expression, arena, datapack, ctx))
+                    .collect();
+
+                AssigneeExpression::Tuple(expressions)
+            }
+            Self::Underscore => AssigneeExpression::Underscore,
+        }
+    }
+
+    #[must_use]
+    pub fn perform_assignment_semantic_analysis(
+        id: TypedAssigneeExpressionId,
+        arena: &TypedAstArena,
+        ctx: &mut SemanticAnalysisContext,
+        value_span: Span,
+        value_type: &SemanticDataType,
+    ) -> Option<()> {
+        match arena.get_assignee_expression_value(id) {
+            Self::Place(expression) => TypedPlaceExpression::perform_assignment_semantic_analysis(
+                *expression,
+                arena,
+                ctx,
+                value_span,
+                value_type,
+            ),
+            Self::Tuple(..) => {
+                let data_type = arena.get_assignee_expression_type(id);
+
+                data_type.assert_equals(ctx, value_span, value_type)
+            }
+            Self::Underscore => Some(()),
         }
     }
 }

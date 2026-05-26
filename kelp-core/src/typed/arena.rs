@@ -1,13 +1,13 @@
 use la_arena::{Arena, ArenaMap, Idx};
 
 use crate::{
-    parsed::expression::{
-        assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
-        place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
-    },
     typed::{
         data_type::SemanticDataType,
-        expression::{TypedExpression, TypedExpressionId},
+        expression::{
+            TypedExpression, TypedExpressionId,
+            assignee::{TypedAssigneeExpression, TypedAssigneeExpressionId},
+            place::{TypedPlaceExpression, TypedPlaceExpressionId},
+        },
         item::TypedItem,
         pattern::TypedPattern,
         statement::TypedStatement,
@@ -45,9 +45,9 @@ pub struct TypedAstArena {
 
     expressions: Arena<Typed<TypedExpression>>,
 
-    place_expressions: Arena<Typed<ParsedPlaceExpression>>,
+    place_expressions: Arena<Typed<TypedPlaceExpression>>,
 
-    assignee_expressions: Arena<Typed<ParsedAssigneeExpression>>,
+    assignee_expressions: Arena<Typed<TypedAssigneeExpression>>,
 
     statements: Arena<TypedStatement>,
 }
@@ -125,34 +125,28 @@ impl TypedAstArena {
     #[must_use]
     pub fn allocate_place_expression(
         &mut self,
-        expression: ParsedPlaceExpression,
+        expression: TypedPlaceExpression,
         data_type: SemanticDataType,
-    ) -> ParsedPlaceExpressionId {
+    ) -> TypedPlaceExpressionId {
         self.place_expressions
             .alloc(expression.with_type(data_type))
     }
 
     #[inline]
     #[must_use]
-    pub fn get_place_expression(
-        &self,
-        id: ParsedPlaceExpressionId,
-    ) -> &Typed<ParsedPlaceExpression> {
+    pub fn get_place_expression(&self, id: TypedPlaceExpressionId) -> &Typed<TypedPlaceExpression> {
         &self.place_expressions[id]
     }
 
     #[inline]
     #[must_use]
-    pub fn get_place_expression_value(
-        &self,
-        id: ParsedPlaceExpressionId,
-    ) -> &ParsedPlaceExpression {
+    pub fn get_place_expression_value(&self, id: TypedPlaceExpressionId) -> &TypedPlaceExpression {
         &self.get_place_expression(id).value
     }
 
     #[inline]
     #[must_use]
-    pub fn get_place_expression_type(&self, id: ParsedPlaceExpressionId) -> &SemanticDataType {
+    pub fn get_place_expression_type(&self, id: TypedPlaceExpressionId) -> &SemanticDataType {
         &self.get_place_expression(id).data_type
     }
 }
@@ -163,9 +157,9 @@ impl TypedAstArena {
     #[must_use]
     pub fn allocate_assignee_expression(
         &mut self,
-        expression: ParsedAssigneeExpression,
+        expression: TypedAssigneeExpression,
         data_type: SemanticDataType,
-    ) -> ParsedAssigneeExpressionId {
+    ) -> TypedAssigneeExpressionId {
         self.assignee_expressions
             .alloc(expression.with_type(data_type))
     }
@@ -174,8 +168,8 @@ impl TypedAstArena {
     #[must_use]
     pub fn get_assignee_expression(
         &self,
-        id: ParsedAssigneeExpressionId,
-    ) -> &Typed<ParsedAssigneeExpression> {
+        id: TypedAssigneeExpressionId,
+    ) -> &Typed<TypedAssigneeExpression> {
         &self.assignee_expressions[id]
     }
 
@@ -183,17 +177,14 @@ impl TypedAstArena {
     #[must_use]
     pub fn get_assignee_expression_value(
         &self,
-        id: ParsedAssigneeExpressionId,
-    ) -> &ParsedAssigneeExpression {
+        id: TypedAssigneeExpressionId,
+    ) -> &TypedAssigneeExpression {
         &self.get_assignee_expression(id).value
     }
 
     #[inline]
     #[must_use]
-    pub fn get_assignee_expression_type(
-        &self,
-        id: ParsedAssigneeExpressionId,
-    ) -> &SemanticDataType {
+    pub fn get_assignee_expression_type(&self, id: TypedAssigneeExpressionId) -> &SemanticDataType {
         &self.get_assignee_expression(id).data_type
     }
 }

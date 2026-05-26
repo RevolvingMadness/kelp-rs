@@ -2,7 +2,14 @@ use la_arena::{Arena, ArenaMap, Idx};
 
 use crate::{
     parsed::{
-        expression::ParsedExpression, item::ParsedItem, pattern::Pattern, statement::Statement,
+        expression::{
+            ParsedExpression,
+            assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
+            place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
+        },
+        item::ParsedItem,
+        pattern::Pattern,
+        statement::Statement,
     },
     span::Span,
     visibility::Visibility,
@@ -36,6 +43,10 @@ pub struct ParsedAstArena {
     pub pattern_spans: ArenaMap<Idx<Pattern>, Span>,
 
     pub expressions: Arena<Spanned<ParsedExpression>>,
+
+    pub place_expressions: Arena<Spanned<ParsedPlaceExpression>>,
+
+    pub assignee_expressions: Arena<Spanned<ParsedAssigneeExpression>>,
 
     pub statements: Arena<Spanned<Statement>>,
 }
@@ -128,6 +139,80 @@ impl ParsedAstArena {
     #[must_use]
     pub fn get_expression_span(&self, id: Idx<Spanned<ParsedExpression>>) -> Span {
         self.get_expression(id).span
+    }
+}
+
+// Place expressions
+impl ParsedAstArena {
+    #[inline]
+    #[must_use]
+    pub fn allocate_place_expression(
+        &mut self,
+        span: Span,
+        expression: ParsedPlaceExpression,
+    ) -> ParsedPlaceExpressionId {
+        self.place_expressions.alloc(expression.with_span(span))
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_place_expression(
+        &self,
+        id: ParsedPlaceExpressionId,
+    ) -> &Spanned<ParsedPlaceExpression> {
+        &self.place_expressions[id]
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_place_expression_value(
+        &self,
+        id: ParsedPlaceExpressionId,
+    ) -> &ParsedPlaceExpression {
+        &self.get_place_expression(id).value
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_place_expression_span(&self, id: ParsedPlaceExpressionId) -> Span {
+        self.get_place_expression(id).span
+    }
+}
+
+// Assignee expressions
+impl ParsedAstArena {
+    #[inline]
+    #[must_use]
+    pub fn allocate_assignee_expression(
+        &mut self,
+        span: Span,
+        expression: ParsedAssigneeExpression,
+    ) -> ParsedAssigneeExpressionId {
+        self.assignee_expressions.alloc(expression.with_span(span))
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_assignee_expression(
+        &self,
+        id: ParsedAssigneeExpressionId,
+    ) -> &Spanned<ParsedAssigneeExpression> {
+        &self.assignee_expressions[id]
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_assignee_expression_value(
+        &self,
+        id: ParsedAssigneeExpressionId,
+    ) -> &ParsedAssigneeExpression {
+        &self.get_assignee_expression(id).value
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_assignee_expression_span(&self, id: ParsedAssigneeExpressionId) -> Span {
+        self.get_assignee_expression(id).span
     }
 }
 

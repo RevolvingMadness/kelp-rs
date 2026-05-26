@@ -26,13 +26,9 @@ use crate::{
         expression::Expression,
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
-    parsed::expression::{
-        assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
-        place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
-    },
     runtime_storage::RuntimeStorageType,
-    typed::arena::{Typed, TypedAstArena},
     typed::{
+        arena::{Typed, TypedAstArena},
         coordinate::TypedCoordinates,
         data::TypedData,
         data_type::SemanticDataType,
@@ -41,7 +37,11 @@ use crate::{
             r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
             value::HighValueId,
         },
-        expression::command::{TypedCommand, execute::subcommand::r#if::TypedExecuteIfSubcommand},
+        expression::{
+            assignee::{TypedAssigneeExpression, TypedAssigneeExpressionId},
+            command::{TypedCommand, execute::subcommand::r#if::TypedExecuteIfSubcommand},
+            place::{TypedPlaceExpression, TypedPlaceExpressionId},
+        },
         pattern::TypedPattern,
         player_score::TypedPlayerScore,
         statement::{EarlyReturnType, TypedStatement},
@@ -364,17 +364,17 @@ pub enum TypedExpression {
     Underscore,
     Negate(TypedExpressionId),
     Invert(TypedExpressionId),
-    Reference(ParsedPlaceExpressionId),
-    Dereference(ParsedPlaceExpressionId),
+    Reference(TypedPlaceExpressionId),
+    Dereference(TypedPlaceExpressionId),
     Arithmetic(TypedExpressionId, ArithmeticOperator, TypedExpressionId),
     Comparison(TypedExpressionId, ComparisonOperator, TypedExpressionId),
     Logical(TypedExpressionId, LogicalOperator, TypedExpressionId),
     AugmentedAssignment(
-        ParsedPlaceExpressionId,
+        TypedPlaceExpressionId,
         ArithmeticOperator,
         TypedExpressionId,
     ),
-    Assignment(ParsedAssigneeExpressionId, TypedExpressionId),
+    Assignment(TypedAssigneeExpressionId, TypedExpressionId),
     List(Vec<TypedExpressionId>),
     Compound(HashMap<String, TypedExpressionId>),
     Score(TypedPlayerScore),
@@ -573,12 +573,12 @@ impl TypedExpression {
                 expression.invert().unwrap()
             }
             Self::Reference(expression) => {
-                let expression = ParsedPlaceExpression::resolve(*expression, arena, datapack, ctx);
+                let expression = TypedPlaceExpression::resolve(*expression, arena, datapack, ctx);
 
                 Expression::Reference(Box::new(expression))
             }
             Self::Dereference(place) => {
-                let place = ParsedPlaceExpression::resolve(*place, arena, datapack, ctx);
+                let place = TypedPlaceExpression::resolve(*place, arena, datapack, ctx);
 
                 place
                     .resolve(datapack, ctx)
@@ -604,7 +604,7 @@ impl TypedExpression {
                 left.perform_logical_operation(datapack, ctx, *operator, right)
             }
             Self::AugmentedAssignment(target, operator, value) => {
-                let target = ParsedPlaceExpression::resolve(*target, arena, datapack, ctx);
+                let target = TypedPlaceExpression::resolve(*target, arena, datapack, ctx);
                 let value = Self::resolve(*value, arena, datapack, ctx);
 
                 target.augmented_assign(datapack, ctx, *operator, value);
@@ -612,7 +612,7 @@ impl TypedExpression {
                 Expression::Unit
             }
             Self::Assignment(target, value) => {
-                let target = ParsedAssigneeExpression::resolve(*target, arena, datapack, ctx);
+                let target = TypedAssigneeExpression::resolve(*target, arena, datapack, ctx);
                 let value = Self::resolve(*value, arena, datapack, ctx);
 
                 target.assign(datapack, ctx, value);
@@ -1034,7 +1034,7 @@ impl TypedExpression {
     ) {
         match arena.get_expression_value(id) {
             Self::Assignment(target, value) => {
-                let target = ParsedAssigneeExpression::resolve(*target, arena, datapack, ctx);
+                let target = TypedAssigneeExpression::resolve(*target, arena, datapack, ctx);
 
                 let value = Self::resolve(*value, arena, datapack, ctx);
 
@@ -1043,7 +1043,7 @@ impl TypedExpression {
             Self::AugmentedAssignment(target, operator, value) => {
                 let operator = *operator;
 
-                let target = ParsedPlaceExpression::resolve(*target, arena, datapack, ctx);
+                let target = TypedPlaceExpression::resolve(*target, arena, datapack, ctx);
                 let value = Self::resolve(*value, arena, datapack, ctx);
 
                 target.augmented_assign(datapack, ctx, operator, value);

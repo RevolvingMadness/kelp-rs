@@ -1,100 +1,116 @@
+use la_arena::Idx;
+
 use crate::{
-    compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
-    field_access_type::FieldAccessType, low::environment::value::variable::VariableId,
-    operator::ArithmeticOperator, player_score::GeneratedPlayerScore,
-    typed::expression::Expression,
+    compile_context::CompileContext,
+    datapack::Datapack,
+    low::{environment::value::variable::VariableId, expression::place::PlaceExpression},
+    parsed::semantic_analysis::SemanticAnalysisContext,
+    span::Span,
+    typed::{
+        arena::{Typed, TypedAstArena},
+        data::TypedData,
+        data_type::SemanticDataType,
+        environment::value::HighValueId,
+        expression::{TypedExpression, TypedExpressionId},
+        player_score::TypedPlayerScore,
+    },
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub type TypedPlaceExpressionId = Idx<Typed<TypedPlaceExpression>>;
+
+#[derive(Debug, Clone)]
 pub enum TypedPlaceExpression {
-    Variable(VariableId),
-    Score(GeneratedPlayerScore),
-    Data(GeneratedData),
-    FieldAccess(Box<Self>, FieldAccessType, String),
-    Index(Box<Self>, Expression),
+    Value(HighValueId, Vec<SemanticDataType>),
+    Score(TypedPlayerScore),
+    Data(Box<TypedData>),
+    FieldAccess(TypedPlaceExpressionId, String),
+    Index(TypedPlaceExpressionId, TypedExpressionId),
+    Dereference(TypedPlaceExpressionId),
 }
 
 impl TypedPlaceExpression {
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Expression {
-        match self {
-            Self::Variable(id) => datapack.get_variable_value(id),
-            Self::Score(score) => Expression::Score(score),
-            Self::Data(data) => Expression::Data(data),
-            Self::FieldAccess(place, access_type, field) => place
-                .resolve(datapack, ctx)
-                .access_field(access_type, &field)
-                .unwrap(),
-            Self::Index(place, index) => place.resolve(datapack, ctx).index(ctx, index).unwrap(),
-        }
-    }
-
-    pub fn assign(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: Expression) {
-        match self {
-            Self::Variable(id) => {
-                datapack.set_variable(id, value);
-            }
-            Self::Score(score) => {
-                value.assign_to_score(datapack, ctx, score);
-            }
-            Self::Data(data) => {
-                value.assign_to_data(datapack, ctx, data);
-            }
-            Self::FieldAccess(place, access_type, field) => {
-                let old_value = place.clone().resolve(datapack, ctx);
-
-                let new_value = old_value.set_field(datapack, ctx, access_type, field, value);
-
-                if let Some(new_value) = new_value {
-                    place.assign(datapack, ctx, new_value);
-                }
-            }
-            Self::Index(place, index) => {
-                let old_value = place.clone().resolve(datapack, ctx);
-
-                let new_value = old_value.set_index(datapack, ctx, index, value);
-
-                if let Some(new_value) = new_value {
-                    place.assign(datapack, ctx, new_value);
-                }
-            }
-        }
-    }
-
-    pub fn augmented_assign(
-        self,
+    pub fn resolve(
+        id: TypedPlaceExpressionId,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        operator: ArithmeticOperator,
-        value: Expression,
-    ) {
-        match self {
-            Self::Variable(_) | Self::FieldAccess(..) | Self::Index(..) => {
-                let old_value = self.clone().resolve(datapack, ctx);
+    ) -> PlaceExpression {
+        match arena.get_place_expression_value(id) {
+            Self::Value(id, generic_types) => {
+                let id = datapack
+                    .get_monomorphized_value_id(*id, generic_types)
+                    .unwrap();
 
-                let new_value = old_value.augmented_assign(datapack, ctx, operator, value);
-
-                if let Some(new_value) = new_value {
-                    self.assign(datapack, ctx, new_value);
-                }
+                PlaceExpression::Variable(VariableId(id.0))
             }
             Self::Score(score) => {
-                value.operate_on_score(datapack, ctx, score, operator);
+                let score = score.clone().compile(arena, datapack, ctx);
+
+                PlaceExpression::Score(score)
             }
             Self::Data(data) => {
-                let unique_score = datapack.get_unique_score();
+                let data = data.clone().compile(arena, datapack, ctx);
 
-                ctx.add_command(
-                    datapack,
-                    data.clone()
-                        .get()
-                        .run()
-                        .store_result_score(unique_score.score.clone()),
-                );
+                PlaceExpression::Data(data)
+            }
+            Self::FieldAccess(place, field) => {
+                let access_type = arena
+                    .get_place_expression_type(*place)
+                    .clone()
+                    .resolve(datapack)
+                    .unwrap()
+                    .get_field_access_type(&datapack.environment)
+                    .unwrap();
 
-                value.operate_on_score(datapack, ctx, unique_score.clone(), operator);
+                let place = Self::resolve(*place, arena, datapack, ctx);
 
-                unique_score.assign_to_data(datapack, ctx, data);
+                PlaceExpression::FieldAccess(Box::new(place), access_type, field.clone())
+            }
+            Self::Index(place, index) => {
+                let place = Self::resolve(*place, arena, datapack, ctx);
+                let index = TypedExpression::resolve(*index, arena, datapack, ctx);
+
+                PlaceExpression::Index(Box::new(place), index)
+            }
+            Self::Dereference(place) => Self::resolve(*place, arena, datapack, ctx)
+                .resolve(datapack, ctx)
+                .dereference_place()
+                .unwrap(),
+        }
+    }
+
+    pub fn perform_assignment_semantic_analysis(
+        id: TypedPlaceExpressionId,
+        arena: &TypedAstArena,
+        ctx: &mut SemanticAnalysisContext,
+        value_span: Span,
+        value_type: &SemanticDataType,
+    ) -> Option<()> {
+        match arena.get_place_expression_value(id) {
+            Self::Value(..) => {
+                let data_type = arena.get_place_expression_type(id);
+
+                value_type.assert_equals(ctx, value_span, data_type)
+            }
+            Self::Score(..) => value_type.assert_score_compatible(ctx, value_span),
+            Self::Data(..) => value_type.assert_data_compatible(ctx, value_span),
+            Self::Index(place, _) | Self::FieldAccess(place, _) | Self::Dereference(place) => {
+                let data_type = arena.get_place_expression_type(*place);
+
+                match data_type {
+                    SemanticDataType::Score(..) => {
+                        value_type.assert_score_compatible(ctx, value_span)
+                    }
+                    SemanticDataType::Data(..) => {
+                        value_type.assert_data_compatible(ctx, value_span)
+                    }
+                    _ => {
+                        let data_type = arena.get_place_expression_type(id);
+
+                        value_type.assert_equals(ctx, value_span, data_type)
+                    }
+                }
             }
         }
     }

@@ -6,8 +6,8 @@ use ordered_float::NotNan;
 
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
-    parsed::arena::{ParsedAstArena, Spanned},
     parsed::{
+        arena::{ParsedAstArena, Spanned},
         command::{
             Command,
             execute::subcommand::r#if::ParsedExecuteIfSubcommand::{self},
@@ -16,11 +16,7 @@ use crate::{
         data::DataTarget,
         data_type::ParsedDataType,
         entity_selector::EntitySelector,
-        expression::{
-            assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
-            block::BlockExpression,
-            place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
-        },
+        expression::block::BlockExpression,
         nbt_path::ParsedNbtPath,
         pattern::Pattern,
         player_score::PlayerScore,
@@ -33,12 +29,16 @@ use crate::{
     runtime_storage::RuntimeStorageType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
-    typed::arena::TypedAstArena,
     typed::{
+        arena::TypedAstArena,
         data::TypedData,
         data_type::SemanticDataType,
         environment::r#type::r#struct::regular::HighRegularStructId,
-        expression::{TypedExpression, TypedExpressionId},
+        expression::{
+            TypedExpression, TypedExpressionId,
+            assignee::{TypedAssigneeExpression, TypedAssigneeExpressionId},
+            place::{TypedPlaceExpression, TypedPlaceExpressionId},
+        },
     },
 };
 
@@ -176,7 +176,7 @@ impl ParsedExpression {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<ParsedPlaceExpressionId> {
+    ) -> Option<TypedPlaceExpressionId> {
         let id = match parsed_arena.get_expression_value(id) {
             Self::Path(path) => {
                 let mut path = path.clone().perform_semantic_analysis(ctx);
@@ -195,7 +195,7 @@ impl ParsedExpression {
                 )?;
 
                 typed_arena.allocate_place_expression(
-                    ParsedPlaceExpression::Value(id, last_segment.generic_types),
+                    TypedPlaceExpression::Value(id, last_segment.generic_types),
                     data_type,
                 )
             }
@@ -206,7 +206,7 @@ impl ParsedExpression {
                         .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 typed_arena.allocate_place_expression(
-                    ParsedPlaceExpression::Score(score),
+                    TypedPlaceExpression::Score(score),
                     SemanticDataType::Score(Box::new(SemanticDataType::Integer)),
                 )
             }
@@ -222,7 +222,7 @@ impl ParsedExpression {
                         .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 typed_arena.allocate_place_expression(
-                    ParsedPlaceExpression::Data(Box::new(TypedData { target, path })),
+                    TypedPlaceExpression::Data(Box::new(TypedData { target, path })),
                     SemanticDataType::Data(Box::new(SemanticDataType::Inferred)),
                 )
             }
@@ -236,7 +236,7 @@ impl ParsedExpression {
                     target_type.get_field_result_semantic_analysis(ctx, *field_span, field)?;
 
                 typed_arena.allocate_place_expression(
-                    ParsedPlaceExpression::FieldAccess(target, field.clone()),
+                    TypedPlaceExpression::FieldAccess(target, field.clone()),
                     field_type,
                 )
             }
@@ -258,7 +258,7 @@ impl ParsedExpression {
                     target_type.get_index_result_semantic_analysis(ctx, target_span, index_type)?;
 
                 typed_arena.allocate_place_expression(
-                    ParsedPlaceExpression::Index(target, index),
+                    TypedPlaceExpression::Index(target, index),
                     index_type,
                 )
             }
@@ -274,7 +274,7 @@ impl ParsedExpression {
                     .get_dereferenced_result_semantic_analysis(ctx, place_span)?;
 
                 typed_arena.allocate_place_expression(
-                    ParsedPlaceExpression::Dereference(place),
+                    TypedPlaceExpression::Dereference(place),
                     dereferenced_type,
                 )
             }
@@ -294,7 +294,7 @@ impl ParsedExpression {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<ParsedAssigneeExpressionId> {
+    ) -> Option<TypedAssigneeExpressionId> {
         Some(match parsed_arena.get_expression_value(id) {
             Self::Tuple(expressions) => {
                 let (data_types, expressions) = expressions
@@ -317,12 +317,12 @@ impl ParsedExpression {
                     .unzip();
 
                 typed_arena.allocate_assignee_expression(
-                    ParsedAssigneeExpression::Tuple(expressions),
+                    TypedAssigneeExpression::Tuple(expressions),
                     SemanticDataType::Tuple(data_types),
                 )
             }
             Self::Underscore => typed_arena.allocate_assignee_expression(
-                ParsedAssigneeExpression::Underscore,
+                TypedAssigneeExpression::Underscore,
                 SemanticDataType::Inferred,
             ),
             _ => {
@@ -331,7 +331,7 @@ impl ParsedExpression {
                 let place_type = typed_arena.get_place_expression_type(place);
 
                 typed_arena.allocate_assignee_expression(
-                    ParsedAssigneeExpression::Place(place),
+                    TypedAssigneeExpression::Place(place),
                     place_type.clone(),
                 )
             }
@@ -575,7 +575,7 @@ impl ParsedExpression {
 
                 let value_type = typed_arena.get_expression_type(value);
 
-                ParsedAssigneeExpression::perform_assignment_semantic_analysis(
+                TypedAssigneeExpression::perform_assignment_semantic_analysis(
                     target,
                     typed_arena,
                     ctx,

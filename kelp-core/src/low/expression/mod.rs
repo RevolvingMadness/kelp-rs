@@ -17,7 +17,7 @@ use minecraft_command_types::{
     snbt::{SNBTString, SNBT},
 };
 use ordered_float::NotNan;
-
+use place::PlaceExpression;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedData,
@@ -30,7 +30,7 @@ use crate::{
     player_score::GeneratedPlayerScore,
     runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
     semantic::{
-        expression::{place::ResolvedPlaceExpression, unresolved::SemanticExpression},
+        expression::unresolved::SemanticExpression,
         pattern::SemanticPattern,
     },
 };
@@ -41,6 +41,8 @@ use crate::low::environment::{
 };
 use crate::low::data_type::{DataType, FieldAccessType};
 use crate::semantic::environment::r#type::HighGenericId;
+
+pub mod place;
 
 pub fn compile_shift_operation(
     datapack: &mut Datapack,
@@ -68,8 +70,8 @@ pub fn compile_shift_operation(
 
 #[must_use]
 pub fn split_constants_list(
-    list: Vec<ResolvedExpression>,
-) -> (Vec<SNBT>, Vec<(usize, ResolvedExpression)>) {
+    list: Vec<Expression>,
+) -> (Vec<SNBT>, Vec<(usize, Expression)>) {
     let mut constants = Vec::new();
     let mut non_constants = Vec::new();
 
@@ -90,8 +92,8 @@ pub fn split_constants_list(
 
 #[must_use]
 pub fn split_constants_compound(
-    compound: BTreeMap<String, ResolvedExpression>,
-) -> (SNBTCompound, BTreeMap<String, ResolvedExpression>) {
+    compound: BTreeMap<String, Expression>,
+) -> (SNBTCompound, BTreeMap<String, Expression>) {
     let mut constants = SNBTCompound::new();
     let mut non_constants = BTreeMap::default();
 
@@ -133,9 +135,9 @@ fn compile_compiletime_function(
     ctx: &mut CompileContext,
     id: FunctionId,
     parameters: Vec<(SemanticPattern, DataType)>,
-    arguments: Vec<ResolvedExpression>,
+    arguments: Vec<Expression>,
     body: SemanticExpression,
-) -> ResolvedExpression {
+) -> Expression {
     if let Some(function) = datapack
         .cached_compiletime_functions
         .get(&CompiletimeFunctionKeyRef {
@@ -188,7 +190,7 @@ fn compile_regular_runtime_function(
     arguments: Vec<RuntimeStorageTarget>,
     body: SemanticExpression,
     return_runtime_storage_type: RuntimeStorageType,
-) -> ResolvedExpression {
+) -> Expression {
     if let Some(function) = datapack.cached_runtime_functions.get(&id) {
         let RuntimeFunction::Regular(function) = function else {
             unreachable!();
@@ -276,7 +278,7 @@ fn compile_recursive_runtime_function(
     parameters: Vec<(SemanticPattern, DataType)>,
     arguments: Vec<GeneratedData>,
     body: SemanticExpression,
-) -> ResolvedExpression {
+) -> Expression {
     if let Some(function) = datapack.cached_runtime_functions.get(&id) {
         let RuntimeFunction::Recursive(function) = function else {
             unreachable!();
@@ -318,7 +320,7 @@ fn compile_recursive_runtime_function(
             temporary_return_data.clone().set_from(return_data),
         );
 
-        return ResolvedExpression::Data(temporary_return_data);
+        return Expression::Data(temporary_return_data);
     }
 
     let paths = datapack.get_unique_function_paths();
@@ -376,7 +378,7 @@ fn compile_recursive_runtime_function(
             datapack,
             &mut function_body_ctx,
             data_type,
-            ResolvedExpression::Data(argument_data),
+            Expression::Data(argument_data),
         );
     }
 
@@ -407,7 +409,7 @@ fn compile_recursive_runtime_function(
         temporary_return_data.clone().set_from(return_data),
     );
 
-    ResolvedExpression::Data(temporary_return_data)
+    Expression::Data(temporary_return_data)
 }
 
 #[must_use]
@@ -420,10 +422,10 @@ fn compile_function(
     generic_ids: Vec<HighGenericId>,
     generic_types: Vec<DataType>,
     parameters: Vec<(SemanticPattern, DataType)>,
-    arguments: Vec<ResolvedExpression>,
+    arguments: Vec<Expression>,
     body: SemanticExpression,
     return_runtime_storage_type: RuntimeStorageType,
-) -> ResolvedExpression {
+) -> Expression {
     for (generic_id, generic_type) in generic_ids.into_iter().zip(generic_types) {
         datapack.declare_generic(generic_id, generic_type);
     }
@@ -436,7 +438,7 @@ fn compile_function(
         let argument_datas = arguments
             .into_iter()
             .map(|argument| {
-                let ResolvedExpression::Data(data) = argument else {
+                let Expression::Data(data) = argument else {
                     unreachable!();
                 };
 
@@ -517,7 +519,7 @@ fn format_generics(output: &mut String, generics: &[DataType], environment: &Env
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ResolvedExpression {
+pub enum Expression {
     Boolean(bool),
 
     Byte(i8),
@@ -544,13 +546,13 @@ pub enum ResolvedExpression {
     EntitySelector(EntitySelector),
     Coordinates(Coordinates),
     Function(FunctionId),
-    Reference(Box<ResolvedPlaceExpression>),
+    Reference(Box<PlaceExpression>),
 
     Score(GeneratedPlayerScore),
     Data(GeneratedData),
 }
 
-impl ResolvedExpression {
+impl Expression {
     pub fn call(
         self,
         datapack: &mut Datapack,
@@ -630,13 +632,13 @@ impl ResolvedExpression {
     }
 
     #[must_use]
-    pub fn dereference_place(self) -> Option<ResolvedPlaceExpression> {
+    pub fn dereference_place(self) -> Option<PlaceExpression> {
         Some(match self {
             Self::Reference(place) => *place,
 
-            Self::Score(score) => ResolvedPlaceExpression::Score(score),
+            Self::Score(score) => PlaceExpression::Score(score),
 
-            Self::Data(data) => ResolvedPlaceExpression::Data(data),
+            Self::Data(data) => PlaceExpression::Data(data),
 
             _ => return None,
         })
@@ -1440,41 +1442,41 @@ impl ResolvedExpression {
                 ComparisonOperator::NotEqualTo => left != right,
             }),
             (left_kind @ Self::Data(..), right_kind)
-                if operator == ComparisonOperator::EqualTo
-                    || operator == ComparisonOperator::NotEqualTo =>
-            {
-                let unique_score = datapack.get_unique_score();
+            if operator == ComparisonOperator::EqualTo
+                || operator == ComparisonOperator::NotEqualTo =>
+                {
+                    let unique_score = datapack.get_unique_score();
 
-                let unique_data = datapack.get_unique_data();
+                    let unique_data = datapack.get_unique_data();
 
-                left_kind.assign_to_data(datapack, ctx, unique_data.clone());
+                    left_kind.assign_to_data(datapack, ctx, unique_data.clone());
 
-                let data_command_modification =
-                    right_kind.as_data_command_modification(datapack, ctx);
+                    let data_command_modification =
+                        right_kind.as_data_command_modification(datapack, ctx);
 
-                ctx.add_command(
-                    datapack,
-                    unique_data
-                        .set(data_command_modification)
-                        .run()
-                        .store_success_score(unique_score.score.clone()),
-                );
-
-                if operator == ComparisonOperator::EqualTo {
                     ctx.add_command(
                         datapack,
-                        ExecuteIfSubcommand::Score(
-                            unique_score.score.clone(),
-                            ScoreComparison::Range(IntegerRange::new_single(0)),
-                            None,
-                        )
-                        .into_subcommand(operator.should_execute_if_be_inverted())
-                        .store_result_score(unique_score.score.clone()),
+                        unique_data
+                            .set(data_command_modification)
+                            .run()
+                            .store_success_score(unique_score.score.clone()),
                     );
-                }
 
-                Self::Score(unique_score)
-            }
+                    if operator == ComparisonOperator::EqualTo {
+                        ctx.add_command(
+                            datapack,
+                            ExecuteIfSubcommand::Score(
+                                unique_score.score.clone(),
+                                ScoreComparison::Range(IntegerRange::new_single(0)),
+                                None,
+                            )
+                                .into_subcommand(operator.should_execute_if_be_inverted())
+                                .store_result_score(unique_score.score.clone()),
+                        );
+                    }
+
+                    Self::Score(unique_score)
+                }
             (self_ @ Self::Data(..), other) | (other, self_ @ Self::Data(..)) => {
                 let score = self_.as_score(datapack, ctx, false);
 
@@ -1492,8 +1494,8 @@ impl ResolvedExpression {
                         ),
                         None,
                     )
-                    .into_subcommand(operator.should_execute_if_be_inverted())
-                    .store_result_score(result_score.score.clone()),
+                        .into_subcommand(operator.should_execute_if_be_inverted())
+                        .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -1512,8 +1514,8 @@ impl ResolvedExpression {
                             )),
                             None,
                         )
-                        .into_subcommand(operator.should_execute_if_be_inverted())
-                        .store_result_score(result_score.score.clone()),
+                            .into_subcommand(operator.should_execute_if_be_inverted())
+                            .store_result_score(result_score.score.clone()),
                     );
 
                     return Self::Score(result_score);
@@ -1533,8 +1535,8 @@ impl ResolvedExpression {
                         ),
                         None,
                     )
-                    .into_subcommand(operator.should_execute_if_be_inverted())
-                    .store_result_score(result_score.score.clone()),
+                        .into_subcommand(operator.should_execute_if_be_inverted())
+                        .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -1554,8 +1556,8 @@ impl ResolvedExpression {
                         ),
                         None,
                     )
-                    .into_subcommand(operator.should_execute_if_be_inverted())
-                    .store_result_score(result_score.score.clone()),
+                        .into_subcommand(operator.should_execute_if_be_inverted())
+                        .store_result_score(result_score.score.clone()),
                 );
 
                 Self::Score(result_score)
@@ -2227,8 +2229,8 @@ impl ResolvedExpression {
                         ),
                         None,
                     )
-                    .run()
-                    .store_success_score(unique_score.score.clone()),
+                        .run()
+                        .store_success_score(unique_score.score.clone()),
                 );
 
                 let mut function_ctx = CompileContext::default();
@@ -2268,9 +2270,7 @@ impl ResolvedExpression {
             }
         }
     }
-}
-
-impl ResolvedExpression {
+    
     #[must_use]
     pub fn set_field(
         mut self,
@@ -2345,7 +2345,7 @@ impl ResolvedExpression {
     }
 }
 
-impl ResolvedExpression {
+impl Expression {
     #[must_use]
     pub fn set_index(
         mut self,

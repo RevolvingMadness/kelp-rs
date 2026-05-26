@@ -11,12 +11,12 @@ use crate::semantic::environment::{
     r#type::{
         r#struct::{
             regular::HighRegularStructId, tuple::HighTupleStructId, HighStructId,
-            ResolvedStructDeclaration,
+            SemanticStructDeclaration,
         },
         HighGenericId,
     },
-    value::function::{HighFunctionId, ResolvedFunctionDeclaration},
-    ResolvedEnvironment,
+    value::function::{HighFunctionId, SemanticFunctionDeclaration},
+    SemanticEnvironment,
 };
 use crate::{
     datapack::Datapack,
@@ -79,7 +79,7 @@ pub struct CallInfo {
 
 pub struct SemanticDataTypeDisplay<'a> {
     pub data_type: &'a SemanticDataType,
-    pub resolved_environment: &'a ResolvedEnvironment,
+    pub resolved_environment: &'a SemanticEnvironment,
 }
 
 impl Display for SemanticDataTypeDisplay<'_> {
@@ -402,7 +402,7 @@ impl SemanticDataType {
         };
 
         match declaration {
-            ResolvedStructDeclaration::Struct(declaration) => {
+            SemanticStructDeclaration::Struct(declaration) => {
                 let id = HighRegularStructId(id.0);
 
                 Self::inner_resolve_regular_struct(
@@ -417,7 +417,7 @@ impl SemanticDataType {
                 )
                 .into()
             }
-            ResolvedStructDeclaration::Tuple(declaration) => {
+            SemanticStructDeclaration::Tuple(declaration) => {
                 let id = HighTupleStructId(id.0);
 
                 Self::inner_resolve_tuple_struct(
@@ -665,7 +665,7 @@ impl SemanticDataType {
     #[must_use]
     pub fn get_call_info(
         &self,
-        resolved_environment: &ResolvedEnvironment,
+        resolved_environment: &SemanticEnvironment,
     ) -> Option<Option<CallInfo>> {
         Some(Some(match self {
             Self::Error => return None,
@@ -674,7 +674,7 @@ impl SemanticDataType {
                 let (_, _, declaration) = resolved_environment.get_function(*id);
 
                 match declaration {
-                    ResolvedFunctionDeclaration::Regular(declaration) => CallInfo {
+                    SemanticFunctionDeclaration::Regular(declaration) => CallInfo {
                         id: Some(*id),
                         name: Some(declaration.name.clone()),
                         parameter_types: declaration
@@ -691,7 +691,7 @@ impl SemanticDataType {
                             .clone()
                             .substitute_generics(&declaration.generic_ids, generic_types),
                     },
-                    ResolvedFunctionDeclaration::Builtin(declaration) => CallInfo {
+                    SemanticFunctionDeclaration::Builtin(declaration) => CallInfo {
                         id: None,
                         name: Some(declaration.name.clone()),
                         parameter_types: declaration
@@ -863,7 +863,7 @@ impl SemanticDataType {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        resolved_environment: &'a ResolvedEnvironment,
+        resolved_environment: &'a SemanticEnvironment,
     ) -> SemanticDataTypeDisplay<'a> {
         SemanticDataTypeDisplay {
             data_type: self,
@@ -1037,7 +1037,7 @@ impl SemanticDataType {
     }
 
     #[must_use]
-    pub fn get_data_type(&self, resolved_environment: &ResolvedEnvironment) -> Option<Self> {
+    pub fn get_data_type(&self, resolved_environment: &SemanticEnvironment) -> Option<Self> {
         check_error!(self);
 
         Some(match self {
@@ -1094,7 +1094,7 @@ impl SemanticDataType {
                 let (_, _, declaration) = resolved_environment.get_struct(*id);
 
                 match declaration {
-                    ResolvedStructDeclaration::Struct(declaration) => {
+                    SemanticStructDeclaration::Struct(declaration) => {
                         let compound = declaration
                             .field_types
                             .iter()
@@ -1110,7 +1110,7 @@ impl SemanticDataType {
 
                         Self::TypedCompound(compound)
                     }
-                    ResolvedStructDeclaration::Tuple(declaration) => {
+                    SemanticStructDeclaration::Tuple(declaration) => {
                         let data_types = declaration
                             .field_types
                             .iter()
@@ -1341,7 +1341,7 @@ impl SemanticDataType {
 
     fn get_field_result(
         &self,
-        resolved_environment: &ResolvedEnvironment,
+        resolved_environment: &SemanticEnvironment,
         field: &str,
     ) -> Option<Self> {
         check_error!(self);

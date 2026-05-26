@@ -1,6 +1,6 @@
 use crate::visibility::Visibility;
 use crate::parsed::environment::value::{
-    function::UnresolvedFunctionDeclaration, variable::UnresolvedVariableDeclaration,
+    function::ParsedFunctionDeclaration, variable::ParsedVariableDeclaration,
 };
 use crate::semantic::environment::value::ResolvedValueDeclarationKind;
 
@@ -8,12 +8,12 @@ pub mod function;
 pub mod variable;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedValueDeclarationKind {
-    Variable(UnresolvedVariableDeclaration),
-    Function(Box<UnresolvedFunctionDeclaration>),
+pub enum ParsedValueDeclarationKind {
+    Variable(ParsedVariableDeclaration),
+    Function(Box<ParsedFunctionDeclaration>),
 }
 
-impl From<ResolvedValueDeclarationKind> for UnresolvedValueDeclarationKind {
+impl From<ResolvedValueDeclarationKind> for ParsedValueDeclarationKind {
     fn from(value: ResolvedValueDeclarationKind) -> Self {
         match value {
             ResolvedValueDeclarationKind::Variable(declaration) => {
@@ -26,7 +26,7 @@ impl From<ResolvedValueDeclarationKind> for UnresolvedValueDeclarationKind {
     }
 }
 
-impl UnresolvedValueDeclarationKind {
+impl ParsedValueDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -40,7 +40,7 @@ impl UnresolvedValueDeclarationKind {
 pub struct ParsedValueDeclaration {
     pub visibility: Visibility,
     pub module_path: Vec<String>,
-    pub kind: UnresolvedValueDeclarationKind,
+    pub kind: ParsedValueDeclarationKind,
 }
 
 impl ParsedValueDeclaration {

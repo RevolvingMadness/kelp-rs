@@ -5,12 +5,12 @@ use crate::{
 };
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::{
-    alias::ResolvedTypeAliasDeclaration,
+    alias::SemanticTypeAliasDeclaration,
     builtin_data_type::SemanticBuiltinTypeDeclaration,
-    module::{HighModuleId, ResolvedModuleDeclaration},
+    module::{HighModuleId, SemanticModuleDeclaration},
     r#struct::{
         regular::HighRegularStructId, tuple::HighTupleStructId, HighStructId,
-        ResolvedStructDeclaration,
+        SemanticStructDeclaration,
     },
 };
 
@@ -56,15 +56,15 @@ impl From<HighGenericId> for HighTypeId {
 }
 
 #[derive(Debug, Clone)]
-pub enum ResolvedTypeDeclarationKind {
-    Module(ResolvedModuleDeclaration),
-    Struct(ResolvedStructDeclaration),
-    Alias(ResolvedTypeAliasDeclaration),
+pub enum SemanticTypeDeclarationKind {
+    Module(SemanticModuleDeclaration),
+    Struct(SemanticStructDeclaration),
+    Alias(SemanticTypeAliasDeclaration),
     Generic(String),
     Builtin(SemanticBuiltinTypeDeclaration),
 }
 
-impl ResolvedTypeDeclarationKind {
+impl SemanticTypeDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -78,13 +78,13 @@ impl ResolvedTypeDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct ResolvedTypeDeclaration {
+pub struct SemanticTypeDeclaration {
     pub module_path: Vec<String>,
     pub visibility: Visibility,
-    pub kind: ResolvedTypeDeclarationKind,
+    pub kind: SemanticTypeDeclarationKind,
 }
 
-impl ResolvedTypeDeclaration {
+impl SemanticTypeDeclaration {
     pub fn resolve_partially(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -94,10 +94,10 @@ impl ResolvedTypeDeclaration {
         path_span: Span,
     ) -> SemanticDataType {
         match self.kind {
-            ResolvedTypeDeclarationKind::Module(ResolvedModuleDeclaration { name, .. }) => {
+            SemanticTypeDeclarationKind::Module(SemanticModuleDeclaration { name, .. }) => {
                 ctx.add_error_type(path_span, SemanticAnalysisError::NotAType(name))
             }
-            ResolvedTypeDeclarationKind::Struct(declaration) => {
+            SemanticTypeDeclarationKind::Struct(declaration) => {
                 let id = HighStructId(id.0);
 
                 let expected_generics = declaration.generic_count();
@@ -114,7 +114,7 @@ impl ResolvedTypeDeclaration {
 
                 SemanticDataType::Struct(id, generic_types)
             }
-            ResolvedTypeDeclarationKind::Alias(declaration) => {
+            SemanticTypeDeclarationKind::Alias(declaration) => {
                 let expected_generics = declaration.generic_ids.len();
                 let actual_generics = generic_types.len();
 
@@ -131,7 +131,7 @@ impl ResolvedTypeDeclaration {
                     .alias
                     .substitute_generics(&declaration.generic_ids, &generic_types)
             }
-            ResolvedTypeDeclarationKind::Generic(name) => {
+            SemanticTypeDeclarationKind::Generic(name) => {
                 let expected_generics = 0;
                 let actual_generics = generic_types.len();
 
@@ -146,7 +146,7 @@ impl ResolvedTypeDeclaration {
 
                 SemanticDataType::Generic(HighGenericId(id.0))
             }
-            ResolvedTypeDeclarationKind::Builtin(data_type) => data_type
+            SemanticTypeDeclarationKind::Builtin(data_type) => data_type
                 .to_data_type_semantic_analysis(ctx, path_span, generic_spans, generic_types),
         }
     }

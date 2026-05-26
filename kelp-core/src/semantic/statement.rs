@@ -1,7 +1,7 @@
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::expression::unresolved::SemanticExpression;
-use crate::semantic::item::Item;
+use crate::semantic::item::SemanticItem;
 use crate::semantic::pattern::SemanticPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
 use minecraft_command_types::command::Command;
@@ -9,7 +9,7 @@ use minecraft_command_types::command::execute::ExecuteSubcommand;
 use minecraft_command_types::command::r#return::ReturnCommand;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedStatement {
+pub enum SemanticStatement {
     Expression(SemanticExpression),
     Let(
         SemanticDataType,
@@ -18,7 +18,7 @@ pub enum UnresolvedStatement {
     ),
     Append(SemanticExpression, Box<SemanticExpression>),
     Remove(SemanticExpression),
-    Item(Box<Item>),
+    Item(SemanticItem),
     Break,
     Continue,
 }
@@ -51,7 +51,7 @@ pub enum EarlyReturnType {
     Return,
 }
 
-impl UnresolvedStatement {
+impl SemanticStatement {
     #[must_use]
     pub fn get_early_return_type(&self) -> Option<EarlyReturnType> {
         match self {

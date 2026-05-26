@@ -1,8 +1,8 @@
-use crate::{compile_context::CompileContext, datapack::Datapack, semantic::item::Item};
+use crate::{compile_context::CompileContext, datapack::Datapack, semantic::item::SemanticItem};
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub items: Vec<Item>,
+    pub items: Vec<SemanticItem>,
 }
 
 impl Program {

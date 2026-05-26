@@ -6,7 +6,7 @@ use crate::{
         },
         semantic_analysis::SemanticAnalysisContext,
     },
-    semantic::item::Item,
+    semantic::item::SemanticItem,
     span::Span,
     visibility::Visibility,
 };
@@ -43,10 +43,10 @@ impl AssociatedItem {
         }
     }
 
-    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
+    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<SemanticItem> {
         match self.kind {
             AssociatedItemKind::FunctionDeclaration(item) => item.perform_semantic_analysis(ctx),
-            AssociatedItemKind::TypeAliasDeclaration(..) => Some(Item::TypeAliasDeclaration),
+            AssociatedItemKind::TypeAliasDeclaration(..) => Some(SemanticItem::TypeAliasDeclaration),
         }
     }
 }

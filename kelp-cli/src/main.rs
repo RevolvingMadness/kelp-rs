@@ -2,7 +2,7 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
-use kelp_core::semantic::environment::ResolvedEnvironment;
+use kelp_core::semantic::environment::SemanticEnvironment;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::semantic::program::Program as MiddleProgram;
@@ -356,7 +356,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 }
 
 fn process_success(
-    resolved_environment: ResolvedEnvironment,
+    resolved_environment: SemanticEnvironment,
     program: MiddleProgram,
     _file_name: &str,
     _source_text: &str,

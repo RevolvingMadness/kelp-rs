@@ -1,7 +1,7 @@
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::{
     r#struct::{
-        regular::{HighRegularStructId, ResolvedRegularStructDeclaration},
+        regular::{HighRegularStructId, SemanticRegularStructDeclaration},
         tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
     },
     HighGenericId,
@@ -26,12 +26,12 @@ impl From<HighTupleStructId> for HighStructId {
 }
 
 #[derive(Debug, Clone)]
-pub enum ResolvedStructDeclaration {
-    Struct(ResolvedRegularStructDeclaration),
+pub enum SemanticStructDeclaration {
+    Struct(SemanticRegularStructDeclaration),
     Tuple(SemanticTupleStructDeclaration),
 }
 
-impl ResolvedStructDeclaration {
+impl SemanticStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

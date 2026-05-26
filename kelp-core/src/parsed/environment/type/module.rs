@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::semantic::environment::{
-    r#type::{module::ResolvedModuleDeclaration, HighTypeId},
+    r#type::{module::SemanticModuleDeclaration, HighTypeId},
     value::HighValueId,
 };
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
@@ -12,8 +12,8 @@ pub struct ParsedModuleDeclaration {
     pub values: HashMap<String, HighValueId>,
 }
 
-impl From<ResolvedModuleDeclaration> for ParsedModuleDeclaration {
-    fn from(value: ResolvedModuleDeclaration) -> Self {
+impl From<SemanticModuleDeclaration> for ParsedModuleDeclaration {
+    fn from(value: SemanticModuleDeclaration) -> Self {
         Self {
             name: value.name,
             types: value.types,

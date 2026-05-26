@@ -7,7 +7,7 @@ use crate::semantic::environment::r#type::HighGenericId;
 pub struct HighRegularStructId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct ResolvedRegularStructDeclaration {
+pub struct SemanticRegularStructDeclaration {
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
     pub field_types: HashMap<String, SemanticDataType>,

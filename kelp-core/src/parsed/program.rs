@@ -11,16 +11,16 @@ use crate::{
 use crate::semantic::environment::{
     value::{
         function::{
-            regular::ResolvedRegularFunctionDeclaration, HighFunctionId,
-            ResolvedFunctionDeclaration,
+            regular::SemanticRegularFunctionDeclaration, HighFunctionId,
+            SemanticFunctionDeclaration,
         }, ResolvedValueDeclaration,
         ResolvedValueDeclarationKind,
     },
-    ResolvedEnvironment,
+    SemanticEnvironment,
 };
 
 fn calls_recursively(
-    resolved_environment: &ResolvedEnvironment,
+    resolved_environment: &SemanticEnvironment,
     callee_id: HighFunctionId,
     call_id: HighFunctionId,
     visited_calls: &mut HashSet<HighFunctionId>,
@@ -36,7 +36,7 @@ fn calls_recursively(
     let (
         _,
         _,
-        ResolvedFunctionDeclaration::Regular(ResolvedRegularFunctionDeclaration { calls, .. }),
+        SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration { calls, .. }),
     ) = resolved_environment.get_function(call_id)
     else {
         return false;
@@ -92,7 +92,7 @@ impl Program {
                 continue;
             };
 
-            let ResolvedFunctionDeclaration::Regular(ResolvedRegularFunctionDeclaration {
+            let SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration {
                 modifiers,
                 calls,
                 ..

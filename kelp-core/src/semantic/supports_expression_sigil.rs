@@ -11,9 +11,10 @@ use crate::{
     semantic::{
         coordinate::SemanticCoordinates,
         entity_selector::SemanticEntitySelector,
-        expression::{resolved::ResolvedExpression, unresolved::SemanticExpression},
+        expression::unresolved::SemanticExpression,
     },
 };
+use crate::low::expression::Expression;
 
 #[derive(Debug, Clone)]
 pub enum SemanticSupportsExpressionSigil<T> {
@@ -41,7 +42,7 @@ macro_rules! impl_supports_expression_sigil {
                     Self::Sigil(expression) => {
                         let expression = expression.kind.resolve(datapack, ctx);
 
-                        let ResolvedExpression::$resolved_expression_variant(value) = expression
+                        let Expression::$resolved_expression_variant(value) = expression
                         else {
                             unreachable!();
                         };
@@ -72,7 +73,7 @@ macro_rules! impl_supports_expression_sigil {
                         let expression = expression.kind.resolve(datapack, ctx);
 
                         match expression {
-                            ResolvedExpression::$resolved_expression_variant(value) => value,
+                            Expression::$resolved_expression_variant(value) => value,
                             _ => unreachable!(),
                         }
                     }

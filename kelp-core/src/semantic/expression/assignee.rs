@@ -1,29 +1,30 @@
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    semantic::expression::{place::ResolvedPlaceExpression, resolved::ResolvedExpression},
 };
+use crate::low::expression::Expression;
+use crate::low::expression::place::PlaceExpression;
 
 #[derive(Debug, Clone)]
-pub enum ResolvedAssigneeExpression {
-    Place(ResolvedPlaceExpression),
+pub enum SemanticAssigneeExpression {
+    Place(PlaceExpression),
 
     Tuple(Vec<Self>),
     Underscore,
 }
 
-impl ResolvedAssigneeExpression {
+impl SemanticAssigneeExpression {
     pub fn assign(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        value_expression: ResolvedExpression,
+        value_expression: Expression,
     ) {
         match self {
             Self::Place(expression) => expression.assign(datapack, ctx, value_expression),
 
             Self::Tuple(assignee_expressions) => {
-                let ResolvedExpression::Tuple(value_expressions) = value_expression else {
+                let Expression::Tuple(value_expressions) = value_expression else {
                     unreachable!();
                 };
 

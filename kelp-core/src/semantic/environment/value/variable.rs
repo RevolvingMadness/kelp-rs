@@ -4,7 +4,7 @@ use crate::semantic::data_type::SemanticDataType;
 pub struct HighVariableId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct ResolvedVariableDeclaration {
+pub struct SemanticVariableDeclaration {
     pub name: String,
     pub data_type: SemanticDataType,
 }

@@ -1,6 +1,6 @@
 use crate::parsed::environment::r#type::ParsedTypeDeclarationKind;
 use crate::semantic::environment::r#type::{
-    HighGenericId, HighTypeId, alias::ResolvedTypeAliasDeclaration,
+    HighGenericId, HighTypeId, alias::SemanticTypeAliasDeclaration,
 };
 use crate::{
     parsed::{
@@ -86,7 +86,7 @@ impl TypeAliasDeclarationItem {
         ctx.declare_alias(
             id,
             visibility,
-            ResolvedTypeAliasDeclaration {
+            SemanticTypeAliasDeclaration {
                 name: self.name.clone(),
                 generic_ids: generic_ids
                     .iter()

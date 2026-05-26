@@ -14,8 +14,14 @@ use crate::semantic::environment::{r#type::HighGenericId, value::function::HighF
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighRegularFunctionId(pub u32);
 
+impl From<HighRegularFunctionId> for HighFunctionId {
+    fn from(value: HighRegularFunctionId) -> Self {
+        Self(value.0)
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct ResolvedRegularFunctionDeclaration {
+pub struct SemanticRegularFunctionDeclaration {
     pub name: String,
     pub modifiers: RegularFunctionModifiers,
     pub generic_ids: Vec<HighGenericId>,

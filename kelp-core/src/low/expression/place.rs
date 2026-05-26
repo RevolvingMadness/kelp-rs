@@ -4,27 +4,27 @@ use crate::{
     datapack::Datapack,
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,
-    semantic::expression::resolved::ResolvedExpression,
 };
 use crate::low::environment::value::variable::VariableId;
 use crate::low::data_type::FieldAccessType;
+use crate::low::expression::Expression;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ResolvedPlaceExpression {
+pub enum PlaceExpression {
     Variable(VariableId),
     Score(GeneratedPlayerScore),
     Data(GeneratedData),
     FieldAccess(Box<Self>, FieldAccessType, String),
-    Index(Box<Self>, ResolvedExpression),
+    Index(Box<Self>, Expression),
 }
 
-impl ResolvedPlaceExpression {
+impl PlaceExpression {
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ResolvedExpression {
+    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Expression {
         match self {
             Self::Variable(id) => datapack.get_variable_value(id),
-            Self::Score(score) => ResolvedExpression::Score(score),
-            Self::Data(data) => ResolvedExpression::Data(data),
+            Self::Score(score) => Expression::Score(score),
+            Self::Data(data) => Expression::Data(data),
             Self::FieldAccess(place, access_type, field) => place
                 .resolve(datapack, ctx)
                 .access_field(access_type, field)
@@ -37,7 +37,7 @@ impl ResolvedPlaceExpression {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         match self {
             Self::Variable(id) => {
@@ -75,7 +75,7 @@ impl ResolvedPlaceExpression {
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         match self {
             Self::Variable(_) | Self::FieldAccess(..) | Self::Index(..) => {

@@ -1,38 +1,25 @@
 pub mod builtin;
 pub mod regular;
 
-use crate::{
-    parameter_types_iter::{take_second, ParameterTypesIter},
-    semantic::pattern::SemanticPattern,
-};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::value::function::{
-    builtin::{HighBuiltinFunctionId, ResolvedBuiltinFunctionDeclaration},
-    regular::{HighRegularFunctionId, ResolvedRegularFunctionDeclaration},
+    builtin::SemanticBuiltinFunctionDeclaration, regular::SemanticRegularFunctionDeclaration,
+};
+use crate::{
+    parameter_types_iter::{ParameterTypesIter, take_second},
+    semantic::pattern::SemanticPattern,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighFunctionId(pub u32);
 
-impl From<HighRegularFunctionId> for HighFunctionId {
-    fn from(value: HighRegularFunctionId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<HighBuiltinFunctionId> for HighFunctionId {
-    fn from(value: HighBuiltinFunctionId) -> Self {
-        Self(value.0)
-    }
-}
-
 #[derive(Debug, Clone)]
-pub enum ResolvedFunctionDeclaration {
-    Regular(ResolvedRegularFunctionDeclaration),
-    Builtin(ResolvedBuiltinFunctionDeclaration),
+pub enum SemanticFunctionDeclaration {
+    Regular(SemanticRegularFunctionDeclaration),
+    Builtin(SemanticBuiltinFunctionDeclaration),
 }
 
-impl ResolvedFunctionDeclaration {
+impl SemanticFunctionDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

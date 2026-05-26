@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum Item {
+pub enum SemanticItem {
     InherentImplementation,
     ModuleDeclaration,
     FunctionDeclaration,
@@ -17,7 +17,7 @@ pub enum Item {
     Use,
 }
 
-impl Item {
+impl SemanticItem {
     pub fn compile(self, datapack: &mut Datapack, _ctx: &mut CompileContext) {
         match self {
             Self::InherentImplementation => {}

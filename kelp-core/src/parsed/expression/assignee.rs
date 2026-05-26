@@ -2,26 +2,26 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     parsed::{
-        expression::place::SemanticPlaceExpression, semantic_analysis::SemanticAnalysisContext,
+        expression::place::ParsedPlaceExpression, semantic_analysis::SemanticAnalysisContext,
     },
     span::Span,
-    semantic::expression::assignee::ResolvedAssigneeExpression,
+    semantic::expression::assignee::SemanticAssigneeExpression,
 };
 use crate::semantic::data_type::SemanticDataType;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedAssigneeExpressionKind {
-    Place(SemanticPlaceExpression),
+pub enum ParsedAssigneeExpressionKind {
+    Place(ParsedPlaceExpression),
 
-    Tuple(Vec<SemanticAssigneeExpression>),
+    Tuple(Vec<ParsedAssigneeExpression>),
     Underscore,
 }
 
-impl UnresolvedAssigneeExpressionKind {
+impl ParsedAssigneeExpressionKind {
     #[inline]
     #[must_use]
-    pub const fn with(self, data_type: SemanticDataType) -> SemanticAssigneeExpression {
-        SemanticAssigneeExpression {
+    pub const fn with(self, data_type: SemanticDataType) -> ParsedAssigneeExpression {
+        ParsedAssigneeExpression {
             kind: self,
             data_type,
         }
@@ -29,33 +29,33 @@ impl UnresolvedAssigneeExpressionKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct SemanticAssigneeExpression {
-    pub kind: UnresolvedAssigneeExpressionKind,
+pub struct ParsedAssigneeExpression {
+    pub kind: ParsedAssigneeExpressionKind,
     pub data_type: SemanticDataType,
 }
 
-impl SemanticAssigneeExpression {
+impl ParsedAssigneeExpression {
     #[must_use]
     pub fn resolve(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ResolvedAssigneeExpression {
+    ) -> SemanticAssigneeExpression {
         match self.kind {
-            UnresolvedAssigneeExpressionKind::Place(expression) => {
+            ParsedAssigneeExpressionKind::Place(expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
-                ResolvedAssigneeExpression::Place(expression)
+                SemanticAssigneeExpression::Place(expression)
             }
-            UnresolvedAssigneeExpressionKind::Tuple(expressions) => {
+            ParsedAssigneeExpressionKind::Tuple(expressions) => {
                 let expressions = expressions
                     .into_iter()
                     .map(|expression| expression.resolve(datapack, ctx))
                     .collect();
 
-                ResolvedAssigneeExpression::Tuple(expressions)
+                SemanticAssigneeExpression::Tuple(expressions)
             }
-            UnresolvedAssigneeExpressionKind::Underscore => ResolvedAssigneeExpression::Underscore,
+            ParsedAssigneeExpressionKind::Underscore => SemanticAssigneeExpression::Underscore,
         }
     }
 
@@ -67,13 +67,13 @@ impl SemanticAssigneeExpression {
         value_type: &SemanticDataType,
     ) -> Option<()> {
         match &self.kind {
-            UnresolvedAssigneeExpressionKind::Place(expression) => {
+            ParsedAssigneeExpressionKind::Place(expression) => {
                 expression.perform_assignment_semantic_analysis(ctx, value_span, value_type)
             }
-            UnresolvedAssigneeExpressionKind::Tuple(..) => {
+            ParsedAssigneeExpressionKind::Tuple(..) => {
                 self.data_type.assert_equals(ctx, value_span, value_type)
             }
-            UnresolvedAssigneeExpressionKind::Underscore => Some(()),
+            ParsedAssigneeExpressionKind::Underscore => Some(()),
         }
     }
 }

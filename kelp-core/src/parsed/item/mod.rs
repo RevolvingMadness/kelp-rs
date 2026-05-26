@@ -14,10 +14,10 @@ use crate::parsed::environment::{
 use crate::semantic::environment::{
     r#type::{
         r#struct::{
-            regular::ResolvedRegularStructDeclaration, tuple::SemanticTupleStructDeclaration,
-            ResolvedStructDeclaration,
+            regular::SemanticRegularStructDeclaration, tuple::SemanticTupleStructDeclaration,
+            SemanticStructDeclaration,
         }, HighGenericId, HighTypeId,
-        ResolvedTypeDeclarationKind,
+        SemanticTypeDeclarationKind,
     },
     HighImpl,
 };
@@ -37,7 +37,7 @@ use crate::{
     },
     span::Span,
     trait_ext::CollectOptionAllIterExt,
-    semantic::item::Item as MiddleItem,
+    semantic::item::SemanticItem as MiddleItem,
     visibility::Visibility,
 };
 use crate::semantic::data_type::SemanticDataType;
@@ -510,8 +510,8 @@ impl ParsedItem {
                 ctx.declare_resolved_type(
                     id,
                     Visibility::Public,
-                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Struct(
-                        ResolvedRegularStructDeclaration {
+                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
+                        SemanticRegularStructDeclaration {
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),
                             field_types,
@@ -554,7 +554,7 @@ impl ParsedItem {
                 ctx.declare_resolved_type(
                     id,
                     Visibility::Public,
-                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Tuple(
+                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(
                         SemanticTupleStructDeclaration {
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),

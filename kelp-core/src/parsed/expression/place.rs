@@ -2,32 +2,33 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     parsed::semantic_analysis::SemanticAnalysisContext,
-    span::Span,
     semantic::{
         data::Data,
-        expression::{place::ResolvedPlaceExpression, unresolved::SemanticExpression},
+        expression::unresolved::SemanticExpression,
         player_score::PlayerScore,
     },
+    span::Span,
 };
 use crate::low::environment::value::variable::VariableId;
+use crate::low::expression::place::PlaceExpression;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::value::HighValueId;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedPlaceExpressionKind {
+pub enum ParsedPlaceExpressionKind {
     Value(HighValueId, Vec<SemanticDataType>),
     Score(PlayerScore),
     Data(Box<Data>),
-    FieldAccess(Box<SemanticPlaceExpression>, String),
-    Index(Box<SemanticPlaceExpression>, Box<SemanticExpression>),
-    Dereference(Box<SemanticPlaceExpression>),
+    FieldAccess(Box<ParsedPlaceExpression>, String),
+    Index(Box<ParsedPlaceExpression>, Box<SemanticExpression>),
+    Dereference(Box<ParsedPlaceExpression>),
 }
 
-impl UnresolvedPlaceExpressionKind {
+impl ParsedPlaceExpressionKind {
     #[inline]
     #[must_use]
-    pub const fn with(self, data_type: SemanticDataType) -> SemanticPlaceExpression {
-        SemanticPlaceExpression {
+    pub const fn with(self, data_type: SemanticDataType) -> ParsedPlaceExpression {
+        ParsedPlaceExpression {
             kind: self,
             data_type,
         }
@@ -35,37 +36,37 @@ impl UnresolvedPlaceExpressionKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct SemanticPlaceExpression {
-    pub kind: UnresolvedPlaceExpressionKind,
+pub struct ParsedPlaceExpression {
+    pub kind: ParsedPlaceExpressionKind,
     pub data_type: SemanticDataType,
 }
 
-impl SemanticPlaceExpression {
+impl ParsedPlaceExpression {
     #[must_use]
     pub fn resolve(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ResolvedPlaceExpression {
+    ) -> PlaceExpression {
         match self.kind {
-            UnresolvedPlaceExpressionKind::Value(id, generic_types) => {
+            ParsedPlaceExpressionKind::Value(id, generic_types) => {
                 let id = datapack
                     .get_monomorphized_value_id(id, &generic_types)
                     .unwrap();
 
-                ResolvedPlaceExpression::Variable(VariableId(id.0))
+                PlaceExpression::Variable(VariableId(id.0))
             }
-            UnresolvedPlaceExpressionKind::Score(score) => {
+            ParsedPlaceExpressionKind::Score(score) => {
                 let score = score.compile(datapack, ctx);
 
-                ResolvedPlaceExpression::Score(score)
+                PlaceExpression::Score(score)
             }
-            UnresolvedPlaceExpressionKind::Data(data) => {
+            ParsedPlaceExpressionKind::Data(data) => {
                 let data = data.compile(datapack, ctx);
 
-                ResolvedPlaceExpression::Data(data)
+                PlaceExpression::Data(data)
             }
-            UnresolvedPlaceExpressionKind::FieldAccess(place, field) => {
+            ParsedPlaceExpressionKind::FieldAccess(place, field) => {
                 let access_type = place
                     .data_type
                     .clone()
@@ -76,15 +77,15 @@ impl SemanticPlaceExpression {
 
                 let place = place.resolve(datapack, ctx);
 
-                ResolvedPlaceExpression::FieldAccess(Box::new(place), access_type, field)
+                PlaceExpression::FieldAccess(Box::new(place), access_type, field)
             }
-            UnresolvedPlaceExpressionKind::Index(place, index) => {
+            ParsedPlaceExpressionKind::Index(place, index) => {
                 let place = place.resolve(datapack, ctx);
                 let index = index.kind.resolve(datapack, ctx);
 
-                ResolvedPlaceExpression::Index(Box::new(place), index)
+                PlaceExpression::Index(Box::new(place), index)
             }
-            UnresolvedPlaceExpressionKind::Dereference(place) => place
+            ParsedPlaceExpressionKind::Dereference(place) => place
                 .resolve(datapack, ctx)
                 .resolve(datapack, ctx)
                 .dereference_place()
@@ -99,18 +100,18 @@ impl SemanticPlaceExpression {
         value_type: &SemanticDataType,
     ) -> Option<()> {
         match &self.kind {
-            UnresolvedPlaceExpressionKind::Value(..) => {
+            ParsedPlaceExpressionKind::Value(..) => {
                 value_type.assert_equals(ctx, value_span, &self.data_type)
             }
-            UnresolvedPlaceExpressionKind::Score(..) => {
+            ParsedPlaceExpressionKind::Score(..) => {
                 value_type.assert_score_compatible(ctx, value_span)
             }
-            UnresolvedPlaceExpressionKind::Data(..) => {
+            ParsedPlaceExpressionKind::Data(..) => {
                 value_type.assert_data_compatible(ctx, value_span)
             }
-            UnresolvedPlaceExpressionKind::Index(place, _)
-            | UnresolvedPlaceExpressionKind::FieldAccess(place, _)
-            | UnresolvedPlaceExpressionKind::Dereference(place) => match &place.data_type {
+            ParsedPlaceExpressionKind::Index(place, _)
+            | ParsedPlaceExpressionKind::FieldAccess(place, _)
+            | ParsedPlaceExpressionKind::Dereference(place) => match &place.data_type {
                 SemanticDataType::Score(..) => {
                     value_type.assert_score_compatible(ctx, value_span)
                 }

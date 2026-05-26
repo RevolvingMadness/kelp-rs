@@ -2,20 +2,20 @@ use std::collections::{BTreeMap, HashMap};
 
 use minecraft_command_types::{
     command::{
-        Command,
         data::DataCommandModification,
         execute::{ExecuteIfSubcommand, ExecuteSubcommand, ScoreComparison},
         r#return::ReturnCommand,
+        Command,
     },
     nbt_path::{NbtPath as LowNbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
     resource_location::ResourceLocation,
-    snbt::{SNBT, SNBTString},
+    snbt::{SNBTString, SNBT},
 };
 use ordered_float::NotNan;
 
 use crate::low::environment::value::{
-    ValueDeclarationKind, function::FunctionId, variable::VariableId,
+    function::FunctionId, variable::VariableId, ValueDeclarationKind,
 };
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::{
@@ -27,16 +27,16 @@ use crate::{
     data::GeneratedData,
     datapack::Datapack,
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
-    parsed::expression::{assignee::SemanticAssigneeExpression, place::SemanticPlaceExpression},
+    parsed::expression::{assignee::ParsedAssigneeExpression, place::ParsedPlaceExpression},
     runtime_storage::RuntimeStorageType,
     semantic::{
         coordinate::SemanticCoordinates,
         data::Data,
         entity_selector::SemanticEntitySelector,
-        expression::{command::Command as MiddleCommand, resolved::ResolvedExpression},
+        expression::command::Command as MiddleCommand,
         pattern::SemanticPattern,
         player_score::PlayerScore,
-        statement::{EarlyReturnType, UnresolvedStatement},
+        statement::{EarlyReturnType, SemanticStatement},
         supports_expression_sigil::SemanticSupportsExpressionSigil,
     },
 };
@@ -44,6 +44,7 @@ use crate::{
     low::data_type::{DataType, FieldAccessType},
     semantic::expression::command::execute::subcommand::r#if::SemanticExecuteIfSubcommand,
 };
+use crate::low::expression::Expression;
 
 fn compile_if(
     datapack: &mut Datapack,
@@ -205,7 +206,7 @@ fn iterate_string(
     ctx: &mut CompileContext,
     is_reversed: bool,
     pattern: SemanticPattern,
-    iterable: ResolvedExpression,
+    iterable: Expression,
     body: SemanticExpression,
 ) {
     let (unique_data, name) = datapack.get_unique_data_named();
@@ -219,7 +220,7 @@ fn iterate_string(
         datapack,
         &mut for_body_ctx,
         DataType::String,
-        ResolvedExpression::Data(unique_data_2.clone()),
+        Expression::Data(unique_data_2.clone()),
     );
 
     for_body_ctx.add_command(
@@ -279,7 +280,7 @@ fn iterate_data(
     is_reversed: bool,
     pattern: SemanticPattern,
     iterable_type: DataType,
-    iterable: ResolvedExpression,
+    iterable: Expression,
     body: SemanticExpression,
 ) {
     let unique_data = datapack.get_unique_data();
@@ -299,7 +300,7 @@ fn iterate_data(
         datapack,
         &mut for_body_ctx,
         iterable_type,
-        ResolvedExpression::Data(destructure_unique_data),
+        Expression::Data(destructure_unique_data),
     );
 
     body.kind.compile_as_statement(datapack, &mut for_body_ctx);
@@ -347,8 +348,8 @@ pub enum SemanticExpressionKind {
     Underscore,
     Negate(Box<SemanticExpression>),
     Invert(Box<SemanticExpression>),
-    Reference(Box<SemanticPlaceExpression>),
-    Dereference(Box<SemanticPlaceExpression>),
+    Reference(Box<ParsedPlaceExpression>),
+    Dereference(Box<ParsedPlaceExpression>),
     Arithmetic(
         Box<SemanticExpression>,
         ArithmeticOperator,
@@ -365,11 +366,11 @@ pub enum SemanticExpressionKind {
         Box<SemanticExpression>,
     ),
     AugmentedAssignment(
-        Box<SemanticPlaceExpression>,
+        Box<ParsedPlaceExpression>,
         ArithmeticOperator,
         Box<SemanticExpression>,
     ),
-    Assignment(Box<SemanticAssigneeExpression>, Box<SemanticExpression>),
+    Assignment(Box<ParsedAssigneeExpression>, Box<SemanticExpression>),
     List(Vec<SemanticExpression>),
     Compound(HashMap<String, SemanticExpression>),
     Score(PlayerScore),
@@ -403,7 +404,7 @@ pub enum SemanticExpressionKind {
         body: Box<SemanticExpression>,
         else_body: Option<Box<SemanticExpression>>,
     },
-    Block(Vec<UnresolvedStatement>, Option<Box<SemanticExpression>>),
+    Block(Vec<SemanticStatement>, Option<Box<SemanticExpression>>),
     WhileLoop(Box<SemanticExpression>, Box<SemanticExpression>),
     Loop(Box<SemanticExpression>),
     ForLoop(
@@ -572,7 +573,7 @@ impl SemanticExpressionKind {
     }
 
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ResolvedExpression {
+    pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Expression {
         match self {
             Self::Negate(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
@@ -587,7 +588,7 @@ impl SemanticExpressionKind {
             Self::Reference(expression) => {
                 let expression = expression.resolve(datapack, ctx);
 
-                ResolvedExpression::Reference(Box::new(expression))
+                Expression::Reference(Box::new(expression))
             }
             Self::Dereference(place) => {
                 let place = place.resolve(datapack, ctx);
@@ -621,7 +622,7 @@ impl SemanticExpressionKind {
 
                 target.augmented_assign(datapack, ctx, operator, value);
 
-                ResolvedExpression::Unit
+                Expression::Unit
             }
             Self::Assignment(target, value) => {
                 let target = target.resolve(datapack, ctx);
@@ -629,15 +630,15 @@ impl SemanticExpressionKind {
 
                 target.assign(datapack, ctx, value);
 
-                ResolvedExpression::Unit
+                Expression::Unit
             }
-            Self::List(expressions) => ResolvedExpression::List(
+            Self::List(expressions) => Expression::List(
                 expressions
                     .into_iter()
                     .map(|expr| expr.kind.resolve(datapack, ctx))
                     .collect::<Vec<_>>(),
             ),
-            Self::Compound(compound) => ResolvedExpression::Compound(
+            Self::Compound(compound) => Expression::Compound(
                 compound
                     .into_iter()
                     .map(|(key, value)| (key, value.kind.resolve(datapack, ctx)))
@@ -646,12 +647,12 @@ impl SemanticExpressionKind {
             Self::Score(score) => {
                 let score = score.compile(datapack, ctx);
 
-                ResolvedExpression::Score(score)
+                Expression::Score(score)
             }
             Self::Data(data) => {
                 let data = data.compile(datapack, ctx);
 
-                ResolvedExpression::Data(data)
+                Expression::Data(data)
             }
             Self::Condition(inverted, condition) => {
                 let condition = condition.compile(datapack, ctx);
@@ -665,7 +666,7 @@ impl SemanticExpressionKind {
                         .store_success_score(result_score.score.clone()),
                 );
 
-                ResolvedExpression::Score(result_score)
+                Expression::Score(result_score)
             }
             Self::Command(command) => {
                 let command = command.compile(datapack, ctx);
@@ -677,7 +678,7 @@ impl SemanticExpressionKind {
                     command.run().store_result_score(result_score.score.clone()),
                 );
 
-                ResolvedExpression::Score(result_score)
+                Expression::Score(result_score)
             }
             Self::Index(target, index) => {
                 let target = target.kind.resolve(datapack, ctx);
@@ -714,11 +715,11 @@ impl SemanticExpressionKind {
                             expression.as_data(datapack, ctx, true)
                         };
 
-                        ResolvedExpression::Data(data)
+                        Expression::Data(data)
                     }
                 }
             }
-            Self::Tuple(expressions) => ResolvedExpression::Tuple(
+            Self::Tuple(expressions) => Expression::Tuple(
                 expressions
                     .into_iter()
                     .map(|expression| expression.kind.resolve(datapack, ctx))
@@ -763,7 +764,7 @@ impl SemanticExpressionKind {
                     })
                     .collect();
 
-                ResolvedExpression::RegularStruct(id, field_expressions)
+                Expression::RegularStruct(id, field_expressions)
             }
             Self::TupleStruct(id, generic_types, field_expressions) => {
                 let (module_path, visiblity, declaration) =
@@ -796,20 +797,20 @@ impl SemanticExpressionKind {
                     .map(|expression| expression.kind.resolve(datapack, ctx))
                     .collect();
 
-                ResolvedExpression::TupleStruct(id, field_expressions)
+                Expression::TupleStruct(id, field_expressions)
             }
             Self::Underscore => unreachable!(),
-            Self::Boolean(value) => ResolvedExpression::Boolean(value),
-            Self::Byte(value) => ResolvedExpression::Byte(value),
-            Self::Short(value) => ResolvedExpression::Short(value),
+            Self::Boolean(value) => Expression::Boolean(value),
+            Self::Byte(value) => Expression::Byte(value),
+            Self::Short(value) => Expression::Short(value),
             Self::Integer(value) | Self::InferredInteger(value) => {
-                ResolvedExpression::Integer(value)
+                Expression::Integer(value)
             }
-            Self::Long(value) => ResolvedExpression::Long(value),
-            Self::Float(value) | Self::InferredFloat(value) => ResolvedExpression::Float(value),
-            Self::Double(value) => ResolvedExpression::Double(value),
-            Self::String(value) => ResolvedExpression::String(value),
-            Self::Unit => ResolvedExpression::Unit,
+            Self::Long(value) => Expression::Long(value),
+            Self::Float(value) | Self::InferredFloat(value) => Expression::Float(value),
+            Self::Double(value) => Expression::Double(value),
+            Self::String(value) => Expression::String(value),
+            Self::Unit => Expression::Unit,
             Self::Value(id, generic_types) => {
                 let id = datapack
                     .get_monomorphized_value_id(id, &generic_types)
@@ -824,7 +825,7 @@ impl SemanticExpressionKind {
                         datapack.get_variable_value(id)
                     }
                     ValueDeclarationKind::Function(..) => {
-                        ResolvedExpression::Function(FunctionId(id.0))
+                        Expression::Function(FunctionId(id.0))
                     }
                 }
             }
@@ -833,7 +834,7 @@ impl SemanticExpressionKind {
                     statement.compile_as_statement(datapack, ctx);
                 }
 
-                tail_expression.map_or(ResolvedExpression::Unit, |tail_expression| {
+                tail_expression.map_or(Expression::Unit, |tail_expression| {
                     tail_expression.kind.resolve(datapack, ctx)
                 })
             }
@@ -853,7 +854,7 @@ impl SemanticExpressionKind {
                     Some(output_data.clone()),
                 );
 
-                ResolvedExpression::Data(output_data)
+                Expression::Data(output_data)
             }
             Self::Call(callee, arguments) => {
                 let callee = callee.kind.resolve(datapack, ctx);
@@ -906,7 +907,7 @@ impl SemanticExpressionKind {
 
                 datapack.compile_and_add_to_function(&while_function_paths, &mut while_body_ctx);
 
-                ResolvedExpression::Unit
+                Expression::Unit
             }
             Self::Loop(body) => {
                 let loop_function_paths = datapack.get_unique_function_paths();
@@ -942,7 +943,7 @@ impl SemanticExpressionKind {
 
                 datapack.compile_and_add_to_function(&loop_function_paths, &mut loop_body_ctx);
 
-                ResolvedExpression::Unit
+                Expression::Unit
             }
             Self::ForLoop(is_reversed, pattern, iterable, body) => {
                 let iterable_type = iterable
@@ -986,22 +987,22 @@ impl SemanticExpressionKind {
                     }
                 }
 
-                ResolvedExpression::Unit
+                Expression::Unit
             }
             Self::ResourceLocation(resource_location) => {
                 let resource_location = resource_location.compile(datapack, ctx);
 
-                ResolvedExpression::ResourceLocation(resource_location)
+                Expression::ResourceLocation(resource_location)
             }
             Self::EntitySelector(selector) => {
                 let selector = selector.compile(datapack, ctx);
 
-                ResolvedExpression::EntitySelector(selector)
+                Expression::EntitySelector(selector)
             }
             Self::Coordinates(coordinates) => {
                 let coordinates = coordinates.compile(datapack, ctx);
 
-                ResolvedExpression::Coordinates(coordinates)
+                Expression::Coordinates(coordinates)
             }
             Self::Return(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
@@ -1012,7 +1013,7 @@ impl SemanticExpressionKind {
 
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
 
-                ResolvedExpression::Never
+                Expression::Never
             }
         }
     }

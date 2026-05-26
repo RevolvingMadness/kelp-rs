@@ -7,9 +7,9 @@ use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::value::{
     function::{
         builtin::HighBuiltinFunctionId, regular::HighRegularFunctionId, HighFunctionId,
-        ResolvedFunctionDeclaration,
+        SemanticFunctionDeclaration,
     },
-    variable::{HighVariableId, ResolvedVariableDeclaration},
+    variable::{HighVariableId, SemanticVariableDeclaration},
 };
 
 pub mod function;
@@ -44,8 +44,8 @@ impl From<HighBuiltinFunctionId> for HighValueId {
 
 #[derive(Debug, Clone)]
 pub enum ResolvedValueDeclarationKind {
-    Variable(ResolvedVariableDeclaration),
-    Function(Box<ResolvedFunctionDeclaration>),
+    Variable(SemanticVariableDeclaration),
+    Function(Box<SemanticFunctionDeclaration>),
 }
 
 impl ResolvedValueDeclarationKind {

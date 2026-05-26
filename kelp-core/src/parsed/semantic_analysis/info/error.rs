@@ -6,11 +6,11 @@ use crate::{
     semantic::statement::LoopControlFlowKind,
 };
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::ResolvedEnvironment;
+use crate::semantic::environment::SemanticEnvironment;
 
 pub struct SemanticAnalysisErrorDisplay<'a> {
     pub error: &'a SemanticAnalysisError,
-    pub resolved_environment: &'a ResolvedEnvironment,
+    pub resolved_environment: &'a SemanticEnvironment,
 }
 
 impl Display for SemanticAnalysisErrorDisplay<'_> {
@@ -463,7 +463,7 @@ impl SemanticAnalysisError {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        resolved_environment: &'a ResolvedEnvironment,
+        resolved_environment: &'a SemanticEnvironment,
     ) -> SemanticAnalysisErrorDisplay<'a> {
         SemanticAnalysisErrorDisplay {
             error: self,

@@ -5,7 +5,7 @@ use crate::parsed::semantic_analysis::{
     SemanticAnalysisContext, info::error::SemanticAnalysisError,
 };
 use crate::semantic::environment::{
-    r#type::{HighTypeId, r#struct::ResolvedStructDeclaration},
+    r#type::{HighTypeId, r#struct::SemanticStructDeclaration},
     value::HighValueId,
 };
 
@@ -18,11 +18,11 @@ pub enum ParsedStructDeclaration {
     Tuple(ParsedTupleStructDeclaration),
 }
 
-impl From<ResolvedStructDeclaration> for ParsedStructDeclaration {
-    fn from(value: ResolvedStructDeclaration) -> Self {
+impl From<SemanticStructDeclaration> for ParsedStructDeclaration {
+    fn from(value: SemanticStructDeclaration) -> Self {
         match value {
-            ResolvedStructDeclaration::Struct(declaration) => Self::Struct(declaration.into()),
-            ResolvedStructDeclaration::Tuple(declaration) => Self::Tuple(declaration.into()),
+            SemanticStructDeclaration::Struct(declaration) => Self::Struct(declaration.into()),
+            SemanticStructDeclaration::Tuple(declaration) => Self::Tuple(declaration.into()),
         }
     }
 }

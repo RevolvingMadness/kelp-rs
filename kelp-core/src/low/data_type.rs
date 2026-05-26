@@ -170,12 +170,12 @@ impl DataType {
     }
 }
 
-pub struct ResolvedDataTypeDisplay<'a> {
+pub struct DataTypeDisplay<'a> {
     pub data_type: &'a DataType,
     pub environment: &'a Environment,
 }
 
-impl Display for ResolvedDataTypeDisplay<'_> {
+impl Display for DataTypeDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.data_type {
             DataType::Boolean => f.write_str("bool"),
@@ -343,8 +343,8 @@ impl DataType {
     pub const fn display<'a>(
         &'a self,
         environment: &'a Environment,
-    ) -> ResolvedDataTypeDisplay<'a> {
-        ResolvedDataTypeDisplay {
+    ) -> DataTypeDisplay<'a> {
+        DataTypeDisplay {
             data_type: self,
             environment,
         }

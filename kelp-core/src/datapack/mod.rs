@@ -18,14 +18,14 @@ use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
 use crate::low::data_type::DataType;
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::ResolvedEnvironment;
+use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
-use crate::semantic::environment::value::function::{HighFunctionId, ResolvedFunctionDeclaration};
+use crate::semantic::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
 use crate::semantic::environment::value::variable::HighVariableId;
 use crate::semantic::environment::value::{
     HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
 };
-use crate::semantic::expression::resolved::ResolvedExpression;
+use crate::low::expression::Expression;
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
@@ -110,13 +110,13 @@ pub enum RuntimeFunction {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct CompiletimeFunctionKey {
     pub id: FunctionId,
-    pub arguments: Vec<ResolvedExpression>,
+    pub arguments: Vec<Expression>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 pub struct CompiletimeFunctionKeyRef<'a> {
     pub id: FunctionId,
-    pub arguments: &'a [ResolvedExpression],
+    pub arguments: &'a [Expression],
 }
 
 impl Equivalent<CompiletimeFunctionKey> for CompiletimeFunctionKeyRef<'_> {
@@ -128,7 +128,7 @@ impl Equivalent<CompiletimeFunctionKey> for CompiletimeFunctionKeyRef<'_> {
 #[derive(Debug, Clone)]
 pub struct CompiletimeFunction {
     pub resource_location: ResourceLocation,
-    pub return_value: ResolvedExpression,
+    pub return_value: Expression,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -149,8 +149,8 @@ pub struct Datapack {
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub resolved_environment: ResolvedEnvironment,
-    pub variable_values: HashMap<VariableId, (DataType, ResolvedExpression)>,
+    pub resolved_environment: SemanticEnvironment,
+    pub variable_values: HashMap<VariableId, (DataType, Expression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
@@ -171,7 +171,7 @@ pub struct Datapack {
 impl Datapack {
     #[must_use]
     pub fn new(
-        resolved_environment: ResolvedEnvironment,
+        resolved_environment: SemanticEnvironment,
         name: String,
         description: Option<String>,
     ) -> Self {
@@ -248,7 +248,7 @@ impl Datapack {
         &mut self,
         id: HighVariableId,
         data_type: DataType,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         let ResolvedValueDeclaration {
             module_path,
@@ -269,7 +269,7 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn set_variable(&mut self, id: VariableId, value: ResolvedExpression) {
+    pub fn set_variable(&mut self, id: VariableId, value: Expression) {
         self.variable_values.get_mut(&id).unwrap().1 = value;
     }
 
@@ -281,7 +281,7 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value(&self, id: VariableId) -> ResolvedExpression {
+    pub fn get_variable_value(&self, id: VariableId) -> Expression {
         let (_, expression) = self.variable_values.get(&id).unwrap();
 
         expression.clone()
@@ -289,7 +289,7 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value_mut(&mut self, id: VariableId) -> &mut ResolvedExpression {
+    pub fn get_variable_value_mut(&mut self, id: VariableId) -> &mut Expression {
         let (_, expression) = self.variable_values.get_mut(&id).unwrap();
 
         expression
@@ -744,7 +744,7 @@ impl Datapack {
         let declaration = declaration.clone();
 
         match declaration {
-            ResolvedFunctionDeclaration::Regular(declaration) => {
+            SemanticFunctionDeclaration::Regular(declaration) => {
                 let parameters = declaration
                     .parameters
                     .into_iter()
@@ -782,7 +782,7 @@ impl Datapack {
 
                 self.declare_monomorphized_function(id, module_path, visibility, declaration)
             }
-            ResolvedFunctionDeclaration::Builtin(declaration) => {
+            SemanticFunctionDeclaration::Builtin(declaration) => {
                 let parameters = declaration
                     .parameters
                     .into_iter()

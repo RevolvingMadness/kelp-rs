@@ -14,9 +14,9 @@ use crate::{
         data_type::ParsedDataType,
         entity_selector::ParsedEntitySelector,
         expression::{
-            assignee::{SemanticAssigneeExpression, UnresolvedAssigneeExpressionKind},
+            assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionKind},
             block::ParsedBlockExpression,
-            place::{SemanticPlaceExpression, UnresolvedPlaceExpressionKind},
+            place::{ParsedPlaceExpression, ParsedPlaceExpressionKind},
         },
         nbt_path::NbtPath,
         pattern::ParsedPattern,
@@ -227,7 +227,7 @@ impl ParsedExpression {
     pub fn as_place_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, SemanticPlaceExpression)> {
+    ) -> Option<(Span, ParsedPlaceExpression)> {
         let expression = match self.kind {
             ParsedExpressionKind::Path(path) => {
                 let mut path = path.perform_semantic_analysis(ctx);
@@ -245,12 +245,12 @@ impl ParsedExpression {
                     last_segment.name_span,
                 )?;
 
-                UnresolvedPlaceExpressionKind::Value(id, last_segment.generic_types).with(data_type)
+                ParsedPlaceExpressionKind::Value(id, last_segment.generic_types).with(data_type)
             }
             ParsedExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
-                UnresolvedPlaceExpressionKind::Score(score)
+                ParsedPlaceExpressionKind::Score(score)
                     .with(SemanticDataType::Score(Box::new(SemanticDataType::Integer)))
             }
             ParsedExpressionKind::Data(target_path) => {
@@ -259,7 +259,7 @@ impl ParsedExpression {
                 let target = target.perform_semantic_analysis(ctx)?;
                 let path = path.perform_semantic_analysis(ctx)?;
 
-                UnresolvedPlaceExpressionKind::Data(Box::new(Data { target, path }))
+                ParsedPlaceExpressionKind::Data(Box::new(Data { target, path }))
                     .with(SemanticDataType::Data(Box::new(SemanticDataType::Inferred)))
             }
             ParsedExpressionKind::FieldAccess(target, field_span, field) => {
@@ -269,7 +269,7 @@ impl ParsedExpression {
                     .data_type
                     .get_field_result_semantic_analysis(ctx, field_span, &field)?;
 
-                UnresolvedPlaceExpressionKind::FieldAccess(Box::new(target), field).with(field_type)
+                ParsedPlaceExpressionKind::FieldAccess(Box::new(target), field).with(field_type)
             }
             ParsedExpressionKind::Index(target, index) => {
                 let target = target.as_place_semantic_analysis(ctx);
@@ -284,7 +284,7 @@ impl ParsedExpression {
                     &index.data_type,
                 )?;
 
-                UnresolvedPlaceExpressionKind::Index(Box::new(target), Box::new(index))
+                ParsedPlaceExpressionKind::Index(Box::new(target), Box::new(index))
                     .with(index_type)
             }
             ParsedExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
@@ -295,7 +295,7 @@ impl ParsedExpression {
                     .clone()
                     .get_dereferenced_result_semantic_analysis(ctx, place_span)?;
 
-                UnresolvedPlaceExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
+                ParsedPlaceExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
             }
             _ => return ctx.add_error(self.span, SemanticAnalysisError::ExpressionIsNotAPlace),
         };
@@ -307,7 +307,7 @@ impl ParsedExpression {
     pub fn as_assignee_perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<(Span, SemanticAssigneeExpression)> {
+    ) -> Option<(Span, ParsedAssigneeExpression)> {
         let kind = match self.kind {
             ParsedExpressionKind::Tuple(expressions) => {
                 let (data_types, expressions) = expressions
@@ -322,11 +322,11 @@ impl ParsedExpression {
                     .into_iter()
                     .unzip();
 
-                UnresolvedAssigneeExpressionKind::Tuple(expressions)
+                ParsedAssigneeExpressionKind::Tuple(expressions)
                     .with(SemanticDataType::Tuple(data_types))
             }
             ParsedExpressionKind::Underscore => {
-                UnresolvedAssigneeExpressionKind::Underscore.with(SemanticDataType::Inferred)
+                ParsedAssigneeExpressionKind::Underscore.with(SemanticDataType::Inferred)
             }
             _ => {
                 let (span, place) = self.as_place_semantic_analysis(ctx)?;
@@ -335,7 +335,7 @@ impl ParsedExpression {
 
                 return Some((
                     span,
-                    UnresolvedAssigneeExpressionKind::Place(place).with(data_type),
+                    ParsedAssigneeExpressionKind::Place(place).with(data_type),
                 ));
             }
         };

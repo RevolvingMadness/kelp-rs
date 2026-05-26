@@ -10,12 +10,13 @@ use crate::{
     datapack::Datapack,
     semantic::{
         data::Data,
-        expression::{literal::LiteralExpression, resolved::ResolvedExpression},
+        expression::literal::LiteralExpression,
         player_score::PlayerScore,
     },
 };
 use crate::low::environment::r#type::r#struct::{RegularStructId, TupleStructId};
 use crate::low::data_type::DataType;
+use crate::low::expression::Expression;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::{
     r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
@@ -27,32 +28,32 @@ fn destructure_tuple(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: DataType,
-    value: ResolvedExpression,
+    value: Expression,
 ) {
     match (data_type, value) {
-        (DataType::Tuple(data_types), ResolvedExpression::Tuple(expressions)) => {
+        (DataType::Tuple(data_types), Expression::Tuple(expressions)) => {
             for ((pattern, expression), data_type) in
                 patterns.into_iter().zip(expressions).zip(data_types)
             {
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataType::Tuple(data_types), score @ ResolvedExpression::Score(..)) => {
+        (DataType::Tuple(data_types), score @ Expression::Score(..)) => {
             for (pattern, data_type) in patterns.into_iter().zip(data_types) {
                 pattern.destructure(datapack, ctx, data_type, score.clone());
             }
         }
-        (DataType::Tuple(data_types), ResolvedExpression::Data(data)) => {
+        (DataType::Tuple(data_types), Expression::Data(data)) => {
             for (i, (pattern, data_type)) in patterns.into_iter().zip(data_types).enumerate() {
                 let expression =
-                    ResolvedExpression::Data(data.clone().with_path_node(NbtPathNode::Index(
+                    Expression::Data(data.clone().with_path_node(NbtPathNode::Index(
                         Some(SNBT::macroable_integer(i as i32)),
                     )));
 
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataType::Data(inner_type), value @ ResolvedExpression::Data(..)) => {
+        (DataType::Data(inner_type), value @ Expression::Data(..)) => {
             destructure_tuple(patterns, datapack, ctx, *inner_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
@@ -64,12 +65,12 @@ fn destructure_compound(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     data_type: DataType,
-    value: ResolvedExpression,
+    value: Expression,
 ) {
     match (data_type, value) {
         (
             DataType::TypedCompound(data_types),
-            ResolvedExpression::Compound(expressions),
+            Expression::Compound(expressions),
         ) => {
             for ((key, pattern), (_, expression)) in patterns.into_iter().zip(expressions) {
                 let expression = expression.clone();
@@ -78,7 +79,7 @@ fn destructure_compound(
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataType::Compound(data_type), ResolvedExpression::Compound(expressions)) => {
+        (DataType::Compound(data_type), Expression::Compound(expressions)) => {
             for ((_, pattern), (_, expression)) in patterns.into_iter().zip(expressions) {
                 let expression = expression.clone();
                 let data_type = *data_type.clone();
@@ -86,14 +87,14 @@ fn destructure_compound(
                 pattern.destructure(datapack, ctx, data_type, expression);
             }
         }
-        (DataType::Data(data_type), value @ ResolvedExpression::Data(..)) => {
+        (DataType::Data(data_type), value @ Expression::Data(..)) => {
             destructure_compound(patterns, datapack, ctx, *data_type, value);
         }
-        (DataType::TypedCompound(data_types), ResolvedExpression::Data(data)) => {
+        (DataType::TypedCompound(data_types), Expression::Data(data)) => {
             for (key, pattern) in patterns {
                 let data_type = data_types.get(&key).unwrap().clone();
 
-                let expression = ResolvedExpression::Data(
+                let expression = Expression::Data(
                     data.clone()
                         .with_path_node(NbtPathNode::Named(SNBTString(false, key), None)),
                 );
@@ -111,10 +112,10 @@ fn destructure_regular_struct(
     ctx: &mut CompileContext,
     id: RegularStructId,
     data_type: DataType,
-    value: ResolvedExpression,
+    value: Expression,
 ) {
     match (data_type, value) {
-        (DataType::Struct(..), ResolvedExpression::RegularStruct(_, fields)) => {
+        (DataType::Struct(..), Expression::RegularStruct(_, fields)) => {
             let (_, _, declaration) = datapack.get_regular_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -126,7 +127,7 @@ fn destructure_regular_struct(
                 pattern.destructure(datapack, ctx, data_type, field_value);
             }
         }
-        (DataType::Struct(..), ResolvedExpression::Data(data)) => {
+        (DataType::Struct(..), Expression::Data(data)) => {
             let (_, _, declaration) = datapack.get_regular_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -134,7 +135,7 @@ fn destructure_regular_struct(
             for (key, pattern) in field_patterns {
                 let data_type = field_types.get(&key).unwrap().clone();
 
-                let field_value = ResolvedExpression::Data(
+                let field_value = Expression::Data(
                     data.clone()
                         .with_path_node(NbtPathNode::Named(SNBTString(false, key), None)),
                 );
@@ -163,10 +164,10 @@ fn destructure_tuple_struct(
     ctx: &mut CompileContext,
     id: TupleStructId,
     value_data_type: DataType,
-    value: ResolvedExpression,
+    value: Expression,
 ) {
     match (value, value_data_type) {
-        (ResolvedExpression::TupleStruct(_, field_expressions), DataType::Struct(..)) => {
+        (Expression::TupleStruct(_, field_expressions), DataType::Struct(..)) => {
             let (_, _, declaration) = datapack.get_tuple_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -179,7 +180,7 @@ fn destructure_tuple_struct(
                 field_pattern.destructure(datapack, ctx, field_type, field_expression);
             }
         }
-        (ResolvedExpression::Data(data), DataType::Struct(..)) => {
+        (Expression::Data(data), DataType::Struct(..)) => {
             let (_, _, declaration) = datapack.get_tuple_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -187,7 +188,7 @@ fn destructure_tuple_struct(
             for (field_index, (field_pattern, field_type)) in
                 field_patterns.into_iter().zip(field_types).enumerate()
             {
-                let field_value = ResolvedExpression::Data(data.clone().with_path_node(
+                let field_value = Expression::Data(data.clone().with_path_node(
                     NbtPathNode::Index(Some(SNBT::macroable_integer(field_index as i32))),
                 ));
 
@@ -236,7 +237,7 @@ impl SemanticPattern {
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         data_type: DataType,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         match self {
             Self::Literal(..) | Self::Wildcard => {}

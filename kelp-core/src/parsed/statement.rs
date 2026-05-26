@@ -4,7 +4,7 @@ use crate::parsed::item::ParsedItem;
 use crate::parsed::pattern::ParsedPattern;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
-use crate::semantic::statement::{LoopControlFlowKind, UnresolvedStatement};
+use crate::semantic::statement::{LoopControlFlowKind, SemanticStatement};
 use crate::span::Span;
 
 #[derive(Debug, Clone)]
@@ -36,12 +36,12 @@ impl ParsedStatement {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<UnresolvedStatement> {
+    ) -> Option<SemanticStatement> {
         Some(match self.kind {
             ParsedStatementKind::Expression(expression) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                UnresolvedStatement::Expression(expression)
+                SemanticStatement::Expression(expression)
             }
             ParsedStatementKind::Let(explicit_type, pattern, value) => {
                 let explicit_type =
@@ -63,7 +63,7 @@ impl ParsedStatement {
 
                 let pattern = pattern.perform_semantic_analysis(ctx, &variable_type)?;
 
-                UnresolvedStatement::Let(variable_type, pattern, Box::new(value))
+                SemanticStatement::Let(variable_type, pattern, Box::new(value))
             }
             ParsedStatementKind::Append(target, value) => {
                 let target = target.perform_semantic_analysis(ctx);
@@ -72,12 +72,12 @@ impl ParsedStatement {
                 let (_, target) = target?;
                 let (_, value) = value?;
 
-                UnresolvedStatement::Append(target, Box::new(value))
+                SemanticStatement::Append(target, Box::new(value))
             }
             ParsedStatementKind::Remove(target) => {
                 let (_, target) = target.perform_semantic_analysis(ctx)?;
 
-                UnresolvedStatement::Remove(target)
+                SemanticStatement::Remove(target)
             }
             ParsedStatementKind::Break => {
                 if ctx.loop_depth == 0 {
@@ -87,7 +87,7 @@ impl ParsedStatement {
                     );
                 }
 
-                UnresolvedStatement::Break
+                SemanticStatement::Break
             }
             ParsedStatementKind::Continue => {
                 if ctx.loop_depth == 0 {
@@ -97,12 +97,12 @@ impl ParsedStatement {
                     );
                 }
 
-                UnresolvedStatement::Continue
+                SemanticStatement::Continue
             }
             ParsedStatementKind::Item(item) => {
                 let item = item.perform_semantic_analysis(ctx)?;
 
-                UnresolvedStatement::Item(Box::new(item))
+                SemanticStatement::Item(item)
             }
         })
     }

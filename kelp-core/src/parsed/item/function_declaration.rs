@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use crate::parsed::environment::r#type::ParsedTypeDeclarationKind;
 use crate::parsed::environment::value::{
-    function::{regular::UnresolvedRegularFunctionDeclaration, UnresolvedFunctionDeclaration},
-    UnresolvedValueDeclarationKind,
+    function::{regular::ParsedRegularFunctionDeclaration, ParsedFunctionDeclaration},
+    ParsedValueDeclarationKind,
 };
 use crate::semantic::environment::{
     r#type::HighGenericId, value::function::regular::HighRegularFunctionId,
@@ -19,7 +19,7 @@ use crate::{
         },
     },
     span::Span,
-    semantic::item::Item,
+    semantic::item::SemanticItem,
     visibility::Visibility,
 };
 use crate::semantic::data_type::SemanticDataType;
@@ -71,8 +71,8 @@ impl FunctionDeclarationItem {
 
         let id = ctx.declare_unresolved_value(
             visibility,
-            UnresolvedValueDeclarationKind::Function(Box::new(
-                UnresolvedFunctionDeclaration::Regular(UnresolvedRegularFunctionDeclaration {
+            ParsedValueDeclarationKind::Function(Box::new(
+                ParsedFunctionDeclaration::Regular(ParsedRegularFunctionDeclaration {
                     name: self.name.clone(),
                     generic_ids,
                 }),
@@ -131,7 +131,7 @@ impl FunctionDeclarationItem {
         );
     }
 
-    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<Item> {
+    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> Option<SemanticItem> {
         let id = self.id.unwrap();
 
         ctx.enter_scope();
@@ -279,6 +279,6 @@ impl FunctionDeclarationItem {
             return None;
         }
 
-        Some(Item::FunctionDeclaration)
+        Some(SemanticItem::FunctionDeclaration)
     }
 }

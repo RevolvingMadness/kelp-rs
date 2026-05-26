@@ -1,17 +1,17 @@
 use crate::semantic::environment::{
     r#type::HighGenericId,
-    value::function::builtin::{BuiltinFunctionKind, ResolvedBuiltinFunctionDeclaration},
+    value::function::builtin::{BuiltinFunctionKind, SemanticBuiltinFunctionDeclaration},
 };
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedBuiltinFunctionDeclaration {
+pub struct ParsedBuiltinFunctionDeclaration {
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
     pub kind: BuiltinFunctionKind,
 }
 
-impl From<ResolvedBuiltinFunctionDeclaration> for UnresolvedBuiltinFunctionDeclaration {
-    fn from(value: ResolvedBuiltinFunctionDeclaration) -> Self {
+impl From<SemanticBuiltinFunctionDeclaration> for ParsedBuiltinFunctionDeclaration {
+    fn from(value: SemanticBuiltinFunctionDeclaration) -> Self {
         Self {
             name: value.name,
             generic_ids: value.generic_ids,

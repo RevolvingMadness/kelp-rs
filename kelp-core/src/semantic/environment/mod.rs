@@ -5,18 +5,18 @@ use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::{
     r#type::{
         r#struct::{
-            regular::{HighRegularStructId, ResolvedRegularStructDeclaration}, tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
+            regular::{HighRegularStructId, SemanticRegularStructDeclaration}, tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
             HighStructId,
-            ResolvedStructDeclaration,
-        }, HighGenericId, HighTypeId, ResolvedTypeDeclaration,
-        ResolvedTypeDeclarationKind,
+            SemanticStructDeclaration,
+        }, HighGenericId, HighTypeId, SemanticTypeDeclaration,
+        SemanticTypeDeclarationKind,
     },
     value::{
         function::{
-            builtin::{HighBuiltinFunctionId, ResolvedBuiltinFunctionDeclaration}, regular::{HighRegularFunctionId, ResolvedRegularFunctionDeclaration},
+            builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration}, regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
             HighFunctionId,
-            ResolvedFunctionDeclaration,
-        }, variable::{HighVariableId, ResolvedVariableDeclaration}, HighValueId,
+            SemanticFunctionDeclaration,
+        }, variable::{HighVariableId, SemanticVariableDeclaration}, HighValueId,
         ResolvedValueDeclaration,
         ResolvedValueDeclarationKind,
     },
@@ -34,16 +34,16 @@ pub struct HighImpl {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ResolvedEnvironment {
-    types: HashMap<HighTypeId, ResolvedTypeDeclaration>,
+pub struct SemanticEnvironment {
+    types: HashMap<HighTypeId, SemanticTypeDeclaration>,
     values: HashMap<HighValueId, ResolvedValueDeclaration>,
 
     pub impls: HashMap<HighTypeId, Vec<HighImpl>>,
 }
 
-impl ResolvedEnvironment {
+impl SemanticEnvironment {
     #[inline]
-    pub fn declare_type(&mut self, id: HighTypeId, declaration: ResolvedTypeDeclaration) {
+    pub fn declare_type(&mut self, id: HighTypeId, declaration: SemanticTypeDeclaration) {
         self.types.insert(id, declaration);
     }
 
@@ -61,7 +61,7 @@ impl ResolvedEnvironment {
     pub fn update_regular_function(
         &mut self,
         id: HighRegularFunctionId,
-        f: impl FnOnce(&mut ResolvedRegularFunctionDeclaration),
+        f: impl FnOnce(&mut SemanticRegularFunctionDeclaration),
     ) {
         self.update_value(id.into(), |declaration| {
             let ResolvedValueDeclaration {
@@ -72,7 +72,7 @@ impl ResolvedEnvironment {
                 unreachable!("Value is not a function");
             };
 
-            let ResolvedFunctionDeclaration::Regular(declaration) = &mut **declaration else {
+            let SemanticFunctionDeclaration::Regular(declaration) = &mut **declaration else {
                 unreachable!("Function is not regular");
             };
 
@@ -93,7 +93,7 @@ impl ResolvedEnvironment {
             ResolvedValueDeclaration {
                 visibility,
                 module_path,
-                kind: ResolvedValueDeclarationKind::Variable(ResolvedVariableDeclaration {
+                kind: ResolvedValueDeclarationKind::Variable(SemanticVariableDeclaration {
                     name,
                     data_type,
                 }),
@@ -115,16 +115,16 @@ impl ResolvedEnvironment {
 
     #[inline]
     #[must_use]
-    pub fn get_type(&self, id: HighTypeId) -> &ResolvedTypeDeclaration {
+    pub fn get_type(&self, id: HighTypeId) -> &SemanticTypeDeclaration {
         self.types.get(&id).unwrap()
     }
 
     #[must_use]
     pub fn get_generic(&self, id: HighGenericId) -> (&[String], Visibility, &String) {
-        let ResolvedTypeDeclaration {
+        let SemanticTypeDeclaration {
             module_path,
             visibility,
-            kind: ResolvedTypeDeclarationKind::Generic(name),
+            kind: SemanticTypeDeclarationKind::Generic(name),
         } = self.get_type(id.into())
         else {
             unreachable!();
@@ -137,11 +137,11 @@ impl ResolvedEnvironment {
     pub fn get_struct(
         &self,
         id: HighStructId,
-    ) -> (&[String], Visibility, &ResolvedStructDeclaration) {
-        let ResolvedTypeDeclaration {
+    ) -> (&[String], Visibility, &SemanticStructDeclaration) {
+        let SemanticTypeDeclaration {
             module_path,
             visibility,
-            kind: ResolvedTypeDeclarationKind::Struct(declaration),
+            kind: SemanticTypeDeclarationKind::Struct(declaration),
         } = self.get_type(id.into())
         else {
             unreachable!();
@@ -154,8 +154,8 @@ impl ResolvedEnvironment {
     pub fn get_regular_struct(
         &self,
         id: HighRegularStructId,
-    ) -> (&[String], Visibility, &ResolvedRegularStructDeclaration) {
-        let (module_path, visibility, ResolvedStructDeclaration::Struct(declaration)) =
+    ) -> (&[String], Visibility, &SemanticRegularStructDeclaration) {
+        let (module_path, visibility, SemanticStructDeclaration::Struct(declaration)) =
             self.get_struct(id.into())
         else {
             unreachable!();
@@ -169,7 +169,7 @@ impl ResolvedEnvironment {
         &self,
         id: HighTupleStructId,
     ) -> (&[String], Visibility, &SemanticTupleStructDeclaration) {
-        let (module_path, visibility, ResolvedStructDeclaration::Tuple(declaration)) =
+        let (module_path, visibility, SemanticStructDeclaration::Tuple(declaration)) =
             self.get_struct(id.into())
         else {
             unreachable!();
@@ -188,7 +188,7 @@ impl ResolvedEnvironment {
     pub fn get_variable(
         &self,
         id: HighVariableId,
-    ) -> (&[String], Visibility, &ResolvedVariableDeclaration) {
+    ) -> (&[String], Visibility, &SemanticVariableDeclaration) {
         let ResolvedValueDeclaration {
             module_path,
             visibility,
@@ -205,7 +205,7 @@ impl ResolvedEnvironment {
     pub fn get_function(
         &self,
         id: HighFunctionId,
-    ) -> (&[String], Visibility, &ResolvedFunctionDeclaration) {
+    ) -> (&[String], Visibility, &SemanticFunctionDeclaration) {
         let ResolvedValueDeclaration {
             module_path,
             visibility,
@@ -222,8 +222,8 @@ impl ResolvedEnvironment {
     pub fn get_regular_function(
         &self,
         id: HighRegularFunctionId,
-    ) -> (&[String], Visibility, &ResolvedRegularFunctionDeclaration) {
-        let (module_path, visibility, ResolvedFunctionDeclaration::Regular(declaration)) =
+    ) -> (&[String], Visibility, &SemanticRegularFunctionDeclaration) {
+        let (module_path, visibility, SemanticFunctionDeclaration::Regular(declaration)) =
             self.get_function(id.into())
         else {
             unreachable!();
@@ -236,8 +236,8 @@ impl ResolvedEnvironment {
     pub fn get_builtin_function(
         &self,
         id: HighBuiltinFunctionId,
-    ) -> (&[String], Visibility, &ResolvedBuiltinFunctionDeclaration) {
-        let (module_path, visibility, ResolvedFunctionDeclaration::Builtin(declaration)) =
+    ) -> (&[String], Visibility, &SemanticBuiltinFunctionDeclaration) {
+        let (module_path, visibility, SemanticFunctionDeclaration::Builtin(declaration)) =
             self.get_function(id.into())
         else {
             unreachable!();
@@ -247,7 +247,7 @@ impl ResolvedEnvironment {
     }
 
     #[must_use]
-    pub fn iter_types(&self) -> Iter<'_, HighTypeId, ResolvedTypeDeclaration> {
+    pub fn iter_types(&self) -> Iter<'_, HighTypeId, SemanticTypeDeclaration> {
         self.types.iter()
     }
 

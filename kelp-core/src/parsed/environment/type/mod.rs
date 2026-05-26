@@ -4,7 +4,7 @@ use crate::parsed::environment::{
     r#type::module::ParsedModuleDeclaration, r#type::r#struct::ParsedStructDeclaration,
 };
 use crate::semantic::environment::{
-    r#type::{HighTypeId, ResolvedTypeDeclaration, ResolvedTypeDeclarationKind},
+    r#type::{HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind},
     value::HighValueId,
 };
 use crate::{
@@ -26,14 +26,14 @@ pub enum ParsedTypeDeclarationKind {
     Builtin(ParsedBuiltinTypeDeclaration),
 }
 
-impl From<ResolvedTypeDeclarationKind> for ParsedTypeDeclarationKind {
-    fn from(value: ResolvedTypeDeclarationKind) -> Self {
+impl From<SemanticTypeDeclarationKind> for ParsedTypeDeclarationKind {
+    fn from(value: SemanticTypeDeclarationKind) -> Self {
         match value {
-            ResolvedTypeDeclarationKind::Module(declaration) => Self::Module(declaration.into()),
-            ResolvedTypeDeclarationKind::Struct(declaration) => Self::Struct(declaration.into()),
-            ResolvedTypeDeclarationKind::Alias(declaration) => Self::Alias(declaration.into()),
-            ResolvedTypeDeclarationKind::Generic(name) => Self::Generic(name),
-            ResolvedTypeDeclarationKind::Builtin(declaration) => Self::Builtin(declaration.into()),
+            SemanticTypeDeclarationKind::Module(declaration) => Self::Module(declaration.into()),
+            SemanticTypeDeclarationKind::Struct(declaration) => Self::Struct(declaration.into()),
+            SemanticTypeDeclarationKind::Alias(declaration) => Self::Alias(declaration.into()),
+            SemanticTypeDeclarationKind::Generic(name) => Self::Generic(name),
+            SemanticTypeDeclarationKind::Builtin(declaration) => Self::Builtin(declaration.into()),
         }
     }
 }
@@ -58,8 +58,8 @@ pub struct ParsedTypeDeclaration {
     pub kind: ParsedTypeDeclarationKind,
 }
 
-impl From<ResolvedTypeDeclaration> for ParsedTypeDeclaration {
-    fn from(value: ResolvedTypeDeclaration) -> Self {
+impl From<SemanticTypeDeclaration> for ParsedTypeDeclaration {
+    fn from(value: SemanticTypeDeclaration) -> Self {
         Self {
             module_path: value.module_path,
             visibility: value.visibility,

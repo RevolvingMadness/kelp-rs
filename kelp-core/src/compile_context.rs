@@ -1,7 +1,7 @@
 use std::{collections::HashMap, mem::take};
 
 use minecraft_command_types::{
-    command::{Command, execute::ExecuteIfSubcommand, function::FunctionCommandArguments},
+    command::{execute::ExecuteIfSubcommand, function::FunctionCommandArguments, Command},
     has_macro::HasMacro,
     macroable::Macroable,
     nbt_path::NbtPathNode,
@@ -10,9 +10,9 @@ use minecraft_command_types::{
 
 use crate::{
     data::GeneratedData,
-    datapack::{Datapack, mcfunction::MCFunction},
-    semantic::expression::resolved::ResolvedExpression,
+    datapack::{mcfunction::MCFunction, Datapack},
 };
+use crate::low::expression::Expression;
 
 #[derive(Debug, Clone)]
 pub enum LoopType {
@@ -29,7 +29,7 @@ pub struct LoopInfo {
 #[derive(Debug, Default, Clone)]
 pub struct CompileContext {
     pub commands: Vec<Command>,
-    pub macro_arguments: HashMap<usize, ResolvedExpression>,
+    pub macro_arguments: HashMap<usize, Expression>,
     pub macro_data: Option<GeneratedData>,
     pub loop_info: Option<LoopInfo>,
     macro_counter: usize,
@@ -124,7 +124,7 @@ impl CompileContext {
         }
     }
 
-    pub fn get_macro_string(&mut self, expression: ResolvedExpression) -> String {
+    pub fn get_macro_string(&mut self, expression: Expression) -> String {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);
@@ -132,7 +132,7 @@ impl CompileContext {
         format!("$({})", id)
     }
 
-    pub fn get_macro_snbt<T>(&mut self, expression: ResolvedExpression) -> Macroable<T> {
+    pub fn get_macro_snbt<T>(&mut self, expression: Expression) -> Macroable<T> {
         let id = self.increment_macro();
 
         self.macro_arguments.insert(id, expression);

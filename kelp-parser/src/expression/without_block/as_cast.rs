@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTAsCastExpression, data_type::lower_data_type, expression::lower_expression,
@@ -10,7 +10,7 @@ use crate::{
 pub fn lower_as_cast_expression(
     node: CSTAsCastExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let expression = lower_expression(node.expression()?, ctx)?;
@@ -18,6 +18,6 @@ pub fn lower_as_cast_expression(
 
     Some(
         ctx.allocator
-            .allocate_expression(span, Expression::AsCast(expression, data_type)),
+            .allocate_expression(span, ParsedExpression::AsCast(expression, data_type)),
     )
 }

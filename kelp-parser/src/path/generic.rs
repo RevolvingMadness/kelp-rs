@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::data_type::DataType,
+    parsed::data_type::DataType,
     path::generic::{GenericPath, GenericPathSegment},
 };
 

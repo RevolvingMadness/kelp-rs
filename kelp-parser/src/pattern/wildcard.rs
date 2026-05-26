@@ -1,4 +1,4 @@
-use kelp_core::high::pattern::Pattern;
+use kelp_core::parsed::pattern::Pattern;
 use la_arena::Idx;
 
 use crate::{cst::CSTWildcardPattern, lower_context::LowerContext, span::span_of_cst_node};

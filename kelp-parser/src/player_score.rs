@@ -1,4 +1,4 @@
-use kelp_core::high::player_score::PlayerScore;
+use kelp_core::parsed::player_score::PlayerScore;
 
 use crate::{
     cst::CSTPlayerScore,

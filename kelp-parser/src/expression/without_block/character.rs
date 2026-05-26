@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{cst::CSTCharacterExpression, lower_context::LowerContext, span::span_of_cst_node};
 
@@ -7,7 +7,7 @@ use crate::{cst::CSTCharacterExpression, lower_context::LowerContext, span::span
 pub fn lower_character_expression(
     node: CSTCharacterExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let text_token = node.character_literal_token()?;
@@ -15,6 +15,6 @@ pub fn lower_character_expression(
 
     Some(
         ctx.allocator
-            .allocate_expression(span, Expression::String(text.to_owned())),
+            .allocate_expression(span, ParsedExpression::String(text.to_owned())),
     )
 }

@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::{CSTCallArguments, CSTCallExpression},
@@ -37,7 +37,10 @@ pub fn try_parse_call_arguments(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_call_arguments(node: CSTCallArguments, ctx: &mut LowerContext) -> Vec<ExpressionId> {
+pub fn lower_call_arguments(
+    node: CSTCallArguments,
+    ctx: &mut LowerContext,
+) -> Vec<ParsedExpressionId> {
     node.expressions()
         .filter_map(|expression| lower_expression(expression, ctx))
         .collect()
@@ -48,7 +51,7 @@ pub fn lower_call_arguments(node: CSTCallArguments, ctx: &mut LowerContext) -> V
 pub fn lower_call_expression(
     node: CSTCallExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let callee = lower_expression(node.callee()?, ctx)?;
@@ -59,7 +62,7 @@ pub fn lower_call_expression(
 
     Some(ctx.allocator.allocate_expression(
         span,
-        Expression::Call {
+        ParsedExpression::Call {
             callee,
             arguments: arguments.unwrap_or_default(),
         },

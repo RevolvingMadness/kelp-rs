@@ -1,4 +1,4 @@
-use kelp_core::high::expression::block::{BlockExpression, BlockExpressionInfo};
+use kelp_core::parsed::expression::block::{BlockExpression, BlockExpressionInfo};
 
 use crate::{
     cst::{CSTBlockExpression, CSTStatement},

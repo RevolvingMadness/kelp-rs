@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTEntitySelectorExpression,
@@ -40,13 +40,13 @@ pub fn try_parse_entity_selector_expression(parser: &mut Parser) -> bool {
 pub fn lower_entity_selector_expression(
     node: CSTEntitySelectorExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let entity_selector = lower_entity_selector(node.entity_selector()?, ctx)?;
 
     let span = span_of_cst_node(&node);
 
-    Some(
-        ctx.allocator
-            .allocate_expression(span, Expression::EntitySelector(Box::new(entity_selector))),
-    )
+    Some(ctx.allocator.allocate_expression(
+        span,
+        ParsedExpression::EntitySelector(Box::new(entity_selector)),
+    ))
 }

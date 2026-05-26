@@ -1,4 +1,4 @@
-use kelp_core::high::expression::ExpressionId;
+use kelp_core::parsed::expression::ParsedExpressionId;
 
 use crate::{
     cst::CSTCommandExpression,
@@ -36,7 +36,7 @@ pub fn try_parse_command_expression(parser: &mut Parser, name: &str) -> bool {
 pub fn lower_command_expression(
     node: CSTCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     match node {
         CSTCommandExpression::TellrawCommandExpression(node) => {
             lower_tellraw_command_expression(node, ctx)

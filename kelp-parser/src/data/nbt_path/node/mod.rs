@@ -11,7 +11,7 @@ use crate::{
     parser::Parser,
     syntax::SyntaxKind,
 };
-use kelp_core::high::nbt_path::NbtPathNode;
+use kelp_core::parsed::nbt_path::ParsedNbtPathNode;
 
 pub mod index;
 pub mod named;
@@ -38,12 +38,15 @@ pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
     }
 }
 
-pub fn lower_nbt_path_node(node: CSTNBTPathNode, ctx: &mut LowerContext) -> Option<NbtPathNode> {
+pub fn lower_nbt_path_node(
+    node: CSTNBTPathNode,
+    ctx: &mut LowerContext,
+) -> Option<ParsedNbtPathNode> {
     match node {
         CSTNBTPathNode::IndexNBTPathNode(node) => {
             let index = node.index();
 
-            Some(NbtPathNode::Index(
+            Some(ParsedNbtPathNode::Index(
                 index.and_then(|expression| lower_expression(expression, ctx)),
             ))
         }
@@ -57,12 +60,12 @@ pub fn lower_nbt_path_node(node: CSTNBTPathNode, ctx: &mut LowerContext) -> Opti
                 Some(compound)
             });
 
-            Some(NbtPathNode::Named(name.to_owned(), compound))
+            Some(ParsedNbtPathNode::Named(name.to_owned(), compound))
         }
         CSTNBTPathNode::CompoundNBTPathNode(node) => {
             let (_, compound) = lower_compound_expression_inner(node.compound_expression()?, ctx)?;
 
-            Some(NbtPathNode::RootCompound(compound))
+            Some(ParsedNbtPathNode::RootCompound(compound))
         }
     }
 }

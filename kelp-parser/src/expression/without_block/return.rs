@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTReturnExpression,
@@ -28,7 +28,7 @@ pub fn try_parse_return_expression(parser: &mut Parser) -> bool {
 pub fn lower_return_expression(
     node: CSTReturnExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let keyword_span = text_range_to_span(node.return_keyword_token()?.text_range());
     let full_span = span_of_cst_node(&node);
 
@@ -44,6 +44,6 @@ pub fn lower_return_expression(
 
     Some(ctx.allocator.allocate_expression(
         full_span,
-        Expression::Return(keyword_span, expression_span, expression),
+        ParsedExpression::Return(keyword_span, expression_span, expression),
     ))
 }

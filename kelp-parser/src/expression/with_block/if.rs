@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTIfExpression,
@@ -58,7 +58,10 @@ pub fn try_parse_if_expression(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_if_expression(node: CSTIfExpression, ctx: &mut LowerContext) -> Option<ExpressionId> {
+pub fn lower_if_expression(
+    node: CSTIfExpression,
+    ctx: &mut LowerContext,
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let condition = lower_expression(node.condition()?, ctx)?;
@@ -72,14 +75,14 @@ pub fn lower_if_expression(node: CSTIfExpression, ctx: &mut LowerContext) -> Opt
 
             Some(
                 ctx.allocator
-                    .allocate_expression(span, Expression::Block(expression)),
+                    .allocate_expression(span, ParsedExpression::Block(expression)),
             )
         })
         .or_else(|| lower_if_expression(node.else_body_if()?, ctx));
 
     Some(ctx.allocator.allocate_expression(
         span,
-        Expression::If {
+        ParsedExpression::If {
             condition,
             body: Box::new(body),
             else_body,

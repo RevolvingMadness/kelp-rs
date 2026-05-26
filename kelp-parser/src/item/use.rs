@@ -1,4 +1,4 @@
-use kelp_core::high::item::Item;
+use kelp_core::parsed::item::Item;
 
 use crate::{
     cst::CSTUseItem,

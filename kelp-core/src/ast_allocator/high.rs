@@ -1,7 +1,7 @@
 use la_arena::{Arena, ArenaMap, Idx};
 
 use crate::{
-    high::{expression::Expression, item::Item, pattern::Pattern, statement::Statement},
+    parsed::{expression::ParsedExpression, item::Item, pattern::Pattern, statement::Statement},
     span::Span,
     visibility::Visibility,
 };
@@ -33,7 +33,7 @@ pub struct HighAstAllocator {
     pub patterns: Arena<Pattern>,
     pub pattern_spans: ArenaMap<Idx<Pattern>, Span>,
 
-    pub expressions: Arena<Spanned<Expression>>,
+    pub expressions: Arena<Spanned<ParsedExpression>>,
 
     pub statements: Arena<Spanned<Statement>>,
 }
@@ -100,26 +100,26 @@ impl HighAstAllocator {
     pub fn allocate_expression(
         &mut self,
         span: Span,
-        expression: Expression,
-    ) -> Idx<Spanned<Expression>> {
+        expression: ParsedExpression,
+    ) -> Idx<Spanned<ParsedExpression>> {
         self.expressions.alloc(expression.with_span(span))
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression(&self, id: Idx<Spanned<Expression>>) -> &Spanned<Expression> {
+    pub fn get_expression(&self, id: Idx<Spanned<ParsedExpression>>) -> &Spanned<ParsedExpression> {
         &self.expressions[id]
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression_value(&self, id: Idx<Spanned<Expression>>) -> &Expression {
+    pub fn get_expression_value(&self, id: Idx<Spanned<ParsedExpression>>) -> &ParsedExpression {
         &self.get_expression(id).value
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression_span(&self, id: Idx<Spanned<Expression>>) -> Span {
+    pub fn get_expression_span(&self, id: Idx<Spanned<ParsedExpression>>) -> Span {
         self.get_expression(id).span
     }
 }

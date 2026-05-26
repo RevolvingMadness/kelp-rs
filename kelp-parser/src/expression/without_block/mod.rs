@@ -1,4 +1,4 @@
-use kelp_core::high::expression::ExpressionId;
+use kelp_core::parsed::expression::ParsedExpressionId;
 
 use crate::{
     cst::CSTExpressionWithoutBlock,
@@ -56,7 +56,7 @@ pub mod unit;
 pub fn lower_expression_without_block(
     node: CSTExpressionWithoutBlock,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     match node {
         CSTExpressionWithoutBlock::UnaryExpression(node) => lower_unary_expression(node, ctx),
         CSTExpressionWithoutBlock::PathExpression(node) => lower_path_expression(node, ctx),

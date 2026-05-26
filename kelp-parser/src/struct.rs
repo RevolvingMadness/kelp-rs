@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use kelp_core::high::data_type::DataType;
+use kelp_core::parsed::data_type::DataType;
 
 use crate::{
     cst::{CSTStructField, CSTStructFields, CSTTupleField, CSTTupleFields},

@@ -1,4 +1,4 @@
-use kelp_core::high::use_tree::UseTree;
+use kelp_core::parsed::use_tree::UseTree;
 
 use crate::{
     cst::CSTUseTree,

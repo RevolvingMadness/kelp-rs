@@ -1,4 +1,4 @@
-use kelp_core::{high::item::Item, visibility::Visibility};
+use kelp_core::{parsed::item::Item, visibility::Visibility};
 use la_arena::Idx;
 
 use crate::{

@@ -2,32 +2,32 @@ use crate::compile_context::CompileContext;
 use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
-use crate::high::environment::resolved::ResolvedEnvironment;
-use crate::high::environment::resolved::r#type::{HighGenericId, HighTypeId};
-use crate::high::environment::resolved::value::function::{
+use crate::parsed::environment::resolved::ResolvedEnvironment;
+use crate::parsed::environment::resolved::r#type::{HighGenericId, HighTypeId};
+use crate::parsed::environment::resolved::value::function::{
     HighFunctionId, ResolvedFunctionDeclaration,
 };
-use crate::high::environment::resolved::value::variable::HighVariableId;
-use crate::high::environment::resolved::value::{
+use crate::parsed::environment::resolved::value::variable::HighVariableId;
+use crate::parsed::environment::resolved::value::{
     HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
 };
-use crate::low::data_type::resolved::ResolvedDataType;
-use crate::low::data_type::unresolved::UnresolvedDataType;
-use crate::low::environment::Environment;
-use crate::low::environment::r#type::r#struct::{
+use crate::player_score::GeneratedPlayerScore;
+use crate::runtime_storage::RuntimeStorageTarget;
+use crate::typed::data_type::resolved::ResolvedDataType;
+use crate::typed::data_type::unresolved::UnresolvedDataType;
+use crate::typed::environment::Environment;
+use crate::typed::environment::r#type::r#struct::{
     RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
     TupleStructId,
 };
-use crate::low::environment::value::function::builtin::BuiltinFunctionDeclaration;
-use crate::low::environment::value::function::regular::{
+use crate::typed::environment::value::function::builtin::BuiltinFunctionDeclaration;
+use crate::typed::environment::value::function::regular::{
     RegularFunctionDeclaration, RegularFunctionId,
 };
-use crate::low::environment::value::function::{FunctionDeclaration, FunctionId};
-use crate::low::environment::value::variable::VariableId;
-use crate::low::environment::value::{ValueDeclaration, ValueId};
-use crate::low::expression::resolved::ResolvedExpression;
-use crate::player_score::GeneratedPlayerScore;
-use crate::runtime_storage::RuntimeStorageTarget;
+use crate::typed::environment::value::function::{FunctionDeclaration, FunctionId};
+use crate::typed::environment::value::variable::VariableId;
+use crate::typed::environment::value::{ValueDeclaration, ValueId};
+use crate::typed::expression::resolved::Expression;
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
@@ -41,7 +41,7 @@ use minecraft_command_types::datapack::pack::format::Format;
 use minecraft_command_types::datapack::tag::{Tag, TagType, TagValue};
 use minecraft_command_types::datapack::{Datapack as LowDatapack, PackMCMeta};
 use minecraft_command_types::entity_selector::EntitySelector;
-use minecraft_command_types::nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode};
+use minecraft_command_types::nbt_path::{NbtPath, NbtPathNode};
 use minecraft_command_types::resource_location::ResourceLocation;
 use serde_json::json;
 use smallvec::SmallVec;
@@ -112,13 +112,13 @@ pub enum RuntimeFunction {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct CompiletimeFunctionKey {
     pub id: FunctionId,
-    pub arguments: Vec<ResolvedExpression>,
+    pub arguments: Vec<Expression>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 pub struct CompiletimeFunctionKeyRef<'a> {
     pub id: FunctionId,
-    pub arguments: &'a [ResolvedExpression],
+    pub arguments: &'a [Expression],
 }
 
 impl Equivalent<CompiletimeFunctionKey> for CompiletimeFunctionKeyRef<'_> {
@@ -130,7 +130,7 @@ impl Equivalent<CompiletimeFunctionKey> for CompiletimeFunctionKeyRef<'_> {
 #[derive(Debug, Clone)]
 pub struct CompiletimeFunction {
     pub resource_location: ResourceLocation,
-    pub return_value: ResolvedExpression,
+    pub return_value: Expression,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -152,7 +152,7 @@ pub struct Datapack {
     pub settings: DatapackSettings,
     pub environment: Environment,
     pub resolved_environment: ResolvedEnvironment,
-    pub variable_values: HashMap<VariableId, (ResolvedDataType, ResolvedExpression)>,
+    pub variable_values: HashMap<VariableId, (ResolvedDataType, Expression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
@@ -250,7 +250,7 @@ impl Datapack {
         &mut self,
         id: HighVariableId,
         data_type: ResolvedDataType,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         let ResolvedValueDeclaration {
             module_path,
@@ -271,7 +271,7 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn set_variable(&mut self, id: VariableId, value: ResolvedExpression) {
+    pub fn set_variable(&mut self, id: VariableId, value: Expression) {
         self.variable_values.get_mut(&id).unwrap().1 = value;
     }
 
@@ -283,7 +283,7 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value(&self, id: VariableId) -> ResolvedExpression {
+    pub fn get_variable_value(&self, id: VariableId) -> Expression {
         let (_, expression) = self.variable_values.get(&id).unwrap();
 
         expression.clone()
@@ -291,7 +291,7 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_variable_value_mut(&mut self, id: VariableId) -> &mut ResolvedExpression {
+    pub fn get_variable_value_mut(&mut self, id: VariableId) -> &mut Expression {
         let (_, expression) = self.variable_values.get_mut(&id).unwrap();
 
         expression
@@ -374,7 +374,7 @@ impl Datapack {
 
         let name = format!("__kelp_{}_storage_{}__", current_namespace_name, counter,);
 
-        let name_node = LowNbtPathNode::named_string(name.clone());
+        let name_node = NbtPathNode::named_string(name.clone());
 
         if let Some(data_prefix) = self.prefix_data.clone() {
             let data = data_prefix.with_path_node(name_node);
@@ -389,7 +389,7 @@ impl Datapack {
             name.clone(),
         ));
 
-        let path = LowNbtPath(vec![name_node]);
+        let path = NbtPath(vec![name_node]);
 
         let data = GeneratedData {
             target: GeneratedDataTarget {
@@ -419,7 +419,7 @@ impl Datapack {
                         format!("__kelp_{}_storage__", current_namespace_name),
                     )),
                 },
-                path: LowNbtPath(vec![LowNbtPathNode::named_string(name.clone())]),
+                path: NbtPath(vec![NbtPathNode::named_string(name.clone())]),
             },
             name,
         )
@@ -619,7 +619,7 @@ impl Datapack {
                     &mut self,
                     DataCommand::Remove(
                         target.target,
-                        LowNbtPath(vec![LowNbtPathNode::named_string(name)]),
+                        NbtPath(vec![NbtPathNode::named_string(name)]),
                     ),
                 );
             }

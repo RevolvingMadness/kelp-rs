@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTScoreExpression,
@@ -29,13 +29,13 @@ pub fn try_parse_score_expression(parser: &mut Parser) -> bool {
 pub fn lower_score_expression(
     node: CSTScoreExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let player_score = lower_player_score(node.player_score()?, ctx)?;
 
     Some(
         ctx.allocator
-            .allocate_expression(span, Expression::PlayerScore(player_score)),
+            .allocate_expression(span, ParsedExpression::PlayerScore(player_score)),
     )
 }

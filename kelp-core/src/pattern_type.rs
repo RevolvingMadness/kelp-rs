@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    high::{data::Data, data_type::DataType, player_score::PlayerScore},
+    parsed::{data::Data, data_type::DataType, player_score::PlayerScore},
     path::generic::GenericPath,
 };
 

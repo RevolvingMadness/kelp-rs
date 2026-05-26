@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTIndexExpression, expression::lower_expression, lower_context::LowerContext,
@@ -10,7 +10,7 @@ use crate::{
 pub fn lower_index_expression(
     node: CSTIndexExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let mut expressions = node.expressions();
@@ -20,6 +20,6 @@ pub fn lower_index_expression(
 
     Some(
         ctx.allocator
-            .allocate_expression(span, Expression::Index(expression, index)),
+            .allocate_expression(span, ParsedExpression::Index(expression, index)),
     )
 }

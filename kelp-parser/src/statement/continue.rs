@@ -1,4 +1,4 @@
-use kelp_core::high::statement::{Statement, StatementId};
+use kelp_core::parsed::statement::{Statement, StatementId};
 
 use crate::{
     cst::CSTContinueStatement, lower_context::LowerContext, parser::Parser, span::span_of_cst_node,

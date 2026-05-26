@@ -1,15 +1,15 @@
 use la_arena::{Arena, ArenaMap, Idx};
 
 use crate::{
-    high::expression::{
+    parsed::expression::{
         assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionId},
         place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
     },
-    low::{
+    typed::{
         data_type::unresolved::UnresolvedDataType,
-        expression::unresolved::{UnresolvedExpression, UnresolvedExpressionId},
+        expression::typed::{TypedExpression, TypedExpressionId},
         item::Item,
-        pattern::UnresolvedPattern,
+        pattern::TypedPattern,
         statement::UnresolvedStatement,
     },
     visibility::Visibility,
@@ -41,9 +41,9 @@ pub struct LowAstAllocator {
     items: Arena<Item>,
     item_visiblities: ArenaMap<Idx<Item>, Visibility>,
 
-    patterns: Arena<UnresolvedPattern>,
+    patterns: Arena<TypedPattern>,
 
-    expressions: Arena<Typed<UnresolvedExpression>>,
+    expressions: Arena<Typed<TypedExpression>>,
 
     place_expressions: Arena<Typed<UnresolvedPlaceExpression>>,
 
@@ -77,13 +77,13 @@ impl LowAstAllocator {
 impl LowAstAllocator {
     #[inline]
     #[must_use]
-    pub fn allocate_pattern(&mut self, pattern: UnresolvedPattern) -> Idx<UnresolvedPattern> {
+    pub fn allocate_pattern(&mut self, pattern: TypedPattern) -> Idx<TypedPattern> {
         self.patterns.alloc(pattern)
     }
 
     #[inline]
     #[must_use]
-    pub fn get_pattern(&self, id: Idx<UnresolvedPattern>) -> &UnresolvedPattern {
+    pub fn get_pattern(&self, id: Idx<TypedPattern>) -> &TypedPattern {
         &self.patterns[id]
     }
 }
@@ -94,27 +94,27 @@ impl LowAstAllocator {
     #[must_use]
     pub fn allocate_expression(
         &mut self,
-        expression: UnresolvedExpression,
+        expression: TypedExpression,
         data_type: UnresolvedDataType,
-    ) -> UnresolvedExpressionId {
+    ) -> TypedExpressionId {
         self.expressions.alloc(expression.with_type(data_type))
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression(&self, id: UnresolvedExpressionId) -> &Typed<UnresolvedExpression> {
+    pub fn get_expression(&self, id: TypedExpressionId) -> &Typed<TypedExpression> {
         &self.expressions[id]
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression_value(&self, id: UnresolvedExpressionId) -> &UnresolvedExpression {
+    pub fn get_expression_value(&self, id: TypedExpressionId) -> &TypedExpression {
         &self.get_expression(id).value
     }
 
     #[inline]
     #[must_use]
-    pub fn get_expression_type(&self, id: UnresolvedExpressionId) -> &UnresolvedDataType {
+    pub fn get_expression_type(&self, id: TypedExpressionId) -> &UnresolvedDataType {
         &self.get_expression(id).data_type
     }
 }

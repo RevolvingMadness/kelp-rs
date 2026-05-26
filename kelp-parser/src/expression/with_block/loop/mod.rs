@@ -1,4 +1,4 @@
-use kelp_core::high::expression::ExpressionId;
+use kelp_core::parsed::expression::ParsedExpressionId;
 
 use crate::{
     cst::CSTLoopExpression,
@@ -18,7 +18,7 @@ pub mod predicate;
 pub fn lower_loop_expression(
     node: CSTLoopExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     match node {
         CSTLoopExpression::PredicateLoopExpression(node) => {
             lower_predicate_loop_expression(node, ctx)

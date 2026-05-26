@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTResourceLocationExpression,
@@ -40,13 +40,13 @@ pub fn try_parse_resource_location_expression(parser: &mut Parser) -> bool {
 pub fn lower_resource_location_expression(
     node: CSTResourceLocationExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     let span = span_of_cst_node(&node);
 
     Some(ctx.allocator.allocate_expression(
         span,
-        Expression::ResourceLocation(Box::new(resource_location)),
+        ParsedExpression::ResourceLocation(Box::new(resource_location)),
     ))
 }

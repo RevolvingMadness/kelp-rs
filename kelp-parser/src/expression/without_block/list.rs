@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTListExpression,
@@ -58,7 +58,7 @@ pub fn try_parse_list_expression(parser: &mut Parser) -> bool {
 pub fn lower_list_expression(
     node: CSTListExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let expressions = node
@@ -68,6 +68,6 @@ pub fn lower_list_expression(
 
     Some(
         ctx.allocator
-            .allocate_expression(span, Expression::List(expressions)),
+            .allocate_expression(span, ParsedExpression::List(expressions)),
     )
 }

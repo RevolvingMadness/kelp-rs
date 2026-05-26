@@ -1,5 +1,5 @@
-use kelp_core::high::{
-    entity_selector::EntitySelector, supports_expression_sigil::SupportsExpressionSigil,
+use kelp_core::parsed::{
+    entity_selector::EntitySelector, supports_expression_sigil::ParsedSupportsExpressionSigil,
 };
 use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
@@ -200,10 +200,10 @@ pub fn lower_actual_entity_selector(node: CSTActualEntitySelector) -> Option<Ent
 pub fn lower_entity_selector(
     node: CSTEntitySelector,
     ctx: &mut LowerContext,
-) -> Option<SupportsExpressionSigil<EntitySelector>> {
+) -> Option<ParsedSupportsExpressionSigil<EntitySelector>> {
     match node {
         CSTEntitySelector::ActualEntitySelector(node) => {
-            lower_actual_entity_selector(node).map(SupportsExpressionSigil::Regular)
+            lower_actual_entity_selector(node).map(ParsedSupportsExpressionSigil::Regular)
         }
         CSTEntitySelector::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
     }

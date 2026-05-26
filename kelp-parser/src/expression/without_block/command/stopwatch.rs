@@ -1,6 +1,6 @@
-use kelp_core::high::{
-    command::{Command, stopwatch::StopwatchCommand},
-    expression::{Expression, ExpressionId},
+use kelp_core::parsed::{
+    command::{Command, stopwatch::ParsedStopwatchCommand},
+    expression::{ParsedExpression, ParsedExpressionId},
 };
 
 use crate::{
@@ -115,10 +115,10 @@ pub fn try_parse_stopwatch_command_expression(parser: &mut Parser) -> bool {
 fn lower_stopwatch_command_expression_create(
     node: CSTStopwatchCommandExpressionCreate,
     ctx: &mut LowerContext,
-) -> Option<StopwatchCommand> {
+) -> Option<ParsedStopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
-    Some(StopwatchCommand::Create(resource_location))
+    Some(ParsedStopwatchCommand::Create(resource_location))
 }
 
 #[must_use]
@@ -126,14 +126,14 @@ fn lower_stopwatch_command_expression_create(
 fn lower_stopwatch_command_expression_query(
     node: CSTStopwatchCommandExpressionQuery,
     ctx: &mut LowerContext,
-) -> Option<StopwatchCommand> {
+) -> Option<ParsedStopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
     let scale = node
         .fractional_value_token()
         .and_then(|token| token.text().parse().ok());
 
-    Some(StopwatchCommand::Query(resource_location, scale))
+    Some(ParsedStopwatchCommand::Query(resource_location, scale))
 }
 
 #[must_use]
@@ -141,10 +141,10 @@ fn lower_stopwatch_command_expression_query(
 fn lower_stopwatch_command_expression_remove(
     node: CSTStopwatchCommandExpressionRemove,
     ctx: &mut LowerContext,
-) -> Option<StopwatchCommand> {
+) -> Option<ParsedStopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
-    Some(StopwatchCommand::Remove(resource_location))
+    Some(ParsedStopwatchCommand::Remove(resource_location))
 }
 
 #[must_use]
@@ -152,17 +152,17 @@ fn lower_stopwatch_command_expression_remove(
 fn lower_stopwatch_command_expression_restart(
     node: CSTStopwatchCommandExpressionRestart,
     ctx: &mut LowerContext,
-) -> Option<StopwatchCommand> {
+) -> Option<ParsedStopwatchCommand> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
-    Some(StopwatchCommand::Restart(resource_location))
+    Some(ParsedStopwatchCommand::Restart(resource_location))
 }
 
 #[must_use]
 fn lower_stopwatch_command_expression_options(
     node: CSTStopwatchCommandExpressionOptions,
     ctx: &mut LowerContext,
-) -> Option<StopwatchCommand> {
+) -> Option<ParsedStopwatchCommand> {
     match node {
         CSTStopwatchCommandExpressionOptions::StopwatchCommandExpressionCreate(node) => {
             lower_stopwatch_command_expression_create(node, ctx)
@@ -184,7 +184,7 @@ fn lower_stopwatch_command_expression_options(
 pub fn lower_stopwatch_command_expression(
     node: CSTStopwatchCommandExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let command = lower_stopwatch_command_expression_options(
@@ -194,6 +194,6 @@ pub fn lower_stopwatch_command_expression(
 
     Some(ctx.allocator.allocate_expression(
         span,
-        Expression::Command(Box::new(Command::Stopwatch(command))),
+        ParsedExpression::Command(Box::new(Command::Stopwatch(command))),
     ))
 }

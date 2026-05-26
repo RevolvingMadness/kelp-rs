@@ -1,6 +1,6 @@
 use std::num::IntErrorKind;
 
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 use ordered_float::NotNan;
 
 use crate::{
@@ -24,7 +24,7 @@ enum NumericKind {
 pub fn lower_numeric_expression(
     node: CSTNumericExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let value_token = node.fractional_value_token()?;
@@ -48,7 +48,7 @@ pub fn lower_numeric_expression(
 
     let expression = match suffix {
         Some(NumericKind::Byte) => match value_text.parse::<i8>() {
-            Ok(value) => Expression::Byte(value),
+            Ok(value) => ParsedExpression::Byte(value),
             Err(error) => match error.kind() {
                 IntErrorKind::PosOverflow => {
                     ctx.add_error_unit(
@@ -56,7 +56,7 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooBig(LowerDataType::Byte),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 IntErrorKind::NegOverflow => {
                     ctx.add_error_unit(
@@ -64,13 +64,13 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooSmall(LowerDataType::Byte),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 _ => unreachable!(),
             },
         },
         Some(NumericKind::Short) => match value_text.parse::<i16>() {
-            Ok(value) => Expression::Short(value),
+            Ok(value) => ParsedExpression::Short(value),
             Err(error) => match error.kind() {
                 IntErrorKind::PosOverflow => {
                     ctx.add_error_unit(
@@ -78,7 +78,7 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooBig(LowerDataType::Short),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 IntErrorKind::NegOverflow => {
                     ctx.add_error_unit(
@@ -86,13 +86,13 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooSmall(LowerDataType::Short),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 _ => unreachable!(),
             },
         },
         Some(NumericKind::Integer) => match value_text.parse::<i32>() {
-            Ok(value) => Expression::Integer(value),
+            Ok(value) => ParsedExpression::Integer(value),
             Err(error) => match error.kind() {
                 IntErrorKind::PosOverflow => {
                     ctx.add_error_unit(
@@ -100,7 +100,7 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooBig(LowerDataType::Integer),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 IntErrorKind::NegOverflow => {
                     ctx.add_error_unit(
@@ -108,13 +108,13 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooSmall(LowerDataType::Integer),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 _ => unreachable!(),
             },
         },
         Some(NumericKind::Long) => match value_text.parse::<i64>() {
-            Ok(value) => Expression::Long(value),
+            Ok(value) => ParsedExpression::Long(value),
             Err(error) => match error.kind() {
                 IntErrorKind::PosOverflow => {
                     ctx.add_error_unit(
@@ -122,7 +122,7 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooBig(LowerDataType::Long),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 IntErrorKind::NegOverflow => {
                     ctx.add_error_unit(
@@ -130,7 +130,7 @@ pub fn lower_numeric_expression(
                         LowerError::ValueTooSmall(LowerDataType::Long),
                     );
 
-                    Expression::Invalid
+                    ParsedExpression::Invalid
                 }
                 _ => unreachable!(),
             },
@@ -138,21 +138,21 @@ pub fn lower_numeric_expression(
         Some(NumericKind::Float) => {
             let value = value_text.parse().unwrap();
 
-            Expression::Float(NotNan::new(value).unwrap())
+            ParsedExpression::Float(NotNan::new(value).unwrap())
         }
         Some(NumericKind::Double) => {
             let value = value_text.parse().unwrap();
 
-            Expression::Double(value)
+            ParsedExpression::Double(value)
         }
         None => {
             if value_text.contains('.') {
                 let value = value_text.parse().unwrap();
 
-                Expression::InferredFloat(value)
+                ParsedExpression::InferredFloat(value)
             } else {
                 match value_text.parse::<i32>() {
-                    Ok(value) => Expression::InferredInteger(value),
+                    Ok(value) => ParsedExpression::InferredInteger(value),
                     Err(error) => match error.kind() {
                         IntErrorKind::PosOverflow => {
                             ctx.add_error_unit(
@@ -160,7 +160,7 @@ pub fn lower_numeric_expression(
                                 LowerError::ValueTooBig(LowerDataType::Integer),
                             );
 
-                            Expression::Invalid
+                            ParsedExpression::Invalid
                         }
                         IntErrorKind::NegOverflow => {
                             ctx.add_error_unit(
@@ -168,7 +168,7 @@ pub fn lower_numeric_expression(
                                 LowerError::ValueTooSmall(LowerDataType::Integer),
                             );
 
-                            Expression::Invalid
+                            ParsedExpression::Invalid
                         }
                         _ => unreachable!(),
                     },

@@ -1,4 +1,4 @@
-use kelp_core::high::program::Program;
+use kelp_core::parsed::program::Program;
 
 use crate::{
     cst::CSTProgram,

@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTExpressionWithBlock,
@@ -18,7 +18,7 @@ pub mod r#loop;
 pub fn lower_expression_with_block(
     node: CSTExpressionWithBlock,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     match node {
         CSTExpressionWithBlock::BlockExpression(node) => {
             let span = span_of_cst_node(&node);
@@ -27,7 +27,7 @@ pub fn lower_expression_with_block(
 
             Some(
                 ctx.allocator
-                    .allocate_expression(span, Expression::Block(expression)),
+                    .allocate_expression(span, ParsedExpression::Block(expression)),
             )
         }
         CSTExpressionWithBlock::IfExpression(node) => lower_if_expression(node, ctx),

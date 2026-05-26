@@ -1,5 +1,5 @@
 use kelp_core::{
-    high::expression::{Expression, ExpressionId},
+    parsed::expression::{ParsedExpression, ParsedExpressionId},
     runtime_storage::RuntimeStorageType,
 };
 
@@ -15,7 +15,7 @@ use crate::{
 pub fn lower_to_cast_expression(
     node: CSTToCastExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let expression = lower_expression(node.expression()?, ctx)?;
@@ -29,12 +29,15 @@ pub fn lower_to_cast_expression(
                 LowerError::UnknownRuntimeStorageType,
             );
 
-            return Some(ctx.allocator.allocate_expression(span, Expression::Invalid));
+            return Some(
+                ctx.allocator
+                    .allocate_expression(span, ParsedExpression::Invalid),
+            );
         }
     };
 
-    Some(
-        ctx.allocator
-            .allocate_expression(span, Expression::ToCast(expression, runtime_storage_type)),
-    )
+    Some(ctx.allocator.allocate_expression(
+        span,
+        ParsedExpression::ToCast(expression, runtime_storage_type),
+    ))
 }

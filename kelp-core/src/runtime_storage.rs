@@ -1,6 +1,6 @@
 use crate::{
     compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
-    low::expression::resolved::ResolvedExpression, player_score::GeneratedPlayerScore,
+    typed::expression::resolved::Expression, player_score::GeneratedPlayerScore,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -33,13 +33,13 @@ pub enum RuntimeStorageTarget {
     Data(GeneratedData),
 }
 
-impl TryFrom<ResolvedExpression> for RuntimeStorageTarget {
+impl TryFrom<Expression> for RuntimeStorageTarget {
     type Error = ();
 
-    fn try_from(value: ResolvedExpression) -> Result<Self, Self::Error> {
+    fn try_from(value: Expression) -> Result<Self, Self::Error> {
         Ok(match value {
-            ResolvedExpression::Score(score) => Self::Score(score),
-            ResolvedExpression::Data(data) => Self::Data(data),
+            Expression::Score(score) => Self::Score(score),
+            Expression::Data(data) => Self::Data(data),
 
             _ => return Err(()),
         })
@@ -48,19 +48,14 @@ impl TryFrom<ResolvedExpression> for RuntimeStorageTarget {
 
 impl RuntimeStorageTarget {
     #[must_use]
-    pub fn to_expression(self) -> ResolvedExpression {
+    pub fn to_expression(self) -> Expression {
         match self {
-            Self::Score(score) => ResolvedExpression::Score(score),
-            Self::Data(data) => ResolvedExpression::Data(data),
+            Self::Score(score) => Expression::Score(score),
+            Self::Data(data) => Expression::Data(data),
         }
     }
 
-    pub fn assign(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        value: ResolvedExpression,
-    ) {
+    pub fn assign(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: Expression) {
         match self {
             Self::Score(score) => {
                 value.assign_to_score(datapack, ctx, score);

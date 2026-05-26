@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTTupleExpression, expression::lower_expression, lower_context::LowerContext,
@@ -10,7 +10,7 @@ use crate::{
 pub fn lower_tuple_expression(
     node: CSTTupleExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let expressions = node
@@ -20,6 +20,6 @@ pub fn lower_tuple_expression(
 
     Some(
         ctx.allocator
-            .allocate_expression(span, Expression::Tuple(expressions)),
+            .allocate_expression(span, ParsedExpression::Tuple(expressions)),
     )
 }

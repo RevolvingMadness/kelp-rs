@@ -1,4 +1,4 @@
-use kelp_core::high::coordinate::WorldCoordinate;
+use kelp_core::parsed::coordinate::WorldCoordinate;
 
 use crate::{
     cst::CSTWorldCoordinate,

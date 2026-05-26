@@ -1,4 +1,4 @@
-use kelp_core::high::expression::{Expression, ExpressionId};
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionId};
 
 use crate::{
     cst::CSTPredicateLoopExpression,
@@ -42,7 +42,7 @@ pub fn try_parse_predicate_loop_expression(parser: &mut Parser) -> bool {
 pub fn lower_predicate_loop_expression(
     node: CSTPredicateLoopExpression,
     ctx: &mut LowerContext,
-) -> Option<ExpressionId> {
+) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
     let condition = lower_expression(node.expression()?, ctx)?;
@@ -50,6 +50,6 @@ pub fn lower_predicate_loop_expression(
 
     Some(
         ctx.allocator
-            .allocate_expression(span, Expression::WhileLoop(condition, Box::new(body))),
+            .allocate_expression(span, ParsedExpression::WhileLoop(condition, Box::new(body))),
     )
 }

@@ -2,9 +2,9 @@ use std::fmt::{Display, Write};
 
 use crate::{
     datapack::Datapack,
-    high::{data_type::DataType, semantic_analysis::SemanticAnalysisContext},
-    low::data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
+    parsed::{data_type::DataType, semantic_analysis::SemanticAnalysisContext},
     span::Span,
+    typed::data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
 };
 
 #[derive(Debug, Clone)]

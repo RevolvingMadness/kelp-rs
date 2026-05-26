@@ -16,7 +16,7 @@ use crate::{
     compile_context::CompileContext,
     data::GeneratedData,
     datapack::Datapack,
-    low::expression::resolved::ResolvedExpression,
+    typed::expression::resolved::Expression,
     operator::ArithmeticOperator,
     trait_ext::{
         compile_bitwise_and_score, compile_bitwise_or_score, compile_shift_operation_score,
@@ -181,7 +181,7 @@ impl GeneratedPlayerScore {
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         operator: ArithmeticOperator,
-        value: ResolvedExpression,
+        value: Expression,
     ) {
         match operator {
             ArithmeticOperator::Add => {

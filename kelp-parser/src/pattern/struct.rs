@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use kelp_core::{high::pattern::Pattern, path::generic::GenericPath, span::Span};
+use kelp_core::{parsed::pattern::Pattern, path::generic::GenericPath, span::Span};
 use la_arena::Idx;
 
 use crate::{

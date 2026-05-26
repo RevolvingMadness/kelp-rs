@@ -1,5 +1,5 @@
-use kelp_core::high::{
-    coordinate::Coordinates, supports_expression_sigil::SupportsExpressionSigil,
+use kelp_core::parsed::{
+    coordinate::Coordinates, supports_expression_sigil::ParsedSupportsExpressionSigil,
 };
 
 use crate::{
@@ -88,10 +88,10 @@ pub fn lower_actual_coordinates(
 pub fn lower_coordinates(
     node: CSTCoordinates,
     ctx: &mut LowerContext,
-) -> Option<SupportsExpressionSigil<Coordinates>> {
+) -> Option<ParsedSupportsExpressionSigil<Coordinates>> {
     match node {
         CSTCoordinates::ActualCoordinates(node) => {
-            lower_actual_coordinates(node, ctx).map(SupportsExpressionSigil::Regular)
+            lower_actual_coordinates(node, ctx).map(ParsedSupportsExpressionSigil::Regular)
         }
         CSTCoordinates::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
     }

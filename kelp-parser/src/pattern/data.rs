@@ -1,4 +1,4 @@
-use kelp_core::high::pattern::Pattern;
+use kelp_core::parsed::pattern::Pattern;
 use la_arena::Idx;
 
 use crate::{

@@ -1,12 +1,12 @@
-use crate::parsed::environment::resolved::value::variable::ResolvedVariableDeclaration;
+use crate::parsed::environment::resolved::value::variable::SemanticVariableDeclaration;
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedVariableDeclaration {
+pub struct ParsedVariableDeclaration {
     pub name: String,
 }
 
-impl From<ResolvedVariableDeclaration> for UnresolvedVariableDeclaration {
-    fn from(value: ResolvedVariableDeclaration) -> Self {
+impl From<SemanticVariableDeclaration> for ParsedVariableDeclaration {
+    fn from(value: SemanticVariableDeclaration) -> Self {
         Self { name: value.name }
     }
 }

@@ -1,6 +1,6 @@
 use crate::ast_allocator::low::LowAstAllocator;
 use crate::compile_context::{LoopInfo, LoopType};
-use crate::typed::data_type::unresolved::UnresolvedDataType;
+use crate::typed::data_type::unresolved::SemanticDataType;
 use crate::typed::expression::typed::{TypedExpression, TypedExpressionId};
 use crate::typed::item::Item;
 use crate::typed::pattern::TypedPattern;
@@ -11,13 +11,9 @@ use minecraft_command_types::command::execute::ExecuteSubcommand;
 use minecraft_command_types::command::r#return::ReturnCommand;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedStatement {
+pub enum TypedStatement {
     Expression(TypedExpressionId),
-    Let(
-        UnresolvedDataType,
-        Idx<TypedPattern>,
-        TypedExpressionId,
-    ),
+    Let(SemanticDataType, Idx<TypedPattern>, TypedExpressionId),
     Append(TypedExpressionId, TypedExpressionId),
     Remove(TypedExpressionId),
     Item(Idx<Item>),
@@ -53,7 +49,7 @@ pub enum EarlyReturnType {
     Return,
 }
 
-impl UnresolvedStatement {
+impl TypedStatement {
     #[must_use]
     pub fn get_early_return_type(
         id: Idx<Self>,
@@ -98,9 +94,7 @@ impl UnresolvedStatement {
                 let data_type = data_type.clone().resolve(datapack).unwrap();
                 let value = TypedExpression::resolve(*value, allocator, datapack, ctx);
 
-                TypedPattern::destructure(
-                    *pattern, allocator, datapack, ctx, data_type, value,
-                );
+                TypedPattern::destructure(*pattern, allocator, datapack, ctx, data_type, value);
             }
             Self::Append(target, value) => {
                 let target = TypedExpression::resolve(*target, allocator, datapack, ctx);

@@ -2,20 +2,20 @@ use la_arena::Idx;
 
 use crate::ast_allocator::high::{HighAstAllocator, Spanned};
 use crate::ast_allocator::low::LowAstAllocator;
-use crate::parsed::data_type::DataType;
+use crate::parsed::data_type::ParsedDataType;
 use crate::parsed::expression::{ParsedExpression, ParsedExpressionId};
 use crate::parsed::item::Item;
 use crate::parsed::pattern::Pattern;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
-use crate::typed::statement::{LoopControlFlowKind, UnresolvedStatement};
+use crate::typed::statement::{LoopControlFlowKind, TypedStatement};
 
 pub type StatementId = Idx<Spanned<Statement>>;
 
 #[derive(Debug, Clone)]
 pub enum Statement {
     Expression(ParsedExpressionId),
-    Let(Option<DataType>, Idx<Pattern>, ParsedExpressionId),
+    Let(Option<ParsedDataType>, Idx<Pattern>, ParsedExpressionId),
     Append(ParsedExpressionId, ParsedExpressionId),
     Remove(ParsedExpressionId),
     Item(Idx<Item>),
@@ -30,7 +30,7 @@ impl Statement {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<Idx<UnresolvedStatement>> {
+    ) -> Option<Idx<TypedStatement>> {
         Some(match high_allocator.get_statement_value(id) {
             Self::Expression(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
@@ -40,7 +40,7 @@ impl Statement {
                     ctx,
                 )?;
 
-                low_allocator.allocate_statement(UnresolvedStatement::Expression(expression))
+                low_allocator.allocate_statement(TypedStatement::Expression(expression))
             }
             Self::Let(explicit_type, pattern, value) => {
                 let explicit_type = explicit_type
@@ -76,11 +76,7 @@ impl Statement {
                     &variable_type,
                 )?;
 
-                low_allocator.allocate_statement(UnresolvedStatement::Let(
-                    variable_type,
-                    pattern,
-                    value,
-                ))
+                low_allocator.allocate_statement(TypedStatement::Let(variable_type, pattern, value))
             }
             Self::Append(target, value) => {
                 let target = ParsedExpression::perform_semantic_analysis(
@@ -99,7 +95,7 @@ impl Statement {
                 let target = target?;
                 let value = value?;
 
-                low_allocator.allocate_statement(UnresolvedStatement::Append(target, value))
+                low_allocator.allocate_statement(TypedStatement::Append(target, value))
             }
             Self::Remove(target) => {
                 let target = ParsedExpression::perform_semantic_analysis(
@@ -109,7 +105,7 @@ impl Statement {
                     ctx,
                 )?;
 
-                low_allocator.allocate_statement(UnresolvedStatement::Remove(target))
+                low_allocator.allocate_statement(TypedStatement::Remove(target))
             }
             Self::Break => {
                 if ctx.loop_depth == 0 {
@@ -121,7 +117,7 @@ impl Statement {
                     );
                 }
 
-                low_allocator.allocate_statement(UnresolvedStatement::Break)
+                low_allocator.allocate_statement(TypedStatement::Break)
             }
             Self::Continue => {
                 if ctx.loop_depth == 0 {
@@ -133,13 +129,13 @@ impl Statement {
                     );
                 }
 
-                low_allocator.allocate_statement(UnresolvedStatement::Continue)
+                low_allocator.allocate_statement(TypedStatement::Continue)
             }
             Self::Item(item) => {
                 let item =
                     Item::perform_semantic_analysis(*item, high_allocator, low_allocator, ctx)?;
 
-                low_allocator.allocate_statement(UnresolvedStatement::Item(item))
+                low_allocator.allocate_statement(TypedStatement::Item(item))
             }
         })
     }

@@ -8,40 +8,40 @@ use crate::{
     parsed::{
         environment::{
             resolved::{
-                ResolvedEnvironment,
+                SemanticEnvironment,
                 r#type::{
-                    HighGenericId, HighTypeId, ResolvedTypeDeclaration,
-                    ResolvedTypeDeclarationKind,
-                    alias::ResolvedTypeAliasDeclaration,
-                    builtin_data_type::{BuiltinTypeKind, ResolvedBuiltinTypeDeclaration},
-                    module::ResolvedModuleDeclaration,
+                    HighGenericId, HighTypeId, SemanticTypeDeclaration,
+                    SemanticTypeDeclarationKind,
+                    alias::SemanticTypeAliasDeclaration,
+                    builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
+                    module::SemanticModuleDeclaration,
                     r#struct::{
-                        ResolvedStructDeclaration, regular::ResolvedRegularStructDeclaration,
-                        tuple::ResolvedTupleStructDeclaration,
+                        SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
+                        tuple::SemanticTupleStructDeclaration,
                     },
                 },
                 value::{
-                    HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+                    HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
                     function::{
-                        HighFunctionId, ResolvedFunctionDeclaration,
+                        HighFunctionId, SemanticFunctionDeclaration,
                         builtin::{
                             BuiltinFunctionKind, HighBuiltinFunctionId,
-                            ResolvedBuiltinFunctionDeclaration,
+                            SemanticBuiltinFunctionDeclaration,
                         },
-                        regular::ResolvedRegularFunctionDeclaration,
+                        regular::SemanticRegularFunctionDeclaration,
                     },
-                    variable::{HighVariableId, ResolvedVariableDeclaration},
+                    variable::{HighVariableId, SemanticVariableDeclaration},
                 },
             },
             unresolved::{
-                UnresolvedEnvironment,
+                ParsedEnvironment,
                 r#type::{
-                    UnresolvedTypeDeclaration, UnresolvedTypeDeclarationKind,
-                    module::UnresolvedModuleDeclaration,
+                    ParsedTypeDeclaration, ParsedTypeDeclarationKind,
+                    module::ParsedModuleDeclaration,
                 },
                 value::{
-                    UnresolvedValueDeclaration, UnresolvedValueDeclarationKind,
-                    variable::UnresolvedVariableDeclaration,
+                    ParsedValueDeclaration, ParsedValueDeclarationKind,
+                    variable::ParsedVariableDeclaration,
                 },
             },
         },
@@ -56,10 +56,7 @@ use crate::{
         regular::{Path, PathSegment},
     },
     span::Span,
-    typed::{
-        data_type::unresolved::UnresolvedDataType, environment::Environment,
-        pattern::TypedPattern,
-    },
+    typed::{data_type::unresolved::SemanticDataType, pattern::TypedPattern},
     visibility::Visibility,
 };
 
@@ -91,7 +88,7 @@ impl RegularFunctionModifiers {
 pub enum FunctionContext {
     Regular {
         modifiers: RegularFunctionModifiers,
-        return_type: UnresolvedDataType,
+        return_type: SemanticDataType,
         calls: HashSet<(Span, HighFunctionId)>,
     },
     MCFunction,
@@ -115,10 +112,10 @@ impl FunctionContext {
     }
 
     #[must_use]
-    pub const fn return_type(&self) -> &UnresolvedDataType {
+    pub const fn return_type(&self) -> &SemanticDataType {
         match self {
             Self::Regular { return_type, .. } => return_type,
-            Self::MCFunction => &UnresolvedDataType::Integer,
+            Self::MCFunction => &SemanticDataType::Integer,
         }
     }
 }
@@ -131,9 +128,8 @@ pub struct SemanticAnalysisContext {
     pub current_module_path: Vec<String>,
     pub function_contexts: SmallVec<[FunctionContext; 5]>,
     pub max_infos: usize,
-    pub environment: Environment,
-    pub unresolved_environment: UnresolvedEnvironment,
-    pub resolved_environment: ResolvedEnvironment,
+    pub parsed_environment: ParsedEnvironment,
+    pub semantic_environment: SemanticEnvironment,
 
     pub item_type_ids: ArenaMap<Idx<Item>, HighTypeId>,
     pub item_value_ids: ArenaMap<Idx<Item>, HighValueId>,
@@ -147,9 +143,8 @@ impl SemanticAnalysisContext {
         let mut self_ = Self {
             infos: Vec::new(),
             max_infos,
-            environment: Environment::default(),
-            unresolved_environment: UnresolvedEnvironment::default(),
-            resolved_environment: ResolvedEnvironment::default(),
+            parsed_environment: ParsedEnvironment::default(),
+            semantic_environment: SemanticEnvironment::default(),
             scopes: vec![Scope::default()],
             loop_depth: 0,
             current_module_path: Vec::new(),
@@ -205,7 +200,7 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn exit_module(&mut self) -> UnresolvedModuleDeclaration {
+    pub fn exit_module(&mut self) -> ParsedModuleDeclaration {
         let name = self.current_module_path.pop().unwrap();
 
         let scope = self.exit_scope();
@@ -253,10 +248,10 @@ impl SemanticAnalysisContext {
         type_name: &str,
         expected: usize,
         actual: usize,
-    ) -> UnresolvedDataType {
+    ) -> SemanticDataType {
         self.add_invalid_generics::<()>(span, type_name, expected, actual);
 
-        UnresolvedDataType::Error
+        SemanticDataType::Error
     }
 
     pub fn add_info<T>(&mut self, info: SemanticAnalysisInfo) -> Option<T> {
@@ -327,14 +322,10 @@ impl SemanticAnalysisContext {
 
     #[inline]
     #[must_use]
-    pub fn add_error_type(
-        &mut self,
-        span: Span,
-        error: SemanticAnalysisError,
-    ) -> UnresolvedDataType {
+    pub fn add_error_type(&mut self, span: Span, error: SemanticAnalysisError) -> SemanticDataType {
         self.add_error_unit(span, error);
 
-        UnresolvedDataType::Error
+        SemanticDataType::Error
     }
 
     #[must_use]
@@ -342,19 +333,17 @@ impl SemanticAnalysisContext {
         &mut self,
         visibility: Visibility,
         name: String,
-        data_type: UnresolvedDataType,
+        data_type: SemanticDataType,
     ) -> HighVariableId {
-        let id = self.declare_unresolved_value(
+        let id = self.declare_parsed_value(
             visibility,
-            UnresolvedValueDeclarationKind::Variable(UnresolvedVariableDeclaration {
-                name: name.clone(),
-            }),
+            ParsedValueDeclarationKind::Variable(ParsedVariableDeclaration { name: name.clone() }),
         );
 
         self.declare_resolved_value(
             id,
             visibility,
-            ResolvedValueDeclarationKind::Variable(ResolvedVariableDeclaration { name, data_type }),
+            SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration { name, data_type }),
         );
 
         HighVariableId(id.0)
@@ -441,21 +430,18 @@ impl SemanticAnalysisContext {
     pub fn declare_module(
         &mut self,
         visibility: Visibility,
-        declaration: UnresolvedModuleDeclaration,
+        declaration: ParsedModuleDeclaration,
     ) -> HighTypeId {
-        self.declare_unresolved_type(
-            visibility,
-            UnresolvedTypeDeclarationKind::Module(declaration),
-        )
+        self.declare_parsed_type(visibility, ParsedTypeDeclarationKind::Module(declaration))
     }
 
     #[inline]
     pub fn declare_module_auto(
         &mut self,
         visibility: Visibility,
-        declaration: ResolvedModuleDeclaration,
+        declaration: SemanticModuleDeclaration,
     ) {
-        self.declare_type_auto(visibility, ResolvedTypeDeclarationKind::Module(declaration));
+        self.declare_type_auto(visibility, SemanticTypeDeclarationKind::Module(declaration));
     }
 
     #[inline]
@@ -463,12 +449,12 @@ impl SemanticAnalysisContext {
         &mut self,
         id: HighTypeId,
         visibility: Visibility,
-        declaration: ResolvedTypeAliasDeclaration,
+        declaration: SemanticTypeAliasDeclaration,
     ) {
         self.declare_resolved_type(
             id,
             visibility,
-            ResolvedTypeDeclarationKind::Alias(declaration),
+            SemanticTypeDeclarationKind::Alias(declaration),
         );
     }
 
@@ -477,48 +463,46 @@ impl SemanticAnalysisContext {
         self.declare_resolved_type(
             id.into(),
             visibility,
-            ResolvedTypeDeclarationKind::Generic(name),
+            SemanticTypeDeclarationKind::Generic(name),
         );
     }
 
-    pub fn declare_builtin_type(&mut self, data_type: ResolvedBuiltinTypeDeclaration) {
+    pub fn declare_builtin_type(&mut self, data_type: SemanticBuiltinTypeDeclaration) {
         self.declare_type_auto(
             Visibility::Public,
-            ResolvedTypeDeclarationKind::Builtin(data_type),
+            SemanticTypeDeclarationKind::Builtin(data_type),
         );
     }
 
     #[inline]
-    pub fn declare_unresolved_type(
+    pub fn declare_parsed_type(
         &mut self,
         visibility: Visibility,
-        kind: UnresolvedTypeDeclarationKind,
+        kind: ParsedTypeDeclarationKind,
     ) -> HighTypeId {
         let name = kind.name().to_owned();
 
-        let id = self
-            .unresolved_environment
-            .declare_type(UnresolvedTypeDeclaration {
-                module_path: self.current_module_path.clone(),
-                visibility,
-                kind,
-            });
+        let id = self.parsed_environment.declare_type(ParsedTypeDeclaration {
+            module_path: self.current_module_path.clone(),
+            visibility,
+            kind,
+        });
 
         self.current_scope_mut().declare_type(name, id);
 
         id
     }
 
-    pub fn declare_unresolved_value(
+    pub fn declare_parsed_value(
         &mut self,
         visibility: Visibility,
-        kind: UnresolvedValueDeclarationKind,
+        kind: ParsedValueDeclarationKind,
     ) -> HighValueId {
         let name = kind.name().to_owned();
 
         let id = self
-            .unresolved_environment
-            .declare_value(UnresolvedValueDeclaration {
+            .parsed_environment
+            .declare_value(ParsedValueDeclaration {
                 visibility,
                 module_path: self.current_module_path.clone(),
                 kind,
@@ -532,9 +516,9 @@ impl SemanticAnalysisContext {
     pub fn declare_type_auto(
         &mut self,
         visibility: Visibility,
-        declaration: ResolvedTypeDeclarationKind,
+        declaration: SemanticTypeDeclarationKind,
     ) -> HighTypeId {
-        let id = self.declare_unresolved_type(visibility, declaration.clone().into());
+        let id = self.declare_parsed_type(visibility, declaration.clone().into());
 
         self.current_scope_mut()
             .declare_type(declaration.name().to_owned(), id);
@@ -549,13 +533,13 @@ impl SemanticAnalysisContext {
         &mut self,
         id: HighTypeId,
         visibility: Visibility,
-        declaration: ResolvedTypeDeclarationKind,
+        declaration: SemanticTypeDeclarationKind,
     ) {
         let name = declaration.name().to_owned();
 
-        self.resolved_environment.declare_type(
+        self.semantic_environment.declare_type(
             id,
-            ResolvedTypeDeclaration {
+            SemanticTypeDeclaration {
                 visibility,
                 module_path: self.current_module_path.clone(),
                 kind: declaration,
@@ -570,11 +554,11 @@ impl SemanticAnalysisContext {
         &mut self,
         id: HighValueId,
         visibility: Visibility,
-        kind: ResolvedValueDeclarationKind,
+        kind: SemanticValueDeclarationKind,
     ) {
-        self.resolved_environment.declare_value(
+        self.semantic_environment.declare_value(
             id,
-            ResolvedValueDeclaration {
+            SemanticValueDeclaration {
                 visibility,
                 module_path: self.current_module_path.clone(),
                 kind,
@@ -582,12 +566,12 @@ impl SemanticAnalysisContext {
         );
     }
 
-    pub fn declare_unresolved_and_resolved_value(
+    pub fn declare_value(
         &mut self,
         visibility: Visibility,
-        declaration: ResolvedValueDeclarationKind,
+        declaration: SemanticValueDeclarationKind,
     ) -> HighValueId {
-        let id = self.declare_unresolved_value(visibility, declaration.clone().into());
+        let id = self.declare_parsed_value(visibility, declaration.clone().into());
 
         self.declare_resolved_value(id, visibility, declaration);
 
@@ -602,14 +586,14 @@ impl SemanticAnalysisContext {
         modifiers: RegularFunctionModifiers,
         name: String,
         generic_ids: Vec<HighGenericId>,
-        parameters: Vec<(Option<Idx<TypedPattern>>, UnresolvedDataType)>,
-        return_type: UnresolvedDataType,
+        parameters: Vec<(Option<Idx<TypedPattern>>, SemanticDataType)>,
+        return_type: SemanticDataType,
     ) {
         self.declare_resolved_value(
             id,
             visibility,
-            ResolvedValueDeclarationKind::Function(Box::new(ResolvedFunctionDeclaration::Regular(
-                ResolvedRegularFunctionDeclaration {
+            SemanticValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Regular(
+                SemanticRegularFunctionDeclaration {
                     name,
                     modifiers,
                     generic_ids,
@@ -625,11 +609,11 @@ impl SemanticAnalysisContext {
     pub fn declare_builtin_function(
         &mut self,
         visibility: Visibility,
-        declaration: ResolvedBuiltinFunctionDeclaration,
+        declaration: SemanticBuiltinFunctionDeclaration,
     ) -> HighBuiltinFunctionId {
-        let id = self.declare_unresolved_and_resolved_value(
+        let id = self.declare_value(
             visibility,
-            ResolvedValueDeclarationKind::Function(Box::new(ResolvedFunctionDeclaration::Builtin(
+            SemanticValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Builtin(
                 declaration,
             ))),
         );
@@ -652,14 +636,14 @@ impl SemanticAnalysisContext {
         let mut current_type_id = self.get_type_id(&first_segment.name)?;
 
         for segment in segments {
-            let declaration = self.get_unresolved_type(current_type_id);
+            let declaration = self.parsed_environment.get_type(current_type_id);
 
             let id = match declaration.get_visible_type_id(self, current_type_id, &segment.name) {
                 Ok(id) => id,
                 Err(error) => return self.add_error(segment.name_span, error),
             };
 
-            let declaration = self.get_unresolved_type(id);
+            let declaration = self.parsed_environment.get_type(id);
 
             if !declaration.is_visible(&self.current_module_path) {
                 self.add_error_unit(
@@ -682,14 +666,14 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.resolve_type_path(path)?;
 
-        let declaration = self.get_unresolved_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = match declaration.get_visible_type_id(self, type_id, &last_segment.name) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
 
-        let declaration = self.get_unresolved_type(id);
+        let declaration = self.parsed_environment.get_type(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             self.add_error_unit(
@@ -720,14 +704,14 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.resolve_type_path(path)?;
 
-        let declaration = self.get_unresolved_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = match declaration.get_visible_value_id(self, type_id, &last_segment.name) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
 
-        let declaration = self.unresolved_environment.get_value(id);
+        let declaration = self.parsed_environment.get_value(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             self.add_error_unit(
@@ -760,13 +744,13 @@ impl SemanticAnalysisContext {
         };
 
         for segment in segments {
-            let declaration = self.get_unresolved_type(current_type_id);
+            let declaration = self.parsed_environment.get_type(current_type_id);
 
             let id = declaration
                 .get_visible_type_id(self, current_type_id, &segment.name)
                 .map_err(|error| (segment.span, error))?;
 
-            let declaration = self.get_unresolved_type(id);
+            let declaration = self.parsed_environment.get_type(id);
 
             if !declaration.is_visible(&self.current_module_path) {
                 self.add_error_unit(
@@ -798,13 +782,13 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let declaration = self.get_unresolved_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = declaration
             .get_visible_type_id(self, type_id, &last_segment.name)
             .map_err(|error| (last_segment.span, error))?;
 
-        let declaration = self.get_unresolved_type(id);
+        let declaration = self.parsed_environment.get_type(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             return Err((
@@ -833,13 +817,13 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let declaration = self.get_unresolved_type(type_id);
+        let declaration = self.parsed_environment.get_type(type_id);
 
         let id = declaration
             .get_visible_value_id(self, type_id, &last_segment.name)
             .map_err(|error| (last_segment.span, error))?;
 
-        let declaration = self.unresolved_environment.get_value(id);
+        let declaration = self.parsed_environment.get_value(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             return Err((
@@ -851,42 +835,18 @@ impl SemanticAnalysisContext {
         Ok(id)
     }
 
-    #[inline]
-    #[must_use]
-    pub fn get_resolved_type(&self, id: HighTypeId) -> &ResolvedTypeDeclaration {
-        self.resolved_environment.get_type(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_unresolved_type(&self, id: HighTypeId) -> &UnresolvedTypeDeclaration {
-        self.unresolved_environment.get_type(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_resolved_value(&self, id: HighValueId) -> &ResolvedValueDeclaration {
-        self.resolved_environment.get_value(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_unresolved_value(&self, id: HighValueId) -> &UnresolvedValueDeclaration {
-        self.unresolved_environment.get_value(id)
-    }
-
     #[must_use]
     pub fn get_visible_regular_struct(
         &mut self,
         name_span: Span,
         name: &str,
         id: HighTypeId,
-    ) -> Option<(&[String], Visibility, &ResolvedRegularStructDeclaration)> {
-        let ResolvedTypeDeclaration {
+    ) -> Option<(&[String], Visibility, &SemanticRegularStructDeclaration)> {
+        let SemanticTypeDeclaration {
             module_path,
             visibility,
             kind: declaration,
-        } = self.resolved_environment.get_type(id);
+        } = self.semantic_environment.get_type(id);
 
         let is_visible = self.is_item_visible(module_path, *visibility);
 
@@ -897,26 +857,26 @@ impl SemanticAnalysisContext {
             );
         }
 
-        let ResolvedTypeDeclarationKind::Struct(declaration) = declaration else {
+        let SemanticTypeDeclarationKind::Struct(declaration) = declaration else {
             return self.add_error(
                 name_span,
                 SemanticAnalysisError::NotAStruct(name.to_owned()),
             );
         };
 
-        let ResolvedStructDeclaration::Struct(..) = declaration else {
+        let SemanticStructDeclaration::Struct(..) = declaration else {
             return self.add_error(
                 name_span,
                 SemanticAnalysisError::NotARegularStruct(name.to_owned()),
             );
         };
 
-        let ResolvedTypeDeclaration {
+        let SemanticTypeDeclaration {
             module_path,
             visibility,
             kind:
-                ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Struct(declaration)),
-        } = self.resolved_environment.get_type(id)
+                SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(declaration)),
+        } = self.semantic_environment.get_type(id)
         else {
             unreachable!();
         };
@@ -930,12 +890,12 @@ impl SemanticAnalysisContext {
         name_span: Span,
         name: &str,
         id: HighTypeId,
-    ) -> Option<(&[String], Visibility, &ResolvedTupleStructDeclaration)> {
-        let ResolvedTypeDeclaration {
+    ) -> Option<(&[String], Visibility, &SemanticTupleStructDeclaration)> {
+        let SemanticTypeDeclaration {
             module_path,
             visibility,
             kind: declaration,
-        } = self.resolved_environment.get_type(id);
+        } = self.semantic_environment.get_type(id);
 
         let is_visible = self.is_item_visible(module_path, *visibility);
 
@@ -946,25 +906,25 @@ impl SemanticAnalysisContext {
             );
         }
 
-        let ResolvedTypeDeclarationKind::Struct(declaration) = declaration else {
+        let SemanticTypeDeclarationKind::Struct(declaration) = declaration else {
             return self.add_error(
                 name_span,
                 SemanticAnalysisError::NotAStruct(name.to_owned()),
             );
         };
 
-        let ResolvedStructDeclaration::Tuple(..) = declaration else {
+        let SemanticStructDeclaration::Tuple(..) = declaration else {
             return self.add_error(
                 name_span,
                 SemanticAnalysisError::NotATupleStruct(name.to_owned()),
             );
         };
 
-        let ResolvedTypeDeclaration {
+        let SemanticTypeDeclaration {
             module_path,
             visibility,
-            kind: ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Tuple(declaration)),
-        } = self.resolved_environment.get_type(id)
+            kind: SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(declaration)),
+        } = self.semantic_environment.get_type(id)
         else {
             unreachable!();
         };

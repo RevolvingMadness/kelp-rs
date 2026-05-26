@@ -16,7 +16,7 @@ use crate::{
     },
     typed::{
         data::TypedData,
-        data_type::{resolved::ResolvedDataType, unresolved::UnresolvedDataType},
+        data_type::{resolved::DataType, unresolved::SemanticDataType},
         environment::r#type::r#struct::{RegularStructId, TupleStructId},
         expression::{literal::LiteralExpression, resolved::Expression},
         player_score::TypedPlayerScore,
@@ -28,18 +28,18 @@ fn destructure_tuple(
     patterns: &[Idx<TypedPattern>],
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    data_type: ResolvedDataType,
+    data_type: DataType,
     value: Expression,
 ) {
     match (data_type, value) {
-        (ResolvedDataType::Tuple(data_types), Expression::Tuple(expressions)) => {
+        (DataType::Tuple(data_types), Expression::Tuple(expressions)) => {
             for ((pattern, expression), data_type) in
                 patterns.iter().copied().zip(expressions).zip(data_types)
             {
                 TypedPattern::destructure(pattern, allocator, datapack, ctx, data_type, expression);
             }
         }
-        (ResolvedDataType::Tuple(data_types), score @ Expression::Score(..)) => {
+        (DataType::Tuple(data_types), score @ Expression::Score(..)) => {
             for (pattern, data_type) in patterns.iter().copied().zip(data_types) {
                 TypedPattern::destructure(
                     pattern,
@@ -51,7 +51,7 @@ fn destructure_tuple(
                 );
             }
         }
-        (ResolvedDataType::Tuple(data_types), Expression::Data(data)) => {
+        (DataType::Tuple(data_types), Expression::Data(data)) => {
             for (i, (pattern, data_type)) in patterns.iter().copied().zip(data_types).enumerate() {
                 let expression =
                     Expression::Data(data.clone().with_path_node(NbtPathNode::Index(Some(
@@ -61,7 +61,7 @@ fn destructure_tuple(
                 TypedPattern::destructure(pattern, allocator, datapack, ctx, data_type, expression);
             }
         }
-        (ResolvedDataType::Data(inner_type), value @ Expression::Data(..)) => {
+        (DataType::Data(inner_type), value @ Expression::Data(..)) => {
             destructure_tuple(allocator, patterns, datapack, ctx, *inner_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
@@ -73,11 +73,11 @@ fn destructure_compound(
     patterns: &HashMap<String, Idx<TypedPattern>>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
-    data_type: ResolvedDataType,
+    data_type: DataType,
     value: Expression,
 ) {
     match (data_type, value) {
-        (ResolvedDataType::TypedCompound(data_types), Expression::Compound(expressions)) => {
+        (DataType::TypedCompound(data_types), Expression::Compound(expressions)) => {
             for ((key, pattern), (_, expression)) in patterns.iter().zip(expressions) {
                 let expression = expression.clone();
                 let data_type = data_types.get(key).unwrap().clone();
@@ -87,7 +87,7 @@ fn destructure_compound(
                 );
             }
         }
-        (ResolvedDataType::Compound(data_type), Expression::Compound(expressions)) => {
+        (DataType::Compound(data_type), Expression::Compound(expressions)) => {
             for (pattern, expression) in patterns.values().copied().zip(expressions.values()) {
                 let expression = expression.clone();
                 let data_type = *data_type.clone();
@@ -95,10 +95,10 @@ fn destructure_compound(
                 TypedPattern::destructure(pattern, allocator, datapack, ctx, data_type, expression);
             }
         }
-        (ResolvedDataType::Data(data_type), value @ Expression::Data(..)) => {
+        (DataType::Data(data_type), value @ Expression::Data(..)) => {
             destructure_compound(allocator, patterns, datapack, ctx, *data_type, value);
         }
-        (ResolvedDataType::TypedCompound(data_types), Expression::Data(data)) => {
+        (DataType::TypedCompound(data_types), Expression::Data(data)) => {
             for (key, pattern) in patterns {
                 let data_type = data_types.get(key).unwrap().clone();
 
@@ -122,11 +122,11 @@ fn destructure_regular_struct(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: RegularStructId,
-    data_type: ResolvedDataType,
+    data_type: DataType,
     value: Expression,
 ) {
     match (data_type, value) {
-        (ResolvedDataType::Struct(..), Expression::RegularStruct(_, fields)) => {
+        (DataType::Struct(..), Expression::RegularStruct(_, fields)) => {
             let (_, _, declaration) = datapack.get_regular_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -145,7 +145,7 @@ fn destructure_regular_struct(
                 );
             }
         }
-        (ResolvedDataType::Struct(..), Expression::Data(data)) => {
+        (DataType::Struct(..), Expression::Data(data)) => {
             let (_, _, declaration) = datapack.get_regular_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -158,7 +158,7 @@ fn destructure_regular_struct(
                         .with_path_node(NbtPathNode::Named(SNBTString(false, key.clone()), None)),
                 );
 
-                let data_wrapped_type = ResolvedDataType::Data(Box::new(data_type));
+                let data_wrapped_type = DataType::Data(Box::new(data_type));
 
                 TypedPattern::destructure(
                     *pattern,
@@ -170,7 +170,7 @@ fn destructure_regular_struct(
                 );
             }
         }
-        (ResolvedDataType::Reference(data_type), value) => {
+        (DataType::Reference(data_type), value) => {
             destructure_regular_struct(
                 allocator,
                 field_patterns,
@@ -181,7 +181,7 @@ fn destructure_regular_struct(
                 value,
             );
         }
-        (ResolvedDataType::Data(data_type), value) => {
+        (DataType::Data(data_type), value) => {
             destructure_regular_struct(
                 allocator,
                 field_patterns,
@@ -192,7 +192,7 @@ fn destructure_regular_struct(
                 value,
             );
         }
-        (ResolvedDataType::Score(data_type), value) => {
+        (DataType::Score(data_type), value) => {
             destructure_regular_struct(
                 allocator,
                 field_patterns,
@@ -213,11 +213,11 @@ fn destructure_tuple_struct(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: TupleStructId,
-    value_data_type: ResolvedDataType,
+    value_data_type: DataType,
     value: Expression,
 ) {
     match (value, value_data_type) {
-        (Expression::TupleStruct(_, field_expressions), ResolvedDataType::Struct(..)) => {
+        (Expression::TupleStruct(_, field_expressions), DataType::Struct(..)) => {
             let (_, _, declaration) = datapack.get_tuple_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -238,7 +238,7 @@ fn destructure_tuple_struct(
                 );
             }
         }
-        (Expression::Data(data), ResolvedDataType::Struct(..)) => {
+        (Expression::Data(data), DataType::Struct(..)) => {
             let (_, _, declaration) = datapack.get_tuple_struct_type(id);
 
             let field_types = declaration.field_types.clone();
@@ -250,7 +250,7 @@ fn destructure_tuple_struct(
                     NbtPathNode::Index(Some(SNBT::macroable_integer(field_index as i32))),
                 ));
 
-                let data_wrapped_type = ResolvedDataType::Data(Box::new(field_type));
+                let data_wrapped_type = DataType::Data(Box::new(field_type));
 
                 TypedPattern::destructure(
                     field_pattern,
@@ -262,7 +262,7 @@ fn destructure_tuple_struct(
                 );
             }
         }
-        (value, ResolvedDataType::Reference(data_type)) => {
+        (value, DataType::Reference(data_type)) => {
             destructure_tuple_struct(
                 allocator,
                 field_patterns,
@@ -273,7 +273,7 @@ fn destructure_tuple_struct(
                 value,
             );
         }
-        (value, ResolvedDataType::Data(data_type)) => {
+        (value, DataType::Data(data_type)) => {
             destructure_tuple_struct(
                 allocator,
                 field_patterns,
@@ -284,7 +284,7 @@ fn destructure_tuple_struct(
                 value,
             );
         }
-        (value, ResolvedDataType::Score(data_type)) => {
+        (value, DataType::Score(data_type)) => {
             destructure_tuple_struct(
                 allocator,
                 field_patterns,
@@ -312,10 +312,10 @@ pub enum TypedPattern {
     Tuple(Vec<Idx<Self>>),
     RegularStruct(
         HighRegularStructId,
-        Vec<UnresolvedDataType>,
+        Vec<SemanticDataType>,
         HashMap<String, Idx<Self>>,
     ),
-    TupleStruct(HighTupleStructId, Vec<UnresolvedDataType>, Vec<Idx<Self>>),
+    TupleStruct(HighTupleStructId, Vec<SemanticDataType>, Vec<Idx<Self>>),
 
     Compound(HashMap<String, Idx<Self>>),
 }
@@ -326,7 +326,7 @@ impl TypedPattern {
         allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-        data_type: ResolvedDataType,
+        data_type: DataType,
         value: Expression,
     ) {
         match allocator.get_pattern(id) {
@@ -351,11 +351,8 @@ impl TypedPattern {
                 destructure_compound(allocator, patterns, datapack, ctx, data_type, value);
             }
             Self::RegularStruct(id, generic_types, field_patterns) => {
-                let id = UnresolvedDataType::resolve_regular_struct(
-                    datapack,
-                    *id,
-                    generic_types.clone(),
-                );
+                let id =
+                    SemanticDataType::resolve_regular_struct(datapack, *id, generic_types.clone());
 
                 destructure_regular_struct(
                     allocator,
@@ -369,7 +366,7 @@ impl TypedPattern {
             }
             Self::TupleStruct(id, generic_types, field_patterns) => {
                 let id =
-                    UnresolvedDataType::resolve_tuple_struct(datapack, *id, generic_types.clone());
+                    SemanticDataType::resolve_tuple_struct(datapack, *id, generic_types.clone());
 
                 destructure_tuple_struct(
                     allocator,

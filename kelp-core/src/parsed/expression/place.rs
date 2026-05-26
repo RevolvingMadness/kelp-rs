@@ -10,53 +10,53 @@ use crate::{
     span::Span,
     typed::{
         data::TypedData,
-        data_type::unresolved::UnresolvedDataType,
+        data_type::unresolved::SemanticDataType,
         environment::value::variable::VariableId,
         expression::{
-            place::ResolvedPlaceExpression,
+            place::TypedPlaceExpression,
             typed::{TypedExpression, TypedExpressionId},
         },
         player_score::TypedPlayerScore,
     },
 };
 
-pub type UnresolvedPlaceExpressionId = Idx<Typed<UnresolvedPlaceExpression>>;
+pub type ParsedPlaceExpressionId = Idx<Typed<ParsedPlaceExpression>>;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedPlaceExpression {
-    Value(HighValueId, Vec<UnresolvedDataType>),
+pub enum ParsedPlaceExpression {
+    Value(HighValueId, Vec<SemanticDataType>),
     Score(TypedPlayerScore),
     Data(Box<TypedData>),
-    FieldAccess(UnresolvedPlaceExpressionId, String),
-    Index(UnresolvedPlaceExpressionId, TypedExpressionId),
-    Dereference(UnresolvedPlaceExpressionId),
+    FieldAccess(ParsedPlaceExpressionId, String),
+    Index(ParsedPlaceExpressionId, TypedExpressionId),
+    Dereference(ParsedPlaceExpressionId),
 }
 
-impl UnresolvedPlaceExpression {
+impl ParsedPlaceExpression {
     #[must_use]
     pub fn resolve(
-        id: UnresolvedPlaceExpressionId,
+        id: ParsedPlaceExpressionId,
         allocator: &LowAstAllocator,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> ResolvedPlaceExpression {
+    ) -> TypedPlaceExpression {
         match allocator.get_place_expression_value(id) {
             Self::Value(id, generic_types) => {
                 let id = datapack
                     .get_monomorphized_value_id(*id, generic_types)
                     .unwrap();
 
-                ResolvedPlaceExpression::Variable(VariableId(id.0))
+                TypedPlaceExpression::Variable(VariableId(id.0))
             }
             Self::Score(score) => {
                 let score = score.clone().compile(allocator, datapack, ctx);
 
-                ResolvedPlaceExpression::Score(score)
+                TypedPlaceExpression::Score(score)
             }
             Self::Data(data) => {
                 let data = data.clone().compile(allocator, datapack, ctx);
 
-                ResolvedPlaceExpression::Data(data)
+                TypedPlaceExpression::Data(data)
             }
             Self::FieldAccess(place, field) => {
                 let access_type = allocator
@@ -69,13 +69,13 @@ impl UnresolvedPlaceExpression {
 
                 let place = Self::resolve(*place, allocator, datapack, ctx);
 
-                ResolvedPlaceExpression::FieldAccess(Box::new(place), access_type, field.clone())
+                TypedPlaceExpression::FieldAccess(Box::new(place), access_type, field.clone())
             }
             Self::Index(place, index) => {
                 let place = Self::resolve(*place, allocator, datapack, ctx);
                 let index = TypedExpression::resolve(*index, allocator, datapack, ctx);
 
-                ResolvedPlaceExpression::Index(Box::new(place), index)
+                TypedPlaceExpression::Index(Box::new(place), index)
             }
             Self::Dereference(place) => Self::resolve(*place, allocator, datapack, ctx)
                 .resolve(datapack, ctx)
@@ -85,11 +85,11 @@ impl UnresolvedPlaceExpression {
     }
 
     pub fn perform_assignment_semantic_analysis(
-        id: UnresolvedPlaceExpressionId,
+        id: ParsedPlaceExpressionId,
         allocator: &LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
-        value_type: &UnresolvedDataType,
+        value_type: &SemanticDataType,
     ) -> Option<()> {
         match allocator.get_place_expression_value(id) {
             Self::Value(..) => {
@@ -103,10 +103,10 @@ impl UnresolvedPlaceExpression {
                 let data_type = allocator.get_place_expression_type(*place);
 
                 match data_type {
-                    UnresolvedDataType::Score(..) => {
+                    SemanticDataType::Score(..) => {
                         value_type.assert_score_compatible(ctx, value_span)
                     }
-                    UnresolvedDataType::Data(..) => {
+                    SemanticDataType::Data(..) => {
                         value_type.assert_data_compatible(ctx, value_span)
                     }
                     _ => {

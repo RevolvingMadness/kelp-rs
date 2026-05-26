@@ -34,14 +34,14 @@ use crate::{
     player_score::GeneratedPlayerScore,
     runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
     typed::{
-        data_type::resolved::{FieldAccessType, ResolvedDataType},
+        data_type::resolved::{DataType, FieldAccessType},
         environment::{
             Environment,
             r#type::r#struct::{RegularStructId, TupleStructId},
             value::function::{FunctionDeclaration, FunctionId},
         },
         expression::{
-            place::ResolvedPlaceExpression,
+            place::TypedPlaceExpression,
             typed::{TypedExpression, TypedExpressionId},
         },
         pattern::TypedPattern,
@@ -137,7 +137,7 @@ fn compile_compiletime_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
-    parameters: Vec<(Idx<TypedPattern>, ResolvedDataType)>,
+    parameters: Vec<(Idx<TypedPattern>, DataType)>,
     arguments: Vec<Expression>,
     body: TypedExpressionId,
 ) -> Expression {
@@ -198,7 +198,7 @@ fn compile_regular_runtime_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
-    parameters: Vec<(Idx<TypedPattern>, ResolvedDataType)>,
+    parameters: Vec<(Idx<TypedPattern>, DataType)>,
     arguments: Vec<RuntimeStorageTarget>,
     body: TypedExpressionId,
     return_runtime_storage_type: RuntimeStorageType,
@@ -290,7 +290,7 @@ fn compile_recursive_runtime_function(
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
-    parameters: Vec<(Idx<TypedPattern>, ResolvedDataType)>,
+    parameters: Vec<(Idx<TypedPattern>, DataType)>,
     arguments: Vec<GeneratedData>,
     body: TypedExpressionId,
 ) -> Expression {
@@ -385,7 +385,7 @@ fn compile_recursive_runtime_function(
     let mut function_body_ctx = CompileContext::default();
 
     for (index, (pattern, data_type)) in parameters.into_iter().enumerate() {
-        assert!(matches!(data_type, ResolvedDataType::Data(..)));
+        assert!(matches!(data_type, DataType::Data(..)));
 
         let argument_data = arguments_data.clone().index(index as i32);
 
@@ -438,8 +438,8 @@ fn compile_function(
     id: FunctionId,
     modifiers: RegularFunctionModifiers,
     generic_ids: Vec<HighGenericId>,
-    generic_types: Vec<ResolvedDataType>,
-    parameters: Vec<(Idx<TypedPattern>, ResolvedDataType)>,
+    generic_types: Vec<DataType>,
+    parameters: Vec<(Idx<TypedPattern>, DataType)>,
     arguments: Vec<Expression>,
     body: TypedExpressionId,
     return_runtime_storage_type: RuntimeStorageType,
@@ -529,7 +529,7 @@ macro_rules! compute_float {
     };
 }
 
-fn format_generics(output: &mut String, generics: &[ResolvedDataType], environment: &Environment) {
+fn format_generics(output: &mut String, generics: &[DataType], environment: &Environment) {
     if generics.is_empty() {
         return;
     }
@@ -575,7 +575,7 @@ pub enum Expression {
     EntitySelector(EntitySelector),
     Coordinates(Coordinates),
     Function(FunctionId),
-    Reference(Box<ResolvedPlaceExpression>),
+    Reference(Box<TypedPlaceExpression>),
 
     Score(GeneratedPlayerScore),
     Data(GeneratedData),
@@ -663,13 +663,13 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn dereference_place(self) -> Option<ResolvedPlaceExpression> {
+    pub fn dereference_place(self) -> Option<TypedPlaceExpression> {
         Some(match self {
             Self::Reference(place) => *place,
 
-            Self::Score(score) => ResolvedPlaceExpression::Score(score),
+            Self::Score(score) => TypedPlaceExpression::Score(score),
 
-            Self::Data(data) => ResolvedPlaceExpression::Data(data),
+            Self::Data(data) => TypedPlaceExpression::Data(data),
 
             _ => return None,
         })
@@ -1598,7 +1598,7 @@ impl Expression {
     }
 
     #[must_use]
-    pub fn cast_to(self, data_type: ResolvedDataType) -> Option<Self> {
+    pub fn cast_to(self, data_type: DataType) -> Option<Self> {
         macro_rules! cast_match {
             (
                 $self_expr:expr, $data_type_expr:expr;
@@ -1615,12 +1615,12 @@ impl Expression {
             ) => {
                 match ($self_expr, $data_type_expr) {
                     $(
-                        (self_ @ Self::$variant $( ( $($variant_args)* ) )?, ResolvedDataType::$type $( ( $($type_args)* ) )?) => Some(self_),
+                        (self_ @ Self::$variant $( ( $($variant_args)* ) )?, DataType::$type $( ( $($type_args)* ) )?) => Some(self_),
                     )*
 
                     $(
                         $(
-                            (Self::$from_variant($val), ResolvedDataType::$to_type) => Some(Self::$to_variant($cast_expr)),
+                            (Self::$from_variant($val), DataType::$to_type) => Some(Self::$to_variant($cast_expr)),
                         )*
                     )*
 
@@ -1900,7 +1900,7 @@ impl Expression {
 
                 let return_type = declaration.return_type();
 
-                if *return_type != ResolvedDataType::Unit {
+                if *return_type != DataType::Unit {
                     let _ = write!(output, " -> {}", return_type.display(&datapack.environment));
                 }
 

@@ -3,21 +3,20 @@ use crate::{
         environment::{
             resolved::{
                 r#type::{
-                    HighGenericId, HighTypeId, ResolvedTypeDeclaration,
-                    ResolvedTypeDeclarationKind, r#struct::HighStructId,
+                    HighGenericId, HighTypeId, SemanticTypeDeclaration,
+                    SemanticTypeDeclarationKind, r#struct::HighStructId,
                 },
                 value::HighValueId,
             },
             unresolved::r#type::{
-                alias::UnresolvedTypeAliasDeclaration,
-                builtin_data_type::UnresolvedBuiltinTypeDeclaration,
-                module::UnresolvedModuleDeclaration, r#struct::UnresolvedStructDeclaration,
+                alias::ParsedTypeAliasDeclaration, builtin_data_type::ParsedBuiltinTypeDeclaration,
+                module::ParsedModuleDeclaration, r#struct::ParsedStructDeclaration,
             },
         },
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     span::Span,
-    typed::data_type::unresolved::UnresolvedDataType,
+    typed::data_type::unresolved::SemanticDataType,
     visibility::Visibility,
 };
 
@@ -27,27 +26,27 @@ pub mod module;
 pub mod r#struct;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedTypeDeclarationKind {
-    Module(UnresolvedModuleDeclaration),
-    Struct(UnresolvedStructDeclaration),
-    Alias(UnresolvedTypeAliasDeclaration),
+pub enum ParsedTypeDeclarationKind {
+    Module(ParsedModuleDeclaration),
+    Struct(ParsedStructDeclaration),
+    Alias(ParsedTypeAliasDeclaration),
     Generic(String),
-    Builtin(UnresolvedBuiltinTypeDeclaration),
+    Builtin(ParsedBuiltinTypeDeclaration),
 }
 
-impl From<ResolvedTypeDeclarationKind> for UnresolvedTypeDeclarationKind {
-    fn from(value: ResolvedTypeDeclarationKind) -> Self {
+impl From<SemanticTypeDeclarationKind> for ParsedTypeDeclarationKind {
+    fn from(value: SemanticTypeDeclarationKind) -> Self {
         match value {
-            ResolvedTypeDeclarationKind::Module(declaration) => Self::Module(declaration.into()),
-            ResolvedTypeDeclarationKind::Struct(declaration) => Self::Struct(declaration.into()),
-            ResolvedTypeDeclarationKind::Alias(declaration) => Self::Alias(declaration.into()),
-            ResolvedTypeDeclarationKind::Generic(name) => Self::Generic(name),
-            ResolvedTypeDeclarationKind::Builtin(declaration) => Self::Builtin(declaration.into()),
+            SemanticTypeDeclarationKind::Module(declaration) => Self::Module(declaration.into()),
+            SemanticTypeDeclarationKind::Struct(declaration) => Self::Struct(declaration.into()),
+            SemanticTypeDeclarationKind::Alias(declaration) => Self::Alias(declaration.into()),
+            SemanticTypeDeclarationKind::Generic(name) => Self::Generic(name),
+            SemanticTypeDeclarationKind::Builtin(declaration) => Self::Builtin(declaration.into()),
         }
     }
 }
 
-impl UnresolvedTypeDeclarationKind {
+impl ParsedTypeDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -61,14 +60,14 @@ impl UnresolvedTypeDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedTypeDeclaration {
+pub struct ParsedTypeDeclaration {
     pub module_path: Vec<String>,
     pub visibility: Visibility,
-    pub kind: UnresolvedTypeDeclarationKind,
+    pub kind: ParsedTypeDeclarationKind,
 }
 
-impl From<ResolvedTypeDeclaration> for UnresolvedTypeDeclaration {
-    fn from(value: ResolvedTypeDeclaration) -> Self {
+impl From<SemanticTypeDeclaration> for ParsedTypeDeclaration {
+    fn from(value: SemanticTypeDeclaration) -> Self {
         Self {
             module_path: value.module_path,
             visibility: value.visibility,
@@ -77,7 +76,7 @@ impl From<ResolvedTypeDeclaration> for UnresolvedTypeDeclaration {
     }
 }
 
-impl UnresolvedTypeDeclaration {
+impl ParsedTypeDeclaration {
     #[must_use]
     pub fn is_visible(&self, current_module_path: &[String]) -> bool {
         if matches!(self.visibility, Visibility::Public) {
@@ -94,11 +93,11 @@ impl UnresolvedTypeDeclaration {
         name: &str,
     ) -> Result<HighTypeId, SemanticAnalysisError> {
         match &self.kind {
-            UnresolvedTypeDeclarationKind::Module(declaration) => {
+            ParsedTypeDeclarationKind::Module(declaration) => {
                 declaration.get_type_id_semantic_analysis(name)
             }
-            UnresolvedTypeDeclarationKind::Struct(declaration) => {
-                if let Some(impls) = ctx.resolved_environment.impls.get(&id) {
+            ParsedTypeDeclarationKind::Struct(declaration) => {
+                if let Some(impls) = ctx.semantic_environment.impls.get(&id) {
                     for implementation in impls {
                         if let Some(id) = implementation.types.get(name) {
                             return Ok(*id);
@@ -124,10 +123,10 @@ impl UnresolvedTypeDeclaration {
         name: &str,
     ) -> Result<HighValueId, SemanticAnalysisError> {
         match &self.kind {
-            UnresolvedTypeDeclarationKind::Module(declaration) => {
+            ParsedTypeDeclarationKind::Module(declaration) => {
                 declaration.get_value_id_semantic_analysis(name)
             }
-            UnresolvedTypeDeclarationKind::Struct(declaration) => {
+            ParsedTypeDeclarationKind::Struct(declaration) => {
                 declaration.get_value_id_semantic_analysis(ctx, id, name)
             }
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
@@ -141,14 +140,14 @@ impl UnresolvedTypeDeclaration {
         ctx: &mut SemanticAnalysisContext,
         id: HighTypeId,
         generic_spans: Vec<Span>,
-        generic_types: Vec<UnresolvedDataType>,
+        generic_types: Vec<SemanticDataType>,
         path_span: Span,
-    ) -> UnresolvedDataType {
+    ) -> SemanticDataType {
         match self.kind {
-            UnresolvedTypeDeclarationKind::Module(UnresolvedModuleDeclaration { name, .. }) => {
+            ParsedTypeDeclarationKind::Module(ParsedModuleDeclaration { name, .. }) => {
                 ctx.add_error_type(path_span, SemanticAnalysisError::NotAType(name))
             }
-            UnresolvedTypeDeclarationKind::Struct(declaration) => {
+            ParsedTypeDeclarationKind::Struct(declaration) => {
                 let id = HighStructId(id.0);
 
                 let expected_generics = declaration.generic_count();
@@ -163,9 +162,9 @@ impl UnresolvedTypeDeclaration {
                     );
                 }
 
-                UnresolvedDataType::Struct(id, generic_types)
+                SemanticDataType::Struct(id, generic_types)
             }
-            UnresolvedTypeDeclarationKind::Alias(declaration) => {
+            ParsedTypeDeclarationKind::Alias(declaration) => {
                 let expected_generics = declaration.generic_ids.len();
                 let actual_generics = generic_types.len();
 
@@ -178,9 +177,9 @@ impl UnresolvedTypeDeclaration {
                     );
                 }
 
-                let resolved_declaration = ctx.get_resolved_type(id);
+                let resolved_declaration = ctx.semantic_environment.get_type(id);
 
-                let ResolvedTypeDeclarationKind::Alias(resolved_alias) = &resolved_declaration.kind
+                let SemanticTypeDeclarationKind::Alias(resolved_alias) = &resolved_declaration.kind
                 else {
                     unreachable!()
                 };
@@ -190,7 +189,7 @@ impl UnresolvedTypeDeclaration {
                     .clone()
                     .substitute_generics(&declaration.generic_ids, &generic_types)
             }
-            UnresolvedTypeDeclarationKind::Generic(name) => {
+            ParsedTypeDeclarationKind::Generic(name) => {
                 let expected_generics = 0;
                 let actual_generics = generic_types.len();
 
@@ -203,9 +202,9 @@ impl UnresolvedTypeDeclaration {
                     );
                 }
 
-                UnresolvedDataType::Generic(HighGenericId(id.0))
+                SemanticDataType::Generic(HighGenericId(id.0))
             }
-            UnresolvedTypeDeclarationKind::Builtin(data_type) => data_type
+            ParsedTypeDeclarationKind::Builtin(data_type) => data_type
                 .to_data_type_semantic_analysis(ctx, path_span, generic_spans, generic_types),
         }
     }

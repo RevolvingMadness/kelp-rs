@@ -2,19 +2,19 @@ use crate::compile_context::CompileContext;
 use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
-use crate::parsed::environment::resolved::ResolvedEnvironment;
+use crate::parsed::environment::resolved::SemanticEnvironment;
 use crate::parsed::environment::resolved::r#type::{HighGenericId, HighTypeId};
 use crate::parsed::environment::resolved::value::function::{
-    HighFunctionId, ResolvedFunctionDeclaration,
+    HighFunctionId, SemanticFunctionDeclaration,
 };
 use crate::parsed::environment::resolved::value::variable::HighVariableId;
 use crate::parsed::environment::resolved::value::{
-    HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+    HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
 };
 use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
-use crate::typed::data_type::resolved::ResolvedDataType;
-use crate::typed::data_type::unresolved::UnresolvedDataType;
+use crate::typed::data_type::resolved::DataType;
+use crate::typed::data_type::unresolved::SemanticDataType;
 use crate::typed::environment::Environment;
 use crate::typed::environment::r#type::r#struct::{
     RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
@@ -55,13 +55,13 @@ pub mod namespace;
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct MonomorphizedStructKey {
     pub original_id: HighTypeId,
-    pub generics: Vec<ResolvedDataType>,
+    pub generics: Vec<DataType>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 struct MonomorphizedStructKeyRef<'a> {
     pub original_id: HighTypeId,
-    pub generics: &'a [ResolvedDataType],
+    pub generics: &'a [DataType],
 }
 
 impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
@@ -73,13 +73,13 @@ impl Equivalent<MonomorphizedStructKey> for MonomorphizedStructKeyRef<'_> {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct MonomorphizedFunctionKey {
     pub original_id: HighFunctionId,
-    pub generic_types: Vec<ResolvedDataType>,
+    pub generic_types: Vec<DataType>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 struct MonomorphizedFunctionKeyRef<'a> {
     pub original_id: HighFunctionId,
-    pub generic_types: &'a [ResolvedDataType],
+    pub generic_types: &'a [DataType],
 }
 
 impl Equivalent<MonomorphizedFunctionKey> for MonomorphizedFunctionKeyRef<'_> {
@@ -151,8 +151,8 @@ pub struct Datapack {
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub resolved_environment: ResolvedEnvironment,
-    pub variable_values: HashMap<VariableId, (ResolvedDataType, Expression)>,
+    pub resolved_environment: SemanticEnvironment,
+    pub variable_values: HashMap<VariableId, (DataType, Expression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
@@ -163,7 +163,7 @@ pub struct Datapack {
 
     monomorphized_structs: HashbrownMap<MonomorphizedStructKey, StructId>,
     monomorphized_functions: HashbrownMap<MonomorphizedFunctionKey, FunctionId>,
-    generic_mapping: HashMap<HighGenericId, ResolvedDataType>,
+    generic_mapping: HashMap<HighGenericId, DataType>,
     resolved_variables: HashMap<HighVariableId, VariableId>,
     pub cached_runtime_functions: HashMap<FunctionId, RuntimeFunction>,
     pub cached_compiletime_functions: HashbrownMap<CompiletimeFunctionKey, CompiletimeFunction>,
@@ -173,7 +173,7 @@ pub struct Datapack {
 impl Datapack {
     #[must_use]
     pub fn new(
-        resolved_environment: ResolvedEnvironment,
+        resolved_environment: SemanticEnvironment,
         name: String,
         description: Option<String>,
     ) -> Self {
@@ -206,12 +206,12 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn resolve_generic(&self, id: HighGenericId) -> Option<ResolvedDataType> {
+    pub fn resolve_generic(&self, id: HighGenericId) -> Option<DataType> {
         self.generic_mapping.get(&id).cloned()
     }
 
     #[inline]
-    pub fn declare_generic(&mut self, id: HighGenericId, data_type: ResolvedDataType) {
+    pub fn declare_generic(&mut self, id: HighGenericId, data_type: DataType) {
         self.generic_mapping.insert(id, data_type);
     }
 
@@ -246,13 +246,8 @@ impl Datapack {
     }
 
     #[inline]
-    pub fn declare_value(
-        &mut self,
-        id: HighVariableId,
-        data_type: ResolvedDataType,
-        value: Expression,
-    ) {
-        let ResolvedValueDeclaration {
+    pub fn declare_value(&mut self, id: HighVariableId, data_type: DataType, value: Expression) {
+        let SemanticValueDeclaration {
             module_path,
             visibility,
             kind: declaration,
@@ -674,7 +669,7 @@ impl Datapack {
     pub fn get_monomorphized_struct_id(
         &self,
         id: HighTypeId,
-        generic_types: &[ResolvedDataType],
+        generic_types: &[DataType],
     ) -> Option<StructId> {
         let key = MonomorphizedStructKeyRef {
             original_id: id,
@@ -688,16 +683,16 @@ impl Datapack {
     pub fn get_monomorphized_value_id<I: Into<HighValueId>>(
         &mut self,
         id: I,
-        generic_types: &[UnresolvedDataType],
+        generic_types: &[SemanticDataType],
     ) -> Option<ValueId> {
         let id = id.into();
 
-        let ResolvedValueDeclaration {
+        let SemanticValueDeclaration {
             kind: declaration, ..
         } = self.resolved_environment.get_value(id);
 
         match declaration {
-            ResolvedValueDeclarationKind::Variable(..) => {
+            SemanticValueDeclarationKind::Variable(..) => {
                 assert!(generic_types.is_empty());
 
                 let id = HighVariableId(id.0);
@@ -706,7 +701,7 @@ impl Datapack {
 
                 Some(id.into())
             }
-            ResolvedValueDeclarationKind::Function(..) => {
+            SemanticValueDeclarationKind::Function(..) => {
                 let id = HighFunctionId(id.0);
 
                 let id = self.get_monomorphized_function_id(id, generic_types);
@@ -721,7 +716,7 @@ impl Datapack {
     pub fn get_monomorphized_function_id<I: Into<HighFunctionId>>(
         &mut self,
         original_id: I,
-        generic_types: &[UnresolvedDataType],
+        generic_types: &[SemanticDataType],
     ) -> FunctionId {
         let id = original_id.into();
 
@@ -746,7 +741,7 @@ impl Datapack {
         let declaration = declaration.clone();
 
         match declaration {
-            ResolvedFunctionDeclaration::Regular(declaration) => {
+            SemanticFunctionDeclaration::Regular(declaration) => {
                 let parameters = declaration
                     .parameters
                     .into_iter()
@@ -784,7 +779,7 @@ impl Datapack {
 
                 self.declare_monomorphized_function(id, module_path, visibility, declaration)
             }
-            ResolvedFunctionDeclaration::Builtin(declaration) => {
+            SemanticFunctionDeclaration::Builtin(declaration) => {
                 let parameters = declaration
                     .parameters
                     .into_iter()
@@ -819,7 +814,7 @@ impl Datapack {
         &mut self,
         original_id: HighTypeId,
         monomorphized_id: StructId,
-        generic_types: Vec<ResolvedDataType>,
+        generic_types: Vec<DataType>,
     ) {
         let key = MonomorphizedStructKey {
             original_id,
@@ -836,8 +831,8 @@ impl Datapack {
         visibility: Visibility,
         original_id: HighTypeId,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: HashMap<String, ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: HashMap<String, DataType>,
     ) -> RegularStructId {
         let monomorphized_id = self.environment.declare_regular_struct(
             module_path,
@@ -859,8 +854,8 @@ impl Datapack {
         visibility: Visibility,
         original_id: HighTypeId,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: Vec<ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: Vec<DataType>,
     ) -> TupleStructId {
         let monomorphized_id = self.environment.declare_tuple_struct(
             module_path,

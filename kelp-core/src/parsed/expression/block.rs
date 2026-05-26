@@ -9,7 +9,7 @@ use crate::{
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
     typed::{
-        data_type::unresolved::UnresolvedDataType,
+        data_type::unresolved::SemanticDataType,
         expression::typed::{TypedExpression, TypedExpressionId},
     },
 };
@@ -104,7 +104,7 @@ impl BlockExpression {
             None => None,
         };
 
-        let data_type = tail_expression.map_or(UnresolvedDataType::Unit, |tail_expression| {
+        let data_type = tail_expression.map_or(SemanticDataType::Unit, |tail_expression| {
             low_allocator.get_expression_type(tail_expression).clone()
         });
 

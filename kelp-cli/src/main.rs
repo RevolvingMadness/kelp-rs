@@ -3,7 +3,7 @@ use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::ast_allocator::low::LowAstAllocator;
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
-use kelp_core::parsed::environment::resolved::ResolvedEnvironment;
+use kelp_core::parsed::environment::resolved::SemanticEnvironment;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::typed::program::Program as MiddleProgram;
@@ -173,7 +173,7 @@ fn display_semantic_analysis_infos(
                 Report::build(ReportKind::Error, span.clone())
                     .with_label(
                         Label::new(span)
-                            .with_message(error.display(&ctx.resolved_environment))
+                            .with_message(error.display(&ctx.semantic_environment))
                             .with_color(Color::Red),
                     )
                     .finish()
@@ -353,7 +353,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     if lower_succeeded && semantic_analysis_succeeded && parse_succeeded {
         process_success(
             &low_allocator,
-            semantic_analysis_context.resolved_environment,
+            semantic_analysis_context.semantic_environment,
             program,
             &main_kelp_path,
             &main_kelp,
@@ -365,7 +365,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
 fn process_success(
     allocator: &LowAstAllocator,
-    resolved_environment: ResolvedEnvironment,
+    resolved_environment: SemanticEnvironment,
     program: MiddleProgram,
     _file_name: &str,
     _source_text: &str,

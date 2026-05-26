@@ -2,16 +2,16 @@ use crate::{
     compile_context::CompileContext,
     data::GeneratedData,
     datapack::Datapack,
+    operator::ArithmeticOperator,
+    player_score::GeneratedPlayerScore,
     typed::{
         data_type::resolved::FieldAccessType, environment::value::variable::VariableId,
         expression::resolved::Expression,
     },
-    operator::ArithmeticOperator,
-    player_score::GeneratedPlayerScore,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ResolvedPlaceExpression {
+pub enum TypedPlaceExpression {
     Variable(VariableId),
     Score(GeneratedPlayerScore),
     Data(GeneratedData),
@@ -19,7 +19,7 @@ pub enum ResolvedPlaceExpression {
     Index(Box<Self>, Expression),
 }
 
-impl ResolvedPlaceExpression {
+impl TypedPlaceExpression {
     #[must_use]
     pub fn resolve(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Expression {
         match self {

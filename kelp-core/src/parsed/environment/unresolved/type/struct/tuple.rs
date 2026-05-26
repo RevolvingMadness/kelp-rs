@@ -1,16 +1,16 @@
 use crate::parsed::environment::{
-    resolved::r#type::r#struct::tuple::ResolvedTupleStructDeclaration,
+    resolved::r#type::r#struct::tuple::SemanticTupleStructDeclaration,
     unresolved::r#type::HighGenericId,
 };
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedTupleStructDeclaration {
+pub struct ParsedTupleStructDeclaration {
     name: String,
     generic_ids: Vec<HighGenericId>,
 }
 
-impl From<ResolvedTupleStructDeclaration> for UnresolvedTupleStructDeclaration {
-    fn from(value: ResolvedTupleStructDeclaration) -> Self {
+impl From<SemanticTupleStructDeclaration> for ParsedTupleStructDeclaration {
+    fn from(value: SemanticTupleStructDeclaration) -> Self {
         Self {
             name: value.name,
             generic_ids: value.generic_ids,
@@ -18,7 +18,7 @@ impl From<ResolvedTupleStructDeclaration> for UnresolvedTupleStructDeclaration {
     }
 }
 
-impl UnresolvedTupleStructDeclaration {
+impl ParsedTupleStructDeclaration {
     #[inline]
     #[must_use]
     pub fn new(name: &str, generic_ids: Vec<HighGenericId>) -> Self {

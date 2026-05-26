@@ -2,12 +2,10 @@ use la_arena::Idx;
 
 use crate::{
     parsed::{
-        data_type::DataType,
+        data_type::ParsedDataType,
         environment::{
-            resolved::r#type::{HighGenericId, alias::ResolvedTypeAliasDeclaration},
-            unresolved::r#type::{
-                UnresolvedTypeDeclarationKind, alias::UnresolvedTypeAliasDeclaration,
-            },
+            resolved::r#type::{HighGenericId, alias::SemanticTypeAliasDeclaration},
+            unresolved::r#type::{ParsedTypeDeclarationKind, alias::ParsedTypeAliasDeclaration},
         },
         item::Item,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
@@ -21,7 +19,7 @@ pub struct TypeAliasDeclarationItem {
     pub name_span: Span,
     pub name: String,
     pub generic_names: Vec<String>,
-    pub alias: DataType,
+    pub alias: ParsedDataType,
 }
 
 impl TypeAliasDeclarationItem {
@@ -45,9 +43,9 @@ impl TypeAliasDeclarationItem {
             .iter()
             .cloned()
             .map(|generic_name| {
-                let id = ctx.declare_unresolved_type(
+                let id = ctx.declare_parsed_type(
                     Visibility::Public,
-                    UnresolvedTypeDeclarationKind::Generic(generic_name),
+                    ParsedTypeDeclarationKind::Generic(generic_name),
                 );
 
                 HighGenericId(id.0)
@@ -58,9 +56,9 @@ impl TypeAliasDeclarationItem {
 
         ctx.exit_scope();
 
-        let type_id = ctx.declare_unresolved_type(
+        let type_id = ctx.declare_parsed_type(
             visibility,
-            UnresolvedTypeDeclarationKind::Alias(UnresolvedTypeAliasDeclaration {
+            ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
                 name: self.name.clone(),
                 generic_ids,
             }),
@@ -97,7 +95,7 @@ impl TypeAliasDeclarationItem {
         ctx.declare_alias(
             id,
             visibility,
-            ResolvedTypeAliasDeclaration {
+            SemanticTypeAliasDeclaration {
                 name: self.name.clone(),
                 generic_ids: generic_ids
                     .into_iter()

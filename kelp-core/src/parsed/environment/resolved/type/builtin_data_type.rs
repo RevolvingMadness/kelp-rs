@@ -4,7 +4,7 @@ use strum::{Display, EnumIter};
 pub struct HighBuiltinTypeId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct ResolvedBuiltinTypeDeclaration {
+pub struct SemanticBuiltinTypeDeclaration {
     pub name: String,
     pub generic_count: usize,
     pub kind: BuiltinTypeKind,
@@ -31,14 +31,14 @@ pub enum BuiltinTypeKind {
 
 impl BuiltinTypeKind {
     #[must_use]
-    pub fn declaration(self) -> ResolvedBuiltinTypeDeclaration {
+    pub fn declaration(self) -> SemanticBuiltinTypeDeclaration {
         macro_rules! declaration {
             ($name:ident) => {
                 declaration!($name<0>)
             };
 
             ($name:ident<$generic_count:literal>) => {
-                ResolvedBuiltinTypeDeclaration {
+                SemanticBuiltinTypeDeclaration {
                     name: stringify!($name).to_owned(),
                     generic_count: $generic_count,
                     kind: self,

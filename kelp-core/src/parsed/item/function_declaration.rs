@@ -5,16 +5,15 @@ use la_arena::Idx;
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     parsed::{
-        data_type::DataType,
+        data_type::ParsedDataType,
         environment::{
             resolved::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
             unresolved::{
-                r#type::UnresolvedTypeDeclarationKind,
+                r#type::ParsedTypeDeclarationKind,
                 value::{
-                    UnresolvedValueDeclarationKind,
+                    ParsedValueDeclarationKind,
                     function::{
-                        UnresolvedFunctionDeclaration,
-                        regular::UnresolvedRegularFunctionDeclaration,
+                        ParsedFunctionDeclaration, regular::ParsedRegularFunctionDeclaration,
                     },
                 },
             },
@@ -29,7 +28,7 @@ use crate::{
     },
     span::Span,
     typed::{
-        data_type::unresolved::UnresolvedDataType, expression::typed::TypedExpression,
+        data_type::unresolved::SemanticDataType, expression::typed::TypedExpression,
         item::Item as MiddleItem,
     },
     visibility::Visibility,
@@ -43,8 +42,8 @@ pub struct FunctionDeclarationItem {
     pub name: String,
     pub generic_names: Vec<String>,
     pub is_method: bool,
-    pub parameters: Vec<(Idx<Pattern>, DataType)>,
-    pub return_type: DataType,
+    pub parameters: Vec<(Idx<Pattern>, ParsedDataType)>,
+    pub return_type: ParsedDataType,
     pub body: BlockExpression,
 }
 
@@ -67,9 +66,9 @@ impl FunctionDeclarationItem {
             .iter()
             .cloned()
             .map(|generic_name| {
-                let id = ctx.declare_unresolved_type(
+                let id = ctx.declare_parsed_type(
                     Visibility::Public,
-                    UnresolvedTypeDeclarationKind::Generic(generic_name),
+                    ParsedTypeDeclarationKind::Generic(generic_name),
                 );
 
                 HighGenericId(id.0)
@@ -78,14 +77,14 @@ impl FunctionDeclarationItem {
 
         ctx.declare_item_generic_ids(item_id, generic_ids.clone());
 
-        let value_id = ctx.declare_unresolved_value(
+        let value_id = ctx.declare_parsed_value(
             visibility,
-            UnresolvedValueDeclarationKind::Function(Box::new(
-                UnresolvedFunctionDeclaration::Regular(UnresolvedRegularFunctionDeclaration {
+            ParsedValueDeclarationKind::Function(Box::new(ParsedFunctionDeclaration::Regular(
+                ParsedRegularFunctionDeclaration {
                     name: self.name.clone(),
                     generic_ids,
-                }),
-            )),
+                },
+            ))),
         );
 
         ctx.declare_item_value_id(item_id, value_id);
@@ -189,11 +188,11 @@ impl FunctionDeclarationItem {
 
             if let Some(recursive_keyword_span) = self.recursive_keyword_span {
                 let all_types_are_data = {
-                    let parameter_types_valid = parameter_types.iter().all(|parameter_type| {
-                        matches!(parameter_type, UnresolvedDataType::Data(..))
-                    });
+                    let parameter_types_valid = parameter_types
+                        .iter()
+                        .all(|parameter_type| matches!(parameter_type, SemanticDataType::Data(..)));
 
-                    let return_type_valid = matches!(return_type, UnresolvedDataType::Data(..));
+                    let return_type_valid = matches!(return_type, SemanticDataType::Data(..));
 
                     parameter_types_valid && return_type_valid
                 };
@@ -266,7 +265,7 @@ impl FunctionDeclarationItem {
 
             ctx.exit_scope();
 
-            ctx.resolved_environment
+            ctx.semantic_environment
                 .update_regular_function(id, |declaration| {
                     if let FunctionContext::Regular { calls, .. } = &context {
                         declaration.calls.clone_from(calls);
@@ -298,7 +297,7 @@ impl FunctionDeclarationItem {
         }
 
         if resolved_all_parameters {
-            ctx.resolved_environment
+            ctx.semantic_environment
                 .update_regular_function(id, |declaration| {
                     declaration.parameters = resolved_parameters
                         .into_iter()

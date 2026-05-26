@@ -1,5 +1,7 @@
 use kelp_core::ast_allocator::low::LowAstAllocator;
-use kelp_core::parsed::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfoKind};
+use kelp_core::parsed::semantic_analysis::{
+    SemanticAnalysisContext, info::SemanticAnalysisInfoKind,
+};
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
@@ -192,7 +194,7 @@ impl Backend {
                             source: source.clone(),
                             message: match &info.kind {
                                 SemanticAnalysisInfoKind::Error(error) => error
-                                    .display(&semantic_analysis_context.resolved_environment)
+                                    .display(&semantic_analysis_context.semantic_environment)
                                     .to_string(),
                             },
                             ..Default::default()

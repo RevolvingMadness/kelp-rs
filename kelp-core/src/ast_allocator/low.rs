@@ -2,15 +2,15 @@ use la_arena::{Arena, ArenaMap, Idx};
 
 use crate::{
     parsed::expression::{
-        assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionId},
-        place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
+        assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
+        place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
     },
     typed::{
-        data_type::unresolved::UnresolvedDataType,
+        data_type::unresolved::SemanticDataType,
         expression::typed::{TypedExpression, TypedExpressionId},
         item::Item,
         pattern::TypedPattern,
-        statement::UnresolvedStatement,
+        statement::TypedStatement,
     },
     visibility::Visibility,
 };
@@ -18,17 +18,17 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Typed<T> {
     pub value: T,
-    pub data_type: UnresolvedDataType,
+    pub data_type: SemanticDataType,
 }
 
 pub trait TypedExt: Sized {
     #[must_use]
-    fn with_type(self, span: UnresolvedDataType) -> Typed<Self>;
+    fn with_type(self, span: SemanticDataType) -> Typed<Self>;
 }
 
 impl<T> TypedExt for T {
     #[inline]
-    fn with_type(self, span: UnresolvedDataType) -> Typed<Self> {
+    fn with_type(self, span: SemanticDataType) -> Typed<Self> {
         Typed {
             value: self,
             data_type: span,
@@ -45,11 +45,11 @@ pub struct LowAstAllocator {
 
     expressions: Arena<Typed<TypedExpression>>,
 
-    place_expressions: Arena<Typed<UnresolvedPlaceExpression>>,
+    place_expressions: Arena<Typed<ParsedPlaceExpression>>,
 
-    assignee_expressions: Arena<Typed<UnresolvedAssigneeExpression>>,
+    assignee_expressions: Arena<Typed<ParsedAssigneeExpression>>,
 
-    statements: Arena<UnresolvedStatement>,
+    statements: Arena<TypedStatement>,
 }
 
 // Items
@@ -95,7 +95,7 @@ impl LowAstAllocator {
     pub fn allocate_expression(
         &mut self,
         expression: TypedExpression,
-        data_type: UnresolvedDataType,
+        data_type: SemanticDataType,
     ) -> TypedExpressionId {
         self.expressions.alloc(expression.with_type(data_type))
     }
@@ -114,7 +114,7 @@ impl LowAstAllocator {
 
     #[inline]
     #[must_use]
-    pub fn get_expression_type(&self, id: TypedExpressionId) -> &UnresolvedDataType {
+    pub fn get_expression_type(&self, id: TypedExpressionId) -> &SemanticDataType {
         &self.get_expression(id).data_type
     }
 }
@@ -125,9 +125,9 @@ impl LowAstAllocator {
     #[must_use]
     pub fn allocate_place_expression(
         &mut self,
-        expression: UnresolvedPlaceExpression,
-        data_type: UnresolvedDataType,
-    ) -> UnresolvedPlaceExpressionId {
+        expression: ParsedPlaceExpression,
+        data_type: SemanticDataType,
+    ) -> ParsedPlaceExpressionId {
         self.place_expressions
             .alloc(expression.with_type(data_type))
     }
@@ -136,8 +136,8 @@ impl LowAstAllocator {
     #[must_use]
     pub fn get_place_expression(
         &self,
-        id: UnresolvedPlaceExpressionId,
-    ) -> &Typed<UnresolvedPlaceExpression> {
+        id: ParsedPlaceExpressionId,
+    ) -> &Typed<ParsedPlaceExpression> {
         &self.place_expressions[id]
     }
 
@@ -145,17 +145,14 @@ impl LowAstAllocator {
     #[must_use]
     pub fn get_place_expression_value(
         &self,
-        id: UnresolvedPlaceExpressionId,
-    ) -> &UnresolvedPlaceExpression {
+        id: ParsedPlaceExpressionId,
+    ) -> &ParsedPlaceExpression {
         &self.get_place_expression(id).value
     }
 
     #[inline]
     #[must_use]
-    pub fn get_place_expression_type(
-        &self,
-        id: UnresolvedPlaceExpressionId,
-    ) -> &UnresolvedDataType {
+    pub fn get_place_expression_type(&self, id: ParsedPlaceExpressionId) -> &SemanticDataType {
         &self.get_place_expression(id).data_type
     }
 }
@@ -166,9 +163,9 @@ impl LowAstAllocator {
     #[must_use]
     pub fn allocate_assignee_expression(
         &mut self,
-        expression: UnresolvedAssigneeExpression,
-        data_type: UnresolvedDataType,
-    ) -> UnresolvedAssigneeExpressionId {
+        expression: ParsedAssigneeExpression,
+        data_type: SemanticDataType,
+    ) -> ParsedAssigneeExpressionId {
         self.assignee_expressions
             .alloc(expression.with_type(data_type))
     }
@@ -177,8 +174,8 @@ impl LowAstAllocator {
     #[must_use]
     pub fn get_assignee_expression(
         &self,
-        id: UnresolvedAssigneeExpressionId,
-    ) -> &Typed<UnresolvedAssigneeExpression> {
+        id: ParsedAssigneeExpressionId,
+    ) -> &Typed<ParsedAssigneeExpression> {
         &self.assignee_expressions[id]
     }
 
@@ -186,8 +183,8 @@ impl LowAstAllocator {
     #[must_use]
     pub fn get_assignee_expression_value(
         &self,
-        id: UnresolvedAssigneeExpressionId,
-    ) -> &UnresolvedAssigneeExpression {
+        id: ParsedAssigneeExpressionId,
+    ) -> &ParsedAssigneeExpression {
         &self.get_assignee_expression(id).value
     }
 
@@ -195,8 +192,8 @@ impl LowAstAllocator {
     #[must_use]
     pub fn get_assignee_expression_type(
         &self,
-        id: UnresolvedAssigneeExpressionId,
-    ) -> &UnresolvedDataType {
+        id: ParsedAssigneeExpressionId,
+    ) -> &SemanticDataType {
         &self.get_assignee_expression(id).data_type
     }
 }
@@ -205,16 +202,13 @@ impl LowAstAllocator {
 impl LowAstAllocator {
     #[inline]
     #[must_use]
-    pub fn allocate_statement(
-        &mut self,
-        statment: UnresolvedStatement,
-    ) -> Idx<UnresolvedStatement> {
+    pub fn allocate_statement(&mut self, statment: TypedStatement) -> Idx<TypedStatement> {
         self.statements.alloc(statment)
     }
 
     #[inline]
     #[must_use]
-    pub fn get_statement(&self, id: Idx<UnresolvedStatement>) -> &UnresolvedStatement {
+    pub fn get_statement(&self, id: Idx<TypedStatement>) -> &TypedStatement {
         &self.statements[id]
     }
 }

@@ -9,8 +9,8 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    typed::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
     runtime_storage::RuntimeStorageType,
+    typed::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -35,7 +35,7 @@ impl FieldAccessType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ResolvedDataType {
+pub enum DataType {
     Boolean,
     Byte,
     Short,
@@ -63,7 +63,7 @@ pub enum ResolvedDataType {
     Coordinates,
 }
 
-impl ResolvedDataType {
+impl DataType {
     #[must_use]
     pub fn get_field_access_type(&self, environment: &Environment) -> Option<FieldAccessType> {
         Some(match self {
@@ -172,39 +172,39 @@ impl ResolvedDataType {
     }
 }
 
-pub struct ResolvedDataTypeDisplay<'a> {
-    pub data_type: &'a ResolvedDataType,
+pub struct DataTypeDisplay<'a> {
+    pub data_type: &'a DataType,
     pub environment: &'a Environment,
 }
 
-impl Display for ResolvedDataTypeDisplay<'_> {
+impl Display for DataTypeDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.data_type {
-            ResolvedDataType::Boolean => f.write_str("bool"),
-            ResolvedDataType::Byte => f.write_str("byte"),
-            ResolvedDataType::Short => f.write_str("short"),
-            ResolvedDataType::Integer => f.write_str("integer"),
-            ResolvedDataType::Long => f.write_str("long"),
-            ResolvedDataType::Float => f.write_str("float"),
-            ResolvedDataType::Double => f.write_str("double"),
-            ResolvedDataType::String => f.write_str("string"),
-            ResolvedDataType::Unit => f.write_str("()"),
-            ResolvedDataType::Never => f.write_char('!'),
-            ResolvedDataType::Score(data_type) => {
+            DataType::Boolean => f.write_str("bool"),
+            DataType::Byte => f.write_str("byte"),
+            DataType::Short => f.write_str("short"),
+            DataType::Integer => f.write_str("integer"),
+            DataType::Long => f.write_str("long"),
+            DataType::Float => f.write_str("float"),
+            DataType::Double => f.write_str("double"),
+            DataType::String => f.write_str("string"),
+            DataType::Unit => f.write_str("()"),
+            DataType::Never => f.write_char('!'),
+            DataType::Score(data_type) => {
                 f.write_str("score<")?;
                 data_type.display(self.environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            ResolvedDataType::List(data_type) => {
+            DataType::List(data_type) => {
                 f.write_str("list<")?;
                 data_type.display(self.environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            ResolvedDataType::TypedCompound(compound) => {
+            DataType::TypedCompound(compound) => {
                 f.write_char('{')?;
 
                 if !compound.is_empty() {
@@ -229,27 +229,27 @@ impl Display for ResolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            ResolvedDataType::Compound(data_type) => {
+            DataType::Compound(data_type) => {
                 f.write_str("compound<")?;
                 data_type.display(self.environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            ResolvedDataType::Data(data_type) => {
+            DataType::Data(data_type) => {
                 f.write_str("data<")?;
                 data_type.display(self.environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            ResolvedDataType::Reference(data_type) => {
+            DataType::Reference(data_type) => {
                 f.write_char('&')?;
                 data_type.display(self.environment).fmt(f)?;
 
                 Ok(())
             }
-            ResolvedDataType::Tuple(data_types) => {
+            DataType::Tuple(data_types) => {
                 f.write_char('(')?;
 
                 for (i, data_type) in data_types.iter().enumerate() {
@@ -264,7 +264,7 @@ impl Display for ResolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            ResolvedDataType::Function(id) => {
+            DataType::Function(id) => {
                 // Maybe display full path?
 
                 let (_, _, declaration) = self.environment.get_function(*id);
@@ -305,7 +305,7 @@ impl Display for ResolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            ResolvedDataType::Struct(id) => {
+            DataType::Struct(id) => {
                 // Maybe display full path?
 
                 let (_, _, declaration) = self.environment.get_struct(*id);
@@ -330,23 +330,20 @@ impl Display for ResolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            ResolvedDataType::Inferred => f.write_char('_'),
-            ResolvedDataType::InferredInteger => f.write_str("{integer}"),
-            ResolvedDataType::InferredFloat => f.write_str("{float}"),
-            ResolvedDataType::ResourceLocation => f.write_str("resource_location"),
-            ResolvedDataType::EntitySelector => f.write_str("entity_selector"),
-            ResolvedDataType::Coordinates => f.write_str("coordinates"),
+            DataType::Inferred => f.write_char('_'),
+            DataType::InferredInteger => f.write_str("{integer}"),
+            DataType::InferredFloat => f.write_str("{float}"),
+            DataType::ResourceLocation => f.write_str("resource_location"),
+            DataType::EntitySelector => f.write_str("entity_selector"),
+            DataType::Coordinates => f.write_str("coordinates"),
         }
     }
 }
 
-impl ResolvedDataType {
+impl DataType {
     #[must_use]
-    pub const fn display<'a>(
-        &'a self,
-        environment: &'a Environment,
-    ) -> ResolvedDataTypeDisplay<'a> {
-        ResolvedDataTypeDisplay {
+    pub const fn display<'a>(&'a self, environment: &'a Environment) -> DataTypeDisplay<'a> {
+        DataTypeDisplay {
             data_type: self,
             environment,
         }

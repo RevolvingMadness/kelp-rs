@@ -17,13 +17,13 @@ use crate::{
         },
         coordinate::Coordinates,
         data::DataTarget,
-        data_type::DataType,
+        data_type::ParsedDataType,
         entity_selector::EntitySelector,
         environment::resolved::r#type::r#struct::regular::HighRegularStructId,
         expression::{
-            assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionId},
+            assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
             block::BlockExpression,
-            place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
+            place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
         },
         nbt_path::ParsedNbtPath,
         pattern::Pattern,
@@ -39,7 +39,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
     typed::{
         data::TypedData,
-        data_type::unresolved::UnresolvedDataType,
+        data_type::unresolved::SemanticDataType,
         expression::typed::{TypedExpression, TypedExpressionId},
     },
 };
@@ -84,16 +84,16 @@ pub enum ParsedExpression {
     Index(ParsedExpressionId, ParsedExpressionId),
     MethodCall {
         receiver: ParsedExpressionId,
-        callee: GenericPathSegment<DataType>,
+        callee: GenericPathSegment<ParsedDataType>,
         arguments: Vec<ParsedExpressionId>,
     },
     FieldAccess(ParsedExpressionId, Span, String),
-    AsCast(ParsedExpressionId, DataType),
+    AsCast(ParsedExpressionId, ParsedDataType),
     ToCast(ParsedExpressionId, RuntimeStorageType),
     Tuple(Vec<ParsedExpressionId>),
-    Path(GenericPath<DataType>),
+    Path(GenericPath<ParsedDataType>),
     RegularStruct(
-        GenericPath<DataType>,
+        GenericPath<ParsedDataType>,
         HashMap<(Span, String), ParsedExpressionId>,
     ),
     Call {
@@ -178,14 +178,14 @@ impl ParsedExpression {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<UnresolvedPlaceExpressionId> {
+    ) -> Option<ParsedPlaceExpressionId> {
         let id = match high_allocator.get_expression_value(id) {
             Self::Path(path) => {
                 let mut path = path.clone().perform_semantic_analysis(ctx);
 
                 let id = ctx.get_visible_value_id(&path)?;
 
-                let value_declaration = ctx.get_resolved_value(id).clone();
+                let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 
@@ -197,7 +197,7 @@ impl ParsedExpression {
                 )?;
 
                 low_allocator.allocate_place_expression(
-                    UnresolvedPlaceExpression::Value(id, last_segment.generic_types),
+                    ParsedPlaceExpression::Value(id, last_segment.generic_types),
                     data_type,
                 )
             }
@@ -208,8 +208,8 @@ impl ParsedExpression {
                         .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 low_allocator.allocate_place_expression(
-                    UnresolvedPlaceExpression::Score(score),
-                    UnresolvedDataType::Score(Box::new(UnresolvedDataType::Integer)),
+                    ParsedPlaceExpression::Score(score),
+                    SemanticDataType::Score(Box::new(SemanticDataType::Integer)),
                 )
             }
             Self::Data(target_path) => {
@@ -224,8 +224,8 @@ impl ParsedExpression {
                         .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 low_allocator.allocate_place_expression(
-                    UnresolvedPlaceExpression::Data(Box::new(TypedData { target, path })),
-                    UnresolvedDataType::Data(Box::new(UnresolvedDataType::Inferred)),
+                    ParsedPlaceExpression::Data(Box::new(TypedData { target, path })),
+                    SemanticDataType::Data(Box::new(SemanticDataType::Inferred)),
                 )
             }
             Self::FieldAccess(target, field_span, field) => {
@@ -238,7 +238,7 @@ impl ParsedExpression {
                     target_type.get_field_result_semantic_analysis(ctx, *field_span, field)?;
 
                 low_allocator.allocate_place_expression(
-                    UnresolvedPlaceExpression::FieldAccess(target, field.clone()),
+                    ParsedPlaceExpression::FieldAccess(target, field.clone()),
                     field_type,
                 )
             }
@@ -261,7 +261,7 @@ impl ParsedExpression {
                     target_type.get_index_result_semantic_analysis(ctx, target_span, index_type)?;
 
                 low_allocator.allocate_place_expression(
-                    UnresolvedPlaceExpression::Index(target, index),
+                    ParsedPlaceExpression::Index(target, index),
                     index_type,
                 )
             }
@@ -281,7 +281,7 @@ impl ParsedExpression {
                     .get_dereferenced_result_semantic_analysis(ctx, place_span)?;
 
                 low_allocator.allocate_place_expression(
-                    UnresolvedPlaceExpression::Dereference(place),
+                    ParsedPlaceExpression::Dereference(place),
                     dereferenced_type,
                 )
             }
@@ -301,7 +301,7 @@ impl ParsedExpression {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<UnresolvedAssigneeExpressionId> {
+    ) -> Option<ParsedAssigneeExpressionId> {
         Some(match high_allocator.get_expression_value(id) {
             Self::Tuple(expressions) => {
                 let (data_types, expressions) = expressions
@@ -325,13 +325,13 @@ impl ParsedExpression {
                     .unzip();
 
                 low_allocator.allocate_assignee_expression(
-                    UnresolvedAssigneeExpression::Tuple(expressions),
-                    UnresolvedDataType::Tuple(data_types),
+                    ParsedAssigneeExpression::Tuple(expressions),
+                    SemanticDataType::Tuple(data_types),
                 )
             }
             Self::Underscore => low_allocator.allocate_assignee_expression(
-                UnresolvedAssigneeExpression::Underscore,
-                UnresolvedDataType::Inferred,
+                ParsedAssigneeExpression::Underscore,
+                SemanticDataType::Inferred,
             ),
             _ => {
                 let place =
@@ -340,7 +340,7 @@ impl ParsedExpression {
                 let place_type = low_allocator.get_place_expression_type(place);
 
                 low_allocator.allocate_assignee_expression(
-                    UnresolvedAssigneeExpression::Place(place),
+                    ParsedAssigneeExpression::Place(place),
                     place_type.clone(),
                 )
             }
@@ -414,7 +414,7 @@ impl ParsedExpression {
 
                     low_allocator.allocate_expression(
                         TypedExpression::Reference(place),
-                        UnresolvedDataType::Reference(Box::new(place_type.clone())),
+                        SemanticDataType::Reference(Box::new(place_type.clone())),
                     )
                 }
                 UnaryOperator::Dereference => {
@@ -483,7 +483,7 @@ impl ParsedExpression {
                 let left_type = low_allocator.get_expression_type(left);
                 let right_type = low_allocator.get_expression_type(right);
 
-                if !left_type.can_perform_comparison(&ctx.environment, operator, right_type) {
+                if !left_type.can_perform_comparison(operator, right_type) {
                     let span = high_allocator.get_expression_span(id);
 
                     return ctx.add_error(
@@ -498,7 +498,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Comparison(left, operator, right),
-                    UnresolvedDataType::Boolean,
+                    SemanticDataType::Boolean,
                 )
             }
             Self::Logical(left, operator, right) => {
@@ -521,14 +521,14 @@ impl ParsedExpression {
                 let mut failed = false;
 
                 if left_type
-                    .assert_equals(ctx, left_span, &UnresolvedDataType::Boolean)
+                    .assert_equals(ctx, left_span, &SemanticDataType::Boolean)
                     .is_none()
                 {
                     failed = true;
                 }
 
                 if right_type
-                    .assert_equals(ctx, right_span, &UnresolvedDataType::Boolean)
+                    .assert_equals(ctx, right_span, &SemanticDataType::Boolean)
                     .is_none()
                 {
                     failed = true;
@@ -540,7 +540,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Logical(left, operator, right),
-                    UnresolvedDataType::Boolean,
+                    SemanticDataType::Boolean,
                 )
             }
             Self::AugmentedAssignment(target, operator_span, operator, value) => {
@@ -571,7 +571,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::AugmentedAssignment(target, operator, value),
-                    UnresolvedDataType::Unit,
+                    SemanticDataType::Unit,
                 )
             }
             Self::Assignment(target, value) => {
@@ -592,7 +592,7 @@ impl ParsedExpression {
 
                 let value_type = low_allocator.get_expression_type(value);
 
-                UnresolvedAssigneeExpression::perform_assignment_semantic_analysis(
+                ParsedAssigneeExpression::perform_assignment_semantic_analysis(
                     target,
                     low_allocator,
                     ctx,
@@ -602,7 +602,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Assignment(target, value),
-                    UnresolvedDataType::Unit,
+                    SemanticDataType::Unit,
                 )
             }
             Self::List(expressions) => {
@@ -659,7 +659,7 @@ impl ParsedExpression {
 
                         element_type
                     } else {
-                        UnresolvedDataType::Inferred
+                        SemanticDataType::Inferred
                     };
 
                 let expressions = expressions
@@ -669,7 +669,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::List(expressions),
-                    UnresolvedDataType::List(Box::new(element_type)),
+                    SemanticDataType::List(Box::new(element_type)),
                 )
             }
             Self::Compound(compound_values) => {
@@ -698,7 +698,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Compound(compound_values),
-                    UnresolvedDataType::TypedCompound(compound_data_types),
+                    SemanticDataType::TypedCompound(compound_data_types),
                 )
             }
             Self::PlayerScore(score) => {
@@ -709,7 +709,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Score(score),
-                    UnresolvedDataType::Score(Box::new(UnresolvedDataType::Integer)),
+                    SemanticDataType::Score(Box::new(SemanticDataType::Integer)),
                 )
             }
             Self::Data(target_path) => {
@@ -728,7 +728,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Data(Box::new(TypedData { target, path })),
-                    UnresolvedDataType::Data(Box::new(UnresolvedDataType::Inferred)),
+                    SemanticDataType::Data(Box::new(SemanticDataType::Inferred)),
                 )
             }
             Self::Condition(inverted, condition) => {
@@ -742,7 +742,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Condition(inverted, Box::new(condition)),
-                    UnresolvedDataType::Boolean,
+                    SemanticDataType::Boolean,
                 )
             }
             Self::Command(command) => {
@@ -754,7 +754,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Command(Box::new(command)),
-                    UnresolvedDataType::Integer,
+                    SemanticDataType::Integer,
                 )
             }
             Self::Index(target, index) => {
@@ -878,11 +878,11 @@ impl ParsedExpression {
                             );
                         }
 
-                        UnresolvedDataType::Score(Box::new(expression_type.clone()))
+                        SemanticDataType::Score(Box::new(expression_type.clone()))
                     }
                     RuntimeStorageType::Data => {
                         let Some(data_type) =
-                            expression_type.get_data_type(&ctx.resolved_environment)
+                            expression_type.get_data_type(&ctx.semantic_environment)
                         else {
                             return ctx.add_error(
                                 expression_span,
@@ -892,7 +892,7 @@ impl ParsedExpression {
                             );
                         };
 
-                        UnresolvedDataType::Data(Box::new(data_type))
+                        SemanticDataType::Data(Box::new(data_type))
                     }
                 };
 
@@ -923,7 +923,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Tuple(expressions),
-                    UnresolvedDataType::Tuple(expression_types),
+                    SemanticDataType::Tuple(expression_types),
                 )
             }
             Self::RegularStruct(path, field_values) => {
@@ -939,7 +939,7 @@ impl ParsedExpression {
                 let id = HighRegularStructId(id.0);
 
                 let data_type =
-                    UnresolvedDataType::Struct(id.into(), last_segment.generic_types.clone());
+                    SemanticDataType::Struct(id.into(), last_segment.generic_types.clone());
 
                 let generic_ids = declaration.generic_ids.clone();
                 let field_types = declaration.field_types.clone();
@@ -1039,7 +1039,7 @@ impl ParsedExpression {
 
                 let callee_type = low_allocator.get_expression_type(callee);
 
-                let Some(call_info) = callee_type.get_call_info(&ctx.resolved_environment)? else {
+                let Some(call_info) = callee_type.get_call_info(&ctx.semantic_environment)? else {
                     return ctx
                         .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
                 };
@@ -1156,10 +1156,10 @@ impl ParsedExpression {
                     body_type.assert_equals(
                         ctx,
                         tail_expression_span.unwrap_or(body_span),
-                        &UnresolvedDataType::Unit,
+                        &SemanticDataType::Unit,
                     )?;
 
-                    &UnresolvedDataType::Unit
+                    &SemanticDataType::Unit
                 };
 
                 let data_type = body_type.clone().reduce(else_type).unwrap();
@@ -1204,7 +1204,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::WhileLoop(condition, body),
-                    UnresolvedDataType::Unit,
+                    SemanticDataType::Unit,
                 )
             }
             Self::Loop(body) => {
@@ -1217,7 +1217,7 @@ impl ParsedExpression {
                 let (_, _, body) = body?;
 
                 low_allocator
-                    .allocate_expression(TypedExpression::Loop(body), UnresolvedDataType::Unit)
+                    .allocate_expression(TypedExpression::Loop(body), SemanticDataType::Unit)
             }
             Self::ForLoop(reversed, pattern, iterable, body) => {
                 let reversed = *reversed;
@@ -1270,7 +1270,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::ForLoop(reversed, pattern, iterable, body),
-                    UnresolvedDataType::Unit,
+                    SemanticDataType::Unit,
                 )
             }
             Self::Path(path) => {
@@ -1278,7 +1278,7 @@ impl ParsedExpression {
 
                 let id = ctx.get_visible_value_id(&path)?;
 
-                let value_declaration = ctx.get_resolved_value(id).clone();
+                let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 
@@ -1294,35 +1294,31 @@ impl ParsedExpression {
                     data_type,
                 )
             }
-            Self::Boolean(value) => low_allocator.allocate_expression(
-                TypedExpression::Boolean(*value),
-                UnresolvedDataType::Boolean,
-            ),
+            Self::Boolean(value) => low_allocator
+                .allocate_expression(TypedExpression::Boolean(*value), SemanticDataType::Boolean),
             Self::Byte(value) => low_allocator
-                .allocate_expression(TypedExpression::Byte(*value), UnresolvedDataType::Byte),
+                .allocate_expression(TypedExpression::Byte(*value), SemanticDataType::Byte),
             Self::Short(value) => low_allocator
-                .allocate_expression(TypedExpression::Short(*value), UnresolvedDataType::Short),
-            Self::Integer(value) => low_allocator.allocate_expression(
-                TypedExpression::Integer(*value),
-                UnresolvedDataType::Integer,
-            ),
+                .allocate_expression(TypedExpression::Short(*value), SemanticDataType::Short),
+            Self::Integer(value) => low_allocator
+                .allocate_expression(TypedExpression::Integer(*value), SemanticDataType::Integer),
             Self::InferredInteger(value) => low_allocator.allocate_expression(
                 TypedExpression::InferredInteger(*value),
-                UnresolvedDataType::InferredInteger,
+                SemanticDataType::InferredInteger,
             ),
             Self::Long(value) => low_allocator
-                .allocate_expression(TypedExpression::Long(*value), UnresolvedDataType::Long),
+                .allocate_expression(TypedExpression::Long(*value), SemanticDataType::Long),
             Self::Float(value) => low_allocator
-                .allocate_expression(TypedExpression::Float(*value), UnresolvedDataType::Float),
+                .allocate_expression(TypedExpression::Float(*value), SemanticDataType::Float),
             Self::InferredFloat(value) => low_allocator.allocate_expression(
                 TypedExpression::InferredFloat(*value),
-                UnresolvedDataType::InferredFloat,
+                SemanticDataType::InferredFloat,
             ),
             Self::Double(value) => low_allocator
-                .allocate_expression(TypedExpression::Double(*value), UnresolvedDataType::Double),
+                .allocate_expression(TypedExpression::Double(*value), SemanticDataType::Double),
             Self::String(value) => low_allocator.allocate_expression(
                 TypedExpression::String(value.clone()),
-                UnresolvedDataType::String,
+                SemanticDataType::String,
             ),
             Self::Underscore => {
                 let span = high_allocator.get_expression_span(id);
@@ -1330,7 +1326,7 @@ impl ParsedExpression {
                 return ctx.add_error(span, SemanticAnalysisError::UnderscoreExpression);
             }
             Self::Unit => {
-                low_allocator.allocate_expression(TypedExpression::Unit, UnresolvedDataType::Unit)
+                low_allocator.allocate_expression(TypedExpression::Unit, SemanticDataType::Unit)
             }
             Self::ResourceLocation(resource_location) => {
                 let resource_location = resource_location.clone().perform_semantic_analysis(
@@ -1341,7 +1337,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::ResourceLocation(Box::new(resource_location)),
-                    UnresolvedDataType::ResourceLocation,
+                    SemanticDataType::ResourceLocation,
                 )
             }
             Self::EntitySelector(selector) => {
@@ -1353,7 +1349,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::EntitySelector(Box::new(selector)),
-                    UnresolvedDataType::EntitySelector,
+                    SemanticDataType::EntitySelector,
                 )
             }
             Self::Coordinates(coordinates) => {
@@ -1365,7 +1361,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Coordinates(Box::new(coordinates)),
-                    UnresolvedDataType::Coordinates,
+                    SemanticDataType::Coordinates,
                 )
             }
             Self::Return(keyword_span, expression_span, expression) => {
@@ -1377,7 +1373,7 @@ impl ParsedExpression {
                         ctx,
                     )?,
                     None => low_allocator
-                        .allocate_expression(TypedExpression::Unit, UnresolvedDataType::Unit),
+                        .allocate_expression(TypedExpression::Unit, SemanticDataType::Unit),
                 };
 
                 let expression_type = low_allocator.get_expression_type(expression);
@@ -1409,7 +1405,7 @@ impl ParsedExpression {
 
                 low_allocator.allocate_expression(
                     TypedExpression::Return(expression),
-                    UnresolvedDataType::Never,
+                    SemanticDataType::Never,
                 )
             }
         })

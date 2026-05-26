@@ -8,25 +8,22 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
     parsed::{
         environment::resolved::{
-            ResolvedEnvironment,
+            SemanticEnvironment,
             r#type::{
                 HighGenericId,
                 r#struct::{
-                    HighStructId, ResolvedStructDeclaration, regular::HighRegularStructId,
+                    HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
                     tuple::HighTupleStructId,
                 },
             },
-            value::function::{HighFunctionId, ResolvedFunctionDeclaration},
+            value::function::{HighFunctionId, SemanticFunctionDeclaration},
         },
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     span::Span,
     typed::{
-        data_type::resolved::ResolvedDataType,
-        environment::{
-            Environment,
-            r#type::r#struct::{RegularStructId, StructId, TupleStructId},
-        },
+        data_type::resolved::DataType,
+        environment::r#type::r#struct::{RegularStructId, StructId, TupleStructId},
     },
     visibility::Visibility,
 };
@@ -39,36 +36,36 @@ pub enum WrapperType {
 
 impl WrapperType {
     #[must_use]
-    pub fn wrap(self, data_type: UnresolvedDataType) -> UnresolvedDataType {
+    pub fn wrap(self, data_type: SemanticDataType) -> SemanticDataType {
         match self {
-            Self::Data => UnresolvedDataType::Data(Box::new(data_type)),
-            Self::Reference => UnresolvedDataType::Reference(Box::new(data_type)),
+            Self::Data => SemanticDataType::Data(Box::new(data_type)),
+            Self::Reference => SemanticDataType::Reference(Box::new(data_type)),
         }
     }
 }
 
 macro_rules! check_error {
     (bool, $($expr:expr),+) => {
-        if false $(|| matches!($expr, UnresolvedDataType::Error))* {
+        if false $(|| matches!($expr, SemanticDataType::Error))* {
             return true;
         }
     };
 
     (result, $($expr:expr),+) => {
-        if false $(|| matches!($expr, UnresolvedDataType::Error))* {
-            return Ok(UnresolvedDataType::Error);
+        if false $(|| matches!($expr, SemanticDataType::Error))* {
+            return Ok(SemanticDataType::Error);
         }
     };
 
     (tuple, $($expr:expr),+) => {
-        if false $(|| matches!($expr, UnresolvedDataType::Error))* {
-            return Some((UnresolvedDataType::Error, UnresolvedDataType::Error));
+        if false $(|| matches!($expr, SemanticDataType::Error))* {
+            return Some((SemanticDataType::Error, SemanticDataType::Error));
         }
     };
 
     ($($expr:expr),+) => {
-        if false $(|| matches!($expr, UnresolvedDataType::Error))* {
-            return Some(UnresolvedDataType::Error);
+        if false $(|| matches!($expr, SemanticDataType::Error))* {
+            return Some(SemanticDataType::Error);
         }
     };
 }
@@ -77,43 +74,43 @@ macro_rules! check_error {
 pub struct CallInfo {
     pub id: Option<HighFunctionId>,
     pub name: Option<String>,
-    pub parameter_types: Vec<UnresolvedDataType>,
-    pub return_type: UnresolvedDataType,
+    pub parameter_types: Vec<SemanticDataType>,
+    pub return_type: SemanticDataType,
 }
 
-pub struct UnresolvedDataTypeDisplay<'a> {
-    pub data_type: &'a UnresolvedDataType,
-    pub resolved_environment: &'a ResolvedEnvironment,
+pub struct SemanticDataTypeDisplay<'a> {
+    pub data_type: &'a SemanticDataType,
+    pub resolved_environment: &'a SemanticEnvironment,
 }
 
-impl Display for UnresolvedDataTypeDisplay<'_> {
+impl Display for SemanticDataTypeDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.data_type {
-            UnresolvedDataType::Boolean => f.write_str("bool"),
-            UnresolvedDataType::Byte => f.write_str("byte"),
-            UnresolvedDataType::Short => f.write_str("short"),
-            UnresolvedDataType::Integer => f.write_str("integer"),
-            UnresolvedDataType::Long => f.write_str("long"),
-            UnresolvedDataType::Float => f.write_str("float"),
-            UnresolvedDataType::Double => f.write_str("double"),
-            UnresolvedDataType::String => f.write_str("string"),
-            UnresolvedDataType::Unit => f.write_str("()"),
-            UnresolvedDataType::Never => f.write_char('!'),
-            UnresolvedDataType::Score(data_type) => {
+            SemanticDataType::Boolean => f.write_str("bool"),
+            SemanticDataType::Byte => f.write_str("byte"),
+            SemanticDataType::Short => f.write_str("short"),
+            SemanticDataType::Integer => f.write_str("integer"),
+            SemanticDataType::Long => f.write_str("long"),
+            SemanticDataType::Float => f.write_str("float"),
+            SemanticDataType::Double => f.write_str("double"),
+            SemanticDataType::String => f.write_str("string"),
+            SemanticDataType::Unit => f.write_str("()"),
+            SemanticDataType::Never => f.write_char('!'),
+            SemanticDataType::Score(data_type) => {
                 f.write_str("score<")?;
                 data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            UnresolvedDataType::List(data_type) => {
+            SemanticDataType::List(data_type) => {
                 f.write_str("list<")?;
                 data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            UnresolvedDataType::TypedCompound(compound) => {
+            SemanticDataType::TypedCompound(compound) => {
                 f.write_char('{')?;
 
                 if !compound.is_empty() {
@@ -138,27 +135,27 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            UnresolvedDataType::Compound(data_type) => {
+            SemanticDataType::Compound(data_type) => {
                 f.write_str("compound<")?;
                 data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            UnresolvedDataType::Data(data_type) => {
+            SemanticDataType::Data(data_type) => {
                 f.write_str("data<")?;
                 data_type.display(self.resolved_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
-            UnresolvedDataType::Reference(data_type) => {
+            SemanticDataType::Reference(data_type) => {
                 f.write_char('&')?;
                 data_type.display(self.resolved_environment).fmt(f)?;
 
                 Ok(())
             }
-            UnresolvedDataType::Tuple(data_types) => {
+            SemanticDataType::Tuple(data_types) => {
                 f.write_char('(')?;
 
                 for (i, data_type) in data_types.iter().enumerate() {
@@ -173,12 +170,12 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            UnresolvedDataType::Generic(id) => {
+            SemanticDataType::Generic(id) => {
                 let (_, _, name) = self.resolved_environment.get_generic(*id);
 
                 name.fmt(f)
             }
-            UnresolvedDataType::Function(id, generic_types) => {
+            SemanticDataType::Function(id, generic_types) => {
                 // Maybe display full path?
 
                 let (_, _, declaration) = self.resolved_environment.get_function(*id);
@@ -217,7 +214,7 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            UnresolvedDataType::Struct(id, generic_types) => {
+            SemanticDataType::Struct(id, generic_types) => {
                 // Maybe display full path?
 
                 let (_, _, declaration) = self.resolved_environment.get_struct(*id);
@@ -240,19 +237,19 @@ impl Display for UnresolvedDataTypeDisplay<'_> {
 
                 Ok(())
             }
-            UnresolvedDataType::Inferred => f.write_char('_'),
-            UnresolvedDataType::InferredInteger => f.write_str("{integer}"),
-            UnresolvedDataType::InferredFloat => f.write_str("{float}"),
-            UnresolvedDataType::ResourceLocation => f.write_str("resource_location"),
-            UnresolvedDataType::EntitySelector => f.write_str("entity_selector"),
-            UnresolvedDataType::Coordinates => f.write_str("coordinates"),
-            UnresolvedDataType::Error => f.write_str("{error}"),
+            SemanticDataType::Inferred => f.write_char('_'),
+            SemanticDataType::InferredInteger => f.write_str("{integer}"),
+            SemanticDataType::InferredFloat => f.write_str("{float}"),
+            SemanticDataType::ResourceLocation => f.write_str("resource_location"),
+            SemanticDataType::EntitySelector => f.write_str("entity_selector"),
+            SemanticDataType::Coordinates => f.write_str("coordinates"),
+            SemanticDataType::Error => f.write_str("{error}"),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum UnresolvedDataType {
+pub enum SemanticDataType {
     Boolean,
     Byte,
     Short,
@@ -282,7 +279,7 @@ pub enum UnresolvedDataType {
     Error,
 }
 
-impl UnresolvedDataType {
+impl SemanticDataType {
     #[must_use]
     pub fn unwrap(&self) -> (Vec<WrapperType>, &Self) {
         let mut wrappers = Vec::new();
@@ -406,7 +403,7 @@ impl UnresolvedDataType {
         };
 
         match declaration {
-            ResolvedStructDeclaration::Struct(declaration) => {
+            SemanticStructDeclaration::Struct(declaration) => {
                 let id = HighRegularStructId(id.0);
 
                 Self::inner_resolve_regular_struct(
@@ -421,7 +418,7 @@ impl UnresolvedDataType {
                 )
                 .into()
             }
-            ResolvedStructDeclaration::Tuple(declaration) => {
+            SemanticStructDeclaration::Tuple(declaration) => {
                 let id = HighTupleStructId(id.0);
 
                 Self::inner_resolve_tuple_struct(
@@ -588,27 +585,27 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack) -> Option<ResolvedDataType> {
+    pub fn resolve(self, datapack: &mut Datapack) -> Option<DataType> {
         Some(match self {
-            Self::Boolean => ResolvedDataType::Boolean,
-            Self::Byte => ResolvedDataType::Byte,
-            Self::Short => ResolvedDataType::Short,
-            Self::Integer => ResolvedDataType::Integer,
-            Self::Long => ResolvedDataType::Long,
-            Self::Float => ResolvedDataType::Float,
-            Self::Double => ResolvedDataType::Double,
-            Self::String => ResolvedDataType::String,
-            Self::Unit => ResolvedDataType::Unit,
-            Self::Never => ResolvedDataType::Never,
+            Self::Boolean => DataType::Boolean,
+            Self::Byte => DataType::Byte,
+            Self::Short => DataType::Short,
+            Self::Integer => DataType::Integer,
+            Self::Long => DataType::Long,
+            Self::Float => DataType::Float,
+            Self::Double => DataType::Double,
+            Self::String => DataType::String,
+            Self::Unit => DataType::Unit,
+            Self::Never => DataType::Never,
             Self::Score(data_type) => {
                 let data_type = data_type.resolve(datapack)?;
 
-                ResolvedDataType::Score(Box::new(data_type))
+                DataType::Score(Box::new(data_type))
             }
             Self::List(data_type) => {
                 let data_type = data_type.resolve(datapack)?;
 
-                ResolvedDataType::List(Box::new(data_type))
+                DataType::List(Box::new(data_type))
             }
             Self::TypedCompound(compound) => {
                 let compound = compound
@@ -620,22 +617,22 @@ impl UnresolvedDataType {
                     })
                     .collect::<Option<_>>()?;
 
-                ResolvedDataType::TypedCompound(compound)
+                DataType::TypedCompound(compound)
             }
             Self::Compound(data_type) => {
                 let data_type = data_type.resolve(datapack)?;
 
-                ResolvedDataType::Compound(Box::new(data_type))
+                DataType::Compound(Box::new(data_type))
             }
             Self::Data(data_type) => {
                 let data_type = data_type.resolve(datapack)?;
 
-                ResolvedDataType::Data(Box::new(data_type))
+                DataType::Data(Box::new(data_type))
             }
             Self::Reference(data_type) => {
                 let data_type = data_type.resolve(datapack)?;
 
-                ResolvedDataType::Reference(Box::new(data_type))
+                DataType::Reference(Box::new(data_type))
             }
             Self::Tuple(data_types) => {
                 let data_types = data_types
@@ -643,25 +640,25 @@ impl UnresolvedDataType {
                     .map(|data_type| data_type.resolve(datapack))
                     .collect::<Option<_>>()?;
 
-                ResolvedDataType::Tuple(data_types)
+                DataType::Tuple(data_types)
             }
             Self::Generic(id) => return datapack.resolve_generic(id),
             Self::Function(id, generic_types) => {
                 let id = datapack.get_monomorphized_function_id(id, &generic_types);
 
-                ResolvedDataType::Function(id)
+                DataType::Function(id)
             }
             Self::Struct(id, generic_types) => {
                 let id = Self::resolve_struct(datapack, id, generic_types);
 
-                ResolvedDataType::Struct(id)
+                DataType::Struct(id)
             }
-            Self::Inferred => ResolvedDataType::Inferred,
-            Self::InferredInteger => ResolvedDataType::InferredInteger,
-            Self::InferredFloat => ResolvedDataType::InferredFloat,
-            Self::ResourceLocation => ResolvedDataType::ResourceLocation,
-            Self::EntitySelector => ResolvedDataType::EntitySelector,
-            Self::Coordinates => ResolvedDataType::Coordinates,
+            Self::Inferred => DataType::Inferred,
+            Self::InferredInteger => DataType::InferredInteger,
+            Self::InferredFloat => DataType::InferredFloat,
+            Self::ResourceLocation => DataType::ResourceLocation,
+            Self::EntitySelector => DataType::EntitySelector,
+            Self::Coordinates => DataType::Coordinates,
             Self::Error => return None,
         })
     }
@@ -669,7 +666,7 @@ impl UnresolvedDataType {
     #[must_use]
     pub fn get_call_info(
         &self,
-        resolved_environment: &ResolvedEnvironment,
+        resolved_environment: &SemanticEnvironment,
     ) -> Option<Option<CallInfo>> {
         Some(Some(match self {
             Self::Error => return None,
@@ -678,7 +675,7 @@ impl UnresolvedDataType {
                 let (_, _, declaration) = resolved_environment.get_function(*id);
 
                 match declaration {
-                    ResolvedFunctionDeclaration::Regular(declaration) => CallInfo {
+                    SemanticFunctionDeclaration::Regular(declaration) => CallInfo {
                         id: Some(*id),
                         name: Some(declaration.name.clone()),
                         parameter_types: declaration
@@ -695,7 +692,7 @@ impl UnresolvedDataType {
                             .clone()
                             .substitute_generics(&declaration.generic_ids, generic_types),
                     },
-                    ResolvedFunctionDeclaration::Builtin(declaration) => CallInfo {
+                    SemanticFunctionDeclaration::Builtin(declaration) => CallInfo {
                         id: None,
                         name: Some(declaration.name.clone()),
                         parameter_types: declaration
@@ -867,16 +864,16 @@ impl UnresolvedDataType {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        resolved_environment: &'a ResolvedEnvironment,
-    ) -> UnresolvedDataTypeDisplay<'a> {
-        UnresolvedDataTypeDisplay {
+        resolved_environment: &'a SemanticEnvironment,
+    ) -> SemanticDataTypeDisplay<'a> {
+        SemanticDataTypeDisplay {
             data_type: self,
             resolved_environment,
         }
     }
 }
 
-impl UnresolvedDataType {
+impl SemanticDataType {
     #[must_use]
     pub const fn is_integer_like(&self) -> bool {
         self.is_restricted_integer_like() || matches!(self, Self::Long)
@@ -1041,7 +1038,7 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    pub fn get_data_type(&self, resolved_environment: &ResolvedEnvironment) -> Option<Self> {
+    pub fn get_data_type(&self, resolved_environment: &SemanticEnvironment) -> Option<Self> {
         check_error!(self);
 
         Some(match self {
@@ -1098,7 +1095,7 @@ impl UnresolvedDataType {
                 let (_, _, declaration) = resolved_environment.get_struct(*id);
 
                 match declaration {
-                    ResolvedStructDeclaration::Struct(declaration) => {
+                    SemanticStructDeclaration::Struct(declaration) => {
                         let compound = declaration
                             .field_types
                             .iter()
@@ -1114,7 +1111,7 @@ impl UnresolvedDataType {
 
                         Self::TypedCompound(compound)
                     }
-                    ResolvedStructDeclaration::Tuple(declaration) => {
+                    SemanticStructDeclaration::Tuple(declaration) => {
                         let data_types = declaration
                             .field_types
                             .iter()
@@ -1244,12 +1241,7 @@ impl UnresolvedDataType {
     }
 
     #[must_use]
-    fn raw_can_perform_comparison(
-        &self,
-        environment: &Environment,
-        operator: ComparisonOperator,
-        other: &Self,
-    ) -> bool {
+    fn raw_can_perform_comparison(&self, operator: ComparisonOperator, other: &Self) -> bool {
         check_error!(bool, self, other);
 
         if self.is_numeric() && other.is_numeric() {
@@ -1260,26 +1252,21 @@ impl UnresolvedDataType {
             (Self::Score(inner), other_type) | (other_type, Self::Score(inner))
                 if inner.can_be_assigned_to_score() && other_type.can_be_assigned_to_score() =>
             {
-                inner.can_perform_comparison(environment, operator, other_type)
+                inner.can_perform_comparison(operator, other_type)
             }
             (Self::Data(inner), other) | (other, Self::Data(inner))
                 if (operator == ComparisonOperator::EqualTo
                     || operator == ComparisonOperator::NotEqualTo)
                     || (inner.can_be_assigned_to_score() && other.can_be_assigned_to_score()) =>
             {
-                inner.can_perform_comparison(environment, operator, other)
+                inner.can_perform_comparison(operator, other)
             }
             _ => false,
         }
     }
 
     #[must_use]
-    pub fn can_perform_comparison(
-        &self,
-        environment: &Environment,
-        operator: ComparisonOperator,
-        other: &Self,
-    ) -> bool {
+    pub fn can_perform_comparison(&self, operator: ComparisonOperator, other: &Self) -> bool {
         if (operator == ComparisonOperator::EqualTo || operator == ComparisonOperator::NotEqualTo)
             && self.equals(other)
         {
@@ -1288,10 +1275,10 @@ impl UnresolvedDataType {
 
         match (self, other) {
             (Self::Reference(data_type), other) | (other, Self::Reference(data_type)) => {
-                data_type.raw_can_perform_comparison(environment, operator, other)
+                data_type.raw_can_perform_comparison(operator, other)
             }
 
-            _ => self.raw_can_perform_comparison(environment, operator, other),
+            _ => self.raw_can_perform_comparison(operator, other),
         }
     }
 
@@ -1345,7 +1332,7 @@ impl UnresolvedDataType {
 
     fn get_field_result(
         &self,
-        resolved_environment: &ResolvedEnvironment,
+        resolved_environment: &SemanticEnvironment,
         field: &str,
     ) -> Option<Self> {
         check_error!(self);
@@ -1403,7 +1390,7 @@ impl UnresolvedDataType {
             );
         }
 
-        match self.get_field_result(&ctx.resolved_environment, field) {
+        match self.get_field_result(&ctx.semantic_environment, field) {
             Some(result) => Some(result),
             None => ctx.add_error(
                 span,
@@ -1528,7 +1515,7 @@ impl UnresolvedDataType {
     }
 }
 
-impl UnresolvedDataType {
+impl SemanticDataType {
     #[must_use]
     pub fn assert_runtime_value_mutation_in_runtime_loop(
         &self,
@@ -1609,7 +1596,7 @@ impl UnresolvedDataType {
         ctx: &mut SemanticAnalysisContext,
         span: Span,
     ) -> Option<()> {
-        if self.get_data_type(&ctx.resolved_environment).is_some() {
+        if self.get_data_type(&ctx.semantic_environment).is_some() {
             return Some(());
         }
 

@@ -1,8 +1,8 @@
 use crate::{
     parsed::environment::{
-        resolved::value::ResolvedValueDeclarationKind,
+        resolved::value::SemanticValueDeclarationKind,
         unresolved::value::{
-            function::UnresolvedFunctionDeclaration, variable::UnresolvedVariableDeclaration,
+            function::ParsedFunctionDeclaration, variable::ParsedVariableDeclaration,
         },
     },
     visibility::Visibility,
@@ -12,25 +12,25 @@ pub mod function;
 pub mod variable;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedValueDeclarationKind {
-    Variable(UnresolvedVariableDeclaration),
-    Function(Box<UnresolvedFunctionDeclaration>),
+pub enum ParsedValueDeclarationKind {
+    Variable(ParsedVariableDeclaration),
+    Function(Box<ParsedFunctionDeclaration>),
 }
 
-impl From<ResolvedValueDeclarationKind> for UnresolvedValueDeclarationKind {
-    fn from(value: ResolvedValueDeclarationKind) -> Self {
+impl From<SemanticValueDeclarationKind> for ParsedValueDeclarationKind {
+    fn from(value: SemanticValueDeclarationKind) -> Self {
         match value {
-            ResolvedValueDeclarationKind::Variable(declaration) => {
+            SemanticValueDeclarationKind::Variable(declaration) => {
                 Self::Variable(declaration.into())
             }
-            ResolvedValueDeclarationKind::Function(declaration) => {
+            SemanticValueDeclarationKind::Function(declaration) => {
                 Self::Function(Box::new((*declaration).into()))
             }
         }
     }
 }
 
-impl UnresolvedValueDeclarationKind {
+impl ParsedValueDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -41,13 +41,13 @@ impl UnresolvedValueDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedValueDeclaration {
+pub struct ParsedValueDeclaration {
     pub visibility: Visibility,
     pub module_path: Vec<String>,
-    pub kind: UnresolvedValueDeclarationKind,
+    pub kind: ParsedValueDeclarationKind,
 }
 
-impl UnresolvedValueDeclaration {
+impl ParsedValueDeclaration {
     #[must_use]
     pub fn is_visible(&self, current_module_path: &[String]) -> bool {
         if matches!(self.visibility, Visibility::Public) {

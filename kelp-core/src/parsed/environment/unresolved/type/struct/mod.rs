@@ -1,11 +1,11 @@
 use crate::parsed::{
     environment::{
         resolved::{
-            r#type::{HighGenericId, HighTypeId, r#struct::ResolvedStructDeclaration},
+            r#type::{HighGenericId, HighTypeId, r#struct::SemanticStructDeclaration},
             value::HighValueId,
         },
         unresolved::r#type::r#struct::{
-            regular::UnresolvedRegularStructDeclaration, tuple::UnresolvedTupleStructDeclaration,
+            regular::ParsedRegularStructDeclaration, tuple::ParsedTupleStructDeclaration,
         },
     },
     semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
@@ -15,21 +15,21 @@ pub mod regular;
 pub mod tuple;
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedStructDeclaration {
-    Struct(UnresolvedRegularStructDeclaration),
-    Tuple(UnresolvedTupleStructDeclaration),
+pub enum ParsedStructDeclaration {
+    Struct(ParsedRegularStructDeclaration),
+    Tuple(ParsedTupleStructDeclaration),
 }
 
-impl From<ResolvedStructDeclaration> for UnresolvedStructDeclaration {
-    fn from(value: ResolvedStructDeclaration) -> Self {
+impl From<SemanticStructDeclaration> for ParsedStructDeclaration {
+    fn from(value: SemanticStructDeclaration) -> Self {
         match value {
-            ResolvedStructDeclaration::Struct(declaration) => Self::Struct(declaration.into()),
-            ResolvedStructDeclaration::Tuple(declaration) => Self::Tuple(declaration.into()),
+            SemanticStructDeclaration::Struct(declaration) => Self::Struct(declaration.into()),
+            SemanticStructDeclaration::Tuple(declaration) => Self::Tuple(declaration.into()),
         }
     }
 }
 
-impl UnresolvedStructDeclaration {
+impl ParsedStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -60,7 +60,7 @@ impl UnresolvedStructDeclaration {
         id: HighTypeId,
         name: &str,
     ) -> Result<HighValueId, SemanticAnalysisError> {
-        if let Some(impls) = ctx.resolved_environment.impls.get(&id) {
+        if let Some(impls) = ctx.semantic_environment.impls.get(&id) {
             for implementation in impls {
                 if let Some(id) = implementation.values.get(name) {
                     return Ok(*id);

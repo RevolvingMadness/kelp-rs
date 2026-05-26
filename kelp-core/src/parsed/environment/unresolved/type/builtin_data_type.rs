@@ -1,23 +1,23 @@
 use crate::{
     parsed::{
         environment::resolved::r#type::builtin_data_type::{
-            BuiltinTypeKind, ResolvedBuiltinTypeDeclaration,
+            BuiltinTypeKind, SemanticBuiltinTypeDeclaration,
         },
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     span::Span,
-    typed::data_type::unresolved::UnresolvedDataType,
+    typed::data_type::unresolved::SemanticDataType,
 };
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedBuiltinTypeDeclaration {
+pub struct ParsedBuiltinTypeDeclaration {
     pub name: String,
     pub generic_count: usize,
     pub kind: BuiltinTypeKind,
 }
 
-impl From<ResolvedBuiltinTypeDeclaration> for UnresolvedBuiltinTypeDeclaration {
-    fn from(value: ResolvedBuiltinTypeDeclaration) -> Self {
+impl From<SemanticBuiltinTypeDeclaration> for ParsedBuiltinTypeDeclaration {
+    fn from(value: SemanticBuiltinTypeDeclaration) -> Self {
         Self {
             name: value.name,
             generic_count: value.generic_count,
@@ -26,15 +26,15 @@ impl From<ResolvedBuiltinTypeDeclaration> for UnresolvedBuiltinTypeDeclaration {
     }
 }
 
-impl UnresolvedBuiltinTypeDeclaration {
+impl ParsedBuiltinTypeDeclaration {
     #[must_use]
     pub fn to_data_type_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
         span: Span,
         mut generic_spans: Vec<Span>,
-        mut generic_types: Vec<UnresolvedDataType>,
-    ) -> UnresolvedDataType {
+        mut generic_types: Vec<SemanticDataType>,
+    ) -> SemanticDataType {
         let expected_generic_count = self.generic_count;
         let actual_generic_count = generic_types.len();
 
@@ -48,28 +48,28 @@ impl UnresolvedBuiltinTypeDeclaration {
         }
 
         match self.kind {
-            BuiltinTypeKind::Boolean => UnresolvedDataType::Boolean,
-            BuiltinTypeKind::Byte => UnresolvedDataType::Byte,
-            BuiltinTypeKind::Short => UnresolvedDataType::Short,
-            BuiltinTypeKind::Integer => UnresolvedDataType::Integer,
-            BuiltinTypeKind::Long => UnresolvedDataType::Long,
-            BuiltinTypeKind::Float => UnresolvedDataType::Float,
-            BuiltinTypeKind::Double => UnresolvedDataType::Double,
-            BuiltinTypeKind::String => UnresolvedDataType::String,
+            BuiltinTypeKind::Boolean => SemanticDataType::Boolean,
+            BuiltinTypeKind::Byte => SemanticDataType::Byte,
+            BuiltinTypeKind::Short => SemanticDataType::Short,
+            BuiltinTypeKind::Integer => SemanticDataType::Integer,
+            BuiltinTypeKind::Long => SemanticDataType::Long,
+            BuiltinTypeKind::Float => SemanticDataType::Float,
+            BuiltinTypeKind::Double => SemanticDataType::Double,
+            BuiltinTypeKind::String => SemanticDataType::String,
             BuiltinTypeKind::List => {
                 let element_type = generic_types.remove(0);
 
-                UnresolvedDataType::List(Box::new(element_type))
+                SemanticDataType::List(Box::new(element_type))
             }
             BuiltinTypeKind::Compound => {
                 let element_type = generic_types.remove(0);
 
-                UnresolvedDataType::Compound(Box::new(element_type))
+                SemanticDataType::Compound(Box::new(element_type))
             }
             BuiltinTypeKind::Data => {
                 let element_type = generic_types.remove(0);
 
-                let Some(data_type) = element_type.get_data_type(&ctx.resolved_environment) else {
+                let Some(data_type) = element_type.get_data_type(&ctx.semantic_environment) else {
                     let element_span = generic_spans.remove(0);
 
                     return ctx.add_error_type(
@@ -78,7 +78,7 @@ impl UnresolvedBuiltinTypeDeclaration {
                     );
                 };
 
-                UnresolvedDataType::Data(Box::new(data_type))
+                SemanticDataType::Data(Box::new(data_type))
             }
             BuiltinTypeKind::Score => {
                 let element_type = generic_types.remove(0);
@@ -92,11 +92,11 @@ impl UnresolvedBuiltinTypeDeclaration {
                     );
                 }
 
-                UnresolvedDataType::Score(Box::new(element_type))
+                SemanticDataType::Score(Box::new(element_type))
             }
-            BuiltinTypeKind::EntitySelector => UnresolvedDataType::EntitySelector,
-            BuiltinTypeKind::ResourceLocation => UnresolvedDataType::ResourceLocation,
-            BuiltinTypeKind::Coordinates => UnresolvedDataType::Coordinates,
+            BuiltinTypeKind::EntitySelector => SemanticDataType::EntitySelector,
+            BuiltinTypeKind::ResourceLocation => SemanticDataType::ResourceLocation,
+            BuiltinTypeKind::Coordinates => SemanticDataType::Coordinates,
         }
     }
 }

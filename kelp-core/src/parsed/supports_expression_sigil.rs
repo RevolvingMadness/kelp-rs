@@ -11,7 +11,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     typed::{
-        coordinate::TypedCoordinates, data_type::unresolved::UnresolvedDataType,
+        coordinate::TypedCoordinates, data_type::unresolved::SemanticDataType,
         entity_selector::TypedEntitySelector,
         supports_expression_sigil::TypedSupportsExpressionSigil,
     },
@@ -67,7 +67,7 @@ impl ParsedSupportsExpressionSigil<ResourceLocation> {
                 expression_type.assert_equals(
                     ctx,
                     expression_span,
-                    &UnresolvedDataType::ResourceLocation,
+                    &SemanticDataType::ResourceLocation,
                 )?;
 
                 TypedSupportsExpressionSigil::Sigil(expression)
@@ -105,7 +105,7 @@ impl ParsedSupportsExpressionSigil<EntitySelector> {
                 expression_type.assert_equals(
                     ctx,
                     expression_span,
-                    &UnresolvedDataType::EntitySelector,
+                    &SemanticDataType::EntitySelector,
                 )?;
 
                 TypedSupportsExpressionSigil::Sigil(expression)
@@ -144,7 +144,7 @@ impl ParsedSupportsExpressionSigil<Coordinates> {
                 expression_type.assert_equals(
                     ctx,
                     expression_span,
-                    &UnresolvedDataType::Coordinates,
+                    &SemanticDataType::Coordinates,
                 )?;
 
                 TypedSupportsExpressionSigil::Sigil(expression)

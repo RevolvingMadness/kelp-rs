@@ -2,11 +2,11 @@ use crate::{
     parsed::environment::resolved::r#type::{
         HighGenericId,
         r#struct::{
-            regular::{HighRegularStructId, ResolvedRegularStructDeclaration},
-            tuple::{HighTupleStructId, ResolvedTupleStructDeclaration},
+            regular::{HighRegularStructId, SemanticRegularStructDeclaration},
+            tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
         },
     },
-    typed::data_type::unresolved::UnresolvedDataType,
+    typed::data_type::unresolved::SemanticDataType,
 };
 
 pub mod regular;
@@ -28,12 +28,12 @@ impl From<HighTupleStructId> for HighStructId {
 }
 
 #[derive(Debug, Clone)]
-pub enum ResolvedStructDeclaration {
-    Struct(ResolvedRegularStructDeclaration),
-    Tuple(ResolvedTupleStructDeclaration),
+pub enum SemanticStructDeclaration {
+    Struct(SemanticRegularStructDeclaration),
+    Tuple(SemanticTupleStructDeclaration),
 }
 
-impl ResolvedStructDeclaration {
+impl SemanticStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -59,7 +59,7 @@ impl ResolvedStructDeclaration {
     }
 
     #[must_use]
-    pub fn get_field(&self, field_name: &str) -> Option<&UnresolvedDataType> {
+    pub fn get_field(&self, field_name: &str) -> Option<&SemanticDataType> {
         match self {
             Self::Struct(declaration) => declaration.field_types.get(field_name),
             Self::Tuple(declaration) => {

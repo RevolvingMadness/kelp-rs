@@ -4,7 +4,7 @@ use la_arena::Idx;
 
 use crate::{
     typed::{
-        data_type::resolved::ResolvedDataType,
+        data_type::resolved::DataType,
         environment::{
             r#type::{
                 TypeDeclaration, TypeDeclarationKind,
@@ -80,8 +80,8 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: HashMap<String, ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: HashMap<String, DataType>,
     ) -> RegularStructId {
         let id = self.declare_struct(
             module_path,
@@ -103,8 +103,8 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        generic_types: Vec<ResolvedDataType>,
-        field_types: Vec<ResolvedDataType>,
+        generic_types: Vec<DataType>,
+        field_types: Vec<DataType>,
     ) -> TupleStructId {
         let id = self.declare_struct(
             module_path,
@@ -207,7 +207,7 @@ impl Environment {
         module_path: Vec<String>,
         visibility: Visibility,
         name: String,
-        data_type: ResolvedDataType,
+        data_type: DataType,
     ) -> VariableId {
         let id = VariableId(self.values.len() as u32);
 
@@ -258,7 +258,7 @@ impl Environment {
     pub fn update_regular_function(
         &mut self,
         id: RegularFunctionId,
-        new_parameters: Vec<(Idx<TypedPattern>, ResolvedDataType)>,
+        new_parameters: Vec<(Idx<TypedPattern>, DataType)>,
         new_body: TypedExpressionId,
     ) {
         let ValueDeclaration {

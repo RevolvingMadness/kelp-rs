@@ -6,24 +6,24 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     parsed::{
-        data_type::DataType,
+        data_type::ParsedDataType,
         environment::{
             resolved::{
                 HighImpl,
                 r#type::{
-                    HighGenericId, HighTypeId, ResolvedTypeDeclarationKind,
+                    HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
                     r#struct::{
-                        ResolvedStructDeclaration, regular::ResolvedRegularStructDeclaration,
-                        tuple::ResolvedTupleStructDeclaration,
+                        SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
+                        tuple::SemanticTupleStructDeclaration,
                     },
                 },
             },
             unresolved::r#type::{
-                UnresolvedTypeDeclaration, UnresolvedTypeDeclarationKind,
-                alias::UnresolvedTypeAliasDeclaration,
+                ParsedTypeDeclaration, ParsedTypeDeclarationKind,
+                alias::ParsedTypeAliasDeclaration,
                 r#struct::{
-                    UnresolvedStructDeclaration, regular::UnresolvedRegularStructDeclaration,
-                    tuple::UnresolvedTupleStructDeclaration,
+                    ParsedStructDeclaration, regular::ParsedRegularStructDeclaration,
+                    tuple::ParsedTupleStructDeclaration,
                 },
             },
         },
@@ -40,7 +40,7 @@ use crate::{
     path::regular::Path,
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
-    typed::{data_type::unresolved::UnresolvedDataType, item::Item as MiddleItem},
+    typed::{data_type::unresolved::SemanticDataType, item::Item as MiddleItem},
     visibility::Visibility,
 };
 
@@ -99,10 +99,10 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
                 Err((span, error)) => return ctx.add_error(span, error),
             };
 
-            let UnresolvedTypeDeclaration {
-                kind: UnresolvedTypeDeclarationKind::Module(module),
+            let ParsedTypeDeclaration {
+                kind: ParsedTypeDeclarationKind::Module(module),
                 ..
-            } = ctx.get_unresolved_type(id).clone()
+            } = ctx.parsed_environment.get_type(id).clone()
             else {
                 let last_segment = path.segments.last().unwrap();
                 return ctx.add_error(
@@ -155,7 +155,7 @@ pub enum Item {
     InherentImplementationItem {
         generic_names: Vec<String>,
         target_type_span: Span,
-        target_type: DataType,
+        target_type: ParsedDataType,
         associated_items: Vec<Idx<Self>>,
     },
     ModuleDeclaration {
@@ -173,13 +173,13 @@ pub enum Item {
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
-        field_types: HashMap<String, DataType>,
+        field_types: HashMap<String, ParsedDataType>,
     },
     TupleStructDeclaration {
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
-        field_types: Vec<DataType>,
+        field_types: Vec<ParsedDataType>,
     },
     Use(UseTree),
 }
@@ -202,18 +202,18 @@ impl Item {
                     .iter()
                     .cloned()
                     .map(|generic_name| {
-                        let id = ctx.declare_unresolved_type(
+                        let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            UnresolvedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(generic_name),
                         );
 
                         HighGenericId(id.0)
                     })
                     .collect::<Vec<_>>();
 
-                ctx.declare_unresolved_type(
+                ctx.declare_parsed_type(
                     Visibility::Public,
-                    UnresolvedTypeDeclarationKind::Alias(UnresolvedTypeAliasDeclaration {
+                    ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
                         name: "Self".to_owned(),
                         generic_ids,
                     }),
@@ -290,9 +290,9 @@ impl Item {
                     .iter()
                     .cloned()
                     .map(|generic_name| {
-                        let id = ctx.declare_unresolved_type(
+                        let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            UnresolvedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(generic_name),
                         );
 
                         HighGenericId(id.0)
@@ -305,10 +305,10 @@ impl Item {
 
                 let visibility = allocator.get_item_visiblity(id);
 
-                let type_id = ctx.declare_unresolved_type(
+                let type_id = ctx.declare_parsed_type(
                     visibility,
-                    UnresolvedTypeDeclarationKind::Struct(UnresolvedStructDeclaration::Struct(
-                        UnresolvedRegularStructDeclaration::new(name, generic_ids),
+                    ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Struct(
+                        ParsedRegularStructDeclaration::new(name, generic_ids),
                     )),
                 );
 
@@ -335,9 +335,9 @@ impl Item {
                     .iter()
                     .cloned()
                     .map(|generic_name| {
-                        let id = ctx.declare_unresolved_type(
+                        let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            UnresolvedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(generic_name),
                         );
 
                         HighGenericId(id.0)
@@ -350,10 +350,10 @@ impl Item {
 
                 let visibility = allocator.get_item_visiblity(id);
 
-                let type_id = ctx.declare_unresolved_type(
+                let type_id = ctx.declare_parsed_type(
                     visibility,
-                    UnresolvedTypeDeclarationKind::Struct(UnresolvedStructDeclaration::Tuple(
-                        UnresolvedTupleStructDeclaration::new(name, generic_ids),
+                    ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Tuple(
+                        ParsedTupleStructDeclaration::new(name, generic_ids),
                     )),
                 );
 
@@ -464,8 +464,8 @@ impl Item {
                 ctx.declare_resolved_type(
                     type_id,
                     Visibility::Public,
-                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Struct(
-                        ResolvedRegularStructDeclaration {
+                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
+                        SemanticRegularStructDeclaration {
                             name: name.clone(),
                             generic_ids,
                             field_types,
@@ -505,8 +505,8 @@ impl Item {
                 ctx.declare_resolved_type(
                     type_id,
                     Visibility::Public,
-                    ResolvedTypeDeclarationKind::Struct(ResolvedStructDeclaration::Tuple(
-                        ResolvedTupleStructDeclaration {
+                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(
+                        SemanticTupleStructDeclaration {
                             name: name.clone(),
                             generic_ids,
                             field_types,
@@ -545,7 +545,7 @@ impl Item {
                 let target_type = target_type.clone().perform_semantic_analysis(ctx);
 
                 match target_type {
-                    target_type @ UnresolvedDataType::Struct(id, _) => {
+                    target_type @ SemanticDataType::Struct(id, _) => {
                         let implementation = HighImpl {
                             generic_names: generic_names.clone(),
                             target_type,
@@ -553,14 +553,14 @@ impl Item {
                             values,
                         };
 
-                        ctx.resolved_environment
+                        ctx.semantic_environment
                             .impls
                             .entry(HighTypeId(id.0))
                             .or_default()
                             .push(implementation);
                     }
 
-                    UnresolvedDataType::Error => return None,
+                    SemanticDataType::Error => return None,
 
                     _ => {
                         return ctx.add_error(
@@ -663,7 +663,7 @@ impl Item {
                 body_type.assert_equals(
                     ctx,
                     tail_expression_span.unwrap_or(body_span),
-                    &UnresolvedDataType::Unit,
+                    &SemanticDataType::Unit,
                 )?;
 
                 low_allocator.allocate_item(MiddleItem::MinecraftFunctionDeclaration(

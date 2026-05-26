@@ -3,7 +3,7 @@ use la_arena::Idx;
 use crate::{
     parameter_types_iter::{ParameterTypesIter, take_second},
     typed::{
-        data_type::resolved::ResolvedDataType,
+        data_type::resolved::DataType,
         environment::value::function::{
             builtin::{BuiltinFunctionDeclaration, BuiltinFunctionId},
             regular::{RegularFunctionDeclaration, RegularFunctionId},
@@ -58,7 +58,7 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub fn generic_types(&self) -> &[ResolvedDataType] {
+    pub fn generic_types(&self) -> &[DataType] {
         match self {
             Self::Regular(declaration) => &declaration.generic_types,
             Self::Builtin(declaration) => &declaration.generic_types,
@@ -68,7 +68,7 @@ impl FunctionDeclaration {
     #[must_use]
     pub fn parameter_types(
         &self,
-    ) -> ParameterTypesIter<'_, Idx<TypedPattern>, ResolvedDataType> {
+    ) -> ParameterTypesIter<'_, Idx<TypedPattern>, DataType> {
         match self {
             Self::Regular(declaration) => {
                 ParameterTypesIter::Regular(declaration.parameters.iter().map(take_second))
@@ -80,7 +80,7 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub const fn return_type(&self) -> &ResolvedDataType {
+    pub const fn return_type(&self) -> &DataType {
         match self {
             Self::Regular(declaration) => &declaration.return_type,
             Self::Builtin(declaration) => &declaration.return_type,

@@ -1,10 +1,10 @@
 use crate::{
     parsed::environment::resolved::r#type::{
-        alias::ResolvedTypeAliasDeclaration,
-        builtin_data_type::ResolvedBuiltinTypeDeclaration,
-        module::{HighModuleId, ResolvedModuleDeclaration},
+        alias::SemanticTypeAliasDeclaration,
+        builtin_data_type::SemanticBuiltinTypeDeclaration,
+        module::{HighModuleId, SemanticModuleDeclaration},
         r#struct::{
-            HighStructId, ResolvedStructDeclaration, regular::HighRegularStructId,
+            HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
             tuple::HighTupleStructId,
         },
     },
@@ -53,15 +53,15 @@ impl From<HighGenericId> for HighTypeId {
 }
 
 #[derive(Debug, Clone)]
-pub enum ResolvedTypeDeclarationKind {
-    Module(ResolvedModuleDeclaration),
-    Struct(ResolvedStructDeclaration),
-    Alias(ResolvedTypeAliasDeclaration),
+pub enum SemanticTypeDeclarationKind {
+    Module(SemanticModuleDeclaration),
+    Struct(SemanticStructDeclaration),
+    Alias(SemanticTypeAliasDeclaration),
     Generic(String),
-    Builtin(ResolvedBuiltinTypeDeclaration),
+    Builtin(SemanticBuiltinTypeDeclaration),
 }
 
-impl ResolvedTypeDeclarationKind {
+impl SemanticTypeDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -75,8 +75,8 @@ impl ResolvedTypeDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct ResolvedTypeDeclaration {
+pub struct SemanticTypeDeclaration {
     pub module_path: Vec<String>,
     pub visibility: Visibility,
-    pub kind: ResolvedTypeDeclarationKind,
+    pub kind: SemanticTypeDeclarationKind,
 }

@@ -6,10 +6,10 @@ use la_arena::Idx;
 use crate::{
     parameter_types_iter::{ParameterTypesIter, take_second},
     parsed::environment::resolved::value::function::{
-        builtin::{HighBuiltinFunctionId, ResolvedBuiltinFunctionDeclaration},
-        regular::{HighRegularFunctionId, ResolvedRegularFunctionDeclaration},
+        builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration},
+        regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
     },
-    typed::{data_type::unresolved::UnresolvedDataType, pattern::TypedPattern},
+    typed::{data_type::unresolved::SemanticDataType, pattern::TypedPattern},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -28,12 +28,12 @@ impl From<HighBuiltinFunctionId> for HighFunctionId {
 }
 
 #[derive(Debug, Clone)]
-pub enum ResolvedFunctionDeclaration {
-    Regular(ResolvedRegularFunctionDeclaration),
-    Builtin(ResolvedBuiltinFunctionDeclaration),
+pub enum SemanticFunctionDeclaration {
+    Regular(SemanticRegularFunctionDeclaration),
+    Builtin(SemanticBuiltinFunctionDeclaration),
 }
 
-impl ResolvedFunctionDeclaration {
+impl SemanticFunctionDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -53,7 +53,7 @@ impl ResolvedFunctionDeclaration {
     #[must_use]
     pub fn parameter_types(
         &self,
-    ) -> ParameterTypesIter<'_, Option<Idx<TypedPattern>>, UnresolvedDataType> {
+    ) -> ParameterTypesIter<'_, Option<Idx<TypedPattern>>, SemanticDataType> {
         match self {
             Self::Regular(declaration) => {
                 ParameterTypesIter::Regular(declaration.parameters.iter().map(take_second))
@@ -65,7 +65,7 @@ impl ResolvedFunctionDeclaration {
     }
 
     #[must_use]
-    pub const fn return_type(&self) -> &UnresolvedDataType {
+    pub const fn return_type(&self) -> &SemanticDataType {
         match self {
             Self::Regular(declaration) => &declaration.return_type,
             Self::Builtin(declaration) => &declaration.return_type,

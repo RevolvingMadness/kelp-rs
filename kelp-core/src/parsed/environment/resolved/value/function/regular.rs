@@ -9,7 +9,7 @@ use crate::{
     },
     span::Span,
     typed::{
-        data_type::unresolved::UnresolvedDataType, expression::typed::TypedExpressionId,
+        data_type::unresolved::SemanticDataType, expression::typed::TypedExpressionId,
         pattern::TypedPattern,
     },
 };
@@ -18,12 +18,12 @@ use crate::{
 pub struct HighRegularFunctionId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct ResolvedRegularFunctionDeclaration {
+pub struct SemanticRegularFunctionDeclaration {
     pub name: String,
     pub modifiers: RegularFunctionModifiers,
     pub generic_ids: Vec<HighGenericId>,
-    pub parameters: Vec<(Option<Idx<TypedPattern>>, UnresolvedDataType)>,
-    pub return_type: UnresolvedDataType,
+    pub parameters: Vec<(Option<Idx<TypedPattern>>, SemanticDataType)>,
+    pub return_type: SemanticDataType,
     pub body: Option<TypedExpressionId>,
     pub calls: HashSet<(Span, HighFunctionId)>,
 }

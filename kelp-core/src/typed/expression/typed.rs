@@ -27,8 +27,8 @@ use crate::{
             value::HighValueId,
         },
         expression::{
-            assignee::{UnresolvedAssigneeExpression, UnresolvedAssigneeExpressionId},
-            place::{UnresolvedPlaceExpression, UnresolvedPlaceExpressionId},
+            assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
+            place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
         },
     },
     runtime_storage::RuntimeStorageType,
@@ -36,8 +36,8 @@ use crate::{
         coordinate::TypedCoordinates,
         data::TypedData,
         data_type::{
-            resolved::{FieldAccessType, ResolvedDataType},
-            unresolved::UnresolvedDataType,
+            resolved::{DataType, FieldAccessType},
+            unresolved::SemanticDataType,
         },
         entity_selector::TypedEntitySelector,
         environment::value::{ValueDeclarationKind, function::FunctionId, variable::VariableId},
@@ -50,7 +50,7 @@ use crate::{
         },
         pattern::TypedPattern,
         player_score::TypedPlayerScore,
-        statement::{EarlyReturnType, UnresolvedStatement},
+        statement::{EarlyReturnType, TypedStatement},
         supports_expression_sigil::TypedSupportsExpressionSigil,
     },
 };
@@ -231,7 +231,7 @@ fn iterate_string(
         allocator,
         datapack,
         &mut for_body_ctx,
-        ResolvedDataType::String,
+        DataType::String,
         Expression::Data(unique_data_2.clone()),
     );
 
@@ -293,7 +293,7 @@ fn iterate_data(
     ctx: &mut CompileContext,
     is_reversed: bool,
     pattern: Idx<TypedPattern>,
-    iterable_type: ResolvedDataType,
+    iterable_type: DataType,
     iterable: Expression,
     body: TypedExpressionId,
 ) {
@@ -366,17 +366,17 @@ pub enum TypedExpression {
     Underscore,
     Negate(TypedExpressionId),
     Invert(TypedExpressionId),
-    Reference(UnresolvedPlaceExpressionId),
-    Dereference(UnresolvedPlaceExpressionId),
+    Reference(ParsedPlaceExpressionId),
+    Dereference(ParsedPlaceExpressionId),
     Arithmetic(TypedExpressionId, ArithmeticOperator, TypedExpressionId),
     Comparison(TypedExpressionId, ComparisonOperator, TypedExpressionId),
     Logical(TypedExpressionId, LogicalOperator, TypedExpressionId),
     AugmentedAssignment(
-        UnresolvedPlaceExpressionId,
+        ParsedPlaceExpressionId,
         ArithmeticOperator,
         TypedExpressionId,
     ),
-    Assignment(UnresolvedAssigneeExpressionId, TypedExpressionId),
+    Assignment(ParsedAssigneeExpressionId, TypedExpressionId),
     List(Vec<TypedExpressionId>),
     Compound(HashMap<String, TypedExpressionId>),
     Score(TypedPlayerScore),
@@ -385,19 +385,19 @@ pub enum TypedExpression {
     Command(Box<MiddleCommand>),
     Index(TypedExpressionId, TypedExpressionId),
     FieldAccess(TypedExpressionId, String),
-    AsCast(TypedExpressionId, UnresolvedDataType),
+    AsCast(TypedExpressionId, SemanticDataType),
     ToCast(Option<NotNan<f32>>, TypedExpressionId, RuntimeStorageType),
     Tuple(Vec<TypedExpressionId>),
     Call(TypedExpressionId, Vec<TypedExpressionId>),
-    Value(HighValueId, Vec<UnresolvedDataType>),
+    Value(HighValueId, Vec<SemanticDataType>),
     RegularStruct(
         HighRegularStructId,
-        Vec<UnresolvedDataType>,
+        Vec<SemanticDataType>,
         HashMap<String, TypedExpressionId>,
     ),
     TupleStruct(
         HighTupleStructId,
-        Vec<UnresolvedDataType>,
+        Vec<SemanticDataType>,
         Vec<TypedExpressionId>,
     ),
     If {
@@ -406,7 +406,7 @@ pub enum TypedExpression {
         body: TypedExpressionId,
         else_body: Option<TypedExpressionId>,
     },
-    Block(Vec<Idx<UnresolvedStatement>>, Option<TypedExpressionId>),
+    Block(Vec<Idx<TypedStatement>>, Option<TypedExpressionId>),
     WhileLoop(TypedExpressionId, TypedExpressionId),
     Loop(TypedExpressionId),
     ForLoop(
@@ -432,7 +432,7 @@ impl TypedExpression {
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    if UnresolvedStatement::definitely_diverges(*statement, allocator) {
+                    if TypedStatement::definitely_diverges(*statement, allocator) {
                         return true;
                     }
                 }
@@ -522,8 +522,7 @@ impl TypedExpression {
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    if let Some(kind) =
-                        UnresolvedStatement::get_early_return_type(*statement, allocator)
+                    if let Some(kind) = TypedStatement::get_early_return_type(*statement, allocator)
                     {
                         return Some(kind);
                     }
@@ -579,12 +578,12 @@ impl TypedExpression {
             }
             Self::Reference(expression) => {
                 let expression =
-                    UnresolvedPlaceExpression::resolve(*expression, allocator, datapack, ctx);
+                    ParsedPlaceExpression::resolve(*expression, allocator, datapack, ctx);
 
                 Expression::Reference(Box::new(expression))
             }
             Self::Dereference(place) => {
-                let place = UnresolvedPlaceExpression::resolve(*place, allocator, datapack, ctx);
+                let place = ParsedPlaceExpression::resolve(*place, allocator, datapack, ctx);
 
                 place
                     .resolve(datapack, ctx)
@@ -610,7 +609,7 @@ impl TypedExpression {
                 left.perform_logical_operation(datapack, ctx, *operator, right)
             }
             Self::AugmentedAssignment(target, operator, value) => {
-                let target = UnresolvedPlaceExpression::resolve(*target, allocator, datapack, ctx);
+                let target = ParsedPlaceExpression::resolve(*target, allocator, datapack, ctx);
                 let value = Self::resolve(*value, allocator, datapack, ctx);
 
                 target.augmented_assign(datapack, ctx, *operator, value);
@@ -618,8 +617,7 @@ impl TypedExpression {
                 Expression::Unit
             }
             Self::Assignment(target, value) => {
-                let target =
-                    UnresolvedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
+                let target = ParsedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
                 let value = Self::resolve(*value, allocator, datapack, ctx);
 
                 target.assign(datapack, ctx, value);
@@ -840,7 +838,7 @@ impl TypedExpression {
             }
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    UnresolvedStatement::compile_as_statement(*statement, allocator, datapack, ctx);
+                    TypedStatement::compile_as_statement(*statement, allocator, datapack, ctx);
                 }
 
                 tail_expression.map_or(Expression::Unit, |tail_expression| {
@@ -981,7 +979,7 @@ impl TypedExpression {
                         }
                     }
                     Err(iterable) => {
-                        if iterable_type.equals(&ResolvedDataType::String) {
+                        if iterable_type.equals(&DataType::String) {
                             iterate_string(
                                 allocator,
                                 datapack,
@@ -1045,8 +1043,7 @@ impl TypedExpression {
     ) {
         match allocator.get_expression_value(id) {
             Self::Assignment(target, value) => {
-                let target =
-                    UnresolvedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
+                let target = ParsedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
 
                 let value = Self::resolve(*value, allocator, datapack, ctx);
 
@@ -1055,7 +1052,7 @@ impl TypedExpression {
             Self::AugmentedAssignment(target, operator, value) => {
                 let operator = *operator;
 
-                let target = UnresolvedPlaceExpression::resolve(*target, allocator, datapack, ctx);
+                let target = ParsedPlaceExpression::resolve(*target, allocator, datapack, ctx);
                 let value = Self::resolve(*value, allocator, datapack, ctx);
 
                 target.augmented_assign(datapack, ctx, operator, value);
@@ -1100,7 +1097,7 @@ impl TypedExpression {
             }
             Self::Block(statements, tail_expression) => {
                 for statement in statements.iter().copied() {
-                    UnresolvedStatement::compile_as_statement(statement, allocator, datapack, ctx);
+                    TypedStatement::compile_as_statement(statement, allocator, datapack, ctx);
                 }
 
                 if let Some(tail_expression) = tail_expression {
@@ -1227,7 +1224,7 @@ impl TypedExpression {
                         }
                     }
                     Err(iterable) => {
-                        if iterable_type.equals(&ResolvedDataType::String) {
+                        if iterable_type.equals(&DataType::String) {
                             iterate_string(
                                 allocator,
                                 datapack,

@@ -1,15 +1,15 @@
 use std::fmt::Display;
 
 use crate::{
-    typed::{data_type::unresolved::UnresolvedDataType, statement::LoopControlFlowKind},
     operator::{ArithmeticOperator, ComparisonOperator},
-    parsed::environment::resolved::ResolvedEnvironment,
+    parsed::environment::resolved::SemanticEnvironment,
     pattern_type::PatternType,
+    typed::{data_type::unresolved::SemanticDataType, statement::LoopControlFlowKind},
 };
 
 pub struct SemanticAnalysisErrorDisplay<'a> {
     pub error: &'a SemanticAnalysisError,
-    pub resolved_environment: &'a ResolvedEnvironment,
+    pub resolved_environment: &'a SemanticEnvironment,
 }
 
 impl Display for SemanticAnalysisErrorDisplay<'_> {
@@ -359,33 +359,33 @@ pub enum SemanticAnalysisError {
     FunctionTypesNotAllData,
     RecursiveFunctionNotRuntime,
     CannotPerformArithmeticOperation {
-        left: UnresolvedDataType,
+        left: SemanticDataType,
         operator: ArithmeticOperator,
-        right: UnresolvedDataType,
+        right: SemanticDataType,
     },
     CannotPerformComparisonOperation {
-        left: UnresolvedDataType,
+        left: SemanticDataType,
         operator: ComparisonOperator,
-        right: UnresolvedDataType,
+        right: SemanticDataType,
     },
-    CannotPerformAugmentedAssignment(UnresolvedDataType),
+    CannotPerformAugmentedAssignment(SemanticDataType),
     MismatchedPatternTypes {
-        expected: UnresolvedDataType,
+        expected: SemanticDataType,
         actual: Box<PatternType>,
     },
     UnderscoreExpression,
-    CannotIterateType(UnresolvedDataType),
+    CannotIterateType(SemanticDataType),
     MismatchedTypes {
-        expected: UnresolvedDataType,
-        actual: UnresolvedDataType,
+        expected: SemanticDataType,
+        actual: SemanticDataType,
     },
-    InvalidAugmentedAssignmentType(ArithmeticOperator, UnresolvedDataType, UnresolvedDataType),
+    InvalidAugmentedAssignmentType(ArithmeticOperator, SemanticDataType, SemanticDataType),
     CannotCastType {
-        from: UnresolvedDataType,
-        to: UnresolvedDataType,
+        from: SemanticDataType,
+        to: SemanticDataType,
     },
     CannotUseReturnInCompiletimeFunction,
-    CannotBeRepresentedAsFloat(UnresolvedDataType),
+    CannotBeRepresentedAsFloat(SemanticDataType),
     RecursiveFunctionCall,
     CompiletimeValueMutationInRuntimeLoop,
     MissingKey(String),
@@ -394,25 +394,25 @@ pub enum SemanticAnalysisError {
     TypeAlreadyDeclared(String),
     ValueAlreadyDeclared(String),
     PatternIsNotIrrefutable,
-    TypeIsNotCondition(UnresolvedDataType),
-    TypeIsNotScoreCompatible(UnresolvedDataType),
-    TypeIsNotDataCompatible(UnresolvedDataType),
-    CannotBeAssignedToData(UnresolvedDataType),
-    CannotBeIndexed(UnresolvedDataType),
+    TypeIsNotCondition(SemanticDataType),
+    TypeIsNotScoreCompatible(SemanticDataType),
+    TypeIsNotDataCompatible(SemanticDataType),
+    CannotBeAssignedToData(SemanticDataType),
+    CannotBeIndexed(SemanticDataType),
     CannotBeIndexedByType {
-        target: UnresolvedDataType,
-        index: UnresolvedDataType,
+        target: SemanticDataType,
+        index: SemanticDataType,
     },
     IndexOutOfBounds,
-    CannotBeDereferenced(UnresolvedDataType),
-    CannotBeReferenced(UnresolvedDataType),
+    CannotBeDereferenced(SemanticDataType),
+    CannotBeReferenced(SemanticDataType),
     ExpressionIsNotAPlace,
     ExpressionIsNotAnAssignee,
-    TypeDoesntHaveFields(UnresolvedDataType),
-    CannotNegateType(UnresolvedDataType),
-    CannotInvertType(UnresolvedDataType),
+    TypeDoesntHaveFields(SemanticDataType),
+    CannotNegateType(SemanticDataType),
+    CannotInvertType(SemanticDataType),
     TypeDoesntHaveField {
-        data_type: UnresolvedDataType,
+        data_type: SemanticDataType,
         field: String,
     },
     MismatchedParameterCount {
@@ -462,7 +462,7 @@ impl SemanticAnalysisError {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        resolved_environment: &'a ResolvedEnvironment,
+        resolved_environment: &'a SemanticEnvironment,
     ) -> SemanticAnalysisErrorDisplay<'a> {
         SemanticAnalysisErrorDisplay {
             error: self,

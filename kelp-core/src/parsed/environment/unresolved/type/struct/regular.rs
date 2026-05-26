@@ -1,16 +1,16 @@
 use crate::parsed::environment::{
-    resolved::r#type::r#struct::regular::ResolvedRegularStructDeclaration,
+    resolved::r#type::r#struct::regular::SemanticRegularStructDeclaration,
     unresolved::r#type::HighGenericId,
 };
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedRegularStructDeclaration {
+pub struct ParsedRegularStructDeclaration {
     name: String,
     generic_ids: Vec<HighGenericId>,
 }
 
-impl From<ResolvedRegularStructDeclaration> for UnresolvedRegularStructDeclaration {
-    fn from(value: ResolvedRegularStructDeclaration) -> Self {
+impl From<SemanticRegularStructDeclaration> for ParsedRegularStructDeclaration {
+    fn from(value: SemanticRegularStructDeclaration) -> Self {
         Self {
             name: value.name,
             generic_ids: value.generic_ids,
@@ -18,7 +18,7 @@ impl From<ResolvedRegularStructDeclaration> for UnresolvedRegularStructDeclarati
     }
 }
 
-impl UnresolvedRegularStructDeclaration {
+impl ParsedRegularStructDeclaration {
     #[inline]
     #[must_use]
     pub fn new(name: &str, generic_ids: Vec<HighGenericId>) -> Self {

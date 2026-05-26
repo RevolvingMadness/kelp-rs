@@ -2,21 +2,21 @@ use std::collections::HashMap;
 
 use crate::parsed::{
     environment::resolved::{
-        r#type::{HighTypeId, module::ResolvedModuleDeclaration},
+        r#type::{HighTypeId, module::SemanticModuleDeclaration},
         value::HighValueId,
     },
     semantic_analysis::info::error::SemanticAnalysisError,
 };
 
 #[derive(Debug, Clone)]
-pub struct UnresolvedModuleDeclaration {
+pub struct ParsedModuleDeclaration {
     pub name: String,
     pub types: HashMap<String, HighTypeId>,
     pub values: HashMap<String, HighValueId>,
 }
 
-impl From<ResolvedModuleDeclaration> for UnresolvedModuleDeclaration {
-    fn from(value: ResolvedModuleDeclaration) -> Self {
+impl From<SemanticModuleDeclaration> for ParsedModuleDeclaration {
+    fn from(value: SemanticModuleDeclaration) -> Self {
         Self {
             name: value.name,
             types: value.types,
@@ -25,7 +25,7 @@ impl From<ResolvedModuleDeclaration> for UnresolvedModuleDeclaration {
     }
 }
 
-impl UnresolvedModuleDeclaration {
+impl ParsedModuleDeclaration {
     #[must_use]
     pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
         self.types.get(name).copied()

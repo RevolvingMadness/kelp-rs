@@ -6,12 +6,12 @@ use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     parsed::{
         environment::resolved::{
-            ResolvedEnvironment,
+            SemanticEnvironment,
             value::{
-                ResolvedValueDeclaration, ResolvedValueDeclarationKind,
+                SemanticValueDeclaration, SemanticValueDeclarationKind,
                 function::{
-                    HighFunctionId, ResolvedFunctionDeclaration,
-                    regular::ResolvedRegularFunctionDeclaration,
+                    HighFunctionId, SemanticFunctionDeclaration,
+                    regular::SemanticRegularFunctionDeclaration,
                 },
             },
         },
@@ -23,7 +23,7 @@ use crate::{
 };
 
 fn calls_recursively(
-    resolved_environment: &ResolvedEnvironment,
+    resolved_environment: &SemanticEnvironment,
     callee_id: HighFunctionId,
     call_id: HighFunctionId,
     visited_calls: &mut HashSet<HighFunctionId>,
@@ -39,7 +39,7 @@ fn calls_recursively(
     let (
         _,
         _,
-        ResolvedFunctionDeclaration::Regular(ResolvedRegularFunctionDeclaration { calls, .. }),
+        SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration { calls, .. }),
     ) = resolved_environment.get_function(call_id)
     else {
         return false;
@@ -90,18 +90,18 @@ impl Program {
 
         let mut failed = false;
 
-        for (callee_id, value) in ctx.resolved_environment.iter_values() {
+        for (callee_id, value) in ctx.semantic_environment.iter_values() {
             let callee_id = HighFunctionId(callee_id.0);
 
-            let ResolvedValueDeclaration {
-                kind: ResolvedValueDeclarationKind::Function(declaration),
+            let SemanticValueDeclaration {
+                kind: SemanticValueDeclarationKind::Function(declaration),
                 ..
             } = value
             else {
                 continue;
             };
 
-            let ResolvedFunctionDeclaration::Regular(ResolvedRegularFunctionDeclaration {
+            let SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration {
                 modifiers,
                 calls,
                 ..
@@ -115,7 +115,7 @@ impl Program {
                     let mut visited_calls = HashSet::new();
 
                     if calls_recursively(
-                        &ctx.resolved_environment,
+                        &ctx.semantic_environment,
                         callee_id,
                         *call_id,
                         &mut visited_calls,

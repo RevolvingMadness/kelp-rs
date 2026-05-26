@@ -2,29 +2,28 @@ pub mod builtin;
 pub mod regular;
 
 use crate::parsed::environment::{
-    resolved::value::function::ResolvedFunctionDeclaration,
+    resolved::value::function::SemanticFunctionDeclaration,
     unresolved::value::function::{
-        builtin::UnresolvedBuiltinFunctionDeclaration,
-        regular::UnresolvedRegularFunctionDeclaration,
+        builtin::ParsedBuiltinFunctionDeclaration, regular::ParsedRegularFunctionDeclaration,
     },
 };
 
 #[derive(Debug, Clone)]
-pub enum UnresolvedFunctionDeclaration {
-    Regular(UnresolvedRegularFunctionDeclaration),
-    Builtin(UnresolvedBuiltinFunctionDeclaration),
+pub enum ParsedFunctionDeclaration {
+    Regular(ParsedRegularFunctionDeclaration),
+    Builtin(ParsedBuiltinFunctionDeclaration),
 }
 
-impl From<ResolvedFunctionDeclaration> for UnresolvedFunctionDeclaration {
-    fn from(value: ResolvedFunctionDeclaration) -> Self {
+impl From<SemanticFunctionDeclaration> for ParsedFunctionDeclaration {
+    fn from(value: SemanticFunctionDeclaration) -> Self {
         match value {
-            ResolvedFunctionDeclaration::Regular(declaration) => Self::Regular(declaration.into()),
-            ResolvedFunctionDeclaration::Builtin(declaration) => Self::Builtin(declaration.into()),
+            SemanticFunctionDeclaration::Regular(declaration) => Self::Regular(declaration.into()),
+            SemanticFunctionDeclaration::Builtin(declaration) => Self::Builtin(declaration.into()),
         }
     }
 }
 
-impl UnresolvedFunctionDeclaration {
+impl ParsedFunctionDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

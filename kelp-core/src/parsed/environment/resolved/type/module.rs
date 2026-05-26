@@ -6,7 +6,7 @@ use crate::parsed::environment::resolved::{r#type::HighTypeId, value::HighValueI
 pub struct HighModuleId(pub u32);
 
 #[derive(Debug, Clone)]
-pub struct ResolvedModuleDeclaration {
+pub struct SemanticModuleDeclaration {
     pub name: String,
     pub types: HashMap<String, HighTypeId>,
     pub values: HashMap<String, HighValueId>,

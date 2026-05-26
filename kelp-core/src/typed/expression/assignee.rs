@@ -1,18 +1,18 @@
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    typed::expression::{place::ResolvedPlaceExpression, resolved::Expression},
+    typed::expression::{place::TypedPlaceExpression, resolved::Expression},
 };
 
 #[derive(Debug, Clone)]
-pub enum ResolvedAssigneeExpression {
-    Place(ResolvedPlaceExpression),
+pub enum TypedAssigneeExpression {
+    Place(TypedPlaceExpression),
 
     Tuple(Vec<Self>),
     Underscore,
 }
 
-impl ResolvedAssigneeExpression {
+impl TypedAssigneeExpression {
     pub fn assign(
         self,
         datapack: &mut Datapack,

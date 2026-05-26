@@ -5,11 +5,11 @@ use std::{
 
 use crate::{
     parsed::semantic_analysis::SemanticAnalysisContext, path::generic::GenericPath,
-    typed::data_type::unresolved::UnresolvedDataType,
+    typed::data_type::unresolved::SemanticDataType,
 };
 
 #[derive(Debug, Clone)]
-pub enum DataType {
+pub enum ParsedDataType {
     Named(GenericPath<Self>),
     TypedCompound(HashMap<String, Self>),
     Reference(Box<Self>),
@@ -19,7 +19,7 @@ pub enum DataType {
     Inferred,
 }
 
-impl Display for DataType {
+impl Display for ParsedDataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Named(path) => path.fmt(f),
@@ -67,23 +67,20 @@ impl Display for DataType {
     }
 }
 
-impl DataType {
+impl ParsedDataType {
     #[must_use]
-    pub fn perform_semantic_analysis(
-        self,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> UnresolvedDataType {
+    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> SemanticDataType {
         match self {
             Self::Named(path) => {
                 let mut path = path.perform_semantic_analysis(ctx);
 
                 let Some(id) = ctx.get_visible_type_id(&path) else {
-                    return UnresolvedDataType::Error;
+                    return SemanticDataType::Error;
                 };
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let declaration = ctx.get_unresolved_type(id).clone();
+                let declaration = ctx.parsed_environment.get_type(id).clone();
 
                 declaration.resolve_partially(
                     ctx,
@@ -93,21 +90,21 @@ impl DataType {
                     last_segment.name_span,
                 )
             }
-            Self::Unit => UnresolvedDataType::Unit,
-            Self::Never => UnresolvedDataType::Never,
-            Self::Inferred => UnresolvedDataType::Inferred,
+            Self::Unit => SemanticDataType::Unit,
+            Self::Never => SemanticDataType::Never,
+            Self::Inferred => SemanticDataType::Inferred,
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .into_iter()
                     .map(|data_type| data_type.perform_semantic_analysis(ctx))
                     .collect();
 
-                UnresolvedDataType::Tuple(data_types)
+                SemanticDataType::Tuple(data_types)
             }
             Self::Reference(data_type) => {
                 let data_type = data_type.perform_semantic_analysis(ctx);
 
-                UnresolvedDataType::Reference(Box::new(data_type))
+                SemanticDataType::Reference(Box::new(data_type))
             }
             Self::TypedCompound(compound) => {
                 let compound = compound
@@ -119,7 +116,7 @@ impl DataType {
                     })
                     .collect();
 
-                UnresolvedDataType::TypedCompound(compound)
+                SemanticDataType::TypedCompound(compound)
             }
         }
     }

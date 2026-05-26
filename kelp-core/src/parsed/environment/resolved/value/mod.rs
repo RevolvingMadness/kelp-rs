@@ -2,15 +2,15 @@ use crate::{
     parsed::{
         environment::resolved::value::{
             function::{
-                HighFunctionId, ResolvedFunctionDeclaration, builtin::HighBuiltinFunctionId,
+                HighFunctionId, SemanticFunctionDeclaration, builtin::HighBuiltinFunctionId,
                 regular::HighRegularFunctionId,
             },
-            variable::{HighVariableId, ResolvedVariableDeclaration},
+            variable::{HighVariableId, SemanticVariableDeclaration},
         },
         semantic_analysis::SemanticAnalysisContext,
     },
     span::Span,
-    typed::data_type::unresolved::UnresolvedDataType,
+    typed::data_type::unresolved::SemanticDataType,
     visibility::Visibility,
 };
 
@@ -45,12 +45,12 @@ impl From<HighBuiltinFunctionId> for HighValueId {
 }
 
 #[derive(Debug, Clone)]
-pub enum ResolvedValueDeclarationKind {
-    Variable(ResolvedVariableDeclaration),
-    Function(Box<ResolvedFunctionDeclaration>),
+pub enum SemanticValueDeclarationKind {
+    Variable(SemanticVariableDeclaration),
+    Function(Box<SemanticFunctionDeclaration>),
 }
 
-impl ResolvedValueDeclarationKind {
+impl SemanticValueDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -61,29 +61,29 @@ impl ResolvedValueDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct ResolvedValueDeclaration {
+pub struct SemanticValueDeclaration {
     pub visibility: Visibility,
     pub module_path: Vec<String>,
-    pub kind: ResolvedValueDeclarationKind,
+    pub kind: SemanticValueDeclarationKind,
 }
 
-impl ResolvedValueDeclaration {
+impl SemanticValueDeclaration {
     pub fn resolve_fully(
         self,
         ctx: &mut SemanticAnalysisContext,
         original_id: HighValueId,
-        generic_types: Vec<UnresolvedDataType>,
+        generic_types: Vec<SemanticDataType>,
         path_span: Span,
-    ) -> Option<(HighValueId, UnresolvedDataType)> {
+    ) -> Option<(HighValueId, SemanticDataType)> {
         match self.kind {
-            ResolvedValueDeclarationKind::Variable(declaration) => {
+            SemanticValueDeclarationKind::Variable(declaration) => {
                 let expected_generics = 0;
                 let actual_generics = generic_types.len();
 
                 if actual_generics != expected_generics {
                     let type_name = &declaration
                         .data_type
-                        .display(&ctx.resolved_environment)
+                        .display(&ctx.semantic_environment)
                         .to_string();
 
                     return ctx.add_invalid_generics(
@@ -96,7 +96,7 @@ impl ResolvedValueDeclaration {
 
                 Some((original_id, declaration.data_type))
             }
-            ResolvedValueDeclarationKind::Function(declaration) => {
+            SemanticValueDeclarationKind::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
                 let expected_generics = declaration.generic_count();
@@ -113,7 +113,7 @@ impl ResolvedValueDeclaration {
 
                 Some((
                     original_id,
-                    UnresolvedDataType::Function(id.into(), generic_types),
+                    SemanticDataType::Function(id.into(), generic_types),
                 ))
             }
         }
@@ -123,12 +123,12 @@ impl ResolvedValueDeclaration {
     pub fn data_type(
         &self,
         id: HighValueId,
-        generic_types: &[UnresolvedDataType],
-    ) -> UnresolvedDataType {
+        generic_types: &[SemanticDataType],
+    ) -> SemanticDataType {
         match &self.kind {
-            ResolvedValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
-            ResolvedValueDeclarationKind::Function(..) => {
-                UnresolvedDataType::Function(HighFunctionId(id.0), generic_types.to_vec())
+            SemanticValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
+            SemanticValueDeclarationKind::Function(..) => {
+                SemanticDataType::Function(HighFunctionId(id.0), generic_types.to_vec())
             }
         }
     }

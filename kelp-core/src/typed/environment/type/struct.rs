@@ -3,15 +3,15 @@ use std::{
     slice::Iter,
 };
 
-use crate::typed::data_type::resolved::{FieldAccessType, ResolvedDataType};
+use crate::typed::data_type::resolved::{FieldAccessType, DataType};
 
 pub enum FieldTypesIter<'a> {
-    Struct(Values<'a, String, ResolvedDataType>),
-    Tuple(Iter<'a, ResolvedDataType>),
+    Struct(Values<'a, String, DataType>),
+    Tuple(Iter<'a, DataType>),
 }
 
 impl<'a> Iterator for FieldTypesIter<'a> {
-    type Item = &'a ResolvedDataType;
+    type Item = &'a DataType;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -52,7 +52,7 @@ impl StructDeclaration {
     }
 
     #[must_use]
-    pub fn generic_types(&self) -> &[ResolvedDataType] {
+    pub fn generic_types(&self) -> &[DataType] {
         match self {
             Self::Struct(declaration) => &declaration.generic_types,
             Self::Tuple(declaration) => &declaration.generic_types,
@@ -82,8 +82,8 @@ pub struct RegularStructId(pub u32);
 #[derive(Debug, Clone)]
 pub struct RegularStructDeclaration {
     pub name: String,
-    pub generic_types: Vec<ResolvedDataType>,
-    pub field_types: HashMap<String, ResolvedDataType>,
+    pub generic_types: Vec<DataType>,
+    pub field_types: HashMap<String, DataType>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -92,6 +92,6 @@ pub struct TupleStructId(pub u32);
 #[derive(Debug, Clone)]
 pub struct TupleStructDeclaration {
     pub name: String,
-    pub generic_types: Vec<ResolvedDataType>,
-    pub field_types: Vec<ResolvedDataType>,
+    pub generic_types: Vec<DataType>,
+    pub field_types: Vec<DataType>,
 }

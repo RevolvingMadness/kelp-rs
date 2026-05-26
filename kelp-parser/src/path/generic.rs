@@ -1,5 +1,5 @@
 use kelp_core::{
-    parsed::data_type::DataType,
+    parsed::data_type::ParsedDataType,
     path::generic::{GenericPath, GenericPathSegment},
 };
 
@@ -75,7 +75,7 @@ pub fn try_parse_generic_path(parser: &mut Parser, is_type: bool) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_generic_path_segment(
     node: CSTGenericPathSegment,
-) -> Option<GenericPathSegment<DataType>> {
+) -> Option<GenericPathSegment<ParsedDataType>> {
     let name_token = node.path_identifier_token()?;
     let name_span = text_range_to_span(name_token.text_range());
     let name = name_token.text();
@@ -95,7 +95,7 @@ pub fn lower_generic_path_segment(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_generic_path(node: CSTGenericPath) -> Option<GenericPath<DataType>> {
+pub fn lower_generic_path(node: CSTGenericPath) -> Option<GenericPath<ParsedDataType>> {
     let span = span_of_cst_node(&node);
 
     let segments = node

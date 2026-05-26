@@ -6,7 +6,7 @@ use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     parsed::{
         data::Data,
-        data_type::DataType,
+        data_type::ParsedDataType,
         environment::resolved::r#type::r#struct::{
             HighStructId, regular::HighRegularStructId, tuple::HighTupleStructId,
         },
@@ -18,7 +18,7 @@ use crate::{
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
     typed::{
-        data_type::unresolved::UnresolvedDataType, expression::literal::LiteralExpression,
+        data_type::unresolved::SemanticDataType, expression::literal::LiteralExpression,
         pattern::TypedPattern,
     },
     visibility::Visibility,
@@ -29,14 +29,17 @@ pub enum Pattern {
     Literal(LiteralExpression),
 
     Wildcard,
-    Binding(GenericPath<DataType>),
+    Binding(GenericPath<ParsedDataType>),
 
     Score(PlayerScore),
     Data(Box<Data>),
 
     Tuple(Vec<Idx<Self>>),
-    RegularStruct(GenericPath<DataType>, HashMap<(Span, String), Idx<Self>>),
-    TupleStruct(GenericPath<DataType>, Vec<Idx<Self>>),
+    RegularStruct(
+        GenericPath<ParsedDataType>,
+        HashMap<(Span, String), Idx<Self>>,
+    ),
+    TupleStruct(GenericPath<ParsedDataType>, Vec<Idx<Self>>),
 
     Compound(HashMap<(Span, String), Idx<Self>>),
 }
@@ -93,7 +96,7 @@ impl Pattern {
 
                 let name = path.segments[0].name.clone();
 
-                let _ = ctx.declare_variable(Visibility::Public, name, UnresolvedDataType::Error);
+                let _ = ctx.declare_variable(Visibility::Public, name, SemanticDataType::Error);
             }
             Self::Tuple(patterns) => {
                 for pattern in patterns.iter().copied() {
@@ -123,7 +126,7 @@ impl Pattern {
         high_allocator: &HighAstAllocator,
         low_allocator: &mut LowAstAllocator,
         ctx: &mut SemanticAnalysisContext,
-        variable_type: &UnresolvedDataType,
+        variable_type: &SemanticDataType,
     ) -> Option<Idx<TypedPattern>> {
         let pattern = high_allocator.get_pattern(id);
 
@@ -177,7 +180,7 @@ impl Pattern {
                         .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
 
                 if variable_type
-                    .get_data_type(&ctx.resolved_environment)
+                    .get_data_type(&ctx.semantic_environment)
                     .is_none()
                 {
                     let span = high_allocator.get_pattern_span(id);
@@ -193,7 +196,7 @@ impl Pattern {
 
                 low_allocator.allocate_pattern(TypedPattern::Data(data))
             }
-            (Self::Tuple(patterns), UnresolvedDataType::Tuple(data_types))
+            (Self::Tuple(patterns), SemanticDataType::Tuple(data_types))
                 if patterns.len() == data_types.len() =>
             {
                 let patterns = patterns
@@ -215,7 +218,7 @@ impl Pattern {
             }
             (
                 Self::Compound(compound_patterns),
-                UnresolvedDataType::TypedCompound(compound_types),
+                SemanticDataType::TypedCompound(compound_types),
             ) => {
                 let compound = compound_patterns
                     .iter()
@@ -256,7 +259,7 @@ impl Pattern {
 
                 low_allocator.allocate_pattern(TypedPattern::Compound(compound))
             }
-            (Self::Compound(compound_patterns), UnresolvedDataType::Compound(data_type)) => {
+            (Self::Compound(compound_patterns), SemanticDataType::Compound(data_type)) => {
                 let compound = compound_patterns
                     .iter()
                     .map(|((_, key), pattern)| {
@@ -278,7 +281,7 @@ impl Pattern {
             }
             (
                 Self::RegularStruct(path, field_patterns),
-                UnresolvedDataType::Struct(value_id, value_generic_types),
+                SemanticDataType::Struct(value_id, value_generic_types),
             ) => {
                 let mut path = path.clone().perform_semantic_analysis(ctx);
 
@@ -357,7 +360,7 @@ impl Pattern {
             }
             (
                 Self::TupleStruct(path, field_patterns),
-                UnresolvedDataType::Struct(value_id, value_generic_types),
+                SemanticDataType::Struct(value_id, value_generic_types),
             ) => {
                 let mut path = path.clone().perform_semantic_analysis(ctx);
 

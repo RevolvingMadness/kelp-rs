@@ -9,7 +9,7 @@ use crate::{
     span::Span,
     typed::{
         data::TypedData,
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::value::HighValueId,
         expression::{TypedExpression, TypedExpressionId, place::TypedPlaceExpression},
         player_score::TypedPlayerScore,

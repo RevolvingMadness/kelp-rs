@@ -2,9 +2,10 @@ use std::fmt::{Display, Write};
 
 use crate::{
     datapack::Datapack,
+    low::data_type::DataType,
     parsed::{data_type::ParsedDataType, semantic_analysis::SemanticAnalysisContext},
     span::Span,
-    typed::data_type::{resolved::DataType, unresolved::SemanticDataType},
+    typed::data_type::SemanticDataType,
 };
 
 #[derive(Debug, Clone)]
@@ -39,10 +40,7 @@ impl Display for GenericPathSegment<ParsedDataType> {
 
 impl GenericPathSegment<SemanticDataType> {
     #[must_use]
-    pub fn resolve(
-        self,
-        datapack: &mut Datapack,
-    ) -> Option<GenericPathSegment<DataType>> {
+    pub fn resolve(self, datapack: &mut Datapack) -> Option<GenericPathSegment<DataType>> {
         let generic_types = self
             .generic_types
             .into_iter()

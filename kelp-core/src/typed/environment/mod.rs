@@ -2,7 +2,7 @@ use std::collections::{HashMap, hash_map::Iter};
 
 use crate::{
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::{
             r#type::{
                 HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,

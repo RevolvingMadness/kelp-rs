@@ -5,23 +5,23 @@ use std::{
 
 use crate::{
     datapack::Datapack,
-    low::environment::r#type::r#struct::{RegularStructId, StructId, TupleStructId},
+    low::{
+        data_type::DataType,
+        environment::r#type::r#struct::{RegularStructId, StructId, TupleStructId},
+    },
     operator::{ArithmeticOperator, ComparisonOperator},
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     span::Span,
-    typed::{
-        data_type::resolved::DataType,
-        environment::{
-            SemanticEnvironment,
-            r#type::{
-                HighGenericId,
-                r#struct::{
-                    HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
-                    tuple::HighTupleStructId,
-                },
+    typed::environment::{
+        SemanticEnvironment,
+        r#type::{
+            HighGenericId,
+            r#struct::{
+                HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
+                tuple::HighTupleStructId,
             },
-            value::function::{HighFunctionId, SemanticFunctionDeclaration},
         },
+        value::function::{HighFunctionId, SemanticFunctionDeclaration},
     },
     visibility::Visibility,
 };

@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     parsed::semantic_analysis::SemanticAnalysisContext, path::generic::GenericPath,
-    typed::data_type::unresolved::SemanticDataType,
+    typed::data_type::SemanticDataType,
 };
 
 #[derive(Debug, Clone)]

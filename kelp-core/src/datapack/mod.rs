@@ -2,6 +2,7 @@ use crate::compile_context::CompileContext;
 use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
+use crate::low::data_type::DataType;
 use crate::low::environment::Environment;
 use crate::low::environment::r#type::r#struct::{
     RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
@@ -17,8 +18,7 @@ use crate::low::environment::value::{ValueDeclaration, ValueId};
 use crate::low::expression::Expression;
 use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
-use crate::typed::data_type::resolved::DataType;
-use crate::typed::data_type::unresolved::SemanticDataType;
+use crate::typed::data_type::SemanticDataType;
 use crate::typed::environment::SemanticEnvironment;
 use crate::typed::environment::r#type::{HighGenericId, HighTypeId};
 use crate::typed::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};

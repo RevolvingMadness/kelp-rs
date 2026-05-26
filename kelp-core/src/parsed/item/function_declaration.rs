@@ -23,7 +23,7 @@ use crate::{
     },
     span::Span,
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
         expression::TypedExpression,
         item::Item as MiddleItem,

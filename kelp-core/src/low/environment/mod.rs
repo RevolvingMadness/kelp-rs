@@ -3,24 +3,27 @@ use std::collections::HashMap;
 use la_arena::Idx;
 
 use crate::{
-    low::environment::{
-        r#type::{
-            TypeDeclaration, TypeDeclarationKind,
-            r#struct::{
-                RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
-                TupleStructDeclaration, TupleStructId,
+    low::{
+        data_type::DataType,
+        environment::{
+            r#type::{
+                TypeDeclaration, TypeDeclarationKind,
+                r#struct::{
+                    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
+                    TupleStructDeclaration, TupleStructId,
+                },
             },
-        },
-        value::{
-            ValueDeclaration, ValueDeclarationKind, ValueId,
-            function::{
-                FunctionDeclaration, FunctionId,
-                regular::{RegularFunctionDeclaration, RegularFunctionId},
+            value::{
+                ValueDeclaration, ValueDeclarationKind, ValueId,
+                function::{
+                    FunctionDeclaration, FunctionId,
+                    regular::{RegularFunctionDeclaration, RegularFunctionId},
+                },
+                variable::{VariableDeclaration, VariableId},
             },
-            variable::{VariableDeclaration, VariableId},
         },
     },
-    typed::{data_type::resolved::DataType, expression::TypedExpressionId, pattern::TypedPattern},
+    typed::{expression::TypedExpressionId, pattern::TypedPattern},
     visibility::Visibility,
 };
 

@@ -1,6 +1,6 @@
 use crate::ast_allocator::low::LowAstAllocator;
 use crate::compile_context::{LoopInfo, LoopType};
-use crate::typed::data_type::unresolved::SemanticDataType;
+use crate::typed::data_type::SemanticDataType;
 use crate::typed::expression::{TypedExpression, TypedExpressionId};
 use crate::typed::item::Item;
 use crate::typed::pattern::TypedPattern;

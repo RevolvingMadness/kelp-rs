@@ -2,7 +2,7 @@ use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     span::Span,
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::r#type::builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
     },
 };

@@ -1,5 +1,5 @@
 use crate::{
-    typed::data_type::unresolved::SemanticDataType,
+    typed::data_type::SemanticDataType,
     typed::environment::r#type::{
         HighGenericId,
         r#struct::{

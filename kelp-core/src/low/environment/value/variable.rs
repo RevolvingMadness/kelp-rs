@@ -1,4 +1,4 @@
-use crate::typed::data_type::resolved::DataType;
+use crate::low::data_type::DataType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VariableId(pub u32);

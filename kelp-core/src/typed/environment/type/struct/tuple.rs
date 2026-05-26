@@ -1,4 +1,4 @@
-use crate::typed::{data_type::unresolved::SemanticDataType, environment::r#type::HighGenericId};
+use crate::typed::{data_type::SemanticDataType, environment::r#type::HighGenericId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighTupleStructId(pub u32);

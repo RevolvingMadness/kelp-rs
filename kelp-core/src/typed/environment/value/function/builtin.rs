@@ -1,7 +1,7 @@
 use strum::EnumIter;
 
 use crate::typed::{
-    data_type::unresolved::SemanticDataType,
+    data_type::SemanticDataType,
     environment::{
         r#type::{HighGenericId, r#struct::tuple::HighTupleStructId},
         value::{HighValueId, function::HighFunctionId},

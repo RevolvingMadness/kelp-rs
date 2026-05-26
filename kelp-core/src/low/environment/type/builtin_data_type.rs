@@ -1,10 +1,7 @@
 use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     span::Span,
-    typed::{
-        data_type::unresolved::SemanticDataType,
-        environment::r#type::builtin_data_type::BuiltinTypeKind,
-    },
+    typed::{data_type::SemanticDataType, environment::r#type::builtin_data_type::BuiltinTypeKind},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

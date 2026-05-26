@@ -3,7 +3,7 @@ use std::{
     slice::Iter,
 };
 
-use crate::typed::data_type::resolved::{FieldAccessType, DataType};
+use crate::{field_access_type::FieldAccessType, low::data_type::DataType};
 
 pub enum FieldTypesIter<'a> {
     Struct(Values<'a, String, DataType>),

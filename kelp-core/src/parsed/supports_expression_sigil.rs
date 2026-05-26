@@ -11,7 +11,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     typed::{
-        coordinate::TypedCoordinates, data_type::unresolved::SemanticDataType,
+        coordinate::TypedCoordinates, data_type::SemanticDataType,
         entity_selector::TypedEntitySelector,
         supports_expression_sigil::TypedSupportsExpressionSigil,
     },

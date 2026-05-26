@@ -8,7 +8,7 @@ use crate::{
     },
     span::Span,
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::{
             r#type::{
                 HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,

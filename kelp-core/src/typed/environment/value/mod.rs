@@ -2,7 +2,7 @@ use crate::{
     parsed::semantic_analysis::SemanticAnalysisContext,
     span::Span,
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::value::{
             function::{
                 HighFunctionId, SemanticFunctionDeclaration, regular::HighRegularFunctionId,

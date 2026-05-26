@@ -3,36 +3,11 @@ use std::{
     fmt::{Display, Write},
 };
 
-use minecraft_command_types::{
-    nbt_path::NbtPathNode,
-    snbt::{SNBT, SNBTString},
-};
-
 use crate::{
+    field_access_type::FieldAccessType,
     low::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
     runtime_storage::RuntimeStorageType,
 };
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum FieldAccessType {
-    #[default]
-    Name,
-    Index,
-}
-
-impl FieldAccessType {
-    #[must_use]
-    pub fn into_nbt_path_node(self, field: String) -> NbtPathNode {
-        match self {
-            Self::Name => NbtPathNode::Named(SNBTString(false, field), None),
-            Self::Index => {
-                let index = field.parse::<usize>().unwrap();
-
-                NbtPathNode::Index(Some(SNBT::macroable_integer(index as i32)))
-            }
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DataType {

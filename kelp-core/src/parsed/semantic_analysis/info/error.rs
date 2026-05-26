@@ -4,7 +4,7 @@ use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
     pattern_type::PatternType,
     typed::{
-        data_type::unresolved::SemanticDataType, environment::SemanticEnvironment,
+        data_type::SemanticDataType, environment::SemanticEnvironment,
         statement::LoopControlFlowKind,
     },
 };

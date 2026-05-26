@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     parsed::environment::{r#type::ParsedTypeDeclaration, value::ParsedValueDeclaration},
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::{r#type::HighTypeId, value::HighValueId},
     },
 };

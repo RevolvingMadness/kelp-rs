@@ -27,17 +27,20 @@ use crate::{
         CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
         RecursiveRuntimeFunction, RegularRuntimeFunction, RuntimeFunction,
     },
-    low::environment::{
-        Environment,
-        r#type::r#struct::{RegularStructId, TupleStructId},
-        value::function::{FunctionDeclaration, FunctionId},
+    field_access_type::FieldAccessType,
+    low::{
+        data_type::DataType,
+        environment::{
+            Environment,
+            r#type::r#struct::{RegularStructId, TupleStructId},
+            value::function::{FunctionDeclaration, FunctionId},
+        },
     },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
     parsed::semantic_analysis::RegularFunctionModifiers,
     player_score::GeneratedPlayerScore,
     runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
     typed::{
-        data_type::resolved::{DataType, FieldAccessType},
         environment::r#type::HighGenericId,
         expression::{TypedExpression, TypedExpressionId, place::TypedPlaceExpression},
         pattern::TypedPattern,

@@ -20,7 +20,9 @@ use crate::{
     compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedData,
     datapack::Datapack,
+    field_access_type::FieldAccessType,
     low::{
+        data_type::DataType,
         environment::value::{ValueDeclarationKind, function::FunctionId, variable::VariableId},
         expression::Expression,
     },
@@ -33,10 +35,7 @@ use crate::{
     typed::{
         coordinate::TypedCoordinates,
         data::TypedData,
-        data_type::{
-            resolved::{DataType, FieldAccessType},
-            unresolved::SemanticDataType,
-        },
+        data_type::SemanticDataType,
         entity_selector::TypedEntitySelector,
         environment::{
             r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},

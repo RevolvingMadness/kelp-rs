@@ -1,4 +1,4 @@
-use crate::typed::{data_type::unresolved::SemanticDataType, environment::value::HighValueId};
+use crate::typed::{data_type::SemanticDataType, environment::value::HighValueId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighVariableId(pub u32);

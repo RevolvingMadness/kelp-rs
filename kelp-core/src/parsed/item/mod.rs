@@ -29,7 +29,7 @@ use crate::{
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::{
             HighImpl,
             r#type::{

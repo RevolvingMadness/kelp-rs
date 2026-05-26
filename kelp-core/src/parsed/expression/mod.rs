@@ -38,7 +38,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt,
     typed::{
         data::TypedData,
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::r#type::r#struct::regular::HighRegularStructId,
         expression::{TypedExpression, TypedExpressionId},
     },

@@ -6,7 +6,7 @@ use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,
     span::Span,
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::{
             r#type::HighGenericId,
             value::{HighValueId, function::HighFunctionId},

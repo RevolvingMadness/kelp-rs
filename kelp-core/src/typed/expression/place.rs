@@ -1,11 +1,8 @@
 use crate::{
-    compile_context::CompileContext,
-    data::GeneratedData,
-    datapack::Datapack,
-    low::environment::value::variable::VariableId,
-    operator::ArithmeticOperator,
-    player_score::GeneratedPlayerScore,
-    typed::{data_type::resolved::FieldAccessType, expression::Expression},
+    compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
+    field_access_type::FieldAccessType, low::environment::value::variable::VariableId,
+    operator::ArithmeticOperator, player_score::GeneratedPlayerScore,
+    typed::expression::Expression,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

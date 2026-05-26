@@ -1,11 +1,14 @@
 use la_arena::Idx;
 
 use crate::{
-    low::environment::value::function::{
-        builtin::BuiltinFunctionDeclaration, regular::RegularFunctionDeclaration,
+    low::{
+        data_type::DataType,
+        environment::value::function::{
+            builtin::BuiltinFunctionDeclaration, regular::RegularFunctionDeclaration,
+        },
     },
     parameter_types_iter::{ParameterTypesIter, take_second},
-    typed::{data_type::resolved::DataType, pattern::TypedPattern},
+    typed::pattern::TypedPattern,
 };
 
 pub mod builtin;

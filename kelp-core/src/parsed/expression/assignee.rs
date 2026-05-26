@@ -9,9 +9,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     span::Span,
-    typed::{
-        data_type::unresolved::SemanticDataType, expression::assignee::TypedAssigneeExpression,
-    },
+    typed::{data_type::SemanticDataType, expression::assignee::TypedAssigneeExpression},
 };
 
 pub type ParsedAssigneeExpressionId = Idx<Typed<ParsedAssigneeExpression>>;

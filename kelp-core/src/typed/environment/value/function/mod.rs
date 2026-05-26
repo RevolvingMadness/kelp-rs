@@ -6,7 +6,7 @@ use la_arena::Idx;
 use crate::{
     parameter_types_iter::{ParameterTypesIter, take_second},
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::value::{
             HighValueId,
             function::{

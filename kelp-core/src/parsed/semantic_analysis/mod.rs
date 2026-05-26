@@ -28,7 +28,7 @@ use crate::{
     },
     span::Span,
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         environment::{
             SemanticEnvironment,
             r#type::{

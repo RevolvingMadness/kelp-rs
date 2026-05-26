@@ -11,12 +11,13 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     low::{
+        data_type::DataType,
         environment::r#type::r#struct::{RegularStructId, TupleStructId},
         expression::Expression,
     },
     typed::{
         data::TypedData,
-        data_type::{resolved::DataType, unresolved::SemanticDataType},
+        data_type::SemanticDataType,
         environment::{
             r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
             value::variable::HighVariableId,

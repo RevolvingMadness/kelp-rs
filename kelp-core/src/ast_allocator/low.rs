@@ -6,7 +6,7 @@ use crate::{
         place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
     },
     typed::{
-        data_type::unresolved::SemanticDataType,
+        data_type::SemanticDataType,
         expression::{TypedExpression, TypedExpressionId},
         item::Item,
         pattern::TypedPattern,

@@ -1,11 +1,13 @@
 use la_arena::Idx;
 
 use crate::{
-    low::environment::value::function::{FunctionDeclaration, FunctionId},
+    low::{
+        data_type::DataType,
+        environment::value::function::{FunctionDeclaration, FunctionId},
+    },
     parsed::semantic_analysis::RegularFunctionModifiers,
     typed::{
-        data_type::resolved::DataType, environment::r#type::HighGenericId,
-        expression::TypedExpressionId, pattern::TypedPattern,
+        environment::r#type::HighGenericId, expression::TypedExpressionId, pattern::TypedPattern,
     },
     visibility::Visibility,
 };

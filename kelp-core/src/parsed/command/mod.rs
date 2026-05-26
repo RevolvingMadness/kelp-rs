@@ -17,7 +17,7 @@ use crate::{
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
     typed::arena::TypedAstArena,
-    typed::expression::command::TypedCommand as MiddleCommand,
+    typed::expression::command::TypedCommand,
 };
 
 pub mod data;
@@ -61,30 +61,30 @@ impl Command {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleCommand> {
+    ) -> Option<TypedCommand> {
         Some(match self {
             Self::Data(command) => {
                 let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleCommand::Data(command)
+                TypedCommand::Data(command)
             }
-            Self::Difficulty(difficulty) => MiddleCommand::Difficulty(difficulty),
+            Self::Difficulty(difficulty) => TypedCommand::Difficulty(difficulty),
             Self::Stopwatch(command) => {
                 let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleCommand::Stopwatch(command)
+                TypedCommand::Stopwatch(command)
             }
             Self::Enchant(selector, enchantment, level) => {
                 let selector =
                     selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleCommand::Enchant(selector, enchantment, level)
+                TypedCommand::Enchant(selector, enchantment, level)
             }
             Self::Execute(subcommand) => {
                 let subcommand =
                     subcommand.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleCommand::Execute(subcommand)
+                TypedCommand::Execute(subcommand)
             }
             Self::Function(resource_location, arguments) => {
                 let resource_location =
@@ -99,7 +99,7 @@ impl Command {
 
                 let resource_location = resource_location?;
 
-                MiddleCommand::Function(resource_location, arguments)
+                TypedCommand::Function(resource_location, arguments)
             }
             Self::Tellraw(selector, expression) => {
                 let selector = selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
@@ -113,17 +113,17 @@ impl Command {
                 let selector = selector?;
                 let expression = expression?;
 
-                MiddleCommand::Tellraw(selector, expression)
+                TypedCommand::Tellraw(selector, expression)
             }
             Self::Return(command) => {
                 let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleCommand::Return(command)
+                TypedCommand::Return(command)
             }
             Self::Scoreboard(command) => {
                 let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleCommand::Scoreboard(command)
+                TypedCommand::Scoreboard(command)
             }
             Self::Summon(resource_location, coordinates, expression) => {
                 let expression = match expression {
@@ -140,7 +140,7 @@ impl Command {
                     None => None,
                 };
 
-                MiddleCommand::Summon(resource_location, coordinates, expression)
+                TypedCommand::Summon(resource_location, coordinates, expression)
             }
         })
     }

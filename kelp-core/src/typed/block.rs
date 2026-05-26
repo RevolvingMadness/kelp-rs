@@ -15,7 +15,7 @@ use crate::{
 pub struct TypedBlockState {
     pub id: ResourceLocation,
     pub block_states: HashMap<String, String>,
-    pub data_tags: Option<HashMap<SNBTString, TypedExpressionId>>,
+    pub data_tags: Option<HashMap<String, TypedExpressionId>>,
 }
 
 impl TypedBlockState {
@@ -35,7 +35,7 @@ impl TypedBlockState {
                         let value = TypedExpression::resolve(value, arena, datapack, ctx)
                             .as_snbt_macros(ctx);
 
-                        (key, value)
+                        (SNBTString(false, key), value)
                     })
                     .collect()
             }),

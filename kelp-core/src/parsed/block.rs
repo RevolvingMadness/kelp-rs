@@ -7,18 +7,17 @@ use crate::{
     parsed::{
         expression::{ParsedExpression, ParsedExpressionId},
         semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
     },
     trait_ext::CollectOptionAllIterExt,
     typed::arena::TypedAstArena,
-    typed::block::TypedBlockState as MiddleBlockState,
+    typed::block::TypedBlockState,
 };
 
 #[derive(Debug, Clone)]
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: HashMap<String, String>,
-    pub data_tags: Option<HashMap<SNBTString, ParsedExpressionId>>,
+    pub data_tags: Option<HashMap<String, ParsedExpressionId>>,
 }
 
 impl BlockState {
@@ -27,13 +26,12 @@ impl BlockState {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleBlockState> {
+    ) -> Option<TypedBlockState> {
         let data_tags = match self.data_tags {
             Some(data_tags) => Some(
                 data_tags
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, key) = key.perform_semantic_analysis(ctx);
                         let value = ParsedExpression::perform_semantic_analysis(
                             value,
                             parsed_arena,
@@ -48,7 +46,7 @@ impl BlockState {
             None => None,
         };
 
-        Some(MiddleBlockState {
+        Some(TypedBlockState {
             id: self.id,
             block_states: self.block_states.into_iter().collect(),
             data_tags,

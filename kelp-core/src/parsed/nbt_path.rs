@@ -8,7 +8,7 @@ use crate::{
     },
     trait_ext::CollectOptionAllIterExt,
     typed::arena::TypedAstArena,
-    typed::nbt_path::{TypedNbtPath as MiddleNbtPath, TypedNbtPathNode as MiddleNbtPathNode},
+    typed::nbt_path::{TypedNbtPath, TypedNbtPathNode},
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ impl ParsedNbtPathNode {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleNbtPathNode> {
+    ) -> Option<TypedNbtPathNode> {
         Some(match self {
             Self::RootCompound(compound) => {
                 let compound = compound
@@ -41,7 +41,7 @@ impl ParsedNbtPathNode {
                     })
                     .collect_option_all()?;
 
-                MiddleNbtPathNode::RootCompound(compound)
+                TypedNbtPathNode::RootCompound(compound)
             }
             Self::Named(name, compound) => {
                 let compound = match compound {
@@ -63,7 +63,7 @@ impl ParsedNbtPathNode {
                     None => None,
                 };
 
-                MiddleNbtPathNode::Named(name, compound)
+                TypedNbtPathNode::Named(name, compound)
             }
             Self::Index(expression) => {
                 let expression = match expression {
@@ -80,7 +80,7 @@ impl ParsedNbtPathNode {
                     None => None,
                 };
 
-                MiddleNbtPathNode::Index(expression)
+                TypedNbtPathNode::Index(expression)
             }
         })
     }
@@ -95,8 +95,8 @@ impl ParsedNbtPath {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleNbtPath> {
-        Some(MiddleNbtPath(
+    ) -> Option<TypedNbtPath> {
+        Some(TypedNbtPath(
             self.0
                 .into_iter()
                 .map(|node| node.perform_semantic_analysis(parsed_arena, typed_arena, ctx))

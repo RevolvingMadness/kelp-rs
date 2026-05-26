@@ -5,27 +5,27 @@ use crate::parsed::arena::ParsedAstArena;
 use crate::parsed::player_score::PlayerScore;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::typed::arena::TypedAstArena;
-use crate::typed::score_comparison::TypedScoreComparison as MiddleScoreComparison;
+use crate::typed::score_comparison::TypedScoreComparison;
 
 #[derive(Debug, Clone)]
-pub enum ScoreComparison {
+pub enum ParsedScoreComparison {
     Range(IntegerRange),
     Score(ScoreComparisonOperator, PlayerScore),
 }
 
-impl ScoreComparison {
+impl ParsedScoreComparison {
     pub fn perform_semantic_analysis(
         self,
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleScoreComparison> {
+    ) -> Option<TypedScoreComparison> {
         Some(match self {
-            Self::Range(range) => MiddleScoreComparison::Range(range),
+            Self::Range(range) => TypedScoreComparison::Range(range),
             Self::Score(operator, score) => {
                 let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleScoreComparison::Score(operator, score)
+                TypedScoreComparison::Score(operator, score)
             }
         })
     }

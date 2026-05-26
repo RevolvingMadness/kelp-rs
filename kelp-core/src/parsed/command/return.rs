@@ -2,7 +2,7 @@ use crate::{
     parsed::arena::ParsedAstArena,
     parsed::{command::Command, semantic_analysis::SemanticAnalysisContext},
     typed::arena::TypedAstArena,
-    typed::expression::command::r#return::TypedReturnCommand as MiddleReturnCommand,
+    typed::expression::command::r#return::TypedReturnCommand,
 };
 
 #[derive(Debug, Clone)]
@@ -18,14 +18,14 @@ impl ReturnCommand {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleReturnCommand> {
+    ) -> Option<TypedReturnCommand> {
         Some(match self {
-            Self::Value(value) => MiddleReturnCommand::Value(value),
-            Self::Fail => MiddleReturnCommand::Fail,
+            Self::Value(value) => TypedReturnCommand::Value(value),
+            Self::Fail => TypedReturnCommand::Fail,
             Self::Run(command) => {
                 let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleReturnCommand::Run(Box::new(command))
+                TypedReturnCommand::Run(Box::new(command))
             }
         })
     }

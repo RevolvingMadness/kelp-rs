@@ -5,18 +5,19 @@ use minecraft_command_types::entity_selector::EntitySelectorVariable;
 use crate::{
     parsed::arena::ParsedAstArena,
     parsed::{
-        entity_selector::option::EntitySelectorOption, semantic_analysis::SemanticAnalysisContext,
+        entity_selector::option::ParsedEntitySelectorOption,
+        semantic_analysis::SemanticAnalysisContext,
     },
     trait_ext::CollectOptionAllIterExt,
     typed::arena::TypedAstArena,
-    typed::entity_selector::TypedEntitySelector as MiddleEntitySelector,
+    typed::entity_selector::TypedEntitySelector,
 };
 
 pub mod option;
 
 #[derive(Debug, Clone)]
 pub enum EntitySelector {
-    Variable(EntitySelectorVariable, Vec<EntitySelectorOption>),
+    Variable(EntitySelectorVariable, Vec<ParsedEntitySelectorOption>),
     Name(String),
 }
 
@@ -45,7 +46,7 @@ impl EntitySelector {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleEntitySelector> {
+    ) -> Option<TypedEntitySelector> {
         Some(match self {
             Self::Variable(variable, options) => {
                 let options = options
@@ -53,9 +54,9 @@ impl EntitySelector {
                     .map(|option| option.perform_semantic_analysis(parsed_arena, typed_arena, ctx))
                     .collect_option_all()?;
 
-                MiddleEntitySelector::Variable(variable, options)
+                TypedEntitySelector::Variable(variable, options)
             }
-            Self::Name(name) => MiddleEntitySelector::Name(name),
+            Self::Name(name) => TypedEntitySelector::Name(name),
         })
     }
 }

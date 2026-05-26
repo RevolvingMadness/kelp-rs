@@ -11,10 +11,7 @@ use crate::{
     },
     span::Span,
     typed::arena::TypedAstArena,
-    typed::data::{
-        TypedData as MiddleData, TypedDataTarget as MiddleDataTarget,
-        TypedDataTargetKind as MiddleDataTargetKind,
-    },
+    typed::data::{TypedData, TypedDataTarget, TypedDataTargetKind},
 };
 
 #[derive(Debug, Clone)]
@@ -36,7 +33,7 @@ impl Data {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleData> {
+    ) -> Option<TypedData> {
         let target = self
             .target
             .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
@@ -47,7 +44,7 @@ impl Data {
         let target = target?;
         let path = path?;
 
-        Some(MiddleData { target, path })
+        Some(TypedData { target, path })
     }
 }
 
@@ -103,21 +100,21 @@ impl DataTarget {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleDataTarget> {
-        Some(MiddleDataTarget {
+    ) -> Option<TypedDataTarget> {
+        Some(TypedDataTarget {
             is_generated: self.is_generated,
             kind: match self.kind {
                 DataTargetKind::Block(coordinates) => {
                     let coordinates =
                         coordinates.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                    MiddleDataTargetKind::Block(coordinates.map(Box::new))
+                    TypedDataTargetKind::Block(coordinates.map(Box::new))
                 }
                 DataTargetKind::Entity(selector) => {
                     let selector =
                         selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                    MiddleDataTargetKind::Entity(selector)
+                    TypedDataTargetKind::Entity(selector)
                 }
                 DataTargetKind::Storage(resource_location) => {
                     let resource_location = resource_location.perform_semantic_analysis(
@@ -126,7 +123,7 @@ impl DataTarget {
                         ctx,
                     )?;
 
-                    MiddleDataTargetKind::Storage(resource_location)
+                    TypedDataTargetKind::Storage(resource_location)
                 }
             },
             span: self.span,

@@ -8,10 +8,7 @@ use crate::{
     },
     trait_ext::CollectOptionAllIterExt,
     typed::arena::TypedAstArena,
-    typed::mc_item::{
-        TypedItemPredicate as MiddleItemPredicate, TypedItemTest as MiddleItemTest,
-        TypedOrGroup as MiddleOrGroup,
-    },
+    typed::mc_item::{TypedItemPredicate, TypedItemTest, TypedOrGroup},
 };
 
 #[derive(Debug, Clone)]
@@ -28,9 +25,9 @@ impl ItemTest {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItemTest> {
+    ) -> Option<TypedItemTest> {
         Some(match self {
-            Self::Component(resource_location) => MiddleItemTest::Component(resource_location),
+            Self::Component(resource_location) => TypedItemTest::Component(resource_location),
             Self::ComponentMatches(resource_location, expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
@@ -39,7 +36,7 @@ impl ItemTest {
                     ctx,
                 )?;
 
-                MiddleItemTest::ComponentMatches(resource_location, expression)
+                TypedItemTest::ComponentMatches(resource_location, expression)
             }
             Self::Predicate(resource_location, expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
@@ -49,7 +46,7 @@ impl ItemTest {
                     ctx,
                 )?;
 
-                MiddleItemTest::Predicate(resource_location, expression)
+                TypedItemTest::Predicate(resource_location, expression)
             }
         })
     }
@@ -65,7 +62,7 @@ impl OrGroup {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleOrGroup> {
+    ) -> Option<TypedOrGroup> {
         let tests = self
             .0
             .into_iter()
@@ -76,7 +73,7 @@ impl OrGroup {
             })
             .collect_option_all()?;
 
-        Some(MiddleOrGroup(tests))
+        Some(TypedOrGroup(tests))
     }
 }
 
@@ -93,14 +90,14 @@ impl ItemPredicate {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItemPredicate> {
+    ) -> Option<TypedItemPredicate> {
         let or_groups = self
             .or_groups
             .into_iter()
             .map(|or_group| or_group.perform_semantic_analysis(parsed_arena, typed_arena, ctx))
             .collect_option_all()?;
 
-        Some(MiddleItemPredicate {
+        Some(TypedItemPredicate {
             id: self.id,
             or_groups,
         })

@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum TypedFunctionCommandArguments {
-    Compound(HashMap<SNBTString, TypedExpressionId>),
+    Compound(HashMap<String, TypedExpressionId>),
     DataTarget(TypedDataTarget, Option<TypedNbtPath>),
 }
 
@@ -34,7 +34,7 @@ impl TypedFunctionCommandArguments {
                         let value = TypedExpression::resolve(value, arena, datapack, ctx)
                             .as_snbt_macros(ctx);
 
-                        (key, value)
+                        (SNBTString(false, key), value)
                     })
                     .collect(),
             ),

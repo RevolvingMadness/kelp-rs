@@ -7,9 +7,7 @@ use crate::{
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     typed::arena::TypedAstArena,
-    typed::coordinate::{
-        TypedCoordinates as MiddleCoordinates, TypedWorldCoordinate as MiddleWorldCoordinate,
-    },
+    typed::coordinate::{TypedCoordinates, TypedWorldCoordinate},
 };
 
 #[derive(Debug, Clone)]
@@ -41,7 +39,7 @@ impl WorldCoordinate {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleWorldCoordinate> {
+    ) -> Option<TypedWorldCoordinate> {
         match self {
             Self::Relative(expression) => {
                 let expression = match expression {
@@ -58,7 +56,7 @@ impl WorldCoordinate {
                     None => None,
                 };
 
-                Some(MiddleWorldCoordinate::Relative(expression))
+                Some(TypedWorldCoordinate::Relative(expression))
             }
             Self::Absolute(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
@@ -68,7 +66,7 @@ impl WorldCoordinate {
                     ctx,
                 )?;
 
-                Some(MiddleWorldCoordinate::Absolute(expression))
+                Some(TypedWorldCoordinate::Absolute(expression))
             }
         }
     }
@@ -129,14 +127,14 @@ impl Coordinates {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleCoordinates> {
+    ) -> Option<TypedCoordinates> {
         Some(match self {
             Self::World(x, y, z) => {
                 let x = x.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
                 let y = y.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
                 let z = z.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleCoordinates::World(x, y, z)
+                TypedCoordinates::World(x, y, z)
             }
             Self::Local(x, y, z) => {
                 let x = match x {
@@ -214,7 +212,7 @@ impl Coordinates {
                     None => None,
                 };
 
-                MiddleCoordinates::Local(x, y, z)
+                TypedCoordinates::Local(x, y, z)
             }
         })
     }

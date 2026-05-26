@@ -7,7 +7,6 @@ use crate::{
         expression::{ParsedExpression, ParsedExpressionId},
         nbt_path::ParsedNbtPath,
         semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
     },
     trait_ext::CollectOptionAllIterExt,
     typed::arena::TypedAstArena,
@@ -16,7 +15,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum ParsedFunctionCommandArguments {
-    Compound(HashMap<SNBTString, ParsedExpressionId>),
+    Compound(HashMap<String, ParsedExpressionId>),
     DataTarget(Box<(DataTarget, Option<ParsedNbtPath>)>),
 }
 
@@ -32,7 +31,6 @@ impl ParsedFunctionCommandArguments {
                 let compound = compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let (_, key) = key.perform_semantic_analysis(ctx);
                         let value = ParsedExpression::perform_semantic_analysis(
                             value,
                             parsed_arena,

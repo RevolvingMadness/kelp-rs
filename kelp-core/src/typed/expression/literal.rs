@@ -1,6 +1,6 @@
 use ordered_float::NotNan;
 
-use crate::{parsed::snbt_string::SNBTString, pattern_type::PatternType};
+use crate::pattern_type::PatternType;
 
 #[derive(Debug, Clone)]
 pub enum LiteralExpression {
@@ -11,7 +11,7 @@ pub enum LiteralExpression {
     Long(i64),
     Float(NotNan<f32>),
     Double(NotNan<f64>),
-    String(SNBTString),
+    String(String),
 }
 
 impl LiteralExpression {

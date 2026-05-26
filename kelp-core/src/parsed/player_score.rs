@@ -7,7 +7,7 @@ use crate::{
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
     typed::arena::TypedAstArena,
-    typed::player_score::TypedPlayerScore as MiddlePlayerScore,
+    typed::player_score::TypedPlayerScore,
 };
 
 #[derive(Debug, Clone)]
@@ -38,12 +38,12 @@ impl PlayerScore {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddlePlayerScore> {
+    ) -> Option<TypedPlayerScore> {
         let selector = self
             .selector
             .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-        Some(MiddlePlayerScore {
+        Some(TypedPlayerScore {
             is_generated: self.is_generated,
             selector: Box::new(selector),
             objective: self.objective,

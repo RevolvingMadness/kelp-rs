@@ -21,7 +21,7 @@ use crate::{
                 },
             },
         },
-        program::Program as MiddleProgram,
+        program::TypedProgram,
     },
 };
 
@@ -68,7 +68,7 @@ impl Program {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleProgram> {
+    ) -> Option<TypedProgram> {
         for item in self.items.iter().copied() {
             ParsedItem::resolve_names(item, parsed_arena, ctx);
         }
@@ -136,6 +136,6 @@ impl Program {
             }
         }
 
-        (!failed).then_some(MiddleProgram { items })
+        (!failed).then_some(TypedProgram { items })
     }
 }

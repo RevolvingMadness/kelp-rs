@@ -12,7 +12,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     typed::arena::TypedAstArena,
-    typed::expression::command::execute::subcommand::store::TypedExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
+    typed::expression::command::execute::subcommand::store::TypedExecuteStoreSubcommand,
 };
 
 #[derive(Debug, Clone)]
@@ -42,7 +42,7 @@ impl ParsedExecuteStoreSubcommand {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleExecuteStoreSubcommand> {
+    ) -> Option<TypedExecuteStoreSubcommand> {
         Some(match self {
             Self::Data(subcommand) => {
                 let ParsedExecuteStoreDataSubcommand {
@@ -61,12 +61,12 @@ impl ParsedExecuteStoreSubcommand {
                 let path = path?;
                 let next = next?;
 
-                MiddleExecuteStoreSubcommand::Data(target, path, snbt_type, scale, Box::new(next))
+                TypedExecuteStoreSubcommand::Data(target, path, snbt_type, scale, Box::new(next))
             }
             Self::Bossbar(resource_location, store_type, next) => {
                 let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteStoreSubcommand::Bossbar(resource_location, store_type, Box::new(next))
+                TypedExecuteStoreSubcommand::Bossbar(resource_location, store_type, Box::new(next))
             }
             Self::Score(score, next) => {
                 let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
@@ -75,7 +75,7 @@ impl ParsedExecuteStoreSubcommand {
                 let score = score?;
                 let next = next?;
 
-                MiddleExecuteStoreSubcommand::Score(score, Box::new(next))
+                TypedExecuteStoreSubcommand::Score(score, Box::new(next))
             }
         })
     }

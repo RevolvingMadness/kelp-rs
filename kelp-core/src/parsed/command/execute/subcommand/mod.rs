@@ -26,7 +26,7 @@ use crate::{
     },
     trait_ext::CollectOptionAllIterExt,
     typed::arena::TypedAstArena,
-    typed::expression::command::execute::subcommand::TypedExecuteSubcommand as MiddleExecuteSubcommand,
+    typed::expression::command::execute::subcommand::TypedExecuteSubcommand,
 };
 
 pub mod r#if;
@@ -57,7 +57,7 @@ impl ParsedExecuteSubcommand {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleExecuteSubcommand> {
+    ) -> Option<TypedExecuteSubcommand> {
         Some(match self {
             Self::As(selector, next) | Self::At(selector, next) => {
                 let selector = selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
@@ -66,7 +66,7 @@ impl ParsedExecuteSubcommand {
                 let selector = selector?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::As(selector, Box::new(next))
+                TypedExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::Positioned(positioned, next) => {
                 let positioned =
@@ -76,17 +76,17 @@ impl ParsedExecuteSubcommand {
                 let positioned = positioned?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::Positioned(positioned, Box::new(next))
+                TypedExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Align(alignment, next) => {
                 let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteSubcommand::Align(alignment, Box::new(next))
+                TypedExecuteSubcommand::Align(alignment, Box::new(next))
             }
             Self::Anchored(anchor, next) => {
                 let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteSubcommand::Anchored(anchor, Box::new(next))
+                TypedExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
             Self::Facing(facing, next) => {
                 let facing = facing.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
@@ -95,17 +95,17 @@ impl ParsedExecuteSubcommand {
                 let facing = facing?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::Facing(facing, Box::new(next))
+                TypedExecuteSubcommand::Facing(facing, Box::new(next))
             }
             Self::In(resource_location, next) => {
                 let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteSubcommand::In(resource_location, Box::new(next))
+                TypedExecuteSubcommand::In(resource_location, Box::new(next))
             }
             Self::On(relation, next) => {
                 let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteSubcommand::On(relation, Box::new(next))
+                TypedExecuteSubcommand::On(relation, Box::new(next))
             }
             Self::Rotated(rotation, next) => {
                 let rotation = rotation.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
@@ -114,24 +114,24 @@ impl ParsedExecuteSubcommand {
                 let rotation = rotation?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::Rotated(rotation, Box::new(next))
+                TypedExecuteSubcommand::Rotated(rotation, Box::new(next))
             }
             Self::Summon(resource_location, next) => {
                 let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteSubcommand::Summon(resource_location, Box::new(next))
+                TypedExecuteSubcommand::Summon(resource_location, Box::new(next))
             }
             Self::If(inverted, subcommand) => {
                 let subcommand =
                     subcommand.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteSubcommand::If(inverted, subcommand)
+                TypedExecuteSubcommand::If(inverted, subcommand)
             }
             Self::Store(store_type, subcommand) => {
                 let subcommand =
                     subcommand.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleExecuteSubcommand::Store(store_type, subcommand)
+                TypedExecuteSubcommand::Store(store_type, subcommand)
             }
             Self::Run(commands) => {
                 let commands = commands
@@ -141,7 +141,7 @@ impl ParsedExecuteSubcommand {
                     })
                     .collect_option_all()?;
 
-                MiddleExecuteSubcommand::Run(commands)
+                TypedExecuteSubcommand::Run(commands)
             }
             Self::Multiple(subcommands) => {
                 let subcommands = subcommands
@@ -151,7 +151,7 @@ impl ParsedExecuteSubcommand {
                     })
                     .collect_option_all()?;
 
-                MiddleExecuteSubcommand::Multiple(subcommands)
+                TypedExecuteSubcommand::Multiple(subcommands)
             }
         })
     }

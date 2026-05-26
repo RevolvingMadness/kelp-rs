@@ -27,7 +27,7 @@ use crate::{
         data_type::SemanticDataType,
         environment::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
         expression::TypedExpression,
-        item::TypedItem as MiddleItem,
+        item::TypedItem,
     },
     visibility::Visibility,
 };
@@ -149,7 +149,7 @@ impl FunctionDeclarationItem {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<Idx<MiddleItem>> {
+    ) -> Option<Idx<TypedItem>> {
         let id = ctx.get_item_value_id(id);
 
         ctx.enter_scope();
@@ -308,6 +308,6 @@ impl FunctionDeclarationItem {
             return None;
         }
 
-        Some(typed_arena.allocate_item(MiddleItem::FunctionDeclaration))
+        Some(typed_arena.allocate_item(TypedItem::FunctionDeclaration))
     }
 }

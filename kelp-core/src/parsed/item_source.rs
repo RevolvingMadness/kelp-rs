@@ -5,7 +5,7 @@ use crate::{
         arena::ParsedAstArena, entity_selector::EntitySelector,
         semantic_analysis::SemanticAnalysisContext,
     },
-    typed::{arena::TypedAstArena, item_source::TypedItemSource as MiddleItemSource},
+    typed::{arena::TypedAstArena, item_source::TypedItemSource},
 };
 
 #[derive(Debug, Clone)]
@@ -21,14 +21,14 @@ impl ItemSource {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItemSource> {
+    ) -> Option<TypedItemSource> {
         Some(match self {
-            Self::Block(coordinates) => MiddleItemSource::Block(coordinates),
+            Self::Block(coordinates) => TypedItemSource::Block(coordinates),
             Self::Entity(selector) => {
                 let selector =
                     selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                MiddleItemSource::Entity(selector)
+                TypedItemSource::Entity(selector)
             }
         })
     }

@@ -41,7 +41,7 @@ use crate::{
                 },
             },
         },
-        item::TypedItem as MiddleItem,
+        item::TypedItem,
     },
     visibility::Visibility,
 };
@@ -605,7 +605,7 @@ impl ParsedItem {
         parsed_arena: &ParsedAstArena,
         typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<Idx<MiddleItem>> {
+    ) -> Option<Idx<TypedItem>> {
         Some(match parsed_arena.get_item(id) {
             Self::InherentImplementationItem {
                 associated_items, ..
@@ -622,7 +622,7 @@ impl ParsedItem {
 
                 ctx.exit_scope();
 
-                typed_arena.allocate_item(MiddleItem::InherentImplementation)
+                typed_arena.allocate_item(TypedItem::InherentImplementation)
             }
             Self::ModuleDeclaration { name, items, .. } => {
                 let mut failed = false;
@@ -643,7 +643,7 @@ impl ParsedItem {
                     return None;
                 }
 
-                typed_arena.allocate_item(MiddleItem::ModuleDeclaration)
+                typed_arena.allocate_item(TypedItem::ModuleDeclaration)
             }
             Self::FunctionDeclaration(item) => {
                 return item.perform_semantic_analysis(id, parsed_arena, typed_arena, ctx);
@@ -668,21 +668,21 @@ impl ParsedItem {
                     &SemanticDataType::Unit,
                 )?;
 
-                typed_arena.allocate_item(MiddleItem::MinecraftFunctionDeclaration(
+                typed_arena.allocate_item(TypedItem::MinecraftFunctionDeclaration(
                     resource_location.clone(),
                     body,
                 ))
             }
             Self::TypeAliasDeclaration(..) => {
-                typed_arena.allocate_item(MiddleItem::TypeAliasDeclaration)
+                typed_arena.allocate_item(TypedItem::TypeAliasDeclaration)
             }
             Self::RegularStructDeclaration { .. } => {
-                typed_arena.allocate_item(MiddleItem::RegularStructDeclaration)
+                typed_arena.allocate_item(TypedItem::RegularStructDeclaration)
             }
             Self::TupleStructDeclaration { .. } => {
-                typed_arena.allocate_item(MiddleItem::TupleStructDeclaration)
+                typed_arena.allocate_item(TypedItem::TupleStructDeclaration)
             }
-            Self::Use(..) => typed_arena.allocate_item(MiddleItem::Use),
+            Self::Use(..) => typed_arena.allocate_item(TypedItem::Use),
         })
     }
 }

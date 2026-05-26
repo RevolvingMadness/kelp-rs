@@ -6,11 +6,11 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct Program {
+pub struct TypedProgram {
     pub items: Vec<Idx<TypedItem>>,
 }
 
-impl Program {
+impl TypedProgram {
     pub fn compile(self, arena: &TypedAstArena, datapack: &mut Datapack, ctx: &mut CompileContext) {
         for item in self.items {
             TypedItem::compile(item, arena, datapack, ctx);

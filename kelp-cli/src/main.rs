@@ -6,7 +6,7 @@ use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::typed::arena::TypedAstArena;
 use kelp_core::typed::environment::SemanticEnvironment;
-use kelp_core::typed::program::Program as MiddleProgram;
+use kelp_core::typed::program::TypedProgram;
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseResult, Parser};
@@ -366,7 +366,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 fn process_success(
     arena: &TypedAstArena,
     semantic_environment: SemanticEnvironment,
-    program: MiddleProgram,
+    program: TypedProgram,
     _file_name: &str,
     _source_text: &str,
     part_1_elapsed: Duration,

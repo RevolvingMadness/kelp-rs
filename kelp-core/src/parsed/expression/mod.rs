@@ -40,7 +40,7 @@ use crate::{
         data::TypedData,
         data_type::unresolved::SemanticDataType,
         environment::r#type::r#struct::regular::HighRegularStructId,
-        expression::typed::{TypedExpression, TypedExpressionId},
+        expression::{TypedExpression, TypedExpressionId},
     },
 };
 

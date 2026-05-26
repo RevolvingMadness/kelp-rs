@@ -25,7 +25,7 @@ use crate::{
     typed::{
         data_type::unresolved::SemanticDataType,
         environment::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
-        expression::typed::TypedExpression,
+        expression::TypedExpression,
         item::Item as MiddleItem,
     },
     visibility::Visibility,

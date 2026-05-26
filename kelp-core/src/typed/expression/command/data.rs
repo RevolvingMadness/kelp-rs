@@ -9,7 +9,7 @@ use crate::{
     datapack::Datapack,
     typed::{
         data::TypedDataTarget,
-        expression::typed::{TypedExpression, TypedExpressionId},
+        expression::{TypedExpression, TypedExpressionId},
         nbt_path::TypedNbtPath,
     },
 };

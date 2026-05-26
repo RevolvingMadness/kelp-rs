@@ -11,7 +11,7 @@ use crate::{
             r#type::HighGenericId,
             value::{HighValueId, function::HighFunctionId},
         },
-        expression::typed::TypedExpressionId,
+        expression::TypedExpressionId,
         pattern::TypedPattern,
     },
 };

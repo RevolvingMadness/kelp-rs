@@ -1,11 +1,13 @@
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    low::environment::value::function::{FunctionDeclaration, FunctionId},
+    low::{
+        environment::value::function::{FunctionDeclaration, FunctionId},
+        expression::Expression,
+    },
     typed::{
         data_type::{resolved::DataType, unresolved::SemanticDataType},
         environment::value::function::builtin::BuiltinFunctionKind,
-        expression::resolved::Expression,
     },
 };
 

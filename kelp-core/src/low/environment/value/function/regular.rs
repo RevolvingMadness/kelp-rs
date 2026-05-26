@@ -5,7 +5,7 @@ use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,
     typed::{
         data_type::resolved::DataType, environment::r#type::HighGenericId,
-        expression::typed::TypedExpressionId, pattern::TypedPattern,
+        expression::TypedExpressionId, pattern::TypedPattern,
     },
     visibility::Visibility,
 };

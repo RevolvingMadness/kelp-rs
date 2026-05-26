@@ -9,13 +9,11 @@ use crate::{
     ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    low::expression::Expression,
     typed::{
         coordinate::TypedCoordinates,
         entity_selector::TypedEntitySelector,
-        expression::{
-            resolved::Expression,
-            typed::{TypedExpression, TypedExpressionId},
-        },
+        expression::{TypedExpression, TypedExpressionId},
     },
 };
 

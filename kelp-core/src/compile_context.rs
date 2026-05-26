@@ -11,7 +11,7 @@ use minecraft_command_types::{
 use crate::{
     data::GeneratedData,
     datapack::{Datapack, mcfunction::MCFunction},
-    typed::expression::resolved::Expression,
+    low::expression::Expression,
 };
 
 #[derive(Debug, Clone)]

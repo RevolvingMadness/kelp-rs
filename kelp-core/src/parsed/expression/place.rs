@@ -11,10 +11,7 @@ use crate::{
         data::TypedData,
         data_type::unresolved::SemanticDataType,
         environment::value::HighValueId,
-        expression::{
-            place::TypedPlaceExpression,
-            typed::{TypedExpression, TypedExpressionId},
-        },
+        expression::{TypedExpression, TypedExpressionId, place::TypedPlaceExpression},
         player_score::TypedPlayerScore,
     },
 };

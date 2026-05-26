@@ -7,7 +7,7 @@ use crate::{
     },
     typed::{
         data_type::unresolved::SemanticDataType,
-        expression::typed::{TypedExpression, TypedExpressionId},
+        expression::{TypedExpression, TypedExpressionId},
         item::Item,
         pattern::TypedPattern,
         statement::TypedStatement,

@@ -12,7 +12,7 @@ use crate::{
     datapack::Datapack,
     typed::{
         entity_selector::TypedEntitySelector,
-        expression::typed::{TypedExpression, TypedExpressionId},
+        expression::{TypedExpression, TypedExpressionId},
         player_score::TypedPlayerScore,
     },
 };

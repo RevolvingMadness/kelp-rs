@@ -10,7 +10,7 @@ use crate::{
     trait_ext::CollectOptionAllIterExt as _,
     typed::{
         data_type::unresolved::SemanticDataType,
-        expression::typed::{TypedExpression, TypedExpressionId},
+        expression::{TypedExpression, TypedExpressionId},
     },
 };
 

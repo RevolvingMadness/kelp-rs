@@ -5,7 +5,7 @@ use crate::{
     ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
-    typed::expression::typed::{TypedExpression, TypedExpressionId},
+    typed::expression::{TypedExpression, TypedExpressionId},
 };
 
 #[derive(Debug, Clone)]

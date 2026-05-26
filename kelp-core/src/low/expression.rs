@@ -39,10 +39,7 @@ use crate::{
     typed::{
         data_type::resolved::{DataType, FieldAccessType},
         environment::r#type::HighGenericId,
-        expression::{
-            place::TypedPlaceExpression,
-            typed::{TypedExpression, TypedExpressionId},
-        },
+        expression::{TypedExpression, TypedExpressionId, place::TypedPlaceExpression},
         pattern::TypedPattern,
     },
 };

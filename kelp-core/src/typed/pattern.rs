@@ -10,7 +10,10 @@ use crate::{
     ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
-    low::environment::r#type::r#struct::{RegularStructId, TupleStructId},
+    low::{
+        environment::r#type::r#struct::{RegularStructId, TupleStructId},
+        expression::Expression,
+    },
     typed::{
         data::TypedData,
         data_type::{resolved::DataType, unresolved::SemanticDataType},
@@ -18,7 +21,7 @@ use crate::{
             r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
             value::variable::HighVariableId,
         },
-        expression::{literal::LiteralExpression, resolved::Expression},
+        expression::literal::LiteralExpression,
         player_score::TypedPlayerScore,
     },
 };

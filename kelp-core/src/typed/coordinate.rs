@@ -2,7 +2,7 @@ use crate::{
     ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
-    typed::expression::typed::{TypedExpression, TypedExpressionId},
+    typed::expression::{TypedExpression, TypedExpressionId},
 };
 
 use minecraft_command_types::coordinate::{Coordinates, WorldCoordinate};

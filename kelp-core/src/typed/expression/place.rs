@@ -5,7 +5,7 @@ use crate::{
     low::environment::value::variable::VariableId,
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,
-    typed::{data_type::resolved::FieldAccessType, expression::resolved::Expression},
+    typed::{data_type::resolved::FieldAccessType, expression::Expression},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

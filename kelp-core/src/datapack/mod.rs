@@ -14,6 +14,7 @@ use crate::low::environment::value::function::regular::{
 use crate::low::environment::value::function::{FunctionDeclaration, FunctionId};
 use crate::low::environment::value::variable::VariableId;
 use crate::low::environment::value::{ValueDeclaration, ValueId};
+use crate::low::expression::Expression;
 use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
 use crate::typed::data_type::resolved::DataType;
@@ -25,7 +26,6 @@ use crate::typed::environment::value::variable::HighVariableId;
 use crate::typed::environment::value::{
     HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
 };
-use crate::typed::expression::resolved::Expression;
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};

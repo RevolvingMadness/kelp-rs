@@ -8,8 +8,8 @@ use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     typed::expression::{
+        TypedExpression, TypedExpressionId,
         command::scoreboard::players::TypedScoreboardNumberFormat,
-        typed::{TypedExpression, TypedExpressionId},
     },
 };
 

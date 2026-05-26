@@ -20,9 +20,7 @@ use crate::{
             variable::{VariableDeclaration, VariableId},
         },
     },
-    typed::{
-        data_type::resolved::DataType, expression::typed::TypedExpressionId, pattern::TypedPattern,
-    },
+    typed::{data_type::resolved::DataType, expression::TypedExpressionId, pattern::TypedPattern},
     visibility::Visibility,
 };
 

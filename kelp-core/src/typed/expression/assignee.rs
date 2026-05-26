@@ -1,7 +1,7 @@
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    typed::expression::{place::TypedPlaceExpression, resolved::Expression},
+    typed::expression::{Expression, place::TypedPlaceExpression},
 };
 
 #[derive(Debug, Clone)]

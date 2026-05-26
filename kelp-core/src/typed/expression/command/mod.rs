@@ -11,12 +11,12 @@ use crate::{
     typed::{
         entity_selector::TypedEntitySelector,
         expression::{
+            TypedExpression, TypedExpressionId,
             command::{
                 data::TypedDataCommand, execute::subcommand::TypedExecuteSubcommand,
                 function::TypedFunctionCommandArguments, r#return::TypedReturnCommand,
                 scoreboard::TypedScoreboardCommand, stopwatch::TypedStopwatchCommand,
             },
-            typed::{TypedExpression, TypedExpressionId},
         },
         supports_expression_sigil::TypedSupportsExpressionSigil,
     },

@@ -2,24 +2,24 @@ use std::collections::HashMap;
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
-use crate::parsed::environment::{
-    r#type::alias::ParsedTypeAliasDeclaration,
-    r#type::r#struct::{
-        regular::ParsedRegularStructDeclaration, tuple::ParsedTupleStructDeclaration,
-        ParsedStructDeclaration,
+use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::{
+    HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
+    r#struct::{
+        SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
+        tuple::SemanticTupleStructDeclaration,
     },
-    r#type::ParsedTypeDeclaration,
-    r#type::ParsedTypeDeclarationKind,
 };
-use crate::semantic::environment::{
-    r#type::{
+use crate::{
+    parsed::environment::r#type::{
+        ParsedTypeDeclaration, ParsedTypeDeclarationKind,
+        alias::ParsedTypeAliasDeclaration,
         r#struct::{
-            regular::SemanticRegularStructDeclaration, tuple::SemanticTupleStructDeclaration,
-            SemanticStructDeclaration,
-        }, HighGenericId, HighTypeId,
-        SemanticTypeDeclarationKind,
+            ParsedStructDeclaration, regular::ParsedRegularStructDeclaration,
+            tuple::ParsedTupleStructDeclaration,
+        },
     },
-    HighImpl,
+    semantic::environment::implementation::SemanticImplementation,
 };
 use crate::{
     parsed::{
@@ -30,17 +30,16 @@ use crate::{
             type_alias_declaration::TypeAliasDeclarationItem,
         },
         semantic_analysis::{
-            info::error::SemanticAnalysisError, scope::Scope, FunctionContext,
-            SemanticAnalysisContext,
+            FunctionContext, SemanticAnalysisContext, info::error::SemanticAnalysisError,
+            scope::Scope,
         },
         use_tree::UseTree,
     },
+    semantic::item::SemanticItem as MiddleItem,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
-    semantic::item::SemanticItem as MiddleItem,
     visibility::Visibility,
 };
-use crate::semantic::data_type::SemanticDataType;
 
 pub mod associated;
 pub mod function_declaration;
@@ -434,7 +433,7 @@ impl ParsedItem {
 
                 match target_type {
                     target_type @ SemanticDataType::Struct(id, _) => {
-                        let implementation = HighImpl {
+                        let implementation = SemanticImplementation {
                             generic_names: generic_names.clone(),
                             target_type,
                             types,

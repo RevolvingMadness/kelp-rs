@@ -1,44 +1,38 @@
-use std::collections::{hash_map::Iter, HashMap};
+use std::collections::{HashMap, hash_map::Iter};
 
-use crate::visibility::Visibility;
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::implementation::SemanticImplementation;
 use crate::semantic::environment::{
     r#type::{
+        HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
         r#struct::{
-            regular::{HighRegularStructId, SemanticRegularStructDeclaration}, tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
-            HighStructId,
-            SemanticStructDeclaration,
-        }, HighGenericId, HighTypeId, SemanticTypeDeclaration,
-        SemanticTypeDeclarationKind,
+            HighStructId, SemanticStructDeclaration,
+            regular::{HighRegularStructId, SemanticRegularStructDeclaration},
+            tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
+        },
     },
     value::{
+        HighValueId, ResolvedValueDeclaration, ResolvedValueDeclarationKind,
         function::{
-            builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration}, regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
-            HighFunctionId,
-            SemanticFunctionDeclaration,
-        }, variable::{HighVariableId, SemanticVariableDeclaration}, HighValueId,
-        ResolvedValueDeclaration,
-        ResolvedValueDeclarationKind,
+            HighFunctionId, SemanticFunctionDeclaration,
+            builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration},
+            regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
+        },
+        variable::{HighVariableId, SemanticVariableDeclaration},
     },
 };
+use crate::visibility::Visibility;
 
+pub mod implementation;
 pub mod r#type;
 pub mod value;
-
-#[derive(Debug, Clone)]
-pub struct HighImpl {
-    pub generic_names: Vec<String>,
-    pub target_type: SemanticDataType,
-    pub types: HashMap<String, HighTypeId>,
-    pub values: HashMap<String, HighValueId>,
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct SemanticEnvironment {
     types: HashMap<HighTypeId, SemanticTypeDeclaration>,
     values: HashMap<HighValueId, ResolvedValueDeclaration>,
 
-    pub impls: HashMap<HighTypeId, Vec<HighImpl>>,
+    pub impls: HashMap<HighTypeId, Vec<SemanticImplementation>>,
 }
 
 impl SemanticEnvironment {

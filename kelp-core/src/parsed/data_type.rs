@@ -78,7 +78,7 @@ impl ParsedDataType {
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let declaration = ctx.semantic_environment.get_type(id).clone();
+                let declaration = ctx.parsed_environment.get_type(id).clone();
 
                 declaration.resolve_partially(
                     ctx,

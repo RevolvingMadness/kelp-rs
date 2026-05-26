@@ -116,6 +116,7 @@ impl ParsedItem {
                     ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
                         name: "Self".to_owned(),
                         generic_ids: generic_ids.clone(),
+                        alias: target_type.clone(),
                     }),
                 );
 
@@ -264,6 +265,7 @@ impl ParsedItem {
                     ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
                         name: name.clone(),
                         generic_ids: generic_ids.clone(),
+                        alias: alias.clone(),
                     }),
                 );
 

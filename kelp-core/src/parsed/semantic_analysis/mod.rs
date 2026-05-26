@@ -447,10 +447,11 @@ impl SemanticAnalysisContext {
         self.set_semantic_type(id, visibility, SemanticTypeDeclarationKind::Generic(name));
     }
 
-    pub fn declare_builtin_type(&mut self, data_type: SemanticBuiltinTypeDeclaration) {
+    pub fn declare_builtin_type(&mut self, declaration: SemanticBuiltinTypeDeclaration) {
         self.declare_type(
             Visibility::Public,
-            SemanticTypeDeclarationKind::Builtin(data_type),
+            ParsedTypeDeclarationKind::Builtin(declaration.clone().into()),
+            SemanticTypeDeclarationKind::Builtin(declaration),
         );
     }
 
@@ -496,11 +497,12 @@ impl SemanticAnalysisContext {
     pub fn declare_type(
         &mut self,
         visibility: Visibility,
-        declaration: SemanticTypeDeclarationKind,
+        parsed: ParsedTypeDeclarationKind,
+        semantic: SemanticTypeDeclarationKind,
     ) -> HighTypeId {
-        let id = self.declare_parsed_type(visibility, declaration.clone().into());
+        let id = self.declare_parsed_type(visibility, parsed);
 
-        self.set_semantic_type(id, visibility, declaration);
+        self.set_semantic_type(id, visibility, semantic);
 
         id
     }

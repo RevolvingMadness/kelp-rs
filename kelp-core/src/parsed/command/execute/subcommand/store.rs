@@ -9,7 +9,7 @@ use crate::{
         command::execute::subcommand::ParsedExecuteSubcommand, data::ParsedDataTarget,
         nbt_path::NbtPath, player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
     },
-    semantic::expression::command::execute::subcommand::store::SemanticExecuteStoreSubcommand as MiddleExecuteStoreSubcommand,
+    semantic::expression::command::execute::subcommand::store::SemanticExecuteStoreSubcommand,
 };
 
 #[derive(Debug, Clone)]
@@ -37,7 +37,7 @@ impl ExecuteStoreSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleExecuteStoreSubcommand> {
+    ) -> Option<SemanticExecuteStoreSubcommand> {
         Some(match self {
             Self::Data(subcommand) => {
                 let ExecuteStoreDataSubcommand {
@@ -56,12 +56,16 @@ impl ExecuteStoreSubcommand {
                 let path = path?;
                 let next = next?;
 
-                MiddleExecuteStoreSubcommand::Data(target, path, snbt_type, scale, Box::new(next))
+                SemanticExecuteStoreSubcommand::Data(target, path, snbt_type, scale, Box::new(next))
             }
             Self::Bossbar(resource_location, store_type, next) => {
                 let next = next.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteStoreSubcommand::Bossbar(resource_location, store_type, Box::new(next))
+                SemanticExecuteStoreSubcommand::Bossbar(
+                    resource_location,
+                    store_type,
+                    Box::new(next),
+                )
             }
             Self::Score(score, next) => {
                 let score = score.perform_semantic_analysis(ctx);
@@ -70,7 +74,7 @@ impl ExecuteStoreSubcommand {
                 let score = score?;
                 let next = next?;
 
-                MiddleExecuteStoreSubcommand::Score(score, Box::new(next))
+                SemanticExecuteStoreSubcommand::Score(score, Box::new(next))
             }
         })
     }

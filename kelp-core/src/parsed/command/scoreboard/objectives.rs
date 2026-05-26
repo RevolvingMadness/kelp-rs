@@ -6,33 +6,32 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     semantic::expression::command::scoreboard::objectives::{
-        ObjectivesScoreboardCommand as MiddleObjectivesScoreboardCommand,
-        SemanticScoreboardModification as MiddleScoreboardModification,
+        SemanticObjectivesScoreboardCommand, SemanticScoreboardModification,
     },
 };
 
 #[derive(Debug, Clone)]
-pub enum ScoreboardModification {
+pub enum ParsedScoreboardModification {
     DisplayAutoUpdate(bool),
     DisplayName(Box<ParsedExpression>),
     NumberFormat(Option<Box<ScoreboardNumberFormat>>),
     RenderType(ScoreboardRenderType),
 }
 
-impl ScoreboardModification {
+impl ParsedScoreboardModification {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleScoreboardModification> {
+    ) -> Option<SemanticScoreboardModification> {
         Some(match self {
             Self::DisplayAutoUpdate(auto_update) => {
-                MiddleScoreboardModification::DisplayAutoUpdate(auto_update)
+                SemanticScoreboardModification::DisplayAutoUpdate(auto_update)
             }
             Self::DisplayName(expression) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                MiddleScoreboardModification::DisplayName(expression)
+                SemanticScoreboardModification::DisplayName(expression)
             }
             Self::NumberFormat(number_format) => {
                 let number_format = match number_format {
@@ -40,29 +39,31 @@ impl ScoreboardModification {
                     None => None,
                 };
 
-                MiddleScoreboardModification::NumberFormat(number_format)
+                SemanticScoreboardModification::NumberFormat(number_format)
             }
-            Self::RenderType(render_type) => MiddleScoreboardModification::RenderType(render_type),
+            Self::RenderType(render_type) => {
+                SemanticScoreboardModification::RenderType(render_type)
+            }
         })
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum ObjectivesScoreboardCommand {
+pub enum ParsedObjectivesScoreboardCommand {
     List,
     Add(String, String, Option<Box<ParsedExpression>>),
     Remove(String),
     SetDisplay(String, Option<String>),
-    Modify(String, ScoreboardModification),
+    Modify(String, ParsedScoreboardModification),
 }
 
-impl ObjectivesScoreboardCommand {
+impl ParsedObjectivesScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleObjectivesScoreboardCommand> {
+    ) -> Option<SemanticObjectivesScoreboardCommand> {
         Some(match self {
-            Self::List => MiddleObjectivesScoreboardCommand::List,
+            Self::List => SemanticObjectivesScoreboardCommand::List,
             Self::Add(name, criterion, expression) => {
                 let expression = match expression {
                     Some(expression) => {
@@ -73,16 +74,16 @@ impl ObjectivesScoreboardCommand {
                     None => None,
                 };
 
-                MiddleObjectivesScoreboardCommand::Add(name, criterion, expression)
+                SemanticObjectivesScoreboardCommand::Add(name, criterion, expression)
             }
-            Self::Remove(objective) => MiddleObjectivesScoreboardCommand::Remove(objective),
+            Self::Remove(objective) => SemanticObjectivesScoreboardCommand::Remove(objective),
             Self::SetDisplay(position, objective) => {
-                MiddleObjectivesScoreboardCommand::SetDisplay(position, objective)
+                SemanticObjectivesScoreboardCommand::SetDisplay(position, objective)
             }
             Self::Modify(objective, modification) => {
                 let modification = modification.perform_semantic_analysis(ctx)?;
 
-                MiddleObjectivesScoreboardCommand::Modify(objective, modification)
+                SemanticObjectivesScoreboardCommand::Modify(objective, modification)
             }
         })
     }

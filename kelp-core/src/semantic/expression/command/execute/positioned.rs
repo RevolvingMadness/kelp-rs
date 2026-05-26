@@ -1,5 +1,5 @@
 use minecraft_command_types::{
-    command::{enums::heightmap::Heightmap, execute::Positioned as LowPositioned},
+    command::{enums::heightmap::Heightmap, execute::Positioned},
     coordinate::Coordinates,
 };
 
@@ -16,11 +16,11 @@ pub enum SemanticPositioned {
 }
 
 impl SemanticPositioned {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowPositioned {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Positioned {
         match self {
-            Self::Position(position) => LowPositioned::Position(position),
-            Self::As(selector) => LowPositioned::As(selector.compile(datapack, ctx)),
-            Self::Over(heightmap) => LowPositioned::Over(heightmap),
+            Self::Position(position) => Positioned::Position(position),
+            Self::As(selector) => Positioned::As(selector.compile(datapack, ctx)),
+            Self::Over(heightmap) => Positioned::Over(heightmap),
         }
     }
 }

@@ -1,4 +1,4 @@
-use minecraft_command_types::{command::execute::Rotated as LowRotated, rotation::Rotation};
+use minecraft_command_types::{command::execute::Rotated, rotation::Rotation};
 
 use crate::{
     compile_context::CompileContext, datapack::Datapack,
@@ -12,10 +12,10 @@ pub enum SemanticRotated {
 }
 
 impl SemanticRotated {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowRotated {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Rotated {
         match self {
-            Self::Rotation(rotation) => LowRotated::Rotation(rotation),
-            Self::As(selector) => LowRotated::As(selector.compile(datapack, ctx)),
+            Self::Rotation(rotation) => Rotated::Rotation(rotation),
+            Self::As(selector) => Rotated::As(selector.compile(datapack, ctx)),
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     parsed::{command::ParsedCommand, semantic_analysis::SemanticAnalysisContext},
-    semantic::expression::command::r#return::SemanticReturnCommand as MiddleReturnCommand,
+    semantic::expression::command::r#return::SemanticReturnCommand,
 };
 
 #[derive(Debug, Clone)]
@@ -14,14 +14,14 @@ impl ReturnCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleReturnCommand> {
+    ) -> Option<SemanticReturnCommand> {
         Some(match self {
-            Self::Value(value) => MiddleReturnCommand::Value(value),
-            Self::Fail => MiddleReturnCommand::Fail,
+            Self::Value(value) => SemanticReturnCommand::Value(value),
+            Self::Fail => SemanticReturnCommand::Fail,
             Self::Run(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleReturnCommand::Run(Box::new(command))
+                SemanticReturnCommand::Run(Box::new(command))
             }
         })
     }

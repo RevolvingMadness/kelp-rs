@@ -1,11 +1,11 @@
 use crate::{
     parsed::{
         command::scoreboard::{
-            objectives::ObjectivesScoreboardCommand, players::PlayersScoreboardCommand,
+            objectives::ParsedObjectivesScoreboardCommand, players::PlayersScoreboardCommand,
         },
         semantic_analysis::SemanticAnalysisContext,
     },
-    semantic::expression::command::scoreboard::SemanticScoreboardCommand as MiddleScoreboardCommand,
+    semantic::expression::command::scoreboard::SemanticScoreboardCommand,
 };
 
 pub mod objectives;
@@ -13,7 +13,7 @@ pub mod players;
 
 #[derive(Debug, Clone)]
 pub enum ScoreboardCommand {
-    Objectives(ObjectivesScoreboardCommand),
+    Objectives(ParsedObjectivesScoreboardCommand),
     Players(PlayersScoreboardCommand),
 }
 
@@ -21,17 +21,17 @@ impl ScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleScoreboardCommand> {
+    ) -> Option<SemanticScoreboardCommand> {
         Some(match self {
             Self::Objectives(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleScoreboardCommand::Objectives(Box::new(command))
+                SemanticScoreboardCommand::Objectives(Box::new(command))
             }
             Self::Players(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleScoreboardCommand::Players(command)
+                SemanticScoreboardCommand::Players(command)
             }
         })
     }

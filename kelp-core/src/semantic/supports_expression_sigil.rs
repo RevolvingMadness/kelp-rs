@@ -1,8 +1,7 @@
 use std::fmt::Debug;
 
 use minecraft_command_types::{
-    coordinate::Coordinates as LowCoordinates,
-    entity_selector::EntitySelector as LowEntitySelector, resource_location::ResourceLocation,
+    coordinate::Coordinates, entity_selector::EntitySelector, resource_location::ResourceLocation,
 };
 
 use crate::low::expression::Expression;
@@ -94,8 +93,8 @@ macro_rules! impl_supports_expression_sigil {
 
 impl_supports_expression_sigil!(no_compile, ResourceLocation, ResourceLocation);
 
-impl_supports_expression_sigil!(SemanticEntitySelector, LowEntitySelector, EntitySelector);
+impl_supports_expression_sigil!(SemanticEntitySelector, EntitySelector, EntitySelector);
 
-impl_supports_expression_sigil!(SemanticCoordinates, LowCoordinates, Coordinates);
+impl_supports_expression_sigil!(SemanticCoordinates, Coordinates, Coordinates);
 
-impl_supports_expression_sigil!(Box<SemanticCoordinates>, LowCoordinates, Coordinates);
+impl_supports_expression_sigil!(Box<SemanticCoordinates>, Coordinates, Coordinates);

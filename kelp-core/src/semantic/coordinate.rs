@@ -1,9 +1,7 @@
 use crate::{
     compile_context::CompileContext, datapack::Datapack, semantic::expression::SemanticExpression,
 };
-use minecraft_command_types::coordinate::{
-    Coordinates as LowCoordinates, WorldCoordinate as LowWorldCoordinate,
-};
+use minecraft_command_types::coordinate::{Coordinates, WorldCoordinate};
 
 #[derive(Debug, Clone)]
 pub enum SemanticWorldCoordinate {
@@ -12,7 +10,7 @@ pub enum SemanticWorldCoordinate {
 }
 
 impl SemanticWorldCoordinate {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowWorldCoordinate {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> WorldCoordinate {
         match self {
             Self::Relative(expression) => {
                 let expression = expression.map(|expression| {
@@ -23,7 +21,7 @@ impl SemanticWorldCoordinate {
                         .unwrap()
                 });
 
-                LowWorldCoordinate::Relative(expression)
+                WorldCoordinate::Relative(expression)
             }
             Self::Absolute(expression) => {
                 let expression = expression
@@ -32,7 +30,7 @@ impl SemanticWorldCoordinate {
                     .as_snbt_double(ctx)
                     .unwrap();
 
-                LowWorldCoordinate::Absolute(expression)
+                WorldCoordinate::Absolute(expression)
             }
         }
     }
@@ -66,21 +64,21 @@ pub enum SemanticCoordinates {
 }
 
 impl SemanticCoordinates {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowCoordinates {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> Coordinates {
         match self {
             Self::World(x, y, z) => {
                 let x = x.compile(datapack, ctx);
                 let y = y.compile(datapack, ctx);
                 let z = z.compile(datapack, ctx);
 
-                LowCoordinates::World(x, y, z)
+                Coordinates::World(x, y, z)
             }
             Self::Local(x, y, z) => {
                 let x = x.map(|x| x.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
                 let y = y.map(|y| y.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
                 let z = z.map(|z| z.kind.resolve(datapack, ctx).as_snbt_double(ctx).unwrap());
 
-                LowCoordinates::Local(x, y, z)
+                Coordinates::Local(x, y, z)
             }
         }
     }

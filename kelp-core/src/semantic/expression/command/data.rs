@@ -1,6 +1,5 @@
 use minecraft_command_types::command::data::{
-    DataCommand as LowDataCommand, DataCommandModification as LowDataCommandModification,
-    DataCommandModificationMode,
+    DataCommand, DataCommandModification, DataCommandModificationMode,
 };
 use ordered_float::NotNan;
 
@@ -29,33 +28,33 @@ impl SemanticDataCommandModification {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> LowDataCommandModification {
+    ) -> DataCommandModification {
         match self {
             Self::From(target, path) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                LowDataCommandModification::From(target.target, path)
+                DataCommandModification::From(target.target, path)
             }
             Self::String(target, path, start, end) => {
                 let target = target.compile(datapack, ctx);
                 let path = path.map(|path| path.compile(datapack, ctx));
 
-                LowDataCommandModification::String(target.target, path, start, end)
+                DataCommandModification::String(target.target, path, start, end)
             }
             Self::Value(expression) => {
                 let expression = expression.kind.resolve(datapack, ctx);
 
                 let expression_snbt = expression.as_snbt_macros(ctx);
 
-                LowDataCommandModification::Value(expression_snbt)
+                DataCommandModification::Value(expression_snbt)
             }
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum DataCommand {
+pub enum SemanticDataCommand {
     Get(
         SemanticDataTarget,
         Option<SemanticNbtPath>,
@@ -71,14 +70,14 @@ pub enum DataCommand {
     Remove(SemanticDataTarget, SemanticNbtPath),
 }
 
-impl DataCommand {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowDataCommand {
+impl SemanticDataCommand {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> DataCommand {
         match self {
             Self::Get(target, path, count) => {
                 let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.map(|path| path.compile(datapack, ctx));
 
-                LowDataCommand::Get(compiled_target.target, compiled_path, count)
+                DataCommand::Get(compiled_target.target, compiled_path, count)
             }
             Self::Merge(target, expression) => {
                 let target = target.compile(datapack, ctx);
@@ -86,14 +85,14 @@ impl DataCommand {
 
                 let snbt = expression.as_snbt_macros(ctx);
 
-                LowDataCommand::Merge(target.target, snbt)
+                DataCommand::Merge(target.target, snbt)
             }
             Self::Modify(target, path, mode, modification) => {
                 let compiled_modification = modification.compile(datapack, ctx);
                 let compiled_target = target.compile(datapack, ctx);
                 let compiled_path = path.compile(datapack, ctx);
 
-                LowDataCommand::Modify(
+                DataCommand::Modify(
                     compiled_target.target,
                     compiled_path,
                     mode,
@@ -104,7 +103,7 @@ impl DataCommand {
                 let target = target.compile(datapack, ctx);
                 let path = path.compile(datapack, ctx);
 
-                LowDataCommand::Remove(target.target, path)
+                DataCommand::Remove(target.target, path)
             }
         }
     }

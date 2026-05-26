@@ -5,7 +5,7 @@ use kelp_core::datapack::Datapack;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::semantic::environment::SemanticEnvironment;
-use kelp_core::semantic::program::SemanticProgram as MiddleProgram;
+use kelp_core::semantic::program::SemanticProgram;
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseResult, Parser};
@@ -357,7 +357,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
 fn process_success(
     resolved_environment: SemanticEnvironment,
-    program: MiddleProgram,
+    program: SemanticProgram,
     _file_name: &str,
     _source_text: &str,
     part_1_elapsed: Duration,

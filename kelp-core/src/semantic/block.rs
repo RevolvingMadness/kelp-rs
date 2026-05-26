@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use minecraft_command_types::{
-    block::BlockState as LowBlockState, resource_location::ResourceLocation, snbt::SNBTString,
+    block::BlockState, resource_location::ResourceLocation, snbt::SNBTString,
 };
 
 use crate::{
@@ -16,8 +16,8 @@ pub struct SemanticBlockState {
 }
 
 impl SemanticBlockState {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowBlockState {
-        LowBlockState {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> BlockState {
+        BlockState {
             id: self.id,
             block_states: self.block_states.into_iter().collect(),
             data_tags: self.data_tags.map(|value| {

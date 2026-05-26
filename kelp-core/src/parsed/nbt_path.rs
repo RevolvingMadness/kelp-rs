@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     parsed::{expression::ParsedExpression, semantic_analysis::SemanticAnalysisContext},
-    semantic::nbt_path::{
-        SemanticNbtPath as MiddleNbtPath, SemanticNbtPathNode as MiddleNbtPathNode,
-    },
+    semantic::nbt_path::{SemanticNbtPath, SemanticNbtPathNode},
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -19,7 +17,7 @@ impl NbtPathNode {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleNbtPathNode> {
+    ) -> Option<SemanticNbtPathNode> {
         Some(match self {
             Self::RootCompound(compound) => {
                 let compound = compound
@@ -31,7 +29,7 @@ impl NbtPathNode {
                     })
                     .collect_option_all()?;
 
-                MiddleNbtPathNode::RootCompound(compound)
+                SemanticNbtPathNode::RootCompound(compound)
             }
             Self::Named(name, compound) => {
                 let compound = match compound {
@@ -48,7 +46,7 @@ impl NbtPathNode {
                     None => None,
                 };
 
-                MiddleNbtPathNode::Named(name, compound)
+                SemanticNbtPathNode::Named(name, compound)
             }
             Self::Index(expression) => {
                 let expression = match expression {
@@ -60,7 +58,7 @@ impl NbtPathNode {
                     None => None,
                 };
 
-                MiddleNbtPathNode::Index(expression.map(Box::new))
+                SemanticNbtPathNode::Index(expression.map(Box::new))
             }
         })
     }
@@ -73,8 +71,8 @@ impl NbtPath {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleNbtPath> {
-        Some(MiddleNbtPath(
+    ) -> Option<SemanticNbtPath> {
+        Some(SemanticNbtPath(
             self.0
                 .into_iter()
                 .map(|node| node.perform_semantic_analysis(ctx))

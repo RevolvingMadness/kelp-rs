@@ -12,7 +12,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::expression::command::execute::subcommand::r#if::SemanticExecuteIfSubcommand as MiddleExecuteIfSubcommand,
+    semantic::expression::command::execute::subcommand::r#if::SemanticExecuteIfSubcommand,
 };
 
 #[derive(Debug, Clone)]
@@ -71,7 +71,7 @@ impl ParsedExecuteIfSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleExecuteIfSubcommand> {
+    ) -> Option<SemanticExecuteIfSubcommand> {
         Some(match self {
             Self::Biome(coordinates, biome, next) => {
                 let biome = biome.perform_semantic_analysis(ctx);
@@ -83,7 +83,7 @@ impl ParsedExecuteIfSubcommand {
 
                 let biome = biome?;
 
-                MiddleExecuteIfSubcommand::Biome(coordinates, biome, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Biome(coordinates, biome, next.map(Box::new))
             }
             Self::Block(coordinates, block_state, next) => {
                 let block_state = block_state.perform_semantic_analysis(ctx);
@@ -94,7 +94,7 @@ impl ParsedExecuteIfSubcommand {
 
                 let block_state = block_state?;
 
-                MiddleExecuteIfSubcommand::Block(coordinates, block_state, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Block(coordinates, block_state, next.map(Box::new))
             }
             Self::Blocks(start, end, desination, mode, next) => {
                 let next = match next {
@@ -102,7 +102,13 @@ impl ParsedExecuteIfSubcommand {
                     None => None,
                 };
 
-                MiddleExecuteIfSubcommand::Blocks(start, end, desination, mode, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Blocks(
+                    start,
+                    end,
+                    desination,
+                    mode,
+                    next.map(Box::new),
+                )
             }
             Self::Data(target, path, next) => {
                 let target = target.perform_semantic_analysis(ctx);
@@ -115,7 +121,7 @@ impl ParsedExecuteIfSubcommand {
                 let target = target?;
                 let path = path?;
 
-                MiddleExecuteIfSubcommand::Data(target, path, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Data(target, path, next.map(Box::new))
             }
             Self::Dimension(dimension, next) => {
                 let dimension = dimension.perform_semantic_analysis(ctx);
@@ -127,7 +133,7 @@ impl ParsedExecuteIfSubcommand {
 
                 let dimension = dimension?;
 
-                MiddleExecuteIfSubcommand::Dimension(dimension, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Dimension(dimension, next.map(Box::new))
             }
             Self::Entity(selector, next) => {
                 let selector = selector.perform_semantic_analysis(ctx);
@@ -138,7 +144,7 @@ impl ParsedExecuteIfSubcommand {
 
                 let selector = selector?;
 
-                MiddleExecuteIfSubcommand::Entity(selector, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Entity(selector, next.map(Box::new))
             }
             Self::Function(function, next) => {
                 let function = function.perform_semantic_analysis(ctx);
@@ -150,7 +156,7 @@ impl ParsedExecuteIfSubcommand {
 
                 let function = function?;
 
-                MiddleExecuteIfSubcommand::Function(function, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Function(function, next.map(Box::new))
             }
             Self::Items(item_source, slot, item_predicate, next) => {
                 let item_source = item_source.perform_semantic_analysis(ctx);
@@ -163,7 +169,7 @@ impl ParsedExecuteIfSubcommand {
                 let item_source = item_source?;
                 let item_predicate = item_predicate?;
 
-                MiddleExecuteIfSubcommand::Items(
+                SemanticExecuteIfSubcommand::Items(
                     item_source,
                     slot,
                     item_predicate,
@@ -176,7 +182,7 @@ impl ParsedExecuteIfSubcommand {
                     None => None,
                 };
 
-                MiddleExecuteIfSubcommand::Loaded(column_position, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Loaded(column_position, next.map(Box::new))
             }
             Self::Predicate(predicate, next) => {
                 let predicate = predicate.perform_semantic_analysis(ctx);
@@ -188,7 +194,7 @@ impl ParsedExecuteIfSubcommand {
 
                 let predicate = predicate?;
 
-                MiddleExecuteIfSubcommand::Predicate(predicate, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Predicate(predicate, next.map(Box::new))
             }
             Self::Score(score, score_comparison, next) => {
                 let score = score.perform_semantic_analysis(ctx);
@@ -201,7 +207,7 @@ impl ParsedExecuteIfSubcommand {
                 let score = score?;
                 let score_comparison = score_comparison?;
 
-                MiddleExecuteIfSubcommand::Score(score, score_comparison, next.map(Box::new))
+                SemanticExecuteIfSubcommand::Score(score, score_comparison, next.map(Box::new))
             }
         })
     }

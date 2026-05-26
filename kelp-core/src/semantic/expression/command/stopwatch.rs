@@ -1,6 +1,5 @@
 use minecraft_command_types::{
-    command::stopwatch::StopwatchCommand as LowStopwatchCommand,
-    resource_location::ResourceLocation,
+    command::stopwatch::StopwatchCommand, resource_location::ResourceLocation,
 };
 use ordered_float::NotNan;
 
@@ -22,27 +21,27 @@ pub enum SemanticStopwatchCommand {
 
 impl SemanticStopwatchCommand {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowStopwatchCommand {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> StopwatchCommand {
         match self {
             Self::Create(resource_location) => {
                 let resource_location = resource_location.compile(datapack, ctx);
 
-                LowStopwatchCommand::Create(resource_location)
+                StopwatchCommand::Create(resource_location)
             }
             Self::Query(resource_location, scale) => {
                 let resource_location = resource_location.compile(datapack, ctx);
 
-                LowStopwatchCommand::Query(resource_location, scale)
+                StopwatchCommand::Query(resource_location, scale)
             }
             Self::Restart(resource_location) => {
                 let resource_location = resource_location.compile(datapack, ctx);
 
-                LowStopwatchCommand::Restart(resource_location)
+                StopwatchCommand::Restart(resource_location)
             }
             Self::Remove(resource_location) => {
                 let resource_location = resource_location.compile(datapack, ctx);
 
-                LowStopwatchCommand::Remove(resource_location)
+                StopwatchCommand::Remove(resource_location)
             }
         }
     }

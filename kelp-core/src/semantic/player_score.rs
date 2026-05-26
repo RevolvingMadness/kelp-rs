@@ -1,4 +1,4 @@
-use minecraft_command_types::command::PlayerScore as LowPlayerScore;
+use minecraft_command_types::command::PlayerScore;
 
 use crate::{
     compile_context::CompileContext,
@@ -26,7 +26,7 @@ impl SemanticPlayerScore {
     ) -> GeneratedPlayerScore {
         GeneratedPlayerScore {
             is_generated: false,
-            score: LowPlayerScore::new(self.selector.compile(datapack, ctx), self.objective),
+            score: PlayerScore::new(self.selector.compile(datapack, ctx), self.objective),
         }
     }
 }

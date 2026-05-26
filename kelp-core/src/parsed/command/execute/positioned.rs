@@ -2,7 +2,7 @@ use minecraft_command_types::{command::enums::heightmap::Heightmap, coordinate::
 
 use crate::{
     parsed::{entity_selector::ParsedEntitySelector, semantic_analysis::SemanticAnalysisContext},
-    semantic::expression::command::execute::positioned::SemanticPositioned as MiddlePositioned,
+    semantic::expression::command::execute::positioned::SemanticPositioned,
 };
 
 #[derive(Debug, Clone)]
@@ -17,15 +17,15 @@ impl Positioned {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddlePositioned> {
+    ) -> Option<SemanticPositioned> {
         Some(match self {
-            Self::Position(coordinates) => MiddlePositioned::Position(coordinates),
+            Self::Position(coordinates) => SemanticPositioned::Position(coordinates),
             Self::As(selector) => {
                 let selector = selector.perform_semantic_analysis(ctx)?;
 
-                MiddlePositioned::As(selector)
+                SemanticPositioned::As(selector)
             }
-            Self::Over(heightmap) => MiddlePositioned::Over(heightmap),
+            Self::Over(heightmap) => SemanticPositioned::Over(heightmap),
         })
     }
 }

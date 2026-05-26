@@ -16,7 +16,7 @@ use crate::{
         entity_selector::SemanticEntitySelector,
         expression::command::execute::subcommand::SemanticExecuteSubcommand,
         item_source::SemanticItemSource, mc_item::SemanticItemPredicate, nbt_path::SemanticNbtPath,
-        player_score::SemanticPlayerScore, score_comparison::ScoreComparison,
+        player_score::SemanticPlayerScore, score_comparison::SemanticScoreComparison,
         supports_expression_sigil::SemanticSupportsExpressionSigil,
     },
 };
@@ -70,7 +70,7 @@ pub enum SemanticExecuteIfSubcommand {
     ),
     Score(
         SemanticPlayerScore,
-        ScoreComparison,
+        SemanticScoreComparison,
         Option<Box<SemanticExecuteSubcommand>>,
     ),
 }

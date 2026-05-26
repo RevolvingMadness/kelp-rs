@@ -8,10 +8,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::data::{
-        SemanticData as MiddleData, SemanticDataTarget as MiddleDataTarget,
-        SemanticDataTargetKind as MiddleDataTargetKind,
-    },
+    semantic::data::{SemanticData, SemanticDataTarget, SemanticDataTargetKind},
     span::Span,
 };
 
@@ -32,14 +29,14 @@ impl Data {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleData> {
+    ) -> Option<SemanticData> {
         let target = self.target.perform_semantic_analysis(ctx);
         let path = self.path.perform_semantic_analysis(ctx);
 
         let target = target?;
         let path = path?;
 
-        Some(MiddleData { target, path })
+        Some(SemanticData { target, path })
     }
 }
 
@@ -93,24 +90,24 @@ impl ParsedDataTarget {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleDataTarget> {
-        Some(MiddleDataTarget {
+    ) -> Option<SemanticDataTarget> {
+        Some(SemanticDataTarget {
             is_generated: self.is_generated,
             kind: match self.kind {
                 ParsedDataTargetKind::Block(coordinates) => {
                     let coordinates = coordinates.perform_semantic_analysis(ctx)?;
 
-                    MiddleDataTargetKind::Block(coordinates.map(Box::new))
+                    SemanticDataTargetKind::Block(coordinates.map(Box::new))
                 }
                 ParsedDataTargetKind::Entity(selector) => {
                     let selector = selector.perform_semantic_analysis(ctx)?;
 
-                    MiddleDataTargetKind::Entity(selector)
+                    SemanticDataTargetKind::Entity(selector)
                 }
                 ParsedDataTargetKind::Storage(resource_location) => {
                     let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
-                    MiddleDataTargetKind::Storage(resource_location)
+                    SemanticDataTargetKind::Storage(resource_location)
                 }
             },
             span: self.span,

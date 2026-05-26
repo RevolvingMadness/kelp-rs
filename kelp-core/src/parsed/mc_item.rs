@@ -2,10 +2,7 @@ use minecraft_command_types::{item::ItemType, resource_location::ResourceLocatio
 
 use crate::{
     parsed::{expression::ParsedExpression, semantic_analysis::SemanticAnalysisContext},
-    semantic::mc_item::{
-        SemanticItemPredicate as MiddleItemPredicate, SemanticItemTest as MiddleItemTest,
-        SemanticOrGroup as MiddleOrGroup,
-    },
+    semantic::mc_item::{SemanticItemPredicate, SemanticItemTest, SemanticOrGroup},
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -21,18 +18,18 @@ impl ItemTest {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItemTest> {
+    ) -> Option<SemanticItemTest> {
         Some(match self {
-            Self::Component(resource_location) => MiddleItemTest::Component(resource_location),
+            Self::Component(resource_location) => SemanticItemTest::Component(resource_location),
             Self::ComponentMatches(resource_location, expression) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                MiddleItemTest::ComponentMatches(resource_location, expression)
+                SemanticItemTest::ComponentMatches(resource_location, expression)
             }
             Self::Predicate(resource_location, expression) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                MiddleItemTest::Predicate(resource_location, expression)
+                SemanticItemTest::Predicate(resource_location, expression)
             }
         })
     }
@@ -46,7 +43,7 @@ impl OrGroup {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleOrGroup> {
+    ) -> Option<SemanticOrGroup> {
         let tests = self
             .0
             .into_iter()
@@ -57,7 +54,7 @@ impl OrGroup {
             })
             .collect_option_all()?;
 
-        Some(MiddleOrGroup(tests))
+        Some(SemanticOrGroup(tests))
     }
 }
 
@@ -72,14 +69,14 @@ impl ItemPredicate {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItemPredicate> {
+    ) -> Option<SemanticItemPredicate> {
         let or_groups = self
             .or_groups
             .into_iter()
             .map(|or_group| or_group.perform_semantic_analysis(ctx))
             .collect_option_all()?;
 
-        Some(MiddleItemPredicate {
+        Some(SemanticItemPredicate {
             id: self.id,
             or_groups,
         })

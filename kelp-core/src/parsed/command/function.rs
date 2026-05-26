@@ -3,15 +3,15 @@ use std::collections::HashMap;
 use crate::{
     parsed::{
         data::ParsedDataTarget, expression::ParsedExpression, nbt_path::NbtPath,
-        semantic_analysis::SemanticAnalysisContext, snbt_string::SNBTString,
+        semantic_analysis::SemanticAnalysisContext, snbt_string::SpannedSNBTString,
     },
-    semantic::expression::command::function::SemanticFunctionCommandArguments as MiddleFunctionCommandArguments,
+    semantic::expression::command::function::SemanticFunctionCommandArguments,
     trait_ext::CollectOptionAllIterExt,
 };
 
 #[derive(Debug, Clone)]
 pub enum FunctionCommandArguments {
-    Compound(HashMap<SNBTString, ParsedExpression>),
+    Compound(HashMap<SpannedSNBTString, ParsedExpression>),
     DataTarget(Box<(ParsedDataTarget, Option<NbtPath>)>),
 }
 
@@ -19,7 +19,7 @@ impl FunctionCommandArguments {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleFunctionCommandArguments> {
+    ) -> Option<SemanticFunctionCommandArguments> {
         Some(match self {
             Self::Compound(compound) => {
                 let compound = compound
@@ -34,7 +34,7 @@ impl FunctionCommandArguments {
                     })
                     .collect_option_all()?;
 
-                MiddleFunctionCommandArguments::Compound(compound)
+                SemanticFunctionCommandArguments::Compound(compound)
             }
             Self::DataTarget(target_path) => {
                 let (target, path) = *target_path;
@@ -47,7 +47,7 @@ impl FunctionCommandArguments {
 
                 let target = target?;
 
-                MiddleFunctionCommandArguments::DataTarget(target, path)
+                SemanticFunctionCommandArguments::DataTarget(target, path)
             }
         })
     }

@@ -3,7 +3,7 @@ use crate::{
         coordinate::ParsedCoordinates, entity_selector::ParsedEntitySelector,
         semantic_analysis::SemanticAnalysisContext,
     },
-    semantic::item_source::SemanticItemSource as MiddleItemSource,
+    semantic::item_source::SemanticItemSource,
 };
 
 #[derive(Debug, Clone)]
@@ -17,17 +17,17 @@ impl ParsedItemSource {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItemSource> {
+    ) -> Option<SemanticItemSource> {
         Some(match self {
             Self::Block(coordinates) => {
                 let coordinates = coordinates.perform_semantic_analysis(ctx)?;
 
-                MiddleItemSource::Block(Box::new(coordinates))
+                SemanticItemSource::Block(Box::new(coordinates))
             }
             Self::Entity(selector) => {
                 let selector = selector.perform_semantic_analysis(ctx)?;
 
-                MiddleItemSource::Entity(selector)
+                SemanticItemSource::Entity(selector)
             }
         })
     }

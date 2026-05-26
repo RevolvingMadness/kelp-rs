@@ -5,7 +5,7 @@ use crate::{
         entity_selector::ParsedEntitySelector, semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::player_score::SemanticPlayerScore as MiddlePlayerScore,
+    semantic::player_score::SemanticPlayerScore,
 };
 
 #[derive(Debug, Clone)]
@@ -34,10 +34,10 @@ impl PlayerScore {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddlePlayerScore> {
+    ) -> Option<SemanticPlayerScore> {
         let selector = self.selector.perform_semantic_analysis(ctx)?;
 
-        Some(MiddlePlayerScore {
+        Some(SemanticPlayerScore {
             is_generated: self.is_generated,
             selector: Box::new(selector),
             objective: self.objective,

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use minecraft_command_types::{
     command::enums::{gamemode::Gamemode, sort::Sort},
-    entity_selector::{AdvancementChoiceType, EntitySelectorOption as LowEntitySelectorOption},
+    entity_selector::{AdvancementChoiceType, EntitySelectorOption},
     range::{FloatRange, IntegerRange},
     resource_location::ResourceLocation,
 };
@@ -42,39 +42,39 @@ impl SemanticEntitySelectorOption {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> LowEntitySelectorOption {
+    ) -> EntitySelectorOption {
         match self {
-            Self::X(x) => LowEntitySelectorOption::X(x),
-            Self::Y(y) => LowEntitySelectorOption::Y(y),
-            Self::Z(z) => LowEntitySelectorOption::Z(z),
-            Self::Distance(distance) => LowEntitySelectorOption::Distance(distance),
-            Self::DistanceX(distance_x) => LowEntitySelectorOption::DistanceX(distance_x),
-            Self::DistanceY(distance_y) => LowEntitySelectorOption::DistanceY(distance_y),
-            Self::DistanceZ(distance_z) => LowEntitySelectorOption::DistanceZ(distance_z),
-            Self::XRotation(x_rotation) => LowEntitySelectorOption::XRotation(x_rotation),
-            Self::YRotation(y_rotation) => LowEntitySelectorOption::YRotation(y_rotation),
-            Self::Scores(scores) => LowEntitySelectorOption::Scores(scores.into_iter().collect()),
-            Self::Tag(inverted, tag) => LowEntitySelectorOption::Tag(inverted, tag),
-            Self::Team(inverted, team) => LowEntitySelectorOption::Team(inverted, team),
-            Self::Name(inverted, name) => LowEntitySelectorOption::Name(inverted, name),
-            Self::Type(inverted, type_) => LowEntitySelectorOption::Type(inverted, type_),
+            Self::X(x) => EntitySelectorOption::X(x),
+            Self::Y(y) => EntitySelectorOption::Y(y),
+            Self::Z(z) => EntitySelectorOption::Z(z),
+            Self::Distance(distance) => EntitySelectorOption::Distance(distance),
+            Self::DistanceX(distance_x) => EntitySelectorOption::DistanceX(distance_x),
+            Self::DistanceY(distance_y) => EntitySelectorOption::DistanceY(distance_y),
+            Self::DistanceZ(distance_z) => EntitySelectorOption::DistanceZ(distance_z),
+            Self::XRotation(x_rotation) => EntitySelectorOption::XRotation(x_rotation),
+            Self::YRotation(y_rotation) => EntitySelectorOption::YRotation(y_rotation),
+            Self::Scores(scores) => EntitySelectorOption::Scores(scores.into_iter().collect()),
+            Self::Tag(inverted, tag) => EntitySelectorOption::Tag(inverted, tag),
+            Self::Team(inverted, team) => EntitySelectorOption::Team(inverted, team),
+            Self::Name(inverted, name) => EntitySelectorOption::Name(inverted, name),
+            Self::Type(inverted, type_) => EntitySelectorOption::Type(inverted, type_),
             Self::Predicate(inverted, predicate) => {
-                LowEntitySelectorOption::Predicate(inverted, predicate)
+                EntitySelectorOption::Predicate(inverted, predicate)
             }
             Self::Nbt(inverted, expression) => {
                 let expression = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
-                LowEntitySelectorOption::Nbt(inverted, expression)
+                EntitySelectorOption::Nbt(inverted, expression)
             }
             Self::Gamemode(inverted, gamemode) => {
-                LowEntitySelectorOption::Gamemode(inverted, gamemode)
+                EntitySelectorOption::Gamemode(inverted, gamemode)
             }
-            Self::Level(level) => LowEntitySelectorOption::Level(level),
+            Self::Level(level) => EntitySelectorOption::Level(level),
             Self::Advancements(advancements) => {
-                LowEntitySelectorOption::Advancements(advancements.into_iter().collect())
+                EntitySelectorOption::Advancements(advancements.into_iter().collect())
             }
-            Self::Limit(limit) => LowEntitySelectorOption::Limit(limit),
-            Self::Sort(sort) => LowEntitySelectorOption::Sort(sort),
+            Self::Limit(limit) => EntitySelectorOption::Limit(limit),
+            Self::Sort(sort) => EntitySelectorOption::Sort(sort),
         }
     }
 

@@ -3,7 +3,7 @@ use minecraft_command_types::range::IntegerRange;
 
 use crate::parsed::player_score::PlayerScore;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
-use crate::semantic::score_comparison::ScoreComparison as MiddleScoreComparison;
+use crate::semantic::score_comparison::SemanticScoreComparison;
 
 #[derive(Debug, Clone)]
 pub enum ScoreComparison {
@@ -15,13 +15,13 @@ impl ScoreComparison {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleScoreComparison> {
+    ) -> Option<SemanticScoreComparison> {
         Some(match self {
-            Self::Range(range) => MiddleScoreComparison::Range(range),
+            Self::Range(range) => SemanticScoreComparison::Range(range),
             Self::Score(operator, score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
-                MiddleScoreComparison::Score(operator, score)
+                SemanticScoreComparison::Score(operator, score)
             }
         })
     }

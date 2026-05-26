@@ -15,7 +15,7 @@ use crate::{
         item::ParsedItem,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    semantic::program::SemanticProgram as MiddleProgram,
+    semantic::program::SemanticProgram,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -60,7 +60,7 @@ impl Program {
     pub fn perform_semantic_analysis(
         mut self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleProgram> {
+    ) -> Option<SemanticProgram> {
         for item in &mut self.items {
             item.resolve_names(ctx);
         }
@@ -124,6 +124,6 @@ impl Program {
             }
         }
 
-        (!failed).then_some(MiddleProgram { items })
+        (!failed).then_some(SemanticProgram { items })
     }
 }

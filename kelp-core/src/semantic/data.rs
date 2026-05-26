@@ -1,6 +1,4 @@
-use minecraft_command_types::{
-    command::data::DataTarget as LowDataTarget, resource_location::ResourceLocation,
-};
+use minecraft_command_types::{command::data::DataTarget, resource_location::ResourceLocation};
 
 use crate::{
     compile_context::CompileContext,
@@ -60,15 +58,15 @@ impl SemanticDataTarget {
             is_generated: self.is_generated,
             target: match self.kind {
                 SemanticDataTargetKind::Block(coordinates) => {
-                    LowDataTarget::Block(coordinates.compile(datapack, ctx))
+                    DataTarget::Block(coordinates.compile(datapack, ctx))
                 }
                 SemanticDataTargetKind::Entity(entity_selector) => {
-                    LowDataTarget::Entity(entity_selector.compile(datapack, ctx))
+                    DataTarget::Entity(entity_selector.compile(datapack, ctx))
                 }
                 SemanticDataTargetKind::Storage(resource_location) => {
                     let resource_location = resource_location.compile(datapack, ctx);
 
-                    LowDataTarget::Storage(resource_location)
+                    DataTarget::Storage(resource_location)
                 }
             },
         }

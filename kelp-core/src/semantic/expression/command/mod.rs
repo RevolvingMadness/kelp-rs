@@ -12,7 +12,7 @@ use crate::{
         expression::{
             SemanticExpression,
             command::{
-                data::DataCommand, execute::subcommand::SemanticExecuteSubcommand,
+                data::SemanticDataCommand, execute::subcommand::SemanticExecuteSubcommand,
                 function::SemanticFunctionCommandArguments, r#return::SemanticReturnCommand,
                 scoreboard::SemanticScoreboardCommand, stopwatch::SemanticStopwatchCommand,
             },
@@ -30,7 +30,7 @@ pub mod stopwatch;
 
 #[derive(Debug, Clone)]
 pub enum SemanticCommand {
-    Data(DataCommand),
+    Data(SemanticDataCommand),
     Difficulty(Option<Difficulty>),
     Enchant(
         SemanticSupportsExpressionSigil<SemanticEntitySelector>,

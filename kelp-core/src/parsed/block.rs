@@ -5,9 +5,9 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use crate::{
     parsed::{
         expression::ParsedExpression, semantic_analysis::SemanticAnalysisContext,
-        snbt_string::SNBTString,
+        snbt_string::SpannedSNBTString,
     },
-    semantic::block::SemanticBlockState as MiddleBlockState,
+    semantic::block::SemanticBlockState,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -15,14 +15,14 @@ use crate::{
 pub struct BlockState {
     pub id: ResourceLocation,
     pub block_states: HashMap<String, String>,
-    pub data_tags: Option<HashMap<SNBTString, ParsedExpression>>,
+    pub data_tags: Option<HashMap<SpannedSNBTString, ParsedExpression>>,
 }
 
 impl BlockState {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleBlockState> {
+    ) -> Option<SemanticBlockState> {
         let data_tags = match self.data_tags {
             Some(data_tags) => Some(
                 data_tags
@@ -38,7 +38,7 @@ impl BlockState {
             None => None,
         };
 
-        Some(MiddleBlockState {
+        Some(SemanticBlockState {
             id: self.id,
             block_states: self.block_states.into_iter().collect(),
             data_tags,

@@ -14,14 +14,14 @@ use crate::{
             execute::{
                 facing::Facing,
                 positioned::Positioned,
-                rotated::Rotated,
+                rotated::ParsedRotated,
                 subcommand::{r#if::ParsedExecuteIfSubcommand, store::ExecuteStoreSubcommand},
             },
         },
         entity_selector::ParsedEntitySelector,
         semantic_analysis::SemanticAnalysisContext,
     },
-    semantic::expression::command::execute::subcommand::SemanticExecuteSubcommand as MiddleExecuteSubcommand,
+    semantic::expression::command::execute::subcommand::SemanticExecuteSubcommand,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -38,7 +38,7 @@ pub enum ParsedExecuteSubcommand {
     In(ResourceLocation, Box<Self>),
     On(Relation, Box<Self>),
     Positioned(Positioned, Box<Self>),
-    Rotated(Rotated, Box<Self>),
+    Rotated(ParsedRotated, Box<Self>),
     Summon(ResourceLocation, Box<Self>),
     If(bool, Box<ParsedExecuteIfSubcommand>),
     Store(StoreType, ExecuteStoreSubcommand),
@@ -51,7 +51,7 @@ impl ParsedExecuteSubcommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleExecuteSubcommand> {
+    ) -> Option<SemanticExecuteSubcommand> {
         Some(match self {
             Self::As(selector, next) | Self::At(selector, next) => {
                 let selector = selector.perform_semantic_analysis(ctx);
@@ -60,7 +60,7 @@ impl ParsedExecuteSubcommand {
                 let selector = selector?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::As(selector, Box::new(next))
+                SemanticExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::Positioned(positioned, next) => {
                 let positioned = positioned.perform_semantic_analysis(ctx);
@@ -69,17 +69,17 @@ impl ParsedExecuteSubcommand {
                 let positioned = positioned?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::Positioned(positioned, Box::new(next))
+                SemanticExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Align(alignment, next) => {
                 let next = next.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteSubcommand::Align(alignment, Box::new(next))
+                SemanticExecuteSubcommand::Align(alignment, Box::new(next))
             }
             Self::Anchored(anchor, next) => {
                 let next = next.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteSubcommand::Anchored(anchor, Box::new(next))
+                SemanticExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
             Self::Facing(facing, next) => {
                 let facing = facing.perform_semantic_analysis(ctx);
@@ -88,17 +88,17 @@ impl ParsedExecuteSubcommand {
                 let facing = facing?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::Facing(facing, Box::new(next))
+                SemanticExecuteSubcommand::Facing(facing, Box::new(next))
             }
             Self::In(resource_location, next) => {
                 let next = next.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteSubcommand::In(resource_location, Box::new(next))
+                SemanticExecuteSubcommand::In(resource_location, Box::new(next))
             }
             Self::On(relation, next) => {
                 let next = next.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteSubcommand::On(relation, Box::new(next))
+                SemanticExecuteSubcommand::On(relation, Box::new(next))
             }
             Self::Rotated(rotation, next) => {
                 let rotation = rotation.perform_semantic_analysis(ctx);
@@ -107,22 +107,22 @@ impl ParsedExecuteSubcommand {
                 let rotation = rotation?;
                 let next = next?;
 
-                MiddleExecuteSubcommand::Rotated(rotation, Box::new(next))
+                SemanticExecuteSubcommand::Rotated(rotation, Box::new(next))
             }
             Self::Summon(resource_location, next) => {
                 let next = next.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteSubcommand::Summon(resource_location, Box::new(next))
+                SemanticExecuteSubcommand::Summon(resource_location, Box::new(next))
             }
             Self::If(inverted, subcommand) => {
                 let subcommand = subcommand.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteSubcommand::If(inverted, Box::new(subcommand))
+                SemanticExecuteSubcommand::If(inverted, Box::new(subcommand))
             }
             Self::Store(store_type, subcommand) => {
                 let subcommand = subcommand.perform_semantic_analysis(ctx)?;
 
-                MiddleExecuteSubcommand::Store(store_type, subcommand)
+                SemanticExecuteSubcommand::Store(store_type, subcommand)
             }
             Self::Run(commands) => {
                 let commands = commands
@@ -130,7 +130,7 @@ impl ParsedExecuteSubcommand {
                     .map(|command| command.perform_semantic_analysis(ctx))
                     .collect_option_all()?;
 
-                MiddleExecuteSubcommand::Run(commands)
+                SemanticExecuteSubcommand::Run(commands)
             }
             Self::Multiple(subcommands) => {
                 let subcommands = subcommands
@@ -138,7 +138,7 @@ impl ParsedExecuteSubcommand {
                     .map(|subcommand| subcommand.perform_semantic_analysis(ctx))
                     .collect_option_all()?;
 
-                MiddleExecuteSubcommand::Multiple(subcommands)
+                SemanticExecuteSubcommand::Multiple(subcommands)
             }
         })
     }

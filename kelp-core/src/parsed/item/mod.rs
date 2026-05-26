@@ -35,7 +35,7 @@ use crate::{
         },
         use_tree::UseTree,
     },
-    semantic::item::SemanticItem as MiddleItem,
+    semantic::item::SemanticItem,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
     visibility::Visibility,
@@ -576,7 +576,7 @@ impl ParsedItem {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleItem> {
+    ) -> Option<SemanticItem> {
         Some(match self.kind {
             ItemKind::InherentImplementationItem {
                 associated_items, ..
@@ -590,7 +590,7 @@ impl ParsedItem {
 
                 ctx.exit_scope();
 
-                MiddleItem::InherentImplementation
+                SemanticItem::InherentImplementation
             }
             ItemKind::ModuleDeclaration { name, items, .. } => {
                 let mut failed = false;
@@ -609,7 +609,7 @@ impl ParsedItem {
                     return None;
                 }
 
-                MiddleItem::ModuleDeclaration
+                SemanticItem::ModuleDeclaration
             }
             ItemKind::FunctionDeclaration(item) => {
                 return item.perform_semantic_analysis(ctx);
@@ -631,12 +631,12 @@ impl ParsedItem {
                     &SemanticDataType::Unit,
                 )?;
 
-                MiddleItem::MinecraftFunctionDeclaration(resource_location, body)
+                SemanticItem::MinecraftFunctionDeclaration(resource_location, body)
             }
-            ItemKind::TypeAliasDeclaration(..) => MiddleItem::TypeAliasDeclaration,
-            ItemKind::RegularStructDeclaration { .. } => MiddleItem::RegularStructDeclaration,
-            ItemKind::TupleStructDeclaration { .. } => MiddleItem::TupleStructDeclaration,
-            ItemKind::Use(..) => MiddleItem::Use,
+            ItemKind::TypeAliasDeclaration(..) => SemanticItem::TypeAliasDeclaration,
+            ItemKind::RegularStructDeclaration { .. } => SemanticItem::RegularStructDeclaration,
+            ItemKind::TupleStructDeclaration { .. } => SemanticItem::TupleStructDeclaration,
+            ItemKind::Use(..) => SemanticItem::Use,
         })
     }
 }

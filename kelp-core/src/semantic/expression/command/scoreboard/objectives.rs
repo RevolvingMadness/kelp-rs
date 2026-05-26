@@ -1,9 +1,6 @@
 use minecraft_command_types::command::{
     enums::scoreboard_render_type::ScoreboardRenderType,
-    scoreboard::{
-        ObjectivesScoreboardCommand as LowObjectivesScoreboardCommand,
-        ScoreboardModification as LowScoreboardModification,
-    },
+    scoreboard::{ObjectivesScoreboardCommand, ScoreboardModification},
 };
 
 use crate::{
@@ -28,29 +25,29 @@ impl SemanticScoreboardModification {
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> LowScoreboardModification {
+    ) -> ScoreboardModification {
         match self {
             Self::DisplayAutoUpdate(auto_update) => {
-                LowScoreboardModification::DisplayAutoUpdate(auto_update)
+                ScoreboardModification::DisplayAutoUpdate(auto_update)
             }
             Self::DisplayName(expression) => {
                 let snbt = expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx);
 
-                LowScoreboardModification::DisplayName(snbt)
+                ScoreboardModification::DisplayName(snbt)
             }
             Self::NumberFormat(number_format) => {
                 let number_format =
                     number_format.map(|number_format| number_format.compile(datapack, ctx));
 
-                LowScoreboardModification::NumberFormat(number_format)
+                ScoreboardModification::NumberFormat(number_format)
             }
-            Self::RenderType(render_type) => LowScoreboardModification::RenderType(render_type),
+            Self::RenderType(render_type) => ScoreboardModification::RenderType(render_type),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum ObjectivesScoreboardCommand {
+pub enum SemanticObjectivesScoreboardCommand {
     List,
     Add(String, String, Option<SemanticExpression>),
     Remove(String),
@@ -58,29 +55,29 @@ pub enum ObjectivesScoreboardCommand {
     Modify(String, SemanticScoreboardModification),
 }
 
-impl ObjectivesScoreboardCommand {
+impl SemanticObjectivesScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
-    ) -> LowObjectivesScoreboardCommand {
+    ) -> ObjectivesScoreboardCommand {
         match self {
-            Self::List => LowObjectivesScoreboardCommand::List,
+            Self::List => ObjectivesScoreboardCommand::List,
             Self::Add(objective, criterion, expression) => {
                 let expression = expression
                     .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx));
 
-                LowObjectivesScoreboardCommand::Add(objective, criterion, expression)
+                ObjectivesScoreboardCommand::Add(objective, criterion, expression)
             }
-            Self::Remove(objective) => LowObjectivesScoreboardCommand::Remove(objective),
+            Self::Remove(objective) => ObjectivesScoreboardCommand::Remove(objective),
             Self::SetDisplay(position, objective) => {
-                LowObjectivesScoreboardCommand::SetDisplay(position, objective)
+                ObjectivesScoreboardCommand::SetDisplay(position, objective)
             }
             Self::Modify(objective, modification) => {
                 let modification = modification.compile(datapack, ctx);
 
-                LowObjectivesScoreboardCommand::Modify(objective, modification)
+                ObjectivesScoreboardCommand::Modify(objective, modification)
             }
         }
     }

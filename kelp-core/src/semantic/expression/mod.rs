@@ -11,7 +11,7 @@ use minecraft_command_types::{
         execute::{ExecuteIfSubcommand, ExecuteSubcommand, ScoreComparison},
         r#return::ReturnCommand,
     },
-    nbt_path::{NbtPath as LowNbtPath, NbtPathNode, SNBTCompound},
+    nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
     range::IntegerRange,
     resource_location::ResourceLocation,
     snbt::{SNBT, SNBTString},
@@ -38,7 +38,7 @@ use crate::{
         coordinate::SemanticCoordinates,
         data::SemanticData,
         entity_selector::SemanticEntitySelector,
-        expression::command::SemanticCommand as MiddleCommand,
+        expression::command::SemanticCommand,
         pattern::SemanticPattern,
         player_score::SemanticPlayerScore,
         statement::{EarlyReturnType, SemanticStatement},
@@ -257,7 +257,7 @@ fn iterate_string(
 
     let mut map = SNBTCompound::new();
     map.insert(SNBTString(false, name), SNBT::macroable_string(""));
-    let unique_path = LowNbtPath(vec![NbtPathNode::RootCompound(map)]);
+    let unique_path = NbtPath(vec![NbtPathNode::RootCompound(map)]);
 
     condition_ctx.add_command(
         datapack,
@@ -380,7 +380,7 @@ pub enum SemanticExpressionKind {
     Score(SemanticPlayerScore),
     Data(Box<SemanticData>),
     Condition(bool, Box<SemanticExecuteIfSubcommand>),
-    Command(Box<MiddleCommand>),
+    Command(Box<SemanticCommand>),
     Index(Box<SemanticExpression>, Box<SemanticExpression>),
     FieldAccess(Box<SemanticExpression>, String),
     AsCast(Box<SemanticExpression>, SemanticDataType),

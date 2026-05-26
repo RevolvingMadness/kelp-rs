@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use minecraft_command_types::{
-    nbt_path::{NbtPath as LowNbtPath, NbtPathNode as LowNbtPathNode, SNBTCompound},
+    nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
     snbt::SNBTString,
 };
 
@@ -17,9 +17,9 @@ pub enum SemanticNbtPathNode {
 }
 
 impl SemanticNbtPathNode {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPathNode {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> NbtPathNode {
         match self {
-            Self::RootCompound(compound) => LowNbtPathNode::RootCompound(
+            Self::RootCompound(compound) => NbtPathNode::RootCompound(
                 compound
                     .into_iter()
                     .map(|(key, value)| {
@@ -29,7 +29,7 @@ impl SemanticNbtPathNode {
                     })
                     .collect(),
             ),
-            Self::Named(name, expression) => LowNbtPathNode::Named(
+            Self::Named(name, expression) => NbtPathNode::Named(
                 SNBTString(false, name),
                 expression.map(|expression| {
                     expression
@@ -42,7 +42,7 @@ impl SemanticNbtPathNode {
                         .collect::<SNBTCompound>()
                 }),
             ),
-            Self::Index(expression) => LowNbtPathNode::Index(
+            Self::Index(expression) => NbtPathNode::Index(
                 expression
                     .map(|expression| expression.kind.resolve(datapack, ctx).as_snbt_macros(ctx)),
             ),
@@ -54,8 +54,8 @@ impl SemanticNbtPathNode {
 pub struct SemanticNbtPath(pub Vec<SemanticNbtPathNode>);
 
 impl SemanticNbtPath {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowNbtPath {
-        LowNbtPath(
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> NbtPath {
+        NbtPath(
             self.0
                 .into_iter()
                 .map(|node| node.compile(datapack, ctx))

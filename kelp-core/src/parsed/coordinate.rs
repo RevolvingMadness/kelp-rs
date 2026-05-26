@@ -5,9 +5,7 @@ use crate::{
         expression::ParsedExpression,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    semantic::coordinate::{
-        SemanticCoordinates as MiddleCoordinates, SemanticWorldCoordinate as MiddleWorldCoordinate,
-    },
+    semantic::coordinate::{SemanticCoordinates, SemanticWorldCoordinate},
 };
 
 #[derive(Debug, Clone)]
@@ -37,7 +35,7 @@ impl ParsedWorldCoordinate {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleWorldCoordinate> {
+    ) -> Option<SemanticWorldCoordinate> {
         match self {
             Self::Relative(expression) => {
                 let expression = match expression {
@@ -49,12 +47,12 @@ impl ParsedWorldCoordinate {
                     None => None,
                 };
 
-                Some(MiddleWorldCoordinate::Relative(expression))
+                Some(SemanticWorldCoordinate::Relative(expression))
             }
             Self::Absolute(expression) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                Some(MiddleWorldCoordinate::Absolute(expression))
+                Some(SemanticWorldCoordinate::Absolute(expression))
             }
         }
     }
@@ -119,14 +117,14 @@ impl ParsedCoordinates {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleCoordinates> {
+    ) -> Option<SemanticCoordinates> {
         Some(match self {
             Self::World(x, y, z) => {
                 let x = x.perform_semantic_analysis(ctx)?;
                 let y = y.perform_semantic_analysis(ctx)?;
                 let z = z.perform_semantic_analysis(ctx)?;
 
-                MiddleCoordinates::World(x, y, z)
+                SemanticCoordinates::World(x, y, z)
             }
             Self::Local(x, y, z) => {
                 let x = match x {
@@ -177,7 +175,7 @@ impl ParsedCoordinates {
                     None => None,
                 };
 
-                MiddleCoordinates::Local(x, y, z)
+                SemanticCoordinates::Local(x, y, z)
             }
         })
     }

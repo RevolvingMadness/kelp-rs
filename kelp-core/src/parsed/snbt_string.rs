@@ -1,4 +1,4 @@
-use minecraft_command_types::{has_macro::HasMacro, snbt::SNBTString as LowSNBTString};
+use minecraft_command_types::{has_macro::HasMacro, snbt::SNBTString};
 
 use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
@@ -6,26 +6,26 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SNBTString {
+pub struct SpannedSNBTString {
     pub span: Span,
-    pub snbt_string: LowSNBTString,
+    pub snbt_string: SNBTString,
 }
 
-impl From<String> for SNBTString {
+impl From<String> for SpannedSNBTString {
     fn from(value: String) -> Self {
         Self {
             span: Span::dummy(),
-            snbt_string: LowSNBTString(false, value),
+            snbt_string: SNBTString(false, value),
         }
     }
 }
 
-impl SNBTString {
+impl SpannedSNBTString {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> (Span, LowSNBTString) {
+    ) -> (Span, SNBTString) {
         if self.snbt_string.has_macro_conflict() {
             ctx.add_error_unit(self.span, SemanticAnalysisError::MacroConflict);
         }

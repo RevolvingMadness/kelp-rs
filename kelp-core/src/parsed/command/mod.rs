@@ -6,16 +6,16 @@ use minecraft_command_types::{
 use crate::{
     parsed::{
         command::{
-            data::DataCommand, execute::subcommand::ParsedExecuteSubcommand,
+            data::ParsedDataCommand, execute::subcommand::ParsedExecuteSubcommand,
             function::FunctionCommandArguments, r#return::ReturnCommand,
-            scoreboard::ScoreboardCommand, stopwatch::StopwatchCommand,
+            scoreboard::ScoreboardCommand, stopwatch::ParsedStopwatchCommand,
         },
         entity_selector::ParsedEntitySelector,
         expression::ParsedExpression,
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::expression::command::SemanticCommand as MiddleCommand,
+    semantic::expression::command::SemanticCommand,
 };
 
 pub mod data;
@@ -27,7 +27,7 @@ pub mod stopwatch;
 
 #[derive(Debug, Clone)]
 pub enum ParsedCommand {
-    Data(DataCommand),
+    Data(ParsedDataCommand),
     Difficulty(Option<Difficulty>),
     Enchant(
         ParsedSupportsExpressionSigil<ParsedEntitySelector>,
@@ -45,7 +45,7 @@ pub enum ParsedCommand {
     ),
     Return(ReturnCommand),
     Scoreboard(ScoreboardCommand),
-    Stopwatch(StopwatchCommand),
+    Stopwatch(ParsedStopwatchCommand),
     Summon(
         ResourceLocation,
         Option<Coordinates>,
@@ -57,28 +57,28 @@ impl ParsedCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleCommand> {
+    ) -> Option<SemanticCommand> {
         Some(match self {
             Self::Data(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleCommand::Data(command)
+                SemanticCommand::Data(command)
             }
-            Self::Difficulty(difficulty) => MiddleCommand::Difficulty(difficulty),
+            Self::Difficulty(difficulty) => SemanticCommand::Difficulty(difficulty),
             Self::Stopwatch(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleCommand::Stopwatch(command)
+                SemanticCommand::Stopwatch(command)
             }
             Self::Enchant(selector, enchantment, level) => {
                 let selector = selector.perform_semantic_analysis(ctx)?;
 
-                MiddleCommand::Enchant(selector, enchantment, level)
+                SemanticCommand::Enchant(selector, enchantment, level)
             }
             Self::Execute(subcommand) => {
                 let subcommand = subcommand.perform_semantic_analysis(ctx)?;
 
-                MiddleCommand::Execute(subcommand)
+                SemanticCommand::Execute(subcommand)
             }
             Self::Function(resource_location, arguments) => {
                 let resource_location = resource_location.perform_semantic_analysis(ctx);
@@ -90,7 +90,7 @@ impl ParsedCommand {
 
                 let resource_location = resource_location?;
 
-                MiddleCommand::Function(resource_location, arguments)
+                SemanticCommand::Function(resource_location, arguments)
             }
             Self::Tellraw(selector, expression) => {
                 let selector = selector.perform_semantic_analysis(ctx);
@@ -99,17 +99,17 @@ impl ParsedCommand {
                 let selector = selector?;
                 let (_, expression) = expression?;
 
-                MiddleCommand::Tellraw(selector, expression)
+                SemanticCommand::Tellraw(selector, expression)
             }
             Self::Return(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleCommand::Return(command)
+                SemanticCommand::Return(command)
             }
             Self::Scoreboard(command) => {
                 let command = command.perform_semantic_analysis(ctx)?;
 
-                MiddleCommand::Scoreboard(command)
+                SemanticCommand::Scoreboard(command)
             }
             Self::Summon(resource_location, coordinates, expression) => {
                 let expression = match expression {
@@ -121,7 +121,7 @@ impl ParsedCommand {
                     None => None,
                 };
 
-                MiddleCommand::Summon(resource_location, coordinates, expression)
+                SemanticCommand::Summon(resource_location, coordinates, expression)
             }
         })
     }

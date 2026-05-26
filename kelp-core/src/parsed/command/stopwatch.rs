@@ -6,11 +6,11 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    semantic::expression::command::stopwatch::SemanticStopwatchCommand as LowStopwatchCommand,
+    semantic::expression::command::stopwatch::SemanticStopwatchCommand,
 };
 
 #[derive(Debug, Clone)]
-pub enum StopwatchCommand {
+pub enum ParsedStopwatchCommand {
     Create(ParsedSupportsExpressionSigil<ResourceLocation>),
     Query(
         ParsedSupportsExpressionSigil<ResourceLocation>,
@@ -20,31 +20,31 @@ pub enum StopwatchCommand {
     Remove(ParsedSupportsExpressionSigil<ResourceLocation>),
 }
 
-impl StopwatchCommand {
+impl ParsedStopwatchCommand {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<LowStopwatchCommand> {
+    ) -> Option<SemanticStopwatchCommand> {
         Some(match self {
             Self::Create(resource_location) => {
                 let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
-                LowStopwatchCommand::Create(resource_location)
+                SemanticStopwatchCommand::Create(resource_location)
             }
             Self::Query(resource_location, scale) => {
                 let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
-                LowStopwatchCommand::Query(resource_location, scale)
+                SemanticStopwatchCommand::Query(resource_location, scale)
             }
             Self::Restart(resource_location) => {
                 let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
-                LowStopwatchCommand::Restart(resource_location)
+                SemanticStopwatchCommand::Restart(resource_location)
             }
             Self::Remove(resource_location) => {
                 let resource_location = resource_location.perform_semantic_analysis(ctx)?;
 
-                LowStopwatchCommand::Remove(resource_location)
+                SemanticStopwatchCommand::Remove(resource_location)
             }
         })
     }

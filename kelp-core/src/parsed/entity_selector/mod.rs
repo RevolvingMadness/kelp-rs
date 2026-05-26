@@ -7,7 +7,7 @@ use crate::{
         entity_selector::option::ParsedEntitySelectorOption,
         semantic_analysis::SemanticAnalysisContext,
     },
-    semantic::entity_selector::SemanticEntitySelector as MiddleEntitySelector,
+    semantic::entity_selector::SemanticEntitySelector,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -42,7 +42,7 @@ impl ParsedEntitySelector {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> Option<MiddleEntitySelector> {
+    ) -> Option<SemanticEntitySelector> {
         Some(match self {
             Self::Variable(variable, options) => {
                 let options = options
@@ -50,9 +50,9 @@ impl ParsedEntitySelector {
                     .map(|option| option.perform_semantic_analysis(ctx))
                     .collect_option_all()?;
 
-                MiddleEntitySelector::Variable(variable, options)
+                SemanticEntitySelector::Variable(variable, options)
             }
-            Self::Name(name) => MiddleEntitySelector::Name(name),
+            Self::Name(name) => SemanticEntitySelector::Name(name),
         })
     }
 }

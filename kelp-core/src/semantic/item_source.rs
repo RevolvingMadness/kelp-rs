@@ -1,4 +1,4 @@
-use minecraft_command_types::command::item_source::ItemSource as LowItemSource;
+use minecraft_command_types::command::item_source::ItemSource;
 
 use crate::semantic::coordinate::SemanticCoordinates;
 use crate::{
@@ -14,17 +14,17 @@ pub enum SemanticItemSource {
 
 impl SemanticItemSource {
     #[must_use]
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> LowItemSource {
+    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) -> ItemSource {
         match self {
             Self::Block(coordinates) => {
                 let coordinates = coordinates.compile(datapack, ctx);
 
-                LowItemSource::Block(coordinates)
+                ItemSource::Block(coordinates)
             }
             Self::Entity(selector) => {
                 let selector = selector.compile(datapack, ctx);
 
-                LowItemSource::Entity(selector)
+                ItemSource::Entity(selector)
             }
         }
     }

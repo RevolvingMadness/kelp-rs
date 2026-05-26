@@ -4,8 +4,8 @@ use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    parsed::arena::ParsedAstArena,
     parsed::{
+        arena::ParsedAstArena,
         data_type::ParsedDataType,
         environment::r#type::{
             ParsedTypeDeclaration, ParsedTypeDeclarationKind,
@@ -28,11 +28,11 @@ use crate::{
     path::regular::Path,
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
-    typed::arena::TypedAstArena,
     typed::{
+        arena::TypedAstArena,
         data_type::SemanticDataType,
         environment::{
-            HighImpl,
+            implementation::TypedImplementation,
             r#type::{
                 HighGenericId, SemanticTypeDeclarationKind,
                 r#struct::{
@@ -548,7 +548,7 @@ impl ParsedItem {
 
                 match target_type {
                     target_type @ SemanticDataType::Struct(id, _) => {
-                        let implementation = HighImpl {
+                        let implementation = TypedImplementation {
                             generic_names: generic_names.clone(),
                             target_type,
                             types,

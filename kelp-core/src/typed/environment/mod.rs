@@ -4,6 +4,7 @@ use crate::{
     typed::{
         data_type::SemanticDataType,
         environment::{
+            implementation::TypedImplementation,
             r#type::{
                 HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
                 r#struct::{
@@ -26,23 +27,16 @@ use crate::{
     visibility::Visibility,
 };
 
+pub mod implementation;
 pub mod r#type;
 pub mod value;
-
-#[derive(Debug, Clone)]
-pub struct HighImpl {
-    pub generic_names: Vec<String>,
-    pub target_type: SemanticDataType,
-    pub types: HashMap<String, HighTypeId>,
-    pub values: HashMap<String, HighValueId>,
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct SemanticEnvironment {
     types: HashMap<HighTypeId, SemanticTypeDeclaration>,
     values: HashMap<HighValueId, SemanticValueDeclaration>,
 
-    pub impls: HashMap<HighTypeId, Vec<HighImpl>>,
+    pub impls: HashMap<HighTypeId, Vec<TypedImplementation>>,
 }
 
 impl SemanticEnvironment {

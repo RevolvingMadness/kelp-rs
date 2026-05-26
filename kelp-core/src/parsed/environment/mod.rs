@@ -1,30 +1,15 @@
-use std::collections::HashMap;
-
 use crate::{
     parsed::environment::{r#type::ParsedTypeDeclaration, value::ParsedValueDeclaration},
-    typed::{
-        data_type::SemanticDataType,
-        environment::{r#type::HighTypeId, value::HighValueId},
-    },
+    typed::environment::{r#type::HighTypeId, value::HighValueId},
 };
 
 pub mod r#type;
 pub mod value;
 
-#[derive(Debug, Clone)]
-pub struct HighImpl {
-    pub generic_names: Vec<String>,
-    pub target_type: SemanticDataType,
-    pub types: HashMap<String, HighTypeId>,
-    pub values: HashMap<String, HighValueId>,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct ParsedEnvironment {
     types: Vec<ParsedTypeDeclaration>,
     values: Vec<ParsedValueDeclaration>,
-
-    pub impls: HashMap<HighTypeId, Vec<HighImpl>>,
 }
 
 impl ParsedEnvironment {

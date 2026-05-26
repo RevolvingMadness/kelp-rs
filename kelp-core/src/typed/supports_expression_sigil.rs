@@ -6,10 +6,10 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::expression::Expression,
+    typed::arena::TypedAstArena,
     typed::{
         coordinate::TypedCoordinates,
         entity_selector::TypedEntitySelector,
@@ -39,15 +39,14 @@ macro_rules! impl_supports_expression_sigil {
             #[must_use]
             pub fn compile(
                 self,
-                allocator: &LowAstAllocator,
+                arena: &TypedAstArena,
                 datapack: &mut Datapack,
                 ctx: &mut CompileContext,
             ) -> $ty {
                 match self {
                     Self::Regular(value) => value,
                     Self::Sigil(expression) => {
-                        let expression =
-                            TypedExpression::resolve(expression, allocator, datapack, ctx);
+                        let expression = TypedExpression::resolve(expression, arena, datapack, ctx);
 
                         let Expression::$resolved_expression_variant(value) = expression else {
                             unreachable!();
@@ -60,14 +59,14 @@ macro_rules! impl_supports_expression_sigil {
 
             pub fn compile_as_statement(
                 self,
-                allocator: &LowAstAllocator,
+                arena: &TypedAstArena,
                 datapack: &mut Datapack,
                 ctx: &mut CompileContext,
             ) {
                 match self {
                     Self::Regular(..) => {}
                     Self::Sigil(expression) => {
-                        TypedExpression::compile_as_statement(expression, allocator, datapack, ctx)
+                        TypedExpression::compile_as_statement(expression, arena, datapack, ctx)
                     }
                 }
             }
@@ -79,15 +78,14 @@ macro_rules! impl_supports_expression_sigil {
             #[must_use]
             pub fn compile(
                 self,
-                allocator: &LowAstAllocator,
+                arena: &TypedAstArena,
                 datapack: &mut Datapack,
                 ctx: &mut CompileContext,
             ) -> $ret_ty {
                 match self {
-                    Self::Regular(value) => value.compile(allocator, datapack, ctx),
+                    Self::Regular(value) => value.compile(arena, datapack, ctx),
                     Self::Sigil(expression) => {
-                        let expression =
-                            TypedExpression::resolve(expression, allocator, datapack, ctx);
+                        let expression = TypedExpression::resolve(expression, arena, datapack, ctx);
 
                         match expression {
                             Expression::$resolved_expression_variant(value) => value,
@@ -99,16 +97,16 @@ macro_rules! impl_supports_expression_sigil {
 
             pub fn compile_as_statement(
                 self,
-                allocator: &LowAstAllocator,
+                arena: &TypedAstArena,
                 datapack: &mut Datapack,
                 ctx: &mut CompileContext,
             ) {
                 match self {
                     Self::Regular(value) => {
-                        value.compile_as_statement(allocator, datapack, ctx);
+                        value.compile_as_statement(arena, datapack, ctx);
                     }
                     Self::Sigil(expression) => {
-                        TypedExpression::compile_as_statement(expression, allocator, datapack, ctx)
+                        TypedExpression::compile_as_statement(expression, arena, datapack, ctx)
                     }
                 }
             }

@@ -1,7 +1,6 @@
 use la_arena::Idx;
 
 use crate::{
-    ast_allocator::low::{LowAstAllocator, Typed},
     compile_context::CompileContext,
     datapack::Datapack,
     parsed::{
@@ -9,6 +8,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     span::Span,
+    typed::arena::{Typed, TypedAstArena},
     typed::{data_type::SemanticDataType, expression::assignee::TypedAssigneeExpression},
 };
 
@@ -26,14 +26,13 @@ impl ParsedAssigneeExpression {
     #[must_use]
     pub fn resolve(
         id: ParsedAssigneeExpressionId,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> TypedAssigneeExpression {
-        match allocator.get_assignee_expression_value(id) {
+        match arena.get_assignee_expression_value(id) {
             Self::Place(expression) => {
-                let expression =
-                    ParsedPlaceExpression::resolve(*expression, allocator, datapack, ctx);
+                let expression = ParsedPlaceExpression::resolve(*expression, arena, datapack, ctx);
 
                 TypedAssigneeExpression::Place(expression)
             }
@@ -41,7 +40,7 @@ impl ParsedAssigneeExpression {
                 let expressions = expressions
                     .iter()
                     .copied()
-                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
+                    .map(|expression| Self::resolve(expression, arena, datapack, ctx))
                     .collect();
 
                 TypedAssigneeExpression::Tuple(expressions)
@@ -53,21 +52,21 @@ impl ParsedAssigneeExpression {
     #[must_use]
     pub fn perform_assignment_semantic_analysis(
         id: ParsedAssigneeExpressionId,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
         value_span: Span,
         value_type: &SemanticDataType,
     ) -> Option<()> {
-        match allocator.get_assignee_expression_value(id) {
+        match arena.get_assignee_expression_value(id) {
             Self::Place(expression) => ParsedPlaceExpression::perform_assignment_semantic_analysis(
                 *expression,
-                allocator,
+                arena,
                 ctx,
                 value_span,
                 value_type,
             ),
             Self::Tuple(..) => {
-                let data_type = allocator.get_assignee_expression_type(id);
+                let data_type = arena.get_assignee_expression_type(id);
 
                 data_type.assert_equals(ctx, value_span, value_type)
             }

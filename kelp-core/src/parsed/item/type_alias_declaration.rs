@@ -4,7 +4,7 @@ use crate::{
     parsed::{
         data_type::ParsedDataType,
         environment::r#type::{ParsedTypeDeclarationKind, alias::ParsedTypeAliasDeclaration},
-        item::Item,
+        item::ParsedItem,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     span::Span,
@@ -23,7 +23,7 @@ pub struct TypeAliasDeclarationItem {
 impl TypeAliasDeclarationItem {
     pub fn resolve_names(
         &self,
-        item_id: Idx<Item>,
+        item_id: Idx<ParsedItem>,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
     ) -> Option<()> {
@@ -69,7 +69,7 @@ impl TypeAliasDeclarationItem {
 
     pub fn resolve_types(
         &self,
-        item_id: Idx<Item>,
+        item_id: Idx<ParsedItem>,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
     ) {

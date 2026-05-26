@@ -42,7 +42,7 @@ pub fn lower_return_expression(
         None => (full_span, None),
     };
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         full_span,
         ParsedExpression::Return(keyword_span, expression_span, expression),
     ))

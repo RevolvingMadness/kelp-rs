@@ -3,13 +3,14 @@ use std::fmt::Display;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         coordinate::Coordinates, entity_selector::EntitySelector, nbt_path::ParsedNbtPath,
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
     span::Span,
+    typed::arena::TypedAstArena,
     typed::data::{
         TypedData as MiddleData, TypedDataTarget as MiddleDataTarget,
         TypedDataTargetKind as MiddleDataTargetKind,
@@ -32,16 +33,16 @@ impl Data {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleData> {
         let target = self
             .target
-            .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+            .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
         let path = self
             .path
-            .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+            .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
         let target = target?;
         let path = path?;
@@ -99,32 +100,29 @@ impl Display for DataTarget {
 impl DataTarget {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleDataTarget> {
         Some(MiddleDataTarget {
             is_generated: self.is_generated,
             kind: match self.kind {
                 DataTargetKind::Block(coordinates) => {
-                    let coordinates = coordinates.perform_semantic_analysis(
-                        high_allocator,
-                        low_allocator,
-                        ctx,
-                    )?;
+                    let coordinates =
+                        coordinates.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                     MiddleDataTargetKind::Block(coordinates.map(Box::new))
                 }
                 DataTargetKind::Entity(selector) => {
                     let selector =
-                        selector.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                        selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                     MiddleDataTargetKind::Entity(selector)
                 }
                 DataTargetKind::Storage(resource_location) => {
                     let resource_location = resource_location.perform_semantic_analysis(
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?;
 

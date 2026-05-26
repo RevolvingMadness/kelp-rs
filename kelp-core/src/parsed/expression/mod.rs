@@ -5,11 +5,8 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::{
-        high::{HighAstAllocator, Spanned},
-        low::LowAstAllocator,
-    },
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
+    parsed::arena::{ParsedAstArena, Spanned},
     parsed::{
         command::{
             Command,
@@ -36,6 +33,7 @@ use crate::{
     runtime_storage::RuntimeStorageType,
     span::Span,
     trait_ext::CollectOptionAllIterExt,
+    typed::arena::TypedAstArena,
     typed::{
         data::TypedData,
         data_type::SemanticDataType,
@@ -136,8 +134,8 @@ impl ParsedExpression {
     }
 
     #[must_use]
-    pub fn try_as_f32(id: ParsedExpressionId, allocator: &HighAstAllocator) -> Option<NotNan<f32>> {
-        Some(match allocator.get_expression_value(id) {
+    pub fn try_as_f32(id: ParsedExpressionId, arena: &ParsedAstArena) -> Option<NotNan<f32>> {
+        Some(match arena.get_expression_value(id) {
             Self::Byte(value) => NotNan::new(f32::from(*value)).unwrap(),
             Self::Short(value) => NotNan::new(f32::from(*value)).unwrap(),
             Self::Integer(value) | Self::InferredInteger(value) => {
@@ -153,14 +151,14 @@ impl ParsedExpression {
     #[must_use]
     pub fn extract_scale(
         id: ParsedExpressionId,
-        allocator: &HighAstAllocator,
+        arena: &ParsedAstArena,
     ) -> (Option<NotNan<f32>>, ParsedExpressionId) {
         if let Self::Arithmetic(left, ArithmeticOperator::Multiply, right) =
-            allocator.get_expression_value(id)
+            arena.get_expression_value(id)
         {
-            match Self::try_as_f32(*right, allocator) {
+            match Self::try_as_f32(*right, arena) {
                 Some(scale) => (Some(scale), *left),
-                None => match Self::try_as_f32(*left, allocator) {
+                None => match Self::try_as_f32(*left, arena) {
                     Some(scale) => (Some(scale), *right),
                     None => (None, id),
                 },
@@ -175,11 +173,11 @@ impl ParsedExpression {
     #[must_use]
     pub fn as_place_semantic_analysis(
         id: ParsedExpressionId,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<ParsedPlaceExpressionId> {
-        let id = match high_allocator.get_expression_value(id) {
+        let id = match parsed_arena.get_expression_value(id) {
             Self::Path(path) => {
                 let mut path = path.clone().perform_semantic_analysis(ctx);
 
@@ -196,7 +194,7 @@ impl ParsedExpression {
                     last_segment.name_span,
                 )?;
 
-                low_allocator.allocate_place_expression(
+                typed_arena.allocate_place_expression(
                     ParsedPlaceExpression::Value(id, last_segment.generic_types),
                     data_type,
                 )
@@ -205,9 +203,9 @@ impl ParsedExpression {
                 let score =
                     score
                         .clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                low_allocator.allocate_place_expression(
+                typed_arena.allocate_place_expression(
                     ParsedPlaceExpression::Score(score),
                     SemanticDataType::Score(Box::new(SemanticDataType::Integer)),
                 )
@@ -218,75 +216,70 @@ impl ParsedExpression {
                 let target =
                     target
                         .clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
                 let path =
                     path.clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                low_allocator.allocate_place_expression(
+                typed_arena.allocate_place_expression(
                     ParsedPlaceExpression::Data(Box::new(TypedData { target, path })),
                     SemanticDataType::Data(Box::new(SemanticDataType::Inferred)),
                 )
             }
             Self::FieldAccess(target, field_span, field) => {
                 let target =
-                    Self::as_place_semantic_analysis(*target, high_allocator, low_allocator, ctx)?;
+                    Self::as_place_semantic_analysis(*target, parsed_arena, typed_arena, ctx)?;
 
-                let target_type = low_allocator.get_place_expression_type(target);
+                let target_type = typed_arena.get_place_expression_type(target);
 
                 let field_type =
                     target_type.get_field_result_semantic_analysis(ctx, *field_span, field)?;
 
-                low_allocator.allocate_place_expression(
+                typed_arena.allocate_place_expression(
                     ParsedPlaceExpression::FieldAccess(target, field.clone()),
                     field_type,
                 )
             }
             Self::Index(target, index) => {
-                let target_span = high_allocator.get_expression_span(*target);
+                let target_span = parsed_arena.get_expression_span(*target);
 
                 let target =
-                    Self::as_place_semantic_analysis(*target, high_allocator, low_allocator, ctx);
+                    Self::as_place_semantic_analysis(*target, parsed_arena, typed_arena, ctx);
 
-                let index =
-                    Self::perform_semantic_analysis(*index, high_allocator, low_allocator, ctx);
+                let index = Self::perform_semantic_analysis(*index, parsed_arena, typed_arena, ctx);
 
                 let target = target?;
                 let index = index?;
 
-                let target_type = low_allocator.get_place_expression_type(target);
-                let index_type = low_allocator.get_expression_type(index);
+                let target_type = typed_arena.get_place_expression_type(target);
+                let index_type = typed_arena.get_expression_type(index);
 
                 let index_type =
                     target_type.get_index_result_semantic_analysis(ctx, target_span, index_type)?;
 
-                low_allocator.allocate_place_expression(
+                typed_arena.allocate_place_expression(
                     ParsedPlaceExpression::Index(target, index),
                     index_type,
                 )
             }
             Self::Unary(UnaryOperator::Dereference, expression) => {
-                let place = Self::as_place_semantic_analysis(
-                    *expression,
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let place =
+                    Self::as_place_semantic_analysis(*expression, parsed_arena, typed_arena, ctx)?;
 
-                let place_type = low_allocator.get_place_expression_type(place);
-                let place_span = high_allocator.get_expression_span(*expression);
+                let place_type = typed_arena.get_place_expression_type(place);
+                let place_span = parsed_arena.get_expression_span(*expression);
 
                 let dereferenced_type = place_type
                     .clone()
                     .get_dereferenced_result_semantic_analysis(ctx, place_span)?;
 
-                low_allocator.allocate_place_expression(
+                typed_arena.allocate_place_expression(
                     ParsedPlaceExpression::Dereference(place),
                     dereferenced_type,
                 )
             }
             _ => {
-                let span = high_allocator.get_expression_span(id);
+                let span = parsed_arena.get_expression_span(id);
 
                 return ctx.add_error(span, SemanticAnalysisError::ExpressionIsNotAPlace);
             }
@@ -298,11 +291,11 @@ impl ParsedExpression {
     #[must_use]
     pub fn as_assignee_perform_semantic_analysis(
         id: ParsedExpressionId,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<ParsedAssigneeExpressionId> {
-        Some(match high_allocator.get_expression_value(id) {
+        Some(match parsed_arena.get_expression_value(id) {
             Self::Tuple(expressions) => {
                 let (data_types, expressions) = expressions
                     .iter()
@@ -310,13 +303,12 @@ impl ParsedExpression {
                     .map(|expression| {
                         let expression = Self::as_assignee_perform_semantic_analysis(
                             expression,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
-                        let expression_type =
-                            low_allocator.get_assignee_expression_type(expression);
+                        let expression_type = typed_arena.get_assignee_expression_type(expression);
 
                         Some((expression_type.clone(), expression))
                     })
@@ -324,22 +316,21 @@ impl ParsedExpression {
                     .into_iter()
                     .unzip();
 
-                low_allocator.allocate_assignee_expression(
+                typed_arena.allocate_assignee_expression(
                     ParsedAssigneeExpression::Tuple(expressions),
                     SemanticDataType::Tuple(data_types),
                 )
             }
-            Self::Underscore => low_allocator.allocate_assignee_expression(
+            Self::Underscore => typed_arena.allocate_assignee_expression(
                 ParsedAssigneeExpression::Underscore,
                 SemanticDataType::Inferred,
             ),
             _ => {
-                let place =
-                    Self::as_place_semantic_analysis(id, high_allocator, low_allocator, ctx)?;
+                let place = Self::as_place_semantic_analysis(id, parsed_arena, typed_arena, ctx)?;
 
-                let place_type = low_allocator.get_place_expression_type(place);
+                let place_type = typed_arena.get_place_expression_type(place);
 
-                low_allocator.allocate_assignee_expression(
+                typed_arena.allocate_assignee_expression(
                     ParsedAssigneeExpression::Place(place),
                     place_type.clone(),
                 )
@@ -350,26 +341,26 @@ impl ParsedExpression {
     #[must_use]
     pub fn perform_semantic_analysis(
         id: ParsedExpressionId,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedExpressionId> {
-        Some(match high_allocator.get_expression_value(id) {
+        Some(match parsed_arena.get_expression_value(id) {
             Self::Invalid => return None,
 
             Self::Unary(operator, expression) => match operator {
                 UnaryOperator::Negate => {
                     let expression = Self::perform_semantic_analysis(
                         *expression,
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?;
 
-                    let expression_type = low_allocator.get_expression_type(expression);
+                    let expression_type = typed_arena.get_expression_type(expression);
 
                     let Some(negation_result) = expression_type.get_negation_result() else {
-                        let span = high_allocator.get_expression_span(id);
+                        let span = parsed_arena.get_expression_span(id);
 
                         return ctx.add_error(
                             span,
@@ -377,20 +368,20 @@ impl ParsedExpression {
                         );
                     };
 
-                    low_allocator
+                    typed_arena
                         .allocate_expression(TypedExpression::Negate(expression), negation_result)
                 }
                 UnaryOperator::Invert => {
-                    let expression_span = high_allocator.get_expression_span(*expression);
+                    let expression_span = parsed_arena.get_expression_span(*expression);
 
                     let expression = Self::perform_semantic_analysis(
                         *expression,
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?;
 
-                    let expression_type = low_allocator.get_expression_type(expression);
+                    let expression_type = typed_arena.get_expression_type(expression);
 
                     let Some(inverted_result) = expression_type.get_inverted_result() else {
                         return ctx.add_error(
@@ -399,60 +390,58 @@ impl ParsedExpression {
                         );
                     };
 
-                    low_allocator
+                    typed_arena
                         .allocate_expression(TypedExpression::Invert(expression), inverted_result)
                 }
                 UnaryOperator::Reference => {
                     let place = Self::as_place_semantic_analysis(
                         *expression,
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?;
 
-                    let place_type = low_allocator.get_place_expression_type(place);
+                    let place_type = typed_arena.get_place_expression_type(place);
 
-                    low_allocator.allocate_expression(
+                    typed_arena.allocate_expression(
                         TypedExpression::Reference(place),
                         SemanticDataType::Reference(Box::new(place_type.clone())),
                     )
                 }
                 UnaryOperator::Dereference => {
-                    let expression_span = high_allocator.get_expression_span(*expression);
+                    let expression_span = parsed_arena.get_expression_span(*expression);
 
                     let place = Self::as_place_semantic_analysis(
                         *expression,
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?;
 
-                    let place_type = low_allocator.get_place_expression_type(place);
+                    let place_type = typed_arena.get_place_expression_type(place);
 
                     let dereferenced_type = place_type
                         .clone()
                         .get_dereferenced_result_semantic_analysis(ctx, expression_span)?;
 
-                    low_allocator
+                    typed_arena
                         .allocate_expression(TypedExpression::Dereference(place), dereferenced_type)
                 }
             },
             Self::Arithmetic(left, operator, right) => {
                 let operator = *operator;
 
-                let left =
-                    Self::perform_semantic_analysis(*left, high_allocator, low_allocator, ctx);
-                let right =
-                    Self::perform_semantic_analysis(*right, high_allocator, low_allocator, ctx);
+                let left = Self::perform_semantic_analysis(*left, parsed_arena, typed_arena, ctx);
+                let right = Self::perform_semantic_analysis(*right, parsed_arena, typed_arena, ctx);
 
                 let left = left?;
                 let right = right?;
 
-                let left_type = low_allocator.get_expression_type(left);
-                let right_type = low_allocator.get_expression_type(right);
+                let left_type = typed_arena.get_expression_type(left);
+                let right_type = typed_arena.get_expression_type(right);
 
                 let Some(result_type) = left_type.get_arithmetic_result(right_type) else {
-                    let span = high_allocator.get_expression_span(id);
+                    let span = parsed_arena.get_expression_span(id);
 
                     return ctx.add_error(
                         span,
@@ -464,7 +453,7 @@ impl ParsedExpression {
                     );
                 };
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Arithmetic(left, operator, right),
                     result_type,
                 )
@@ -472,19 +461,17 @@ impl ParsedExpression {
             Self::Comparison(left, operator, right) => {
                 let operator = *operator;
 
-                let left =
-                    Self::perform_semantic_analysis(*left, high_allocator, low_allocator, ctx);
-                let right =
-                    Self::perform_semantic_analysis(*right, high_allocator, low_allocator, ctx);
+                let left = Self::perform_semantic_analysis(*left, parsed_arena, typed_arena, ctx);
+                let right = Self::perform_semantic_analysis(*right, parsed_arena, typed_arena, ctx);
 
                 let left = left?;
                 let right = right?;
 
-                let left_type = low_allocator.get_expression_type(left);
-                let right_type = low_allocator.get_expression_type(right);
+                let left_type = typed_arena.get_expression_type(left);
+                let right_type = typed_arena.get_expression_type(right);
 
                 if !left_type.can_perform_comparison(operator, right_type) {
-                    let span = high_allocator.get_expression_span(id);
+                    let span = parsed_arena.get_expression_span(id);
 
                     return ctx.add_error(
                         span,
@@ -496,7 +483,7 @@ impl ParsedExpression {
                     );
                 }
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Comparison(left, operator, right),
                     SemanticDataType::Boolean,
                 )
@@ -504,19 +491,17 @@ impl ParsedExpression {
             Self::Logical(left, operator, right) => {
                 let operator = *operator;
 
-                let left_span = high_allocator.get_expression_span(*left);
-                let right_span = high_allocator.get_expression_span(*right);
+                let left_span = parsed_arena.get_expression_span(*left);
+                let right_span = parsed_arena.get_expression_span(*right);
 
-                let left =
-                    Self::perform_semantic_analysis(*left, high_allocator, low_allocator, ctx);
-                let right =
-                    Self::perform_semantic_analysis(*right, high_allocator, low_allocator, ctx);
+                let left = Self::perform_semantic_analysis(*left, parsed_arena, typed_arena, ctx);
+                let right = Self::perform_semantic_analysis(*right, parsed_arena, typed_arena, ctx);
 
                 let left = left?;
                 let right = right?;
 
-                let left_type = low_allocator.get_expression_type(left);
-                let right_type = low_allocator.get_expression_type(right);
+                let left_type = typed_arena.get_expression_type(left);
+                let right_type = typed_arena.get_expression_type(right);
 
                 let mut failed = false;
 
@@ -538,7 +523,7 @@ impl ParsedExpression {
                     return None;
                 }
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Logical(left, operator, right),
                     SemanticDataType::Boolean,
                 )
@@ -548,15 +533,14 @@ impl ParsedExpression {
                 let operator = *operator;
 
                 let target =
-                    Self::as_place_semantic_analysis(*target, high_allocator, low_allocator, ctx);
-                let value =
-                    Self::perform_semantic_analysis(*value, high_allocator, low_allocator, ctx);
+                    Self::as_place_semantic_analysis(*target, parsed_arena, typed_arena, ctx);
+                let value = Self::perform_semantic_analysis(*value, parsed_arena, typed_arena, ctx);
 
                 let target = target?;
                 let value = value?;
 
-                let target_type = low_allocator.get_place_expression_type(target);
-                let value_type = low_allocator.get_expression_type(value);
+                let target_type = typed_arena.get_place_expression_type(target);
+                let value_type = typed_arena.get_expression_type(value);
 
                 if target_type.get_arithmetic_result(value_type).is_none() {
                     return ctx.add_error(
@@ -569,7 +553,7 @@ impl ParsedExpression {
                     );
                 }
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::AugmentedAssignment(target, operator, value),
                     SemanticDataType::Unit,
                 )
@@ -577,30 +561,29 @@ impl ParsedExpression {
             Self::Assignment(target, value) => {
                 let target = Self::as_assignee_perform_semantic_analysis(
                     *target,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 );
 
-                let value_span = high_allocator.get_expression_span(*value);
+                let value_span = parsed_arena.get_expression_span(*value);
 
-                let value =
-                    Self::perform_semantic_analysis(*value, high_allocator, low_allocator, ctx);
+                let value = Self::perform_semantic_analysis(*value, parsed_arena, typed_arena, ctx);
 
                 let target = target?;
                 let value = value?;
 
-                let value_type = low_allocator.get_expression_type(value);
+                let value_type = typed_arena.get_expression_type(value);
 
                 ParsedAssigneeExpression::perform_assignment_semantic_analysis(
                     target,
-                    low_allocator,
+                    typed_arena,
                     ctx,
                     value_span,
                     value_type,
                 )?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Assignment(target, value),
                     SemanticDataType::Unit,
                 )
@@ -610,12 +593,12 @@ impl ParsedExpression {
                     .iter()
                     .copied()
                     .map(|expression| {
-                        let expression_span = high_allocator.get_expression_span(expression);
+                        let expression_span = parsed_arena.get_expression_span(expression);
 
                         let expression = Self::perform_semantic_analysis(
                             expression,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -625,14 +608,14 @@ impl ParsedExpression {
 
                 let element_type =
                     if let Some((_, element_expression)) = expressions.first().copied() {
-                        let element_type = low_allocator.get_expression_type(element_expression);
+                        let element_type = typed_arena.get_expression_type(element_expression);
 
                         let mut element_type = element_type.clone();
 
                         let mut has_error = false;
 
                         for (span, expression) in expressions.iter().copied() {
-                            let expression_type = low_allocator.get_expression_type(expression);
+                            let expression_type = typed_arena.get_expression_type(expression);
 
                             let Some(reduced_element_type) =
                                 element_type.clone().reduce(expression_type)
@@ -667,7 +650,7 @@ impl ParsedExpression {
                     .map(|(_, expression)| expression)
                     .collect();
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::List(expressions),
                     SemanticDataType::List(Box::new(element_type)),
                 )
@@ -678,8 +661,8 @@ impl ParsedExpression {
                     .map(|(key, value)| {
                         let value = Self::perform_semantic_analysis(
                             *value,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -690,13 +673,13 @@ impl ParsedExpression {
                 let compound_data_types = compound_values
                     .iter()
                     .map(|(key, value)| {
-                        let value_type = low_allocator.get_expression_type(*value);
+                        let value_type = typed_arena.get_expression_type(*value);
 
                         (key.clone(), value_type.clone())
                     })
                     .collect();
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Compound(compound_values),
                     SemanticDataType::TypedCompound(compound_data_types),
                 )
@@ -705,9 +688,9 @@ impl ParsedExpression {
                 let score =
                     score
                         .clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Score(score),
                     SemanticDataType::Score(Box::new(SemanticDataType::Integer)),
                 )
@@ -718,15 +701,15 @@ impl ParsedExpression {
                 let target =
                     target
                         .clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let path =
-                    path.clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let path = path
+                    .clone()
+                    .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let target = target?;
                 let path = path?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Data(Box::new(TypedData { target, path })),
                     SemanticDataType::Data(Box::new(SemanticDataType::Inferred)),
                 )
@@ -734,48 +717,44 @@ impl ParsedExpression {
             Self::Condition(inverted, condition) => {
                 let inverted = *inverted;
 
-                let condition = condition.clone().perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let condition =
+                    condition
+                        .clone()
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Condition(inverted, Box::new(condition)),
                     SemanticDataType::Boolean,
                 )
             }
             Self::Command(command) => {
-                let command = command.clone().perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let command =
+                    command
+                        .clone()
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Command(Box::new(command)),
                     SemanticDataType::Integer,
                 )
             }
             Self::Index(target, index) => {
-                let target_span = high_allocator.get_expression_span(*target);
+                let target_span = parsed_arena.get_expression_span(*target);
 
                 let target =
-                    Self::perform_semantic_analysis(*target, high_allocator, low_allocator, ctx);
-                let index =
-                    Self::perform_semantic_analysis(*index, high_allocator, low_allocator, ctx);
+                    Self::perform_semantic_analysis(*target, parsed_arena, typed_arena, ctx);
+                let index = Self::perform_semantic_analysis(*index, parsed_arena, typed_arena, ctx);
 
                 let target = target?;
                 let index = index?;
 
-                let target_type = low_allocator.get_expression_type(target);
-                let index_type = low_allocator.get_expression_type(index);
+                let target_type = typed_arena.get_expression_type(target);
+                let index_type = typed_arena.get_expression_type(index);
 
                 let index_result =
                     target_type.get_index_result_semantic_analysis(ctx, target_span, index_type)?;
 
-                low_allocator
-                    .allocate_expression(TypedExpression::Index(target, index), index_result)
+                typed_arena.allocate_expression(TypedExpression::Index(target, index), index_result)
             }
             Self::MethodCall {
                 receiver,
@@ -783,18 +762,13 @@ impl ParsedExpression {
                 arguments,
             } => {
                 let receiver =
-                    Self::perform_semantic_analysis(*receiver, high_allocator, low_allocator, ctx);
+                    Self::perform_semantic_analysis(*receiver, parsed_arena, typed_arena, ctx);
                 let _callee = callee.clone().perform_semantic_analysis(ctx);
                 let arguments = arguments
                     .iter()
                     .copied()
                     .map(|expression| {
-                        Self::perform_semantic_analysis(
-                            expression,
-                            high_allocator,
-                            low_allocator,
-                            ctx,
-                        )
+                        Self::perform_semantic_analysis(expression, parsed_arena, typed_arena, ctx)
                     })
                     .collect_option_all::<Vec<_>>(); // TODO: Remove turbofish
 
@@ -804,38 +778,30 @@ impl ParsedExpression {
                 todo!()
             }
             Self::FieldAccess(expression, field_span, field) => {
-                let place = Self::perform_semantic_analysis(
-                    *expression,
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let place =
+                    Self::perform_semantic_analysis(*expression, parsed_arena, typed_arena, ctx)?;
 
-                let place_type = low_allocator.get_expression_type(place);
+                let place_type = typed_arena.get_expression_type(place);
 
                 let field_result =
                     place_type.get_field_result_semantic_analysis(ctx, *field_span, field)?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::FieldAccess(place, field.clone()),
                     field_result,
                 )
             }
             Self::AsCast(expression, data_type) => {
-                let expression = Self::perform_semantic_analysis(
-                    *expression,
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                );
+                let expression =
+                    Self::perform_semantic_analysis(*expression, parsed_arena, typed_arena, ctx);
                 let data_type = data_type.clone().perform_semantic_analysis(ctx);
 
                 let expression = expression?;
 
-                let expression_type = low_allocator.get_expression_type(expression);
+                let expression_type = typed_arena.get_expression_type(expression);
 
                 if !expression_type.can_cast_to(&data_type) {
-                    let span = high_allocator.get_expression_span(id);
+                    let span = parsed_arena.get_expression_span(id);
 
                     return ctx.add_error(
                         span,
@@ -846,24 +812,20 @@ impl ParsedExpression {
                     );
                 }
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::AsCast(expression, data_type.clone()),
                     data_type,
                 )
             }
             Self::ToCast(expression, runtime_storage_type) => {
-                let (scale, expression) = Self::extract_scale(*expression, high_allocator);
+                let (scale, expression) = Self::extract_scale(*expression, parsed_arena);
 
-                let expression_span = high_allocator.get_expression_span(expression);
+                let expression_span = parsed_arena.get_expression_span(expression);
 
-                let expression = Self::perform_semantic_analysis(
-                    expression,
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let expression =
+                    Self::perform_semantic_analysis(expression, parsed_arena, typed_arena, ctx)?;
 
-                let expression_type = low_allocator.get_expression_type(expression);
+                let expression_type = typed_arena.get_expression_type(expression);
 
                 let runtime_storage_type = *runtime_storage_type;
 
@@ -896,7 +858,7 @@ impl ParsedExpression {
                     }
                 };
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::ToCast(scale, expression, runtime_storage_type),
                     data_type,
                 )
@@ -906,22 +868,17 @@ impl ParsedExpression {
                     .iter()
                     .copied()
                     .map(|expression| {
-                        Self::perform_semantic_analysis(
-                            expression,
-                            high_allocator,
-                            low_allocator,
-                            ctx,
-                        )
+                        Self::perform_semantic_analysis(expression, parsed_arena, typed_arena, ctx)
                     })
                     .collect_option_all::<Vec<_>>()?;
 
                 let expression_types = expressions
                     .iter()
                     .copied()
-                    .map(|expression| low_allocator.get_expression_type(expression).clone())
+                    .map(|expression| typed_arena.get_expression_type(expression).clone())
                     .collect();
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Tuple(expressions),
                     SemanticDataType::Tuple(expression_types),
                 )
@@ -961,16 +918,16 @@ impl ParsedExpression {
                             .clone()
                             .substitute_generics(&generic_ids, &last_segment.generic_types);
 
-                        let value_span = high_allocator.get_expression_span(*value);
+                        let value_span = parsed_arena.get_expression_span(*value);
 
                         let value = Self::perform_semantic_analysis(
                             *value,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
-                        let value_type = low_allocator.get_expression_type(value);
+                        let value_type = typed_arena.get_expression_type(value);
 
                         if !value_type.equals(&field_type) {
                             return ctx.add_error(
@@ -1006,27 +963,27 @@ impl ParsedExpression {
                     return None;
                 }
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::RegularStruct(id, last_segment.generic_types, field_values),
                     data_type,
                 )
             }
             Self::Call { callee, arguments } => {
-                let callee_span = high_allocator.get_expression_span(*callee);
+                let callee_span = parsed_arena.get_expression_span(*callee);
 
                 let callee =
-                    Self::perform_semantic_analysis(*callee, high_allocator, low_allocator, ctx);
+                    Self::perform_semantic_analysis(*callee, parsed_arena, typed_arena, ctx);
 
                 let arguments = arguments
                     .iter()
                     .copied()
                     .map(|argument| {
-                        let argument_span = high_allocator.get_expression_span(argument);
+                        let argument_span = parsed_arena.get_expression_span(argument);
 
                         let argument = Self::perform_semantic_analysis(
                             argument,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -1037,7 +994,7 @@ impl ParsedExpression {
                 let callee = callee?;
                 let arguments = arguments?;
 
-                let callee_type = low_allocator.get_expression_type(callee);
+                let callee_type = typed_arena.get_expression_type(callee);
 
                 let Some(call_info) = callee_type.get_call_info(&ctx.semantic_environment)? else {
                     return ctx
@@ -1072,7 +1029,7 @@ impl ParsedExpression {
                 for (data_type, (argument_span, argument)) in
                     call_info.parameter_types.into_iter().zip(arguments)
                 {
-                    let argument_type = low_allocator.get_expression_type(argument);
+                    let argument_type = typed_arena.get_expression_type(argument);
 
                     if argument_type.equals(&data_type) {
                         if !failed {
@@ -1095,7 +1052,7 @@ impl ParsedExpression {
                     return None;
                 }
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Call(callee, new_arguments),
                     call_info.return_type,
                 )
@@ -1105,30 +1062,26 @@ impl ParsedExpression {
                 body,
                 else_body,
             } => {
-                let condition_span = high_allocator.get_expression_span(*condition);
+                let condition_span = parsed_arena.get_expression_span(*condition);
 
                 let condition =
-                    Self::perform_semantic_analysis(*condition, high_allocator, low_allocator, ctx);
+                    Self::perform_semantic_analysis(*condition, parsed_arena, typed_arena, ctx);
 
-                let body =
-                    body.clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let body = body
+                    .clone()
+                    .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let else_body = else_body.map(|else_body| {
-                    let span = high_allocator.get_expression_span(else_body);
+                    let span = parsed_arena.get_expression_span(else_body);
 
-                    let expression = Self::perform_semantic_analysis(
-                        else_body,
-                        high_allocator,
-                        low_allocator,
-                        ctx,
-                    )?;
+                    let expression =
+                        Self::perform_semantic_analysis(else_body, parsed_arena, typed_arena, ctx)?;
 
                     Some((span, expression))
                 });
 
                 let condition = condition?;
 
-                let condition_type = low_allocator.get_expression_type(condition);
+                let condition_type = typed_arena.get_expression_type(condition);
 
                 if !condition_type.is_condition() {
                     return ctx.add_error(
@@ -1139,7 +1092,7 @@ impl ParsedExpression {
 
                 let (body_span, tail_expression_span, body) = body?;
 
-                let body_type = low_allocator.get_expression_type(body);
+                let body_type = typed_arena.get_expression_type(body);
 
                 let else_body = match else_body {
                     Some(else_body) => Some(else_body?),
@@ -1147,7 +1100,7 @@ impl ParsedExpression {
                 };
 
                 let else_type = if let Some((else_body_span, else_body)) = else_body {
-                    let else_body_type = low_allocator.get_expression_type(else_body);
+                    let else_body_type = typed_arena.get_expression_type(else_body);
 
                     else_body_type.assert_equals(ctx, else_body_span, body_type)?;
 
@@ -1164,7 +1117,7 @@ impl ParsedExpression {
 
                 let data_type = body_type.clone().reduce(else_type).unwrap();
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::If {
                         condition,
                         body,
@@ -1174,66 +1127,64 @@ impl ParsedExpression {
                 )
             }
             Self::Block(expression) => {
-                let (_, _, expression) = expression.clone().perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let (_, _, expression) =
+                    expression
+                        .clone()
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 expression
             }
             Self::WhileLoop(condition, body) => {
-                let condition_span = high_allocator.get_expression_span(*condition);
+                let condition_span = parsed_arena.get_expression_span(*condition);
 
                 let condition =
-                    Self::perform_semantic_analysis(*condition, high_allocator, low_allocator, ctx);
+                    Self::perform_semantic_analysis(*condition, parsed_arena, typed_arena, ctx);
 
                 ctx.loop_depth += 1;
-                let body =
-                    body.clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let body = body
+                    .clone()
+                    .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 ctx.loop_depth -= 1;
 
                 let condition = condition?;
 
-                let condition_type = low_allocator.get_expression_type(condition);
+                let condition_type = typed_arena.get_expression_type(condition);
 
                 condition_type.assert_condition(ctx, condition_span)?;
 
                 let (_, _, body) = body?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::WhileLoop(condition, body),
                     SemanticDataType::Unit,
                 )
             }
             Self::Loop(body) => {
                 ctx.loop_depth += 1;
-                let body =
-                    body.clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let body = body
+                    .clone()
+                    .perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 ctx.loop_depth -= 1;
 
                 let (_, _, body) = body?;
 
-                low_allocator
-                    .allocate_expression(TypedExpression::Loop(body), SemanticDataType::Unit)
+                typed_arena.allocate_expression(TypedExpression::Loop(body), SemanticDataType::Unit)
             }
             Self::ForLoop(reversed, pattern, iterable, body) => {
                 let reversed = *reversed;
 
-                let iterable_span = high_allocator.get_expression_span(*iterable);
+                let iterable_span = parsed_arena.get_expression_span(*iterable);
 
                 let iterable =
-                    Self::perform_semantic_analysis(*iterable, high_allocator, low_allocator, ctx)?;
+                    Self::perform_semantic_analysis(*iterable, parsed_arena, typed_arena, ctx)?;
 
-                let iterable_type = low_allocator.get_expression_type(iterable);
+                let iterable_type = typed_arena.get_expression_type(iterable);
 
                 let Some(iterable_type) = iterable_type
                     .clone()
                     .get_iterable_type_semantic_analysis(ctx, iterable_span)
                 else {
-                    Pattern::destructure_unknown(*pattern, high_allocator, ctx);
+                    Pattern::destructure_unknown(*pattern, parsed_arena, ctx);
 
                     return None;
                 };
@@ -1242,8 +1193,8 @@ impl ParsedExpression {
 
                 let Some(pattern) = Pattern::perform_semantic_analysis(
                     *pattern,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                     &iterable_type,
                 ) else {
@@ -1255,7 +1206,7 @@ impl ParsedExpression {
                 ctx.loop_depth += 1;
                 let Some((_, _, body)) =
                     body.clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)
                 else {
                     ctx.loop_depth -= 1;
 
@@ -1268,7 +1219,7 @@ impl ParsedExpression {
 
                 // TODO: Reorder semantic analysis
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::ForLoop(reversed, pattern, iterable, body),
                     SemanticDataType::Unit,
                 )
@@ -1289,77 +1240,76 @@ impl ParsedExpression {
                     last_segment.name_span,
                 )?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Value(id, last_segment.generic_types),
                     data_type,
                 )
             }
-            Self::Boolean(value) => low_allocator
+            Self::Boolean(value) => typed_arena
                 .allocate_expression(TypedExpression::Boolean(*value), SemanticDataType::Boolean),
-            Self::Byte(value) => low_allocator
+            Self::Byte(value) => typed_arena
                 .allocate_expression(TypedExpression::Byte(*value), SemanticDataType::Byte),
-            Self::Short(value) => low_allocator
+            Self::Short(value) => typed_arena
                 .allocate_expression(TypedExpression::Short(*value), SemanticDataType::Short),
-            Self::Integer(value) => low_allocator
+            Self::Integer(value) => typed_arena
                 .allocate_expression(TypedExpression::Integer(*value), SemanticDataType::Integer),
-            Self::InferredInteger(value) => low_allocator.allocate_expression(
+            Self::InferredInteger(value) => typed_arena.allocate_expression(
                 TypedExpression::InferredInteger(*value),
                 SemanticDataType::InferredInteger,
             ),
-            Self::Long(value) => low_allocator
+            Self::Long(value) => typed_arena
                 .allocate_expression(TypedExpression::Long(*value), SemanticDataType::Long),
-            Self::Float(value) => low_allocator
+            Self::Float(value) => typed_arena
                 .allocate_expression(TypedExpression::Float(*value), SemanticDataType::Float),
-            Self::InferredFloat(value) => low_allocator.allocate_expression(
+            Self::InferredFloat(value) => typed_arena.allocate_expression(
                 TypedExpression::InferredFloat(*value),
                 SemanticDataType::InferredFloat,
             ),
-            Self::Double(value) => low_allocator
+            Self::Double(value) => typed_arena
                 .allocate_expression(TypedExpression::Double(*value), SemanticDataType::Double),
-            Self::String(value) => low_allocator.allocate_expression(
+            Self::String(value) => typed_arena.allocate_expression(
                 TypedExpression::String(value.clone()),
                 SemanticDataType::String,
             ),
             Self::Underscore => {
-                let span = high_allocator.get_expression_span(id);
+                let span = parsed_arena.get_expression_span(id);
 
                 return ctx.add_error(span, SemanticAnalysisError::UnderscoreExpression);
             }
             Self::Unit => {
-                low_allocator.allocate_expression(TypedExpression::Unit, SemanticDataType::Unit)
+                typed_arena.allocate_expression(TypedExpression::Unit, SemanticDataType::Unit)
             }
             Self::ResourceLocation(resource_location) => {
                 let resource_location = resource_location.clone().perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::ResourceLocation(Box::new(resource_location)),
                     SemanticDataType::ResourceLocation,
                 )
             }
             Self::EntitySelector(selector) => {
-                let selector = selector.clone().perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let selector =
+                    selector
+                        .clone()
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::EntitySelector(Box::new(selector)),
                     SemanticDataType::EntitySelector,
                 )
             }
             Self::Coordinates(coordinates) => {
                 let coordinates = coordinates.clone().perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Coordinates(Box::new(coordinates)),
                     SemanticDataType::Coordinates,
                 )
@@ -1368,15 +1318,15 @@ impl ParsedExpression {
                 let expression = match expression {
                     Some(expression) => Self::perform_semantic_analysis(
                         *expression,
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?,
-                    None => low_allocator
+                    None => typed_arena
                         .allocate_expression(TypedExpression::Unit, SemanticDataType::Unit),
                 };
 
-                let expression_type = low_allocator.get_expression_type(expression);
+                let expression_type = typed_arena.get_expression_type(expression);
 
                 let context = ctx.function_contexts.last().unwrap();
 
@@ -1403,7 +1353,7 @@ impl ParsedExpression {
                     );
                 }
 
-                low_allocator.allocate_expression(
+                typed_arena.allocate_expression(
                     TypedExpression::Return(expression),
                     SemanticDataType::Never,
                 )

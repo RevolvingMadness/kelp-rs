@@ -10,8 +10,5 @@ pub fn lower_unit_expression(
 ) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
-    Some(
-        ctx.allocator
-            .allocate_expression(span, ParsedExpression::Unit),
-    )
+    Some(ctx.arena.allocate_expression(span, ParsedExpression::Unit))
 }

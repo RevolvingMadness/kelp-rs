@@ -177,5 +177,5 @@ pub fn lower_numeric_expression(
         }
     };
 
-    Some(ctx.allocator.allocate_expression(span, expression))
+    Some(ctx.arena.allocate_expression(span, expression))
 }

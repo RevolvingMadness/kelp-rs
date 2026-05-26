@@ -64,7 +64,7 @@ pub fn lower_iterator_loop_expression(
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::ForLoop(false, pattern, expression, Box::new(body)),
     ))

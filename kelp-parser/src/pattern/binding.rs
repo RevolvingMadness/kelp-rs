@@ -16,5 +16,5 @@ pub fn lower_binding_pattern(
 
     let path = lower_generic_path(node.generic_path()?)?;
 
-    Some(ctx.allocator.allocate_pattern(span, Pattern::Binding(path)))
+    Some(ctx.arena.allocate_pattern(span, Pattern::Binding(path)))
 }

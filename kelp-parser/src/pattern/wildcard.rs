@@ -11,5 +11,5 @@ pub fn lower_wildcard_pattern(
 ) -> Option<Idx<Pattern>> {
     let span = span_of_cst_node(&node);
 
-    Some(ctx.allocator.allocate_pattern(span, Pattern::Wildcard))
+    Some(ctx.arena.allocate_pattern(span, Pattern::Wildcard))
 }

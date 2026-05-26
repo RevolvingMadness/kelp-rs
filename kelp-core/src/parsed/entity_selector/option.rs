@@ -9,11 +9,12 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         expression::{ParsedExpression, ParsedExpressionId},
         semantic_analysis::SemanticAnalysisContext,
     },
+    typed::arena::TypedAstArena,
     typed::entity_selector::option::TypedEntitySelectorOption as MiddleEntitySelectorOption,
 };
 
@@ -46,8 +47,8 @@ impl EntitySelectorOption {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleEntitySelectorOption> {
         Some(match self {
@@ -75,8 +76,8 @@ impl EntitySelectorOption {
             Self::Nbt(inverted, expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 

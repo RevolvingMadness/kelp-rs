@@ -192,7 +192,7 @@ pub fn lower_stopwatch_command_expression(
         ctx,
     )?;
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::Command(Box::new(Command::Stopwatch(command))),
     ))

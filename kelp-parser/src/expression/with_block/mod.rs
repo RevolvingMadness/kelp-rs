@@ -26,7 +26,7 @@ pub fn lower_expression_with_block(
             let expression = lower_block_expression(node, ctx)?;
 
             Some(
-                ctx.allocator
+                ctx.arena
                     .allocate_expression(span, ParsedExpression::Block(expression)),
             )
         }

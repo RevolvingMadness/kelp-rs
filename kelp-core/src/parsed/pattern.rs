@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use la_arena::Idx;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         data::Data,
         data_type::ParsedDataType,
@@ -14,6 +14,7 @@ use crate::{
     pattern_type::PatternType,
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
+    typed::arena::TypedAstArena,
     typed::{
         data_type::SemanticDataType,
         environment::r#type::r#struct::{
@@ -47,8 +48,8 @@ pub enum Pattern {
 
 impl Pattern {
     #[must_use]
-    pub fn get_type(id: Idx<Self>, allocator: &HighAstAllocator) -> PatternType {
-        match allocator.get_pattern(id) {
+    pub fn get_type(id: Idx<Self>, arena: &ParsedAstArena) -> PatternType {
+        match arena.get_pattern(id) {
             Self::Literal(expression) => expression.get_pattern_type(),
             Self::Score(score) => PatternType::Score(score.clone()),
             Self::Data(data) => PatternType::Data(data.clone()),
@@ -56,27 +57,27 @@ impl Pattern {
             Self::Tuple(patterns) => PatternType::Tuple(
                 patterns
                     .iter()
-                    .map(|pattern| Self::get_type(*pattern, allocator))
+                    .map(|pattern| Self::get_type(*pattern, arena))
                     .collect(),
             ),
             Self::Compound(compound) => PatternType::Compound(
                 compound
                     .iter()
-                    .map(|((_, key), pattern)| (key.clone(), Self::get_type(*pattern, allocator)))
+                    .map(|((_, key), pattern)| (key.clone(), Self::get_type(*pattern, arena)))
                     .collect(),
             ),
             Self::RegularStruct(path, field_patterns) => PatternType::RegularStruct(
                 path.clone(),
                 field_patterns
                     .iter()
-                    .map(|((_, key), pattern)| (key.clone(), Self::get_type(*pattern, allocator)))
+                    .map(|((_, key), pattern)| (key.clone(), Self::get_type(*pattern, arena)))
                     .collect(),
             ),
             Self::TupleStruct(path, field_patterns) => PatternType::TupleStruct(
                 path.clone(),
                 field_patterns
                     .iter()
-                    .map(|pattern| Self::get_type(*pattern, allocator))
+                    .map(|pattern| Self::get_type(*pattern, arena))
                     .collect(),
             ),
         }
@@ -84,10 +85,10 @@ impl Pattern {
 
     pub fn destructure_unknown(
         id: Idx<Self>,
-        allocator: &HighAstAllocator,
+        arena: &ParsedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) {
-        match allocator.get_pattern(id) {
+        match arena.get_pattern(id) {
             Self::Literal(..) | Self::Score(..) | Self::Data(..) | Self::Wildcard => {}
 
             Self::Binding(path) => {
@@ -101,22 +102,22 @@ impl Pattern {
             }
             Self::Tuple(patterns) => {
                 for pattern in patterns.iter().copied() {
-                    Self::destructure_unknown(pattern, allocator, ctx);
+                    Self::destructure_unknown(pattern, arena, ctx);
                 }
             }
             Self::Compound(compound) => {
                 for pattern in compound.values().copied() {
-                    Self::destructure_unknown(pattern, allocator, ctx);
+                    Self::destructure_unknown(pattern, arena, ctx);
                 }
             }
             Self::RegularStruct(_, field_patterns) => {
                 for pattern in field_patterns.values().copied() {
-                    Self::destructure_unknown(pattern, allocator, ctx);
+                    Self::destructure_unknown(pattern, arena, ctx);
                 }
             }
             Self::TupleStruct(_, field_patterns) => {
                 for pattern in field_patterns.iter().copied() {
-                    Self::destructure_unknown(pattern, allocator, ctx);
+                    Self::destructure_unknown(pattern, arena, ctx);
                 }
             }
         }
@@ -124,22 +125,22 @@ impl Pattern {
 
     pub fn perform_semantic_analysis(
         id: Idx<Self>,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
         variable_type: &SemanticDataType,
     ) -> Option<Idx<TypedPattern>> {
-        let pattern = high_allocator.get_pattern(id);
+        let pattern = parsed_arena.get_pattern(id);
 
-        let self_type = Self::get_type(id, high_allocator);
+        let self_type = Self::get_type(id, parsed_arena);
 
         let (wrappers, inner_type) = variable_type.unwrap();
 
         Some(match (pattern, inner_type) {
             (Self::Literal(expression), _) => {
-                low_allocator.allocate_pattern(TypedPattern::Literal(expression.clone()))
+                typed_arena.allocate_pattern(TypedPattern::Literal(expression.clone()))
             }
-            (Self::Wildcard, _) => low_allocator.allocate_pattern(TypedPattern::Wildcard),
+            (Self::Wildcard, _) => typed_arena.allocate_pattern(TypedPattern::Wildcard),
             (Self::Binding(path), _) => {
                 if path.segments.len() == 1 {
                     let segment = &path.segments[0];
@@ -147,9 +148,9 @@ impl Pattern {
 
                     let id = ctx.declare_variable(Visibility::Public, name, variable_type.clone());
 
-                    low_allocator.allocate_pattern(TypedPattern::Binding(id))
+                    typed_arena.allocate_pattern(TypedPattern::Binding(id))
                 } else {
-                    let span = high_allocator.get_pattern_span(id);
+                    let span = parsed_arena.get_pattern_span(id);
 
                     return ctx
                         .add_error(span, SemanticAnalysisError::UnknownItem(path.to_string()));
@@ -159,10 +160,10 @@ impl Pattern {
                 let score =
                     score
                         .clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 if !variable_type.can_be_assigned_to_score() {
-                    let span = high_allocator.get_pattern_span(id);
+                    let span = parsed_arena.get_pattern_span(id);
 
                     return ctx.add_error(
                         span,
@@ -173,18 +174,18 @@ impl Pattern {
                     );
                 }
 
-                low_allocator.allocate_pattern(TypedPattern::Score(score))
+                typed_arena.allocate_pattern(TypedPattern::Score(score))
             }
             (Self::Data(data), _) => {
                 let data =
                     data.clone()
-                        .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                        .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 if variable_type
                     .get_data_type(&ctx.semantic_environment)
                     .is_none()
                 {
-                    let span = high_allocator.get_pattern_span(id);
+                    let span = parsed_arena.get_pattern_span(id);
 
                     return ctx.add_error(
                         span,
@@ -195,7 +196,7 @@ impl Pattern {
                     );
                 }
 
-                low_allocator.allocate_pattern(TypedPattern::Data(data))
+                typed_arena.allocate_pattern(TypedPattern::Data(data))
             }
             (Self::Tuple(patterns), SemanticDataType::Tuple(data_types))
                 if patterns.len() == data_types.len() =>
@@ -207,15 +208,15 @@ impl Pattern {
                     .map(|(pattern, data_type)| {
                         Self::perform_semantic_analysis(
                             pattern,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                             &data_type.clone().wrap(&wrappers),
                         )
                     })
                     .collect_option_all()?;
 
-                low_allocator.allocate_pattern(TypedPattern::Tuple(patterns))
+                typed_arena.allocate_pattern(TypedPattern::Tuple(patterns))
             }
             (
                 Self::Compound(compound_patterns),
@@ -235,7 +236,7 @@ impl Pattern {
                                 }
                             })
                         else {
-                            Self::destructure_unknown(pattern, high_allocator, ctx);
+                            Self::destructure_unknown(pattern, parsed_arena, ctx);
 
                             return ctx.add_error(
                                 *key_span,
@@ -248,8 +249,8 @@ impl Pattern {
 
                         let pattern = Self::perform_semantic_analysis(
                             pattern,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                             &data_type.clone().wrap(&wrappers),
                         )?;
@@ -258,7 +259,7 @@ impl Pattern {
                     })
                     .collect_option_all()?;
 
-                low_allocator.allocate_pattern(TypedPattern::Compound(compound))
+                typed_arena.allocate_pattern(TypedPattern::Compound(compound))
             }
             (Self::Compound(compound_patterns), SemanticDataType::Compound(data_type)) => {
                 let compound = compound_patterns
@@ -268,8 +269,8 @@ impl Pattern {
 
                         let pattern = Self::perform_semantic_analysis(
                             pattern,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                             &data_type.clone().wrap(&wrappers),
                         )?;
@@ -278,7 +279,7 @@ impl Pattern {
                     })
                     .collect_option_all()?;
 
-                low_allocator.allocate_pattern(TypedPattern::Compound(compound))
+                typed_arena.allocate_pattern(TypedPattern::Compound(compound))
             }
             (
                 Self::RegularStruct(path, field_patterns),
@@ -304,10 +305,10 @@ impl Pattern {
                     || pattern_generic_types != *value_generic_types
                 {
                     for pattern in field_patterns.values().copied() {
-                        Self::destructure_unknown(pattern, high_allocator, ctx);
+                        Self::destructure_unknown(pattern, parsed_arena, ctx);
                     }
 
-                    let span = high_allocator.get_pattern_span(id);
+                    let span = parsed_arena.get_pattern_span(id);
 
                     return ctx.add_error(
                         span,
@@ -326,7 +327,7 @@ impl Pattern {
                         let pattern = *pattern;
 
                         let Some(field_type) = field_types.get(name) else {
-                            Self::destructure_unknown(pattern, high_allocator, ctx);
+                            Self::destructure_unknown(pattern, parsed_arena, ctx);
 
                             return ctx.add_error(
                                 *name_span,
@@ -343,8 +344,8 @@ impl Pattern {
 
                         let pattern = Self::perform_semantic_analysis(
                             pattern,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                             &field_type.wrap(&wrappers),
                         )?;
@@ -353,7 +354,7 @@ impl Pattern {
                     })
                     .collect_option_all()?;
 
-                low_allocator.allocate_pattern(TypedPattern::RegularStruct(
+                typed_arena.allocate_pattern(TypedPattern::RegularStruct(
                     pattern_id,
                     pattern_generic_types,
                     field_patterns,
@@ -381,10 +382,10 @@ impl Pattern {
                     || pattern_generic_types != *value_generic_types
                 {
                     for pattern in field_patterns.iter().copied() {
-                        Self::destructure_unknown(pattern, high_allocator, ctx);
+                        Self::destructure_unknown(pattern, parsed_arena, ctx);
                     }
 
-                    let span = high_allocator.get_pattern_span(id);
+                    let span = parsed_arena.get_pattern_span(id);
 
                     return ctx.add_error(
                         span,
@@ -423,8 +424,8 @@ impl Pattern {
 
                         let pattern = Self::perform_semantic_analysis(
                             field_pattern,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                             &field_type.wrap(&wrappers),
                         )?;
@@ -433,16 +434,16 @@ impl Pattern {
                     })
                     .collect_option_all()?;
 
-                low_allocator.allocate_pattern(TypedPattern::TupleStruct(
+                typed_arena.allocate_pattern(TypedPattern::TupleStruct(
                     pattern_id,
                     pattern_generic_types,
                     field_patterns,
                 ))
             }
             _ => {
-                Self::destructure_unknown(id, high_allocator, ctx);
+                Self::destructure_unknown(id, parsed_arena, ctx);
 
-                let span = high_allocator.get_pattern_span(id);
+                let span = parsed_arena.get_pattern_span(id);
 
                 return ctx.add_error(
                     span,

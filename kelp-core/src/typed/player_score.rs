@@ -1,12 +1,13 @@
 use minecraft_command_types::command::PlayerScore;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     player_score::GeneratedPlayerScore,
+    typed::arena::TypedAstArena,
     typed::{
-        entity_selector::TypedEntitySelector, supports_expression_sigil::TypedSupportsExpressionSigil,
+        entity_selector::TypedEntitySelector,
+        supports_expression_sigil::TypedSupportsExpressionSigil,
     },
 };
 
@@ -21,16 +22,13 @@ impl TypedPlayerScore {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> GeneratedPlayerScore {
         GeneratedPlayerScore {
             is_generated: false,
-            score: PlayerScore::new(
-                self.selector.compile(allocator, datapack, ctx),
-                self.objective,
-            ),
+            score: PlayerScore::new(self.selector.compile(arena, datapack, ctx), self.objective),
         }
     }
 }

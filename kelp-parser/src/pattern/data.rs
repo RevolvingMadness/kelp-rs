@@ -33,7 +33,7 @@ pub fn lower_data_pattern(node: CSTDataPattern, ctx: &mut LowerContext) -> Optio
     let data = lower_data(node.data()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_pattern(span, Pattern::Data(Box::new(data))),
     )
 }

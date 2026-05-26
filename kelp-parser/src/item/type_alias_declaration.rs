@@ -1,4 +1,4 @@
-pub use kelp_core::parsed::item::Item;
+pub use kelp_core::parsed::item::ParsedItem;
 pub use kelp_core::parsed::item::type_alias_declaration::TypeAliasDeclarationItem;
 
 use crate::{

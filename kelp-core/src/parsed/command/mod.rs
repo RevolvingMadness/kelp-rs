@@ -4,7 +4,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         command::{
             data::ParsedDataCommand, execute::subcommand::ParsedExecuteSubcommand,
@@ -16,6 +16,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
+    typed::arena::TypedAstArena,
     typed::expression::command::TypedCommand as MiddleCommand,
 };
 
@@ -57,46 +58,42 @@ pub enum Command {
 impl Command {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleCommand> {
         Some(match self {
             Self::Data(command) => {
-                let command =
-                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleCommand::Data(command)
             }
             Self::Difficulty(difficulty) => MiddleCommand::Difficulty(difficulty),
             Self::Stopwatch(command) => {
-                let command =
-                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleCommand::Stopwatch(command)
             }
             Self::Enchant(selector, enchantment, level) => {
                 let selector =
-                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleCommand::Enchant(selector, enchantment, level)
             }
             Self::Execute(subcommand) => {
                 let subcommand =
-                    subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    subcommand.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleCommand::Execute(subcommand)
             }
             Self::Function(resource_location, arguments) => {
                 let resource_location =
-                    resource_location.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                    resource_location.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let arguments = match arguments {
-                    Some(arguments) => Some(arguments.perform_semantic_analysis(
-                        high_allocator,
-                        low_allocator,
-                        ctx,
-                    ))?,
+                    Some(arguments) => {
+                        Some(arguments.perform_semantic_analysis(parsed_arena, typed_arena, ctx))?
+                    }
                     None => None,
                 };
 
@@ -105,12 +102,11 @@ impl Command {
                 MiddleCommand::Function(resource_location, arguments)
             }
             Self::Tellraw(selector, expression) => {
-                let selector =
-                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let selector = selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 );
 
@@ -120,14 +116,12 @@ impl Command {
                 MiddleCommand::Tellraw(selector, expression)
             }
             Self::Return(command) => {
-                let command =
-                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleCommand::Return(command)
             }
             Self::Scoreboard(command) => {
-                let command =
-                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleCommand::Scoreboard(command)
             }
@@ -136,8 +130,8 @@ impl Command {
                     Some(expression) => {
                         let expression = ParsedExpression::perform_semantic_analysis(
                             expression,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 

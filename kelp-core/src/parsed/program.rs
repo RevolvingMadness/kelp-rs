@@ -3,12 +3,13 @@ use std::collections::HashSet;
 use la_arena::Idx;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
-        item::Item,
+        item::ParsedItem,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     trait_ext::CollectOptionAllIterExt,
+    typed::arena::TypedAstArena,
     typed::{
         environment::{
             SemanticEnvironment,
@@ -58,36 +59,36 @@ fn calls_recursively(
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub items: Vec<Idx<Item>>,
+    pub items: Vec<Idx<ParsedItem>>,
 }
 
 impl Program {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleProgram> {
         for item in self.items.iter().copied() {
-            Item::resolve_names(item, high_allocator, ctx);
+            ParsedItem::resolve_names(item, parsed_arena, ctx);
         }
 
         for item in self.items.iter().copied() {
-            Item::resolve_imports(item, high_allocator, ctx);
+            ParsedItem::resolve_imports(item, parsed_arena, ctx);
         }
 
         for item in self.items.iter().copied() {
-            Item::resolve_types(item, high_allocator, ctx);
+            ParsedItem::resolve_types(item, parsed_arena, ctx);
         }
 
         for item in self.items.iter().copied() {
-            Item::resolve_value_types(item, high_allocator, ctx);
+            ParsedItem::resolve_value_types(item, parsed_arena, ctx);
         }
 
         let items = self
             .items
             .into_iter()
-            .map(|item| Item::perform_semantic_analysis(item, high_allocator, low_allocator, ctx))
+            .map(|item| ParsedItem::perform_semantic_analysis(item, parsed_arena, typed_arena, ctx))
             .collect_option_all()?;
 
         let mut failed = false;

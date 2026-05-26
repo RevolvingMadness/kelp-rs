@@ -1,7 +1,7 @@
 use minecraft_command_types::{command::execute::Rotated, rotation::Rotation};
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
+    compile_context::CompileContext, datapack::Datapack, typed::arena::TypedAstArena,
     typed::entity_selector::TypedEntitySelector,
 };
 
@@ -14,13 +14,13 @@ pub enum TypedRotated {
 impl TypedRotated {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> Rotated {
         match self {
             Self::Rotation(rotation) => Rotated::Rotation(rotation),
-            Self::As(selector) => Rotated::As(selector.compile(allocator, datapack, ctx)),
+            Self::As(selector) => Rotated::As(selector.compile(arena, datapack, ctx)),
         }
     }
 }

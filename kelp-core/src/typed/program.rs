@@ -1,24 +1,19 @@
 use la_arena::Idx;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
-    typed::item::Item,
+    compile_context::CompileContext, datapack::Datapack, typed::arena::TypedAstArena,
+    typed::item::TypedItem,
 };
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub items: Vec<Idx<Item>>,
+    pub items: Vec<Idx<TypedItem>>,
 }
 
 impl Program {
-    pub fn compile(
-        self,
-        allocator: &LowAstAllocator,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-    ) {
+    pub fn compile(self, arena: &TypedAstArena, datapack: &mut Datapack, ctx: &mut CompileContext) {
         for item in self.items {
-            Item::compile(item, allocator, datapack, ctx);
+            TypedItem::compile(item, arena, datapack, ctx);
         }
     }
 }

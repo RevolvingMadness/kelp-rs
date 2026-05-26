@@ -67,7 +67,7 @@ pub fn lower_list_expression(
         .collect();
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::List(expressions)),
     )
 }

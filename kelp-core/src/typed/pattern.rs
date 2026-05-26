@@ -7,7 +7,6 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
     low::{
@@ -15,6 +14,7 @@ use crate::{
         environment::r#type::r#struct::{RegularStructId, TupleStructId},
         expression::Expression,
     },
+    typed::arena::TypedAstArena,
     typed::{
         data::TypedData,
         data_type::SemanticDataType,
@@ -28,7 +28,7 @@ use crate::{
 };
 
 fn destructure_tuple(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     patterns: &[Idx<TypedPattern>],
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
@@ -40,19 +40,12 @@ fn destructure_tuple(
             for ((pattern, expression), data_type) in
                 patterns.iter().copied().zip(expressions).zip(data_types)
             {
-                TypedPattern::destructure(pattern, allocator, datapack, ctx, data_type, expression);
+                TypedPattern::destructure(pattern, arena, datapack, ctx, data_type, expression);
             }
         }
         (DataType::Tuple(data_types), score @ Expression::Score(..)) => {
             for (pattern, data_type) in patterns.iter().copied().zip(data_types) {
-                TypedPattern::destructure(
-                    pattern,
-                    allocator,
-                    datapack,
-                    ctx,
-                    data_type,
-                    score.clone(),
-                );
+                TypedPattern::destructure(pattern, arena, datapack, ctx, data_type, score.clone());
             }
         }
         (DataType::Tuple(data_types), Expression::Data(data)) => {
@@ -62,18 +55,18 @@ fn destructure_tuple(
                         SNBT::macroable_integer(i as i32),
                     ))));
 
-                TypedPattern::destructure(pattern, allocator, datapack, ctx, data_type, expression);
+                TypedPattern::destructure(pattern, arena, datapack, ctx, data_type, expression);
             }
         }
         (DataType::Data(inner_type), value @ Expression::Data(..)) => {
-            destructure_tuple(allocator, patterns, datapack, ctx, *inner_type, value);
+            destructure_tuple(arena, patterns, datapack, ctx, *inner_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
     }
 }
 
 fn destructure_compound(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     patterns: &HashMap<String, Idx<TypedPattern>>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
@@ -86,9 +79,7 @@ fn destructure_compound(
                 let expression = expression.clone();
                 let data_type = data_types.get(key).unwrap().clone();
 
-                TypedPattern::destructure(
-                    *pattern, allocator, datapack, ctx, data_type, expression,
-                );
+                TypedPattern::destructure(*pattern, arena, datapack, ctx, data_type, expression);
             }
         }
         (DataType::Compound(data_type), Expression::Compound(expressions)) => {
@@ -96,11 +87,11 @@ fn destructure_compound(
                 let expression = expression.clone();
                 let data_type = *data_type.clone();
 
-                TypedPattern::destructure(pattern, allocator, datapack, ctx, data_type, expression);
+                TypedPattern::destructure(pattern, arena, datapack, ctx, data_type, expression);
             }
         }
         (DataType::Data(data_type), value @ Expression::Data(..)) => {
-            destructure_compound(allocator, patterns, datapack, ctx, *data_type, value);
+            destructure_compound(arena, patterns, datapack, ctx, *data_type, value);
         }
         (DataType::TypedCompound(data_types), Expression::Data(data)) => {
             for (key, pattern) in patterns {
@@ -111,9 +102,7 @@ fn destructure_compound(
                         .with_path_node(NbtPathNode::Named(SNBTString(false, key.clone()), None)),
                 );
 
-                TypedPattern::destructure(
-                    *pattern, allocator, datapack, ctx, data_type, expression,
-                );
+                TypedPattern::destructure(*pattern, arena, datapack, ctx, data_type, expression);
             }
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
@@ -121,7 +110,7 @@ fn destructure_compound(
 }
 
 fn destructure_regular_struct(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     field_patterns: &HashMap<String, Idx<TypedPattern>>,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
@@ -139,14 +128,7 @@ fn destructure_regular_struct(
                 let field_value = fields.get(key).unwrap().clone();
                 let data_type = field_types.get(key).unwrap().clone();
 
-                TypedPattern::destructure(
-                    *pattern,
-                    allocator,
-                    datapack,
-                    ctx,
-                    data_type,
-                    field_value,
-                );
+                TypedPattern::destructure(*pattern, arena, datapack, ctx, data_type, field_value);
             }
         }
         (DataType::Struct(..), Expression::Data(data)) => {
@@ -166,7 +148,7 @@ fn destructure_regular_struct(
 
                 TypedPattern::destructure(
                     *pattern,
-                    allocator,
+                    arena,
                     datapack,
                     ctx,
                     data_wrapped_type,
@@ -175,44 +157,20 @@ fn destructure_regular_struct(
             }
         }
         (DataType::Reference(data_type), value) => {
-            destructure_regular_struct(
-                allocator,
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                *data_type,
-                value,
-            );
+            destructure_regular_struct(arena, field_patterns, datapack, ctx, id, *data_type, value);
         }
         (DataType::Data(data_type), value) => {
-            destructure_regular_struct(
-                allocator,
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                *data_type,
-                value,
-            );
+            destructure_regular_struct(arena, field_patterns, datapack, ctx, id, *data_type, value);
         }
         (DataType::Score(data_type), value) => {
-            destructure_regular_struct(
-                allocator,
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                *data_type,
-                value,
-            );
+            destructure_regular_struct(arena, field_patterns, datapack, ctx, id, *data_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
     }
 }
 
 fn destructure_tuple_struct(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     field_patterns: &[Idx<TypedPattern>],
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
@@ -234,7 +192,7 @@ fn destructure_tuple_struct(
             {
                 TypedPattern::destructure(
                     field_pattern,
-                    allocator,
+                    arena,
                     datapack,
                     ctx,
                     field_type,
@@ -258,7 +216,7 @@ fn destructure_tuple_struct(
 
                 TypedPattern::destructure(
                     field_pattern,
-                    allocator,
+                    arena,
                     datapack,
                     ctx,
                     data_wrapped_type,
@@ -267,37 +225,13 @@ fn destructure_tuple_struct(
             }
         }
         (value, DataType::Reference(data_type)) => {
-            destructure_tuple_struct(
-                allocator,
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                *data_type,
-                value,
-            );
+            destructure_tuple_struct(arena, field_patterns, datapack, ctx, id, *data_type, value);
         }
         (value, DataType::Data(data_type)) => {
-            destructure_tuple_struct(
-                allocator,
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                *data_type,
-                value,
-            );
+            destructure_tuple_struct(arena, field_patterns, datapack, ctx, id, *data_type, value);
         }
         (value, DataType::Score(data_type)) => {
-            destructure_tuple_struct(
-                allocator,
-                field_patterns,
-                datapack,
-                ctx,
-                id,
-                *data_type,
-                value,
-            );
+            destructure_tuple_struct(arena, field_patterns, datapack, ctx, id, *data_type, value);
         }
         (self_, value_kind) => unreachable!("{:?} {:?}", self_, value_kind),
     }
@@ -327,39 +261,39 @@ pub enum TypedPattern {
 impl TypedPattern {
     pub fn destructure(
         id: Idx<Self>,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         data_type: DataType,
         value: Expression,
     ) {
-        match allocator.get_pattern(id) {
+        match arena.get_pattern(id) {
             Self::Literal(..) | Self::Wildcard => {}
             Self::Binding(id) => {
                 datapack.declare_value(*id, data_type, value);
             }
             Self::Score(score) => {
-                let score = score.clone().compile(allocator, datapack, ctx);
+                let score = score.clone().compile(arena, datapack, ctx);
 
                 value.assign_to_score(datapack, ctx, score);
             }
             Self::Data(data) => {
-                let data = data.clone().compile(allocator, datapack, ctx);
+                let data = data.clone().compile(arena, datapack, ctx);
 
                 value.assign_to_data(datapack, ctx, data);
             }
             Self::Tuple(patterns) => {
-                destructure_tuple(allocator, patterns, datapack, ctx, data_type, value);
+                destructure_tuple(arena, patterns, datapack, ctx, data_type, value);
             }
             Self::Compound(patterns) => {
-                destructure_compound(allocator, patterns, datapack, ctx, data_type, value);
+                destructure_compound(arena, patterns, datapack, ctx, data_type, value);
             }
             Self::RegularStruct(id, generic_types, field_patterns) => {
                 let id =
                     SemanticDataType::resolve_regular_struct(datapack, *id, generic_types.clone());
 
                 destructure_regular_struct(
-                    allocator,
+                    arena,
                     field_patterns,
                     datapack,
                     ctx,
@@ -373,7 +307,7 @@ impl TypedPattern {
                     SemanticDataType::resolve_tuple_struct(datapack, *id, generic_types.clone());
 
                 destructure_tuple_struct(
-                    allocator,
+                    arena,
                     field_patterns,
                     datapack,
                     ctx,

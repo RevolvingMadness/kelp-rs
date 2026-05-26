@@ -14,7 +14,7 @@ pub fn lower_string_expression(
     let string = text_token.text().trim_matches('"');
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::String(string.to_owned())),
     )
 }

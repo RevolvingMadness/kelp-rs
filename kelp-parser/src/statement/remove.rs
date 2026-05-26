@@ -44,7 +44,7 @@ pub fn lower_remove_statement(
     let target = lower_expression(node.target()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_statement(span, Statement::Remove(target)),
     )
 }

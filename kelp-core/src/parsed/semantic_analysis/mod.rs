@@ -16,7 +16,7 @@ use crate::{
                 variable::ParsedVariableDeclaration,
             },
         },
-        item::Item,
+        item::ParsedItem,
         semantic_analysis::{
             info::{SemanticAnalysisInfo, SemanticAnalysisInfoKind, error::SemanticAnalysisError},
             scope::Scope,
@@ -130,10 +130,10 @@ pub struct SemanticAnalysisContext {
     pub parsed_environment: ParsedEnvironment,
     pub semantic_environment: SemanticEnvironment,
 
-    pub item_type_ids: ArenaMap<Idx<Item>, HighTypeId>,
-    pub item_value_ids: ArenaMap<Idx<Item>, HighValueId>,
-    pub item_generic_ids: ArenaMap<Idx<Item>, Vec<HighGenericId>>,
-    pub item_scopes: ArenaMap<Idx<Item>, Scope>,
+    pub item_type_ids: ArenaMap<Idx<ParsedItem>, HighTypeId>,
+    pub item_value_ids: ArenaMap<Idx<ParsedItem>, HighValueId>,
+    pub item_generic_ids: ArenaMap<Idx<ParsedItem>, Vec<HighGenericId>>,
+    pub item_scopes: ArenaMap<Idx<ParsedItem>, Scope>,
 }
 
 impl SemanticAnalysisContext {
@@ -934,46 +934,46 @@ impl SemanticAnalysisContext {
 
 impl SemanticAnalysisContext {
     #[inline]
-    pub fn declare_item_type_id(&mut self, id: Idx<Item>, type_id: HighTypeId) {
+    pub fn declare_item_type_id(&mut self, id: Idx<ParsedItem>, type_id: HighTypeId) {
         self.item_type_ids.insert(id, type_id);
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item_type_id(&self, id: Idx<Item>) -> HighTypeId {
+    pub fn get_item_type_id(&self, id: Idx<ParsedItem>) -> HighTypeId {
         *self.item_type_ids.get(id).unwrap()
     }
 
     #[inline]
-    pub fn declare_item_value_id(&mut self, id: Idx<Item>, value_id: HighValueId) {
+    pub fn declare_item_value_id(&mut self, id: Idx<ParsedItem>, value_id: HighValueId) {
         self.item_value_ids.insert(id, value_id);
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item_value_id(&self, id: Idx<Item>) -> HighValueId {
+    pub fn get_item_value_id(&self, id: Idx<ParsedItem>) -> HighValueId {
         *self.item_value_ids.get(id).unwrap()
     }
 
     #[inline]
-    pub fn declare_item_generic_ids(&mut self, id: Idx<Item>, ids: Vec<HighGenericId>) {
+    pub fn declare_item_generic_ids(&mut self, id: Idx<ParsedItem>, ids: Vec<HighGenericId>) {
         self.item_generic_ids.insert(id, ids);
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item_generic_ids(&self, id: Idx<Item>) -> &[HighGenericId] {
+    pub fn get_item_generic_ids(&self, id: Idx<ParsedItem>) -> &[HighGenericId] {
         self.item_generic_ids.get(id).unwrap()
     }
 
     #[inline]
-    pub fn declare_item_scope(&mut self, id: Idx<Item>, scope: Scope) {
+    pub fn declare_item_scope(&mut self, id: Idx<ParsedItem>, scope: Scope) {
         self.item_scopes.insert(id, scope);
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item_scope(&self, id: Idx<Item>) -> &Scope {
+    pub fn get_item_scope(&self, id: Idx<ParsedItem>) -> &Scope {
         self.item_scopes.get(id).unwrap()
     }
 }

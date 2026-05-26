@@ -30,8 +30,5 @@ pub fn lower_item_statement(node: CSTItemStatement, ctx: &mut LowerContext) -> O
 
     let item = lower_item(node.item()?, ctx)?;
 
-    Some(
-        ctx.allocator
-            .allocate_statement(span, Statement::Item(item)),
-    )
+    Some(ctx.arena.allocate_statement(span, Statement::Item(item)))
 }

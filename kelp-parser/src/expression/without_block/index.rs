@@ -19,7 +19,7 @@ pub fn lower_index_expression(
     let index = lower_expression(expressions.next()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Index(expression, index)),
     )
 }

@@ -4,7 +4,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
+    compile_context::CompileContext, datapack::Datapack, typed::arena::TypedAstArena,
     typed::entity_selector::TypedEntitySelector,
 };
 
@@ -18,13 +18,13 @@ pub enum TypedPositioned {
 impl TypedPositioned {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> Positioned {
         match self {
             Self::Position(position) => Positioned::Position(position),
-            Self::As(selector) => Positioned::As(selector.compile(allocator, datapack, ctx)),
+            Self::As(selector) => Positioned::As(selector.compile(arena, datapack, ctx)),
             Self::Over(heightmap) => Positioned::Over(heightmap),
         }
     }

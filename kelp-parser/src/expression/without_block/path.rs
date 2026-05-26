@@ -16,7 +16,7 @@ pub fn lower_path_expression(
     let path = lower_generic_path(node.generic_path()?)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Path(path)),
     )
 }

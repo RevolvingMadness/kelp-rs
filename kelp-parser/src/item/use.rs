@@ -1,4 +1,4 @@
-use kelp_core::parsed::item::Item;
+use kelp_core::parsed::item::ParsedItem;
 
 use crate::{
     cst::CSTUseItem,
@@ -46,8 +46,8 @@ pub fn expect_use_item_kind(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_use_item(node: CSTUseItem) -> Option<Item> {
+pub fn lower_use_item(node: CSTUseItem) -> Option<ParsedItem> {
     let tree = lower_use_tree(node.use_tree()?)?;
 
-    Some(Item::Use(tree))
+    Some(ParsedItem::Use(tree))
 }

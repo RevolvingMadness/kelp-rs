@@ -9,9 +9,9 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::expression::{TypedExpression, TypedExpressionId},
 };
 
@@ -43,7 +43,7 @@ pub enum TypedEntitySelectorOption {
 impl TypedEntitySelectorOption {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> EntitySelectorOption {
@@ -66,7 +66,7 @@ impl TypedEntitySelectorOption {
                 EntitySelectorOption::Predicate(inverted, predicate)
             }
             Self::Nbt(inverted, expression) => {
-                let expression = TypedExpression::resolve(expression, allocator, datapack, ctx);
+                let expression = TypedExpression::resolve(expression, arena, datapack, ctx);
                 let expression = expression.as_snbt_macros(ctx);
 
                 EntitySelectorOption::Nbt(inverted, expression)
@@ -85,13 +85,13 @@ impl TypedEntitySelectorOption {
 
     pub fn compile_as_statement(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) {
         match self {
             Self::Nbt(_, expression) => {
-                TypedExpression::compile_as_statement(expression, allocator, datapack, ctx);
+                TypedExpression::compile_as_statement(expression, arena, datapack, ctx);
             }
             Self::X(..)
             | Self::Y(..)

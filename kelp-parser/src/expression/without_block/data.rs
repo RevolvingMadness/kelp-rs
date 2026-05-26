@@ -44,7 +44,7 @@ pub fn lower_data_expression(
     let path = lower_nbt_path(node.n_b_t_path()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Data(Box::new((target, path)))),
     )
 }

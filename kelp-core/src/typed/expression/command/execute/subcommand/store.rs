@@ -8,9 +8,9 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::{
         data::TypedDataTarget, expression::command::execute::subcommand::TypedExecuteSubcommand,
         nbt_path::TypedNbtPath, player_score::TypedPlayerScore,
@@ -62,15 +62,15 @@ impl TypedExecuteStoreSubcommand {
 
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ExecuteStoreSubcommand {
         match self {
             Self::Data(target, path, numeric_snbt_type, scale, next) => {
-                let target = target.compile(allocator, datapack, ctx);
-                let path = path.compile(allocator, datapack, ctx);
-                let next = next.compile(allocator, datapack, ctx);
+                let target = target.compile(arena, datapack, ctx);
+                let path = path.compile(arena, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
 
                 ExecuteStoreSubcommand::Data(
                     target.target,
@@ -83,11 +83,11 @@ impl TypedExecuteStoreSubcommand {
             Self::Bossbar(location, store_type, next) => ExecuteStoreSubcommand::Bossbar(
                 location,
                 store_type,
-                Box::new(next.compile(allocator, datapack, ctx)),
+                Box::new(next.compile(arena, datapack, ctx)),
             ),
             Self::Score(score, next) => {
-                let score = score.compile(allocator, datapack, ctx);
-                let next = next.compile(allocator, datapack, ctx);
+                let score = score.compile(arena, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
 
                 ExecuteStoreSubcommand::Score(score.score, Box::new(next))
             }

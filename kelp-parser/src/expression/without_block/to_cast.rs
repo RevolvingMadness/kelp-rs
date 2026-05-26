@@ -30,13 +30,13 @@ pub fn lower_to_cast_expression(
             );
 
             return Some(
-                ctx.allocator
+                ctx.arena
                     .allocate_expression(span, ParsedExpression::Invalid),
             );
         }
     };
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::ToCast(expression, runtime_storage_type),
     ))

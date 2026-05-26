@@ -24,7 +24,7 @@ pub fn lower_method_call_expression(
 
     let span = span_of_cst_node(&node);
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::MethodCall {
             receiver,

@@ -1,10 +1,10 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
-use kelp_core::ast_allocator::low::LowAstAllocator;
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
+use kelp_core::typed::arena::TypedAstArena;
 use kelp_core::typed::environment::SemanticEnvironment;
 use kelp_core::typed::program::Program as MiddleProgram;
 use kelp_parser::cst::CSTProgram;
@@ -336,11 +336,11 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let mut semantic_analysis_context =
         SemanticAnalysisContext::new(&kelp_toml.project.id, max_infos);
 
-    let mut low_allocator = LowAstAllocator::default();
+    let mut typed_arena = TypedAstArena::default();
 
     let Some(program) = program.perform_semantic_analysis(
-        &lower_context.allocator,
-        &mut low_allocator,
+        &lower_context.arena,
+        &mut typed_arena,
         &mut semantic_analysis_context,
     ) else {
         display_info(&semantic_analysis_context);
@@ -352,7 +352,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     if lower_succeeded && semantic_analysis_succeeded && parse_succeeded {
         process_success(
-            &low_allocator,
+            &typed_arena,
             semantic_analysis_context.semantic_environment,
             program,
             &main_kelp_path,
@@ -364,7 +364,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 }
 
 fn process_success(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     semantic_environment: SemanticEnvironment,
     program: MiddleProgram,
     _file_name: &str,
@@ -386,7 +386,7 @@ fn process_success(
 
     let mut ctx = CompileContext::default();
     let start_compile = Instant::now();
-    program.compile(allocator, &mut datapack, &mut ctx);
+    program.compile(arena, &mut datapack, &mut ctx);
     let compile_elapsed = start_compile.elapsed();
 
     datapack.add_context_to_current_function(&mut ctx);

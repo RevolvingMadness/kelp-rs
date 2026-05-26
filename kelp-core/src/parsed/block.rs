@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         expression::{ParsedExpression, ParsedExpressionId},
         semantic_analysis::SemanticAnalysisContext,
         snbt_string::SNBTString,
     },
     trait_ext::CollectOptionAllIterExt,
+    typed::arena::TypedAstArena,
     typed::block::TypedBlockState as MiddleBlockState,
 };
 
@@ -23,8 +24,8 @@ pub struct BlockState {
 impl BlockState {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleBlockState> {
         let data_tags = match self.data_tags {
@@ -35,8 +36,8 @@ impl BlockState {
                         let (_, key) = key.perform_semantic_analysis(ctx);
                         let value = ParsedExpression::perform_semantic_analysis(
                             value,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 

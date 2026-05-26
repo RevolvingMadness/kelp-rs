@@ -8,7 +8,7 @@ use crate::{
     typed::{
         data_type::SemanticDataType,
         expression::{TypedExpression, TypedExpressionId},
-        item::Item,
+        item::TypedItem,
         pattern::TypedPattern,
         statement::TypedStatement,
     },
@@ -37,9 +37,9 @@ impl<T> TypedExt for T {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct LowAstAllocator {
-    items: Arena<Item>,
-    item_visiblities: ArenaMap<Idx<Item>, Visibility>,
+pub struct TypedAstArena {
+    items: Arena<TypedItem>,
+    item_visiblities: ArenaMap<Idx<TypedItem>, Visibility>,
 
     patterns: Arena<TypedPattern>,
 
@@ -53,28 +53,28 @@ pub struct LowAstAllocator {
 }
 
 // Items
-impl LowAstAllocator {
+impl TypedAstArena {
     #[inline]
     #[must_use]
-    pub fn allocate_item(&mut self, item: Item) -> Idx<Item> {
+    pub fn allocate_item(&mut self, item: TypedItem) -> Idx<TypedItem> {
         self.items.alloc(item)
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item(&self, id: Idx<Item>) -> &Item {
+    pub fn get_item(&self, id: Idx<TypedItem>) -> &TypedItem {
         &self.items[id]
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item_visiblity(&self, id: Idx<Item>) -> Visibility {
+    pub fn get_item_visiblity(&self, id: Idx<TypedItem>) -> Visibility {
         self.item_visiblities[id]
     }
 }
 
 // Patterns
-impl LowAstAllocator {
+impl TypedAstArena {
     #[inline]
     #[must_use]
     pub fn allocate_pattern(&mut self, pattern: TypedPattern) -> Idx<TypedPattern> {
@@ -89,7 +89,7 @@ impl LowAstAllocator {
 }
 
 // Expressions
-impl LowAstAllocator {
+impl TypedAstArena {
     #[inline]
     #[must_use]
     pub fn allocate_expression(
@@ -120,7 +120,7 @@ impl LowAstAllocator {
 }
 
 // Place expressions
-impl LowAstAllocator {
+impl TypedAstArena {
     #[inline]
     #[must_use]
     pub fn allocate_place_expression(
@@ -158,7 +158,7 @@ impl LowAstAllocator {
 }
 
 // Assignee expressions
-impl LowAstAllocator {
+impl TypedAstArena {
     #[inline]
     #[must_use]
     pub fn allocate_assignee_expression(
@@ -199,7 +199,7 @@ impl LowAstAllocator {
 }
 
 // Statements
-impl LowAstAllocator {
+impl TypedAstArena {
     #[inline]
     #[must_use]
     pub fn allocate_statement(&mut self, statment: TypedStatement) -> Idx<TypedStatement> {

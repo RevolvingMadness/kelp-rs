@@ -46,7 +46,7 @@ pub fn lower_coordinates_expression(
     let span = span_of_cst_node(&node);
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Coordinates(Box::new(coordinates))),
     )
 }

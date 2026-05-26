@@ -4,7 +4,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         block::BlockState, command::execute::subcommand::ParsedExecuteSubcommand, data::DataTarget,
         entity_selector::EntitySelector, item_source::ItemSource, mc_item::ItemPredicate,
@@ -12,6 +12,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
+    typed::arena::TypedAstArena,
     typed::expression::command::execute::subcommand::r#if::TypedExecuteIfSubcommand,
 };
 
@@ -70,17 +71,17 @@ impl ParsedExecuteIfSubcommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedExecuteIfSubcommand> {
         Some(match self {
             Self::Biome(coordinates, biome, next) => {
-                let biome = biome.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let biome = biome.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -91,10 +92,10 @@ impl ParsedExecuteIfSubcommand {
             }
             Self::Block(coordinates, block_state, next) => {
                 let block_state =
-                    block_state.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                    block_state.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -106,7 +107,7 @@ impl ParsedExecuteIfSubcommand {
             Self::Blocks(start, end, desination, mode, next) => {
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -114,11 +115,11 @@ impl ParsedExecuteIfSubcommand {
                 TypedExecuteIfSubcommand::Blocks(start, end, desination, mode, next.map(Box::new))
             }
             Self::Data(target, path, next) => {
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let path = path.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let path = path.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -129,12 +130,11 @@ impl ParsedExecuteIfSubcommand {
                 TypedExecuteIfSubcommand::Data(target, path, next.map(Box::new))
             }
             Self::Dimension(dimension, next) => {
-                let dimension =
-                    dimension.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let dimension = dimension.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -144,11 +144,10 @@ impl ParsedExecuteIfSubcommand {
                 TypedExecuteIfSubcommand::Dimension(dimension, next.map(Box::new))
             }
             Self::Entity(selector, next) => {
-                let selector =
-                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let selector = selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -158,12 +157,11 @@ impl ParsedExecuteIfSubcommand {
                 TypedExecuteIfSubcommand::Entity(selector, next.map(Box::new))
             }
             Self::Function(function, next) => {
-                let function =
-                    function.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let function = function.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -174,12 +172,12 @@ impl ParsedExecuteIfSubcommand {
             }
             Self::Items(item_source, slot, item_predicate, next) => {
                 let item_source =
-                    item_source.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                    item_source.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let item_predicate =
-                    item_predicate.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                    item_predicate.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -197,7 +195,7 @@ impl ParsedExecuteIfSubcommand {
             Self::Loaded(column_position, next) => {
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -205,12 +203,11 @@ impl ParsedExecuteIfSubcommand {
                 TypedExecuteIfSubcommand::Loaded(column_position, next.map(Box::new))
             }
             Self::Predicate(predicate, next) => {
-                let predicate =
-                    predicate.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let predicate = predicate.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -220,12 +217,12 @@ impl ParsedExecuteIfSubcommand {
                 TypedExecuteIfSubcommand::Predicate(predicate, next.map(Box::new))
             }
             Self::Score(score, score_comparison, next) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let score_comparison =
-                    score_comparison.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                    score_comparison.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let next = match next {
                     Some(next) => {
-                        Some(next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };

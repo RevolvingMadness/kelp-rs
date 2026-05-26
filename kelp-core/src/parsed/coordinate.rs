@@ -1,11 +1,12 @@
 use std::fmt::{Display, Write};
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         expression::{ParsedExpression, ParsedExpressionId},
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
+    typed::arena::TypedAstArena,
     typed::coordinate::{
         TypedCoordinates as MiddleCoordinates, TypedWorldCoordinate as MiddleWorldCoordinate,
     },
@@ -37,8 +38,8 @@ impl Display for WorldCoordinate {
 impl WorldCoordinate {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleWorldCoordinate> {
         match self {
@@ -47,8 +48,8 @@ impl WorldCoordinate {
                     Some(expression) => {
                         let expression = ParsedExpression::perform_semantic_analysis(
                             expression,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -62,8 +63,8 @@ impl WorldCoordinate {
             Self::Absolute(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
@@ -125,31 +126,31 @@ impl Display for Coordinates {
 impl Coordinates {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleCoordinates> {
         Some(match self {
             Self::World(x, y, z) => {
-                let x = x.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
-                let y = y.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
-                let z = z.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let x = x.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
+                let y = y.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
+                let z = z.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleCoordinates::World(x, y, z)
             }
             Self::Local(x, y, z) => {
                 let x = match x {
                     Some(x) => {
-                        let x_span = high_allocator.get_expression_span(x);
+                        let x_span = parsed_arena.get_expression_span(x);
 
                         let x = ParsedExpression::perform_semantic_analysis(
                             x,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
-                        let x_type = low_allocator.get_expression_type(x);
+                        let x_type = typed_arena.get_expression_type(x);
 
                         if !x_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
@@ -165,16 +166,16 @@ impl Coordinates {
 
                 let y = match y {
                     Some(y) => {
-                        let y_span = high_allocator.get_expression_span(y);
+                        let y_span = parsed_arena.get_expression_span(y);
 
                         let y = ParsedExpression::perform_semantic_analysis(
                             y,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
-                        let y_type = low_allocator.get_expression_type(y);
+                        let y_type = typed_arena.get_expression_type(y);
 
                         if !y_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
@@ -190,16 +191,16 @@ impl Coordinates {
 
                 let z = match z {
                     Some(z) => {
-                        let z_span = high_allocator.get_expression_span(z);
+                        let z_span = parsed_arena.get_expression_span(z);
 
                         let z = ParsedExpression::perform_semantic_analysis(
                             z,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
-                        let z_type = low_allocator.get_expression_type(z);
+                        let z_type = typed_arena.get_expression_type(z);
 
                         if !z_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(

@@ -2,13 +2,14 @@ use minecraft_command_types::command::data::DataCommandModificationMode;
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         data::DataTarget,
         expression::{ParsedExpression, ParsedExpressionId},
         nbt_path::ParsedNbtPath,
         semantic_analysis::SemanticAnalysisContext,
     },
+    typed::arena::TypedAstArena,
     typed::expression::command::data::{TypedDataCommand, TypedDataCommandModification},
 };
 
@@ -23,16 +24,16 @@ impl ParsedDataCommandModification {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedDataCommandModification> {
         Some(match self {
             Self::From(target, path) => {
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let path = match path {
                     Some(path) => {
-                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(path.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -42,10 +43,10 @@ impl ParsedDataCommandModification {
                 TypedDataCommandModification::From(target, path)
             }
             Self::String(target, path, start, end) => {
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let path = match path {
                     Some(path) => {
-                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(path.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -57,8 +58,8 @@ impl ParsedDataCommandModification {
             Self::Value(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
@@ -84,16 +85,16 @@ pub enum ParsedDataCommand {
 impl ParsedDataCommand {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedDataCommand> {
         Some(match self {
             Self::Get(target, path, scale) => {
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let path = match path {
                     Some(path) => {
-                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(path.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };
@@ -103,11 +104,11 @@ impl ParsedDataCommand {
                 TypedDataCommand::Get(target, path, scale)
             }
             Self::Merge(target, expression) => {
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 );
 
@@ -117,10 +118,10 @@ impl ParsedDataCommand {
                 TypedDataCommand::Merge(target, expression)
             }
             Self::Modify(target, path, mode, modification) => {
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let path = path.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let path = path.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let modification =
-                    modification.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                    modification.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let target = target?;
                 let path = path?;
@@ -129,8 +130,8 @@ impl ParsedDataCommand {
                 TypedDataCommand::Modify(target, path, mode, Box::new(modification))
             }
             Self::Remove(target, path) => {
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let path = path.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let path = path.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let target = target?;
                 let path = path?;

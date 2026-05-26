@@ -30,7 +30,7 @@ pub fn lower_struct_pattern_field(
         .pattern()
         .and_then(|pattern| lower_pattern(pattern, ctx))
         .unwrap_or_else(|| {
-            ctx.allocator.allocate_pattern(
+            ctx.arena.allocate_pattern(
                 field_name_span,
                 Pattern::Binding(GenericPath::single(field_name_span, field_name)),
             )
@@ -128,7 +128,7 @@ pub fn lower_struct_pattern(
         .unwrap_or_default();
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_pattern(span, Pattern::RegularStruct(path, fields)),
     )
 }
@@ -217,7 +217,7 @@ pub fn lower_tuple_struct_pattern(
         .unwrap_or_default();
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_pattern(span, Pattern::TupleStruct(path, fields)),
     )
 }

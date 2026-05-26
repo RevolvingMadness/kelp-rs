@@ -1,6 +1,6 @@
 use kelp_core::{
-    parsed::expression::{ParsedExpression, ParsedExpressionId},
     operator::UnaryOperator,
+    parsed::expression::{ParsedExpression, ParsedExpressionId},
 };
 
 use crate::{
@@ -27,7 +27,7 @@ pub fn lower_unary_expression(
     let operand = lower_expression(node.expression()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Unary(operator, operand)),
     )
 }

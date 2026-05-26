@@ -4,7 +4,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator, compile_context::CompileContext, datapack::Datapack,
+    compile_context::CompileContext, datapack::Datapack, typed::arena::TypedAstArena,
     typed::supports_expression_sigil::TypedSupportsExpressionSigil,
 };
 
@@ -23,28 +23,28 @@ impl TypedStopwatchCommand {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> StopwatchCommand {
         match self {
             Self::Create(resource_location) => {
-                let resource_location = resource_location.compile(allocator, datapack, ctx);
+                let resource_location = resource_location.compile(arena, datapack, ctx);
 
                 StopwatchCommand::Create(resource_location)
             }
             Self::Query(resource_location, scale) => {
-                let resource_location = resource_location.compile(allocator, datapack, ctx);
+                let resource_location = resource_location.compile(arena, datapack, ctx);
 
                 StopwatchCommand::Query(resource_location, scale)
             }
             Self::Restart(resource_location) => {
-                let resource_location = resource_location.compile(allocator, datapack, ctx);
+                let resource_location = resource_location.compile(arena, datapack, ctx);
 
                 StopwatchCommand::Restart(resource_location)
             }
             Self::Remove(resource_location) => {
-                let resource_location = resource_location.compile(allocator, datapack, ctx);
+                let resource_location = resource_location.compile(arena, datapack, ctx);
 
                 StopwatchCommand::Remove(resource_location)
             }

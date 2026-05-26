@@ -74,13 +74,13 @@ pub fn lower_if_expression(
             let expression = lower_block_expression(expression, ctx)?;
 
             Some(
-                ctx.allocator
+                ctx.arena
                     .allocate_expression(span, ParsedExpression::Block(expression)),
             )
         })
         .or_else(|| lower_if_expression(node.else_body_if()?, ctx));
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::If {
             condition,

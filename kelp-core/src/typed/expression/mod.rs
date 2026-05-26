@@ -16,7 +16,6 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::low::{LowAstAllocator, Typed},
     compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedData,
     datapack::Datapack,
@@ -32,6 +31,7 @@ use crate::{
         place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
     },
     runtime_storage::RuntimeStorageType,
+    typed::arena::{Typed, TypedAstArena},
     typed::{
         coordinate::TypedCoordinates,
         data::TypedData,
@@ -105,7 +105,7 @@ fn compile_if(
 }
 
 fn compile_if_internal(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     condition: TypedExpressionId,
@@ -114,22 +114,21 @@ fn compile_if_internal(
     output_data: Option<GeneratedData>,
 ) {
     let mut body_ctx = ctx.create_child_ctx();
-    let main_body_returns_early = TypedExpression::returns_early(body, allocator);
-    let body = TypedExpression::resolve(body, allocator, datapack, &mut body_ctx);
+    let main_body_returns_early = TypedExpression::returns_early(body, arena);
+    let body = TypedExpression::resolve(body, arena, datapack, &mut body_ctx);
 
     if let Some(output_data) = &output_data {
         body.assign_to_data(datapack, &mut body_ctx, output_data.clone());
     }
 
-    let (invert, condition) = TypedExpression::resolve(condition, allocator, datapack, ctx)
+    let (invert, condition) = TypedExpression::resolve(condition, arena, datapack, ctx)
         .to_execute_condition(datapack, ctx)
         .unwrap();
 
     if let Some(else_body) = else_body {
         let mut else_body_ctx = ctx.create_child_ctx();
-        let else_body_returns_early = TypedExpression::returns_early(else_body, allocator);
-        let else_body =
-            TypedExpression::resolve(else_body, allocator, datapack, &mut else_body_ctx);
+        let else_body_returns_early = TypedExpression::returns_early(else_body, arena);
+        let else_body = TypedExpression::resolve(else_body, arena, datapack, &mut else_body_ctx);
 
         if let Some(output_data) = output_data {
             else_body.assign_to_data(datapack, &mut else_body_ctx, output_data);
@@ -213,7 +212,7 @@ fn compile_if_internal(
 }
 
 fn iterate_string(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     is_reversed: bool,
@@ -230,7 +229,7 @@ fn iterate_string(
 
     TypedPattern::destructure(
         pattern,
-        allocator,
+        arena,
         datapack,
         &mut for_body_ctx,
         DataType::String,
@@ -247,7 +246,7 @@ fn iterate_string(
         )),
     );
 
-    TypedExpression::compile_as_statement(body, allocator, datapack, &mut for_body_ctx);
+    TypedExpression::compile_as_statement(body, arena, datapack, &mut for_body_ctx);
 
     let current_namespace_name = datapack.current_namespace_name().to_string();
 
@@ -290,7 +289,7 @@ fn iterate_string(
 
 #[allow(clippy::too_many_arguments)]
 fn iterate_data(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     is_reversed: bool,
@@ -314,14 +313,14 @@ fn iterate_data(
 
     TypedPattern::destructure(
         pattern,
-        allocator,
+        arena,
         datapack,
         &mut for_body_ctx,
         iterable_type,
         Expression::Data(destructure_unique_data),
     );
 
-    TypedExpression::compile_as_statement(body, allocator, datapack, &mut for_body_ctx);
+    TypedExpression::compile_as_statement(body, arena, datapack, &mut for_body_ctx);
 
     let current_namespace_name = datapack.current_namespace_name().to_string();
 
@@ -428,20 +427,20 @@ pub enum TypedExpression {
 
 impl TypedExpression {
     #[must_use]
-    pub fn definitely_diverges(id: TypedExpressionId, allocator: &LowAstAllocator) -> bool {
-        match allocator.get_expression_value(id) {
+    pub fn definitely_diverges(id: TypedExpressionId, arena: &TypedAstArena) -> bool {
+        match arena.get_expression_value(id) {
             Self::Return(..) => true,
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    if TypedStatement::definitely_diverges(*statement, allocator) {
+                    if TypedStatement::definitely_diverges(*statement, arena) {
                         return true;
                     }
                 }
 
                 tail_expression
                     .as_ref()
-                    .is_some_and(|expression| Self::definitely_diverges(*expression, allocator))
+                    .is_some_and(|expression| Self::definitely_diverges(*expression, arena))
             }
 
             Self::If {
@@ -449,51 +448,50 @@ impl TypedExpression {
                 body,
                 else_body,
             } => {
-                if Self::definitely_diverges(*condition, allocator) {
+                if Self::definitely_diverges(*condition, arena) {
                     return true;
                 }
 
                 if let Some(else_body) = else_body {
-                    Self::definitely_diverges(*body, allocator)
-                        && Self::definitely_diverges(*else_body, allocator)
+                    Self::definitely_diverges(*body, arena)
+                        && Self::definitely_diverges(*else_body, arena)
                 } else {
                     false
                 }
             }
 
-            Self::Loop(body) => !Self::contains_break(*body, allocator),
+            Self::Loop(body) => !Self::contains_break(*body, arena),
 
             Self::Arithmetic(left, _, right)
             | Self::Comparison(left, _, right)
             | Self::Logical(left, _, right) => {
-                Self::definitely_diverges(*left, allocator)
-                    || Self::definitely_diverges(*right, allocator)
+                Self::definitely_diverges(*left, arena) || Self::definitely_diverges(*right, arena)
             }
 
             Self::AugmentedAssignment(_, _, right)
             | Self::Assignment(_, right)
-            | Self::Index(_, right) => Self::definitely_diverges(*right, allocator),
+            | Self::Index(_, right) => Self::definitely_diverges(*right, arena),
 
             Self::Negate(expression)
             | Self::Invert(expression)
             | Self::AsCast(expression, _)
-            | Self::ToCast(_, expression, _) => Self::definitely_diverges(*expression, allocator),
+            | Self::ToCast(_, expression, _) => Self::definitely_diverges(*expression, arena),
             Self::Call(callee, arguments) => {
-                Self::definitely_diverges(*callee, allocator)
+                Self::definitely_diverges(*callee, arena)
                     || arguments
                         .iter()
-                        .any(|expression| Self::definitely_diverges(*expression, allocator))
+                        .any(|expression| Self::definitely_diverges(*expression, arena))
             }
             Self::List(expressions)
             | Self::Tuple(expressions)
             | Self::TupleStruct(_, _, expressions) => expressions
                 .iter()
-                .any(|expression| Self::definitely_diverges(*expression, allocator)),
+                .any(|expression| Self::definitely_diverges(*expression, arena)),
             Self::Compound(compound) | Self::RegularStruct(_, _, compound) => compound
                 .values()
-                .any(|expression| Self::definitely_diverges(*expression, allocator)),
-            Self::WhileLoop(expression, _) => Self::definitely_diverges(*expression, allocator),
-            Self::ForLoop(_, _, expression, _) => Self::definitely_diverges(*expression, allocator),
+                .any(|expression| Self::definitely_diverges(*expression, arena)),
+            Self::WhileLoop(expression, _) => Self::definitely_diverges(*expression, arena),
+            Self::ForLoop(_, _, expression, _) => Self::definitely_diverges(*expression, arena),
 
             _ => false,
         }
@@ -501,9 +499,9 @@ impl TypedExpression {
 
     #[inline]
     #[must_use]
-    pub fn contains_break(id: TypedExpressionId, allocator: &LowAstAllocator) -> bool {
+    pub fn contains_break(id: TypedExpressionId, arena: &TypedAstArena) -> bool {
         matches!(
-            Self::get_early_return_type(id, allocator),
+            Self::get_early_return_type(id, arena),
             Some(EarlyReturnType::Break)
         )
     }
@@ -511,27 +509,26 @@ impl TypedExpression {
     #[must_use]
     pub fn get_early_return_type(
         id: TypedExpressionId,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
     ) -> Option<EarlyReturnType> {
-        match allocator.get_expression_value(id) {
+        match arena.get_expression_value(id) {
             Self::If {
                 body, else_body, ..
-            } => Self::get_early_return_type(*body, allocator).or_else(|| {
+            } => Self::get_early_return_type(*body, arena).or_else(|| {
                 else_body
                     .as_ref()
-                    .and_then(|else_body| Self::get_early_return_type(*else_body, allocator))
+                    .and_then(|else_body| Self::get_early_return_type(*else_body, arena))
             }),
 
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    if let Some(kind) = TypedStatement::get_early_return_type(*statement, allocator)
-                    {
+                    if let Some(kind) = TypedStatement::get_early_return_type(*statement, arena) {
                         return Some(kind);
                     }
                 }
 
                 if let Some(tail_expression) = tail_expression
-                    && let Some(kind) = Self::get_early_return_type(*tail_expression, allocator)
+                    && let Some(kind) = Self::get_early_return_type(*tail_expression, arena)
                 {
                     return Some(kind);
                 }
@@ -539,9 +536,9 @@ impl TypedExpression {
                 None
             }
 
-            Self::WhileLoop(_, body) => Self::get_early_return_type(*body, allocator),
-            Self::Loop(body) => Self::get_early_return_type(*body, allocator),
-            Self::ForLoop(_, _, _, body) => Self::get_early_return_type(*body, allocator),
+            Self::WhileLoop(_, body) => Self::get_early_return_type(*body, arena),
+            Self::Loop(body) => Self::get_early_return_type(*body, arena),
+            Self::ForLoop(_, _, _, body) => Self::get_early_return_type(*body, arena),
 
             Self::Return(..) => Some(EarlyReturnType::Return),
 
@@ -551,8 +548,8 @@ impl TypedExpression {
 
     #[inline]
     #[must_use]
-    pub fn returns_early(id: TypedExpressionId, allocator: &LowAstAllocator) -> bool {
-        Self::get_early_return_type(id, allocator).is_some()
+    pub fn returns_early(id: TypedExpressionId, arena: &TypedAstArena) -> bool {
+        Self::get_early_return_type(id, arena).is_some()
     }
 
     #[must_use]
@@ -563,29 +560,28 @@ impl TypedExpression {
     #[must_use]
     pub fn resolve(
         id: TypedExpressionId,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> Expression {
-        match allocator.get_expression_value(id) {
+        match arena.get_expression_value(id) {
             Self::Negate(expression) => {
-                let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                let expression = Self::resolve(*expression, arena, datapack, ctx);
 
                 expression.negate(datapack, ctx).unwrap()
             }
             Self::Invert(expression) => {
-                let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                let expression = Self::resolve(*expression, arena, datapack, ctx);
 
                 expression.invert().unwrap()
             }
             Self::Reference(expression) => {
-                let expression =
-                    ParsedPlaceExpression::resolve(*expression, allocator, datapack, ctx);
+                let expression = ParsedPlaceExpression::resolve(*expression, arena, datapack, ctx);
 
                 Expression::Reference(Box::new(expression))
             }
             Self::Dereference(place) => {
-                let place = ParsedPlaceExpression::resolve(*place, allocator, datapack, ctx);
+                let place = ParsedPlaceExpression::resolve(*place, arena, datapack, ctx);
 
                 place
                     .resolve(datapack, ctx)
@@ -593,34 +589,34 @@ impl TypedExpression {
                     .unwrap()
             }
             Self::Arithmetic(left, operator, right) => {
-                let left = Self::resolve(*left, allocator, datapack, ctx);
-                let right = Self::resolve(*right, allocator, datapack, ctx);
+                let left = Self::resolve(*left, arena, datapack, ctx);
+                let right = Self::resolve(*right, arena, datapack, ctx);
 
                 left.perform_arithmetic(datapack, ctx, *operator, right)
             }
             Self::Comparison(left, operator, right) => {
-                let left = Self::resolve(*left, allocator, datapack, ctx);
-                let right = Self::resolve(*right, allocator, datapack, ctx);
+                let left = Self::resolve(*left, arena, datapack, ctx);
+                let right = Self::resolve(*right, arena, datapack, ctx);
 
                 left.perform_comparison(datapack, ctx, *operator, right)
             }
             Self::Logical(left, operator, right) => {
-                let left = Self::resolve(*left, allocator, datapack, ctx);
-                let right = Self::resolve(*right, allocator, datapack, ctx);
+                let left = Self::resolve(*left, arena, datapack, ctx);
+                let right = Self::resolve(*right, arena, datapack, ctx);
 
                 left.perform_logical_operation(datapack, ctx, *operator, right)
             }
             Self::AugmentedAssignment(target, operator, value) => {
-                let target = ParsedPlaceExpression::resolve(*target, allocator, datapack, ctx);
-                let value = Self::resolve(*value, allocator, datapack, ctx);
+                let target = ParsedPlaceExpression::resolve(*target, arena, datapack, ctx);
+                let value = Self::resolve(*value, arena, datapack, ctx);
 
                 target.augmented_assign(datapack, ctx, *operator, value);
 
                 Expression::Unit
             }
             Self::Assignment(target, value) => {
-                let target = ParsedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
-                let value = Self::resolve(*value, allocator, datapack, ctx);
+                let target = ParsedAssigneeExpression::resolve(*target, arena, datapack, ctx);
+                let value = Self::resolve(*value, arena, datapack, ctx);
 
                 target.assign(datapack, ctx, value);
 
@@ -630,31 +626,29 @@ impl TypedExpression {
                 expressions
                     .iter()
                     .copied()
-                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
+                    .map(|expression| Self::resolve(expression, arena, datapack, ctx))
                     .collect::<Vec<_>>(),
             ),
             Self::Compound(compound) => Expression::Compound(
                 compound
                     .iter()
-                    .map(|(key, value)| {
-                        (key.clone(), Self::resolve(*value, allocator, datapack, ctx))
-                    })
+                    .map(|(key, value)| (key.clone(), Self::resolve(*value, arena, datapack, ctx)))
                     .collect::<BTreeMap<_, _>>(),
             ),
             Self::Score(score) => {
-                let score = score.clone().compile(allocator, datapack, ctx);
+                let score = score.clone().compile(arena, datapack, ctx);
 
                 Expression::Score(score)
             }
             Self::Data(data) => {
-                let data = data.clone().compile(allocator, datapack, ctx);
+                let data = data.clone().compile(arena, datapack, ctx);
 
                 Expression::Data(data)
             }
             Self::Condition(inverted, condition) => {
                 let inverted = *inverted;
 
-                let condition = condition.clone().compile(allocator, datapack, ctx);
+                let condition = condition.clone().compile(arena, datapack, ctx);
 
                 let result_score = datapack.get_unique_score();
 
@@ -668,7 +662,7 @@ impl TypedExpression {
                 Expression::Score(result_score)
             }
             Self::Command(command) => {
-                let command = command.clone().compile(allocator, datapack, ctx);
+                let command = command.clone().compile(arena, datapack, ctx);
 
                 let result_score = datapack.get_unique_score();
 
@@ -680,24 +674,24 @@ impl TypedExpression {
                 Expression::Score(result_score)
             }
             Self::Index(target, index) => {
-                let target = Self::resolve(*target, allocator, datapack, ctx);
-                let index = Self::resolve(*index, allocator, datapack, ctx);
+                let target = Self::resolve(*target, arena, datapack, ctx);
+                let index = Self::resolve(*index, arena, datapack, ctx);
 
                 target.index(ctx, index).unwrap()
             }
             Self::FieldAccess(target, field) => {
-                let target = Self::resolve(*target, allocator, datapack, ctx);
+                let target = Self::resolve(*target, arena, datapack, ctx);
 
                 target.access_field(FieldAccessType::Name, field).unwrap()
             }
             Self::AsCast(expression, data_type) => {
-                let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                let expression = Self::resolve(*expression, arena, datapack, ctx);
                 let data_type = data_type.clone().resolve(datapack).unwrap();
 
                 expression.cast_to(data_type).unwrap()
             }
             Self::ToCast(scale, expression, runtime_storage_type) => {
-                let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                let expression = Self::resolve(*expression, arena, datapack, ctx);
 
                 match runtime_storage_type {
                     RuntimeStorageType::Score => {
@@ -722,7 +716,7 @@ impl TypedExpression {
                 expressions
                     .iter()
                     .copied()
-                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
+                    .map(|expression| Self::resolve(expression, arena, datapack, ctx))
                     .collect(),
             ),
             Self::RegularStruct(id, generic_types, field_expressions) => {
@@ -743,7 +737,7 @@ impl TypedExpression {
                 let field_types = field_expressions
                     .iter()
                     .map(|(name, expression)| {
-                        let data_type = allocator.get_expression_type(*expression).clone();
+                        let data_type = arena.get_expression_type(*expression).clone();
 
                         let data_type = data_type.resolve(datapack).unwrap();
 
@@ -763,7 +757,7 @@ impl TypedExpression {
                 let field_expressions = field_expressions
                     .iter()
                     .map(|(name, expression)| {
-                        let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                        let expression = Self::resolve(*expression, arena, datapack, ctx);
 
                         (name.clone(), expression)
                     })
@@ -789,7 +783,7 @@ impl TypedExpression {
                 let field_types = field_expressions
                     .iter()
                     .map(|expression| {
-                        let data_type = allocator.get_expression_type(*expression).clone();
+                        let data_type = arena.get_expression_type(*expression).clone();
 
                         data_type.resolve(datapack).unwrap()
                     })
@@ -807,7 +801,7 @@ impl TypedExpression {
                 let field_expressions = field_expressions
                     .iter()
                     .copied()
-                    .map(|expression| Self::resolve(expression, allocator, datapack, ctx))
+                    .map(|expression| Self::resolve(expression, arena, datapack, ctx))
                     .collect();
 
                 Expression::TupleStruct(id, field_expressions)
@@ -840,11 +834,11 @@ impl TypedExpression {
             }
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
-                    TypedStatement::compile_as_statement(*statement, allocator, datapack, ctx);
+                    TypedStatement::compile_as_statement(*statement, arena, datapack, ctx);
                 }
 
                 tail_expression.map_or(Expression::Unit, |tail_expression| {
-                    Self::resolve(tail_expression, allocator, datapack, ctx)
+                    Self::resolve(tail_expression, arena, datapack, ctx)
                 })
             }
             Self::If {
@@ -855,7 +849,7 @@ impl TypedExpression {
                 let output_data = datapack.get_unique_data();
 
                 compile_if_internal(
-                    allocator,
+                    arena,
                     datapack,
                     ctx,
                     *condition,
@@ -867,17 +861,15 @@ impl TypedExpression {
                 Expression::Data(output_data)
             }
             Self::Call(callee, arguments) => {
-                let callee = Self::resolve(*callee, allocator, datapack, ctx);
+                let callee = Self::resolve(*callee, arena, datapack, ctx);
 
                 let arguments = arguments
                     .iter()
                     .copied()
-                    .map(|argument| Self::resolve(argument, allocator, datapack, ctx))
+                    .map(|argument| Self::resolve(argument, arena, datapack, ctx))
                     .collect::<Vec<_>>();
 
-                callee
-                    .call(allocator, datapack, ctx, arguments, true)
-                    .unwrap()
+                callee.call(arena, datapack, ctx, arguments, true).unwrap()
             }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -887,11 +879,11 @@ impl TypedExpression {
                 );
 
                 let mut condition_ctx = ctx.create_child_ctx();
-                let (inverted, condition) = Self::resolve(*condition, allocator, datapack, ctx)
+                let (inverted, condition) = Self::resolve(*condition, arena, datapack, ctx)
                     .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
 
-                let subcommand = if Self::returns_early(*body, allocator) {
+                let subcommand = if Self::returns_early(*body, arena) {
                     ExecuteSubcommand::run_return_fail()
                         .unless_function(while_function_resource_location.clone())
                 } else {
@@ -909,7 +901,7 @@ impl TypedExpression {
                     type_: LoopType::While(inverted, Box::new(condition)),
                 });
 
-                Self::compile_as_statement(*body, allocator, datapack, &mut while_body_ctx);
+                Self::compile_as_statement(*body, arena, datapack, &mut while_body_ctx);
 
                 while_body_ctx.extend_context(condition_ctx.clone());
                 ctx.extend_context(condition_ctx);
@@ -925,7 +917,7 @@ impl TypedExpression {
                     loop_function_paths.clone(),
                 );
 
-                let iteration_command = if Self::returns_early(*body, allocator) {
+                let iteration_command = if Self::returns_early(*body, arena) {
                     ExecuteSubcommand::If(
                         true,
                         ExecuteIfSubcommand::Function(
@@ -945,7 +937,7 @@ impl TypedExpression {
                     type_: LoopType::Loop,
                 });
 
-                Self::compile_as_statement(*body, allocator, datapack, &mut loop_body_ctx);
+                Self::compile_as_statement(*body, arena, datapack, &mut loop_body_ctx);
 
                 loop_body_ctx.add_command(datapack, iteration_command.clone());
                 ctx.add_command(datapack, iteration_command);
@@ -957,33 +949,33 @@ impl TypedExpression {
             Self::ForLoop(is_reversed, pattern, iterable, body) => {
                 let is_reversed = *is_reversed;
 
-                let iterable_type = allocator.get_expression_type(*iterable).clone();
+                let iterable_type = arena.get_expression_type(*iterable).clone();
 
                 let iterable_type = iterable_type.resolve(datapack).unwrap();
 
                 let iterable_type = iterable_type.get_iterable_type().unwrap();
 
-                let iterable = Self::resolve(*iterable, allocator, datapack, ctx);
+                let iterable = Self::resolve(*iterable, arena, datapack, ctx);
 
                 match iterable.try_into_iter(is_reversed) {
                     Ok(expressions) => {
                         for expression in expressions {
                             TypedPattern::destructure(
                                 *pattern,
-                                allocator,
+                                arena,
                                 datapack,
                                 ctx,
                                 iterable_type.clone(),
                                 expression,
                             );
 
-                            Self::compile_as_statement(*body, allocator, datapack, ctx);
+                            Self::compile_as_statement(*body, arena, datapack, ctx);
                         }
                     }
                     Err(iterable) => {
                         if iterable_type.equals(&DataType::String) {
                             iterate_string(
-                                allocator,
+                                arena,
                                 datapack,
                                 ctx,
                                 is_reversed,
@@ -993,7 +985,7 @@ impl TypedExpression {
                             );
                         } else {
                             iterate_data(
-                                allocator,
+                                arena,
                                 datapack,
                                 ctx,
                                 is_reversed,
@@ -1009,22 +1001,22 @@ impl TypedExpression {
                 Expression::Unit
             }
             Self::ResourceLocation(resource_location) => {
-                let resource_location = resource_location.clone().compile(allocator, datapack, ctx);
+                let resource_location = resource_location.clone().compile(arena, datapack, ctx);
 
                 Expression::ResourceLocation(resource_location)
             }
             Self::EntitySelector(selector) => {
-                let selector = selector.clone().compile(allocator, datapack, ctx);
+                let selector = selector.clone().compile(arena, datapack, ctx);
 
                 Expression::EntitySelector(selector)
             }
             Self::Coordinates(coordinates) => {
-                let coordinates = coordinates.clone().compile(allocator, datapack, ctx);
+                let coordinates = coordinates.clone().compile(arena, datapack, ctx);
 
                 Expression::Coordinates(coordinates)
             }
             Self::Return(expression) => {
-                let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                let expression = Self::resolve(*expression, arena, datapack, ctx);
 
                 let target = datapack.function_return_targets.last().unwrap().clone();
 
@@ -1039,71 +1031,71 @@ impl TypedExpression {
 
     pub fn compile_as_statement(
         id: TypedExpressionId,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) {
-        match allocator.get_expression_value(id) {
+        match arena.get_expression_value(id) {
             Self::Assignment(target, value) => {
-                let target = ParsedAssigneeExpression::resolve(*target, allocator, datapack, ctx);
+                let target = ParsedAssigneeExpression::resolve(*target, arena, datapack, ctx);
 
-                let value = Self::resolve(*value, allocator, datapack, ctx);
+                let value = Self::resolve(*value, arena, datapack, ctx);
 
                 target.assign(datapack, ctx, value);
             }
             Self::AugmentedAssignment(target, operator, value) => {
                 let operator = *operator;
 
-                let target = ParsedPlaceExpression::resolve(*target, allocator, datapack, ctx);
-                let value = Self::resolve(*value, allocator, datapack, ctx);
+                let target = ParsedPlaceExpression::resolve(*target, arena, datapack, ctx);
+                let value = Self::resolve(*value, arena, datapack, ctx);
 
                 target.augmented_assign(datapack, ctx, operator, value);
             }
             Self::List(list) => {
                 for element in list {
-                    Self::compile_as_statement(*element, allocator, datapack, ctx);
+                    Self::compile_as_statement(*element, arena, datapack, ctx);
                 }
             }
             Self::Compound(compound) => {
                 for value in compound.values().copied() {
-                    Self::compile_as_statement(value, allocator, datapack, ctx);
+                    Self::compile_as_statement(value, arena, datapack, ctx);
                 }
             }
             Self::Condition(_, condition) => {
-                let condition = condition.clone().compile(allocator, datapack, ctx);
+                let condition = condition.clone().compile(arena, datapack, ctx);
 
                 ctx.add_command(datapack, condition.into_subcommand(false));
             }
             Self::Command(command) => {
-                let command = command.clone().compile(allocator, datapack, ctx);
+                let command = command.clone().compile(arena, datapack, ctx);
 
                 ctx.add_command(datapack, command);
             }
             Self::AsCast(expression, _) | Self::ToCast(_, expression, _) => {
-                Self::compile_as_statement(*expression, allocator, datapack, ctx);
+                Self::compile_as_statement(*expression, arena, datapack, ctx);
             }
             Self::Tuple(tuple) => {
                 for element in tuple {
-                    Self::compile_as_statement(*element, allocator, datapack, ctx);
+                    Self::compile_as_statement(*element, arena, datapack, ctx);
                 }
             }
             Self::RegularStruct(_, _, field_expressions) => {
                 for field_expression in field_expressions.values().copied() {
-                    Self::compile_as_statement(field_expression, allocator, datapack, ctx);
+                    Self::compile_as_statement(field_expression, arena, datapack, ctx);
                 }
             }
             Self::TupleStruct(_, _, field_expressions) => {
                 for field_expression in field_expressions {
-                    Self::compile_as_statement(*field_expression, allocator, datapack, ctx);
+                    Self::compile_as_statement(*field_expression, arena, datapack, ctx);
                 }
             }
             Self::Block(statements, tail_expression) => {
                 for statement in statements.iter().copied() {
-                    TypedStatement::compile_as_statement(statement, allocator, datapack, ctx);
+                    TypedStatement::compile_as_statement(statement, arena, datapack, ctx);
                 }
 
                 if let Some(tail_expression) = tail_expression {
-                    Self::compile_as_statement(*tail_expression, allocator, datapack, ctx);
+                    Self::compile_as_statement(*tail_expression, arena, datapack, ctx);
                 }
             }
             Self::If {
@@ -1111,20 +1103,18 @@ impl TypedExpression {
                 body,
                 else_body,
             } => {
-                compile_if_internal(
-                    allocator, datapack, ctx, *condition, *body, *else_body, None,
-                );
+                compile_if_internal(arena, datapack, ctx, *condition, *body, *else_body, None);
             }
             Self::Call(callee, arguments) => {
-                let callee = Self::resolve(*callee, allocator, datapack, ctx);
+                let callee = Self::resolve(*callee, arena, datapack, ctx);
 
                 let arguments = arguments
                     .iter()
                     .copied()
-                    .map(|argument| Self::resolve(argument, allocator, datapack, ctx))
+                    .map(|argument| Self::resolve(argument, arena, datapack, ctx))
                     .collect::<Vec<_>>();
 
-                callee.call(allocator, datapack, ctx, arguments, false);
+                callee.call(arena, datapack, ctx, arguments, false);
             }
             Self::WhileLoop(condition, body) => {
                 let while_function_paths = datapack.get_unique_function_paths();
@@ -1134,11 +1124,11 @@ impl TypedExpression {
                 );
 
                 let mut condition_ctx = ctx.create_child_ctx();
-                let (inverted, condition) = Self::resolve(*condition, allocator, datapack, ctx)
+                let (inverted, condition) = Self::resolve(*condition, arena, datapack, ctx)
                     .to_execute_condition(datapack, &mut condition_ctx)
                     .unwrap();
 
-                let subcommand = if Self::returns_early(*body, allocator) {
+                let subcommand = if Self::returns_early(*body, arena) {
                     ExecuteSubcommand::run_return_fail()
                         .unless_function(while_function_resource_location.clone())
                 } else {
@@ -1156,7 +1146,7 @@ impl TypedExpression {
                     type_: LoopType::While(inverted, Box::new(condition)),
                 });
 
-                Self::compile_as_statement(*body, allocator, datapack, &mut while_body_ctx);
+                Self::compile_as_statement(*body, arena, datapack, &mut while_body_ctx);
 
                 while_body_ctx.extend_context(condition_ctx.clone());
                 ctx.extend_context(condition_ctx);
@@ -1170,7 +1160,7 @@ impl TypedExpression {
                     loop_function_paths.clone(),
                 );
 
-                let iteration_command = if Self::returns_early(*body, allocator) {
+                let iteration_command = if Self::returns_early(*body, arena) {
                     Command::Execute(
                         ExecuteIfSubcommand::Function(
                             loop_function_resource_location.clone(),
@@ -1188,7 +1178,7 @@ impl TypedExpression {
                     type_: LoopType::Loop,
                 });
 
-                Self::compile_as_statement(*body, allocator, datapack, &mut loop_body_ctx);
+                Self::compile_as_statement(*body, arena, datapack, &mut loop_body_ctx);
 
                 loop_body_ctx.add_command(datapack, iteration_command.clone());
                 ctx.add_command(datapack, iteration_command);
@@ -1198,7 +1188,7 @@ impl TypedExpression {
             Self::ForLoop(is_reversed, pattern, iterable, body) => {
                 let is_reversed = *is_reversed;
 
-                let iterable_type = allocator
+                let iterable_type = arena
                     .get_expression_type(*iterable)
                     .clone()
                     .resolve(datapack)
@@ -1206,7 +1196,7 @@ impl TypedExpression {
                     .get_iterable_type()
                     .unwrap();
 
-                let iterable = Self::resolve(*iterable, allocator, datapack, ctx);
+                let iterable = Self::resolve(*iterable, arena, datapack, ctx);
 
                 match iterable.try_into_iter(is_reversed) {
                     Ok(expressions) => {
@@ -1215,20 +1205,20 @@ impl TypedExpression {
                         for expression in expressions {
                             TypedPattern::destructure(
                                 pattern,
-                                allocator,
+                                arena,
                                 datapack,
                                 ctx,
                                 iterable_type.clone(),
                                 expression,
                             );
 
-                            Self::compile_as_statement(*body, allocator, datapack, ctx);
+                            Self::compile_as_statement(*body, arena, datapack, ctx);
                         }
                     }
                     Err(iterable) => {
                         if iterable_type.equals(&DataType::String) {
                             iterate_string(
-                                allocator,
+                                arena,
                                 datapack,
                                 ctx,
                                 is_reversed,
@@ -1238,7 +1228,7 @@ impl TypedExpression {
                             );
                         } else {
                             iterate_data(
-                                allocator,
+                                arena,
                                 datapack,
                                 ctx,
                                 is_reversed,
@@ -1256,12 +1246,10 @@ impl TypedExpression {
                 unreachable!();
             }
             Self::EntitySelector(selector) => {
-                selector
-                    .clone()
-                    .compile_as_statement(allocator, datapack, ctx);
+                selector.clone().compile_as_statement(arena, datapack, ctx);
             }
             Self::Return(expression) => {
-                let expression = Self::resolve(*expression, allocator, datapack, ctx);
+                let expression = Self::resolve(*expression, arena, datapack, ctx);
 
                 let target = datapack.function_return_targets.last().unwrap().clone();
 
@@ -1270,43 +1258,43 @@ impl TypedExpression {
                 ctx.add_command(datapack, Command::Return(ReturnCommand::Fail));
             }
             Self::Data(data) => {
-                let _ = data.clone().compile(allocator, datapack, ctx);
+                let _ = data.clone().compile(arena, datapack, ctx);
             }
             Self::Negate(expression) => {
-                Self::compile_as_statement(*expression, allocator, datapack, ctx);
+                Self::compile_as_statement(*expression, arena, datapack, ctx);
             }
             Self::Invert(expression) => {
-                Self::compile_as_statement(*expression, allocator, datapack, ctx);
+                Self::compile_as_statement(*expression, arena, datapack, ctx);
             }
             Self::Reference(_) | Self::Dereference(_) => {}
             Self::Arithmetic(left, _, right) => {
-                Self::compile_as_statement(*left, allocator, datapack, ctx);
-                Self::compile_as_statement(*right, allocator, datapack, ctx);
+                Self::compile_as_statement(*left, arena, datapack, ctx);
+                Self::compile_as_statement(*right, arena, datapack, ctx);
             }
             Self::Comparison(left, _, right) => {
-                Self::compile_as_statement(*left, allocator, datapack, ctx);
-                Self::compile_as_statement(*right, allocator, datapack, ctx);
+                Self::compile_as_statement(*left, arena, datapack, ctx);
+                Self::compile_as_statement(*right, arena, datapack, ctx);
             }
             Self::Logical(left, _, right) => {
-                Self::compile_as_statement(*left, allocator, datapack, ctx);
-                Self::compile_as_statement(*right, allocator, datapack, ctx);
+                Self::compile_as_statement(*left, arena, datapack, ctx);
+                Self::compile_as_statement(*right, arena, datapack, ctx);
             }
             Self::Score(score) => {
-                let _ = score.clone().compile(allocator, datapack, ctx);
+                let _ = score.clone().compile(arena, datapack, ctx);
             }
             Self::Index(_, index) => {
-                Self::compile_as_statement(*index, allocator, datapack, ctx);
+                Self::compile_as_statement(*index, arena, datapack, ctx);
             }
             Self::FieldAccess(_, _) => {}
             Self::ResourceLocation(resource_location) => {
                 resource_location
                     .clone()
-                    .compile_as_statement(allocator, datapack, ctx);
+                    .compile_as_statement(arena, datapack, ctx);
             }
             Self::Coordinates(coordinates) => {
                 coordinates
                     .clone()
-                    .compile_as_statement(allocator, datapack, ctx);
+                    .compile_as_statement(arena, datapack, ctx);
             }
             Self::Boolean(..) => {}
             Self::Byte(..) => {}

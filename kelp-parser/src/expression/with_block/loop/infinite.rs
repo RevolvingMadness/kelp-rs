@@ -39,7 +39,7 @@ pub fn lower_infinite_loop_expression(
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Loop(Box::new(body))),
     )
 }

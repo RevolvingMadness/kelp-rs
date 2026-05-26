@@ -1,13 +1,13 @@
 use la_arena::Idx;
 
-use crate::ast_allocator::high::{HighAstAllocator, Spanned};
-use crate::ast_allocator::low::LowAstAllocator;
+use crate::parsed::arena::{ParsedAstArena, Spanned};
 use crate::parsed::data_type::ParsedDataType;
 use crate::parsed::expression::{ParsedExpression, ParsedExpressionId};
-use crate::parsed::item::Item;
+use crate::parsed::item::ParsedItem;
 use crate::parsed::pattern::Pattern;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
+use crate::typed::arena::TypedAstArena;
 use crate::typed::statement::{LoopControlFlowKind, TypedStatement};
 
 pub type StatementId = Idx<Spanned<Statement>>;
@@ -18,7 +18,7 @@ pub enum Statement {
     Let(Option<ParsedDataType>, Idx<Pattern>, ParsedExpressionId),
     Append(ParsedExpressionId, ParsedExpressionId),
     Remove(ParsedExpressionId),
-    Item(Idx<Item>),
+    Item(Idx<ParsedItem>),
     Break,
     Continue,
 }
@@ -27,40 +27,40 @@ impl Statement {
     #[must_use]
     pub fn perform_semantic_analysis(
         id: StatementId,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<Idx<TypedStatement>> {
-        Some(match high_allocator.get_statement_value(id) {
+        Some(match parsed_arena.get_statement_value(id) {
             Self::Expression(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     *expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
-                low_allocator.allocate_statement(TypedStatement::Expression(expression))
+                typed_arena.allocate_statement(TypedStatement::Expression(expression))
             }
             Self::Let(explicit_type, pattern, value) => {
                 let explicit_type = explicit_type
                     .clone()
                     .map(|explicit_type| explicit_type.perform_semantic_analysis(ctx));
 
-                let value_span = high_allocator.get_expression_span(*value);
+                let value_span = parsed_arena.get_expression_span(*value);
 
                 let Some(value) = ParsedExpression::perform_semantic_analysis(
                     *value,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 ) else {
-                    Pattern::destructure_unknown(*pattern, high_allocator, ctx);
+                    Pattern::destructure_unknown(*pattern, parsed_arena, ctx);
 
                     return None;
                 };
 
-                let value_type = low_allocator.get_expression_type(value);
+                let value_type = typed_arena.get_expression_type(value);
 
                 if let Some(explicit_type) = &explicit_type {
                     value_type.assert_equals(ctx, value_span, explicit_type)?;
@@ -70,46 +70,46 @@ impl Statement {
 
                 let pattern = Pattern::perform_semantic_analysis(
                     *pattern,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                     &variable_type,
                 )?;
 
-                low_allocator.allocate_statement(TypedStatement::Let(variable_type, pattern, value))
+                typed_arena.allocate_statement(TypedStatement::Let(variable_type, pattern, value))
             }
             Self::Append(target, value) => {
                 let target = ParsedExpression::perform_semantic_analysis(
                     *target,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 );
                 let value = ParsedExpression::perform_semantic_analysis(
                     *value,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 );
 
                 let target = target?;
                 let value = value?;
 
-                low_allocator.allocate_statement(TypedStatement::Append(target, value))
+                typed_arena.allocate_statement(TypedStatement::Append(target, value))
             }
             Self::Remove(target) => {
                 let target = ParsedExpression::perform_semantic_analysis(
                     *target,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
-                low_allocator.allocate_statement(TypedStatement::Remove(target))
+                typed_arena.allocate_statement(TypedStatement::Remove(target))
             }
             Self::Break => {
                 if ctx.loop_depth == 0 {
-                    let span = high_allocator.get_statement_span(id);
+                    let span = parsed_arena.get_statement_span(id);
 
                     return ctx.add_error(
                         span,
@@ -117,11 +117,11 @@ impl Statement {
                     );
                 }
 
-                low_allocator.allocate_statement(TypedStatement::Break)
+                typed_arena.allocate_statement(TypedStatement::Break)
             }
             Self::Continue => {
                 if ctx.loop_depth == 0 {
-                    let span = high_allocator.get_statement_span(id);
+                    let span = parsed_arena.get_statement_span(id);
 
                     return ctx.add_error(
                         span,
@@ -129,13 +129,13 @@ impl Statement {
                     );
                 }
 
-                low_allocator.allocate_statement(TypedStatement::Continue)
+                typed_arena.allocate_statement(TypedStatement::Continue)
             }
             Self::Item(item) => {
                 let item =
-                    Item::perform_semantic_analysis(*item, high_allocator, low_allocator, ctx)?;
+                    ParsedItem::perform_semantic_analysis(*item, parsed_arena, typed_arena, ctx)?;
 
-                low_allocator.allocate_statement(TypedStatement::Item(item))
+                typed_arena.allocate_statement(TypedStatement::Item(item))
             }
         })
     }

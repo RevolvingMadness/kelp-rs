@@ -1,9 +1,9 @@
 use minecraft_command_types::command::scoreboard::ScoreboardCommand;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::expression::command::scoreboard::{
         objectives::TypedObjectivesScoreboardCommand, players::TypedPlayersScoreboardCommand,
     },
@@ -22,18 +22,18 @@ impl TypedScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ScoreboardCommand {
         match self {
             Self::Objectives(command) => {
-                let command = command.compile(allocator, datapack, ctx);
+                let command = command.compile(arena, datapack, ctx);
 
                 ScoreboardCommand::Objectives(command)
             }
             Self::Players(command) => {
-                let command = command.compile(allocator, datapack, ctx);
+                let command = command.compile(arena, datapack, ctx);
 
                 ScoreboardCommand::Players(command)
             }

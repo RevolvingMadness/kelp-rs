@@ -45,7 +45,7 @@ pub fn lower_entity_selector_expression(
 
     let span = span_of_cst_node(&node);
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::EntitySelector(Box::new(entity_selector)),
     ))

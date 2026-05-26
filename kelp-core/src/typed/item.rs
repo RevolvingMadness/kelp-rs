@@ -2,14 +2,14 @@ use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::expression::{TypedExpression, TypedExpressionId},
 };
 
 #[derive(Debug, Clone)]
-pub enum Item {
+pub enum TypedItem {
     InherentImplementation,
     ModuleDeclaration,
     FunctionDeclaration,
@@ -20,14 +20,14 @@ pub enum Item {
     Use,
 }
 
-impl Item {
+impl TypedItem {
     pub fn compile(
         id: Idx<Self>,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         _ctx: &mut CompileContext,
     ) {
-        match allocator.get_item(id) {
+        match arena.get_item(id) {
             Self::InherentImplementation => {}
             Self::ModuleDeclaration => {}
             Self::FunctionDeclaration => {}
@@ -39,7 +39,7 @@ impl Item {
 
                     TypedExpression::compile_as_statement(
                         *expression,
-                        allocator,
+                        arena,
                         datapack,
                         &mut function_ctx,
                     );

@@ -1,11 +1,12 @@
 use std::fmt::{Display, Write};
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
+    typed::arena::TypedAstArena,
     typed::player_score::TypedPlayerScore as MiddlePlayerScore,
 };
 
@@ -34,13 +35,13 @@ impl PlayerScore {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddlePlayerScore> {
-        let selector =
-            self.selector
-                .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+        let selector = self
+            .selector
+            .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
         Some(MiddlePlayerScore {
             is_generated: self.is_generated,

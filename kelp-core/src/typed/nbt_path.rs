@@ -6,9 +6,9 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::expression::{TypedExpression, TypedExpressionId},
 };
 
@@ -22,7 +22,7 @@ pub enum TypedNbtPathNode {
 impl TypedNbtPathNode {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> NbtPathNode {
@@ -31,7 +31,7 @@ impl TypedNbtPathNode {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = TypedExpression::resolve(value, allocator, datapack, ctx)
+                        let value = TypedExpression::resolve(value, arena, datapack, ctx)
                             .as_snbt_macros(ctx);
 
                         (SNBTString(false, key), value)
@@ -44,7 +44,7 @@ impl TypedNbtPathNode {
                     expression
                         .into_iter()
                         .map(|(key, value)| {
-                            let value = TypedExpression::resolve(value, allocator, datapack, ctx)
+                            let value = TypedExpression::resolve(value, arena, datapack, ctx)
                                 .as_snbt_macros(ctx);
 
                             (SNBTString(false, key), value)
@@ -53,7 +53,7 @@ impl TypedNbtPathNode {
                 }),
             ),
             Self::Index(expression) => NbtPathNode::Index(expression.map(|expression| {
-                TypedExpression::resolve(expression, allocator, datapack, ctx).as_snbt_macros(ctx)
+                TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx)
             })),
         }
     }
@@ -65,14 +65,14 @@ pub struct TypedNbtPath(pub Vec<TypedNbtPathNode>);
 impl TypedNbtPath {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> NbtPath {
         NbtPath(
             self.0
                 .into_iter()
-                .map(|node| node.compile(allocator, datapack, ctx))
+                .map(|node| node.compile(arena, datapack, ctx))
                 .collect(),
         )
     }

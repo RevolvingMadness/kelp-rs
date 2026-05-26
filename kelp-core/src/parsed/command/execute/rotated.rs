@@ -1,8 +1,9 @@
 use minecraft_command_types::rotation::Rotation;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{entity_selector::EntitySelector, semantic_analysis::SemanticAnalysisContext},
+    typed::arena::TypedAstArena,
     typed::expression::command::execute::rotated::TypedRotated,
 };
 
@@ -16,15 +17,15 @@ impl ParsedRotated {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedRotated> {
         Some(match self {
             Self::Rotation(rotation) => TypedRotated::Rotation(rotation),
             Self::As(selector) => {
                 let selector =
-                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedRotated::As(selector)
             }

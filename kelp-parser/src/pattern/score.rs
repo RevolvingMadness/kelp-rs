@@ -33,7 +33,7 @@ pub fn lower_score_pattern(node: CSTScorePattern, ctx: &mut LowerContext) -> Opt
     let player_score = lower_player_score(node.player_score()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_pattern(span, Pattern::Score(player_score)),
     )
 }

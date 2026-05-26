@@ -7,9 +7,9 @@ use minecraft_command_types::command::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::{
         entity_selector::TypedEntitySelector,
         expression::{TypedExpression, TypedExpressionId},
@@ -28,17 +28,17 @@ impl TypedScoreboardNumberFormat {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ScoreboardNumberFormat {
         match self {
             Self::Blank => ScoreboardNumberFormat::Blank,
             Self::Fixed(expression) => ScoreboardNumberFormat::Fixed(
-                TypedExpression::resolve(expression, allocator, datapack, ctx).as_snbt_macros(ctx),
+                TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx),
             ),
             Self::Styled(expression) => ScoreboardNumberFormat::Styled(
-                TypedExpression::resolve(expression, allocator, datapack, ctx).as_snbt_macros(ctx),
+                TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx),
             ),
         }
     }
@@ -54,24 +54,23 @@ impl TypedPlayersDisplayScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> PlayersDisplayScoreboardCommand {
         match self {
             Self::Name(score, expression) => {
-                let score = score.compile(allocator, datapack, ctx).score;
+                let score = score.compile(arena, datapack, ctx).score;
                 let snbt = expression.map(|expression| {
-                    TypedExpression::resolve(expression, allocator, datapack, ctx)
-                        .as_snbt_macros(ctx)
+                    TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx)
                 });
 
                 PlayersDisplayScoreboardCommand::Name(score, snbt)
             }
             Self::NumberFormat(score, number_format) => {
-                let score = score.compile(allocator, datapack, ctx).score;
-                let number_format = number_format
-                    .map(|number_format| number_format.compile(allocator, datapack, ctx));
+                let score = score.compile(arena, datapack, ctx).score;
+                let number_format =
+                    number_format.map(|number_format| number_format.compile(arena, datapack, ctx));
 
                 PlayersDisplayScoreboardCommand::NumberFormat(score, number_format)
             }
@@ -96,54 +95,54 @@ impl TypedPlayersScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> PlayersScoreboardCommand {
         match self {
             Self::List(selector) => {
-                let selector = selector.map(|selector| selector.compile(allocator, datapack, ctx));
+                let selector = selector.map(|selector| selector.compile(arena, datapack, ctx));
 
                 PlayersScoreboardCommand::List(selector)
             }
             Self::Get(score) => {
-                let score = score.compile(allocator, datapack, ctx).score;
+                let score = score.compile(arena, datapack, ctx).score;
 
                 PlayersScoreboardCommand::Get(score)
             }
             Self::Set(score, value) => {
-                let score = score.compile(allocator, datapack, ctx).score;
+                let score = score.compile(arena, datapack, ctx).score;
 
                 PlayersScoreboardCommand::Set(score, value)
             }
             Self::Add(score, amount) => {
-                let score = score.compile(allocator, datapack, ctx).score;
+                let score = score.compile(arena, datapack, ctx).score;
 
                 PlayersScoreboardCommand::Add(score, amount)
             }
             Self::Remove(score, amount) => {
-                let score = score.compile(allocator, datapack, ctx).score;
+                let score = score.compile(arena, datapack, ctx).score;
 
                 PlayersScoreboardCommand::Remove(score, amount)
             }
             Self::Reset(selector, objective) => {
-                let selector = selector.compile(allocator, datapack, ctx);
+                let selector = selector.compile(arena, datapack, ctx);
 
                 PlayersScoreboardCommand::Reset(selector, objective)
             }
             Self::Enable(score) => {
-                let score = score.compile(allocator, datapack, ctx).score;
+                let score = score.compile(arena, datapack, ctx).score;
 
                 PlayersScoreboardCommand::Enable(score)
             }
             Self::Operation(left, operator, right) => {
-                let left = left.compile(allocator, datapack, ctx).score;
-                let right = right.compile(allocator, datapack, ctx).score;
+                let left = left.compile(arena, datapack, ctx).score;
+                let right = right.compile(arena, datapack, ctx).score;
 
                 PlayersScoreboardCommand::Operation(left, operator, right)
             }
             Self::Display(command) => {
-                let command = command.compile(allocator, datapack, ctx);
+                let command = command.compile(arena, datapack, ctx);
 
                 PlayersScoreboardCommand::Display(command)
             }

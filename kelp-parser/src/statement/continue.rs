@@ -26,5 +26,5 @@ pub fn lower_continue_statement(
 ) -> Option<StatementId> {
     let span = span_of_cst_node(&node);
 
-    Some(ctx.allocator.allocate_statement(span, Statement::Continue))
+    Some(ctx.arena.allocate_statement(span, Statement::Continue))
 }

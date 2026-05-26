@@ -8,7 +8,7 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         command::{
             Command,
@@ -25,6 +25,7 @@ use crate::{
         semantic_analysis::SemanticAnalysisContext,
     },
     trait_ext::CollectOptionAllIterExt,
+    typed::arena::TypedAstArena,
     typed::expression::command::execute::subcommand::TypedExecuteSubcommand as MiddleExecuteSubcommand,
 };
 
@@ -53,15 +54,14 @@ impl ParsedExecuteSubcommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleExecuteSubcommand> {
         Some(match self {
             Self::As(selector, next) | Self::At(selector, next) => {
-                let selector =
-                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let selector = selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let selector = selector?;
                 let next = next?;
@@ -70,8 +70,8 @@ impl ParsedExecuteSubcommand {
             }
             Self::Positioned(positioned, next) => {
                 let positioned =
-                    positioned.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                    positioned.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let positioned = positioned?;
                 let next = next?;
@@ -79,18 +79,18 @@ impl ParsedExecuteSubcommand {
                 MiddleExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Align(alignment, next) => {
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleExecuteSubcommand::Align(alignment, Box::new(next))
             }
             Self::Anchored(anchor, next) => {
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
             Self::Facing(facing, next) => {
-                let facing = facing.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let facing = facing.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let facing = facing?;
                 let next = next?;
@@ -98,19 +98,18 @@ impl ParsedExecuteSubcommand {
                 MiddleExecuteSubcommand::Facing(facing, Box::new(next))
             }
             Self::In(resource_location, next) => {
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleExecuteSubcommand::In(resource_location, Box::new(next))
             }
             Self::On(relation, next) => {
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleExecuteSubcommand::On(relation, Box::new(next))
             }
             Self::Rotated(rotation, next) => {
-                let rotation =
-                    rotation.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let rotation = rotation.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let rotation = rotation?;
                 let next = next?;
@@ -118,19 +117,19 @@ impl ParsedExecuteSubcommand {
                 MiddleExecuteSubcommand::Rotated(rotation, Box::new(next))
             }
             Self::Summon(resource_location, next) => {
-                let next = next.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let next = next.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleExecuteSubcommand::Summon(resource_location, Box::new(next))
             }
             Self::If(inverted, subcommand) => {
                 let subcommand =
-                    subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    subcommand.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleExecuteSubcommand::If(inverted, subcommand)
             }
             Self::Store(store_type, subcommand) => {
                 let subcommand =
-                    subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    subcommand.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 MiddleExecuteSubcommand::Store(store_type, subcommand)
             }
@@ -138,7 +137,7 @@ impl ParsedExecuteSubcommand {
                 let commands = commands
                     .into_iter()
                     .map(|command| {
-                        command.perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                        command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)
                     })
                     .collect_option_all()?;
 
@@ -148,7 +147,7 @@ impl ParsedExecuteSubcommand {
                 let subcommands = subcommands
                     .into_iter()
                     .map(|subcommand| {
-                        subcommand.perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                        subcommand.perform_semantic_analysis(parsed_arena, typed_arena, ctx)
                     })
                     .collect_option_all()?;
 

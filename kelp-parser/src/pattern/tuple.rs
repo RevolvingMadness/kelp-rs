@@ -16,8 +16,5 @@ pub fn lower_tuple_pattern(node: CSTTuplePattern, ctx: &mut LowerContext) -> Opt
         .filter_map(|pattern| lower_pattern(pattern, ctx))
         .collect();
 
-    Some(
-        ctx.allocator
-            .allocate_pattern(span, Pattern::Tuple(patterns)),
-    )
+    Some(ctx.arena.allocate_pattern(span, Pattern::Tuple(patterns)))
 }

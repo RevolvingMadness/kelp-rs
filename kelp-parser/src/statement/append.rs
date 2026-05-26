@@ -51,7 +51,7 @@ pub fn lower_append_statement(
     let value = lower_expression(node.value()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_statement(span, Statement::Append(target, value)),
     )
 }

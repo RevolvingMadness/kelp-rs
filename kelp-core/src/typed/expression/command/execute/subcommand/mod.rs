@@ -12,9 +12,9 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::{
         entity_selector::TypedEntitySelector,
         expression::command::{
@@ -106,68 +106,68 @@ impl TypedExecuteSubcommand {
 
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ExecuteSubcommand {
         match self {
             Self::Align(axes, next) => {
-                let next = next.compile(allocator, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::Align(axes, Box::new(next))
             }
             Self::Anchored(anchor, next) => {
-                let next = next.compile(allocator, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::Anchored(anchor, Box::new(next))
             }
             Self::As(selector, next) => {
-                let selector = selector.compile(allocator, datapack, ctx);
-                let next = next.compile(allocator, datapack, ctx);
+                let selector = selector.compile(arena, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::As(selector, Box::new(next))
             }
             Self::At(selector, next) => {
-                let selector = selector.compile(allocator, datapack, ctx);
-                let next = next.compile(allocator, datapack, ctx);
+                let selector = selector.compile(arena, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::At(selector, Box::new(next))
             }
             Self::Facing(facing, next) => {
-                let facing = facing.compile(allocator, datapack, ctx);
-                let next = next.compile(allocator, datapack, ctx);
+                let facing = facing.compile(arena, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::Facing(facing, Box::new(next))
             }
             Self::In(location, next) => {
-                let next = next.compile(allocator, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::In(location, Box::new(next))
             }
             Self::On(relation, next) => {
-                let next = next.compile(allocator, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::On(relation, Box::new(next))
             }
             Self::Positioned(positioned, next) => {
-                let positioned = positioned.compile(allocator, datapack, ctx);
-                let next = next.compile(allocator, datapack, ctx);
+                let positioned = positioned.compile(arena, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::Positioned(positioned, Box::new(next))
             }
             Self::Rotated(rotated, next) => {
-                let rotated = rotated.compile(allocator, datapack, ctx);
-                let next = next.compile(allocator, datapack, ctx);
+                let rotated = rotated.compile(arena, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::Rotated(rotated, Box::new(next))
             }
             Self::Summon(entity_id, next) => {
-                let next = next.compile(allocator, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::Summon(entity_id, Box::new(next))
             }
             Self::If(is_if, next) => {
-                let next = next.compile(allocator, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::If(is_if, next)
             }
             Self::Store(store_type, next) => {
-                let next = next.compile(allocator, datapack, ctx);
+                let next = next.compile(arena, datapack, ctx);
                 ExecuteSubcommand::Store(store_type, next)
             }
             Self::Run(commands) => {
                 let mut commands = commands
                     .into_iter()
-                    .map(|command| command.compile(allocator, datapack, ctx))
+                    .map(|command| command.compile(arena, datapack, ctx))
                     .collect::<Vec<_>>();
 
                 let last = commands.pop().unwrap();
@@ -178,7 +178,7 @@ impl TypedExecuteSubcommand {
             Self::Multiple(subcommands) => {
                 let mut subcommands = subcommands
                     .into_iter()
-                    .map(|subcommand| subcommand.compile(allocator, datapack, ctx))
+                    .map(|subcommand| subcommand.compile(arena, datapack, ctx))
                     .collect::<Vec<_>>();
 
                 let last = subcommands.pop().unwrap();

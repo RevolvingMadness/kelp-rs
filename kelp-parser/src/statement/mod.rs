@@ -148,7 +148,7 @@ pub fn lower_expression_statement(
     let span = span_of_cst_node(&node);
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_statement(span, Statement::Expression(expression)),
     )
 }

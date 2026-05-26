@@ -1,7 +1,7 @@
-use kelp_core::ast_allocator::low::LowAstAllocator;
 use kelp_core::parsed::semantic_analysis::{
     SemanticAnalysisContext, info::SemanticAnalysisInfoKind,
 };
+use kelp_core::typed::arena::TypedAstArena;
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
@@ -174,11 +174,11 @@ impl Backend {
                     let mut semantic_analysis_context =
                         SemanticAnalysisContext::new("mod", usize::MAX);
 
-                    let mut low_allocator = LowAstAllocator::default();
+                    let mut typed_arena = TypedAstArena::default();
 
                     program.perform_semantic_analysis(
-                        &lower_context.allocator,
-                        &mut low_allocator,
+                        &lower_context.arena,
+                        &mut typed_arena,
                         &mut semantic_analysis_context,
                     );
 

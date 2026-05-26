@@ -35,7 +35,7 @@ pub fn lower_score_expression(
     let player_score = lower_player_score(node.player_score()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::PlayerScore(player_score)),
     )
 }

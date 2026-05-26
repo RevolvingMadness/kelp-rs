@@ -4,7 +4,7 @@ use la_arena::Idx;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         data_type::ParsedDataType,
         environment::r#type::{
@@ -28,6 +28,7 @@ use crate::{
     path::regular::Path,
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
+    typed::arena::TypedAstArena,
     typed::{
         data_type::SemanticDataType,
         environment::{
@@ -40,7 +41,7 @@ use crate::{
                 },
             },
         },
-        item::Item as MiddleItem,
+        item::TypedItem as MiddleItem,
     },
     visibility::Visibility,
 };
@@ -152,7 +153,7 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
 }
 
 #[derive(Debug, Clone)]
-pub enum Item {
+pub enum ParsedItem {
     InherentImplementationItem {
         generic_names: Vec<String>,
         target_type_span: Span,
@@ -185,13 +186,13 @@ pub enum Item {
     Use(UseTree),
 }
 
-impl Item {
+impl ParsedItem {
     pub fn resolve_names(
         id: Idx<Self>,
-        allocator: &HighAstAllocator,
+        arena: &ParsedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<()> {
-        match &allocator.items[id] {
+        match &arena.items[id] {
             Self::InherentImplementationItem {
                 generic_names,
                 associated_items,
@@ -223,7 +224,7 @@ impl Item {
                 let associated_items = associated_items
                     .iter()
                     .copied()
-                    .map(|item| Self::resolve_names(item, allocator, ctx))
+                    .map(|item| Self::resolve_names(item, arena, ctx))
                     .collect_option_all::<Vec<_>>();
 
                 let scope = ctx.exit_scope();
@@ -250,10 +251,10 @@ impl Item {
                 ctx.enter_module(name.clone());
 
                 for item in items.iter().copied() {
-                    Self::resolve_names(item, allocator, ctx);
+                    Self::resolve_names(item, arena, ctx);
                 }
 
-                let visibility = allocator.get_item_visiblity(id);
+                let visibility = arena.get_item_visiblity(id);
 
                 let type_id = ctx.exit_module_and_declare(visibility);
 
@@ -262,13 +263,13 @@ impl Item {
                 Some(())
             }
             Self::FunctionDeclaration(item) => {
-                let visibility = allocator.get_item_visiblity(id);
+                let visibility = arena.get_item_visiblity(id);
 
                 item.resolve_names(id, ctx, visibility)
             }
             Self::MinecraftFunctionDeclaration { .. } => Some(()),
             Self::TypeAliasDeclaration(item) => {
-                let visibility = allocator.get_item_visiblity(id);
+                let visibility = arena.get_item_visiblity(id);
 
                 item.resolve_names(id, ctx, visibility)
             }
@@ -304,7 +305,7 @@ impl Item {
 
                 ctx.declare_item_generic_ids(id, generic_ids.clone());
 
-                let visibility = allocator.get_item_visiblity(id);
+                let visibility = arena.get_item_visiblity(id);
 
                 let type_id = ctx.declare_parsed_type(
                     visibility,
@@ -349,7 +350,7 @@ impl Item {
 
                 ctx.declare_item_generic_ids(id, generic_ids.clone());
 
-                let visibility = allocator.get_item_visiblity(id);
+                let visibility = arena.get_item_visiblity(id);
 
                 let type_id = ctx.declare_parsed_type(
                     visibility,
@@ -368,15 +369,15 @@ impl Item {
 
     pub fn resolve_imports(
         id: Idx<Self>,
-        allocator: &HighAstAllocator,
+        arena: &ParsedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<()> {
-        match allocator.get_item(id) {
+        match arena.get_item(id) {
             Self::ModuleDeclaration { name, items, .. } => {
                 ctx.enter_module(name.clone());
 
                 for item in items.iter().copied() {
-                    Self::resolve_imports(item, allocator, ctx);
+                    Self::resolve_imports(item, arena, ctx);
                 }
 
                 ctx.exit_module();
@@ -392,10 +393,10 @@ impl Item {
 
     pub fn resolve_types(
         id: Idx<Self>,
-        high_allocator: &HighAstAllocator,
+        parsed_arena: &ParsedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<()> {
-        match high_allocator.get_item(id) {
+        match parsed_arena.get_item(id) {
             Self::InherentImplementationItem {
                 associated_items, ..
             } => {
@@ -403,7 +404,7 @@ impl Item {
 
                 ctx.push_scope(scope);
                 for item in associated_items.iter().copied() {
-                    Self::resolve_types(item, high_allocator, ctx);
+                    Self::resolve_types(item, parsed_arena, ctx);
                 }
                 ctx.exit_scope();
 
@@ -413,7 +414,7 @@ impl Item {
                 ctx.enter_module(name.clone());
 
                 for item in items.iter().copied() {
-                    Self::resolve_types(item, high_allocator, ctx);
+                    Self::resolve_types(item, parsed_arena, ctx);
                 }
 
                 let _ = ctx.exit_module();
@@ -423,7 +424,7 @@ impl Item {
             Self::FunctionDeclaration(..) => Some(()),
             Self::MinecraftFunctionDeclaration { .. } => Some(()),
             Self::TypeAliasDeclaration(item) => {
-                let visibility = high_allocator.get_item_visiblity(id);
+                let visibility = parsed_arena.get_item_visiblity(id);
 
                 item.resolve_types(id, ctx, visibility);
 
@@ -523,10 +524,10 @@ impl Item {
 
     pub fn resolve_value_types(
         id: Idx<Self>,
-        high_allocator: &HighAstAllocator,
+        parsed_arena: &ParsedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<()> {
-        match high_allocator.get_item(id) {
+        match parsed_arena.get_item(id) {
             Self::InherentImplementationItem {
                 generic_names,
                 target_type_span,
@@ -538,7 +539,7 @@ impl Item {
 
                 ctx.push_scope(scope);
                 for item in associated_items.iter().copied() {
-                    Self::resolve_value_types(item, high_allocator, ctx);
+                    Self::resolve_value_types(item, parsed_arena, ctx);
                 }
                 let scope = ctx.exit_scope();
                 let (types, values) = scope.into_tuple();
@@ -577,7 +578,7 @@ impl Item {
                 ctx.enter_module(name.clone());
 
                 for item in items.iter().copied() {
-                    Self::resolve_value_types(item, high_allocator, ctx);
+                    Self::resolve_value_types(item, parsed_arena, ctx);
                 }
 
                 let _ = ctx.exit_module();
@@ -585,7 +586,7 @@ impl Item {
                 Some(())
             }
             Self::FunctionDeclaration(item) => {
-                let visibility = high_allocator.get_item_visiblity(id);
+                let visibility = parsed_arena.get_item_visiblity(id);
 
                 item.resolve_types(id, ctx, visibility);
 
@@ -601,11 +602,11 @@ impl Item {
 
     pub fn perform_semantic_analysis(
         id: Idx<Self>,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<Idx<MiddleItem>> {
-        Some(match high_allocator.get_item(id) {
+        Some(match parsed_arena.get_item(id) {
             Self::InherentImplementationItem {
                 associated_items, ..
             } => {
@@ -615,13 +616,13 @@ impl Item {
                     .iter()
                     .copied()
                     .map(|item| {
-                        Self::perform_semantic_analysis(item, high_allocator, low_allocator, ctx)
+                        Self::perform_semantic_analysis(item, parsed_arena, typed_arena, ctx)
                     })
                     .collect_option_all::<Vec<_>>();
 
                 ctx.exit_scope();
 
-                low_allocator.allocate_item(MiddleItem::InherentImplementation)
+                typed_arena.allocate_item(MiddleItem::InherentImplementation)
             }
             Self::ModuleDeclaration { name, items, .. } => {
                 let mut failed = false;
@@ -629,7 +630,7 @@ impl Item {
                 ctx.enter_module(name.clone());
 
                 for item in items.iter().copied() {
-                    if Self::perform_semantic_analysis(item, high_allocator, low_allocator, ctx)
+                    if Self::perform_semantic_analysis(item, parsed_arena, typed_arena, ctx)
                         .is_none()
                     {
                         failed = true;
@@ -642,10 +643,10 @@ impl Item {
                     return None;
                 }
 
-                low_allocator.allocate_item(MiddleItem::ModuleDeclaration)
+                typed_arena.allocate_item(MiddleItem::ModuleDeclaration)
             }
             Self::FunctionDeclaration(item) => {
-                return item.perform_semantic_analysis(id, high_allocator, low_allocator, ctx);
+                return item.perform_semantic_analysis(id, parsed_arena, typed_arena, ctx);
             }
             Self::MinecraftFunctionDeclaration {
                 resource_location,
@@ -655,11 +656,11 @@ impl Item {
 
                 let (body_span, tail_expression_span, body) = body
                     .clone()
-                    .perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    .perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 ctx.function_contexts.pop();
 
-                let body_type = low_allocator.get_expression_type(body);
+                let body_type = typed_arena.get_expression_type(body);
 
                 body_type.assert_equals(
                     ctx,
@@ -667,21 +668,21 @@ impl Item {
                     &SemanticDataType::Unit,
                 )?;
 
-                low_allocator.allocate_item(MiddleItem::MinecraftFunctionDeclaration(
+                typed_arena.allocate_item(MiddleItem::MinecraftFunctionDeclaration(
                     resource_location.clone(),
                     body,
                 ))
             }
             Self::TypeAliasDeclaration(..) => {
-                low_allocator.allocate_item(MiddleItem::TypeAliasDeclaration)
+                typed_arena.allocate_item(MiddleItem::TypeAliasDeclaration)
             }
             Self::RegularStructDeclaration { .. } => {
-                low_allocator.allocate_item(MiddleItem::RegularStructDeclaration)
+                typed_arena.allocate_item(MiddleItem::RegularStructDeclaration)
             }
             Self::TupleStructDeclaration { .. } => {
-                low_allocator.allocate_item(MiddleItem::TupleStructDeclaration)
+                typed_arena.allocate_item(MiddleItem::TupleStructDeclaration)
             }
-            Self::Use(..) => low_allocator.allocate_item(MiddleItem::Use),
+            Self::Use(..) => typed_arena.allocate_item(MiddleItem::Use),
         })
     }
 }

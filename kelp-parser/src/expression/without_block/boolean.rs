@@ -11,7 +11,7 @@ pub fn lower_boolean_expression(
 ) -> Option<ParsedExpressionId> {
     let span = span_of_cst_node(&node);
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::Boolean(node.true_keyword_token().is_some()),
     ))

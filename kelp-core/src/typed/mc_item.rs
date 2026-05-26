@@ -4,9 +4,9 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::expression::{TypedExpression, TypedExpressionId},
 };
 
@@ -21,21 +21,21 @@ impl TypedItemTest {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ItemTest {
         match self {
             Self::Component(resource_location) => ItemTest::Component(resource_location),
             Self::ComponentMatches(resource_location, expression) => {
-                let expression = TypedExpression::resolve(expression, allocator, datapack, ctx)
-                    .as_snbt_macros(ctx);
+                let expression =
+                    TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx);
 
                 ItemTest::ComponentMatches(resource_location, expression)
             }
             Self::Predicate(resource_location, expression) => {
-                let expression = TypedExpression::resolve(expression, allocator, datapack, ctx)
-                    .as_snbt_macros(ctx);
+                let expression =
+                    TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx);
 
                 ItemTest::Predicate(resource_location, expression)
             }
@@ -50,14 +50,14 @@ impl TypedOrGroup {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> OrGroup {
         OrGroup(
             self.0
                 .into_iter()
-                .map(|(negated, test)| (negated, test.compile(allocator, datapack, ctx)))
+                .map(|(negated, test)| (negated, test.compile(arena, datapack, ctx)))
                 .collect(),
         )
     }
@@ -73,7 +73,7 @@ impl TypedItemPredicate {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ItemPredicate {
@@ -82,7 +82,7 @@ impl TypedItemPredicate {
             or_groups: self
                 .or_groups
                 .into_iter()
-                .map(|or_group| or_group.compile(allocator, datapack, ctx))
+                .map(|or_group| or_group.compile(arena, datapack, ctx))
                 .collect(),
         }
     }

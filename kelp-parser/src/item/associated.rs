@@ -1,4 +1,4 @@
-use kelp_core::parsed::item::Item;
+use kelp_core::parsed::item::ParsedItem;
 use kelp_core::visibility::Visibility;
 use la_arena::Idx;
 
@@ -52,7 +52,10 @@ pub fn expect_associated_item(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_associated_item(node: CSTAssociatedItem, ctx: &mut LowerContext) -> Option<Idx<Item>> {
+pub fn lower_associated_item(
+    node: CSTAssociatedItem,
+    ctx: &mut LowerContext,
+) -> Option<Idx<ParsedItem>> {
     let span = span_of_cst_node(&node);
 
     let visibility = if node.pub_keyword_token().is_some() {
@@ -63,12 +66,12 @@ pub fn lower_associated_item(node: CSTAssociatedItem, ctx: &mut LowerContext) ->
 
     let item = match node.associated_item_kind()? {
         CSTAssociatedItemKind::FunctionDeclarationItem(fn_node) => {
-            Item::FunctionDeclaration(lower_function_declaration_item_kind(fn_node, ctx)?)
+            ParsedItem::FunctionDeclaration(lower_function_declaration_item_kind(fn_node, ctx)?)
         }
         CSTAssociatedItemKind::TypeAliasDeclarationItem(type_node) => {
-            Item::TypeAliasDeclaration(lower_type_alias_declaration_item(type_node)?)
+            ParsedItem::TypeAliasDeclaration(lower_type_alias_declaration_item(type_node)?)
         }
     };
 
-    Some(ctx.allocator.allocate_item(span, visibility, item))
+    Some(ctx.arena.allocate_item(span, visibility, item))
 }

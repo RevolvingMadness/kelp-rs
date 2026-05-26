@@ -51,7 +51,7 @@ pub fn lower_tellraw_command_expression(
     let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
     let value = lower_expression(node.expression()?, ctx)?;
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::Command(Box::new(Command::Tellraw(selector, value))),
     ))

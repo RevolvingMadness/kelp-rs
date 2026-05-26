@@ -1,4 +1,4 @@
-use kelp_core::{ast_allocator::high::HighAstAllocator, span::Span};
+use kelp_core::{parsed::arena::ParsedAstArena, span::Span};
 use strum::Display;
 use thiserror::Error;
 
@@ -41,7 +41,7 @@ pub struct LowerInfo {
 pub struct LowerContext {
     pub infos: Vec<LowerInfo>,
     pub max_infos: usize,
-    pub allocator: HighAstAllocator,
+    pub arena: ParsedAstArena,
 }
 
 impl LowerContext {
@@ -50,7 +50,7 @@ impl LowerContext {
         Self {
             infos: Vec::new(),
             max_infos,
-            allocator: HighAstAllocator::default(),
+            arena: ParsedAstArena::default(),
         }
     }
 

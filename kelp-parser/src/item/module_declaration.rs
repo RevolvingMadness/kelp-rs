@@ -1,4 +1,4 @@
-use kelp_core::parsed::item::Item;
+use kelp_core::parsed::item::ParsedItem;
 
 use crate::{
     cst::CSTModuleDeclarationItem,
@@ -77,7 +77,7 @@ pub fn expect_module_declaration_item_kind(parser: &mut Parser) {
 pub fn lower_module_declaration_item(
     node: CSTModuleDeclarationItem,
     ctx: &mut LowerContext,
-) -> Option<Item> {
+) -> Option<ParsedItem> {
     let name_token = node.module_name_token()?;
     let name_range = name_token.text_range();
     let name = name_token.text();
@@ -87,7 +87,7 @@ pub fn lower_module_declaration_item(
         .filter_map(|item| lower_item(item, ctx))
         .collect();
 
-    Some(Item::ModuleDeclaration {
+    Some(ParsedItem::ModuleDeclaration {
         name_span: text_range_to_span(name_range),
         name: name.to_owned(),
         items,

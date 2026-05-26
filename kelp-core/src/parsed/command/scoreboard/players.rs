@@ -3,13 +3,14 @@ use minecraft_command_types::command::{
 };
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         entity_selector::EntitySelector,
         expression::{ParsedExpression, ParsedExpressionId},
         player_score::PlayerScore,
         semantic_analysis::SemanticAnalysisContext,
     },
+    typed::arena::TypedAstArena,
     typed::expression::command::scoreboard::players::{
         TypedPlayersDisplayScoreboardCommand, TypedPlayersScoreboardCommand,
         TypedScoreboardNumberFormat,
@@ -27,8 +28,8 @@ impl ParsedScoreboardNumberFormat {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedScoreboardNumberFormat> {
         Some(match self {
@@ -36,8 +37,8 @@ impl ParsedScoreboardNumberFormat {
             Self::Fixed(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
@@ -46,8 +47,8 @@ impl ParsedScoreboardNumberFormat {
             Self::Styled(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
@@ -67,19 +68,19 @@ impl ParsedPlayersDisplayScoreboardCommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedPlayersDisplayScoreboardCommand> {
         Some(match self {
             Self::Name(score, expression) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let expression = match expression {
                     Some(expression) => {
                         let expression = ParsedExpression::perform_semantic_analysis(
                             expression,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -93,11 +94,11 @@ impl ParsedPlayersDisplayScoreboardCommand {
                 TypedPlayersDisplayScoreboardCommand::Name(score, expression)
             }
             Self::NumberFormat(score, number_format) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let number_format = match number_format {
                     Some(number_format) => Some(number_format.perform_semantic_analysis(
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?),
                     None => None,
@@ -128,57 +129,55 @@ impl ParsedPlayersScoreboardCommand {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedPlayersScoreboardCommand> {
         Some(match self {
             Self::List(selector) => {
                 let selector = match selector {
-                    Some(selector) => Some(selector.perform_semantic_analysis(
-                        high_allocator,
-                        low_allocator,
-                        ctx,
-                    )?),
+                    Some(selector) => {
+                        Some(selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
+                    }
                     None => None,
                 };
 
                 TypedPlayersScoreboardCommand::List(selector)
             }
             Self::Get(score) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedPlayersScoreboardCommand::Get(score)
             }
             Self::Set(score, value) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedPlayersScoreboardCommand::Set(score, value)
             }
             Self::Add(score, amount) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedPlayersScoreboardCommand::Add(score, amount)
             }
             Self::Remove(score, amount) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedPlayersScoreboardCommand::Remove(score, amount)
             }
             Self::Reset(selector, objective) => {
                 let selector =
-                    selector.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    selector.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedPlayersScoreboardCommand::Reset(selector, objective)
             }
             Self::Enable(score) => {
-                let score = score.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let score = score.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedPlayersScoreboardCommand::Enable(score)
             }
             Self::Operation(left, operator, right) => {
-                let left = left.perform_semantic_analysis(high_allocator, low_allocator, ctx);
-                let right = right.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let left = left.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
+                let right = right.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
 
                 let left = left?;
                 let right = right?;
@@ -186,8 +185,7 @@ impl ParsedPlayersScoreboardCommand {
                 TypedPlayersScoreboardCommand::Operation(left, operator, right)
             }
             Self::Display(command) => {
-                let command =
-                    command.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let command = command.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedPlayersScoreboardCommand::Display(Box::new(command))
             }

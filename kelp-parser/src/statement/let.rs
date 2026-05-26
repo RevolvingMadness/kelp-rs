@@ -67,7 +67,7 @@ pub fn lower_let_statement(node: CSTLetStatement, ctx: &mut LowerContext) -> Opt
     let value = lower_expression(node.expression()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_statement(span, Statement::Let(data_type, pattern, value)),
     )
 }

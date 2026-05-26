@@ -20,7 +20,6 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     data::GeneratedData,
     datapack::{
@@ -40,6 +39,7 @@ use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,
     player_score::GeneratedPlayerScore,
     runtime_storage::{RuntimeStorageTarget, RuntimeStorageType},
+    typed::arena::TypedAstArena,
     typed::{
         environment::r#type::HighGenericId,
         expression::{TypedExpression, TypedExpressionId, place::TypedPlaceExpression},
@@ -132,7 +132,7 @@ fn integer_range_from_comparison_operator(
 
 #[must_use]
 fn compile_compiletime_function(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
@@ -165,7 +165,7 @@ fn compile_compiletime_function(
     for ((pattern, data_type), argument) in parameters.into_iter().zip(arguments.iter().cloned()) {
         TypedPattern::destructure(
             pattern,
-            allocator,
+            arena,
             datapack,
             &mut function_body_ctx,
             data_type,
@@ -173,7 +173,7 @@ fn compile_compiletime_function(
         );
     }
 
-    let return_value = TypedExpression::resolve(body, allocator, datapack, &mut function_body_ctx);
+    let return_value = TypedExpression::resolve(body, arena, datapack, &mut function_body_ctx);
 
     datapack.compile_and_add_to_function(&paths, &mut function_body_ctx);
 
@@ -193,7 +193,7 @@ fn compile_compiletime_function(
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 fn compile_regular_runtime_function(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
@@ -243,7 +243,7 @@ fn compile_regular_runtime_function(
 
         TypedPattern::destructure(
             pattern,
-            allocator,
+            arena,
             datapack,
             &mut function_body_ctx,
             data_type,
@@ -265,7 +265,7 @@ fn compile_regular_runtime_function(
     );
 
     datapack.function_return_targets.push(return_target);
-    let result = TypedExpression::resolve(body, allocator, datapack, &mut function_body_ctx);
+    let result = TypedExpression::resolve(body, arena, datapack, &mut function_body_ctx);
     let return_target = datapack.function_return_targets.pop().unwrap();
 
     return_target
@@ -285,7 +285,7 @@ fn compile_regular_runtime_function(
 
 #[must_use]
 fn compile_recursive_runtime_function(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
@@ -390,7 +390,7 @@ fn compile_recursive_runtime_function(
 
         TypedPattern::destructure(
             pattern,
-            allocator,
+            arena,
             datapack,
             &mut function_body_ctx,
             data_type,
@@ -402,7 +402,7 @@ fn compile_recursive_runtime_function(
         .function_return_targets
         .push(RuntimeStorageTarget::Data(return_data.clone()));
 
-    let result = TypedExpression::resolve(body, allocator, datapack, &mut function_body_ctx);
+    let result = TypedExpression::resolve(body, arena, datapack, &mut function_body_ctx);
 
     let return_target = datapack.function_return_targets.pop().unwrap();
 
@@ -431,7 +431,7 @@ fn compile_recursive_runtime_function(
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 fn compile_function(
-    allocator: &LowAstAllocator,
+    arena: &TypedAstArena,
     datapack: &mut Datapack,
     ctx: &mut CompileContext,
     id: FunctionId,
@@ -448,9 +448,7 @@ fn compile_function(
     }
 
     let RegularFunctionModifiers::Runtime { recursive } = modifiers else {
-        return compile_compiletime_function(
-            allocator, datapack, ctx, id, parameters, arguments, body,
-        );
+        return compile_compiletime_function(arena, datapack, ctx, id, parameters, arguments, body);
     };
 
     if recursive {
@@ -466,7 +464,7 @@ fn compile_function(
             .collect();
 
         compile_recursive_runtime_function(
-            allocator,
+            arena,
             datapack,
             ctx,
             id,
@@ -481,7 +479,7 @@ fn compile_function(
             .collect();
 
         compile_regular_runtime_function(
-            allocator,
+            arena,
             datapack,
             ctx,
             id,
@@ -583,7 +581,7 @@ pub enum Expression {
 impl Expression {
     pub fn call(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
         arguments: Vec<Self>,
@@ -615,7 +613,7 @@ impl Expression {
 
                 match declaration {
                     FunctionDeclaration::Regular(declaration) => compile_function(
-                        allocator,
+                        arena,
                         datapack,
                         ctx,
                         id,

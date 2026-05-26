@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         data::DataTarget,
         expression::{ParsedExpression, ParsedExpressionId},
@@ -10,6 +10,7 @@ use crate::{
         snbt_string::SNBTString,
     },
     trait_ext::CollectOptionAllIterExt,
+    typed::arena::TypedAstArena,
     typed::expression::command::function::TypedFunctionCommandArguments,
 };
 
@@ -22,8 +23,8 @@ pub enum ParsedFunctionCommandArguments {
 impl ParsedFunctionCommandArguments {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedFunctionCommandArguments> {
         Some(match self {
@@ -34,8 +35,8 @@ impl ParsedFunctionCommandArguments {
                         let (_, key) = key.perform_semantic_analysis(ctx);
                         let value = ParsedExpression::perform_semantic_analysis(
                             value,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         );
 
@@ -50,10 +51,10 @@ impl ParsedFunctionCommandArguments {
             Self::DataTarget(target_path) => {
                 let (target, path) = *target_path;
 
-                let target = target.perform_semantic_analysis(high_allocator, low_allocator, ctx);
+                let target = target.perform_semantic_analysis(parsed_arena, typed_arena, ctx);
                 let path = match path {
                     Some(path) => {
-                        Some(path.perform_semantic_analysis(high_allocator, low_allocator, ctx)?)
+                        Some(path.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?)
                     }
                     None => None,
                 };

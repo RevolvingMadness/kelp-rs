@@ -1,3 +1,4 @@
+pub mod arena;
 pub mod block;
 pub mod coordinate;
 pub mod data;

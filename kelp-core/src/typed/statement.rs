@@ -1,8 +1,8 @@
-use crate::ast_allocator::low::LowAstAllocator;
 use crate::compile_context::{LoopInfo, LoopType};
+use crate::typed::arena::TypedAstArena;
 use crate::typed::data_type::SemanticDataType;
 use crate::typed::expression::{TypedExpression, TypedExpressionId};
-use crate::typed::item::Item;
+use crate::typed::item::TypedItem;
 use crate::typed::pattern::TypedPattern;
 use crate::{compile_context::CompileContext, datapack::Datapack};
 use la_arena::Idx;
@@ -16,7 +16,7 @@ pub enum TypedStatement {
     Let(SemanticDataType, Idx<TypedPattern>, TypedExpressionId),
     Append(TypedExpressionId, TypedExpressionId),
     Remove(TypedExpressionId),
-    Item(Idx<Item>),
+    Item(Idx<TypedItem>),
     Break,
     Continue,
 }
@@ -51,13 +51,10 @@ pub enum EarlyReturnType {
 
 impl TypedStatement {
     #[must_use]
-    pub fn get_early_return_type(
-        id: Idx<Self>,
-        allocator: &LowAstAllocator,
-    ) -> Option<EarlyReturnType> {
-        match allocator.get_statement(id) {
+    pub fn get_early_return_type(id: Idx<Self>, arena: &TypedAstArena) -> Option<EarlyReturnType> {
+        match arena.get_statement(id) {
             Self::Expression(expression) => {
-                TypedExpression::get_early_return_type(*expression, allocator)
+                TypedExpression::get_early_return_type(*expression, arena)
             }
 
             Self::Break => Some(EarlyReturnType::Break),
@@ -67,38 +64,38 @@ impl TypedStatement {
     }
 
     #[must_use]
-    pub fn definitely_diverges(id: Idx<Self>, allocator: &LowAstAllocator) -> bool {
-        match allocator.get_statement(id) {
+    pub fn definitely_diverges(id: Idx<Self>, arena: &TypedAstArena) -> bool {
+        match arena.get_statement(id) {
             Self::Expression(expression) => {
-                TypedExpression::definitely_diverges(*expression, allocator)
+                TypedExpression::definitely_diverges(*expression, arena)
             }
             Self::Break | Self::Continue => true,
-            Self::Let(_, _, value) => TypedExpression::definitely_diverges(*value, allocator),
-            Self::Append(_, value) => TypedExpression::definitely_diverges(*value, allocator),
-            Self::Remove(expr) => TypedExpression::definitely_diverges(*expr, allocator),
+            Self::Let(_, _, value) => TypedExpression::definitely_diverges(*value, arena),
+            Self::Append(_, value) => TypedExpression::definitely_diverges(*value, arena),
+            Self::Remove(expr) => TypedExpression::definitely_diverges(*expr, arena),
             Self::Item(..) => false,
         }
     }
 
     pub fn compile_as_statement(
         id: Idx<Self>,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) {
-        match allocator.get_statement(id) {
+        match arena.get_statement(id) {
             Self::Expression(expression) => {
-                TypedExpression::compile_as_statement(*expression, allocator, datapack, ctx);
+                TypedExpression::compile_as_statement(*expression, arena, datapack, ctx);
             }
             Self::Let(data_type, pattern, value) => {
                 let data_type = data_type.clone().resolve(datapack).unwrap();
-                let value = TypedExpression::resolve(*value, allocator, datapack, ctx);
+                let value = TypedExpression::resolve(*value, arena, datapack, ctx);
 
-                TypedPattern::destructure(*pattern, allocator, datapack, ctx, data_type, value);
+                TypedPattern::destructure(*pattern, arena, datapack, ctx, data_type, value);
             }
             Self::Append(target, value) => {
-                let target = TypedExpression::resolve(*target, allocator, datapack, ctx);
-                let value = TypedExpression::resolve(*value, allocator, datapack, ctx);
+                let target = TypedExpression::resolve(*target, arena, datapack, ctx);
+                let value = TypedExpression::resolve(*value, arena, datapack, ctx);
 
                 let data = target.as_data(datapack, ctx, false);
 
@@ -107,7 +104,7 @@ impl TypedStatement {
                 ctx.add_command(datapack, data.append(modification));
             }
             Self::Remove(expression) => {
-                let expression = TypedExpression::resolve(*expression, allocator, datapack, ctx);
+                let expression = TypedExpression::resolve(*expression, arena, datapack, ctx);
 
                 let data = expression.as_data(datapack, ctx, false);
 
@@ -137,7 +134,7 @@ impl TypedStatement {
                     Command::Return(ReturnCommand::Run(Box::new(command))),
                 );
             }
-            Self::Item(item) => Item::compile(*item, allocator, datapack, ctx),
+            Self::Item(item) => TypedItem::compile(*item, arena, datapack, ctx),
         }
     }
 }

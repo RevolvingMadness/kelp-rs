@@ -135,7 +135,7 @@ pub fn lower_compound_expression(
     let (span, compound) = lower_compound_expression_inner(node, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Compound(compound)),
     )
 }

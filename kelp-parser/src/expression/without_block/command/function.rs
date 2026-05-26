@@ -39,7 +39,7 @@ pub fn lower_function_command_expression(
 
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::Command(Box::new(Command::Function(resource_location, None))),
     ))

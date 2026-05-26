@@ -49,7 +49,7 @@ pub fn lower_predicate_loop_expression(
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::WhileLoop(condition, Box::new(body))),
     )
 }

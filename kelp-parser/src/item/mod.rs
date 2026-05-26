@@ -1,4 +1,4 @@
-use kelp_core::{parsed::item::Item, visibility::Visibility};
+use kelp_core::{parsed::item::ParsedItem, visibility::Visibility};
 use la_arena::Idx;
 
 use crate::{
@@ -150,13 +150,13 @@ pub fn expect_item(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<Item> {
+fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedItem> {
     match node {
         CSTItemKind::InherentImplementationItem(node) => {
             lower_inherent_implementation_item(node, ctx)
         }
         CSTItemKind::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
-        CSTItemKind::FunctionDeclarationItem(node) => Some(Item::FunctionDeclaration(
+        CSTItemKind::FunctionDeclarationItem(node) => Some(ParsedItem::FunctionDeclaration(
             lower_function_declaration_item_kind(node, ctx)?,
         )),
         CSTItemKind::MinecraftFunctionDeclarationItem(node) => {
@@ -171,7 +171,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<Item> {
 
             let field_types = node.struct_fields().and_then(lower_struct_fields);
 
-            Some(Item::RegularStructDeclaration {
+            Some(ParsedItem::RegularStructDeclaration {
                 name_span: text_range_to_span(name_range),
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
@@ -187,14 +187,14 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<Item> {
 
             let field_types = node.tuple_fields().and_then(lower_tuple_fields);
 
-            Some(Item::TupleStructDeclaration {
+            Some(ParsedItem::TupleStructDeclaration {
                 name_span: text_range_to_span(name_range),
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
                 field_types: field_types.unwrap_or_default(),
             })
         }
-        CSTItemKind::TypeAliasDeclarationItem(node) => Some(Item::TypeAliasDeclaration(
+        CSTItemKind::TypeAliasDeclarationItem(node) => Some(ParsedItem::TypeAliasDeclaration(
             lower_type_alias_declaration_item(node)?,
         )),
         CSTItemKind::UseItem(node) => lower_use_item(node),
@@ -203,7 +203,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<Item> {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<Idx<Item>> {
+pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<Idx<ParsedItem>> {
     let span = span_of_cst_node(&node);
 
     let visibility = if node.pub_keyword_token().is_some() {
@@ -214,5 +214,5 @@ pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<Idx<Item>> {
 
     let item = lower_item_kind(node.item_kind()?, ctx)?;
 
-    Some(ctx.allocator.allocate_item(span, visibility, item))
+    Some(ctx.arena.allocate_item(span, visibility, item))
 }

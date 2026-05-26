@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use la_arena::Idx;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         data_type::ParsedDataType,
         environment::{
@@ -14,7 +14,7 @@ use crate::{
             },
         },
         expression::block::BlockExpression,
-        item::Item,
+        item::ParsedItem,
         pattern::Pattern,
         semantic_analysis::{
             FunctionContext, RegularFunctionModifiers, SemanticAnalysisContext,
@@ -22,11 +22,12 @@ use crate::{
         },
     },
     span::Span,
+    typed::arena::TypedAstArena,
     typed::{
         data_type::SemanticDataType,
         environment::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
         expression::TypedExpression,
-        item::Item as MiddleItem,
+        item::TypedItem as MiddleItem,
     },
     visibility::Visibility,
 };
@@ -47,7 +48,7 @@ pub struct FunctionDeclarationItem {
 impl FunctionDeclarationItem {
     pub fn resolve_names(
         &self,
-        item_id: Idx<Item>,
+        item_id: Idx<ParsedItem>,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
     ) -> Option<()> {
@@ -91,7 +92,7 @@ impl FunctionDeclarationItem {
 
     pub fn resolve_types(
         &self,
-        id: Idx<Item>,
+        id: Idx<ParsedItem>,
         ctx: &mut SemanticAnalysisContext,
         visibility: Visibility,
     ) {
@@ -144,9 +145,9 @@ impl FunctionDeclarationItem {
     #[must_use]
     pub fn perform_semantic_analysis(
         &self,
-        id: Idx<Item>,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        id: Idx<ParsedItem>,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<Idx<MiddleItem>> {
         let id = ctx.get_item_value_id(id);
@@ -240,8 +241,8 @@ impl FunctionDeclarationItem {
         for ((pattern, _), data_type) in self.parameters.iter().zip(parameter_types) {
             let Some(resolved_pattern) = Pattern::perform_semantic_analysis(
                 *pattern,
-                high_allocator,
-                low_allocator,
+                parsed_arena,
+                typed_arena,
                 ctx,
                 &data_type,
             ) else {
@@ -274,7 +275,7 @@ impl FunctionDeclarationItem {
 
         let Some((body_span, tail_expression_span, body)) =
             self.body
-                .perform_semantic_analysis(high_allocator, low_allocator, ctx)
+                .perform_semantic_analysis(parsed_arena, typed_arena, ctx)
         else {
             after_body_analysis(ctx);
 
@@ -283,8 +284,8 @@ impl FunctionDeclarationItem {
 
         let context = after_body_analysis(ctx);
 
-        if !TypedExpression::definitely_diverges(body, low_allocator) {
-            let body_type = low_allocator.get_expression_type(body);
+        if !TypedExpression::definitely_diverges(body, typed_arena) {
+            let body_type = typed_arena.get_expression_type(body);
 
             body_type.assert_equals(
                 ctx,
@@ -307,6 +308,6 @@ impl FunctionDeclarationItem {
             return None;
         }
 
-        Some(low_allocator.allocate_item(MiddleItem::FunctionDeclaration))
+        Some(typed_arena.allocate_item(MiddleItem::FunctionDeclaration))
     }
 }

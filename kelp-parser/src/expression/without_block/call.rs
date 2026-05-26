@@ -60,7 +60,7 @@ pub fn lower_call_expression(
         .call_arguments()
         .map(|arguments| lower_call_arguments(arguments, ctx));
 
-    Some(ctx.allocator.allocate_expression(
+    Some(ctx.arena.allocate_expression(
         span,
         ParsedExpression::Call {
             callee,

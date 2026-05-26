@@ -1,7 +1,9 @@
 use la_arena::{Arena, ArenaMap, Idx};
 
 use crate::{
-    parsed::{expression::ParsedExpression, item::Item, pattern::Pattern, statement::Statement},
+    parsed::{
+        expression::ParsedExpression, item::ParsedItem, pattern::Pattern, statement::Statement,
+    },
     span::Span,
     visibility::Visibility,
 };
@@ -25,10 +27,10 @@ impl<T> SpannedExt for T {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct HighAstAllocator {
-    pub items: Arena<Item>,
-    pub item_spans: ArenaMap<Idx<Item>, Span>,
-    pub item_visibilities: ArenaMap<Idx<Item>, Visibility>,
+pub struct ParsedAstArena {
+    pub items: Arena<ParsedItem>,
+    pub item_spans: ArenaMap<Idx<ParsedItem>, Span>,
+    pub item_visibilities: ArenaMap<Idx<ParsedItem>, Visibility>,
 
     pub patterns: Arena<Pattern>,
     pub pattern_spans: ArenaMap<Idx<Pattern>, Span>,
@@ -39,9 +41,14 @@ pub struct HighAstAllocator {
 }
 
 // Items
-impl HighAstAllocator {
+impl ParsedAstArena {
     #[must_use]
-    pub fn allocate_item(&mut self, span: Span, visibility: Visibility, item: Item) -> Idx<Item> {
+    pub fn allocate_item(
+        &mut self,
+        span: Span,
+        visibility: Visibility,
+        item: ParsedItem,
+    ) -> Idx<ParsedItem> {
         let id = self.items.alloc(item);
 
         self.item_spans.insert(id, span);
@@ -52,25 +59,25 @@ impl HighAstAllocator {
 
     #[inline]
     #[must_use]
-    pub fn get_item(&self, id: Idx<Item>) -> &Item {
+    pub fn get_item(&self, id: Idx<ParsedItem>) -> &ParsedItem {
         &self.items[id]
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item_span(&self, id: Idx<Item>) -> &Span {
+    pub fn get_item_span(&self, id: Idx<ParsedItem>) -> &Span {
         &self.item_spans[id]
     }
 
     #[inline]
     #[must_use]
-    pub fn get_item_visiblity(&self, id: Idx<Item>) -> Visibility {
+    pub fn get_item_visiblity(&self, id: Idx<ParsedItem>) -> Visibility {
         self.item_visibilities[id]
     }
 }
 
 // Patterns
-impl HighAstAllocator {
+impl ParsedAstArena {
     #[must_use]
     pub fn allocate_pattern(&mut self, span: Span, pattern: Pattern) -> Idx<Pattern> {
         let id = self.patterns.alloc(pattern);
@@ -94,7 +101,7 @@ impl HighAstAllocator {
 }
 
 // Expressions
-impl HighAstAllocator {
+impl ParsedAstArena {
     #[inline]
     #[must_use]
     pub fn allocate_expression(
@@ -125,7 +132,7 @@ impl HighAstAllocator {
 }
 
 // Statements
-impl HighAstAllocator {
+impl ParsedAstArena {
     #[inline]
     #[must_use]
     pub fn allocate_statement(

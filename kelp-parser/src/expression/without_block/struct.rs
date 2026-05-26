@@ -118,7 +118,7 @@ pub fn lower_struct_expression(
         .unwrap_or_default();
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::RegularStruct(path, fields)),
     )
 }

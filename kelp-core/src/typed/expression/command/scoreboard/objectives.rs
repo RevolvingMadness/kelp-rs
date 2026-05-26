@@ -4,9 +4,9 @@ use minecraft_command_types::command::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::expression::{
         TypedExpression, TypedExpressionId,
         command::scoreboard::players::TypedScoreboardNumberFormat,
@@ -25,7 +25,7 @@ impl TypedScoreboardModification {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ScoreboardModification {
@@ -34,14 +34,14 @@ impl TypedScoreboardModification {
                 ScoreboardModification::DisplayAutoUpdate(auto_update)
             }
             Self::DisplayName(expression) => {
-                let snbt = TypedExpression::resolve(expression, allocator, datapack, ctx)
-                    .as_snbt_macros(ctx);
+                let snbt =
+                    TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx);
 
                 ScoreboardModification::DisplayName(snbt)
             }
             Self::NumberFormat(number_format) => {
-                let number_format = number_format
-                    .map(|number_format| number_format.compile(allocator, datapack, ctx));
+                let number_format =
+                    number_format.map(|number_format| number_format.compile(arena, datapack, ctx));
 
                 ScoreboardModification::NumberFormat(number_format)
             }
@@ -63,7 +63,7 @@ impl TypedObjectivesScoreboardCommand {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> ObjectivesScoreboardCommand {
@@ -71,8 +71,7 @@ impl TypedObjectivesScoreboardCommand {
             Self::List => ObjectivesScoreboardCommand::List,
             Self::Add(objective, criterion, expression) => {
                 let expression = expression.map(|expression| {
-                    TypedExpression::resolve(expression, allocator, datapack, ctx)
-                        .as_snbt_macros(ctx)
+                    TypedExpression::resolve(expression, arena, datapack, ctx).as_snbt_macros(ctx)
                 });
 
                 ObjectivesScoreboardCommand::Add(objective, criterion, expression)
@@ -82,7 +81,7 @@ impl TypedObjectivesScoreboardCommand {
                 ObjectivesScoreboardCommand::SetDisplay(position, objective)
             }
             Self::Modify(objective, modification) => {
-                let modification = modification.compile(allocator, datapack, ctx);
+                let modification = modification.compile(arena, datapack, ctx);
 
                 ObjectivesScoreboardCommand::Modify(objective, modification)
             }

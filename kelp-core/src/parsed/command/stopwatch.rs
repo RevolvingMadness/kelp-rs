@@ -2,11 +2,12 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
+    typed::arena::TypedAstArena,
     typed::expression::command::stopwatch::TypedStopwatchCommand,
 };
 
@@ -24,44 +25,32 @@ pub enum ParsedStopwatchCommand {
 impl ParsedStopwatchCommand {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedStopwatchCommand> {
         Some(match self {
             Self::Create(resource_location) => {
-                let resource_location = resource_location.perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let resource_location =
+                    resource_location.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedStopwatchCommand::Create(resource_location)
             }
             Self::Query(resource_location, scale) => {
-                let resource_location = resource_location.perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let resource_location =
+                    resource_location.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedStopwatchCommand::Query(resource_location, scale)
             }
             Self::Restart(resource_location) => {
-                let resource_location = resource_location.perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let resource_location =
+                    resource_location.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedStopwatchCommand::Restart(resource_location)
             }
             Self::Remove(resource_location) => {
-                let resource_location = resource_location.perform_semantic_analysis(
-                    high_allocator,
-                    low_allocator,
-                    ctx,
-                )?;
+                let resource_location =
+                    resource_location.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedStopwatchCommand::Remove(resource_location)
             }

@@ -3,13 +3,14 @@ use std::fmt::Display;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         coordinate::Coordinates,
         entity_selector::EntitySelector,
         expression::{ParsedExpression, ParsedExpressionId},
         semantic_analysis::SemanticAnalysisContext,
     },
+    typed::arena::TypedAstArena,
     typed::{
         coordinate::TypedCoordinates, data_type::SemanticDataType,
         entity_selector::TypedEntitySelector,
@@ -46,23 +47,23 @@ impl ParsedSupportsExpressionSigil<ResourceLocation> {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedSupportsExpressionSigil<ResourceLocation>> {
         Some(match self {
             Self::Regular(value) => TypedSupportsExpressionSigil::Regular(value),
             Self::Sigil(expression) => {
-                let expression_span = high_allocator.get_expression_span(expression);
+                let expression_span = parsed_arena.get_expression_span(expression);
 
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
-                let expression_type = low_allocator.get_expression_type(expression);
+                let expression_type = typed_arena.get_expression_type(expression);
 
                 expression_type.assert_equals(
                     ctx,
@@ -80,27 +81,27 @@ impl ParsedSupportsExpressionSigil<EntitySelector> {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedSupportsExpressionSigil<TypedEntitySelector>> {
         Some(match self {
             Self::Regular(value) => {
-                let value = value.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                let value = value.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedSupportsExpressionSigil::Regular(value)
             }
             Self::Sigil(expression) => {
-                let expression_span = high_allocator.get_expression_span(expression);
+                let expression_span = parsed_arena.get_expression_span(expression);
 
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
-                let expression_type = low_allocator.get_expression_type(expression);
+                let expression_type = typed_arena.get_expression_type(expression);
 
                 expression_type.assert_equals(
                     ctx,
@@ -118,28 +119,28 @@ impl ParsedSupportsExpressionSigil<Coordinates> {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedSupportsExpressionSigil<TypedCoordinates>> {
         Some(match self {
             Self::Regular(coordinates) => {
                 let coordinates =
-                    coordinates.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    coordinates.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedSupportsExpressionSigil::Regular(coordinates)
             }
             Self::Sigil(expression) => {
-                let expression_span = high_allocator.get_expression_span(expression);
+                let expression_span = parsed_arena.get_expression_span(expression);
 
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
-                let expression_type = low_allocator.get_expression_type(expression);
+                let expression_type = typed_arena.get_expression_type(expression);
 
                 expression_type.assert_equals(
                     ctx,

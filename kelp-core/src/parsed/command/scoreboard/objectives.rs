@@ -1,12 +1,13 @@
 use minecraft_command_types::command::enums::scoreboard_render_type::ScoreboardRenderType;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         command::scoreboard::players::ParsedScoreboardNumberFormat,
         expression::{ParsedExpression, ParsedExpressionId},
         semantic_analysis::SemanticAnalysisContext,
     },
+    typed::arena::TypedAstArena,
     typed::expression::command::scoreboard::objectives::{
         TypedObjectivesScoreboardCommand, TypedScoreboardModification,
     },
@@ -24,8 +25,8 @@ impl ParsedScoreboardModification {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedScoreboardModification> {
         Some(match self {
@@ -35,8 +36,8 @@ impl ParsedScoreboardModification {
             Self::DisplayName(expression) => {
                 let expression = ParsedExpression::perform_semantic_analysis(
                     expression,
-                    high_allocator,
-                    low_allocator,
+                    parsed_arena,
+                    typed_arena,
                     ctx,
                 )?;
 
@@ -45,8 +46,8 @@ impl ParsedScoreboardModification {
             Self::NumberFormat(number_format) => {
                 let number_format = match number_format {
                     Some(number_format) => Some(number_format.perform_semantic_analysis(
-                        high_allocator,
-                        low_allocator,
+                        parsed_arena,
+                        typed_arena,
                         ctx,
                     )?),
                     None => None,
@@ -71,8 +72,8 @@ pub enum ParsedObjectivesScoreboardCommand {
 impl ParsedObjectivesScoreboardCommand {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<TypedObjectivesScoreboardCommand> {
         Some(match self {
@@ -82,8 +83,8 @@ impl ParsedObjectivesScoreboardCommand {
                     Some(expression) => {
                         let expression = ParsedExpression::perform_semantic_analysis(
                             expression,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -100,7 +101,7 @@ impl ParsedObjectivesScoreboardCommand {
             }
             Self::Modify(objective, modification) => {
                 let modification =
-                    modification.perform_semantic_analysis(high_allocator, low_allocator, ctx)?;
+                    modification.perform_semantic_analysis(parsed_arena, typed_arena, ctx)?;
 
                 TypedObjectivesScoreboardCommand::Modify(objective, modification)
             }

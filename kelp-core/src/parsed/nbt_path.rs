@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         expression::{ParsedExpression, ParsedExpressionId},
         semantic_analysis::SemanticAnalysisContext,
     },
     trait_ext::CollectOptionAllIterExt,
+    typed::arena::TypedAstArena,
     typed::nbt_path::{TypedNbtPath as MiddleNbtPath, TypedNbtPathNode as MiddleNbtPathNode},
 };
 
@@ -20,8 +21,8 @@ pub enum ParsedNbtPathNode {
 impl ParsedNbtPathNode {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleNbtPathNode> {
         Some(match self {
@@ -31,8 +32,8 @@ impl ParsedNbtPathNode {
                     .map(|(key, value)| {
                         let value = ParsedExpression::perform_semantic_analysis(
                             value,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -50,8 +51,8 @@ impl ParsedNbtPathNode {
                             .map(|(key, value)| {
                                 let value = ParsedExpression::perform_semantic_analysis(
                                     value,
-                                    high_allocator,
-                                    low_allocator,
+                                    parsed_arena,
+                                    typed_arena,
                                     ctx,
                                 )?;
 
@@ -69,8 +70,8 @@ impl ParsedNbtPathNode {
                     Some(expression) => {
                         let expression = ParsedExpression::perform_semantic_analysis(
                             expression,
-                            high_allocator,
-                            low_allocator,
+                            parsed_arena,
+                            typed_arena,
                             ctx,
                         )?;
 
@@ -91,14 +92,14 @@ pub struct ParsedNbtPath(pub Vec<ParsedNbtPathNode>);
 impl ParsedNbtPath {
     pub fn perform_semantic_analysis(
         self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<MiddleNbtPath> {
         Some(MiddleNbtPath(
             self.0
                 .into_iter()
-                .map(|node| node.perform_semantic_analysis(high_allocator, low_allocator, ctx))
+                .map(|node| node.perform_semantic_analysis(parsed_arena, typed_arena, ctx))
                 .collect_option_all()?,
         ))
     }

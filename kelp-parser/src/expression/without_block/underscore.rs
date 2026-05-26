@@ -11,7 +11,7 @@ pub fn lower_underscore_expression(
     let span = span_of_cst_node(&node);
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Underscore),
     )
 }

@@ -1,6 +1,6 @@
 use kelp_core::{
-    parsed::expression::{ParsedExpression, ParsedExpressionId},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
+    parsed::expression::{ParsedExpression, ParsedExpressionId},
 };
 
 use crate::{
@@ -72,5 +72,5 @@ pub fn lower_binary_expression(
         _ => return None,
     };
 
-    Some(ctx.allocator.allocate_expression(span, expression))
+    Some(ctx.arena.allocate_expression(span, expression))
 }

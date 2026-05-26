@@ -1,11 +1,11 @@
 use minecraft_command_types::{command::data::DataTarget, resource_location::ResourceLocation};
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     data::{GeneratedData, GeneratedDataTarget},
     datapack::Datapack,
     span::Span,
+    typed::arena::TypedAstArena,
     typed::{
         coordinate::TypedCoordinates,
         entity_selector::TypedEntitySelector,
@@ -24,12 +24,12 @@ impl TypedData {
     #[must_use]
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> GeneratedData {
-        let target = self.target.compile(allocator, datapack, ctx);
-        let path = self.path.compile(allocator, datapack, ctx);
+        let target = self.target.compile(arena, datapack, ctx);
+        let path = self.path.compile(arena, datapack, ctx);
 
         GeneratedData { target, path }
     }
@@ -81,19 +81,19 @@ pub struct TypedDataTarget {
 impl TypedDataTarget {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> GeneratedDataTarget {
         let target = match self.kind {
             TypedDataTargetKind::Block(coordinates) => {
-                DataTarget::Block(coordinates.compile(allocator, datapack, ctx))
+                DataTarget::Block(coordinates.compile(arena, datapack, ctx))
             }
             TypedDataTargetKind::Entity(entity_selector) => {
-                DataTarget::Entity(entity_selector.compile(allocator, datapack, ctx))
+                DataTarget::Entity(entity_selector.compile(arena, datapack, ctx))
             }
             TypedDataTargetKind::Storage(resource_location) => {
-                let resource_location = resource_location.compile(allocator, datapack, ctx);
+                let resource_location = resource_location.compile(arena, datapack, ctx);
 
                 DataTarget::Storage(resource_location)
             }

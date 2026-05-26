@@ -22,7 +22,7 @@ pub fn lower_compound_pattern_entry(
         .pattern()
         .and_then(|pattern| lower_pattern(pattern, ctx))
         .unwrap_or_else(|| {
-            ctx.allocator.allocate_pattern(
+            ctx.arena.allocate_pattern(
                 entry_name_span,
                 Pattern::Binding(GenericPath::single(entry_name_span, entry_name)),
             )
@@ -44,8 +44,5 @@ pub fn lower_compound_pattern(
         .filter_map(|entry| lower_compound_pattern_entry(entry, ctx))
         .collect();
 
-    Some(
-        ctx.allocator
-            .allocate_pattern(span, Pattern::Compound(entries)),
-    )
+    Some(ctx.arena.allocate_pattern(span, Pattern::Compound(entries)))
 }

@@ -1,13 +1,14 @@
 use crate::{
-    ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
+    parsed::arena::ParsedAstArena,
     parsed::{
         expression::{ParsedExpression, ParsedExpressionId},
-        item::Item,
+        item::ParsedItem,
         semantic_analysis::SemanticAnalysisContext,
         statement::{Statement, StatementId},
     },
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
+    typed::arena::TypedAstArena,
     typed::{
         data_type::SemanticDataType,
         expression::{TypedExpression, TypedExpressionId},
@@ -38,8 +39,8 @@ impl BlockExpression {
     #[must_use]
     pub fn perform_semantic_analysis(
         &self,
-        high_allocator: &HighAstAllocator,
-        low_allocator: &mut LowAstAllocator,
+        parsed_arena: &ParsedAstArena,
+        typed_arena: &mut TypedAstArena,
         ctx: &mut SemanticAnalysisContext,
     ) -> Option<(Span, Option<Span>, TypedExpressionId)> {
         ctx.enter_scope();
@@ -50,7 +51,7 @@ impl BlockExpression {
             .iter()
             .copied()
             .filter_map(|statement| {
-                let statement = high_allocator.get_statement_value(statement);
+                let statement = parsed_arena.get_statement_value(statement);
 
                 if let Statement::Item(item) = statement {
                     Some(*item)
@@ -61,19 +62,19 @@ impl BlockExpression {
             .collect::<Vec<_>>();
 
         for item in items.iter().copied() {
-            Item::resolve_names(item, high_allocator, ctx);
+            ParsedItem::resolve_names(item, parsed_arena, ctx);
         }
 
         for item in items.iter().copied() {
-            Item::resolve_imports(item, high_allocator, ctx);
+            ParsedItem::resolve_imports(item, parsed_arena, ctx);
         }
 
         for item in items.iter().copied() {
-            Item::resolve_types(item, high_allocator, ctx);
+            ParsedItem::resolve_types(item, parsed_arena, ctx);
         }
 
         for item in items.iter().copied() {
-            Item::resolve_value_types(item, high_allocator, ctx);
+            ParsedItem::resolve_value_types(item, parsed_arena, ctx);
         }
 
         let body = self
@@ -82,15 +83,15 @@ impl BlockExpression {
             .iter()
             .copied()
             .map(|statement| {
-                Statement::perform_semantic_analysis(statement, high_allocator, low_allocator, ctx)
+                Statement::perform_semantic_analysis(statement, parsed_arena, typed_arena, ctx)
             })
             .collect_option_all::<Vec<_>>();
 
         let tail_expression = self.info.tail_expression.map(|tail_expression| {
             ParsedExpression::perform_semantic_analysis(
                 tail_expression,
-                high_allocator,
-                low_allocator,
+                parsed_arena,
+                typed_arena,
                 ctx,
             )
         });
@@ -105,15 +106,15 @@ impl BlockExpression {
         };
 
         let data_type = tail_expression.map_or(SemanticDataType::Unit, |tail_expression| {
-            low_allocator.get_expression_type(tail_expression).clone()
+            typed_arena.get_expression_type(tail_expression).clone()
         });
 
         Some((
             self.span,
             self.info
                 .tail_expression
-                .map(|tail_expression| high_allocator.get_expression_span(tail_expression)),
-            low_allocator
+                .map(|tail_expression| parsed_arena.get_expression_span(tail_expression)),
+            typed_arena
                 .allocate_expression(TypedExpression::Block(body, tail_expression), data_type),
         ))
     }

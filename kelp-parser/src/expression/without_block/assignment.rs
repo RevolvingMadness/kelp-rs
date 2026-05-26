@@ -1,6 +1,6 @@
 use kelp_core::{
-    parsed::expression::{ParsedExpression, ParsedExpressionId},
     operator::ArithmeticOperator,
+    parsed::expression::{ParsedExpression, ParsedExpressionId},
 };
 
 use crate::{
@@ -45,5 +45,5 @@ pub fn lower_assignment_expression(
         ParsedExpression::Assignment(target, value)
     };
 
-    Some(ctx.allocator.allocate_expression(span, expression))
+    Some(ctx.arena.allocate_expression(span, expression))
 }

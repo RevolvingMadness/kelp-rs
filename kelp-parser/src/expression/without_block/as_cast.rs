@@ -17,7 +17,7 @@ pub fn lower_as_cast_expression(
     let data_type = lower_data_type(node.data_type()?)?;
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::AsCast(expression, data_type)),
     )
 }

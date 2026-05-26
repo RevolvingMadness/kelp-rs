@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use minecraft_command_types::{command::function::FunctionCommandArguments, snbt::SNBTString};
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::{
         data::TypedDataTarget,
         expression::{TypedExpression, TypedExpressionId},
@@ -22,7 +22,7 @@ pub enum TypedFunctionCommandArguments {
 impl TypedFunctionCommandArguments {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> FunctionCommandArguments {
@@ -31,7 +31,7 @@ impl TypedFunctionCommandArguments {
                 compound
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = TypedExpression::resolve(value, allocator, datapack, ctx)
+                        let value = TypedExpression::resolve(value, arena, datapack, ctx)
                             .as_snbt_macros(ctx);
 
                         (key, value)
@@ -39,8 +39,8 @@ impl TypedFunctionCommandArguments {
                     .collect(),
             ),
             Self::DataTarget(target, path) => {
-                let target = target.compile(allocator, datapack, ctx);
-                let path = path.map(|path| path.compile(allocator, datapack, ctx));
+                let target = target.compile(arena, datapack, ctx);
+                let path = path.map(|path| path.compile(arena, datapack, ctx));
 
                 FunctionCommandArguments::DataTarget(target.target, path)
             }

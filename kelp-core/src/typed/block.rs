@@ -5,9 +5,9 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
+    typed::arena::TypedAstArena,
     typed::expression::{TypedExpression, TypedExpressionId},
 };
 
@@ -21,7 +21,7 @@ pub struct TypedBlockState {
 impl TypedBlockState {
     pub fn compile(
         self,
-        allocator: &LowAstAllocator,
+        arena: &TypedAstArena,
         datapack: &mut Datapack,
         ctx: &mut CompileContext,
     ) -> BlockState {
@@ -32,7 +32,7 @@ impl TypedBlockState {
                 value
                     .into_iter()
                     .map(|(key, value)| {
-                        let value = TypedExpression::resolve(value, allocator, datapack, ctx)
+                        let value = TypedExpression::resolve(value, arena, datapack, ctx)
                             .as_snbt_macros(ctx);
 
                         (key, value)

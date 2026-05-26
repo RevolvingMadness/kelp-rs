@@ -19,7 +19,7 @@ pub fn lower_tuple_expression(
         .collect();
 
     Some(
-        ctx.allocator
+        ctx.arena
             .allocate_expression(span, ParsedExpression::Tuple(expressions)),
     )
 }

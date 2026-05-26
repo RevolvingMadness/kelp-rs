@@ -3,11 +3,11 @@ use crate::parsed::environment::{
     r#type::builtin_data_type::ParsedBuiltinTypeDeclaration,
     r#type::module::ParsedModuleDeclaration, r#type::r#struct::ParsedStructDeclaration,
 };
+use crate::path::generic::GenericPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::{r#type::HighTypeId, value::HighValueId};
-use crate::span::Span;
 use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     visibility::Visibility,
@@ -106,42 +106,40 @@ impl ParsedTypeDeclaration {
         }
     }
 
-    pub fn resolve_partially(
+    pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
         id: HighTypeId,
-        generic_spans: Vec<Span>,
-        generic_types: Vec<SemanticDataType>,
-        path_span: Span,
+        segment: &GenericPathSegment<SemanticDataType>,
     ) -> SemanticDataType {
         match self.kind {
             ParsedTypeDeclarationKind::Module(ParsedModuleDeclaration { name, .. }) => {
-                ctx.add_error_type(path_span, SemanticAnalysisError::NotAType(name))
+                ctx.add_error_type(segment.name_span, SemanticAnalysisError::NotAType(name))
             }
             ParsedTypeDeclarationKind::Struct(declaration) => {
                 let id = HighStructId(id.0);
 
                 let expected_generics = declaration.generic_count();
-                let actual_generics = generic_types.len();
+                let actual_generics = segment.generic_types.len();
 
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
-                        path_span,
+                        segment.name_span,
                         declaration.name(),
                         expected_generics,
                         actual_generics,
                     );
                 }
 
-                SemanticDataType::Struct(id, generic_types)
+                SemanticDataType::Struct(id, segment.generic_types.clone())
             }
             ParsedTypeDeclarationKind::Alias(declaration) => {
                 let expected_generics = declaration.generic_ids.len();
-                let actual_generics = generic_types.len();
+                let actual_generics = segment.generic_types.len();
 
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
-                        path_span,
+                        segment.name_span,
                         &declaration.name,
                         expected_generics,
                         actual_generics,
@@ -150,15 +148,15 @@ impl ParsedTypeDeclaration {
 
                 let alias = declaration.alias.perform_semantic_analysis(ctx);
 
-                alias.substitute_generics(&declaration.generic_ids, &generic_types)
+                alias.substitute_generics(&declaration.generic_ids, &segment.generic_types)
             }
             ParsedTypeDeclarationKind::Generic(name) => {
                 let expected_generics = 0;
-                let actual_generics = generic_types.len();
+                let actual_generics = segment.generic_types.len();
 
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
-                        path_span,
+                        segment.name_span,
                         &name,
                         expected_generics,
                         actual_generics,
@@ -167,8 +165,7 @@ impl ParsedTypeDeclaration {
 
                 SemanticDataType::Generic(HighGenericId(id.0))
             }
-            ParsedTypeDeclarationKind::Builtin(data_type) => data_type
-                .to_data_type_semantic_analysis(ctx, path_span, generic_spans, generic_types),
+            ParsedTypeDeclarationKind::Builtin(data_type) => data_type.into_data_type(ctx, segment),
         }
     }
 }

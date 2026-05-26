@@ -16,7 +16,6 @@ use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
         HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
-        alias::SemanticTypeAliasDeclaration,
         builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
         r#struct::{
             SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
@@ -424,20 +423,6 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_alias(
-        &mut self,
-        id: HighTypeId,
-        visibility: Visibility,
-        declaration: SemanticTypeAliasDeclaration,
-    ) {
-        self.set_semantic_type(
-            id,
-            visibility,
-            SemanticTypeDeclarationKind::Alias(declaration),
-        );
-    }
-
-    #[inline]
     pub fn set_semantic_generic(
         &mut self,
         id: HighGenericId,
@@ -830,10 +815,9 @@ impl SemanticAnalysisContext {
     #[must_use]
     pub fn get_visible_regular_struct(
         &mut self,
-        name_span: Span,
-        name: &str,
         id: HighTypeId,
-    ) -> Option<(&[String], Visibility, &SemanticRegularStructDeclaration)> {
+        segment: &GenericPathSegment<SemanticDataType>,
+    ) -> Option<&SemanticRegularStructDeclaration> {
         let SemanticTypeDeclaration {
             module_path,
             visibility,
@@ -844,45 +828,40 @@ impl SemanticAnalysisContext {
 
         if !is_visible {
             return self.add_error(
-                name_span,
-                SemanticAnalysisError::TypeNotPublic(name.to_owned()),
+                segment.name_span,
+                SemanticAnalysisError::TypeNotPublic(segment.name.clone()),
             );
         }
 
-        let SemanticTypeDeclarationKind::Struct(declaration) = declaration else {
+        let data_type = declaration.clone().into_data_type(self, id, segment);
+
+        let SemanticDataType::Struct(id, _) = data_type else {
             return self.add_error(
-                name_span,
-                SemanticAnalysisError::NotAStruct(name.to_owned()),
+                segment.name_span,
+                SemanticAnalysisError::NotAStruct(data_type),
             );
         };
 
-        let SemanticStructDeclaration::Struct(..) = declaration else {
-            return self.add_error(
-                name_span,
-                SemanticAnalysisError::NotARegularStruct(name.to_owned()),
+        let (_, _, declaration) = self.semantic_environment.get_struct(id);
+
+        let SemanticStructDeclaration::Struct(declaration) = declaration else {
+            return Self::add_error_static(
+                &mut self.infos,
+                self.max_infos,
+                segment.name_span,
+                SemanticAnalysisError::NotARegularStruct(data_type),
             );
         };
 
-        let SemanticTypeDeclaration {
-            module_path,
-            visibility,
-            kind:
-                SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(declaration)),
-        } = self.semantic_environment.get_type(id)
-        else {
-            unreachable!();
-        };
-
-        Some((module_path, *visibility, declaration))
+        Some(declaration)
     }
 
     #[must_use]
     pub fn get_visible_tuple_struct(
         &mut self,
-        name_span: Span,
-        name: &str,
         id: HighTypeId,
-    ) -> Option<(&[String], Visibility, &SemanticTupleStructDeclaration)> {
+        segment: &GenericPathSegment<SemanticDataType>,
+    ) -> Option<&SemanticTupleStructDeclaration> {
         let SemanticTypeDeclaration {
             module_path,
             visibility,
@@ -893,34 +872,31 @@ impl SemanticAnalysisContext {
 
         if !is_visible {
             return self.add_error(
-                name_span,
-                SemanticAnalysisError::TypeNotPublic(name.to_owned()),
+                segment.name_span,
+                SemanticAnalysisError::TypeNotPublic(segment.name.clone()),
             );
         }
 
-        let SemanticTypeDeclarationKind::Struct(declaration) = declaration else {
+        let data_type = declaration.clone().into_data_type(self, id, segment);
+
+        let SemanticDataType::Struct(id, _) = data_type else {
             return self.add_error(
-                name_span,
-                SemanticAnalysisError::NotAStruct(name.to_owned()),
+                segment.name_span,
+                SemanticAnalysisError::NotAStruct(data_type),
             );
         };
 
-        let SemanticStructDeclaration::Tuple(..) = declaration else {
-            return self.add_error(
-                name_span,
-                SemanticAnalysisError::NotATupleStruct(name.to_owned()),
+        let (_, _, declaration) = self.semantic_environment.get_struct(id);
+
+        let SemanticStructDeclaration::Tuple(declaration) = declaration else {
+            return Self::add_error_static(
+                &mut self.infos,
+                self.max_infos,
+                segment.name_span,
+                SemanticAnalysisError::NotATupleStruct(data_type),
             );
         };
 
-        let SemanticTypeDeclaration {
-            module_path,
-            visibility,
-            kind: SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(declaration)),
-        } = self.semantic_environment.get_type(id)
-        else {
-            unreachable!();
-        };
-
-        Some((module_path, *visibility, declaration))
+        Some(declaration)
     }
 }

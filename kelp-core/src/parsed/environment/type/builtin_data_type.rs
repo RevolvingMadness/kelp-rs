@@ -1,10 +1,10 @@
 use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    path::generic::GenericPathSegment,
     semantic::{
         data_type::SemanticDataType,
         environment::r#type::builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
     },
-    span::Span,
 };
 
 #[derive(Debug, Clone)]
@@ -26,19 +26,17 @@ impl From<SemanticBuiltinTypeDeclaration> for ParsedBuiltinTypeDeclaration {
 
 impl ParsedBuiltinTypeDeclaration {
     #[must_use]
-    pub fn to_data_type_semantic_analysis(
+    pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        span: Span,
-        mut generic_spans: Vec<Span>,
-        mut generic_types: Vec<SemanticDataType>,
+        segment: &GenericPathSegment<SemanticDataType>,
     ) -> SemanticDataType {
         let expected_generic_count = self.generic_count;
-        let actual_generic_count = generic_types.len();
+        let actual_generic_count = segment.generic_types.len();
 
         if actual_generic_count != expected_generic_count {
             return ctx.add_invalid_generics_type(
-                span,
+                segment.name_span,
                 &self.name,
                 expected_generic_count,
                 actual_generic_count,
@@ -55,20 +53,20 @@ impl ParsedBuiltinTypeDeclaration {
             BuiltinTypeKind::Double => SemanticDataType::Double,
             BuiltinTypeKind::String => SemanticDataType::String,
             BuiltinTypeKind::List => {
-                let element_type = generic_types.remove(0);
+                let element_type = segment.generic_types[0].clone();
 
                 SemanticDataType::List(Box::new(element_type))
             }
             BuiltinTypeKind::Compound => {
-                let element_type = generic_types.remove(0);
+                let element_type = segment.generic_types[0].clone();
 
                 SemanticDataType::Compound(Box::new(element_type))
             }
             BuiltinTypeKind::Data => {
-                let element_type = generic_types.remove(0);
+                let element_type = segment.generic_types[0].clone();
 
                 let Some(data_type) = element_type.get_data_type(&ctx.semantic_environment) else {
-                    let element_span = generic_spans.remove(0);
+                    let element_span = segment.generic_spans[0];
 
                     return ctx.add_error_type(
                         element_span,
@@ -79,14 +77,14 @@ impl ParsedBuiltinTypeDeclaration {
                 SemanticDataType::Data(Box::new(data_type))
             }
             BuiltinTypeKind::Score => {
-                let element_type = generic_types.remove(0);
+                let element_type = segment.generic_types[0].clone();
 
                 if !element_type.is_score_compatible() {
-                    let element_span = generic_spans.remove(0);
+                    let element_span = segment.generic_spans[0];
 
                     return ctx.add_error_type(
                         element_span,
-                        SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
+                        SemanticAnalysisError::TypeIsNotScoreCompatible(element_type),
                     );
                 }
 

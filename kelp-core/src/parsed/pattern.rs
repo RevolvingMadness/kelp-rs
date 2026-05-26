@@ -260,14 +260,11 @@ impl ParsedPattern {
                 let pattern_id = HighRegularStructId(pattern_id.0);
 
                 let last_segment = path.segments.pop().unwrap();
+
+                let pattern_declaration =
+                    ctx.get_visible_regular_struct(pattern_id.into(), &last_segment)?;
+
                 let pattern_generic_types = last_segment.generic_types;
-
-                let (_, _, pattern_declaration) = ctx.get_visible_regular_struct(
-                    last_segment.name_span,
-                    &last_segment.name,
-                    pattern_id.into(),
-                )?;
-
                 let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
                 if HighStructId::from(pattern_id) != *value_id
@@ -323,16 +320,14 @@ impl ParsedPattern {
                 let mut path = path.perform_semantic_analysis(ctx);
 
                 let pattern_id = ctx.get_visible_type_id(&path)?;
-                let pattern_id = HighTupleStructId(pattern_id.0);
 
                 let last_segment = path.segments.pop().unwrap();
-                let pattern_generic_types = last_segment.generic_types;
 
-                let (_, _, pattern_declaration) = ctx.get_visible_tuple_struct(
-                    last_segment.name_span,
-                    &last_segment.name,
-                    pattern_id.into(),
-                )?;
+                let pattern_declaration =
+                    ctx.get_visible_tuple_struct(pattern_id, &last_segment)?;
+
+                let pattern_id = HighTupleStructId(pattern_id.0);
+                let pattern_generic_types = last_segment.generic_types;
 
                 if HighStructId::from(pattern_id) != *value_id
                     || pattern_generic_types != *value_generic_types

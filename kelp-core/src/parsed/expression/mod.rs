@@ -736,8 +736,7 @@ impl ParsedExpression {
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let (_, _, declaration) =
-                    ctx.get_visible_regular_struct(last_segment.name_span, &last_segment.name, id)?;
+                let declaration = ctx.get_visible_regular_struct(id, &last_segment)?;
 
                 let id = HighRegularStructId(id.0);
 

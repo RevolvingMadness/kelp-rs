@@ -1,5 +1,11 @@
 use strum::{Display, EnumIter};
 
+use crate::{
+    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    path::generic::GenericPathSegment,
+    semantic::data_type::SemanticDataType,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighBuiltinTypeId(pub u32);
 
@@ -8,6 +14,79 @@ pub struct SemanticBuiltinTypeDeclaration {
     pub name: String,
     pub generic_count: usize,
     pub kind: BuiltinTypeKind,
+}
+
+impl SemanticBuiltinTypeDeclaration {
+    #[must_use]
+    pub fn into_data_type(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        segment: &GenericPathSegment<SemanticDataType>,
+    ) -> SemanticDataType {
+        let expected_generic_count = self.generic_count;
+        let actual_generic_count = segment.generic_types.len();
+
+        if actual_generic_count != expected_generic_count {
+            return ctx.add_invalid_generics_type(
+                segment.name_span,
+                &self.name,
+                expected_generic_count,
+                actual_generic_count,
+            );
+        }
+
+        match self.kind {
+            BuiltinTypeKind::Boolean => SemanticDataType::Boolean,
+            BuiltinTypeKind::Byte => SemanticDataType::Byte,
+            BuiltinTypeKind::Short => SemanticDataType::Short,
+            BuiltinTypeKind::Integer => SemanticDataType::Integer,
+            BuiltinTypeKind::Long => SemanticDataType::Long,
+            BuiltinTypeKind::Float => SemanticDataType::Float,
+            BuiltinTypeKind::Double => SemanticDataType::Double,
+            BuiltinTypeKind::String => SemanticDataType::String,
+            BuiltinTypeKind::List => {
+                let element_type = segment.generic_types[0].clone();
+
+                SemanticDataType::List(Box::new(element_type))
+            }
+            BuiltinTypeKind::Compound => {
+                let element_type = segment.generic_types[0].clone();
+
+                SemanticDataType::Compound(Box::new(element_type))
+            }
+            BuiltinTypeKind::Data => {
+                let element_type = segment.generic_types[0].clone();
+
+                let Some(data_type) = element_type.get_data_type(&ctx.semantic_environment) else {
+                    let element_span = segment.generic_spans[0];
+
+                    return ctx.add_error_type(
+                        element_span,
+                        SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
+                    );
+                };
+
+                SemanticDataType::Data(Box::new(data_type))
+            }
+            BuiltinTypeKind::Score => {
+                let element_type = segment.generic_types[0].clone();
+
+                if !element_type.is_score_compatible() {
+                    let element_span = segment.generic_spans[0];
+
+                    return ctx.add_error_type(
+                        element_span,
+                        SemanticAnalysisError::TypeIsNotScoreCompatible(element_type),
+                    );
+                }
+
+                SemanticDataType::Score(Box::new(element_type))
+            }
+            BuiltinTypeKind::EntitySelector => SemanticDataType::EntitySelector,
+            BuiltinTypeKind::ResourceLocation => SemanticDataType::ResourceLocation,
+            BuiltinTypeKind::Coordinates => SemanticDataType::Coordinates,
+        }
+    }
 }
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]

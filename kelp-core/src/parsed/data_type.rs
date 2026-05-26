@@ -80,13 +80,7 @@ impl ParsedDataType {
 
                 let declaration = ctx.parsed_environment.get_type(id).clone();
 
-                declaration.resolve_partially(
-                    ctx,
-                    id,
-                    last_segment.generic_spans,
-                    last_segment.generic_types,
-                    last_segment.name_span,
-                )
+                declaration.into_data_type(ctx, id, &last_segment)
             }
             Self::Unit => SemanticDataType::Unit,
             Self::Never => SemanticDataType::Never,

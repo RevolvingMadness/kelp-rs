@@ -7,8 +7,9 @@ use minecraft_command_types::{
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    typed::arena::TypedAstArena,
+    low::text_component::TextComponent as _,
     typed::{
+        arena::TypedAstArena,
         entity_selector::TypedEntitySelector,
         expression::{
             TypedExpression, TypedExpressionId,
@@ -86,7 +87,7 @@ impl TypedCommand {
 
                 Command::Tellraw(
                     selector.compile(arena, datapack, ctx),
-                    expression.as_text_component(datapack, ctx, false),
+                    expression.into_text_component(datapack, ctx),
                 )
             }
             Self::Return(command) => match command {

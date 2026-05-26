@@ -14,9 +14,8 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
-    data::GeneratedData,
     datapack::Datapack,
-    low::expression::Expression,
+    low::{data::GeneratedData, expression::Expression, text_component::TextComponent},
     operator::ArithmeticOperator,
     trait_ext::{
         compile_bitwise_and_score, compile_bitwise_or_score, compile_shift_operation_score,
@@ -27,6 +26,30 @@ use crate::{
 pub struct GeneratedPlayerScore {
     pub is_generated: bool,
     pub score: PlayerScore,
+}
+
+impl TextComponent for GeneratedPlayerScore {
+    fn into_text_component(self, _datapack: &mut Datapack, _ctx: &mut CompileContext) -> SNBT {
+        let mut text_component = SNBTCompound::new();
+
+        let mut score = SNBTCompound::new();
+
+        score.insert(
+            SNBTString(false, "name".to_string()),
+            SNBT::macroable_string(self.score.selector.to_string()),
+        );
+        score.insert(
+            SNBTString(false, "objective".to_string()),
+            SNBT::macroable_string(self.score.objective),
+        );
+
+        text_component.insert(
+            SNBTString(false, "score".to_string()),
+            SNBT::macroable_compound(score),
+        );
+
+        SNBT::compound(text_component)
+    }
 }
 
 impl GeneratedPlayerScore {
@@ -49,25 +72,6 @@ impl GeneratedPlayerScore {
                 None,
             ),
         )
-    }
-
-    #[must_use]
-    pub fn to_text_component(self) -> SNBT {
-        let mut text_component = SNBTCompound::new();
-        let mut score = SNBTCompound::new();
-        score.insert(
-            SNBTString(false, "name".to_string()),
-            SNBT::macroable_string(self.score.selector.to_string()),
-        );
-        score.insert(
-            SNBTString(false, "objective".to_string()),
-            SNBT::macroable_string(self.score.objective),
-        );
-        text_component.insert(
-            SNBTString(false, "score".to_string()),
-            SNBT::macroable_compound(score),
-        );
-        SNBT::compound(text_component)
     }
 
     #[inline]

@@ -17,9 +17,9 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::{CompileContext, LoopInfo, LoopType},
-    data::GeneratedData,
     datapack::Datapack,
     field_access_type::FieldAccessType,
+    low::data::GeneratedData,
     low::{
         data_type::DataType,
         environment::value::{ValueDeclarationKind, function::FunctionId, variable::VariableId},

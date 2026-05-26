@@ -1,5 +1,5 @@
 use crate::{
-    compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
+    compile_context::CompileContext, datapack::Datapack, low::data::GeneratedData,
     low::expression::Expression, player_score::GeneratedPlayerScore,
 };
 

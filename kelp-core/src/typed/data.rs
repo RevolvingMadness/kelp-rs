@@ -2,8 +2,8 @@ use minecraft_command_types::{command::data::DataTarget, resource_location::Reso
 
 use crate::{
     compile_context::CompileContext,
-    data::{GeneratedData, GeneratedDataTarget},
     datapack::Datapack,
+    low::data::{GeneratedData, GeneratedDataTarget},
     span::Span,
     typed::arena::TypedAstArena,
     typed::{

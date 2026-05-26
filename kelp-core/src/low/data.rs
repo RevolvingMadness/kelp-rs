@@ -4,19 +4,54 @@ use minecraft_command_types::{
         data::{DataCommand, DataCommandModification, DataCommandModificationMode, DataTarget},
     },
     macroable::Macroable,
-    nbt_path::{NbtPath, NbtPathNode},
-    snbt::SNBT,
+    nbt_path::{NbtPath, NbtPathNode, SNBTCompound},
+    snbt::{SNBT, SNBTString},
 };
 use ordered_float::NotNan;
 
 use crate::{
-    compile_context::CompileContext, datapack::Datapack, player_score::GeneratedPlayerScore,
+    compile_context::CompileContext, datapack::Datapack, low::text_component::TextComponent,
+    player_score::GeneratedPlayerScore,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedData {
     pub target: GeneratedDataTarget,
     pub path: NbtPath,
+}
+
+impl TextComponent for GeneratedData {
+    fn into_text_component(self, _datapack: &mut Datapack, _ctx: &mut CompileContext) -> SNBT {
+        let mut map = SNBTCompound::new();
+
+        match self.target.target {
+            DataTarget::Block(coordinates) => {
+                map.insert(
+                    SNBTString(false, "block".to_string()),
+                    Macroable::Regular(SNBT::string(coordinates)),
+                );
+            }
+            DataTarget::Entity(entity_selector) => {
+                map.insert(
+                    SNBTString(false, "entity".to_string()),
+                    Macroable::Regular(SNBT::string(entity_selector)),
+                );
+            }
+            DataTarget::Storage(resource_location) => {
+                map.insert(
+                    SNBTString(false, "storage".to_string()),
+                    Macroable::Regular(SNBT::string(resource_location)),
+                );
+            }
+        }
+
+        map.insert(
+            SNBTString(false, "nbt".to_string()),
+            Macroable::Regular(self.path.to_snbt_string()),
+        );
+
+        SNBT::compound(map)
+    }
 }
 
 impl GeneratedData {

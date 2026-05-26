@@ -1,7 +1,7 @@
 use crate::compile_context::CompileContext;
-use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
+use crate::low::data::{GeneratedData, GeneratedDataTarget};
 use crate::low::data_type::DataType;
 use crate::low::environment::Environment;
 use crate::low::environment::r#type::r#struct::{

@@ -1,8 +1,8 @@
 use crate::{
     compile_context::CompileContext,
-    data::GeneratedData,
     datapack::Datapack,
     field_access_type::FieldAccessType,
+    low::data::GeneratedData,
     low::{environment::value::variable::VariableId, expression::Expression},
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,

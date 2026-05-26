@@ -1,10 +1,10 @@
-use std::{collections::BTreeMap, fmt::Write};
+use std::collections::BTreeMap;
 
 use la_arena::Idx;
 use minecraft_command_types::{
     command::{
         Command, ScoreValue,
-        data::{DataCommandModification, DataTarget},
+        data::DataCommandModification,
         enums::score_operation_operator::ScoreOperationOperator,
         execute::{ExecuteIfSubcommand, ScoreComparison, ScoreComparisonOperator},
         r#return::ReturnCommand,
@@ -21,16 +21,15 @@ use ordered_float::NotNan;
 
 use crate::{
     compile_context::CompileContext,
-    data::GeneratedData,
     datapack::{
         CompiletimeFunction, CompiletimeFunctionKey, CompiletimeFunctionKeyRef, Datapack,
         RecursiveRuntimeFunction, RegularRuntimeFunction, RuntimeFunction,
     },
     field_access_type::FieldAccessType,
+    low::data::GeneratedData,
     low::{
         data_type::DataType,
         environment::{
-            Environment,
             r#type::r#struct::{RegularStructId, TupleStructId},
             value::function::{FunctionDeclaration, FunctionId},
         },
@@ -50,6 +49,7 @@ use crate::{
 
 pub mod assignee;
 pub mod place;
+pub mod text_component;
 
 pub fn compile_shift_operation(
     datapack: &mut Datapack,
@@ -528,24 +528,6 @@ macro_rules! compute_float {
         })
         .unwrap()
     };
-}
-
-fn format_generics(output: &mut String, generics: &[DataType], environment: &Environment) {
-    if generics.is_empty() {
-        return;
-    }
-
-    output.push('<');
-
-    for (i, data_type) in generics.iter().enumerate() {
-        if i != 0 {
-            output.push_str(", ");
-        }
-
-        let _ = write!(output, "{}", data_type.display(environment));
-    }
-
-    output.push('>');
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1738,299 +1720,6 @@ impl Expression {
             }
             _ => return None,
         })
-    }
-
-    #[must_use]
-    pub fn as_text_component(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        force_display: bool,
-    ) -> SNBT {
-        match self {
-            Self::Score(player_score) => player_score.to_text_component(),
-            Self::Data(data) => {
-                let mut map = SNBTCompound::new();
-
-                match data.target.target {
-                    DataTarget::Block(coordinates) => {
-                        map.insert(
-                            SNBTString(false, "block".to_string()),
-                            Macroable::Regular(SNBT::string(coordinates)),
-                        );
-                    }
-                    DataTarget::Entity(entity_selector) => {
-                        map.insert(
-                            SNBTString(false, "entity".to_string()),
-                            Macroable::Regular(SNBT::string(entity_selector)),
-                        );
-                    }
-                    DataTarget::Storage(resource_location) => {
-                        map.insert(
-                            SNBTString(false, "storage".to_string()),
-                            Macroable::Regular(SNBT::string(resource_location)),
-                        );
-                    }
-                }
-
-                map.insert(
-                    SNBTString(false, "nbt".to_string()),
-                    Macroable::Regular(data.path.to_snbt_string()),
-                );
-
-                SNBT::compound(map)
-            }
-            Self::Boolean(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Byte(i8::from(value))
-                }
-            }
-            Self::Byte(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Byte(value)
-                }
-            }
-            Self::Short(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Short(value)
-                }
-            }
-            Self::Integer(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Integer(value)
-                }
-            }
-            Self::Long(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::Long(value)
-                }
-            }
-            Self::Float(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::float(value)
-                }
-            }
-            Self::Double(value) => {
-                if force_display {
-                    SNBT::string(value)
-                } else {
-                    SNBT::double(value)
-                }
-            }
-            Self::String(string) => {
-                if force_display {
-                    SNBT::string(format!("\"{}\"", string))
-                } else {
-                    SNBT::snbt_string(SNBTString(false, string))
-                }
-            }
-            Self::List(list) => SNBT::list(
-                list.into_iter()
-                    .map(|element| element.as_text_component(datapack, ctx, false))
-                    .collect(),
-            ),
-            Self::Compound(compound) => SNBT::compound(
-                compound
-                    .into_iter()
-                    .map(|(key, value)| {
-                        (
-                            SNBTString(false, key),
-                            value.as_text_component(datapack, ctx, false),
-                        )
-                    })
-                    .collect(),
-            ),
-            Self::Tuple(tuple) => {
-                let mut list = Vec::new();
-
-                list.push(SNBT::string("("));
-
-                for (i, element) in tuple.into_iter().enumerate() {
-                    if i != 0 {
-                        list.push(SNBT::string(", "));
-                    }
-
-                    list.push(element.as_text_component(datapack, ctx, true));
-                }
-
-                list.push(SNBT::string(")"));
-
-                SNBT::list(list)
-            }
-            Self::Never => SNBT::string('!'),
-            Self::Unit => SNBT::string("()"),
-            Self::Reference(place) => {
-                place
-                    .resolve(datapack, ctx)
-                    .as_text_component(datapack, ctx, force_display)
-            }
-            Self::Function(id) => {
-                let (_, _, declaration) = datapack.get_function(id);
-
-                let mut output = format!("fn {}", declaration.name());
-
-                format_generics(
-                    &mut output,
-                    declaration.generic_types(),
-                    &datapack.environment,
-                );
-
-                output.push('(');
-
-                for (i, data_type) in declaration.parameter_types().enumerate() {
-                    if i != 0 {
-                        output.push_str(", ");
-                    }
-
-                    let _ = write!(output, "{}", data_type.display(&datapack.environment));
-                }
-
-                output.push(')');
-
-                let return_type = declaration.return_type();
-
-                if *return_type != DataType::Unit {
-                    let _ = write!(output, " -> {}", return_type.display(&datapack.environment));
-                }
-
-                SNBT::string(output)
-            }
-            Self::RegularStruct(id, fields) => {
-                if force_display {
-                    // Maybe display full path?
-
-                    let (_, visibility, declaration) = datapack.get_regular_struct_type(id);
-
-                    let mut output = Vec::new();
-
-                    if visibility.should_display() {
-                        output.push(SNBT::string(format!("{} ", visibility)));
-                    }
-
-                    output.push(SNBT::string(if declaration.generic_types.is_empty() {
-                        if fields.is_empty() {
-                            format!("{} {{", declaration.name)
-                        } else {
-                            format!("{} {{ ", declaration.name)
-                        }
-                    } else {
-                        declaration.name.clone()
-                    }));
-
-                    if !declaration.generic_types.is_empty() {
-                        output.push(SNBT::string("<"));
-
-                        for (i, generic) in declaration.generic_types.iter().enumerate() {
-                            if i != 0 {
-                                output.push(SNBT::string(", "));
-                            }
-
-                            output.push(SNBT::string(generic.display(&datapack.environment)));
-                        }
-
-                        output.push(SNBT::string(if fields.is_empty() { "> {" } else { "> { " }));
-                    }
-
-                    for (i, (key, value)) in fields.iter().enumerate() {
-                        if i != 0 {
-                            output.push(SNBT::string(", "));
-                        }
-
-                        output.push(SNBT::string(format!("{}: ", key)));
-                        output.push(value.clone().as_text_component(datapack, ctx, true));
-                    }
-
-                    if fields.is_empty() {
-                        output.push(SNBT::string("}"));
-                    } else {
-                        output.push(SNBT::string(" }"));
-                    }
-
-                    SNBT::list(output)
-                } else {
-                    let mut output = SNBTCompound::new();
-
-                    for (field_name, field_value) in fields {
-                        output.insert(
-                            SNBTString(false, field_name),
-                            Macroable::Regular(field_value.as_text_component(datapack, ctx, false)),
-                        );
-                    }
-
-                    SNBT::compound(output)
-                }
-            }
-            Self::TupleStruct(id, fields) => {
-                if force_display {
-                    // Maybe display full path?
-
-                    let (_, visibility, declaration) = datapack.get_tuple_struct_type(id);
-
-                    let mut output = Vec::new();
-
-                    if visibility.should_display() {
-                        output.push(SNBT::string(format!("{} ", visibility)));
-                    }
-
-                    output.push(SNBT::string(if declaration.generic_types.is_empty() {
-                        format!("{}(", declaration.name)
-                    } else {
-                        declaration.name.clone()
-                    }));
-
-                    if !declaration.generic_types.is_empty() {
-                        output.push(SNBT::string("<"));
-
-                        for (i, generic) in declaration.generic_types.iter().enumerate() {
-                            if i != 0 {
-                                output.push(SNBT::string(", "));
-                            }
-
-                            output.push(SNBT::string(generic.display(&datapack.environment)));
-                        }
-
-                        output.push(SNBT::string(">("));
-                    }
-
-                    for (i, value) in fields.iter().enumerate() {
-                        if i != 0 {
-                            output.push(SNBT::string(", "));
-                        }
-
-                        output.push(value.clone().as_text_component(datapack, ctx, true));
-                    }
-
-                    output.push(SNBT::string(")"));
-
-                    SNBT::list(output)
-                } else {
-                    let mut output = Vec::new();
-
-                    for field_value in fields {
-                        output.push(Macroable::Regular(
-                            field_value.as_text_component(datapack, ctx, false),
-                        ));
-                    }
-
-                    SNBT::list(output)
-                }
-            }
-            Self::ResourceLocation(resource_location) => SNBT::string(resource_location),
-            Self::EntitySelector(selector) => SNBT::string(selector),
-            Self::Coordinates(coordinates) => SNBT::string(coordinates),
-        }
     }
 
     pub fn assign_to_score(

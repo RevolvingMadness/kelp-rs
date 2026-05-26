@@ -9,8 +9,8 @@ use minecraft_command_types::{
 };
 
 use crate::{
-    data::GeneratedData,
     datapack::{Datapack, mcfunction::MCFunction},
+    low::data::GeneratedData,
     low::expression::Expression,
 };
 

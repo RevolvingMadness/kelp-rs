@@ -1,5 +1,4 @@
 pub mod compile_context;
-pub mod data;
 pub mod datapack;
 pub mod field_access_type;
 pub mod low;

@@ -1,7 +1,14 @@
 use crate::{
-    typed::environment::value::{
-        function::{FunctionDeclaration, FunctionId},
-        variable::{VariableDeclaration, VariableId},
+    parsed::semantic_analysis::SemanticAnalysisContext,
+    span::Span,
+    typed::{
+        data_type::unresolved::SemanticDataType,
+        environment::value::{
+            function::{
+                HighFunctionId, SemanticFunctionDeclaration, regular::HighRegularFunctionId,
+            },
+            variable::SemanticVariableDeclaration,
+        },
     },
     visibility::Visibility,
 };
@@ -10,53 +17,14 @@ pub mod function;
 pub mod variable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ValueId(pub u32);
-
-impl From<VariableId> for ValueId {
-    fn from(value: VariableId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<FunctionId> for ValueId {
-    fn from(value: FunctionId) -> Self {
-        Self(value.0)
-    }
-}
-
+pub struct HighValueId(pub u32);
 #[derive(Debug, Clone)]
-pub enum ValueDeclarationKind {
-    Variable(VariableDeclaration),
-    Function(Box<FunctionDeclaration>),
+pub enum SemanticValueDeclarationKind {
+    Variable(SemanticVariableDeclaration),
+    Function(Box<SemanticFunctionDeclaration>),
 }
 
-impl ValueDeclarationKind {
-    #[inline]
-    #[must_use]
-    pub const fn with_visibility(
-        self,
-        module_path: Vec<String>,
-        visibility: Visibility,
-    ) -> ValueDeclaration {
-        ValueDeclaration {
-            visibility,
-            module_path,
-            kind: self,
-        }
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn public(self, module_path: Vec<String>) -> ValueDeclaration {
-        self.with_visibility(module_path, Visibility::Public)
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn none_visibility(self, module_path: Vec<String>) -> ValueDeclaration {
-        self.with_visibility(module_path, Visibility::None)
-    }
-
+impl SemanticValueDeclarationKind {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -67,8 +35,75 @@ impl ValueDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct ValueDeclaration {
+pub struct SemanticValueDeclaration {
     pub visibility: Visibility,
     pub module_path: Vec<String>,
-    pub kind: ValueDeclarationKind,
+    pub kind: SemanticValueDeclarationKind,
+}
+
+impl SemanticValueDeclaration {
+    pub fn resolve_fully(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        original_id: HighValueId,
+        generic_types: Vec<SemanticDataType>,
+        path_span: Span,
+    ) -> Option<(HighValueId, SemanticDataType)> {
+        match self.kind {
+            SemanticValueDeclarationKind::Variable(declaration) => {
+                let expected_generics = 0;
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    let type_name = &declaration
+                        .data_type
+                        .display(&ctx.semantic_environment)
+                        .to_string();
+
+                    return ctx.add_invalid_generics(
+                        path_span,
+                        type_name,
+                        expected_generics,
+                        actual_generics,
+                    );
+                }
+
+                Some((original_id, declaration.data_type))
+            }
+            SemanticValueDeclarationKind::Function(declaration) => {
+                let id = HighRegularFunctionId(original_id.0);
+
+                let expected_generics = declaration.generic_count();
+                let actual_generics = generic_types.len();
+
+                if actual_generics != expected_generics {
+                    return ctx.add_invalid_generics(
+                        path_span,
+                        declaration.name(),
+                        expected_generics,
+                        actual_generics,
+                    );
+                }
+
+                Some((
+                    original_id,
+                    SemanticDataType::Function(id.into(), generic_types),
+                ))
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn data_type(
+        &self,
+        id: HighValueId,
+        generic_types: &[SemanticDataType],
+    ) -> SemanticDataType {
+        match &self.kind {
+            SemanticValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
+            SemanticValueDeclarationKind::Function(..) => {
+                SemanticDataType::Function(HighFunctionId(id.0), generic_types.to_vec())
+            }
+        }
+    }
 }

@@ -4,14 +4,13 @@ use crate::{
     ast_allocator::low::{LowAstAllocator, Typed},
     compile_context::CompileContext,
     datapack::Datapack,
-    parsed::{
-        environment::resolved::value::HighValueId, semantic_analysis::SemanticAnalysisContext,
-    },
+    low::environment::value::variable::VariableId,
+    parsed::semantic_analysis::SemanticAnalysisContext,
     span::Span,
     typed::{
         data::TypedData,
         data_type::unresolved::SemanticDataType,
-        environment::value::variable::VariableId,
+        environment::value::HighValueId,
         expression::{
             place::TypedPlaceExpression,
             typed::{TypedExpression, TypedExpressionId},

@@ -2,31 +2,29 @@ use crate::compile_context::CompileContext;
 use crate::data::{GeneratedData, GeneratedDataTarget};
 use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
-use crate::parsed::environment::resolved::SemanticEnvironment;
-use crate::parsed::environment::resolved::r#type::{HighGenericId, HighTypeId};
-use crate::parsed::environment::resolved::value::function::{
-    HighFunctionId, SemanticFunctionDeclaration,
+use crate::low::environment::Environment;
+use crate::low::environment::r#type::r#struct::{
+    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
+    TupleStructId,
 };
-use crate::parsed::environment::resolved::value::variable::HighVariableId;
-use crate::parsed::environment::resolved::value::{
-    HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
+use crate::low::environment::value::function::builtin::BuiltinFunctionDeclaration;
+use crate::low::environment::value::function::regular::{
+    RegularFunctionDeclaration, RegularFunctionId,
 };
+use crate::low::environment::value::function::{FunctionDeclaration, FunctionId};
+use crate::low::environment::value::variable::VariableId;
+use crate::low::environment::value::{ValueDeclaration, ValueId};
 use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
 use crate::typed::data_type::resolved::DataType;
 use crate::typed::data_type::unresolved::SemanticDataType;
-use crate::typed::environment::Environment;
-use crate::typed::environment::r#type::r#struct::{
-    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
-    TupleStructId,
+use crate::typed::environment::SemanticEnvironment;
+use crate::typed::environment::r#type::{HighGenericId, HighTypeId};
+use crate::typed::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
+use crate::typed::environment::value::variable::HighVariableId;
+use crate::typed::environment::value::{
+    HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
 };
-use crate::typed::environment::value::function::builtin::BuiltinFunctionDeclaration;
-use crate::typed::environment::value::function::regular::{
-    RegularFunctionDeclaration, RegularFunctionId,
-};
-use crate::typed::environment::value::function::{FunctionDeclaration, FunctionId};
-use crate::typed::environment::value::variable::VariableId;
-use crate::typed::environment::value::{ValueDeclaration, ValueId};
 use crate::typed::expression::resolved::Expression;
 use crate::visibility::Visibility;
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
@@ -151,7 +149,7 @@ pub struct Datapack {
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub resolved_environment: SemanticEnvironment,
+    pub semantic_environment: SemanticEnvironment,
     pub variable_values: HashMap<VariableId, (DataType, Expression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
@@ -173,7 +171,7 @@ pub struct Datapack {
 impl Datapack {
     #[must_use]
     pub fn new(
-        resolved_environment: SemanticEnvironment,
+        semantic_environment: SemanticEnvironment,
         name: String,
         description: Option<String>,
     ) -> Self {
@@ -182,7 +180,7 @@ impl Datapack {
             description,
             requirements: Cell::new(DatapackRequirements::default()),
             settings: DatapackSettings::default(),
-            resolved_environment,
+            semantic_environment,
             environment: Environment::default(),
             variable_values: HashMap::new(),
             function_values: HashMap::new(),
@@ -251,7 +249,7 @@ impl Datapack {
             module_path,
             visibility,
             kind: declaration,
-        } = self.resolved_environment.get_value(id.into());
+        } = self.semantic_environment.get_value(id.into());
 
         let resolved_id = self.environment.declare_variable(
             module_path.clone(),
@@ -689,7 +687,7 @@ impl Datapack {
 
         let SemanticValueDeclaration {
             kind: declaration, ..
-        } = self.resolved_environment.get_value(id);
+        } = self.semantic_environment.get_value(id);
 
         match declaration {
             SemanticValueDeclarationKind::Variable(..) => {
@@ -735,7 +733,7 @@ impl Datapack {
             return *id;
         }
 
-        let (module_path, visibility, declaration) = self.resolved_environment.get_function(id);
+        let (module_path, visibility, declaration) = self.semantic_environment.get_function(id);
 
         let module_path = module_path.to_vec();
         let declaration = declaration.clone();

@@ -19,7 +19,6 @@ use crate::{
         data::DataTarget,
         data_type::ParsedDataType,
         entity_selector::EntitySelector,
-        environment::resolved::r#type::r#struct::regular::HighRegularStructId,
         expression::{
             assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
             block::BlockExpression,
@@ -40,6 +39,7 @@ use crate::{
     typed::{
         data::TypedData,
         data_type::unresolved::SemanticDataType,
+        environment::r#type::r#struct::regular::HighRegularStructId,
         expression::typed::{TypedExpression, TypedExpressionId},
     },
 };

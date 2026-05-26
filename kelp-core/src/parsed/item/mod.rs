@@ -7,24 +7,12 @@ use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     parsed::{
         data_type::ParsedDataType,
-        environment::{
-            resolved::{
-                HighImpl,
-                r#type::{
-                    HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
-                    r#struct::{
-                        SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
-                        tuple::SemanticTupleStructDeclaration,
-                    },
-                },
-            },
-            unresolved::r#type::{
-                ParsedTypeDeclaration, ParsedTypeDeclarationKind,
-                alias::ParsedTypeAliasDeclaration,
-                r#struct::{
-                    ParsedStructDeclaration, regular::ParsedRegularStructDeclaration,
-                    tuple::ParsedTupleStructDeclaration,
-                },
+        environment::r#type::{
+            ParsedTypeDeclaration, ParsedTypeDeclarationKind,
+            alias::ParsedTypeAliasDeclaration,
+            r#struct::{
+                ParsedStructDeclaration, regular::ParsedRegularStructDeclaration,
+                tuple::ParsedTupleStructDeclaration,
             },
         },
         expression::block::BlockExpression,
@@ -40,7 +28,20 @@ use crate::{
     path::regular::Path,
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
-    typed::{data_type::unresolved::SemanticDataType, item::Item as MiddleItem},
+    typed::{
+        data_type::unresolved::SemanticDataType,
+        environment::{
+            HighImpl,
+            r#type::{
+                HighGenericId, SemanticTypeDeclarationKind,
+                r#struct::{
+                    SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
+                    tuple::SemanticTupleStructDeclaration,
+                },
+            },
+        },
+        item::Item as MiddleItem,
+    },
     visibility::Visibility,
 };
 
@@ -461,7 +462,7 @@ impl Item {
 
                 ctx.exit_scope();
 
-                ctx.declare_resolved_type(
+                ctx.declare_semantic_type(
                     type_id,
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
@@ -502,7 +503,7 @@ impl Item {
 
                 ctx.exit_scope();
 
-                ctx.declare_resolved_type(
+                ctx.declare_semantic_type(
                     type_id,
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(
@@ -555,7 +556,7 @@ impl Item {
 
                         ctx.semantic_environment
                             .impls
-                            .entry(HighTypeId(id.0))
+                            .entry(id.into())
                             .or_default()
                             .push(implementation);
                     }

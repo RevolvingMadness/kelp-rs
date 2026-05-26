@@ -2,47 +2,18 @@ use std::{collections::HashSet, fmt::Debug};
 
 use la_arena::{ArenaMap, Idx};
 use smallvec::SmallVec;
-use strum::IntoEnumIterator;
+use strum::IntoEnumIterator as _;
 
 use crate::{
     parsed::{
         environment::{
-            resolved::{
-                SemanticEnvironment,
-                r#type::{
-                    HighGenericId, HighTypeId, SemanticTypeDeclaration,
-                    SemanticTypeDeclarationKind,
-                    alias::SemanticTypeAliasDeclaration,
-                    builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
-                    module::SemanticModuleDeclaration,
-                    r#struct::{
-                        SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
-                        tuple::SemanticTupleStructDeclaration,
-                    },
-                },
-                value::{
-                    HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
-                    function::{
-                        HighFunctionId, SemanticFunctionDeclaration,
-                        builtin::{
-                            BuiltinFunctionKind, HighBuiltinFunctionId,
-                            SemanticBuiltinFunctionDeclaration,
-                        },
-                        regular::SemanticRegularFunctionDeclaration,
-                    },
-                    variable::{HighVariableId, SemanticVariableDeclaration},
-                },
+            ParsedEnvironment,
+            r#type::{
+                ParsedTypeDeclaration, ParsedTypeDeclarationKind, module::ParsedModuleDeclaration,
             },
-            unresolved::{
-                ParsedEnvironment,
-                r#type::{
-                    ParsedTypeDeclaration, ParsedTypeDeclarationKind,
-                    module::ParsedModuleDeclaration,
-                },
-                value::{
-                    ParsedValueDeclaration, ParsedValueDeclarationKind,
-                    variable::ParsedVariableDeclaration,
-                },
+            value::{
+                ParsedValueDeclaration, ParsedValueDeclarationKind,
+                variable::ParsedVariableDeclaration,
             },
         },
         item::Item,
@@ -56,7 +27,35 @@ use crate::{
         regular::{Path, PathSegment},
     },
     span::Span,
-    typed::{data_type::unresolved::SemanticDataType, pattern::TypedPattern},
+    typed::{
+        data_type::unresolved::SemanticDataType,
+        environment::{
+            SemanticEnvironment,
+            r#type::{
+                HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
+                alias::SemanticTypeAliasDeclaration,
+                builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
+                module::SemanticModuleDeclaration,
+                r#struct::{
+                    SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
+                    tuple::SemanticTupleStructDeclaration,
+                },
+            },
+            value::{
+                HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
+                function::{
+                    HighFunctionId, SemanticFunctionDeclaration,
+                    builtin::{
+                        BuiltinFunctionKind, HighBuiltinFunctionId,
+                        SemanticBuiltinFunctionDeclaration,
+                    },
+                    regular::SemanticRegularFunctionDeclaration,
+                },
+                variable::{HighVariableId, SemanticVariableDeclaration},
+            },
+        },
+        pattern::TypedPattern,
+    },
     visibility::Visibility,
 };
 
@@ -205,7 +204,7 @@ impl SemanticAnalysisContext {
 
         let scope = self.exit_scope();
 
-        scope.into_module_declaration(name)
+        scope.into_parsed_module_declaration(name)
     }
 
     pub fn exit_module_and_declare(&mut self, visibility: Visibility) -> HighTypeId {
@@ -340,7 +339,7 @@ impl SemanticAnalysisContext {
             ParsedValueDeclarationKind::Variable(ParsedVariableDeclaration { name: name.clone() }),
         );
 
-        self.declare_resolved_value(
+        self.declare_semantic_value(
             id,
             visibility,
             SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration { name, data_type }),
@@ -451,7 +450,7 @@ impl SemanticAnalysisContext {
         visibility: Visibility,
         declaration: SemanticTypeAliasDeclaration,
     ) {
-        self.declare_resolved_type(
+        self.declare_semantic_type(
             id,
             visibility,
             SemanticTypeDeclarationKind::Alias(declaration),
@@ -460,7 +459,7 @@ impl SemanticAnalysisContext {
 
     #[inline]
     pub fn declare_generic(&mut self, id: HighGenericId, visibility: Visibility, name: String) {
-        self.declare_resolved_type(
+        self.declare_semantic_type(
             id.into(),
             visibility,
             SemanticTypeDeclarationKind::Generic(name),
@@ -523,13 +522,13 @@ impl SemanticAnalysisContext {
         self.current_scope_mut()
             .declare_type(declaration.name().to_owned(), id);
 
-        self.declare_resolved_type(id, visibility, declaration);
+        self.declare_semantic_type(id, visibility, declaration);
 
         id
     }
 
     #[inline]
-    pub fn declare_resolved_type(
+    pub fn declare_semantic_type(
         &mut self,
         id: HighTypeId,
         visibility: Visibility,
@@ -550,7 +549,7 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_resolved_value(
+    pub fn declare_semantic_value(
         &mut self,
         id: HighValueId,
         visibility: Visibility,
@@ -573,7 +572,7 @@ impl SemanticAnalysisContext {
     ) -> HighValueId {
         let id = self.declare_parsed_value(visibility, declaration.clone().into());
 
-        self.declare_resolved_value(id, visibility, declaration);
+        self.declare_semantic_value(id, visibility, declaration);
 
         id
     }
@@ -589,7 +588,7 @@ impl SemanticAnalysisContext {
         parameters: Vec<(Option<Idx<TypedPattern>>, SemanticDataType)>,
         return_type: SemanticDataType,
     ) {
-        self.declare_resolved_value(
+        self.declare_semantic_value(
             id,
             visibility,
             SemanticValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Regular(

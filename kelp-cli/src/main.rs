@@ -3,9 +3,9 @@ use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::ast_allocator::low::LowAstAllocator;
 use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
-use kelp_core::parsed::environment::resolved::SemanticEnvironment;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
+use kelp_core::typed::environment::SemanticEnvironment;
 use kelp_core::typed::program::Program as MiddleProgram;
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
@@ -365,7 +365,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
 fn process_success(
     allocator: &LowAstAllocator,
-    resolved_environment: SemanticEnvironment,
+    semantic_environment: SemanticEnvironment,
     program: MiddleProgram,
     _file_name: &str,
     _source_text: &str,
@@ -376,7 +376,7 @@ fn process_success(
     let project_description = kelp_toml.project.description;
 
     let mut datapack = Datapack::new(
-        resolved_environment,
+        semantic_environment,
         project_name.clone(),
         project_description,
     );

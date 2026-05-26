@@ -1,29 +1,27 @@
-use std::collections::HashMap;
-
-use la_arena::Idx;
+use std::collections::{HashMap, hash_map::Iter};
 
 use crate::{
     typed::{
-        data_type::resolved::DataType,
+        data_type::unresolved::SemanticDataType,
         environment::{
             r#type::{
-                TypeDeclaration, TypeDeclarationKind,
+                HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
                 r#struct::{
-                    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
-                    TupleStructDeclaration, TupleStructId,
+                    HighStructId, SemanticStructDeclaration,
+                    regular::{HighRegularStructId, SemanticRegularStructDeclaration},
+                    tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
                 },
             },
             value::{
-                ValueDeclaration, ValueDeclarationKind, ValueId,
+                HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
                 function::{
-                    FunctionDeclaration, FunctionId,
-                    regular::{RegularFunctionDeclaration, RegularFunctionId},
+                    HighFunctionId, SemanticFunctionDeclaration,
+                    builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration},
+                    regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
                 },
-                variable::{VariableDeclaration, VariableId},
+                variable::{HighVariableId, SemanticVariableDeclaration},
             },
         },
-        expression::typed::TypedExpressionId,
-        pattern::TypedPattern,
     },
     visibility::Visibility,
 };
@@ -31,102 +29,124 @@ use crate::{
 pub mod r#type;
 pub mod value;
 
-#[derive(Debug, Clone, Default)]
-pub struct Environment {
-    pub types: Vec<TypeDeclaration>,
-    pub values: Vec<ValueDeclaration>,
+#[derive(Debug, Clone)]
+pub struct HighImpl {
+    pub generic_names: Vec<String>,
+    pub target_type: SemanticDataType,
+    pub types: HashMap<String, HighTypeId>,
+    pub values: HashMap<String, HighValueId>,
 }
 
-impl Environment {
-    #[must_use]
-    pub fn declare_type(
-        &mut self,
-        module_path: Vec<String>,
-        visibility: Visibility,
-        declaration: TypeDeclarationKind,
-    ) -> u32 {
-        let len = self.types.len() as u32;
+#[derive(Debug, Clone, Default)]
+pub struct SemanticEnvironment {
+    types: HashMap<HighTypeId, SemanticTypeDeclaration>,
+    values: HashMap<HighValueId, SemanticValueDeclaration>,
 
-        self.types.push(TypeDeclaration {
-            visibility,
-            module_path,
-            kind: declaration,
+    pub impls: HashMap<HighTypeId, Vec<HighImpl>>,
+}
+
+impl SemanticEnvironment {
+    #[inline]
+    pub fn declare_type(&mut self, id: HighTypeId, declaration: SemanticTypeDeclaration) {
+        self.types.insert(id, declaration);
+    }
+
+    #[inline]
+    pub fn declare_value(&mut self, id: HighValueId, declaration: SemanticValueDeclaration) {
+        self.values.insert(id, declaration);
+    }
+
+    pub fn update_value(&mut self, id: HighValueId, f: impl FnOnce(&mut SemanticValueDeclaration)) {
+        let declaration = self.values.get_mut(&id).unwrap();
+
+        f(declaration);
+    }
+
+    pub fn update_regular_function(
+        &mut self,
+        id: HighRegularFunctionId,
+        f: impl FnOnce(&mut SemanticRegularFunctionDeclaration),
+    ) {
+        self.update_value(id.into(), |declaration| {
+            let SemanticValueDeclaration {
+                kind: SemanticValueDeclarationKind::Function(declaration),
+                ..
+            } = declaration
+            else {
+                unreachable!("Value is not a function");
+            };
+
+            let SemanticFunctionDeclaration::Regular(declaration) = &mut **declaration else {
+                unreachable!("Function is not regular");
+            };
+
+            f(declaration);
         });
-
-        len
     }
 
-    #[inline]
-    #[must_use]
-    pub fn declare_struct(
+    pub fn declare_variable(
         &mut self,
-        module_path: Vec<String>,
+        id: HighVariableId,
         visibility: Visibility,
-        declaration: StructDeclaration,
-    ) -> StructId {
-        let id = self.declare_type(
-            module_path,
-            visibility,
-            TypeDeclarationKind::Struct(declaration),
-        );
-
-        StructId(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn declare_regular_struct(
-        &mut self,
         module_path: Vec<String>,
-        visibility: Visibility,
         name: String,
-        generic_types: Vec<DataType>,
-        field_types: HashMap<String, DataType>,
-    ) -> RegularStructId {
-        let id = self.declare_struct(
-            module_path,
-            visibility,
-            StructDeclaration::Struct(RegularStructDeclaration {
-                name,
-                generic_types,
-                field_types,
-            }),
+        data_type: SemanticDataType,
+    ) {
+        self.declare_value(
+            id.into(),
+            SemanticValueDeclaration {
+                visibility,
+                module_path,
+                kind: SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration {
+                    name,
+                    data_type,
+                }),
+            },
         );
+    }
 
-        RegularStructId(id.0)
+    #[must_use]
+    pub fn declare_function(
+        &mut self,
+        declaration: SemanticValueDeclaration,
+    ) -> HighRegularFunctionId {
+        let id = HighRegularFunctionId(self.values.len() as u32);
+
+        self.values.insert(id.into(), declaration);
+
+        id
     }
 
     #[inline]
     #[must_use]
-    pub fn declare_tuple_struct(
-        &mut self,
-        module_path: Vec<String>,
-        visibility: Visibility,
-        name: String,
-        generic_types: Vec<DataType>,
-        field_types: Vec<DataType>,
-    ) -> TupleStructId {
-        let id = self.declare_struct(
-            module_path,
-            visibility,
-            StructDeclaration::Tuple(TupleStructDeclaration {
-                name,
-                generic_types,
-                field_types,
-            }),
-        );
-
-        TupleStructId(id.0)
+    pub fn get_type(&self, id: HighTypeId) -> &SemanticTypeDeclaration {
+        self.types.get(&id).unwrap()
     }
 
     #[must_use]
-    pub fn get_struct(&self, id: StructId) -> (&[String], Visibility, &StructDeclaration) {
-        #[allow(irrefutable_let_patterns)]
-        let TypeDeclaration {
-            visibility,
+    pub fn get_generic(&self, id: HighGenericId) -> (&[String], Visibility, &String) {
+        let SemanticTypeDeclaration {
             module_path,
-            kind: TypeDeclarationKind::Struct(declaration),
-        } = &self.types[id.0 as usize]
+            visibility,
+            kind: SemanticTypeDeclarationKind::Generic(name),
+        } = self.get_type(id.into())
+        else {
+            unreachable!();
+        };
+
+        (module_path, *visibility, name)
+    }
+
+    #[must_use]
+    pub fn get_struct(
+        &self,
+        id: HighStructId,
+    ) -> (&[String], Visibility, &SemanticStructDeclaration) {
+        let SemanticTypeDeclaration {
+            module_path,
+            visibility,
+            kind: SemanticTypeDeclarationKind::Struct(declaration),
+        } = self.get_type(id.into())
         else {
             unreachable!();
         };
@@ -137,9 +157,9 @@ impl Environment {
     #[must_use]
     pub fn get_regular_struct(
         &self,
-        id: RegularStructId,
-    ) -> (&[String], Visibility, &RegularStructDeclaration) {
-        let (module_path, visibility, StructDeclaration::Struct(declaration)) =
+        id: HighRegularStructId,
+    ) -> (&[String], Visibility, &SemanticRegularStructDeclaration) {
+        let (module_path, visibility, SemanticStructDeclaration::Struct(declaration)) =
             self.get_struct(id.into())
         else {
             unreachable!();
@@ -151,9 +171,9 @@ impl Environment {
     #[must_use]
     pub fn get_tuple_struct(
         &self,
-        id: TupleStructId,
-    ) -> (&[String], Visibility, &TupleStructDeclaration) {
-        let (module_path, visibility, StructDeclaration::Tuple(declaration)) =
+        id: HighTupleStructId,
+    ) -> (&[String], Visibility, &SemanticTupleStructDeclaration) {
+        let (module_path, visibility, SemanticStructDeclaration::Tuple(declaration)) =
             self.get_struct(id.into())
         else {
             unreachable!();
@@ -162,92 +182,22 @@ impl Environment {
         (module_path, visibility, declaration)
     }
 
-    #[must_use]
-    pub fn declare_value(
-        &mut self,
-        module_path: Vec<String>,
-        visibility: Visibility,
-        declaration: ValueDeclarationKind,
-    ) -> ValueId {
-        let id = self.values.len() as u32;
-
-        self.values.push(ValueDeclaration {
-            visibility,
-            module_path,
-            kind: declaration,
-        });
-
-        ValueId(id)
-    }
-
     #[inline]
     #[must_use]
-    pub fn get_value(&self, id: ValueId) -> &ValueDeclaration {
-        &self.values[id.0 as usize]
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_variable(&self, id: ValueId) -> (&[String], Visibility, &VariableDeclaration) {
-        let ValueDeclaration {
-            visibility,
-            module_path,
-            kind: ValueDeclarationKind::Variable(declaration),
-        } = self.get_value(id)
-        else {
-            unreachable!();
-        };
-
-        (module_path, *visibility, declaration)
+    pub fn get_value(&self, id: HighValueId) -> &SemanticValueDeclaration {
+        self.values.get(&id).unwrap()
     }
 
     #[must_use]
-    pub fn declare_variable(
-        &mut self,
-        module_path: Vec<String>,
-        visibility: Visibility,
-        name: String,
-        data_type: DataType,
-    ) -> VariableId {
-        let id = VariableId(self.values.len() as u32);
-
-        self.values.push(
-            ValueDeclarationKind::Variable(VariableDeclaration { name, data_type })
-                .with_visibility(module_path, visibility),
-        );
-
-        id
-    }
-
-    #[must_use]
-    pub fn declare_function(
-        &mut self,
-        module_path: Vec<String>,
-        visibility: Visibility,
-        declaration: FunctionDeclaration,
-    ) -> FunctionId {
-        let id = FunctionId(self.values.len() as u32);
-
-        self.values.push(
-            ValueDeclarationKind::Function(Box::new(declaration))
-                .with_visibility(module_path, visibility),
-        );
-
-        id
-    }
-
-    #[must_use]
-    pub fn get_function<I: Into<FunctionId>>(
+    pub fn get_variable(
         &self,
-        id: I,
-    ) -> (&[String], Visibility, &FunctionDeclaration) {
-        let id = id.into();
-
-        let ValueDeclaration {
-            visibility,
+        id: HighVariableId,
+    ) -> (&[String], Visibility, &SemanticVariableDeclaration) {
+        let SemanticValueDeclaration {
             module_path,
-            kind: ValueDeclarationKind::Function(declaration),
-        } = &self.values[id.0 as usize]
+            visibility,
+            kind: SemanticValueDeclarationKind::Variable(declaration),
+        } = self.get_value(id.into())
         else {
             unreachable!();
         };
@@ -255,30 +205,58 @@ impl Environment {
         (module_path, *visibility, declaration)
     }
 
-    pub fn update_regular_function(
-        &mut self,
-        id: RegularFunctionId,
-        new_parameters: Vec<(Idx<TypedPattern>, DataType)>,
-        new_body: TypedExpressionId,
-    ) {
-        let ValueDeclaration {
-            kind: ValueDeclarationKind::Function(declaration),
-            ..
-        } = &mut self.values[id.0 as usize]
+    #[must_use]
+    pub fn get_function(
+        &self,
+        id: HighFunctionId,
+    ) -> (&[String], Visibility, &SemanticFunctionDeclaration) {
+        let SemanticValueDeclaration {
+            module_path,
+            visibility,
+            kind: SemanticValueDeclarationKind::Function(declaration),
+        } = self.get_value(id.into())
         else {
             unreachable!();
         };
 
-        let FunctionDeclaration::Regular(RegularFunctionDeclaration {
-            parameters: old_parameters,
-            body: old_body,
-            ..
-        }) = &mut **declaration
+        (module_path, *visibility, declaration)
+    }
+
+    #[must_use]
+    pub fn get_regular_function(
+        &self,
+        id: HighRegularFunctionId,
+    ) -> (&[String], Visibility, &SemanticRegularFunctionDeclaration) {
+        let (module_path, visibility, SemanticFunctionDeclaration::Regular(declaration)) =
+            self.get_function(id.into())
         else {
             unreachable!();
         };
 
-        *old_parameters = new_parameters;
-        *old_body = new_body;
+        (module_path, visibility, declaration)
+    }
+
+    #[must_use]
+    pub fn get_builtin_function(
+        &self,
+        id: HighBuiltinFunctionId,
+    ) -> (&[String], Visibility, &SemanticBuiltinFunctionDeclaration) {
+        let (module_path, visibility, SemanticFunctionDeclaration::Builtin(declaration)) =
+            self.get_function(id.into())
+        else {
+            unreachable!();
+        };
+
+        (module_path, visibility, declaration)
+    }
+
+    #[must_use]
+    pub fn iter_types(&self) -> Iter<'_, HighTypeId, SemanticTypeDeclaration> {
+        self.types.iter()
+    }
+
+    #[must_use]
+    pub fn iter_values(&self) -> Iter<'_, HighValueId, SemanticValueDeclaration> {
+        self.values.iter()
     }
 }

@@ -1,54 +1,39 @@
+pub mod builtin;
+pub mod regular;
+
 use la_arena::Idx;
 
 use crate::{
     parameter_types_iter::{ParameterTypesIter, take_second},
     typed::{
-        data_type::resolved::DataType,
-        environment::value::function::{
-            builtin::{BuiltinFunctionDeclaration, BuiltinFunctionId},
-            regular::{RegularFunctionDeclaration, RegularFunctionId},
+        data_type::unresolved::SemanticDataType,
+        environment::value::{
+            HighValueId,
+            function::{
+                builtin::SemanticBuiltinFunctionDeclaration,
+                regular::SemanticRegularFunctionDeclaration,
+            },
         },
         pattern::TypedPattern,
     },
 };
 
-pub mod builtin;
-pub mod regular;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FunctionId(pub u32);
+pub struct HighFunctionId(pub u32);
 
-impl From<RegularFunctionId> for FunctionId {
-    fn from(value: RegularFunctionId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<BuiltinFunctionId> for FunctionId {
-    fn from(value: BuiltinFunctionId) -> Self {
+impl From<HighFunctionId> for HighValueId {
+    fn from(value: HighFunctionId) -> Self {
         Self(value.0)
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum FunctionDeclaration {
-    Regular(RegularFunctionDeclaration),
-    Builtin(BuiltinFunctionDeclaration),
+pub enum SemanticFunctionDeclaration {
+    Regular(SemanticRegularFunctionDeclaration),
+    Builtin(SemanticBuiltinFunctionDeclaration),
 }
 
-impl From<RegularFunctionDeclaration> for FunctionDeclaration {
-    fn from(value: RegularFunctionDeclaration) -> Self {
-        Self::Regular(value)
-    }
-}
-
-impl From<BuiltinFunctionDeclaration> for FunctionDeclaration {
-    fn from(value: BuiltinFunctionDeclaration) -> Self {
-        Self::Builtin(value)
-    }
-}
-
-impl FunctionDeclaration {
+impl SemanticFunctionDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -58,17 +43,17 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub fn generic_types(&self) -> &[DataType] {
+    pub const fn generic_count(&self) -> usize {
         match self {
-            Self::Regular(declaration) => &declaration.generic_types,
-            Self::Builtin(declaration) => &declaration.generic_types,
+            Self::Regular(declaration) => declaration.generic_ids.len(),
+            Self::Builtin(declaration) => declaration.generic_ids.len(),
         }
     }
 
     #[must_use]
     pub fn parameter_types(
         &self,
-    ) -> ParameterTypesIter<'_, Idx<TypedPattern>, DataType> {
+    ) -> ParameterTypesIter<'_, Option<Idx<TypedPattern>>, SemanticDataType> {
         match self {
             Self::Regular(declaration) => {
                 ParameterTypesIter::Regular(declaration.parameters.iter().map(take_second))
@@ -80,7 +65,7 @@ impl FunctionDeclaration {
     }
 
     #[must_use]
-    pub const fn return_type(&self) -> &DataType {
+    pub const fn return_type(&self) -> &SemanticDataType {
         match self {
             Self::Regular(declaration) => &declaration.return_type,
             Self::Builtin(declaration) => &declaration.return_type,

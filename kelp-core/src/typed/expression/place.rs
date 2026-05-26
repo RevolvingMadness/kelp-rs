@@ -2,12 +2,10 @@ use crate::{
     compile_context::CompileContext,
     data::GeneratedData,
     datapack::Datapack,
+    low::environment::value::variable::VariableId,
     operator::ArithmeticOperator,
     player_score::GeneratedPlayerScore,
-    typed::{
-        data_type::resolved::FieldAccessType, environment::value::variable::VariableId,
-        expression::resolved::Expression,
-    },
+    typed::{data_type::resolved::FieldAccessType, expression::resolved::Expression},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -5,7 +5,12 @@ use la_arena::Idx;
 use crate::{
     ast_allocator::{high::HighAstAllocator, low::LowAstAllocator},
     parsed::{
-        environment::resolved::{
+        item::Item,
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    },
+    trait_ext::CollectOptionAllIterExt,
+    typed::{
+        environment::{
             SemanticEnvironment,
             value::{
                 SemanticValueDeclaration, SemanticValueDeclarationKind,
@@ -15,15 +20,12 @@ use crate::{
                 },
             },
         },
-        item::Item,
-        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+        program::Program as MiddleProgram,
     },
-    trait_ext::CollectOptionAllIterExt,
-    typed::program::Program as MiddleProgram,
 };
 
 fn calls_recursively(
-    resolved_environment: &SemanticEnvironment,
+    semantic_environment: &SemanticEnvironment,
     callee_id: HighFunctionId,
     call_id: HighFunctionId,
     visited_calls: &mut HashSet<HighFunctionId>,
@@ -40,13 +42,13 @@ fn calls_recursively(
         _,
         _,
         SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration { calls, .. }),
-    ) = resolved_environment.get_function(call_id)
+    ) = semantic_environment.get_function(call_id)
     else {
         return false;
     };
 
     for (_, call_id) in calls {
-        if calls_recursively(resolved_environment, callee_id, *call_id, visited_calls) {
+        if calls_recursively(semantic_environment, callee_id, *call_id, visited_calls) {
             return true;
         }
     }

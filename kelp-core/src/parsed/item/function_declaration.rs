@@ -7,15 +7,10 @@ use crate::{
     parsed::{
         data_type::ParsedDataType,
         environment::{
-            resolved::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
-            unresolved::{
-                r#type::ParsedTypeDeclarationKind,
-                value::{
-                    ParsedValueDeclarationKind,
-                    function::{
-                        ParsedFunctionDeclaration, regular::ParsedRegularFunctionDeclaration,
-                    },
-                },
+            r#type::ParsedTypeDeclarationKind,
+            value::{
+                ParsedValueDeclarationKind,
+                function::{ParsedFunctionDeclaration, regular::ParsedRegularFunctionDeclaration},
             },
         },
         expression::block::BlockExpression,
@@ -28,7 +23,9 @@ use crate::{
     },
     span::Span,
     typed::{
-        data_type::unresolved::SemanticDataType, expression::typed::TypedExpression,
+        data_type::unresolved::SemanticDataType,
+        environment::{r#type::HighGenericId, value::function::regular::HighRegularFunctionId},
+        expression::typed::TypedExpression,
         item::Item as MiddleItem,
     },
     visibility::Visibility,

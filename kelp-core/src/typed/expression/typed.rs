@@ -20,16 +20,11 @@ use crate::{
     compile_context::{CompileContext, LoopInfo, LoopType},
     data::GeneratedData,
     datapack::Datapack,
+    low::environment::value::{ValueDeclarationKind, function::FunctionId, variable::VariableId},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
-    parsed::{
-        environment::resolved::{
-            r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
-            value::HighValueId,
-        },
-        expression::{
-            assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
-            place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
-        },
+    parsed::expression::{
+        assignee::{ParsedAssigneeExpression, ParsedAssigneeExpressionId},
+        place::{ParsedPlaceExpression, ParsedPlaceExpressionId},
     },
     runtime_storage::RuntimeStorageType,
     typed::{
@@ -40,7 +35,10 @@ use crate::{
             unresolved::SemanticDataType,
         },
         entity_selector::TypedEntitySelector,
-        environment::value::{ValueDeclarationKind, function::FunctionId, variable::VariableId},
+        environment::{
+            r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
+            value::HighValueId,
+        },
         expression::{
             command::{
                 TypedCommand as MiddleCommand,
@@ -727,7 +725,7 @@ impl TypedExpression {
                 let id = *id;
 
                 let (module_path, visiblity, declaration) =
-                    datapack.resolved_environment.get_regular_struct(id);
+                    datapack.semantic_environment.get_regular_struct(id);
 
                 let module_path = module_path.to_vec();
                 let name = declaration.name.clone();
@@ -773,7 +771,7 @@ impl TypedExpression {
                 let id = *id;
 
                 let (module_path, visiblity, declaration) =
-                    datapack.resolved_environment.get_tuple_struct(id);
+                    datapack.semantic_environment.get_tuple_struct(id);
 
                 let module_path = module_path.to_vec();
                 let name = declaration.name.clone();

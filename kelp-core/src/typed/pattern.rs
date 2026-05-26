@@ -10,14 +10,14 @@ use crate::{
     ast_allocator::low::LowAstAllocator,
     compile_context::CompileContext,
     datapack::Datapack,
-    parsed::environment::resolved::{
-        r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
-        value::variable::HighVariableId,
-    },
+    low::environment::r#type::r#struct::{RegularStructId, TupleStructId},
     typed::{
         data::TypedData,
         data_type::{resolved::DataType, unresolved::SemanticDataType},
-        environment::r#type::r#struct::{RegularStructId, TupleStructId},
+        environment::{
+            r#type::r#struct::{regular::HighRegularStructId, tuple::HighTupleStructId},
+            value::variable::HighVariableId,
+        },
         expression::{literal::LiteralExpression, resolved::Expression},
         player_score::TypedPlayerScore,
     },

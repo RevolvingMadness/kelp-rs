@@ -9,8 +9,8 @@ use minecraft_command_types::{
 };
 
 use crate::{
+    low::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
     runtime_storage::RuntimeStorageType,
-    typed::environment::{Environment, r#type::r#struct::StructId, value::function::FunctionId},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]

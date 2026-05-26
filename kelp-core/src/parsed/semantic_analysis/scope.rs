@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::parsed::environment::{
-    resolved::{r#type::HighTypeId, value::HighValueId},
-    unresolved::r#type::module::ParsedModuleDeclaration,
+use crate::{
+    parsed::environment::r#type::module::ParsedModuleDeclaration,
+    typed::environment::{r#type::HighTypeId, value::HighValueId},
 };
 
 #[derive(Debug, Default, Clone)]
@@ -54,7 +54,7 @@ impl Scope {
 
     #[inline]
     #[must_use]
-    pub fn into_module_declaration(self, module_name: String) -> ParsedModuleDeclaration {
+    pub fn into_parsed_module_declaration(self, module_name: String) -> ParsedModuleDeclaration {
         ParsedModuleDeclaration {
             name: module_name,
             types: self.types,

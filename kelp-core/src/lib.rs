@@ -2,6 +2,7 @@ pub mod ast_allocator;
 pub mod compile_context;
 pub mod data;
 pub mod datapack;
+pub mod low;
 pub mod operator;
 pub mod parameter_types_iter;
 pub mod parsed;

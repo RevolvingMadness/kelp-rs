@@ -7,9 +7,6 @@ use crate::{
     parsed::{
         data::Data,
         data_type::ParsedDataType,
-        environment::resolved::r#type::r#struct::{
-            HighStructId, regular::HighRegularStructId, tuple::HighTupleStructId,
-        },
         player_score::PlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
@@ -18,7 +15,11 @@ use crate::{
     span::Span,
     trait_ext::CollectOptionAllIterExt as _,
     typed::{
-        data_type::unresolved::SemanticDataType, expression::literal::LiteralExpression,
+        data_type::unresolved::SemanticDataType,
+        environment::r#type::r#struct::{
+            HighStructId, regular::HighRegularStructId, tuple::HighTupleStructId,
+        },
+        expression::literal::LiteralExpression,
         pattern::TypedPattern,
     },
     visibility::Visibility,

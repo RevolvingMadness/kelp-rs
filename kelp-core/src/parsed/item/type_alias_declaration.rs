@@ -3,14 +3,12 @@ use la_arena::Idx;
 use crate::{
     parsed::{
         data_type::ParsedDataType,
-        environment::{
-            resolved::r#type::{HighGenericId, alias::SemanticTypeAliasDeclaration},
-            unresolved::r#type::{ParsedTypeDeclarationKind, alias::ParsedTypeAliasDeclaration},
-        },
+        environment::r#type::{ParsedTypeDeclarationKind, alias::ParsedTypeAliasDeclaration},
         item::Item,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     span::Span,
+    typed::environment::r#type::{HighGenericId, alias::SemanticTypeAliasDeclaration},
     visibility::Visibility,
 };
 

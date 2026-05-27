@@ -257,12 +257,12 @@ impl SemanticPattern {
                 destructure_compound(patterns, datapack, ctx, data_type, value);
             }
             Self::RegularStruct(id, generic_types, field_patterns) => {
-                let id = SemanticDataType::resolve_regular_struct(datapack, id, generic_types);
+                let id = SemanticDataType::monomorphize_regular_struct(datapack, id, generic_types);
 
                 destructure_regular_struct(field_patterns, datapack, ctx, id, data_type, value);
             }
             Self::TupleStruct(id, generic_types, field_patterns) => {
-                let id = SemanticDataType::resolve_tuple_struct(datapack, id, generic_types);
+                let id = SemanticDataType::monomorphize_tuple_struct(datapack, id, generic_types);
 
                 destructure_tuple_struct(field_patterns, datapack, ctx, id, data_type, value);
             }

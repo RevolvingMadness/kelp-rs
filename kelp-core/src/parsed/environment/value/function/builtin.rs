@@ -1,13 +1,11 @@
 use crate::semantic::environment::{
-    r#type::HighGenericId,
-    value::function::builtin::{BuiltinFunctionKind, SemanticBuiltinFunctionDeclaration},
+    r#type::HighGenericId, value::function::builtin::SemanticBuiltinFunctionDeclaration,
 };
 
 #[derive(Debug, Clone)]
 pub struct ParsedBuiltinFunctionDeclaration {
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
-    pub kind: BuiltinFunctionKind,
 }
 
 impl From<SemanticBuiltinFunctionDeclaration> for ParsedBuiltinFunctionDeclaration {
@@ -15,7 +13,6 @@ impl From<SemanticBuiltinFunctionDeclaration> for ParsedBuiltinFunctionDeclarati
         Self {
             name: value.name,
             generic_ids: value.generic_ids,
-            kind: value.kind,
         }
     }
 }

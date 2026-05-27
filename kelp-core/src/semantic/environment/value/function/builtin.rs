@@ -1,11 +1,12 @@
 use strum::EnumIter;
 
-use crate::low::expression::Expression;
+use crate::datapack::Datapack;
+use crate::low::environment::r#type::r#struct::TupleStructId;
+use crate::low::environment::value::function::builtin::BuiltinFunctionKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::{HighGenericId, r#struct::tuple::HighTupleStructId};
 use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::value::function::HighFunctionId;
-use crate::{compile_context::CompileContext, datapack::Datapack};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HighBuiltinFunctionId(pub u32);
@@ -28,18 +29,18 @@ pub struct SemanticBuiltinFunctionDeclaration {
     pub generic_ids: Vec<HighGenericId>,
     pub parameters: Vec<SemanticDataType>,
     pub return_type: SemanticDataType,
-    pub kind: BuiltinFunctionKind,
+    pub kind: SemanticBuiltinFunctionKind,
 }
 
 #[derive(Debug, Clone, EnumIter)]
-pub enum BuiltinFunctionKind {
+pub enum SemanticBuiltinFunctionKind {
     #[strum(disabled)]
-    TupleStructConstructor(HighTupleStructId, Vec<SemanticDataType>),
+    TupleStructConstructor(HighTupleStructId, Vec<HighGenericId>),
 
     StdAdd, // fn add(integer, integer) -> integer
 }
 
-impl BuiltinFunctionKind {
+impl SemanticBuiltinFunctionKind {
     #[must_use]
     pub fn declaration(self) -> SemanticBuiltinFunctionDeclaration {
         macro_rules! declaration {
@@ -95,29 +96,26 @@ impl BuiltinFunctionKind {
         }
     }
 
-    pub fn call(
+    #[must_use]
+    pub fn monomorphize(
         self,
         datapack: &mut Datapack,
-        _ctx: &mut CompileContext,
-        mut arguments: Vec<Expression>,
-    ) -> Expression {
+        generic_types: &[SemanticDataType],
+    ) -> BuiltinFunctionKind {
         match self {
-            Self::TupleStructConstructor(id, generic_types) => {
-                let id = SemanticDataType::resolve_tuple_struct(datapack, id, generic_types);
+            Self::TupleStructConstructor(id, generic_ids) => {
+                let generic_types = generic_ids
+                    .iter()
+                    .copied()
+                    .map(SemanticDataType::Generic)
+                    .map(|data_type| data_type.substitute_generics(&generic_ids, generic_types))
+                    .collect();
 
-                Expression::TupleStruct(id, arguments)
+                let id = SemanticDataType::monomorphize_tuple_struct(datapack, id, generic_types);
+
+                BuiltinFunctionKind::TupleStructConstructor(TupleStructId(id.0))
             }
-            Self::StdAdd => {
-                let Expression::Integer(a) = arguments.pop().unwrap() else {
-                    unreachable!();
-                };
-
-                let Expression::Integer(b) = arguments.pop().unwrap() else {
-                    unreachable!();
-                };
-
-                Expression::Integer(a + b)
-            }
+            Self::StdAdd => BuiltinFunctionKind::StdAdd,
         }
     }
 }

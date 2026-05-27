@@ -25,11 +25,22 @@ use crate::{
                 alias::SemanticTypeAliasDeclaration,
                 module::HighModuleId,
                 r#struct::{
-                    SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
-                    tuple::SemanticTupleStructDeclaration,
+                    SemanticStructDeclaration,
+                    regular::SemanticRegularStructDeclaration,
+                    tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
                 },
             },
-            value::function::regular::HighRegularFunctionId,
+            value::{
+                SemanticValueDeclarationKind,
+                function::{
+                    SemanticFunctionDeclaration,
+                    builtin::{
+                        HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration,
+                        SemanticBuiltinFunctionKind,
+                    },
+                    regular::HighRegularFunctionId,
+                },
+            },
         },
         item::SemanticItem,
     },
@@ -201,8 +212,9 @@ pub enum NamedItemKind {
         generic_names: Vec<String>,
         field_types: Vec<ParsedDataType>,
 
-        id: HighTypeId,
+        id: HighTupleStructId,
         generic_ids: Vec<HighGenericId>,
+        constructor_id: HighBuiltinFunctionId,
     },
     Use(UseTree),
 }
@@ -267,8 +279,6 @@ impl NamedItem {
                 );
 
                 ctx.push_scope(associated_items_scope.clone());
-
-                println!("{:#?}", ctx.scopes);
 
                 for item in associated_items {
                     item.resolve_types(ctx);
@@ -452,6 +462,7 @@ impl NamedItem {
 
                 id,
                 generic_ids,
+                constructor_id,
                 ..
             } => {
                 ctx.enter_scope();
@@ -468,7 +479,7 @@ impl NamedItem {
                     .iter()
                     .cloned()
                     .map(|field_type| field_type.perform_semantic_analysis(ctx))
-                    .collect();
+                    .collect::<Vec<_>>();
 
                 ctx.exit_scope();
 
@@ -479,8 +490,32 @@ impl NamedItem {
                         SemanticTupleStructDeclaration {
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),
-                            field_types,
+                            field_types: field_types.clone(),
                         },
+                    )),
+                );
+
+                ctx.declare_semantic_value(
+                    (*constructor_id).into(),
+                    Visibility::Public,
+                    SemanticValueDeclarationKind::Function(Box::new(
+                        SemanticFunctionDeclaration::Builtin(SemanticBuiltinFunctionDeclaration {
+                            name: name.clone(),
+                            generic_ids: generic_ids.clone(),
+                            parameters: field_types,
+                            return_type: SemanticDataType::Struct(
+                                (*id).into(),
+                                generic_ids
+                                    .iter()
+                                    .copied()
+                                    .map(SemanticDataType::Generic)
+                                    .collect(),
+                            ),
+                            kind: SemanticBuiltinFunctionKind::TupleStructConstructor(
+                                *id,
+                                generic_ids.clone(),
+                            ),
+                        }),
                     )),
                 );
             }

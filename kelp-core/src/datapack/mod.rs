@@ -20,7 +20,9 @@ use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
-use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
+use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::r#struct::HighStructId;
+use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
 use crate::semantic::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
 use crate::semantic::environment::value::variable::HighVariableId;
 use crate::semantic::environment::value::{
@@ -52,13 +54,13 @@ pub mod namespace;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct MonomorphizedStructKey {
-    pub original_id: HighTypeId,
+    pub original_id: HighStructId,
     pub generics: Vec<DataType>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 struct MonomorphizedStructKeyRef<'a> {
-    pub original_id: HighTypeId,
+    pub original_id: HighStructId,
     pub generics: &'a [DataType],
 }
 
@@ -666,7 +668,7 @@ impl Datapack {
     #[must_use]
     pub fn get_monomorphized_struct_id(
         &self,
-        id: HighTypeId,
+        id: HighStructId,
         generic_types: &[DataType],
     ) -> Option<StructId> {
         let key = MonomorphizedStructKeyRef {
@@ -675,6 +677,18 @@ impl Datapack {
         };
 
         self.monomorphized_structs.get(&key).copied()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_monomorphized_tuple_struct_id(
+        &self,
+        id: HighTupleStructId,
+        generic_types: &[DataType],
+    ) -> Option<TupleStructId> {
+        let id = self.get_monomorphized_struct_id(id.into(), generic_types)?;
+
+        Some(TupleStructId(id.0))
     }
 
     #[inline]
@@ -795,12 +809,14 @@ impl Datapack {
                     .resolve(self)
                     .unwrap();
 
+                let kind = declaration.kind.monomorphize(self, generic_types);
+
                 let declaration = BuiltinFunctionDeclaration {
                     name: declaration.name,
                     generic_types: resolved_generic_types,
                     parameters,
                     return_type,
-                    kind: declaration.kind,
+                    kind,
                 };
 
                 self.declare_monomorphized_function(id, module_path, visibility, declaration)
@@ -810,7 +826,7 @@ impl Datapack {
 
     pub fn declare_monomorphized_struct(
         &mut self,
-        original_id: HighTypeId,
+        original_id: HighStructId,
         monomorphized_id: StructId,
         generic_types: Vec<DataType>,
     ) {
@@ -827,7 +843,7 @@ impl Datapack {
         &mut self,
         module_path: Vec<String>,
         visibility: Visibility,
-        original_id: HighTypeId,
+        original_id: HighStructId,
         name: String,
         generic_types: Vec<DataType>,
         field_types: HashMap<String, DataType>,
@@ -850,7 +866,7 @@ impl Datapack {
         &mut self,
         module_path: Vec<String>,
         visibility: Visibility,
-        original_id: HighTypeId,
+        original_id: HighStructId,
         name: String,
         generic_types: Vec<DataType>,
         field_types: Vec<DataType>,

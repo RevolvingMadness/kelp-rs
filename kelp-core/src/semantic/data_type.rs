@@ -363,7 +363,7 @@ impl SemanticDataType {
 
     #[must_use]
     #[allow(clippy::too_many_arguments)]
-    pub fn inner_resolve_tuple_struct(
+    pub fn inner_monomorphize_tuple_struct(
         datapack: &mut Datapack,
         id: HighTupleStructId,
         module_path: Vec<String>,
@@ -399,7 +399,7 @@ impl SemanticDataType {
     }
 
     #[must_use]
-    pub fn resolve_struct(
+    fn monomorphize_struct(
         datapack: &mut Datapack,
         id: HighStructId,
         generic_types: Vec<Self>,
@@ -430,7 +430,7 @@ impl SemanticDataType {
             SemanticStructDeclaration::Tuple(declaration) => {
                 let id = HighTupleStructId(id.0);
 
-                Self::inner_resolve_tuple_struct(
+                Self::inner_monomorphize_tuple_struct(
                     datapack,
                     id,
                     module_path,
@@ -446,7 +446,7 @@ impl SemanticDataType {
     }
 
     #[must_use]
-    pub fn resolve_regular_struct(
+    pub fn monomorphize_regular_struct(
         datapack: &mut Datapack,
         id: HighRegularStructId,
         generic_types: Vec<Self>,
@@ -471,7 +471,7 @@ impl SemanticDataType {
     }
 
     #[must_use]
-    pub fn resolve_tuple_struct(
+    pub fn monomorphize_tuple_struct(
         datapack: &mut Datapack,
         id: HighTupleStructId,
         generic_types: Vec<Self>,
@@ -483,7 +483,7 @@ impl SemanticDataType {
             (module_path.to_vec(), visiblity, declaration.clone())
         };
 
-        Self::inner_resolve_tuple_struct(
+        Self::inner_monomorphize_tuple_struct(
             datapack,
             id,
             module_path,
@@ -706,7 +706,7 @@ impl SemanticDataType {
                 DataType::Function(id)
             }
             Self::Struct(id, generic_types) => {
-                let id = Self::resolve_struct(datapack, id, generic_types);
+                let id = Self::monomorphize_struct(datapack, id, generic_types);
 
                 DataType::Struct(id)
             }

@@ -27,7 +27,8 @@ use crate::semantic::environment::{
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             builtin::{
-                BuiltinFunctionKind, HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration,
+                HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration,
+                SemanticBuiltinFunctionKind,
             },
             regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
         },
@@ -154,7 +155,7 @@ impl SemanticAnalysisContext {
             self.declare_builtin_type(builtin_type.declaration());
         }
 
-        for builtin_function in BuiltinFunctionKind::iter() {
+        for builtin_function in SemanticBuiltinFunctionKind::iter() {
             self.declare_builtin_function(Visibility::Public, builtin_function.declaration());
         }
 

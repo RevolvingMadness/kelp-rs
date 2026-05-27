@@ -2,20 +2,25 @@ use std::collections::HashMap;
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
-use crate::parsed::environment::r#type::{
-    ParsedTypeDeclarationKind,
-    alias::ParsedTypeAliasDeclaration,
-    r#struct::{
-        ParsedStructDeclaration, regular::ParsedRegularStructDeclaration,
-        tuple::ParsedTupleStructDeclaration,
-    },
-};
 use crate::parsed::environment::value::ParsedValueDeclarationKind;
 use crate::parsed::environment::value::function::ParsedFunctionDeclaration;
 use crate::parsed::environment::value::function::regular::ParsedRegularFunctionDeclaration;
+use crate::parsed::environment::{
+    r#type::{
+        ParsedTypeDeclarationKind,
+        alias::ParsedTypeAliasDeclaration,
+        r#struct::{
+            ParsedStructDeclaration, regular::ParsedRegularStructDeclaration,
+            tuple::ParsedTupleStructDeclaration,
+        },
+    },
+    value::function::builtin::ParsedBuiltinFunctionDeclaration,
+};
 use crate::parsed::item::named::{NamedItem, NamedItemKind};
 use crate::parsed::pattern::ParsedPattern;
 use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
+use crate::semantic::environment::value::function::builtin::HighBuiltinFunctionId;
 use crate::semantic::environment::value::function::regular::HighRegularFunctionId;
 use crate::{
     parsed::{
@@ -386,6 +391,20 @@ impl ParsedItem {
                     )),
                 );
 
+                let id = HighTupleStructId(id.0);
+
+                let constructor_id = ctx.declare_parsed_value(
+                    self.visibility,
+                    ParsedValueDeclarationKind::Function(Box::new(
+                        ParsedFunctionDeclaration::Builtin(ParsedBuiltinFunctionDeclaration {
+                            name: name.clone(),
+                            generic_ids: generic_ids.clone(),
+                        }),
+                    )),
+                );
+
+                let constructor_id = HighBuiltinFunctionId(constructor_id.0);
+
                 NamedItemKind::TupleStructDeclaration {
                     name_span,
                     name,
@@ -393,6 +412,7 @@ impl ParsedItem {
                     field_types,
                     id,
                     generic_ids,
+                    constructor_id,
                 }
             }
             ParsedItemKind::Use(tree) => NamedItemKind::Use(tree),

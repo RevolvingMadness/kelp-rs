@@ -3,7 +3,10 @@ use rowan::GreenNodeBuilder;
 
 use crate::{
     program::parse_program,
-    syntax::{SyntaxKind, SyntaxNode},
+    syntax::{
+        SyntaxKind::{self},
+        SyntaxNode,
+    },
 };
 
 #[derive(Debug)]
@@ -127,6 +130,18 @@ impl<'a> Parser<'a> {
     pub fn try_parse_fractional_value(&mut self) -> bool {
         if let Some((_, text)) = self.peek_fractional_value() {
             self.add_token(SyntaxKind::FractionalValue, text.len());
+
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn try_parse_identifier_kind(&mut self, identifier: &str, kind: SyntaxKind) -> bool {
+        if let Some(parsed_identifier) = self.peek_identifier()
+            && parsed_identifier == identifier
+        {
+            self.bump_str(kind, parsed_identifier);
 
             true
         } else {

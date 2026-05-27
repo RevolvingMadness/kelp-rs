@@ -67,7 +67,7 @@ pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
     }
 }
 
-fn recover_item(parser: &mut Parser) {
+fn recover_item(parser: &mut Parser, error_message: &str) {
     let bytes = &parser.source.as_bytes()[parser.pos..];
 
     let (not_end, length) = bytes
@@ -75,16 +75,17 @@ fn recover_item(parser: &mut Parser) {
         .position(|&b| b == b'\n' || b == b';')
         .map_or((false, bytes.len()), |value| (true, value));
 
-    parser.add_token(SyntaxKind::Garbage, length + usize::from(not_end));
+    let length = length + usize::from(not_end);
+
+    parser.error_with_len(error_message, length);
+    parser.add_token(SyntaxKind::Error, length);
 }
 
 #[must_use]
 pub fn try_parse_item(parser: &mut Parser) -> bool {
     let checkpoint = parser.checkpoint();
 
-    let parsed_visibility = if parser.peek_identifier() == Some("pub") {
-        parser.bump_str(SyntaxKind::PubKeyword, "pub");
-
+    let parsed_visibility = if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
         Some(parser.expect_whitespace())
     } else {
         None
@@ -114,18 +115,14 @@ pub fn try_parse_item(parser: &mut Parser) -> bool {
 pub fn expect_item(parser: &mut Parser) -> bool {
     parser.start_node(SyntaxKind::Item);
 
-    if parser.peek_identifier() == Some("pub") {
-        parser.bump_str(SyntaxKind::PubKeyword, "pub");
-
-        Some(parser.expect_whitespace())
-    } else {
-        None
-    };
+    if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
+        parser.expect_whitespace();
+    }
 
     let Some(identifier) = parser.peek_identifier() else {
-        parser.error("Expected item");
+        recover_item(parser, "Expected item");
 
-        recover_item(parser);
+        parser.finish_node();
 
         return true;
     };

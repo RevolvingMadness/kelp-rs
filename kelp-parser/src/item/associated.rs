@@ -21,15 +21,12 @@ use crate::{
 pub fn expect_associated_item(parser: &mut Parser) {
     parser.start_node(SyntaxKind::AssociatedItem);
 
-    if parser.peek_identifier() == Some("pub") {
-        parser.bump_str(SyntaxKind::PubKeyword, "pub");
+    if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
         parser.expect_whitespace();
     }
 
     let Some(identifier) = parser.peek_identifier() else {
-        parser.error("Expected associated item");
-
-        recover_item(parser);
+        recover_item(parser, "Expected associated item");
 
         parser.finish_node();
 

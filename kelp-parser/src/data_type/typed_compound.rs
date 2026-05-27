@@ -24,12 +24,10 @@ pub fn try_parse_typed_compound_data_type(parser: &mut Parser) -> bool {
         }
 
         parser.skip_whitespace();
-        let parsed_colon = parser.expect_char(':', "Expected ':' after field name");
+        parser.expect_char(':', "Expected ':' after field name");
         parser.skip_whitespace();
 
-        if !CSTDataType::try_parse(parser) && parsed_colon {
-            parser.error("Expected data type");
-        }
+        CSTDataType::expect(parser, "Expected data type");
 
         parser.skip_whitespace();
         parser.finish_node();

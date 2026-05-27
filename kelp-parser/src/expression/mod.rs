@@ -105,9 +105,7 @@ fn try_parse_to_cast(parser: &mut Parser) -> bool {
             marker.start_node(parser, SyntaxKind::AsCastExpression);
             parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
             parser.expect_whitespace();
-            if !CSTDataType::try_parse(parser) {
-                parser.error("Expected data type");
-            }
+            CSTDataType::expect(parser, "Expected data type");
             parser.finish_node();
             continue;
         }
@@ -484,9 +482,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                     marker.start_node(parser, SyntaxKind::AsCastExpression);
                     parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
                     parser.expect_whitespace();
-                    if !CSTDataType::try_parse(parser) {
-                        parser.error("Expected data type");
-                    }
+                    CSTDataType::expect(parser, "Expected data type");
                     parser.finish_node();
                 } else {
                     state.restore(parser);
@@ -518,9 +514,7 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
                 return true;
             }
 
-            if !CSTExpression::try_parse(parser) {
-                parser.error("Expected expression");
-            }
+            CSTExpression::expect(parser, "Expected expression");
 
             parser.skip_whitespace();
 
@@ -535,9 +529,7 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
                         break;
                     }
 
-                    if !CSTExpression::try_parse(parser) {
-                        parser.error("Expected expression after ','");
-                    }
+                    CSTExpression::expect(parser, "Expected expression");
                     parser.skip_whitespace();
                 }
             }

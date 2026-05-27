@@ -67,9 +67,7 @@ impl ParsableAstNode for CSTGenericDataTypes {
         parser.skip_inline_whitespace();
 
         while parser.peek_char() != Some('>') && parser.peek_char().is_some() {
-            if !CSTDataType::try_parse(parser) {
-                parser.error("Expected data type in generic arguments");
-
+            if !CSTDataType::expect(parser, "Expected data type in generic arguments") {
                 break;
             }
 

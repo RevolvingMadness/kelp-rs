@@ -27,9 +27,7 @@ impl ParsableAstNode for CSTAppendStatement {
 
         parser.skip_inline_whitespace();
 
-        if !CSTExpression::try_parse(parser) {
-            parser.error("Expected expression");
-        }
+        CSTExpression::expect(parser, "Expected expression");
 
         expect_semicolon_ending(parser);
 

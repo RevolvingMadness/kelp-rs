@@ -26,9 +26,7 @@ impl ParsableAstNode for CSTResourceLocationExpression {
 
         parser.skip_whitespace();
 
-        if !CSTResourceLocation::try_parse(parser) {
-            parser.error("Expected resource location");
-        }
+        CSTResourceLocation::expect(parser, "Expected resource location");
 
         parser.finish_node();
 

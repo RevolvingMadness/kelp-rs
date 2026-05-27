@@ -19,9 +19,7 @@ pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
         '{' => {
             parser.start_node(SyntaxKind::CompoundNBTPathNode);
 
-            if !CSTCompoundExpression::try_parse(parser) {
-                parser.error("Expected compound");
-            }
+            CSTCompoundExpression::expect(parser, "Expected compound");
 
             parser.finish_node();
 

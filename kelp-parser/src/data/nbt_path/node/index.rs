@@ -16,9 +16,7 @@ impl ParsableAstNode for CSTIndexNBTPathNode {
         parser.skip_whitespace();
 
         if parser.peek_char() != Some(']') {
-            if !CSTExpression::try_parse(parser) {
-                parser.error("Expected index expression");
-            }
+            CSTExpression::expect(parser, "Expected expression");
 
             parser.skip_whitespace();
         }

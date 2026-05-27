@@ -28,9 +28,7 @@ impl ParsableAstNode for CSTLetStatement {
         if parser.try_bump_char(':') {
             parser.skip_whitespace();
 
-            if !CSTDataType::try_parse(parser) {
-                parser.error("Expected data type");
-            }
+            CSTDataType::expect(parser, "Expected data type");
 
             parser.skip_whitespace();
         }

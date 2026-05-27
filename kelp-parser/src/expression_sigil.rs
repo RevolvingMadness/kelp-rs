@@ -20,9 +20,7 @@ impl ParsableAstNode for CSTExpressionSigil {
 
         parser.skip_whitespace();
 
-        if !CSTExpression::try_parse(parser) {
-            parser.error("Expected expression");
-        }
+        CSTExpression::expect(parser, "Expected expression");
 
         parser.finish_node();
 

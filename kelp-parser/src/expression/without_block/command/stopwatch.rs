@@ -22,9 +22,7 @@ fn try_parse_stopwatch_command_expression_create(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !CSTResourceLocation::try_parse(parser) {
-        parser.error("Expected resource location");
-    }
+    CSTResourceLocation::expect(parser, "Expected resource location");
 
     parser.finish_node();
 }
@@ -36,9 +34,7 @@ fn try_parse_stopwatch_command_expression_query(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !CSTResourceLocation::try_parse(parser) {
-        parser.error("Expected resource location");
-    }
+    CSTResourceLocation::expect(parser, "Expected resource location");
 
     parser.skip_inline_whitespace();
 
@@ -54,9 +50,7 @@ fn try_parse_stopwatch_command_expression_remove(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !CSTResourceLocation::try_parse(parser) {
-        parser.error("Expected resource location");
-    }
+    CSTResourceLocation::expect(parser, "Expected resource location");
 
     parser.finish_node();
 }
@@ -68,9 +62,7 @@ fn try_parse_stopwatch_command_expression_restart(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !CSTResourceLocation::try_parse(parser) {
-        parser.error("Expected resource location");
-    }
+    CSTResourceLocation::expect(parser, "Expected resource location");
 
     parser.finish_node();
 }

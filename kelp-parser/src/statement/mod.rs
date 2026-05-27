@@ -7,9 +7,9 @@ use crate::{
         try_parse_expression_without_block, with_block::lower_expression_with_block,
         without_block::lower_expression_without_block,
     },
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     statement::{
         append::{lower_append_statement, try_parse_append_statement},
         r#break::{lower_break_statement, try_parse_break_statement},
@@ -145,7 +145,7 @@ pub fn lower_expression_statement(
         return None;
     };
 
-    Some(ParsedStatementKind::Expression(expression).with_span(span_of_cst_node(&node)))
+    Some(ParsedStatementKind::Expression(expression).with_span(node.span()))
 }
 
 #[must_use]

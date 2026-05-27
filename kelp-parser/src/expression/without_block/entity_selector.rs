@@ -3,9 +3,9 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTEntitySelectorExpression,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -43,7 +43,7 @@ pub fn lower_entity_selector_expression(
 ) -> Option<ParsedExpression> {
     let entity_selector = lower_entity_selector(node.entity_selector()?, ctx)?;
 
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     Some(ParsedExpressionKind::EntitySelector(Box::new(entity_selector)).with_span(span))
 }

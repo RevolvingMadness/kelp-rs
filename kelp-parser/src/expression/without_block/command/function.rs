@@ -5,10 +5,10 @@ use kelp_core::parsed::{
 
 use crate::{
     cst::CSTFunctionCommandExpression,
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -35,7 +35,7 @@ pub fn lower_function_command_expression(
     node: CSTFunctionCommandExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 

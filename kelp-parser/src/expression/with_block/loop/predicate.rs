@@ -6,9 +6,9 @@ use crate::{
         lower_expression, try_parse_expression,
         with_block::block::{lower_block_expression, try_parse_block_expression},
     },
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -43,7 +43,7 @@ pub fn lower_predicate_loop_expression(
     node: CSTPredicateLoopExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let condition = lower_expression(node.expression()?, ctx)?;
     let body = lower_block_expression(node.block_expression()?, ctx)?;

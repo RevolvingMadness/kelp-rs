@@ -3,8 +3,8 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTFieldAccessExpression,
     expression::lower_expression,
+    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
     lower_context::LowerContext,
-    span::{span_of_cst_node, text_range_to_span},
 };
 
 #[must_use]
@@ -16,10 +16,10 @@ pub fn lower_field_access_expression(
     let expression = lower_expression(node.expression()?, ctx)?;
     let field_token = node.field_name_token()?;
 
-    let field_span = text_range_to_span(field_token.text_range());
+    let field_span = field_token.span();
     let field = field_token.text().to_owned();
 
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     Some(ParsedExpressionKind::FieldAccess(Box::new(expression), field_span, field).with_span(span))
 }

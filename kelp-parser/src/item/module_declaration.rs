@@ -5,7 +5,7 @@ use crate::{
     item::{expect_item, lower_item},
     lower_context::LowerContext,
     parser::Parser,
-    span::text_range_to_span,
+    extension_traits::SyntaxTokenExt,
     syntax::SyntaxKind,
 };
 
@@ -79,7 +79,7 @@ pub fn lower_module_declaration_item(
     ctx: &mut LowerContext,
 ) -> Option<ParsedItemKind> {
     let name_token = node.module_name_token()?;
-    let name_range = name_token.text_range();
+    let name_span = name_token.span();
     let name = name_token.text();
 
     let items = node
@@ -88,7 +88,7 @@ pub fn lower_module_declaration_item(
         .collect();
 
     Some(ParsedItemKind::ModuleDeclaration {
-        name_span: text_range_to_span(name_range),
+        name_span,
         name: name.to_owned(),
         items,
     })

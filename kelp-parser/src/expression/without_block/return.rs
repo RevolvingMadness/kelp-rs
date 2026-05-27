@@ -3,9 +3,9 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTReturnExpression,
     expression::{lower_expression, try_parse_expression},
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
-    span::{span_of_cst_node, text_range_to_span},
     syntax::SyntaxKind,
 };
 
@@ -29,12 +29,12 @@ pub fn lower_return_expression(
     node: CSTReturnExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let keyword_span = text_range_to_span(node.return_token()?.text_range());
-    let full_span = span_of_cst_node(&node);
+    let keyword_span = node.return_token()?.span();
+    let full_span = node.span();
 
     let (expression_span, expression) = match node.expression() {
         Some(expression) => {
-            let span = span_of_cst_node(&expression);
+            let span = expression.span();
             let expr = lower_expression(expression, ctx)?;
 
             (span, Some(expr))

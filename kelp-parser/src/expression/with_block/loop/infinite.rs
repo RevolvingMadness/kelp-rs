@@ -3,9 +3,9 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTInfiniteLoopExpression,
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -34,7 +34,7 @@ pub fn lower_infinite_loop_expression(
     node: CSTInfiniteLoopExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 

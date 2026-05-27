@@ -4,10 +4,10 @@ use crate::{
     coordinates::{lower_coordinates, try_parse_coordinates},
     cst::CSTDataTarget,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -62,7 +62,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
 
 #[must_use]
 pub fn lower_data_target(node: CSTDataTarget, ctx: &mut LowerContext) -> Option<ParsedDataTarget> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     Some(
         (match node {

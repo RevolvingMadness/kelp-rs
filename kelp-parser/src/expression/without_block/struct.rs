@@ -8,10 +8,10 @@ use kelp_core::{
 use crate::{
     cst::{CSTStructExpression, CSTStructExpressionField, CSTStructExpressionFields},
     expression::{lower_expression, try_parse_expression},
+    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::lower_generic_path,
-    span::{span_of_cst_node, text_range_to_span},
     syntax::SyntaxKind,
 };
 
@@ -22,7 +22,7 @@ fn lower_struct_expression_field(
     ctx: &mut LowerContext,
 ) -> Option<((Span, String), ParsedExpression)> {
     let name_token = node.name()?;
-    let name_span = text_range_to_span(name_token.text_range());
+    let name_span = name_token.span();
     let name = name_token.text();
 
     let expression = lower_expression(node.expression()?, ctx)?;
@@ -108,7 +108,7 @@ pub fn lower_struct_expression(
     node: CSTStructExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let path = lower_generic_path(node.generic_path()?)?;
 

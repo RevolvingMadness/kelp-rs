@@ -6,9 +6,9 @@ use crate::{
         lower_expression, try_parse_expression,
         with_block::block::{lower_block_expression, try_parse_block_expression},
     },
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -62,14 +62,14 @@ pub fn lower_if_expression(
     node: CSTIfExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let condition = lower_expression(node.condition()?, ctx)?;
     let body = lower_block_expression(node.body()?, ctx)?;
     let else_body = node
         .else_body_block()
         .and_then(|expression| {
-            let span = span_of_cst_node(&expression);
+            let span = expression.span();
 
             let expression = lower_block_expression(expression, ctx)?;
 

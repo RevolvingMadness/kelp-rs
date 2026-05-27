@@ -1,11 +1,11 @@
 use kelp_core::{
-    parsed::expression::{ParsedExpression, ParsedExpressionKind},
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator},
+    parsed::expression::{ParsedExpression, ParsedExpressionKind},
 };
 
 use crate::{
-    cst::CSTBinaryExpression, expression::lower_expression, lower_context::LowerContext,
-    span::span_of_cst_node, syntax::SyntaxKind,
+    cst::CSTBinaryExpression, expression::lower_expression, extension_traits::AstNodeExt as _,
+    lower_context::LowerContext, syntax::SyntaxKind,
 };
 
 #[must_use]
@@ -14,7 +14,7 @@ pub fn lower_binary_expression(
     node: CSTBinaryExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let left = lower_expression(node.lhs()?, ctx)?;
     let right = lower_expression(node.rhs()?, ctx)?;

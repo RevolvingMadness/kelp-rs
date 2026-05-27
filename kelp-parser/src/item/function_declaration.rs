@@ -9,16 +9,17 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::{CSTFunctionDeclarationItem, CSTFunctionParameter, CSTFunctionParameters},
+    cst::{CSTFunctionDeclarationItem, CSTFunctionParameter, CSTFunctionParameters, CSTPattern},
     data_type::{
         generics::{lower_generic_names, try_parse_generic_names},
         lower_data_type, try_parse_data_type,
     },
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
+    extension_traits::ParsableAstNode as _,
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
-    pattern::{lower_pattern, try_parse_pattern},
-    span::{span_of_cst_node, text_range_to_span},
+    pattern::lower_pattern,
     syntax::SyntaxKind::{self},
 };
 
@@ -26,7 +27,7 @@ use crate::{
 pub fn try_parse_function_parameter(parser: &mut Parser) -> bool {
     parser.start_node(SyntaxKind::FunctionParameter);
 
-    if !try_parse_pattern(parser) {
+    if !CSTPattern::try_parse(parser) {
         parser.error("Expected pattern");
         parser.finish_node();
 
@@ -255,10 +256,10 @@ pub fn lower_function_parameters(
         .self_function_parameters()
         .next()
         .and_then(|parameter| {
-            let self_keyword_span = text_range_to_span(parameter.self_token()?.text_range());
+            let self_keyword_span = parameter.self_token()?.span();
 
             let self_type = parameter.data_type().and_then(|data_type| {
-                let span = span_of_cst_node(&data_type);
+                let span = data_type.span();
 
                 let data_type = lower_data_type(data_type)?;
 
@@ -285,16 +286,12 @@ pub fn lower_function_declaration_item_kind(
     node: CSTFunctionDeclarationItem,
     ctx: &mut LowerContext,
 ) -> Option<ParsedItemKind> {
-    let recursive_keyword_span = node
-        .recursive_token()
-        .map(|token| text_range_to_span(token.text_range()));
+    let recursive_keyword_span = node.recursive_token().map(|token| token.span());
 
-    let runtime_keyword_span = node
-        .runtime_token()
-        .map(|token| text_range_to_span(token.text_range()));
+    let runtime_keyword_span = node.runtime_token().map(|token| token.span());
 
     let name_token = node.name()?;
-    let name_span = name_token.text_range();
+    let name_span = name_token.span();
     let name = name_token.text();
 
     let generic_names = node.generic_names().and_then(lower_generic_names);
@@ -336,7 +333,7 @@ pub fn lower_function_declaration_item_kind(
     Some(ParsedItemKind::FunctionDeclaration {
         recursive_keyword_span,
         runtime_keyword_span,
-        name_span: text_range_to_span(name_span),
+        name_span,
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),
         self_parameter,

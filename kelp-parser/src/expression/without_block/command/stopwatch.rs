@@ -9,10 +9,10 @@ use crate::{
         CSTStopwatchCommandExpressionOptions, CSTStopwatchCommandExpressionQuery,
         CSTStopwatchCommandExpressionRemove, CSTStopwatchCommandExpressionRestart,
     },
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -185,7 +185,7 @@ pub fn lower_stopwatch_command_expression(
     node: CSTStopwatchCommandExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let command = lower_stopwatch_command_expression_options(
         node.stopwatch_command_expression_options()?,

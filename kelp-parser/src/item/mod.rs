@@ -6,6 +6,7 @@ use kelp_core::{
 use crate::{
     cst::{CSTItem, CSTItemKind},
     data_type::generics::lower_generic_names,
+    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
     item::{
         function_declaration::{
             expect_function_declaration_item_kind, lower_function_declaration_item_kind,
@@ -35,7 +36,6 @@ use crate::{
     },
     lower_context::LowerContext,
     parser::Parser,
-    span::{span_of_cst_node, text_range_to_span},
     r#struct::{lower_struct_fields, lower_tuple_fields},
     syntax::SyntaxKind,
 };
@@ -163,7 +163,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedIt
         }
         CSTItemKind::RegularStructDeclarationItem(node) => {
             let name_token = node.name()?;
-            let name_range = name_token.text_range();
+            let name_span = name_token.span();
             let name = name_token.text();
 
             let generic_names = node.generic_names().and_then(lower_generic_names);
@@ -171,7 +171,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedIt
             let field_types = node.struct_fields().and_then(lower_struct_fields);
 
             Some(ParsedItemKind::RegularStructDeclaration {
-                name_span: text_range_to_span(name_range),
+                name_span,
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
                 field_types: field_types.unwrap_or_default(),
@@ -179,7 +179,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedIt
         }
         CSTItemKind::TupleStructDeclarationItem(node) => {
             let name_token = node.name()?;
-            let name_range = name_token.text_range();
+            let name_span = name_token.span();
             let name = name_token.text();
 
             let generic_names = node.generic_names().and_then(lower_generic_names);
@@ -187,7 +187,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedIt
             let field_types = node.tuple_fields().and_then(lower_tuple_fields);
 
             Some(ParsedItemKind::TupleStructDeclaration {
-                name_span: text_range_to_span(name_range),
+                name_span,
                 name: name.to_owned(),
                 generic_names: generic_names.unwrap_or_default(),
                 field_types: field_types.unwrap_or_default(),
@@ -201,7 +201,7 @@ fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedIt
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<ParsedItem> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let visibility = if node.pub_token().is_some() {
         Visibility::Public

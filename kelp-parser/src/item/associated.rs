@@ -1,6 +1,7 @@
 use kelp_core::parsed::item::ParsedItem;
 use kelp_core::visibility::Visibility;
 
+use crate::extension_traits::AstNodeExt as _;
 use crate::lower_context::LowerContext;
 use crate::{
     cst::{CSTAssociatedItem, CSTAssociatedItemKind},
@@ -14,7 +15,6 @@ use crate::{
         },
     },
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -52,7 +52,7 @@ pub fn lower_associated_item(
     node: CSTAssociatedItem,
     ctx: &mut LowerContext,
 ) -> Option<ParsedItem> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let visibility = if node.pub_token().is_some() {
         Visibility::Public

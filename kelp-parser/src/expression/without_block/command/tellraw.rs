@@ -7,9 +7,9 @@ use crate::{
     cst::CSTTellrawCommandExpression,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
     expression::{lower_expression, try_parse_expression},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -46,7 +46,7 @@ pub fn lower_tellraw_command_expression(
     node: CSTTellrawCommandExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
     let value = lower_expression(node.expression()?, ctx)?;

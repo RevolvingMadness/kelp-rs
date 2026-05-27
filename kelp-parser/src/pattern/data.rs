@@ -3,9 +3,9 @@ use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 use crate::{
     cst::CSTDataPattern,
     data::{lower_data, try_parse_data},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -27,7 +27,7 @@ pub fn try_parse_data_pattern(parser: &mut Parser) -> bool {
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_data_pattern(node: CSTDataPattern, ctx: &mut LowerContext) -> Option<ParsedPattern> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let data = lower_data(node.data()?, ctx)?;
 

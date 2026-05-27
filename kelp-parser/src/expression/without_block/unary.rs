@@ -1,11 +1,11 @@
 use kelp_core::{
-    parsed::expression::{ParsedExpression, ParsedExpressionKind},
     operator::UnaryOperator,
+    parsed::expression::{ParsedExpression, ParsedExpressionKind},
 };
 
 use crate::{
-    cst::CSTUnaryExpression, expression::lower_expression, lower_context::LowerContext,
-    span::span_of_cst_node, syntax::SyntaxKind,
+    cst::CSTUnaryExpression, expression::lower_expression, extension_traits::AstNodeExt as _,
+    lower_context::LowerContext, syntax::SyntaxKind,
 };
 
 #[must_use]
@@ -14,7 +14,7 @@ pub fn lower_unary_expression(
     node: CSTUnaryExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let operator = match node.operator()?.kind() {
         SyntaxKind::ExclamationMark => UnaryOperator::Invert,

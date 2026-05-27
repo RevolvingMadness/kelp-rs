@@ -3,9 +3,9 @@ use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 use crate::{
     cst::CSTRemoveStatement,
     expression::{lower_expression, try_parse_expression},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     statement::expect_semicolon_ending,
     syntax::SyntaxKind,
 };
@@ -39,7 +39,7 @@ pub fn lower_remove_statement(
     node: CSTRemoveStatement,
     ctx: &mut LowerContext,
 ) -> Option<ParsedStatement> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let target = lower_expression(node.target()?, ctx)?;
 

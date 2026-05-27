@@ -2,10 +2,10 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTResourceLocationExpression,
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -43,7 +43,7 @@ pub fn lower_resource_location_expression(
 ) -> Option<ParsedExpression> {
     let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
 
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     Some(ParsedExpressionKind::ResourceLocation(Box::new(resource_location)).with_span(span))
 }

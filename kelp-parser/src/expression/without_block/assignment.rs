@@ -1,13 +1,13 @@
 use kelp_core::{
-    parsed::expression::{ParsedExpression, ParsedExpressionKind},
     operator::ArithmeticOperator,
+    parsed::expression::{ParsedExpression, ParsedExpressionKind},
 };
 
 use crate::{
     cst::CSTAssignmentExpression,
     expression::lower_expression,
+    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
     lower_context::LowerContext,
-    span::{span_of_cst_node, text_range_to_span},
     syntax::SyntaxKind,
 };
 
@@ -17,13 +17,13 @@ pub fn lower_assignment_expression(
     node: CSTAssignmentExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let target = lower_expression(node.target()?, ctx)?;
     let value = lower_expression(node.value()?, ctx)?;
     let operator = node.operator()?;
 
-    let operator_span = text_range_to_span(operator.text_range());
+    let operator_span = operator.span();
 
     let operator = match operator.kind() {
         SyntaxKind::Equal => None,

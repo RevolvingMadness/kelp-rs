@@ -1,7 +1,8 @@
 use kelp_core::parsed::pattern::ParsedPattern;
 
 use crate::{
-    cst::CSTPattern,
+    cst::{CSTPattern, CSTRegularStructPatternFields},
+    extension_traits::{LowerableAstNode as _, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::try_parse_generic_path,
@@ -10,10 +11,7 @@ use crate::{
         compound::lower_compound_pattern,
         data::{lower_data_pattern, try_parse_data_pattern},
         score::{lower_score_pattern, try_parse_score_pattern},
-        r#struct::{
-            lower_struct_pattern, lower_tuple_struct_pattern, try_parse_struct_pattern_fields,
-            try_parse_tuple_struct_pattern_fields,
-        },
+        r#struct::{lower_tuple_struct_pattern, try_parse_tuple_struct_pattern_fields},
         tuple::lower_tuple_pattern,
         wildcard::lower_wildcard_pattern,
     },
@@ -28,154 +26,149 @@ pub mod r#struct;
 pub mod tuple;
 pub mod wildcard;
 
-#[must_use]
-pub fn try_parse_pattern(parser: &mut Parser) -> bool {
-    match parser.peek_char() {
-        Some('(') => {
-            parser.start_node(SyntaxKind::TuplePattern);
+impl ParsableAstNode for CSTPattern {
+    fn try_parse(parser: &mut Parser) -> bool {
+        match parser.peek_char() {
+            Some('(') => {
+                parser.start_node(SyntaxKind::TuplePattern);
 
-            parser.bump_char();
-
-            parser.skip_whitespace();
-
-            if !try_parse_pattern(parser) {
-                parser.error("Expected pattern");
-            }
-
-            parser.skip_whitespace();
-
-            if parser.peek_char() == Some(',') {
-                while parser.try_bump_char(',') {
-                    parser.skip_whitespace();
-
-                    if parser.peek_char() == Some(')') {
-                        break;
-                    }
-
-                    if !try_parse_pattern(parser) {
-                        parser.error("Expected pattern");
-                    }
-
-                    parser.skip_whitespace();
-                }
-            }
-
-            parser.skip_whitespace();
-
-            parser.expect_char(')', "Expected ')'");
-
-            parser.finish_node();
-
-            true
-        }
-        Some('{') => {
-            parser.start_node(SyntaxKind::CompoundPattern);
-
-            parser.bump_char();
-
-            parser.skip_whitespace();
-
-            while let Some(key) = parser.peek_identifier() {
-                parser.start_node(SyntaxKind::CompoundPatternEntry);
-
-                parser.bump_identifier_kind(SyntaxKind::CompoundKey, key);
-                parser.skip_whitespace();
-
-                if parser.try_bump_char(':') {
-                    parser.skip_whitespace();
-
-                    if !try_parse_pattern(parser) {
-                        parser.error("Expected pattern");
-                    }
-                }
+                parser.bump_char();
 
                 parser.skip_whitespace();
 
-                parser.finish_node();
+                Self::expect(parser, "Expected pattern");
+
+                parser.skip_whitespace();
 
                 if parser.peek_char() == Some(',') {
-                    parser.bump_char();
-                    parser.skip_whitespace();
-                } else {
-                    break;
+                    while parser.try_bump_char(',') {
+                        parser.skip_whitespace();
+
+                        if parser.peek_char() == Some(')') {
+                            break;
+                        }
+
+                        Self::expect(parser, "Expected pattern");
+
+                        parser.skip_whitespace();
+                    }
                 }
-            }
-
-            parser.expect_char('}', "Expected closing brace after struct pattern");
-
-            parser.finish_node();
-
-            true
-        }
-        _ => match parser.peek_identifier() {
-            Some("_") => {
-                parser.start_node(SyntaxKind::WildcardPattern);
-                parser.bump_char();
-                parser.finish_node();
-
-                true
-            }
-            Some(..) => {
-                if try_parse_score_pattern(parser) {
-                    return true;
-                }
-
-                if try_parse_data_pattern(parser) {
-                    return true;
-                }
-
-                let checkpoint = parser.mark();
-
-                if !try_parse_generic_path(parser, false) {
-                    unreachable!();
-                }
-
-                let state = parser.save_state();
 
                 parser.skip_whitespace();
 
-                match parser.peek_char() {
-                    Some('{') => {
-                        checkpoint.replace_token(parser, SyntaxKind::TypeName);
-                        checkpoint.start_node(parser, SyntaxKind::RegularStructPattern);
-
-                        parser.bump_char();
-
-                        parser.skip_whitespace();
-
-                        let _ = try_parse_struct_pattern_fields(parser);
-
-                        parser.skip_whitespace();
-
-                        parser.expect_char('}', "Expected '}'");
-                    }
-                    Some('(') => {
-                        checkpoint.replace_token(parser, SyntaxKind::TypeName);
-                        checkpoint.start_node(parser, SyntaxKind::TupleStructPattern);
-
-                        parser.bump_char();
-
-                        parser.skip_whitespace();
-
-                        let _ = try_parse_tuple_struct_pattern_fields(parser);
-
-                        parser.skip_whitespace();
-
-                        parser.expect_char(')', "Expected ')'");
-                    }
-                    _ => {
-                        state.restore(parser);
-
-                        checkpoint.start_node(parser, SyntaxKind::BindingPattern);
-                    }
-                }
+                parser.expect_char(')', "Expected ')'");
 
                 parser.finish_node();
 
                 true
             }
-            _ => false,
-        },
+            Some('{') => {
+                parser.start_node(SyntaxKind::CompoundPattern);
+
+                parser.bump_char();
+
+                parser.skip_whitespace();
+
+                while let Some(key) = parser.peek_identifier() {
+                    parser.start_node(SyntaxKind::CompoundPatternEntry);
+
+                    parser.bump_identifier_kind(SyntaxKind::CompoundKey, key);
+                    parser.skip_whitespace();
+
+                    if parser.try_bump_char(':') {
+                        parser.skip_whitespace();
+
+                        Self::expect(parser, "Expected pattern");
+                    }
+
+                    parser.skip_whitespace();
+
+                    parser.finish_node();
+
+                    if parser.peek_char() == Some(',') {
+                        parser.bump_char();
+                        parser.skip_whitespace();
+                    } else {
+                        break;
+                    }
+                }
+
+                parser.expect_char('}', "Expected closing brace after struct pattern");
+
+                parser.finish_node();
+
+                true
+            }
+            _ => match parser.peek_identifier() {
+                Some("_") => {
+                    parser.start_node(SyntaxKind::WildcardPattern);
+                    parser.bump_char();
+                    parser.finish_node();
+
+                    true
+                }
+                Some(..) => {
+                    if try_parse_score_pattern(parser) {
+                        return true;
+                    }
+
+                    if try_parse_data_pattern(parser) {
+                        return true;
+                    }
+
+                    let checkpoint = parser.mark();
+
+                    if !try_parse_generic_path(parser, false) {
+                        unreachable!();
+                    }
+
+                    let state = parser.save_state();
+
+                    parser.skip_whitespace();
+
+                    match parser.peek_char() {
+                        Some('{') => {
+                            checkpoint.replace_token(parser, SyntaxKind::TypeName);
+                            checkpoint.start_node(parser, SyntaxKind::RegularStructPattern);
+
+                            parser.bump_char();
+
+                            parser.skip_whitespace();
+
+                            let _ = CSTRegularStructPatternFields::try_parse(parser);
+
+                            parser.skip_whitespace();
+
+                            parser.expect_char('}', "Expected '}'");
+                        }
+                        Some('(') => {
+                            checkpoint.replace_token(parser, SyntaxKind::TypeName);
+                            checkpoint.start_node(parser, SyntaxKind::TupleStructPattern);
+
+                            parser.bump_char();
+
+                            parser.skip_whitespace();
+
+                            let _ = try_parse_tuple_struct_pattern_fields(parser);
+
+                            parser.skip_whitespace();
+
+                            parser.expect_char(')', "Expected ')'");
+                        }
+                        _ => {
+                            state.restore(parser);
+
+                            checkpoint.start_node(parser, SyntaxKind::BindingPattern);
+                        }
+                    }
+
+                    parser.finish_node();
+
+                    true
+                }
+                _ => false,
+            },
+        }
     }
 }
 
@@ -187,7 +180,7 @@ pub fn lower_pattern(node: CSTPattern, ctx: &mut LowerContext) -> Option<ParsedP
         CSTPattern::BindingPattern(node) => lower_binding_pattern(node),
         CSTPattern::ScorePattern(node) => lower_score_pattern(node, ctx),
         CSTPattern::DataPattern(node) => lower_data_pattern(node, ctx),
-        CSTPattern::RegularStructPattern(node) => lower_struct_pattern(node, ctx),
+        CSTPattern::RegularStructPattern(node) => node.lower(ctx),
         CSTPattern::TupleStructPattern(node) => lower_tuple_struct_pattern(node, ctx),
         CSTPattern::CompoundPattern(node) => lower_compound_pattern(node, ctx),
     }

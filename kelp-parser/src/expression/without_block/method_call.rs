@@ -3,9 +3,9 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTMethodCallExpression,
     expression::{lower_expression, without_block::call::lower_call_arguments},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     path::generic::lower_generic_path_segment,
-    span::span_of_cst_node,
 };
 
 #[must_use]
@@ -22,7 +22,7 @@ pub fn lower_method_call_expression(
         .call_arguments()
         .map(|arguments| lower_call_arguments(arguments, ctx));
 
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     Some(
         ParsedExpressionKind::MethodCall {

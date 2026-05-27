@@ -2,8 +2,8 @@ use kelp_core::path::regular::{Path, PathSegment};
 
 use crate::{
     cst::{CSTPath, CSTPathSegment},
+    extension_traits::AstNodeExt as _,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -51,7 +51,7 @@ pub fn try_parse_path(parser: &mut Parser) -> bool {
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 fn lower_path_segment(node: CSTPathSegment) -> Option<PathSegment> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let name_token = node.path_identifier_token()?;
     let name = name_token.text();
@@ -65,7 +65,7 @@ fn lower_path_segment(node: CSTPathSegment) -> Option<PathSegment> {
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_path(node: CSTPath) -> Option<Path> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let segments = node
         .path_segments()

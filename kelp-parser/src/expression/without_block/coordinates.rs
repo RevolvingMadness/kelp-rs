@@ -3,9 +3,9 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     coordinates::{lower_coordinates, try_parse_coordinates},
     cst::CSTCoordinatesExpression,
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -43,7 +43,7 @@ pub fn lower_coordinates_expression(
 ) -> Option<ParsedExpression> {
     let coordinates = lower_coordinates(node.coordinates()?, ctx)?;
 
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     Some(ParsedExpressionKind::Coordinates(Box::new(coordinates)).with_span(span))
 }

@@ -1,15 +1,16 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTIteratorLoopExpression,
+    cst::{CSTIteratorLoopExpression, CSTPattern},
     expression::{
         lower_expression, try_parse_expression,
         with_block::block::{lower_block_expression, try_parse_block_expression},
     },
+    extension_traits::AstNodeExt as _,
+    extension_traits::ParsableAstNode as _,
     lower_context::LowerContext,
     parser::Parser,
-    pattern::{lower_pattern, try_parse_pattern},
-    span::span_of_cst_node,
+    pattern::lower_pattern,
     syntax::SyntaxKind,
 };
 
@@ -21,7 +22,7 @@ pub fn try_parse_iterator_loop_expression(parser: &mut Parser) -> bool {
     parser.bump_str(SyntaxKind::ForKeyword, "for");
     parser.skip_inline_whitespace();
 
-    if !try_parse_pattern(parser) {
+    if !CSTPattern::try_parse(parser) {
         state.restore(parser);
 
         return false;
@@ -56,7 +57,7 @@ pub fn lower_iterator_loop_expression(
     node: CSTIteratorLoopExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;
 

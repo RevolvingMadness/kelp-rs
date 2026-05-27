@@ -4,7 +4,7 @@ use crate::{
     cst::CSTUseTree,
     parser::Parser,
     path::regular::{lower_path, try_parse_path},
-    span::text_range_to_span,
+    extension_traits::SyntaxTokenExt,
     syntax::SyntaxKind,
 };
 
@@ -99,7 +99,7 @@ pub fn lower_use_tree(node: CSTUseTree) -> Option<UseTree> {
             let path = lower_path(node.path()?)?;
 
             let alias_token = node.identifier_token()?;
-            let alias_span = text_range_to_span(alias_token.text_range());
+            let alias_span = alias_token.span();
             let alias = alias_token.text();
 
             Some(UseTree::As(path, alias_span, alias.to_owned()))

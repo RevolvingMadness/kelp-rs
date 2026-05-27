@@ -5,8 +5,8 @@ use crate::{
     expression::with_block::{
         block::lower_block_expression, r#if::lower_if_expression, r#loop::lower_loop_expression,
     },
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
-    span::span_of_cst_node,
 };
 
 pub mod block;
@@ -21,7 +21,7 @@ pub fn lower_expression_with_block(
 ) -> Option<ParsedExpression> {
     match node {
         CSTExpressionWithBlock::BlockExpression(node) => {
-            let span = span_of_cst_node(&node);
+            let span = node.span();
 
             let expression = lower_block_expression(node, ctx)?;
 

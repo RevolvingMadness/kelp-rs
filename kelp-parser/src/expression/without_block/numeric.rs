@@ -5,8 +5,8 @@ use ordered_float::NotNan;
 
 use crate::{
     cst::CSTNumericExpression,
+    extension_traits::{AstNodeExt as _, SyntaxTokenExt as _},
     lower_context::{LowerContext, LowerDataType, LowerError},
-    span::{span_of_cst_node, text_range_to_span},
 };
 
 #[derive(Clone)]
@@ -25,7 +25,7 @@ pub fn lower_numeric_expression(
     node: CSTNumericExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let value_token = node.fractional_value_token()?;
     let value_text = value_token.text();
@@ -53,7 +53,7 @@ pub fn lower_numeric_expression(
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooBig(LowerDataType::Byte),
                         );
 
@@ -61,7 +61,7 @@ pub fn lower_numeric_expression(
                     }
                     IntErrorKind::NegOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooSmall(LowerDataType::Byte),
                         );
 
@@ -75,7 +75,7 @@ pub fn lower_numeric_expression(
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooBig(LowerDataType::Short),
                         );
 
@@ -83,7 +83,7 @@ pub fn lower_numeric_expression(
                     }
                     IntErrorKind::NegOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooSmall(LowerDataType::Short),
                         );
 
@@ -97,7 +97,7 @@ pub fn lower_numeric_expression(
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooBig(LowerDataType::Integer),
                         );
 
@@ -105,7 +105,7 @@ pub fn lower_numeric_expression(
                     }
                     IntErrorKind::NegOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooSmall(LowerDataType::Integer),
                         );
 
@@ -119,7 +119,7 @@ pub fn lower_numeric_expression(
                 Err(error) => match error.kind() {
                     IntErrorKind::PosOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooBig(LowerDataType::Long),
                         );
 
@@ -127,7 +127,7 @@ pub fn lower_numeric_expression(
                     }
                     IntErrorKind::NegOverflow => {
                         ctx.add_error_unit(
-                            text_range_to_span(value_token.text_range()),
+                            value_token.span(),
                             LowerError::ValueTooSmall(LowerDataType::Long),
                         );
 
@@ -157,7 +157,7 @@ pub fn lower_numeric_expression(
                         Err(error) => match error.kind() {
                             IntErrorKind::PosOverflow => {
                                 ctx.add_error_unit(
-                                    text_range_to_span(value_token.text_range()),
+                                    value_token.span(),
                                     LowerError::ValueTooBig(LowerDataType::Integer),
                                 );
 
@@ -165,7 +165,7 @@ pub fn lower_numeric_expression(
                             }
                             IntErrorKind::NegOverflow => {
                                 ctx.add_error_unit(
-                                    text_range_to_span(value_token.text_range()),
+                                    value_token.span(),
                                     LowerError::ValueTooSmall(LowerDataType::Integer),
                                 );
 

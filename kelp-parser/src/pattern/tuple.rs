@@ -1,14 +1,14 @@
 use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 
 use crate::{
-    cst::CSTTuplePattern, lower_context::LowerContext, pattern::lower_pattern,
-    span::span_of_cst_node,
+    cst::CSTTuplePattern, extension_traits::AstNodeExt as _, lower_context::LowerContext,
+    pattern::lower_pattern,
 };
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_tuple_pattern(node: CSTTuplePattern, ctx: &mut LowerContext) -> Option<ParsedPattern> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let patterns = node
         .patterns()

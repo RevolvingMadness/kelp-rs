@@ -2,10 +2,10 @@ use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
     cst::CSTItemStatement,
+    extension_traits::AstNodeExt as _,
     item::{lower_item, try_parse_item},
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -29,7 +29,7 @@ pub fn lower_item_statement(
     node: CSTItemStatement,
     ctx: &mut LowerContext,
 ) -> Option<ParsedStatement> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let item = lower_item(node.item()?, ctx)?;
 

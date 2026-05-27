@@ -3,9 +3,9 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::{CSTCallArguments, CSTCallExpression},
     expression::{lower_expression, try_parse_expression},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -52,7 +52,7 @@ pub fn lower_call_expression(
     node: CSTCallExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let callee = lower_expression(node.callee()?, ctx)?;
 

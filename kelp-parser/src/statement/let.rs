@@ -1,13 +1,14 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::CSTLetStatement,
+    cst::{CSTLetStatement, CSTPattern},
     data_type::{lower_data_type, try_parse_data_type},
     expression::{lower_expression, try_parse_expression},
+    extension_traits::AstNodeExt as _,
+    extension_traits::ParsableAstNode as _,
     lower_context::LowerContext,
     parser::Parser,
-    pattern::{lower_pattern, try_parse_pattern},
-    span::span_of_cst_node,
+    pattern::lower_pattern,
     statement::expect_semicolon_ending,
     syntax::SyntaxKind,
 };
@@ -19,7 +20,7 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
     parser.bump_str(SyntaxKind::LetKeyword, "let");
     parser.skip_whitespace();
 
-    if !try_parse_pattern(parser) {
+    if !CSTPattern::try_parse(parser) {
         state.restore(parser);
 
         return false;
@@ -61,7 +62,7 @@ pub fn lower_let_statement(
     node: CSTLetStatement,
     ctx: &mut LowerContext,
 ) -> Option<ParsedStatement> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;
 

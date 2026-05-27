@@ -8,9 +8,9 @@ use kelp_core::{
 use crate::{
     cst::CSTCompoundExpression,
     expression::{lower_expression, try_parse_expression},
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -123,7 +123,7 @@ pub fn lower_compound_expression_inner(
         compound.insert(key.to_owned(), value);
     }
 
-    Some((span_of_cst_node(&node), compound))
+    Some((node.span(), compound))
 }
 
 #[must_use]

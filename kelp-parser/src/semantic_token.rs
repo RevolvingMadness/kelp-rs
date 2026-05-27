@@ -2,7 +2,7 @@ use kelp_core::span::Span;
 use rowan::NodeOrToken;
 
 use crate::{
-    span::text_range_to_span,
+    extension_traits::{SyntaxNodeExt, SyntaxTokenExt},
     syntax::{SyntaxKind, SyntaxNode},
 };
 
@@ -105,10 +105,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                 };
 
                 if let Some(semantic_token_type) = semantic_token_type {
-                    tokens.push(SemanticToken::new(
-                        text_range_to_span(node.text_range()),
-                        semantic_token_type,
-                    ));
+                    tokens.push(SemanticToken::new(node.span(), semantic_token_type));
                 }
             }
 
@@ -163,10 +160,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                 };
 
                 if let Some(semantic_token_type) = semantic_token_type {
-                    tokens.push(SemanticToken::new(
-                        text_range_to_span(token.text_range()),
-                        semantic_token_type,
-                    ));
+                    tokens.push(SemanticToken::new(token.span(), semantic_token_type));
                 }
             }
         }

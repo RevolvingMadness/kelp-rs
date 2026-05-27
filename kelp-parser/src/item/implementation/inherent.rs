@@ -6,10 +6,10 @@ use crate::{
         generics::{lower_generic_names, try_parse_generic_names},
         lower_data_type, try_parse_data_type,
     },
+    extension_traits::AstNodeExt,
     item::associated::{expect_associated_item, lower_associated_item},
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -99,7 +99,7 @@ pub fn lower_inherent_implementation_item(
 ) -> Option<ParsedItemKind> {
     let generic_names = node.generic_names().and_then(lower_generic_names);
     let target_type = node.data_type()?;
-    let target_type_span = span_of_cst_node(&target_type);
+    let target_type_span = target_type.span();
     let target_type = lower_data_type(target_type)?;
 
     let associated_items = node

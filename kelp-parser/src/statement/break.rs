@@ -1,8 +1,8 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::CSTBreakStatement, lower_context::LowerContext, parser::Parser, span::span_of_cst_node,
-    statement::expect_semicolon_ending, syntax::SyntaxKind,
+    cst::CSTBreakStatement, extension_traits::AstNodeExt as _, lower_context::LowerContext,
+    parser::Parser, statement::expect_semicolon_ending, syntax::SyntaxKind,
 };
 
 #[must_use]
@@ -24,7 +24,7 @@ pub fn lower_break_statement(
     node: CSTBreakStatement,
     _ctx: &mut LowerContext,
 ) -> Option<ParsedStatement> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     Some(ParsedStatementKind::Break.with_span(span))
 }

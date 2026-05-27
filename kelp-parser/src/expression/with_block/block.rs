@@ -5,9 +5,9 @@ use crate::{
     expression::{
         with_block::lower_expression_with_block, without_block::lower_expression_without_block,
     },
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     statement::{lower_statement, try_parse_statement},
     syntax::SyntaxKind,
 };
@@ -46,7 +46,7 @@ pub fn lower_block_expression(
     node: CSTBlockExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedBlockExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let cst_statements: Vec<_> = node.statements().collect();
     let mut statements = Vec::new();

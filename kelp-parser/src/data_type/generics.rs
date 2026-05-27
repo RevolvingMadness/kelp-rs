@@ -3,8 +3,8 @@ use kelp_core::{parsed::data_type::ParsedDataType, span::Span};
 use crate::{
     cst::{CSTGenericDataTypes, CSTGenericNames},
     data_type::{lower_data_type, try_parse_data_type},
+    extension_traits::AstNodeExt,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -87,11 +87,13 @@ pub fn try_parse_generic_data_types(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_generic_data_types(node: CSTGenericDataTypes) -> Option<(Vec<Span>, Vec<ParsedDataType>)> {
+pub fn lower_generic_data_types(
+    node: CSTGenericDataTypes,
+) -> Option<(Vec<Span>, Vec<ParsedDataType>)> {
     Some(
         node.generics()
             .filter_map(|data_type| {
-                let span = span_of_cst_node(&data_type);
+                let span = data_type.span();
                 let data_type = lower_data_type(data_type)?;
 
                 Some((span, data_type))

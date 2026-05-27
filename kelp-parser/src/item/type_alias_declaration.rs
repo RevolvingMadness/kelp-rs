@@ -7,7 +7,7 @@ use crate::{
         lower_data_type, try_parse_data_type,
     },
     parser::Parser,
-    span::text_range_to_span,
+    extension_traits::SyntaxTokenExt,
     statement::expect_semicolon_ending,
     syntax::SyntaxKind,
 };
@@ -80,7 +80,7 @@ pub fn lower_type_alias_declaration_item(
     node: CSTTypeAliasDeclarationItem,
 ) -> Option<ParsedItemKind> {
     let name_token = node.name()?;
-    let name_span = text_range_to_span(name_token.text_range());
+    let name_span = name_token.span();
     let name = name_token.text();
     let generic_names = node.generic_names().and_then(lower_generic_names);
     let alias = lower_data_type(node.data_type()?)?;

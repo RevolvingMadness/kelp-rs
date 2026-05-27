@@ -8,127 +8,110 @@ use kelp_core::{
 
 use crate::{
     cst::{
-        CSTRegularStructPattern, CSTRegularStructPatternField, CSTRegularStructPatternFields,
-        CSTTupleStructPattern, CSTTupleStructPatternField, CSTTupleStructPatternFields,
+        CSTPattern, CSTRegularStructPattern, CSTRegularStructPatternField,
+        CSTRegularStructPatternFields, CSTTupleStructPattern, CSTTupleStructPatternField,
+        CSTTupleStructPatternFields,
     },
+    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::lower_generic_path,
-    pattern::{lower_pattern, try_parse_pattern},
-    span::{span_of_cst_node, text_range_to_span},
+    pattern::lower_pattern,
     syntax::SyntaxKind,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_pattern_field(
-    node: CSTRegularStructPatternField,
-    ctx: &mut LowerContext,
-) -> Option<((Span, String), ParsedPattern)> {
-    let field_name_token = node.struct_field_name_token()?;
-    let field_name_span = text_range_to_span(field_name_token.text_range());
-    let field_name = field_name_token.text();
+impl ParsableAstNode for CSTRegularStructPatternField {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    let field_pattern = node
-        .pattern()
-        .and_then(|pattern| lower_pattern(pattern, ctx))
-        .unwrap_or_else(|| ParsedPattern {
-            span: field_name_span,
-            kind: ParsedPatternKind::Binding(GenericPath::single(field_name_span, field_name)),
+        if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
+            && !parser.try_bump_whole_value()
+        {
+            return false;
+        }
+
+        parser.attempt(|parser| {
+            parser.skip_whitespace();
+
+            if parser.try_bump_char(':') {
+                parser.skip_whitespace();
+
+                CSTPattern::expect(parser, "Expected pattern");
+
+                true
+            } else {
+                false
+            }
         });
 
-    Some(((field_name_span, field_name.to_owned()), field_pattern))
+        marker.finish(parser, SyntaxKind::RegularStructPatternField);
+
+        true
+    }
 }
 
-#[must_use]
-fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl LowerableAstNode for CSTRegularStructPatternField {
+    type Lowered = ((Span, String), ParsedPattern);
 
-    if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
-        && !parser.try_bump_whole_value()
-    {
-        return false;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let field_name_token = self.struct_field_name_token()?;
+        let field_name_span = field_name_token.span();
+        let field_name = field_name_token.text();
+
+        let field_pattern = self
+            .pattern()
+            .and_then(|pattern| lower_pattern(pattern, ctx))
+            .unwrap_or_else(|| ParsedPattern {
+                span: field_name_span,
+                kind: ParsedPatternKind::Binding(GenericPath::single(field_name_span, field_name)),
+            });
+
+        Some(((field_name_span, field_name.to_owned()), field_pattern))
     }
-
-    checkpoint.start_node(parser, SyntaxKind::RegularStructPatternField);
-
-    let state = parser.save_state();
-
-    parser.skip_whitespace();
-
-    if parser.try_bump_char(':') {
-        parser.skip_whitespace();
-
-        if !try_parse_pattern(parser) {
-            parser.error("Expected pattern");
-        }
-    } else {
-        state.restore(parser);
-    }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-fn lower_struct_pattern_fields(
-    node: CSTRegularStructPatternFields,
-    ctx: &mut LowerContext,
-) -> HashMap<(Span, String), ParsedPattern> {
-    node.regular_struct_pattern_fields()
-        .filter_map(|field| lower_struct_pattern_field(field, ctx))
-        .collect()
-}
+impl ParsableAstNode for CSTRegularStructPatternFields {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-#[must_use]
-pub fn try_parse_struct_pattern_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+        if parser.parse_comma_separated_list(CSTRegularStructPatternField::try_parse) {
+            marker.finish(parser, SyntaxKind::RegularStructPatternFields);
 
-    if !try_parse_struct_pattern_field(parser) {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::RegularStructPatternFields);
-
-    loop {
-        let state = parser.save_state();
-        parser.skip_whitespace();
-
-        if !parser.try_bump_char(',') {
-            state.restore(parser);
-            break;
-        }
-
-        parser.skip_whitespace();
-
-        if !try_parse_struct_pattern_field(parser) {
-            break;
+            true
+        } else {
+            false
         }
     }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_pattern(
-    node: CSTRegularStructPattern,
-    ctx: &mut LowerContext,
-) -> Option<ParsedPattern> {
-    let span = span_of_cst_node(&node);
+impl LowerableAstNode for CSTRegularStructPatternFields {
+    type Lowered = HashMap<(Span, String), ParsedPattern>;
 
-    let path = lower_generic_path(node.generic_path()?)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(
+            self.regular_struct_pattern_fields()
+                .filter_map(|field| field.lower(ctx))
+                .collect(),
+        )
+    }
+}
 
-    let fields = node
-        .regular_struct_pattern_fields()
-        .map(|fields| lower_struct_pattern_fields(fields, ctx))
-        .unwrap_or_default();
+impl LowerableAstNode for CSTRegularStructPattern {
+    type Lowered = ParsedPattern;
 
-    Some(ParsedPatternKind::RegularStruct(path, fields).with_span(span))
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let path = lower_generic_path(self.generic_path()?)?;
+
+        let fields = self
+            .regular_struct_pattern_fields()
+            .and_then(|fields| fields.lower(ctx));
+
+        Some(
+            ParsedPatternKind::RegularStruct(path, fields.unwrap_or_default())
+                .with_span(self.span()),
+        )
+    }
 }
 
 #[must_use]
@@ -146,13 +129,11 @@ pub fn lower_tuple_struct_pattern_field(
 fn try_parse_tuple_struct_pattern_field(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
 
-    if !try_parse_pattern(parser) {
+    if !CSTPattern::try_parse(parser) {
         return false;
     }
 
-    checkpoint.start_node(parser, SyntaxKind::TupleStructPatternField);
-
-    parser.finish_node();
+    checkpoint.finish(parser, SyntaxKind::TupleStructPatternField);
 
     true
 }
@@ -205,7 +186,7 @@ pub fn lower_tuple_struct_pattern(
     node: CSTTupleStructPattern,
     ctx: &mut LowerContext,
 ) -> Option<ParsedPattern> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let path = lower_generic_path(node.generic_path()?)?;
 

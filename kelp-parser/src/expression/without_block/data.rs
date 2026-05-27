@@ -6,9 +6,9 @@ use crate::{
         nbt_path::{lower_nbt_path, try_parse_nbt_path},
         target::{lower_data_target, try_parse_data_target},
     },
+    extension_traits::AstNodeExt as _,
     lower_context::LowerContext,
     parser::Parser,
-    span::span_of_cst_node,
     syntax::SyntaxKind,
 };
 
@@ -38,7 +38,7 @@ pub fn lower_data_expression(
     node: CSTDataExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = span_of_cst_node(&node);
+    let span = node.span();
 
     let target = lower_data_target(node.data_target()?, ctx)?;
     let path = lower_nbt_path(node.nbt_path()?, ctx)?;

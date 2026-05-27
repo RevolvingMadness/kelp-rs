@@ -1,14 +1,13 @@
 use kelp_core::parsed::item::ParsedItemKind;
-use rowan::ast::AstNode;
 
 use crate::{
     cst::CSTMinecraftFunctionDeclarationItem,
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     expression_sigil::assert_not_sigil,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
-    span::text_range_to_span,
     syntax::SyntaxKind,
 };
 
@@ -62,7 +61,7 @@ pub fn lower_minecraft_function_declaration_item_kind(
     ctx: &mut LowerContext,
 ) -> Option<ParsedItemKind> {
     let resource_location_token = node.resource_location()?;
-    let resource_location_span = text_range_to_span(resource_location_token.syntax().text_range());
+    let resource_location_span = resource_location_token.span();
     let resource_location = lower_resource_location(resource_location_token, ctx)?;
     let resource_location = assert_not_sigil(resource_location, resource_location_span, ctx)?;
     let body = lower_block_expression(node.block_expression()?, ctx)?;

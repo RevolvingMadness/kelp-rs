@@ -46,7 +46,29 @@ pub trait ParsableAstNode: AstNodeExt {
     fn try_parse(parser: &mut Parser) -> bool;
 
     fn expect(parser: &mut Parser, message: &str) -> bool {
-        parser.expect(Self::try_parse, message)
+        if Self::try_parse(parser) {
+            return true;
+        }
+
+        parser.error(message);
+
+        false
+    }
+}
+
+pub trait RecoverableAstNode: ParsableAstNode {
+    fn recover(parser: &mut Parser);
+
+    fn recover_expect(parser: &mut Parser, message: &str) -> bool {
+        if Self::try_parse(parser) {
+            return true;
+        }
+
+        parser.error(message);
+
+        Self::recover(parser);
+
+        false
     }
 }
 

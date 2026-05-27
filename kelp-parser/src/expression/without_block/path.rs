@@ -1,19 +1,18 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTPathExpression, extension_traits::AstNodeExt, lower_context::LowerContext,
-    path::generic::lower_generic_path,
+    cst::CSTPathExpression,
+    extension_traits::{AstNodeExt, LowerableAstNode},
+    lower_context::LowerContext,
 };
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_path_expression(
     node: CSTPathExpression,
-    _ctx: &mut LowerContext,
+    ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let span = node.span();
+    let path = node.generic_path()?.lower(ctx)?;
 
-    let path = lower_generic_path(node.generic_path()?)?;
-
-    Some(ParsedExpressionKind::Path(path).with_span(span))
+    Some(ParsedExpressionKind::Path(path).with_span(node.span()))
 }

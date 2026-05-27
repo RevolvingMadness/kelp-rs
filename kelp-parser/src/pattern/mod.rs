@@ -2,13 +2,12 @@ use kelp_core::parsed::pattern::ParsedPattern;
 
 use crate::{
     cst::{
-        CSTDataPattern, CSTPattern, CSTRegularStructPatternFields, CSTScorePattern,
+        CSTDataPattern, CSTGenericPath, CSTPattern, CSTRegularStructPatternFields, CSTScorePattern,
         CSTTupleStructPatternFields,
     },
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    path::generic::try_parse_generic_path,
     syntax::SyntaxKind,
 };
 
@@ -112,9 +111,7 @@ impl ParsableAstNode for CSTPattern {
 
                     let checkpoint = parser.mark();
 
-                    if !try_parse_generic_path(parser, false) {
-                        unreachable!();
-                    }
+                    assert!(CSTGenericPath::try_parse(parser));
 
                     let state = parser.save_state();
 

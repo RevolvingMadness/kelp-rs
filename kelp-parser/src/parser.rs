@@ -861,12 +861,12 @@ impl Parser<'_> {
         F: FnMut(&mut Self) -> bool,
     {
         if try_parse(self) {
-            true
-        } else {
-            self.error(message);
-
-            false
+            return true;
         }
+
+        self.error(message);
+
+        false
     }
 
     pub fn parse_comma_separated_list<F>(&mut self, mut parse_element: F) -> bool

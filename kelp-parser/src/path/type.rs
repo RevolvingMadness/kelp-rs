@@ -4,14 +4,14 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::{CSTGenericDataTypes, CSTGenericPath, CSTGenericPathSegment},
+    cst::{CSTGenericDataTypes, CSTTypePath, CSTTypePathSegment},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind::{self},
 };
 
-impl ParsableAstNode for CSTGenericPathSegment {
+impl ParsableAstNode for CSTTypePathSegment {
     fn try_parse(parser: &mut Parser) -> bool {
         let checkpoint = parser.mark();
 
@@ -19,13 +19,13 @@ impl ParsableAstNode for CSTGenericPathSegment {
             return false;
         }
 
-        checkpoint.start_node(parser, SyntaxKind::GenericPathSegment);
+        checkpoint.start_node(parser, SyntaxKind::TypePathSegment);
 
         let state = parser.save_state();
 
-        if parser.try_bump_str("::", SyntaxKind::ColonColon)
-            && !CSTGenericDataTypes::try_parse(parser)
-        {
+        parser.try_bump_str("::", SyntaxKind::ColonColon);
+
+        if !CSTGenericDataTypes::try_parse(parser) {
             state.restore(parser);
         }
 
@@ -35,15 +35,15 @@ impl ParsableAstNode for CSTGenericPathSegment {
     }
 }
 
-impl ParsableAstNode for CSTGenericPath {
+impl ParsableAstNode for CSTTypePath {
     fn try_parse(parser: &mut Parser) -> bool {
         let marker = parser.mark();
 
-        if !CSTGenericPathSegment::try_parse(parser) {
+        if !CSTTypePathSegment::try_parse(parser) {
             return false;
         }
 
-        marker.start_node(parser, SyntaxKind::GenericPath);
+        marker.start_node(parser, SyntaxKind::TypePath);
 
         loop {
             let state = parser.save_state();
@@ -56,7 +56,7 @@ impl ParsableAstNode for CSTGenericPath {
                 break;
             }
 
-            if !CSTGenericPathSegment::try_parse(parser) {
+            if !CSTTypePathSegment::try_parse(parser) {
                 parser.error("Expected path segment");
             }
         }
@@ -67,7 +67,7 @@ impl ParsableAstNode for CSTGenericPath {
     }
 }
 
-impl LowerableAstNode for CSTGenericPathSegment {
+impl LowerableAstNode for CSTTypePathSegment {
     type Lowered = GenericPathSegment<ParsedDataType>;
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
@@ -89,12 +89,12 @@ impl LowerableAstNode for CSTGenericPathSegment {
     }
 }
 
-impl LowerableAstNode for CSTGenericPath {
+impl LowerableAstNode for CSTTypePath {
     type Lowered = GenericPath<ParsedDataType>;
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let segments = self
-            .generic_path_segments()
+            .type_path_segments()
             .filter_map(|segment| segment.lower(ctx))
             .collect();
 

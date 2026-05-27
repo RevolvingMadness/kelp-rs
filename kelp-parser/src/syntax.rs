@@ -275,10 +275,12 @@ pub enum SyntaxKind {
     AsUseTree,
     PathUseTree,
 
-    Path,
-    PathSegment,
+    TypePath,
+    TypePathSegment,
     GenericPath,
     GenericPathSegment,
+    Path,
+    PathSegment,
     PathIdentifier,
 
     Error,

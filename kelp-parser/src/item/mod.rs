@@ -4,39 +4,30 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::{CSTItem, CSTItemKind},
+    cst::{CSTItem, CSTItemKind, CSTTypeAliasDeclarationItem},
     data_type::generics::lower_generic_names,
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    extension_traits::{
+        AstNodeExt, LowerableAstNode, ParsableAstNode, RecoverableAstNode, SyntaxTokenExt,
+    },
     item::{
         function_declaration::{
-            expect_function_declaration_item_kind, lower_function_declaration_item_kind,
-            try_parse_function_declaration_item_kind,
+            lower_function_declaration_item_kind, try_parse_function_declaration_item_kind,
         },
         implementation::inherent::{
-            expect_inherent_implementation_item_kind, lower_inherent_implementation_item,
-            try_parse_inherent_implementation_item_kind,
+            lower_inherent_implementation_item, try_parse_inherent_implementation_item_kind,
         },
         minecraft_function_declaration::{
-            expect_minecraft_function_declaration_item_kind,
             lower_minecraft_function_declaration_item_kind,
             try_parse_minecraft_function_declaration_item_kind,
         },
         module_declaration::{
-            expect_module_declaration_item_kind, lower_module_declaration_item,
-            try_parse_module_declaration_item_kind,
+            lower_module_declaration_item, try_parse_module_declaration_item_kind,
         },
-        struct_declaration::{
-            expect_struct_declaration_item_kind, try_parse_struct_declaration_item_kind,
-        },
-        type_alias_declaration::{
-            expect_type_alias_declaration_item_kind, lower_type_alias_declaration_item,
-            try_parse_type_alias_declaration_item_kind,
-        },
-        r#use::{expect_use_item_kind, lower_use_item, try_parse_use_item_kind},
+        struct_declaration::try_parse_struct_declaration_item_kind,
+        r#use::{lower_use_item, try_parse_use_item_kind},
     },
     lower_context::LowerContext,
     parser::Parser,
-    r#struct::{lower_struct_fields, lower_tuple_fields},
     syntax::SyntaxKind,
 };
 
@@ -49,21 +40,22 @@ pub mod struct_declaration;
 pub mod type_alias_declaration;
 pub mod r#use;
 
-#[must_use]
-pub fn try_parse_item_kind(parser: &mut Parser) -> bool {
-    let Some(identifier) = parser.peek_identifier() else {
-        return false;
-    };
+impl ParsableAstNode for CSTItemKind {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let Some(identifier) = parser.peek_identifier() else {
+            return false;
+        };
 
-    match identifier {
-        "impl" => try_parse_inherent_implementation_item_kind(parser),
-        "use" => try_parse_use_item_kind(parser),
-        "mod" => try_parse_module_declaration_item_kind(parser),
-        "recursive" | "runtime" | "fn" => try_parse_function_declaration_item_kind(parser),
-        "mcfn" => try_parse_minecraft_function_declaration_item_kind(parser),
-        "struct" => try_parse_struct_declaration_item_kind(parser),
-        "type" => try_parse_type_alias_declaration_item_kind(parser),
-        _ => false,
+        match identifier {
+            "impl" => try_parse_inherent_implementation_item_kind(parser),
+            "use" => try_parse_use_item_kind(parser),
+            "mod" => try_parse_module_declaration_item_kind(parser),
+            "recursive" | "runtime" | "fn" => try_parse_function_declaration_item_kind(parser),
+            "mcfn" => try_parse_minecraft_function_declaration_item_kind(parser),
+            "struct" => try_parse_struct_declaration_item_kind(parser),
+            "type" => CSTTypeAliasDeclarationItem::try_parse(parser),
+            _ => false,
+        }
     }
 }
 
@@ -81,139 +73,113 @@ fn recover_item(parser: &mut Parser, error_message: &str) {
     parser.add_token(SyntaxKind::Error, length);
 }
 
-#[must_use]
-pub fn try_parse_item(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTItem {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    let parsed_visibility = if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
-        Some(parser.expect_whitespace())
-    } else {
-        None
-    };
+        let parsed_visibility = if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
+            Some(parser.expect_whitespace())
+        } else {
+            None
+        };
 
-    let parsed_item_kind = try_parse_item_kind(parser);
+        let parsed_item_kind = CSTItemKind::try_parse(parser);
 
-    if !parsed_item_kind {
-        match parsed_visibility {
-            Some(true) => {
-                parser.error("Expected item");
-            }
-            Some(false) => {}
-            None => {
-                return false;
+        if !parsed_item_kind {
+            match parsed_visibility {
+                Some(true) => {
+                    parser.error("Expected item");
+                }
+                Some(false) => {}
+                None => {
+                    return false;
+                }
             }
         }
-    }
 
-    checkpoint.start_node(parser, SyntaxKind::Item);
-
-    parser.finish_node();
-
-    true
-}
-
-pub fn expect_item(parser: &mut Parser) -> bool {
-    parser.start_node(SyntaxKind::Item);
-
-    if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
-        parser.expect_whitespace();
-    }
-
-    let Some(identifier) = parser.peek_identifier() else {
-        recover_item(parser, "Expected item");
+        marker.start_node(parser, SyntaxKind::Item);
 
         parser.finish_node();
 
-        return true;
-    };
-
-    match identifier {
-        "impl" => expect_inherent_implementation_item_kind(parser),
-        "use" => expect_use_item_kind(parser),
-        "mod" => expect_module_declaration_item_kind(parser),
-        "recursive" | "runtime" | "fn" => expect_function_declaration_item_kind(parser),
-        "mcfn" => expect_minecraft_function_declaration_item_kind(parser),
-        "struct" => expect_struct_declaration_item_kind(parser),
-        "type" => expect_type_alias_declaration_item_kind(parser),
-        _ => {
-            parser.error_with_len("Expected item", identifier.len());
-
-            parser.add_token(SyntaxKind::Garbage, identifier.len());
-        }
+        true
     }
 
-    parser.finish_node();
-
-    true
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-fn lower_item_kind(node: CSTItemKind, ctx: &mut LowerContext) -> Option<ParsedItemKind> {
-    match node {
-        CSTItemKind::InherentImplementationItem(node) => {
-            lower_inherent_implementation_item(node, ctx)
-        }
-        CSTItemKind::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
-        CSTItemKind::FunctionDeclarationItem(node) => {
-            lower_function_declaration_item_kind(node, ctx)
-        }
-        CSTItemKind::MinecraftFunctionDeclarationItem(node) => {
-            lower_minecraft_function_declaration_item_kind(node, ctx)
-        }
-        CSTItemKind::RegularStructDeclarationItem(node) => {
-            let name_token = node.name()?;
-            let name_span = name_token.span();
-            let name = name_token.text();
-
-            let generic_names = node.generic_names().and_then(lower_generic_names);
-
-            let field_types = node.struct_fields().and_then(lower_struct_fields);
-
-            Some(ParsedItemKind::RegularStructDeclaration {
-                name_span,
-                name: name.to_owned(),
-                generic_names: generic_names.unwrap_or_default(),
-                field_types: field_types.unwrap_or_default(),
-            })
-        }
-        CSTItemKind::TupleStructDeclarationItem(node) => {
-            let name_token = node.name()?;
-            let name_span = name_token.span();
-            let name = name_token.text();
-
-            let generic_names = node.generic_names().and_then(lower_generic_names);
-
-            let field_types = node.tuple_fields().and_then(lower_tuple_fields);
-
-            Some(ParsedItemKind::TupleStructDeclaration {
-                name_span,
-                name: name.to_owned(),
-                generic_names: generic_names.unwrap_or_default(),
-                field_types: field_types.unwrap_or_default(),
-            })
-        }
-        CSTItemKind::TypeAliasDeclarationItem(node) => lower_type_alias_declaration_item(node),
-        CSTItemKind::UseItem(node) => lower_use_item(node),
+    fn expect(parser: &mut Parser, message: &str) -> bool {
+        Self::recover_expect(parser, message)
     }
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_item(node: CSTItem, ctx: &mut LowerContext) -> Option<ParsedItem> {
-    let span = node.span();
+impl RecoverableAstNode for CSTItem {
+    fn recover(parser: &mut Parser) {
+        parser.bump_until_char(&['{', ';', '\n']);
+    }
+}
 
-    let visibility = if node.pub_token().is_some() {
-        Visibility::Public
-    } else {
-        Visibility::None
-    };
+impl LowerableAstNode for CSTItemKind {
+    type Lowered = ParsedItemKind;
 
-    let kind = lower_item_kind(node.item_kind()?, ctx)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::InherentImplementationItem(node) => lower_inherent_implementation_item(node, ctx),
+            Self::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
+            Self::FunctionDeclarationItem(node) => lower_function_declaration_item_kind(node, ctx),
+            Self::MinecraftFunctionDeclarationItem(node) => {
+                lower_minecraft_function_declaration_item_kind(node, ctx)
+            }
+            Self::RegularStructDeclarationItem(node) => {
+                let name_token = node.name()?;
+                let name_span = name_token.span();
+                let name = name_token.text();
 
-    Some(ParsedItem {
-        span,
-        visibility,
-        kind,
-    })
+                let generic_names = node.generic_names().and_then(lower_generic_names);
+
+                let field_types = node.struct_fields().and_then(|fields| fields.lower(ctx));
+
+                Some(ParsedItemKind::RegularStructDeclaration {
+                    name_span,
+                    name: name.to_owned(),
+                    generic_names: generic_names.unwrap_or_default(),
+                    field_types: field_types.unwrap_or_default(),
+                })
+            }
+            Self::TupleStructDeclarationItem(node) => {
+                let name_token = node.name()?;
+                let name_span = name_token.span();
+                let name = name_token.text();
+
+                let generic_names = node.generic_names().and_then(lower_generic_names);
+
+                let field_types = node.tuple_fields().and_then(|fields| fields.lower(ctx));
+
+                Some(ParsedItemKind::TupleStructDeclaration {
+                    name_span,
+                    name: name.to_owned(),
+                    generic_names: generic_names.unwrap_or_default(),
+                    field_types: field_types.unwrap_or_default(),
+                })
+            }
+            Self::TypeAliasDeclarationItem(node) => node.lower(ctx),
+            Self::UseItem(node) => lower_use_item(node),
+        }
+    }
+}
+
+impl LowerableAstNode for CSTItem {
+    type Lowered = ParsedItem;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let visibility = if self.pub_token().is_some() {
+            Visibility::Public
+        } else {
+            Visibility::None
+        };
+
+        let kind = self.item_kind()?.lower(ctx)?;
+
+        Some(ParsedItem {
+            span: self.span(),
+            visibility,
+            kind,
+        })
+    }
 }

@@ -4,14 +4,13 @@ use crate::{
     cst::CSTBindingPattern,
     extension_traits::{AstNodeExt, LowerableAstNode},
     lower_context::LowerContext,
-    path::generic::lower_generic_path,
 };
 
 impl LowerableAstNode for CSTBindingPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let path = lower_generic_path(self.generic_path()?)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let path = self.generic_path()?.lower(ctx)?;
 
         Some(ParsedPatternKind::Binding(path).with_span(self.span()))
     }

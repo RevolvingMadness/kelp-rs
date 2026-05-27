@@ -1,9 +1,13 @@
 use kelp_core::parsed::data_type::ParsedDataType;
 
-use crate::cst::CSTInferredDataType;
+use crate::{
+    cst::CSTInferredDataType, extension_traits::LowerableAstNode, lower_context::LowerContext,
+};
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_inferred_data_type(_node: CSTInferredDataType) -> Option<ParsedDataType> {
-    Some(ParsedDataType::Inferred)
+impl LowerableAstNode for CSTInferredDataType {
+    type Lowered = ParsedDataType;
+
+    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(ParsedDataType::Inferred)
+    }
 }

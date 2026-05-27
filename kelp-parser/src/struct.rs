@@ -3,21 +3,24 @@ use std::collections::HashMap;
 use kelp_core::parsed::data_type::ParsedDataType;
 
 use crate::{
-    cst::{CSTStructField, CSTStructFields, CSTTupleField, CSTTupleFields},
-    data_type::{lower_data_type, try_parse_data_type},
+    cst::{CSTDataType, CSTStructField, CSTStructFields, CSTTupleField, CSTTupleFields},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_field(node: CSTStructField) -> Option<(String, ParsedDataType)> {
-    let name_token = node.name()?;
-    let name = name_token.text();
+impl LowerableAstNode for CSTStructField {
+    type Lowered = (String, ParsedDataType);
 
-    let data_type = lower_data_type(node.data_type()?)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let name_token = self.name()?;
+        let name = name_token.text();
 
-    Some((name.to_owned(), data_type))
+        let data_type = self.data_type()?.lower(ctx)?;
+
+        Some((name.to_owned(), data_type))
+    }
 }
 
 #[must_use]
@@ -36,7 +39,7 @@ pub fn try_parse_struct_field(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_data_type(parser) && parsed_colon {
+    if !CSTDataType::try_parse(parser) && parsed_colon {
         parser.error("Expected data type");
     }
 
@@ -45,15 +48,17 @@ pub fn try_parse_struct_field(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_fields(node: CSTStructFields) -> Option<HashMap<String, ParsedDataType>> {
-    let fields = node
-        .struct_fields()
-        .filter_map(lower_struct_field)
-        .collect();
+impl LowerableAstNode for CSTStructFields {
+    type Lowered = HashMap<String, ParsedDataType>;
 
-    Some(fields)
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let fields = self
+            .struct_fields()
+            .filter_map(|field| field.lower(ctx))
+            .collect();
+
+        Some(fields)
+    }
 }
 
 #[must_use]
@@ -86,19 +91,21 @@ pub fn try_parse_struct_fields(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_field(node: CSTTupleField) -> Option<ParsedDataType> {
-    let data_type = lower_data_type(node.data_type()?)?;
+impl LowerableAstNode for CSTTupleField {
+    type Lowered = ParsedDataType;
 
-    Some(data_type)
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let data_type = self.data_type()?.lower(ctx)?;
+
+        Some(data_type)
+    }
 }
 
 #[must_use]
 pub fn try_parse_tuple_field(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
 
-    if !try_parse_data_type(parser) {
+    if !CSTDataType::try_parse(parser) {
         return false;
     }
 
@@ -109,12 +116,17 @@ pub fn try_parse_tuple_field(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_fields(node: CSTTupleFields) -> Option<Vec<ParsedDataType>> {
-    let fields = node.tuple_fields().filter_map(lower_tuple_field).collect();
+impl LowerableAstNode for CSTTupleFields {
+    type Lowered = Vec<ParsedDataType>;
 
-    Some(fields)
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let fields = self
+            .tuple_fields()
+            .filter_map(|field| field.lower(ctx))
+            .collect();
+
+        Some(fields)
+    }
 }
 
 #[must_use]

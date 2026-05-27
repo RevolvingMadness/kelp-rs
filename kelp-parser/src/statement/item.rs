@@ -1,9 +1,8 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::CSTItemStatement,
+    cst::{CSTItem, CSTItemStatement},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
-    item::{lower_item, try_parse_item},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -13,7 +12,7 @@ impl ParsableAstNode for CSTItemStatement {
     fn try_parse(parser: &mut Parser) -> bool {
         let marker = parser.mark();
 
-        if !try_parse_item(parser) {
+        if !CSTItem::try_parse(parser) {
             return false;
         }
 
@@ -28,7 +27,7 @@ impl LowerableAstNode for CSTItemStatement {
     type Lowered = ParsedStatement;
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let item = lower_item(self.item()?, ctx)?;
+        let item = self.item()?.lower(ctx)?;
 
         Some(ParsedStatementKind::Item(Box::new(item)).with_span(self.span()))
     }

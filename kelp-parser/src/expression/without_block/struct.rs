@@ -12,7 +12,6 @@ use crate::{
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
-    path::generic::lower_generic_path,
     syntax::SyntaxKind,
 };
 
@@ -111,7 +110,7 @@ pub fn lower_struct_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let path = lower_generic_path(node.generic_path()?)?;
+    let path = node.generic_path()?.lower(ctx)?;
 
     let fields = node
         .struct_expression_fields()

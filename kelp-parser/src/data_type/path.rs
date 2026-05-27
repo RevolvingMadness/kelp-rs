@@ -1,30 +1,35 @@
 use kelp_core::parsed::data_type::ParsedDataType;
 
 use crate::{
-    cst::CSTPathDataType,
+    cst::{CSTPathDataType, CSTTypePath},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
+    lower_context::LowerContext,
     parser::Parser,
-    path::generic::{lower_generic_path, try_parse_generic_path},
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_path_data_type(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTPathDataType {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if !try_parse_generic_path(parser, true) {
-        return false;
+        if !CSTTypePath::try_parse(parser) {
+            return false;
+        }
+
+        marker.start_node(parser, SyntaxKind::PathDataType);
+
+        parser.finish_node();
+
+        true
     }
-
-    checkpoint.start_node(parser, SyntaxKind::PathDataType);
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_path_data_type(node: CSTPathDataType) -> Option<ParsedDataType> {
-    let path = lower_generic_path(node.generic_path()?)?;
+impl LowerableAstNode for CSTPathDataType {
+    type Lowered = ParsedDataType;
 
-    Some(ParsedDataType::Named(path))
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let path = self.type_path()?.lower(ctx)?;
+
+        Some(ParsedDataType::Named(path))
+    }
 }

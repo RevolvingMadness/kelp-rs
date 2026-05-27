@@ -1,9 +1,9 @@
 use kelp_core::{parsed::data_type::ParsedDataType, span::Span};
 
 use crate::{
-    cst::{CSTGenericDataTypes, CSTGenericNames},
-    data_type::{lower_data_type, try_parse_data_type},
-    extension_traits::AstNodeExt,
+    cst::{CSTDataType, CSTGenericDataTypes, CSTGenericNames},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -51,53 +51,54 @@ pub fn lower_generic_names(node: CSTGenericNames) -> Option<Vec<String>> {
     )
 }
 
-#[must_use]
-pub fn try_parse_generic_data_types(parser: &mut Parser) -> bool {
-    if parser.peek_char() != Some('<') {
-        return false;
-    }
-
-    parser.start_node(SyntaxKind::GenericDataTypes);
-
-    parser.bump_char();
-    parser.skip_inline_whitespace();
-
-    while parser.peek_char() != Some('>') && parser.peek_char().is_some() {
-        if !try_parse_data_type(parser) {
-            parser.error("Expected data type in generic arguments");
-
-            break;
+impl ParsableAstNode for CSTGenericDataTypes {
+    fn try_parse(parser: &mut Parser) -> bool {
+        if parser.peek_char() != Some('<') {
+            return false;
         }
 
+        parser.start_node(SyntaxKind::GenericDataTypes);
+
+        parser.bump_char();
         parser.skip_inline_whitespace();
 
-        if parser.try_bump_char(',') {
+        while parser.peek_char() != Some('>') && parser.peek_char().is_some() {
+            if !CSTDataType::try_parse(parser) {
+                parser.error("Expected data type in generic arguments");
+
+                break;
+            }
+
             parser.skip_inline_whitespace();
-        } else {
-            break;
+
+            if parser.try_bump_char(',') {
+                parser.skip_inline_whitespace();
+            } else {
+                break;
+            }
         }
+
+        parser.expect_char('>', "Expected closing angle bracket '>'");
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.expect_char('>', "Expected closing angle bracket '>'");
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_generic_data_types(
-    node: CSTGenericDataTypes,
-) -> Option<(Vec<Span>, Vec<ParsedDataType>)> {
-    Some(
-        node.generics()
-            .filter_map(|data_type| {
-                let span = data_type.span();
-                let data_type = lower_data_type(data_type)?;
+impl LowerableAstNode for CSTGenericDataTypes {
+    type Lowered = (Vec<Span>, Vec<ParsedDataType>);
 
-                Some((span, data_type))
-            })
-            .unzip(),
-    )
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(
+            self.generics()
+                .filter_map(|data_type| {
+                    let span = data_type.span();
+                    let data_type = data_type.lower(ctx)?;
+
+                    Some((span, data_type))
+                })
+                .unzip(),
+        )
+    }
 }

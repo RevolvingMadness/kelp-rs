@@ -1,8 +1,7 @@
 use kelp_core::parsed::expression::ParsedExpression;
 
 use crate::{
-    cst::CSTExpression,
-    data_type::try_parse_data_type,
+    cst::{CSTDataType, CSTExpression, CSTGenericPath, CSTGenericPathSegment},
     expression::{
         with_block::{
             block::try_parse_block_expression,
@@ -27,7 +26,6 @@ use crate::{
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    path::generic::{try_parse_generic_path, try_parse_generic_path_segment},
     syntax::SyntaxKind,
 };
 
@@ -125,7 +123,7 @@ fn try_parse_to_cast(parser: &mut Parser) -> bool {
             checkpoint.start_node(parser, SyntaxKind::AsCastExpression);
             parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
             parser.expect_whitespace();
-            if !try_parse_data_type(parser) {
+            if !CSTDataType::try_parse(parser) {
                 parser.error("Expected data type");
             }
             parser.finish_node();
@@ -457,7 +455,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
 
                 let mut is_method_call = false;
 
-                if try_parse_generic_path_segment(parser, true) {
+                if CSTGenericPathSegment::try_parse(parser) {
                     parser.skip_whitespace();
 
                     if parser.peek_char() == Some('(') {
@@ -472,7 +470,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                     parser.bump_char();
                     parser.skip_whitespace();
 
-                    assert!(try_parse_generic_path_segment(parser, true));
+                    assert!(CSTGenericPathSegment::try_parse(parser));
 
                     parser.skip_whitespace();
                     parser.bump_char();
@@ -504,7 +502,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                     checkpoint.start_node(parser, SyntaxKind::AsCastExpression);
                     parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
                     parser.expect_whitespace();
-                    if !try_parse_data_type(parser) {
+                    if !CSTDataType::try_parse(parser) {
                         parser.error("Expected data type");
                     }
                     parser.finish_node();
@@ -694,7 +692,7 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
 
             let checkpoint = parser.mark();
 
-            if !try_parse_generic_path(parser, false) {
+            if !CSTGenericPath::try_parse(parser) {
                 unreachable!();
             }
 

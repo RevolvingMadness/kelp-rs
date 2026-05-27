@@ -1,8 +1,7 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::{CSTExpression, CSTLetStatement, CSTPattern},
-    data_type::{lower_data_type, try_parse_data_type},
+    cst::{CSTDataType, CSTExpression, CSTLetStatement, CSTPattern},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
@@ -29,7 +28,7 @@ impl ParsableAstNode for CSTLetStatement {
         if parser.try_bump_char(':') {
             parser.skip_whitespace();
 
-            if !try_parse_data_type(parser) {
+            if !CSTDataType::try_parse(parser) {
                 parser.error("Expected data type");
             }
 
@@ -61,7 +60,7 @@ impl LowerableAstNode for CSTLetStatement {
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let pattern = self.pattern()?.lower(ctx)?;
 
-        let data_type = self.data_type().and_then(lower_data_type);
+        let data_type = self.data_type().and_then(|data_type| data_type.lower(ctx));
 
         let value = self.expression()?.lower(ctx)?;
 

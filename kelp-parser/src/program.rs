@@ -1,8 +1,8 @@
 use kelp_core::parsed::program::Program;
 
 use crate::{
-    cst::CSTProgram,
-    item::{expect_item, lower_item},
+    cst::{CSTItem, CSTProgram},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -18,7 +18,7 @@ pub fn parse_program(parser: &mut Parser) {
             break;
         }
 
-        expect_item(parser);
+        CSTItem::expect(parser, "Expected item");
     }
 
     parser.finish_node();
@@ -26,10 +26,7 @@ pub fn parse_program(parser: &mut Parser) {
 
 #[must_use]
 pub fn lower_program(program: &CSTProgram, ctx: &mut LowerContext) -> Program {
-    let items = program
-        .items()
-        .filter_map(|item| lower_item(item, ctx))
-        .collect();
+    let items = program.items().filter_map(|item| item.lower(ctx)).collect();
 
     Program { items }
 }

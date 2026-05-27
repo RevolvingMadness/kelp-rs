@@ -437,7 +437,7 @@ TypedCompoundDataTypeField =
   name:'typed_compound_data_type_field_name' (':' DataType)?
 
 PathDataType =
-  GenericPath
+  TypePath
 
 InferredDataType =
   '_'
@@ -529,6 +529,12 @@ Data =
   DataTarget NBTPath
 
 // ----- Path -----
+TypePath =
+  '::'? TypePathSegment ('::' TypePathSegment)*
+
+TypePathSegment =
+  'path_identifier' ('::'? GenericDataTypes)?
+
 GenericPath =
   '::'? GenericPathSegment ('::' GenericPathSegment)*
 

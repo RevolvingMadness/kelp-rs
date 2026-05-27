@@ -5,7 +5,6 @@ use crate::{
     expression::without_block::call::lower_call_arguments,
     extension_traits::{AstNodeExt, LowerableAstNode},
     lower_context::LowerContext,
-    path::generic::lower_generic_path_segment,
 };
 
 #[must_use]
@@ -16,7 +15,7 @@ pub fn lower_method_call_expression(
 ) -> Option<ParsedExpression> {
     let receiver = node.expression()?.lower(ctx)?;
 
-    let callee = lower_generic_path_segment(node.generic_path_segment()?)?;
+    let callee = node.generic_path_segment()?.lower(ctx)?;
 
     let arguments = node
         .call_arguments()

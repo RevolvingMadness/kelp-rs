@@ -16,7 +16,6 @@ use crate::{
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    path::generic::lower_generic_path,
     syntax::SyntaxKind,
 };
 
@@ -100,7 +99,7 @@ impl LowerableAstNode for CSTRegularStructPattern {
     type Lowered = ParsedPattern;
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let path = lower_generic_path(self.generic_path()?)?;
+        let path = self.generic_path()?.lower(ctx)?;
 
         let fields = self
             .regular_struct_pattern_fields()
@@ -185,7 +184,7 @@ impl LowerableAstNode for CSTTupleStructPattern {
     type Lowered = ParsedPattern;
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let path = lower_generic_path(self.generic_path()?)?;
+        let path = self.generic_path()?.lower(ctx)?;
 
         let fields = self
             .tuple_struct_pattern_fields()

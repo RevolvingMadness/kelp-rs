@@ -9,11 +9,11 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::{CSTFunctionDeclarationItem, CSTFunctionParameter, CSTFunctionParameters, CSTPattern},
-    data_type::{
-        generics::{lower_generic_names, try_parse_generic_names},
-        lower_data_type, try_parse_data_type,
+    cst::{
+        CSTDataType, CSTFunctionDeclarationItem, CSTFunctionParameter, CSTFunctionParameters,
+        CSTPattern,
     },
+    data_type::generics::{lower_generic_names, try_parse_generic_names},
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
@@ -38,7 +38,7 @@ pub fn try_parse_function_parameter(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_data_type(parser) && parsed_colon {
+    if !CSTDataType::try_parse(parser) && parsed_colon {
         parser.error("Expected data type");
     }
 
@@ -61,7 +61,7 @@ pub fn try_parse_self_function_parameter(parser: &mut Parser) -> bool {
     if parser.try_bump_char(':') {
         parser.skip_whitespace();
 
-        if !try_parse_data_type(parser) {
+        if !CSTDataType::try_parse(parser) {
             parser.error("Expected data type");
         }
     }
@@ -164,7 +164,7 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
     if parser.try_bump_str("->", SyntaxKind::MinusRightArrow) {
         parser.skip_whitespace();
 
-        if !try_parse_data_type(parser) {
+        if !CSTDataType::try_parse(parser) {
             parser.error("Expected function return type");
         }
 
@@ -213,7 +213,7 @@ pub fn expect_function_declaration_item_kind(parser: &mut Parser) {
     if parser.try_bump_str("->", SyntaxKind::MinusRightArrow) {
         parser.skip_whitespace();
 
-        if !try_parse_data_type(parser) {
+        if !CSTDataType::try_parse(parser) {
             parser.error("Expected function return type");
         }
 
@@ -235,7 +235,7 @@ pub fn lower_function_parameter(
 ) -> Option<(ParsedPattern, ParsedDataType)> {
     let pattern = node.pattern()?.lower(ctx)?;
 
-    let data_type = lower_data_type(node.data_type()?)?;
+    let data_type = node.data_type()?.lower(ctx)?;
 
     Some((pattern, data_type))
 }
@@ -259,7 +259,7 @@ pub fn lower_function_parameters(
             let self_type = parameter.data_type().and_then(|data_type| {
                 let span = data_type.span();
 
-                let data_type = lower_data_type(data_type)?;
+                let data_type = data_type.lower(ctx)?;
 
                 Some((span, data_type))
             });
@@ -300,7 +300,7 @@ pub fn lower_function_declaration_item_kind(
 
     let return_type = node
         .data_type()
-        .and_then(lower_data_type)
+        .and_then(|data_type| data_type.lower(ctx))
         .unwrap_or(ParsedDataType::Unit);
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;

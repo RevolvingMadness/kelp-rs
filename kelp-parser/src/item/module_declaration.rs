@@ -1,11 +1,10 @@
 use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
-    cst::CSTModuleDeclarationItem,
-    item::{expect_item, lower_item},
+    cst::{CSTItem, CSTModuleDeclarationItem},
+    extension_traits::{LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
-    extension_traits::SyntaxTokenExt,
     syntax::SyntaxKind,
 };
 
@@ -35,7 +34,7 @@ pub fn try_parse_module_declaration_item_kind(parser: &mut Parser) -> bool {
             break;
         }
 
-        expect_item(parser);
+        CSTItem::expect(parser, "Expected item");
     }
 
     parser.expect_char('}', "Expected '}'");
@@ -64,7 +63,7 @@ pub fn expect_module_declaration_item_kind(parser: &mut Parser) {
             break;
         }
 
-        expect_item(parser);
+        CSTItem::expect(parser, "Expected item");
     }
 
     parser.expect_char('}', "Expected '}'");
@@ -82,10 +81,7 @@ pub fn lower_module_declaration_item(
     let name_span = name_token.span();
     let name = name_token.text();
 
-    let items = node
-        .items()
-        .filter_map(|item| lower_item(item, ctx))
-        .collect();
+    let items = node.items().filter_map(|item| item.lower(ctx)).collect();
 
     Some(ParsedItemKind::ModuleDeclaration {
         name_span,

@@ -1,12 +1,9 @@
 use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
-    cst::CSTInherentImplementationItem,
-    data_type::{
-        generics::{lower_generic_names, try_parse_generic_names},
-        lower_data_type, try_parse_data_type,
-    },
-    extension_traits::AstNodeExt,
+    cst::{CSTDataType, CSTInherentImplementationItem},
+    data_type::generics::{lower_generic_names, try_parse_generic_names},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     item::associated::{expect_associated_item, lower_associated_item},
     lower_context::LowerContext,
     parser::Parser,
@@ -31,7 +28,7 @@ pub fn try_parse_inherent_implementation_item_kind(parser: &mut Parser) -> bool 
 
     parser.skip_whitespace();
 
-    if !try_parse_data_type(parser) {
+    if !CSTDataType::try_parse(parser) {
         state.restore(parser);
         return false;
     }
@@ -69,7 +66,7 @@ pub fn expect_inherent_implementation_item_kind(parser: &mut Parser) {
 
     parser.skip_whitespace();
 
-    if !try_parse_data_type(parser) {
+    if !CSTDataType::try_parse(parser) {
         parser.error("Expected data type");
     }
 
@@ -100,7 +97,7 @@ pub fn lower_inherent_implementation_item(
     let generic_names = node.generic_names().and_then(lower_generic_names);
     let target_type = node.data_type()?;
     let target_type_span = target_type.span();
-    let target_type = lower_data_type(target_type)?;
+    let target_type = target_type.lower(ctx)?;
 
     let associated_items = node
         .associated_items()

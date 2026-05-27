@@ -35,7 +35,7 @@ pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
 impl LowerableAstNode for CSTNBTPathNode {
     type Lowered = NbtPathNode;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::IndexNBTPathNode(node) => {
                 let index = node.index();

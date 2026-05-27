@@ -7,7 +7,7 @@ use crate::{
 impl LowerableAstNode for CSTInferredDataType {
     type Lowered = ParsedDataType;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(ParsedDataType::Inferred)
     }
 }

@@ -1,10 +1,8 @@
 use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
-    cst::{CSTDataType, CSTInherentImplementationItem},
-    data_type::generics::{lower_generic_names, try_parse_generic_names},
+    cst::{CSTAssociatedItem, CSTDataType, CSTGenericNames, CSTInherentImplementationItem},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
-    item::associated::{expect_associated_item, lower_associated_item},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -24,7 +22,7 @@ impl ParsableAstNode for CSTInherentImplementationItem {
 
         parser.skip_whitespace();
 
-        try_parse_generic_names(parser);
+        CSTGenericNames::try_parse(parser);
 
         parser.skip_whitespace();
 
@@ -47,7 +45,7 @@ impl ParsableAstNode for CSTInherentImplementationItem {
                 break;
             }
 
-            expect_associated_item(parser);
+            CSTAssociatedItem::expect(parser, "Expected associated item");
         }
 
         parser.expect_char('}', "Expected '}'");
@@ -60,15 +58,15 @@ impl ParsableAstNode for CSTInherentImplementationItem {
 impl LowerableAstNode for CSTInherentImplementationItem {
     type Lowered = ParsedItemKind;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let generic_names = self.generic_names().and_then(lower_generic_names);
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let generic_names = self.generic_names().and_then(|names| names.lower(ctx));
         let target_type = self.data_type()?;
         let target_type_span = target_type.span();
         let target_type = target_type.lower(ctx)?;
 
         let associated_items = self
             .associated_items()
-            .filter_map(|item| lower_associated_item(item, ctx))
+            .filter_map(|item| item.lower(ctx))
             .collect();
 
         Some(ParsedItemKind::InherentImplementationItem {

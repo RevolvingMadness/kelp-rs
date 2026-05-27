@@ -1,4 +1,4 @@
-use kelp_core::parsed::program::Program;
+use kelp_core::{parsed::program::Program, trait_ext::CollectOptionAllIterExt};
 
 use crate::{
     cst::{CSTItem, CSTProgram},
@@ -8,25 +8,35 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-pub fn parse_program(parser: &mut Parser) {
-    parser.start_node(SyntaxKind::Program);
+impl ParsableAstNode for CSTProgram {
+    fn try_parse(parser: &mut Parser) -> bool {
+        parser.start_node(SyntaxKind::Program);
 
-    loop {
-        parser.skip_whitespace();
+        loop {
+            parser.skip_whitespace();
 
-        if parser.is_eof() {
-            break;
+            if parser.is_eof() {
+                break;
+            }
+
+            CSTItem::expect(parser, "Expected item");
         }
 
-        CSTItem::expect(parser, "Expected item");
-    }
+        parser.finish_node();
 
-    parser.finish_node();
+        true
+    }
 }
 
-#[must_use]
-pub fn lower_program(program: &CSTProgram, ctx: &mut LowerContext) -> Program {
-    let items = program.items().filter_map(|item| item.lower(ctx)).collect();
+impl LowerableAstNode for CSTProgram {
+    type Lowered = Program;
 
-    Program { items }
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let items = self
+            .items()
+            .map(|item| item.lower(ctx))
+            .collect_option_all()?;
+
+        Some(Program { items })
+    }
 }

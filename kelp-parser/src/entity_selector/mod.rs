@@ -14,33 +14,35 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_entity_selector(parser: &mut Parser) -> bool {
-    if CSTExpressionSigil::try_parse(parser) {
-        return true;
-    }
+impl ParsableAstNode for CSTEntitySelector {
+    fn try_parse(parser: &mut Parser) -> bool {
+        if CSTExpressionSigil::try_parse(parser) {
+            return true;
+        }
 
-    if parser.try_start_node_bump('@', SyntaxKind::VariableEntitySelector) {
-        if let Some(text) = parser.peek_identifier() {
-            parser.add_token(SyntaxKind::EntitySelectorVariable, text.len());
+        if parser.try_start_node_bump('@', SyntaxKind::VariableEntitySelector) {
+            if let Some(text) = parser.peek_identifier() {
+                parser.add_token(SyntaxKind::EntitySelectorVariable, text.len());
+            } else {
+                parser.error("Expected entity selector variable");
+            }
+
+            if parser.peek_char() == Some('[') {
+                parse_options(parser);
+            }
+
+            parser.finish_node();
+
+            true
+        } else if let Some(name) = parser.peek_identifier() {
+            parser.start_node(SyntaxKind::NameEntitySelector);
+            parser.add_token(SyntaxKind::Identifier, name.len());
+            parser.finish_node();
+
+            true
         } else {
-            parser.error("Expected entity selector variable");
+            false
         }
-
-        if parser.peek_char() == Some('[') {
-            parse_options(parser);
-        }
-
-        parser.finish_node();
-
-        true
-    } else if let Some(name) = parser.peek_identifier() {
-        parser.start_node(SyntaxKind::NameEntitySelector);
-        parser.add_token(SyntaxKind::Identifier, name.len());
-        parser.finish_node();
-
-        true
-    } else {
-        false
     }
 }
 
@@ -158,57 +160,60 @@ fn parse_options(parser: &mut Parser) {
     parser.finish_node();
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_variable_entity_selector(
-    node: CSTVariableEntitySelector,
-) -> Option<ParsedEntitySelector> {
-    let variable_token = node.entity_selector_variable_token()?;
-    let variable = variable_token.text();
+impl LowerableAstNode for CSTVariableEntitySelector {
+    type Lowered = ParsedEntitySelector;
 
-    let variable = match variable {
-        "a" => EntitySelectorVariable::A,
-        "e" => EntitySelectorVariable::E,
-        "n" => EntitySelectorVariable::N,
-        "p" => EntitySelectorVariable::P,
-        "r" => EntitySelectorVariable::R,
-        "s" => EntitySelectorVariable::S,
-        _ => return None,
-    };
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let variable_token = self.entity_selector_variable_token()?;
+        let variable = variable_token.text();
 
-    Some(ParsedEntitySelector::Variable(variable, Vec::new()))
-}
+        let variable = match variable {
+            "a" => EntitySelectorVariable::A,
+            "e" => EntitySelectorVariable::E,
+            "n" => EntitySelectorVariable::N,
+            "p" => EntitySelectorVariable::P,
+            "r" => EntitySelectorVariable::R,
+            "s" => EntitySelectorVariable::S,
+            _ => return None,
+        };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_name_entity_selector(node: CSTNameEntitySelector) -> Option<ParsedEntitySelector> {
-    let name_token = node.identifier_token()?;
-    let name = name_token.text();
-
-    Some(ParsedEntitySelector::Name(name.to_string()))
-}
-
-#[must_use]
-pub fn lower_actual_entity_selector(node: CSTActualEntitySelector) -> Option<ParsedEntitySelector> {
-    match node {
-        CSTActualEntitySelector::VariableEntitySelector(node) => {
-            lower_variable_entity_selector(node)
-        }
-        CSTActualEntitySelector::NameEntitySelector(node) => lower_name_entity_selector(node),
+        Some(ParsedEntitySelector::Variable(variable, Vec::new()))
     }
 }
 
-#[must_use]
-pub fn lower_entity_selector(
-    node: CSTEntitySelector,
-    ctx: &mut LowerContext,
-) -> Option<ParsedSupportsExpressionSigil<ParsedEntitySelector>> {
-    match node {
-        CSTEntitySelector::ActualEntitySelector(node) => {
-            lower_actual_entity_selector(node).map(ParsedSupportsExpressionSigil::Regular)
+impl LowerableAstNode for CSTNameEntitySelector {
+    type Lowered = ParsedEntitySelector;
+
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let name_token = self.identifier_token()?;
+        let name = name_token.text();
+
+        Some(ParsedEntitySelector::Name(name.to_string()))
+    }
+}
+
+impl LowerableAstNode for CSTActualEntitySelector {
+    type Lowered = ParsedEntitySelector;
+
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::VariableEntitySelector(node) => node.lower(ctx),
+            Self::NameEntitySelector(node) => node.lower(ctx),
         }
-        CSTEntitySelector::ExpressionSigil(node) => node
-            .lower(ctx)
-            .map(|lowered| lowered.retype_sigil().unwrap()),
+    }
+}
+
+impl LowerableAstNode for CSTEntitySelector {
+    type Lowered = ParsedSupportsExpressionSigil<ParsedEntitySelector>;
+
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::ActualEntitySelector(node) => {
+                node.lower(ctx).map(ParsedSupportsExpressionSigil::Regular)
+            }
+            Self::ExpressionSigil(node) => node
+                .lower(ctx)
+                .map(|lowered| lowered.retype_sigil().unwrap()),
+        }
     }
 }

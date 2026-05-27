@@ -5,19 +5,18 @@ use crate::{
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    statement::{lower_statement, try_parse_statement},
     syntax::SyntaxKind,
 };
 
 impl ParsableAstNode for CSTBlockExpression {
     fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.mark();
+        let marker = parser.mark();
 
         if !parser.try_bump_char('{') {
             return false;
         }
 
-        checkpoint.start_node(parser, SyntaxKind::BlockExpression);
+        marker.start_node(parser, SyntaxKind::BlockExpression);
 
         loop {
             parser.skip_whitespace();
@@ -26,9 +25,7 @@ impl ParsableAstNode for CSTBlockExpression {
                 break;
             }
 
-            if !try_parse_statement(parser) {
-                parser.recover_not_whitespace("Expected statement");
-            }
+            CSTStatement::expect(parser, "Expected statement");
         }
 
         parser.expect_char('}', "Expected '}'");
@@ -42,7 +39,7 @@ impl ParsableAstNode for CSTBlockExpression {
 impl LowerableAstNode for CSTBlockExpression {
     type Lowered = ParsedBlockExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let cst_statements: Vec<_> = self.statements().collect();
         let mut statements = Vec::new();
         let mut tail_expression = None;
@@ -71,7 +68,7 @@ impl LowerableAstNode for CSTBlockExpression {
                 continue;
             }
 
-            if let Some(stmt) = lower_statement(cst_statement, ctx) {
+            if let Some(stmt) = cst_statement.lower(ctx) {
                 statements.push(stmt);
             }
         }

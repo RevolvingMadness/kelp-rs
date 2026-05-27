@@ -1,60 +1,61 @@
-use kelp_core::parsed::use_tree::UseTree;
+use kelp_core::{parsed::use_tree::UseTree, trait_ext::CollectOptionAllIterExt};
 
 use crate::{
-    cst::CSTUseTree,
+    cst::{CSTPath, CSTUseTree},
+    extension_traits::{LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
+    lower_context::LowerContext,
     parser::Parser,
-    path::regular::{lower_path, try_parse_path},
-    extension_traits::SyntaxTokenExt,
     syntax::SyntaxKind,
 };
 
-#[must_use]
-pub fn try_parse_use_tree(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTUseTree {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if parser.peek_char() == Some('{') {
-        checkpoint.start_node(parser, SyntaxKind::GroupUseTree);
-        parse_use_tree_group(parser);
-        parser.finish_node();
-        return true;
-    }
+        if parser.peek_char() == Some('{') {
+            marker.start_node(parser, SyntaxKind::GroupUseTree);
+            parse_use_tree_group(parser);
+            parser.finish_node();
+            return true;
+        }
 
-    if !try_parse_path(parser) {
-        return false;
-    }
+        if !CSTPath::try_parse(parser) {
+            return false;
+        }
 
-    parser.skip_inline_whitespace();
-
-    let state = parser.save_state();
-    if parser.try_bump_str("::", SyntaxKind::ColonColon) {
         parser.skip_inline_whitespace();
 
-        if parser.try_bump_char('*') {
-            checkpoint.start_node(parser, SyntaxKind::WildcardUseTree);
-        } else if parser.peek_char() == Some('{') {
-            checkpoint.start_node(parser, SyntaxKind::GroupUseTree);
-            parse_use_tree_group(parser);
-        } else {
-            state.restore(parser);
-            checkpoint.start_node(parser, SyntaxKind::PathUseTree);
-        }
-    } else if parser.peek_identifier() == Some("as") {
-        checkpoint.start_node(parser, SyntaxKind::AsUseTree);
-        parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
-        parser.expect_inline_whitespace();
+        let state = parser.save_state();
+        if parser.try_bump_str("::", SyntaxKind::ColonColon) {
+            parser.skip_inline_whitespace();
 
-        if let Some(ident) = parser.peek_identifier() {
-            parser.bump_identifier_kind(SyntaxKind::Identifier, ident);
+            if parser.try_bump_char('*') {
+                marker.start_node(parser, SyntaxKind::WildcardUseTree);
+            } else if parser.peek_char() == Some('{') {
+                marker.start_node(parser, SyntaxKind::GroupUseTree);
+                parse_use_tree_group(parser);
+            } else {
+                state.restore(parser);
+                marker.start_node(parser, SyntaxKind::PathUseTree);
+            }
+        } else if parser.peek_identifier() == Some("as") {
+            marker.start_node(parser, SyntaxKind::AsUseTree);
+            parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
+            parser.expect_inline_whitespace();
+
+            if let Some(ident) = parser.peek_identifier() {
+                parser.bump_identifier_kind(SyntaxKind::Identifier, ident);
+            } else {
+                parser.error("Expected alias identifier after 'as'");
+            }
         } else {
-            parser.error("Expected alias identifier after 'as'");
+            marker.start_node(parser, SyntaxKind::PathUseTree);
         }
-    } else {
-        checkpoint.start_node(parser, SyntaxKind::PathUseTree);
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.finish_node();
-
-    true
 }
 
 fn parse_use_tree_group(parser: &mut Parser) {
@@ -67,8 +68,7 @@ fn parse_use_tree_group(parser: &mut Parser) {
             break;
         }
 
-        if !try_parse_use_tree(parser) {
-            parser.error("Expected use tree");
+        if !CSTUseTree::expect(parser, "Expected use tree") {
             parser.bump_until_char(&[',', '}']);
         }
 
@@ -82,37 +82,40 @@ fn parse_use_tree_group(parser: &mut Parser) {
     parser.expect_char('}', "Expected '}'");
 }
 
-#[must_use]
-pub fn lower_use_tree(node: CSTUseTree) -> Option<UseTree> {
-    match node {
-        CSTUseTree::PathUseTree(node) => {
-            let path = lower_path(node.path()?)?;
+impl LowerableAstNode for CSTUseTree {
+    type Lowered = UseTree;
 
-            Some(UseTree::Path(path))
-        }
-        CSTUseTree::WildcardUseTree(node) => {
-            let path = lower_path(node.path()?)?;
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::PathUseTree(node) => {
+                let path = node.path()?.lower(ctx)?;
 
-            Some(UseTree::Wildcard(path))
-        }
-        CSTUseTree::AsUseTree(node) => {
-            let path = lower_path(node.path()?)?;
+                Some(UseTree::Path(path))
+            }
+            Self::WildcardUseTree(node) => {
+                let path = node.path()?.lower(ctx)?;
 
-            let alias_token = node.identifier_token()?;
-            let alias_span = alias_token.span();
-            let alias = alias_token.text();
+                Some(UseTree::Wildcard(path))
+            }
+            Self::AsUseTree(node) => {
+                let path = node.path()?.lower(ctx)?;
 
-            Some(UseTree::As(path, alias_span, alias.to_owned()))
-        }
-        CSTUseTree::GroupUseTree(node) => {
-            let prefix_path = node.path().and_then(lower_path);
+                let alias_token = node.identifier_token()?;
+                let alias_span = alias_token.span();
+                let alias = alias_token.text();
 
-            let nested_trees = node
-                .use_trees()
-                .filter_map(lower_use_tree)
-                .collect::<Vec<_>>();
+                Some(UseTree::As(path, alias_span, alias.to_owned()))
+            }
+            Self::GroupUseTree(node) => {
+                let prefix_path = node.path().and_then(|path| path.lower(ctx));
 
-            Some(UseTree::Group(prefix_path, nested_trees))
+                let nested_trees = node
+                    .use_trees()
+                    .map(|tree| tree.lower(ctx))
+                    .collect_option_all()?;
+
+                Some(UseTree::Group(prefix_path, nested_trees))
+            }
         }
     }
 }

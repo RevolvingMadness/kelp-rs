@@ -7,9 +7,9 @@ use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
 use kelp_core::semantic::environment::SemanticEnvironment;
 use kelp_core::semantic::program::SemanticProgram;
 use kelp_parser::cst::CSTProgram;
+use kelp_parser::extension_traits::LowerableAstNode;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseResult, Parser};
-use kelp_parser::program::lower_program;
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -290,7 +290,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let mut lower_context = LowerContext::new(max_infos);
 
     let lower_start = Instant::now();
-    let program = lower_program(&root, &mut lower_context);
+    let program = root.lower(&mut lower_context).unwrap();
     let lower_elapsed = lower_start.elapsed();
 
     let lower_succeeded = !display_parse_infos(&lower_context, &main_kelp_path, &main_kelp);

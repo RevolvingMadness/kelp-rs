@@ -13,13 +13,13 @@ use crate::{
 
 impl ParsableAstNode for CSTTypePathSegment {
     fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.mark();
+        let marker = parser.mark();
 
         if !parser.try_bump_identifier_kind(SyntaxKind::PathIdentifier) {
             return false;
         }
 
-        checkpoint.start_node(parser, SyntaxKind::TypePathSegment);
+        marker.start_node(parser, SyntaxKind::TypePathSegment);
 
         let state = parser.save_state();
 
@@ -70,7 +70,7 @@ impl ParsableAstNode for CSTTypePath {
 impl LowerableAstNode for CSTTypePathSegment {
     type Lowered = GenericPathSegment<ParsedDataType>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.path_identifier_token()?;
         let name_span = name_token.span();
         let name = name_token.text();
@@ -92,7 +92,7 @@ impl LowerableAstNode for CSTTypePathSegment {
 impl LowerableAstNode for CSTTypePath {
     type Lowered = GenericPath<ParsedDataType>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let segments = self
             .type_path_segments()
             .filter_map(|segment| segment.lower(ctx))

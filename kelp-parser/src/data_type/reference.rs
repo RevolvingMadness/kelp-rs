@@ -10,8 +10,8 @@ use crate::{
 
 impl ParsableAstNode for CSTReferenceDataType {
     fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.mark();
-        checkpoint.start_node(parser, SyntaxKind::ReferenceDataType);
+        let marker = parser.mark();
+        marker.start_node(parser, SyntaxKind::ReferenceDataType);
 
         parser.bump_char();
 
@@ -27,7 +27,7 @@ impl ParsableAstNode for CSTReferenceDataType {
 impl LowerableAstNode for CSTReferenceDataType {
     type Lowered = ParsedDataType;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let data_type = self.data_type()?.lower(ctx)?;
 
         Some(ParsedDataType::Reference(Box::new(data_type)))

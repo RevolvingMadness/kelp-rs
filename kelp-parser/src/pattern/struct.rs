@@ -52,7 +52,7 @@ impl ParsableAstNode for CSTRegularStructPatternField {
 impl LowerableAstNode for CSTRegularStructPatternField {
     type Lowered = ((Span, String), ParsedPattern);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let field_name_token = self.struct_field_name_token()?;
         let field_name_span = field_name_token.span();
         let field_name = field_name_token.text();
@@ -86,7 +86,7 @@ impl ParsableAstNode for CSTRegularStructPatternFields {
 impl LowerableAstNode for CSTRegularStructPatternFields {
     type Lowered = HashMap<(Span, String), ParsedPattern>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(
             self.regular_struct_pattern_fields()
                 .filter_map(|field| field.lower(ctx))
@@ -98,7 +98,7 @@ impl LowerableAstNode for CSTRegularStructPatternFields {
 impl LowerableAstNode for CSTRegularStructPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let path = self.generic_path()?.lower(ctx)?;
 
         let fields = self
@@ -112,39 +112,27 @@ impl LowerableAstNode for CSTRegularStructPattern {
     }
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_struct_pattern_field(
-    node: CSTTupleStructPatternField,
-    ctx: &mut LowerContext,
-) -> Option<ParsedPattern> {
-    let field_pattern = node.pattern()?.lower(ctx)?;
+impl ParsableAstNode for CSTTupleStructPatternField {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    Some(field_pattern)
-}
+        if !CSTPattern::try_parse(parser) {
+            return false;
+        }
 
-#[must_use]
-fn try_parse_tuple_struct_pattern_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+        marker.finish(parser, SyntaxKind::TupleStructPatternField);
 
-    if !CSTPattern::try_parse(parser) {
-        return false;
+        true
     }
-
-    checkpoint.finish(parser, SyntaxKind::TupleStructPatternField);
-
-    true
 }
 
-impl LowerableAstNode for CSTTupleStructPatternFields {
-    type Lowered = Vec<ParsedPattern>;
+impl LowerableAstNode for CSTTupleStructPatternField {
+    type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        Some(
-            self.tuple_struct_pattern_fields()
-                .filter_map(|field| lower_tuple_struct_pattern_field(field, ctx))
-                .collect(),
-        )
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let field_pattern = self.pattern()?.lower(ctx)?;
+
+        Some(field_pattern)
     }
 }
 
@@ -152,7 +140,7 @@ impl ParsableAstNode for CSTTupleStructPatternFields {
     fn try_parse(parser: &mut Parser) -> bool {
         let marker = parser.mark();
 
-        if !try_parse_tuple_struct_pattern_field(parser) {
+        if !CSTTupleStructPatternField::try_parse(parser) {
             return false;
         }
 
@@ -169,7 +157,7 @@ impl ParsableAstNode for CSTTupleStructPatternFields {
 
             parser.skip_whitespace();
 
-            if !try_parse_tuple_struct_pattern_field(parser) {
+            if !CSTTupleStructPatternField::try_parse(parser) {
                 break;
             }
         }
@@ -180,10 +168,22 @@ impl ParsableAstNode for CSTTupleStructPatternFields {
     }
 }
 
+impl LowerableAstNode for CSTTupleStructPatternFields {
+    type Lowered = Vec<ParsedPattern>;
+
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(
+            self.tuple_struct_pattern_fields()
+                .filter_map(|field| field.lower(ctx))
+                .collect(),
+        )
+    }
+}
+
 impl LowerableAstNode for CSTTupleStructPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let path = self.generic_path()?.lower(ctx)?;
 
         let fields = self

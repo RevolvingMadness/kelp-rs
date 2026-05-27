@@ -99,7 +99,7 @@ fn bump_until_next_compound_entry_or_end(parser: &mut Parser) {
 impl LowerableAstNode for CSTCompoundExpressionEntry {
     type Lowered = (String, ParsedExpression);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let key_token = self.name()?;
         let value = self.value()?;
         let value = value.lower(ctx)?;
@@ -113,7 +113,7 @@ impl LowerableAstNode for CSTCompoundExpressionEntry {
 impl LowerableAstNode for CSTCompoundExpression {
     type Lowered = (Span, HashMap<String, ParsedExpression>);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let compound = self
             .entries()
             .map(|entry| entry.lower(ctx))

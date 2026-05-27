@@ -33,7 +33,7 @@ impl ParsableAstNode for CSTFunctionCommandExpression {
 impl LowerableAstNode for CSTFunctionCommandExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let resource_location = self.resource_location()?.lower(ctx)?;
 
         Some(

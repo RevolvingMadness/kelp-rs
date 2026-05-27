@@ -44,7 +44,7 @@ impl ParsableAstNode for CSTCallArguments {
 impl LowerableAstNode for CSTCallArguments {
     type Lowered = Vec<ParsedExpression>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         self.expressions()
             .map(|expression| expression.lower(ctx))
             .collect_option_all()
@@ -54,7 +54,7 @@ impl LowerableAstNode for CSTCallArguments {
 impl LowerableAstNode for CSTCallExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let callee = self.callee()?.lower(ctx)?;
 
         let arguments = self.call_arguments().map(|arguments| arguments.lower(ctx));

@@ -11,7 +11,7 @@ pub mod predicate;
 impl LowerableAstNode for CSTLoopExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::PredicateLoopExpression(node) => node.lower(ctx),
             Self::InfiniteLoopExpression(node) => node.lower(ctx),

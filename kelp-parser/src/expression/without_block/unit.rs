@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTUnitExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(ParsedExpressionKind::Unit.with_span(self.span()))
     }
 }

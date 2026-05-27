@@ -13,7 +13,7 @@ use crate::{
 impl LowerableAstNode for CSTCompoundPatternEntry {
     type Lowered = ((Span, String), ParsedPattern);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.name()?;
         let name_span = name_token.span();
         let name = name_token.text();
@@ -33,7 +33,7 @@ impl LowerableAstNode for CSTCompoundPatternEntry {
 impl LowerableAstNode for CSTCompoundPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let entries = self
             .entries()
             .filter_map(|entry| entry.lower(ctx))

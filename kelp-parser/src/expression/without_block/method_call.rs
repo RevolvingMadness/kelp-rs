@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTMethodCallExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let receiver = self.expression()?.lower(ctx)?;
 
         let callee = self.generic_path_segment()?.lower(ctx)?;

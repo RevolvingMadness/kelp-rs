@@ -1,19 +1,22 @@
 use std::collections::HashMap;
 
-use kelp_core::parsed::data_type::ParsedDataType;
+use kelp_core::{parsed::data_type::ParsedDataType, trait_ext::CollectOptionAllIterExt};
 
 use crate::{
-    cst::{CSTDataType, CSTStructField, CSTStructFields, CSTTupleField, CSTTupleFields},
+    cst::{
+        CSTDataType, CSTRegularStructField, CSTRegularStructFields, CSTTupleStructField,
+        CSTTupleStructFields,
+    },
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
 
-impl LowerableAstNode for CSTStructField {
+impl LowerableAstNode for CSTRegularStructField {
     type Lowered = (String, ParsedDataType);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.name()?;
         let name = name_token.text();
 
@@ -23,37 +26,38 @@ impl LowerableAstNode for CSTStructField {
     }
 }
 
-#[must_use]
-pub fn try_parse_struct_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTRegularStructField {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName) {
-        return false;
+        if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName) {
+            return false;
+        }
+
+        marker.start_node(parser, SyntaxKind::RegularStructField);
+
+        parser.skip_whitespace();
+
+        let parsed_colon = parser.expect_char(':', "Expected ':'");
+
+        parser.skip_whitespace();
+
+        if !CSTDataType::try_parse(parser) && parsed_colon {
+            parser.error("Expected data type");
+        }
+
+        parser.finish_node();
+
+        true
     }
-
-    checkpoint.start_node(parser, SyntaxKind::StructField);
-
-    parser.skip_whitespace();
-
-    let parsed_colon = parser.expect_char(':', "Expected ':'");
-
-    parser.skip_whitespace();
-
-    if !CSTDataType::try_parse(parser) && parsed_colon {
-        parser.error("Expected data type");
-    }
-
-    parser.finish_node();
-
-    true
 }
 
-impl LowerableAstNode for CSTStructFields {
+impl LowerableAstNode for CSTRegularStructFields {
     type Lowered = HashMap<String, ParsedDataType>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let fields = self
-            .struct_fields()
+            .regular_struct_fields()
             .filter_map(|field| field.lower(ctx))
             .collect();
 
@@ -61,99 +65,102 @@ impl LowerableAstNode for CSTStructFields {
     }
 }
 
-#[must_use]
-pub fn try_parse_struct_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTRegularStructFields {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if !try_parse_struct_field(parser) {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::StructFields);
-
-    loop {
-        let state = parser.save_state();
-        parser.skip_whitespace();
-
-        if !parser.try_bump_char(',') {
-            state.restore(parser);
-            break;
+        if !CSTRegularStructField::try_parse(parser) {
+            return false;
         }
 
-        parser.skip_whitespace();
+        marker.start_node(parser, SyntaxKind::RegularStructFields);
 
-        if !try_parse_struct_field(parser) {
-            break;
+        loop {
+            let state = parser.save_state();
+            parser.skip_whitespace();
+
+            if !parser.try_bump_char(',') {
+                state.restore(parser);
+                break;
+            }
+
+            parser.skip_whitespace();
+
+            if !CSTRegularStructField::try_parse(parser) {
+                break;
+            }
         }
-    }
 
-    parser.finish_node();
-    true
+        parser.finish_node();
+        true
+    }
 }
 
-impl LowerableAstNode for CSTTupleField {
+impl ParsableAstNode for CSTTupleStructField {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
+
+        if !CSTDataType::try_parse(parser) {
+            return false;
+        }
+
+        marker.start_node(parser, SyntaxKind::TupleStructField);
+
+        parser.finish_node();
+
+        true
+    }
+}
+
+impl LowerableAstNode for CSTTupleStructField {
     type Lowered = ParsedDataType;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let data_type = self.data_type()?.lower(ctx)?;
 
         Some(data_type)
     }
 }
 
-#[must_use]
-pub fn try_parse_tuple_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTTupleStructFields {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if !CSTDataType::try_parse(parser) {
-        return false;
+        if !CSTTupleStructField::try_parse(parser) {
+            return false;
+        }
+
+        marker.start_node(parser, SyntaxKind::TupleStructFields);
+
+        loop {
+            let state = parser.save_state();
+            parser.skip_whitespace();
+
+            if !parser.try_bump_char(',') {
+                state.restore(parser);
+                break;
+            }
+
+            parser.skip_whitespace();
+            if !CSTTupleStructField::try_parse(parser) {
+                break;
+            }
+        }
+
+        parser.finish_node();
+        true
     }
-
-    checkpoint.start_node(parser, SyntaxKind::TupleField);
-
-    parser.finish_node();
-
-    true
 }
 
-impl LowerableAstNode for CSTTupleFields {
+impl LowerableAstNode for CSTTupleStructFields {
     type Lowered = Vec<ParsedDataType>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let fields = self
-            .tuple_fields()
-            .filter_map(|field| field.lower(ctx))
-            .collect();
+            .tuple_struct_fields()
+            .map(|field| field.lower(ctx))
+            .collect_option_all()?;
 
         Some(fields)
     }
-}
-
-#[must_use]
-pub fn try_parse_tuple_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
-
-    if !try_parse_tuple_field(parser) {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::TupleFields);
-
-    loop {
-        let state = parser.save_state();
-        parser.skip_whitespace();
-
-        if !parser.try_bump_char(',') {
-            state.restore(parser);
-            break;
-        }
-
-        parser.skip_whitespace();
-        if !try_parse_tuple_field(parser) {
-            break;
-        }
-    }
-
-    parser.finish_node();
-    true
 }

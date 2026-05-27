@@ -39,7 +39,7 @@ pub fn try_parse_world_coordinate(parser: &mut Parser) -> bool {
 impl LowerableAstNode for CSTWorldCoordinate {
     type Lowered = ParsedWorldCoordinate;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let is_relative = self.tilde_token().is_some() || self.caret_token().is_some();
 
         let value = self
@@ -57,7 +57,7 @@ impl LowerableAstNode for CSTWorldCoordinate {
 impl LowerableAstNode for CSTWorldCoordinates {
     type Lowered = ParsedCoordinates;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let mut coordinates = self.world_coordinates();
 
         let x = coordinates.next()?.lower(ctx)?;

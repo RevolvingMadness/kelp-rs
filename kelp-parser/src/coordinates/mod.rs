@@ -56,7 +56,7 @@ impl ParsableAstNode for CSTCoordinates {
 impl LowerableAstNode for CSTActualCoordinates {
     type Lowered = ParsedCoordinates;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::WorldCoordinates(node) => node.lower(ctx),
             Self::LocalCoordinates(node) => node.lower(ctx),
@@ -67,7 +67,7 @@ impl LowerableAstNode for CSTActualCoordinates {
 impl LowerableAstNode for CSTCoordinates {
     type Lowered = ParsedSupportsExpressionSigil<ParsedCoordinates>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::ActualCoordinates(node) => {
                 node.lower(ctx).map(ParsedSupportsExpressionSigil::Regular)

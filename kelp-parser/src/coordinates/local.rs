@@ -23,7 +23,7 @@ pub fn parse_local_coordinate(parser: &mut Parser) {
 impl LowerableAstNode for CSTLocalCoordinate {
     type Lowered = ParsedLocalCoordinate;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let result = self.expression().map(|expression| expression.lower(ctx));
 
         match result {
@@ -37,7 +37,7 @@ impl LowerableAstNode for CSTLocalCoordinate {
 impl LowerableAstNode for CSTLocalCoordinates {
     type Lowered = ParsedCoordinates;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let mut coordinates = self
             .local_coordinates()
             .map(|coordinate| coordinate.lower(ctx));

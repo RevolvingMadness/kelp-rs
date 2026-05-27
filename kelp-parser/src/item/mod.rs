@@ -6,16 +6,14 @@ use kelp_core::{
 use crate::{
     cst::{
         CSTFunctionDeclarationItem, CSTInherentImplementationItem, CSTItem, CSTItemKind,
-        CSTModuleDeclarationItem, CSTTypeAliasDeclarationItem,
+        CSTModuleDeclarationItem, CSTTypeAliasDeclarationItem, CSTUseItem,
     },
-    data_type::generics::lower_generic_names,
     extension_traits::{
         AstNodeExt, LowerableAstNode, ParsableAstNode, RecoverableAstNode, SyntaxTokenExt,
     },
     item::{
         minecraft_function_declaration::try_parse_minecraft_function_declaration_item_kind,
         struct_declaration::try_parse_struct_declaration_item_kind,
-        r#use::{lower_use_item, try_parse_use_item_kind},
     },
     lower_context::LowerContext,
     parser::Parser,
@@ -39,7 +37,7 @@ impl ParsableAstNode for CSTItemKind {
 
         match identifier {
             "impl" => CSTInherentImplementationItem::try_parse(parser),
-            "use" => try_parse_use_item_kind(parser),
+            "use" => CSTUseItem::try_parse(parser),
             "mod" => CSTModuleDeclarationItem::try_parse(parser),
             "recursive" | "runtime" | "fn" => CSTFunctionDeclarationItem::try_parse(parser),
             "mcfn" => try_parse_minecraft_function_declaration_item_kind(parser),
@@ -108,7 +106,7 @@ impl RecoverableAstNode for CSTItem {
 impl LowerableAstNode for CSTItemKind {
     type Lowered = ParsedItemKind;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::InherentImplementationItem(node) => node.lower(ctx),
             Self::ModuleDeclarationItem(node) => node.lower(ctx),
@@ -119,9 +117,11 @@ impl LowerableAstNode for CSTItemKind {
                 let name_span = name_token.span();
                 let name = name_token.text();
 
-                let generic_names = node.generic_names().and_then(lower_generic_names);
+                let generic_names = node.generic_names().and_then(|names| names.lower(ctx));
 
-                let field_types = node.struct_fields().and_then(|fields| fields.lower(ctx));
+                let field_types = node
+                    .regular_struct_fields()
+                    .and_then(|fields| fields.lower(ctx));
 
                 Some(ParsedItemKind::RegularStructDeclaration {
                     name_span,
@@ -135,9 +135,11 @@ impl LowerableAstNode for CSTItemKind {
                 let name_span = name_token.span();
                 let name = name_token.text();
 
-                let generic_names = node.generic_names().and_then(lower_generic_names);
+                let generic_names = node.generic_names().and_then(|names| names.lower(ctx));
 
-                let field_types = node.tuple_fields().and_then(|fields| fields.lower(ctx));
+                let field_types = node
+                    .tuple_struct_fields()
+                    .and_then(|fields| fields.lower(ctx));
 
                 Some(ParsedItemKind::TupleStructDeclaration {
                     name_span,
@@ -147,7 +149,7 @@ impl LowerableAstNode for CSTItemKind {
                 })
             }
             Self::TypeAliasDeclarationItem(node) => node.lower(ctx),
-            Self::UseItem(node) => lower_use_item(node),
+            Self::UseItem(node) => node.lower(ctx),
         }
     }
 }
@@ -155,7 +157,7 @@ impl LowerableAstNode for CSTItemKind {
 impl LowerableAstNode for CSTItem {
     type Lowered = ParsedItem;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let visibility = if self.pub_token().is_some() {
             Visibility::Public
         } else {

@@ -36,7 +36,7 @@ impl ParsableAstNode for CSTRemoveStatement {
 impl LowerableAstNode for CSTRemoveStatement {
     type Lowered = ParsedStatement;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let target = self.target()?.lower(ctx)?;
 
         Some(ParsedStatementKind::Remove(target).with_span(self.span()))

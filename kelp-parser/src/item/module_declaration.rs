@@ -48,7 +48,7 @@ impl ParsableAstNode for CSTModuleDeclarationItem {
 impl LowerableAstNode for CSTModuleDeclarationItem {
     type Lowered = ParsedItemKind;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.module_name_token()?;
         let name_span = name_token.span();
         let name = name_token.text();

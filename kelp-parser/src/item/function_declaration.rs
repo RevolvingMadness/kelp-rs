@@ -11,9 +11,8 @@ use kelp_core::{
 use crate::{
     cst::{
         CSTBlockExpression, CSTDataType, CSTFunctionDeclarationItem, CSTFunctionParameter,
-        CSTFunctionParameters, CSTPattern, CSTSelfFunctionParameter,
+        CSTFunctionParameters, CSTGenericNames, CSTPattern, CSTSelfFunctionParameter,
     },
-    data_type::generics::{lower_generic_names, try_parse_generic_names},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
@@ -50,7 +49,7 @@ impl ParsableAstNode for CSTFunctionParameter {
 impl LowerableAstNode for CSTFunctionParameter {
     type Lowered = (ParsedPattern, ParsedDataType);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let pattern = self.pattern()?.lower(ctx)?;
 
         let data_type = self.data_type()?.lower(ctx)?;
@@ -169,7 +168,7 @@ impl ParsableAstNode for CSTFunctionDeclarationItem {
 
         parser.skip_whitespace();
 
-        if try_parse_generic_names(parser) {
+        if CSTGenericNames::try_parse(parser) {
             parser.skip_whitespace();
         }
 
@@ -201,7 +200,7 @@ impl LowerableAstNode for CSTFunctionParameters {
         Vec<(ParsedPattern, ParsedDataType)>,
     );
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let self_parameter = self
             .self_function_parameters()
             .next()
@@ -234,7 +233,7 @@ impl LowerableAstNode for CSTFunctionParameters {
 impl LowerableAstNode for CSTFunctionDeclarationItem {
     type Lowered = ParsedItemKind;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let recursive_keyword_span = self.recursive_token().map(|token| token.span());
 
         let runtime_keyword_span = self.runtime_token().map(|token| token.span());
@@ -243,7 +242,7 @@ impl LowerableAstNode for CSTFunctionDeclarationItem {
         let name_span = name_token.span();
         let name = name_token.text();
 
-        let generic_names = self.generic_names().and_then(lower_generic_names);
+        let generic_names = self.generic_names().and_then(|names| names.lower(ctx));
 
         let parameters = self
             .function_parameters()

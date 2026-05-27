@@ -33,7 +33,7 @@ impl ParsableAstNode for CSTExpressionSigil {
 impl LowerableAstNode for CSTExpressionSigil {
     type Lowered = ParsedSupportsExpressionSigil<()>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let expression = self.expression()?.lower(ctx)?;
 
         Some(ParsedSupportsExpressionSigil::Sigil(expression))

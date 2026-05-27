@@ -34,7 +34,7 @@ pub fn try_parse_minecraft_function_declaration_item_kind(parser: &mut Parser) -
 impl LowerableAstNode for CSTMinecraftFunctionDeclarationItem {
     type Lowered = ParsedItemKind;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let resource_location = self.resource_location()?;
         let resource_location_span = resource_location.span();
         let resource_location = resource_location.lower(ctx)?;

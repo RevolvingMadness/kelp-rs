@@ -13,7 +13,7 @@ use crate::{
 impl LowerableAstNode for CSTBinaryExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let left = self.lhs()?.lower(ctx)?;
         let right = self.rhs()?.lower(ctx)?;
         let operator = self.operator()?;

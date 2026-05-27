@@ -1,8 +1,7 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTEntitySelectorExpression,
-    entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    cst::{CSTEntitySelector, CSTEntitySelectorExpression},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
@@ -27,9 +26,7 @@ impl ParsableAstNode for CSTEntitySelectorExpression {
 
         parser.skip_whitespace();
 
-        if !try_parse_entity_selector(parser) {
-            parser.error("Expected entity selector");
-        }
+        CSTEntitySelector::expect(parser, "Expected entity selector");
 
         parser.finish_node();
 
@@ -40,8 +37,8 @@ impl ParsableAstNode for CSTEntitySelectorExpression {
 impl LowerableAstNode for CSTEntitySelectorExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let entity_selector = lower_entity_selector(self.entity_selector()?, ctx)?;
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let entity_selector = self.entity_selector()?.lower(ctx)?;
 
         Some(ParsedExpressionKind::EntitySelector(Box::new(entity_selector)).with_span(self.span()))
     }

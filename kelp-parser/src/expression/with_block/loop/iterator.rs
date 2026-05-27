@@ -10,6 +10,10 @@ use crate::{
 
 impl ParsableAstNode for CSTIteratorLoopExpression {
     fn try_parse(parser: &mut Parser) -> bool {
+        let Some("for") = parser.peek_identifier() else {
+            return false;
+        };
+
         let state = parser.save_state();
 
         parser.start_node(SyntaxKind::IteratorLoopExpression);
@@ -45,7 +49,7 @@ impl ParsableAstNode for CSTIteratorLoopExpression {
 impl LowerableAstNode for CSTIteratorLoopExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let pattern = self.pattern()?.lower(ctx)?;
 
         let expression = self.expression()?.lower(ctx)?;

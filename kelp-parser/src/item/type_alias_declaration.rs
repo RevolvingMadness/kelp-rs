@@ -1,8 +1,7 @@
 pub use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
-    cst::{CSTDataType, CSTTypeAliasDeclarationItem},
-    data_type::generics::{lower_generic_names, try_parse_generic_names},
+    cst::{CSTDataType, CSTGenericNames, CSTTypeAliasDeclarationItem},
     extension_traits::{LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
@@ -26,7 +25,7 @@ impl ParsableAstNode for CSTTypeAliasDeclarationItem {
 
         parser.skip_whitespace();
 
-        if try_parse_generic_names(parser) {
+        if CSTGenericNames::try_parse(parser) {
             parser.skip_whitespace();
         }
 
@@ -49,11 +48,11 @@ impl ParsableAstNode for CSTTypeAliasDeclarationItem {
 impl LowerableAstNode for CSTTypeAliasDeclarationItem {
     type Lowered = ParsedItemKind;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.name()?;
         let name_span = name_token.span();
         let name = name_token.text();
-        let generic_names = self.generic_names().and_then(lower_generic_names);
+        let generic_names = self.generic_names().and_then(|names| names.lower(ctx));
         let alias = self.data_type()?.lower(ctx)?;
 
         Some(ParsedItemKind::TypeAliasDeclaration {

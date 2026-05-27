@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTBindingPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let path = self.generic_path()?.lower(ctx)?;
 
         Some(ParsedPatternKind::Binding(path).with_span(self.span()))

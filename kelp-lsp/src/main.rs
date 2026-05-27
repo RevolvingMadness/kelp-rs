@@ -2,9 +2,9 @@ use kelp_core::parsed::semantic_analysis::{
     SemanticAnalysisContext, info::SemanticAnalysisInfoKind,
 };
 use kelp_parser::cst::CSTProgram;
+use kelp_parser::extension_traits::LowerableAstNode;
 use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
-use kelp_parser::program::lower_program;
 use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
 use kelp_parser::syntax::SyntaxNode;
 use rowan::GreenNode;
@@ -151,7 +151,7 @@ impl Backend {
 
                     let mut lower_context = LowerContext::new(usize::MAX);
 
-                    let program = lower_program(&cst_program, &mut lower_context);
+                    let program = cst_program.lower(&mut lower_context).unwrap();
 
                     for info in lower_context.infos {
                         diagnostics.push(Diagnostic {

@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTFieldAccessExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let expression = self.expression()?.lower(ctx)?;
 
         let field_token = self.field_name_token()?;

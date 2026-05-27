@@ -28,7 +28,7 @@ impl ParsableAstNode for CSTReturnExpression {
 impl LowerableAstNode for CSTReturnExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let keyword_span = self.return_token()?.span();
 
         let (expression_span, expression) = match self.expression() {

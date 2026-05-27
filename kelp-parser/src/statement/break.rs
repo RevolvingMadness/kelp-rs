@@ -26,7 +26,7 @@ impl ParsableAstNode for CSTBreakStatement {
 impl LowerableAstNode for CSTBreakStatement {
     type Lowered = ParsedStatement;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(ParsedStatementKind::Break.with_span(self.span()))
     }
 }

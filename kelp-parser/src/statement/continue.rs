@@ -26,7 +26,7 @@ impl ParsableAstNode for CSTContinueStatement {
 impl LowerableAstNode for CSTContinueStatement {
     type Lowered = ParsedStatement;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(ParsedStatementKind::Continue.with_span(self.span()))
     }
 }

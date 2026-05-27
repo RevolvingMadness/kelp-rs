@@ -4,16 +4,16 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_typed_compound_data_type(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
-    checkpoint.start_node(parser, SyntaxKind::TypedCompoundDataType);
+    let marker = parser.mark();
+    marker.start_node(parser, SyntaxKind::TypedCompoundDataType);
     parser.bump_char();
 
     parser.skip_whitespace();
 
     while parser.peek_char() != Some('}') && parser.peek_char().is_some() {
-        let field_checkpoint = parser.mark();
+        let field_marker = parser.mark();
 
-        field_checkpoint.start_node(parser, SyntaxKind::TypedCompoundDataTypeField);
+        field_marker.start_node(parser, SyntaxKind::TypedCompoundDataTypeField);
 
         if let Some(text) = parser.peek_identifier() {
             parser.add_token(SyntaxKind::TypedCompoundDataTypeFieldName, text.len());

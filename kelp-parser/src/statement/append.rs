@@ -42,7 +42,7 @@ impl ParsableAstNode for CSTAppendStatement {
 impl LowerableAstNode for CSTAppendStatement {
     type Lowered = ParsedStatement;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let target = self.target()?.lower(ctx)?;
         let value = self.value()?.lower(ctx)?;
 

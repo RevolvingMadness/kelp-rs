@@ -10,13 +10,13 @@ use crate::{
 
 impl ParsableAstNode for CSTDataPattern {
     fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.mark();
+        let marker = parser.mark();
 
         if !CSTData::try_parse(parser) {
             return false;
         }
 
-        checkpoint.start_node(parser, SyntaxKind::DataPattern);
+        marker.start_node(parser, SyntaxKind::DataPattern);
 
         parser.finish_node();
 
@@ -27,7 +27,7 @@ impl ParsableAstNode for CSTDataPattern {
 impl LowerableAstNode for CSTDataPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let data = self.data()?.lower(ctx)?;
 
         Some(ParsedPatternKind::Data(Box::new(data)).with_span(self.span()))

@@ -39,7 +39,7 @@ impl ParsableAstNode for CSTCoordinatesExpression {
 impl LowerableAstNode for CSTCoordinatesExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let coordinates = self.coordinates()?.lower(ctx)?;
 
         Some(ParsedExpressionKind::Coordinates(Box::new(coordinates)).with_span(self.span()))

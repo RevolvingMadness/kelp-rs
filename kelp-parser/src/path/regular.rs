@@ -1,76 +1,87 @@
-use kelp_core::path::regular::{Path, PathSegment};
+use kelp_core::{
+    path::regular::{Path, PathSegment},
+    trait_ext::CollectOptionAllIterExt,
+};
 
 use crate::{
     cst::{CSTPath, CSTPathSegment},
-    extension_traits::AstNodeExt,
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
+    lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
 
-#[must_use]
-fn try_parse_path_segment(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTPathSegment {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if !parser.try_bump_identifier_kind(SyntaxKind::PathIdentifier) {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::PathSegment);
-
-    parser.finish_node();
-
-    true
-}
-
-#[must_use]
-pub fn try_parse_path(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
-
-    if !try_parse_path_segment(parser) {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::Path);
-
-    loop {
-        let state = parser.save_state();
-
-        parser.skip_inline_whitespace();
-
-        if !parser.try_bump_str("::", SyntaxKind::ColonColon) || !try_parse_path_segment(parser) {
-            state.restore(parser);
-
-            break;
+        if !parser.try_bump_identifier_kind(SyntaxKind::PathIdentifier) {
+            return false;
         }
+
+        marker.start_node(parser, SyntaxKind::PathSegment);
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.finish_node();
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-fn lower_path_segment(node: CSTPathSegment) -> Option<PathSegment> {
-    let span = node.span();
+impl LowerableAstNode for CSTPathSegment {
+    type Lowered = PathSegment;
 
-    let name_token = node.path_identifier_token()?;
-    let name = name_token.text();
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let name_token = self.path_identifier_token()?;
+        let name = name_token.text();
 
-    Some(PathSegment {
-        span,
-        name: name.to_owned(),
-    })
+        Some(PathSegment {
+            span: self.span(),
+            name: name.to_owned(),
+        })
+    }
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_path(node: CSTPath) -> Option<Path> {
-    let span = node.span();
+impl ParsableAstNode for CSTPath {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    let segments = node
-        .path_segments()
-        .filter_map(lower_path_segment)
-        .collect();
+        if !CSTPathSegment::try_parse(parser) {
+            return false;
+        }
 
-    Some(Path { span, segments })
+        marker.start_node(parser, SyntaxKind::Path);
+
+        loop {
+            let state = parser.save_state();
+
+            parser.skip_inline_whitespace();
+
+            if !parser.try_bump_str("::", SyntaxKind::ColonColon)
+                || !CSTPathSegment::try_parse(parser)
+            {
+                state.restore(parser);
+
+                break;
+            }
+        }
+
+        parser.finish_node();
+        true
+    }
+}
+
+impl LowerableAstNode for CSTPath {
+    type Lowered = Path;
+
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let segments = self
+            .path_segments()
+            .map(|segment| segment.lower(ctx))
+            .collect_option_all()?;
+
+        Some(Path {
+            span: self.span(),
+            segments,
+        })
+    }
 }

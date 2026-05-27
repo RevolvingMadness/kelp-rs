@@ -1,7 +1,7 @@
 use crate::{
-    data_type::generics::try_parse_generic_names,
+    cst::{CSTGenericNames, CSTRegularStructFields, CSTTupleStructFields},
+    extension_traits::ParsableAstNode,
     parser::Parser,
-    r#struct::{try_parse_struct_fields, try_parse_tuple_fields},
     syntax::SyntaxKind,
 };
 
@@ -9,7 +9,7 @@ use crate::{
 pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
-    let checkpoint = parser.mark();
+    let marker = parser.mark();
     parser.bump_str(SyntaxKind::StructKeyword, "struct");
     parser.expect_inline_whitespace();
 
@@ -21,32 +21,32 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if try_parse_generic_names(parser) {
+    if CSTGenericNames::try_parse(parser) {
         parser.skip_whitespace();
     }
 
     match parser.peek_char() {
         Some('{') => {
-            checkpoint.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
+            marker.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
 
             parser.bump_char();
 
             parser.skip_whitespace();
 
-            let _ = try_parse_struct_fields(parser);
+            let _ = CSTRegularStructFields::try_parse(parser);
 
             parser.skip_whitespace();
 
             parser.expect_char('}', "Expected '}'");
         }
         Some('(') => {
-            checkpoint.start_node(parser, SyntaxKind::TupleStructDeclarationItem);
+            marker.start_node(parser, SyntaxKind::TupleStructDeclarationItem);
 
             parser.bump_char();
 
             parser.skip_whitespace();
 
-            let _ = try_parse_tuple_fields(parser);
+            let _ = CSTTupleStructFields::try_parse(parser);
 
             parser.skip_whitespace();
 
@@ -57,7 +57,7 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
             parser.expect_char(';', "Expected ';'");
         }
         _ => {
-            checkpoint.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
+            marker.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
 
             parser.error("Expected '{' or '('");
         }
@@ -69,7 +69,7 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
 }
 
 pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
-    let checkpoint = parser.mark();
+    let marker = parser.mark();
     parser.bump_str(SyntaxKind::StructKeyword, "struct");
     parser.expect_inline_whitespace();
 
@@ -77,32 +77,32 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
 
     parser.skip_whitespace();
 
-    if try_parse_generic_names(parser) {
+    if CSTGenericNames::try_parse(parser) {
         parser.skip_whitespace();
     }
 
     match parser.peek_char() {
         Some('{') => {
-            checkpoint.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
+            marker.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
 
             parser.bump_char();
 
             parser.skip_whitespace();
 
-            let _ = try_parse_struct_fields(parser);
+            let _ = CSTRegularStructFields::try_parse(parser);
 
             parser.skip_whitespace();
 
             parser.expect_char('}', "Expected '}'");
         }
         Some('(') => {
-            checkpoint.start_node(parser, SyntaxKind::TupleStructDeclarationItem);
+            marker.start_node(parser, SyntaxKind::TupleStructDeclarationItem);
 
             parser.bump_char();
 
             parser.skip_whitespace();
 
-            let _ = try_parse_tuple_fields(parser);
+            let _ = CSTTupleStructFields::try_parse(parser);
 
             parser.skip_whitespace();
 
@@ -113,7 +113,7 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
             parser.expect_char(';', "Expected ';'");
         }
         _ => {
-            checkpoint.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
+            marker.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
 
             parser.error("Expected '{' or '('");
         }

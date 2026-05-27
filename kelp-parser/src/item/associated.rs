@@ -11,58 +11,71 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-pub fn expect_associated_item(parser: &mut Parser) {
-    parser.start_node(SyntaxKind::AssociatedItem);
+impl ParsableAstNode for CSTAssociatedItem {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
 
-    if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
-        parser.expect_whitespace();
-    }
+        parser.start_node(SyntaxKind::AssociatedItem);
 
-    let Some(identifier) = parser.peek_identifier() else {
-        recover_item(parser, "Expected associated item");
+        let parsed_visibility = if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
+            parser.expect_whitespace();
+
+            true
+        } else {
+            false
+        };
+
+        let Some(identifier) = parser.peek_identifier() else {
+            if !parsed_visibility {
+                state.restore(parser);
+
+                return false;
+            }
+
+            recover_item(parser, "Expected associated item");
+
+            parser.finish_node();
+
+            return false;
+        };
+
+        match identifier {
+            "recursive" | "runtime" | "fn" => {
+                CSTFunctionDeclarationItem::expect(parser, "Expected function declaration item");
+            }
+            "type" => {
+                CSTTypeAliasDeclarationItem::expect(parser, "Expected type alias declaration");
+            }
+            _ => {
+                parser.error_with_len("Expected associated item", identifier.len());
+            }
+        }
 
         parser.finish_node();
 
-        return;
-    };
-
-    match identifier {
-        "recursive" | "runtime" | "fn" => {
-            CSTFunctionDeclarationItem::expect(parser, "Expected function declaration item");
-        }
-        "type" => {
-            CSTTypeAliasDeclarationItem::expect(parser, "Expected type alias declaration");
-        }
-        _ => {
-            parser.error_with_len("Expected associated item", identifier.len());
-        }
+        true
     }
-
-    parser.finish_node();
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_associated_item(
-    node: CSTAssociatedItem,
-    ctx: &mut LowerContext,
-) -> Option<ParsedItem> {
-    let span = node.span();
+impl LowerableAstNode for CSTAssociatedItem {
+    type Lowered = ParsedItem;
 
-    let visibility = if node.pub_token().is_some() {
-        Visibility::Public
-    } else {
-        Visibility::None
-    };
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let visibility = if self.pub_token().is_some() {
+            Visibility::Public
+        } else {
+            Visibility::None
+        };
 
-    let kind = match node.associated_item_kind()? {
-        CSTAssociatedItemKind::FunctionDeclarationItem(node) => node.lower(ctx),
-        CSTAssociatedItemKind::TypeAliasDeclarationItem(node) => node.lower(ctx),
-    }?;
+        let kind = match self.associated_item_kind()? {
+            CSTAssociatedItemKind::FunctionDeclarationItem(node) => node.lower(ctx),
+            CSTAssociatedItemKind::TypeAliasDeclarationItem(node) => node.lower(ctx),
+        }?;
 
-    Some(ParsedItem {
-        span,
-        visibility,
-        kind,
-    })
+        Some(ParsedItem {
+            span: self.span(),
+            visibility,
+            kind,
+        })
+    }
 }

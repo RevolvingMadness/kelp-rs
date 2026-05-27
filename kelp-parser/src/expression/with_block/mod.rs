@@ -13,7 +13,7 @@ pub mod r#loop;
 impl LowerableAstNode for CSTExpressionWithBlock {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::BlockExpression(node) => {
                 let span = node.span();

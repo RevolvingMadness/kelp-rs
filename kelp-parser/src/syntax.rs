@@ -9,11 +9,11 @@ pub enum SyntaxKind {
     TypeName,
     DataTypeName,
 
-    StructFields,
-    StructField,
+    RegularStructFields,
+    RegularStructField,
+    TupleStructFields,
+    TupleStructField,
     StructFieldName,
-    TupleFields,
-    TupleField,
 
     WholeValue,
     FractionalValue,

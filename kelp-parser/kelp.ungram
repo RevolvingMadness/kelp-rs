@@ -76,21 +76,21 @@ MinecraftFunctionDeclarationItem =
   'mcfn' ResourceLocation BlockExpression
 
 RegularStructDeclarationItem =
-  'struct' name:'type_name' GenericNames? '{' StructFields? '}'
+  'struct' name:'type_name' GenericNames? '{' RegularStructFields? '}'
 
-StructFields =
-  (StructField (',' StructField)*) ','?
+RegularStructFields =
+  (RegularStructField (',' RegularStructField)*) ','?
 
-StructField =
+RegularStructField =
   name:'struct_field_name' ':' DataType
 
 TupleStructDeclarationItem =
-  'struct' name:'type_name' GenericNames? '(' TupleFields? ')'
+  'struct' name:'type_name' GenericNames? '(' TupleStructFields? ')'
 
-TupleFields =
-  (TupleField (',' TupleField)*) ','?
+TupleStructFields =
+  (TupleStructField (',' TupleStructField)*) ','?
 
-TupleField =
+TupleStructField =
   DataType
 
 TypeAliasDeclarationItem =

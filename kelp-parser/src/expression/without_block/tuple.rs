@@ -12,7 +12,7 @@ use crate::{
 impl LowerableAstNode for CSTTupleExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let expressions = self
             .expressions()
             .map(|expression| expression.lower(ctx))

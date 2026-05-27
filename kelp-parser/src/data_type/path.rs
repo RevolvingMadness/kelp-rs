@@ -27,7 +27,7 @@ impl ParsableAstNode for CSTPathDataType {
 impl LowerableAstNode for CSTPathDataType {
     type Lowered = ParsedDataType;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let path = self.type_path()?.lower(ctx)?;
 
         Some(ParsedDataType::Named(path))

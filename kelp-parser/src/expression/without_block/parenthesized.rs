@@ -8,7 +8,7 @@ use crate::{
 impl LowerableAstNode for CSTParenthesizedExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         self.expression()?.lower(ctx)
     }
 }

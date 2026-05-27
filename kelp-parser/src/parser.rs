@@ -2,7 +2,8 @@ use kelp_core::span::Span;
 use rowan::GreenNodeBuilder;
 
 use crate::{
-    program::parse_program,
+    cst::CSTProgram,
+    extension_traits::ParsableAstNode,
     syntax::{
         SyntaxKind::{self},
         SyntaxNode,
@@ -33,7 +34,7 @@ pub enum Event<'a> {
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Marker {
-    checkpoint: usize,
+    pos: usize,
 }
 
 impl Marker {
@@ -44,13 +45,17 @@ impl Marker {
     }
 
     #[inline]
-    pub fn replace_token(self, parser: &mut Parser, kind: SyntaxKind) {
-        parser.replace_token_at(self.checkpoint, kind);
+    pub fn replace_token(self, parser: &mut Parser, new_kind: SyntaxKind) {
+        let Some(Event::Token { kind: old_kind, .. }) = parser.events.get_mut(self.pos) else {
+            return;
+        };
+
+        *old_kind = new_kind;
     }
 
     #[inline]
     pub fn start_node(self, parser: &mut Parser, kind: SyntaxKind) {
-        parser.start_node_at(self.checkpoint, kind);
+        parser.events.insert(self.pos, Event::StartNode(kind));
     }
 }
 
@@ -298,7 +303,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn error_with_len(&mut self, message: &str, len: usize) {
-        self.add_token(SyntaxKind::Error, len);
+        self.pos += len;
 
         if self.error_count >= self.max_errors {
             return;
@@ -316,6 +321,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn error_with_len_at(&mut self, position: usize, message: &str, len: usize) {
+        self.pos += len;
+
         if self.error_count >= self.max_errors {
             return;
         }
@@ -536,7 +543,7 @@ impl Parser<'_> {
     }
 
     pub fn parse(&mut self) -> ParseResult {
-        parse_program(self);
+        assert!(CSTProgram::expect(self, "Expected program"));
 
         let (green_node, errors) = self.build_tree();
 
@@ -818,24 +825,8 @@ impl Parser<'_> {
     #[inline]
     pub const fn mark(&self) -> Marker {
         Marker {
-            checkpoint: self.events.len(),
+            pos: self.events.len(),
         }
-    }
-
-    pub fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
-        self.events.insert(checkpoint, Event::StartNode(kind));
-    }
-
-    pub fn replace_token_at(&mut self, checkpoint: usize, new_kind: SyntaxKind) {
-        let Some(Event::Token { kind: old_kind, .. }) = self.events.get_mut(checkpoint) else {
-            return;
-        };
-
-        *old_kind = new_kind;
-    }
-
-    pub fn finish_node_at(&mut self, checkpoint: usize) {
-        self.events.insert(checkpoint, Event::FinishNode);
     }
 
     pub fn attempt<F>(&mut self, f: F) -> bool

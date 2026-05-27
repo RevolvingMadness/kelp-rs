@@ -1,7 +1,11 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTExpressionWithoutBlock, extension_traits::LowerableAstNode, lower_context::LowerContext,
+    cst::CSTExpressionWithoutBlock,
+    expression::try_parse_assignment,
+    extension_traits::{LowerableAstNode, ParsableAstNode},
+    lower_context::LowerContext,
+    parser::Parser,
 };
 
 pub mod as_cast;
@@ -33,10 +37,16 @@ pub mod unary;
 pub mod underscore;
 pub mod unit;
 
+impl ParsableAstNode for CSTExpressionWithoutBlock {
+    fn try_parse(parser: &mut Parser) -> bool {
+        try_parse_assignment(parser)
+    }
+}
+
 impl LowerableAstNode for CSTExpressionWithoutBlock {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::UnaryExpression(node) => node.lower(ctx),
             Self::PathExpression(node) => node.lower(ctx),

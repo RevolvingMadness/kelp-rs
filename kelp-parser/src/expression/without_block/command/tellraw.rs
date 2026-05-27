@@ -4,8 +4,7 @@ use kelp_core::parsed::{
 };
 
 use crate::{
-    cst::{CSTExpression, CSTTellrawCommandExpression},
-    entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    cst::{CSTEntitySelector, CSTExpression, CSTTellrawCommandExpression},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
@@ -19,7 +18,7 @@ impl ParsableAstNode for CSTTellrawCommandExpression {
         parser.start_node(SyntaxKind::TellrawCommandExpression);
         parser.bump_str(SyntaxKind::TellrawKeyword, "tellraw");
 
-        if !parser.expect_inline_whitespace() || !try_parse_entity_selector(parser) {
+        if !parser.expect_inline_whitespace() || !CSTEntitySelector::try_parse(parser) {
             state.restore(parser);
 
             return false;
@@ -44,8 +43,8 @@ impl ParsableAstNode for CSTTellrawCommandExpression {
 impl LowerableAstNode for CSTTellrawCommandExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let selector = lower_entity_selector(self.entity_selector()?, ctx)?;
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let selector = self.entity_selector()?.lower(ctx)?;
         let value = self.expression()?.lower(ctx)?;
 
         Some(

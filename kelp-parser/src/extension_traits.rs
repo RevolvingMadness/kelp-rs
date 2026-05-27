@@ -76,5 +76,5 @@ pub trait LowerableAstNode: AstNodeExt {
     type Lowered;
 
     #[must_use]
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered>;
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered>;
 }

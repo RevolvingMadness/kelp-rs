@@ -1,8 +1,7 @@
 use kelp_core::parsed::player_score::ParsedPlayerScore;
 
 use crate::{
-    cst::CSTPlayerScore,
-    entity_selector::{lower_entity_selector, try_parse_entity_selector},
+    cst::{CSTEntitySelector, CSTPlayerScore},
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
@@ -11,7 +10,7 @@ use crate::{
 
 impl ParsableAstNode for CSTPlayerScore {
     fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.mark();
+        let marker = parser.mark();
         let state = parser.save_state();
 
         if !parser.try_bump_str("score", SyntaxKind::ScoreKeyword) {
@@ -24,13 +23,13 @@ impl ParsableAstNode for CSTPlayerScore {
             return false;
         }
 
-        if !try_parse_entity_selector(parser) {
+        if !CSTEntitySelector::try_parse(parser) {
             state.restore(parser);
 
             return false;
         }
 
-        checkpoint.start_node(parser, SyntaxKind::PlayerScore);
+        marker.start_node(parser, SyntaxKind::PlayerScore);
 
         parser.expect_inline_whitespace();
 
@@ -48,8 +47,8 @@ impl ParsableAstNode for CSTPlayerScore {
 impl LowerableAstNode for CSTPlayerScore {
     type Lowered = ParsedPlayerScore;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let selector = lower_entity_selector(self.entity_selector()?, ctx)?;
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let selector = self.entity_selector()?.lower(ctx)?;
 
         let objective_token = self.scoreboard_objective_token()?;
         let objective = objective_token.text();

@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTTuplePattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let patterns = self
             .patterns()
             .filter_map(|pattern| pattern.lower(ctx))

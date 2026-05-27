@@ -27,7 +27,7 @@ impl ParsableAstNode for CSTScorePattern {
 impl LowerableAstNode for CSTScorePattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let player_score = self.player_score()?.lower(ctx)?;
 
         Some(ParsedPatternKind::Score(player_score).with_span(self.span()))

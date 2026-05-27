@@ -1,53 +1,40 @@
 use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
-    cst::CSTUseItem,
+    cst::{CSTUseItem, CSTUseTree},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
+    lower_context::LowerContext,
     parser::Parser,
     statement::expect_semicolon_ending,
     syntax::SyntaxKind,
-    use_tree::{lower_use_tree, try_parse_use_tree},
 };
 
-#[must_use]
-pub fn try_parse_use_item_kind(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTUseItem {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    checkpoint.start_node(parser, SyntaxKind::UseItem);
-    parser.bump_identifier_kind(SyntaxKind::UseKeyword, "use");
-    let parsed_whitespace = parser.expect_whitespace();
+        marker.start_node(parser, SyntaxKind::UseItem);
+        parser.bump_identifier_kind(SyntaxKind::UseKeyword, "use");
+        let parsed_whitespace = parser.expect_whitespace();
 
-    if !try_parse_use_tree(parser) && parsed_whitespace {
-        parser.error("Expected use tree");
+        if !CSTUseTree::try_parse(parser) && parsed_whitespace {
+            parser.error("Expected use tree");
+        }
+
+        expect_semicolon_ending(parser);
+
+        parser.finish_node();
+
+        true
     }
-
-    expect_semicolon_ending(parser);
-
-    parser.finish_node();
-
-    true
 }
 
-pub fn expect_use_item_kind(parser: &mut Parser) {
-    let checkpoint = parser.mark();
+impl LowerableAstNode for CSTUseItem {
+    type Lowered = ParsedItemKind;
 
-    checkpoint.start_node(parser, SyntaxKind::UseItem);
-    parser.bump_identifier_kind(SyntaxKind::UseKeyword, "use");
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let tree = self.use_tree()?.lower(ctx)?;
 
-    parser.expect_whitespace();
-
-    if !try_parse_use_tree(parser) {
-        parser.error("Expected use tree");
+        Some(ParsedItemKind::Use(tree))
     }
-
-    expect_semicolon_ending(parser);
-
-    parser.finish_node();
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_use_item(node: CSTUseItem) -> Option<ParsedItemKind> {
-    let tree = lower_use_tree(node.use_tree()?)?;
-
-    Some(ParsedItemKind::Use(tree))
 }

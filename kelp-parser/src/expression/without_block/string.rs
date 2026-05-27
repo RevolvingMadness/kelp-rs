@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTStringExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let text_token = self.string_literal_token()?;
         let string = text_token.text().trim_matches('"');
 

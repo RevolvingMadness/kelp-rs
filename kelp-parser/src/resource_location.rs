@@ -64,7 +64,7 @@ impl ParsableAstNode for CSTResourceLocation {
 impl LowerableAstNode for CSTResourceLocationNamespace {
     type Lowered = String;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(self.identifier_token()?.text().to_string())
     }
 }
@@ -72,7 +72,7 @@ impl LowerableAstNode for CSTResourceLocationNamespace {
 impl LowerableAstNode for CSTResourceLocationPathSegment {
     type Lowered = String;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(self.identifier_token()?.text().to_string())
     }
 }
@@ -80,7 +80,7 @@ impl LowerableAstNode for CSTResourceLocationPathSegment {
 impl LowerableAstNode for CSTResourceLocationPath {
     type Lowered = Vec<String>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         self.path_segments()
             .map(|segment| segment.lower(ctx))
             .collect_option_all()
@@ -90,7 +90,7 @@ impl LowerableAstNode for CSTResourceLocationPath {
 impl LowerableAstNode for CSTActualResourceLocation {
     type Lowered = ResourceLocation;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let is_tag = self.pound_token().is_some();
 
         let namespace = match self.namespace().map(|namespace| namespace.lower(ctx)) {
@@ -108,7 +108,7 @@ impl LowerableAstNode for CSTActualResourceLocation {
 impl LowerableAstNode for CSTResourceLocation {
     type Lowered = ParsedSupportsExpressionSigil<ResourceLocation>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::ActualResourceLocation(node) => {
                 node.lower(ctx).map(ParsedSupportsExpressionSigil::Regular)

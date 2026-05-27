@@ -45,12 +45,12 @@ impl ParsableAstNode for CSTDataType {
 
 #[must_use]
 fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+    let marker = parser.mark();
     parser.bump_char();
     parser.skip_whitespace();
 
     if parser.peek_char() == Some(')') {
-        checkpoint.start_node(parser, SyntaxKind::UnitDataType);
+        marker.start_node(parser, SyntaxKind::UnitDataType);
         parser.bump_char();
         parser.finish_node();
         return true;
@@ -70,7 +70,7 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
         parser.skip_whitespace();
     }
 
-    checkpoint.start_node(parser, SyntaxKind::TupleDataType);
+    marker.start_node(parser, SyntaxKind::TupleDataType);
     parser.expect_char(')', "Expected ')'");
     parser.finish_node();
 
@@ -80,7 +80,7 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
 impl LowerableAstNode for CSTTypedCompoundDataTypeField {
     type Lowered = (String, ParsedDataType);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.name()?;
         let name = name_token.text();
         let data_type = self.data_type()?.lower(ctx)?;
@@ -92,7 +92,7 @@ impl LowerableAstNode for CSTTypedCompoundDataTypeField {
 impl LowerableAstNode for CSTDataType {
     type Lowered = ParsedDataType;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::ReferenceDataType(node) => node.lower(ctx),
             Self::TupleDataType(node) => {

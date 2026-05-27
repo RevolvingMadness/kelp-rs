@@ -8,47 +8,51 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_generic_names(parser: &mut Parser) -> bool {
-    if parser.peek_char() != Some('<') {
-        return false;
-    }
-
-    parser.start_node(SyntaxKind::GenericNames);
-
-    parser.bump_char();
-    parser.skip_inline_whitespace();
-
-    while parser.peek_char() != Some('>') && parser.peek_char().is_some() {
-        if !parser
-            .expect_identifier_kind(SyntaxKind::DataTypeName, "Expected generic argument name")
-        {
-            break;
+impl ParsableAstNode for CSTGenericNames {
+    fn try_parse(parser: &mut Parser) -> bool {
+        if parser.peek_char() != Some('<') {
+            return false;
         }
 
+        parser.start_node(SyntaxKind::GenericNames);
+
+        parser.bump_char();
         parser.skip_inline_whitespace();
 
-        if parser.try_bump_char(',') {
+        while parser.peek_char() != Some('>') && parser.peek_char().is_some() {
+            if !parser
+                .expect_identifier_kind(SyntaxKind::DataTypeName, "Expected generic argument name")
+            {
+                break;
+            }
+
             parser.skip_inline_whitespace();
-        } else {
-            break;
+
+            if parser.try_bump_char(',') {
+                parser.skip_inline_whitespace();
+            } else {
+                break;
+            }
         }
+
+        parser.expect_char('>', "Expected closing angle bracket '>'");
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.expect_char('>', "Expected closing angle bracket '>'");
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_generic_names(node: CSTGenericNames) -> Option<Vec<String>> {
-    Some(
-        node.generics()
-            .map(|token| token.text().to_owned())
-            .collect(),
-    )
+impl LowerableAstNode for CSTGenericNames {
+    type Lowered = Vec<String>;
+
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(
+            self.generics()
+                .map(|token| token.text().to_owned())
+                .collect(),
+        )
+    }
 }
 
 impl ParsableAstNode for CSTGenericDataTypes {
@@ -89,7 +93,7 @@ impl ParsableAstNode for CSTGenericDataTypes {
 impl LowerableAstNode for CSTGenericDataTypes {
     type Lowered = (Vec<Span>, Vec<ParsedDataType>);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(
             self.generics()
                 .filter_map(|data_type| {

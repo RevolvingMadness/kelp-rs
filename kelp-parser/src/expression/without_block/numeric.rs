@@ -22,7 +22,7 @@ enum NumericKind {
 impl LowerableAstNode for CSTNumericExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let value_token = self.fractional_value_token()?;
         let value_text = value_token.text();
 

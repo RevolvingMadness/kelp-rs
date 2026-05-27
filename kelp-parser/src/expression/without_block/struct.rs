@@ -18,7 +18,7 @@ use crate::{
 
 impl ParsableAstNode for CSTStructExpressionField {
     fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.mark();
+        let marker = parser.mark();
 
         if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
             && !parser.try_bump_whole_value()
@@ -26,7 +26,7 @@ impl ParsableAstNode for CSTStructExpressionField {
             return false;
         }
 
-        checkpoint.start_node(parser, SyntaxKind::StructExpressionField);
+        marker.start_node(parser, SyntaxKind::StructExpressionField);
 
         parser.skip_whitespace();
 
@@ -47,7 +47,7 @@ impl ParsableAstNode for CSTStructExpressionField {
 impl LowerableAstNode for CSTStructExpressionField {
     type Lowered = ((Span, String), ParsedExpression);
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.name()?;
         let name_span = name_token.span();
         let name = name_token.text();
@@ -60,13 +60,13 @@ impl LowerableAstNode for CSTStructExpressionField {
 
 impl ParsableAstNode for CSTStructExpressionFields {
     fn try_parse(parser: &mut Parser) -> bool {
-        let checkpoint = parser.mark();
+        let marker = parser.mark();
 
         if !CSTStructExpressionField::try_parse(parser) {
             return false;
         }
 
-        checkpoint.start_node(parser, SyntaxKind::StructExpressionFields);
+        marker.start_node(parser, SyntaxKind::StructExpressionFields);
 
         loop {
             let state = parser.save_state();
@@ -94,7 +94,7 @@ impl ParsableAstNode for CSTStructExpressionFields {
 impl LowerableAstNode for CSTStructExpressionFields {
     type Lowered = HashMap<(Span, String), ParsedExpression>;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         self.struct_expression_fields()
             .map(|field| field.lower(ctx))
             .collect_option_all()
@@ -104,7 +104,7 @@ impl LowerableAstNode for CSTStructExpressionFields {
 impl LowerableAstNode for CSTStructExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let path = self.generic_path()?.lower(ctx)?;
 
         let fields = self

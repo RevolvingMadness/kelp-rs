@@ -57,7 +57,7 @@ impl ParsableAstNode for CSTLetStatement {
 impl LowerableAstNode for CSTLetStatement {
     type Lowered = ParsedStatement;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let pattern = self.pattern()?.lower(ctx)?;
 
         let data_type = self.data_type().and_then(|data_type| data_type.lower(ctx));

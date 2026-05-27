@@ -26,7 +26,7 @@ impl ParsableAstNode for CSTItemStatement {
 impl LowerableAstNode for CSTItemStatement {
     type Lowered = ParsedStatement;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let item = self.item()?.lower(ctx)?;
 
         Some(ParsedStatementKind::Item(Box::new(item)).with_span(self.span()))

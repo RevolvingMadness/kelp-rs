@@ -32,7 +32,7 @@ impl ParsableAstNode for CSTCommandExpression {
 impl LowerableAstNode for CSTCommandExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::TellrawCommandExpression(node) => node.lower(ctx),
             Self::FunctionCommandExpression(node) => node.lower(ctx),

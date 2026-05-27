@@ -10,6 +10,10 @@ use crate::{
 
 impl ParsableAstNode for CSTIfExpression {
     fn try_parse(parser: &mut Parser) -> bool {
+        let Some("if") = parser.peek_identifier() else {
+            return false;
+        };
+
         let state = parser.save_state();
 
         parser.start_node(SyntaxKind::IfExpression);
@@ -57,7 +61,7 @@ impl ParsableAstNode for CSTIfExpression {
 impl LowerableAstNode for CSTIfExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let condition = self.condition()?.lower(ctx)?;
         let body = self.body()?.lower(ctx)?;
         let else_body = self

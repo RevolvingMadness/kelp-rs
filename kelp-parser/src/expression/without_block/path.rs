@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTPathExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let path = self.generic_path()?.lower(ctx)?;
 
         Some(ParsedExpressionKind::Path(path).with_span(self.span()))

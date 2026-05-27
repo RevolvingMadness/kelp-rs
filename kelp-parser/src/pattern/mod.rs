@@ -109,7 +109,7 @@ impl ParsableAstNode for CSTPattern {
                         return true;
                     }
 
-                    let checkpoint = parser.mark();
+                    let marker = parser.mark();
 
                     assert!(CSTGenericPath::try_parse(parser));
 
@@ -119,8 +119,8 @@ impl ParsableAstNode for CSTPattern {
 
                     match parser.peek_char() {
                         Some('{') => {
-                            checkpoint.replace_token(parser, SyntaxKind::TypeName);
-                            checkpoint.start_node(parser, SyntaxKind::RegularStructPattern);
+                            marker.replace_token(parser, SyntaxKind::TypeName);
+                            marker.start_node(parser, SyntaxKind::RegularStructPattern);
 
                             parser.bump_char();
 
@@ -133,8 +133,8 @@ impl ParsableAstNode for CSTPattern {
                             parser.expect_char('}', "Expected '}'");
                         }
                         Some('(') => {
-                            checkpoint.replace_token(parser, SyntaxKind::TypeName);
-                            checkpoint.start_node(parser, SyntaxKind::TupleStructPattern);
+                            marker.replace_token(parser, SyntaxKind::TypeName);
+                            marker.start_node(parser, SyntaxKind::TupleStructPattern);
 
                             parser.bump_char();
 
@@ -149,7 +149,7 @@ impl ParsableAstNode for CSTPattern {
                         _ => {
                             state.restore(parser);
 
-                            checkpoint.start_node(parser, SyntaxKind::BindingPattern);
+                            marker.start_node(parser, SyntaxKind::BindingPattern);
                         }
                     }
 
@@ -166,7 +166,7 @@ impl ParsableAstNode for CSTPattern {
 impl LowerableAstNode for CSTPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
             Self::WildcardPattern(node) => node.lower(ctx),
             Self::TuplePattern(node) => node.lower(ctx),

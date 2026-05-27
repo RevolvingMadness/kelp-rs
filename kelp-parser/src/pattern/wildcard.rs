@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTWildcardPattern {
     type Lowered = ParsedPattern;
 
-    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(ParsedPatternKind::Wildcard.with_span(self.span()))
     }
 }

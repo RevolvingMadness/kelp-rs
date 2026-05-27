@@ -9,7 +9,7 @@ use crate::{
 impl LowerableAstNode for CSTAsCastExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let expression = self.expression()?.lower(ctx)?;
         let data_type = self.data_type()?.lower(ctx)?;
 

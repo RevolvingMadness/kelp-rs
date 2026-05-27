@@ -184,7 +184,7 @@ fn lower_stopwatch_command_expression_options(
 impl LowerableAstNode for CSTStopwatchCommandExpression {
     type Lowered = ParsedExpression;
 
-    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+    fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let command = lower_stopwatch_command_expression_options(
             self.stopwatch_command_expression_options()?,
             ctx,

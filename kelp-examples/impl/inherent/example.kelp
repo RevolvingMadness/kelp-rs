@@ -1,0 +1,15 @@
+use std::*;
+
+pub struct IdentityStruct<T>(T);
+
+impl<T> IdentityStruct<T> {
+    fn get_value(self) -> T {
+        self.0
+    }
+}
+
+mcfn namespace:main {
+    let identity = IdentityStruct::<string>("Hello, World!");
+
+    tellraw @a identity.get_value();
+}

@@ -69,6 +69,6 @@ pub fn lower_minecraft_function_declaration_item_kind(
 
     Some(ParsedItemKind::MinecraftFunctionDeclaration {
         resource_location,
-        body,
+        body: Box::new(body),
     })
 }

@@ -7,6 +7,7 @@ use crate::{
         data_type::ParsedDataType,
         environment::r#type::{ParsedTypeDeclaration, ParsedTypeDeclarationKind},
         expression::block::ParsedBlockExpression,
+        item::ParsedSelfFunctionParameter,
         pattern::ParsedPattern,
         semantic_analysis::{
             FunctionContext, RegularFunctionModifiers, SemanticAnalysisContext,
@@ -148,6 +149,7 @@ pub enum NamedItemKind {
         target_type: ParsedDataType,
         associated_items: Vec<NamedItem>,
 
+        self_type_id: HighTypeId,
         generic_ids: Vec<HighGenericId>,
         associated_items_scope: Scope,
     },
@@ -163,17 +165,17 @@ pub enum NamedItemKind {
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
-        is_method: bool,
+        self_parameter: Option<ParsedSelfFunctionParameter>,
         parameters: Vec<(ParsedPattern, ParsedDataType)>,
         return_type: ParsedDataType,
-        body: ParsedBlockExpression,
+        body: Box<ParsedBlockExpression>,
 
         id: HighRegularFunctionId,
         generic_ids: Vec<HighGenericId>,
     },
     MinecraftFunctionDeclaration {
         resource_location: ResourceLocation,
-        body: ParsedBlockExpression,
+        body: Box<ParsedBlockExpression>,
     },
     TypeAliasDeclaration {
         name_span: Span,
@@ -238,10 +240,11 @@ impl NamedItem {
                 target_type_span,
                 target_type,
                 associated_items,
+                self_type_id,
                 associated_items_scope,
                 generic_ids,
             } => {
-                ctx.push_scope(associated_items_scope.clone());
+                ctx.enter_scope();
 
                 for (generic_id, generic_name) in generic_ids
                     .iter()
@@ -251,13 +254,29 @@ impl NamedItem {
                     ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
                 }
 
+                let target_type = target_type.clone().perform_semantic_analysis(ctx);
+
+                ctx.set_semantic_type(
+                    *self_type_id,
+                    Visibility::Public,
+                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                        name: "Self".to_owned(),
+                        generic_ids: Vec::new(),
+                        alias: target_type.clone(),
+                    }),
+                );
+
+                ctx.push_scope(associated_items_scope.clone());
+
+                println!("{:#?}", ctx.scopes);
+
                 for item in associated_items {
                     item.resolve_types(ctx);
                 }
 
-                let target_type = target_type.clone().perform_semantic_analysis(ctx);
-
                 let scope = ctx.exit_scope();
+
+                ctx.exit_scope();
 
                 let (types, values) = scope.into_tuple();
 
@@ -271,8 +290,8 @@ impl NamedItem {
                         };
 
                         ctx.semantic_environment
-                            .impls
-                            .entry(HighTypeId(id.0))
+                            .implementations
+                            .entry(id.into())
                             .or_default()
                             .push(implementation);
                     }
@@ -475,14 +494,44 @@ impl NamedItem {
     ) -> Option<SemanticItem> {
         Some(match self.kind {
             NamedItemKind::InherentImplementationItem {
-                associated_items, ..
+                generic_names,
+                target_type,
+                associated_items,
+                self_type_id,
+                generic_ids,
+                associated_items_scope,
+                ..
             } => {
                 ctx.enter_scope();
+
+                for (generic_id, generic_name) in generic_ids
+                    .iter()
+                    .copied()
+                    .zip(generic_names.iter().cloned())
+                {
+                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                }
+
+                let target_type = target_type.perform_semantic_analysis(ctx);
+
+                ctx.set_semantic_type(
+                    self_type_id,
+                    Visibility::Public,
+                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                        name: "Self".to_owned(),
+                        generic_ids: Vec::new(),
+                        alias: target_type,
+                    }),
+                );
+
+                ctx.push_scope(associated_items_scope);
 
                 let _associated_items = associated_items
                     .into_iter()
                     .map(|item| item.perform_semantic_analysis(ctx))
                     .collect_option_all::<Vec<_>>();
+
+                ctx.exit_scope();
 
                 ctx.exit_scope();
 

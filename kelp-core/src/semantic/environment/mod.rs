@@ -32,7 +32,7 @@ pub struct SemanticEnvironment {
     types: HashMap<HighTypeId, SemanticTypeDeclaration>,
     values: HashMap<HighValueId, SemanticValueDeclaration>,
 
-    pub impls: HashMap<HighTypeId, Vec<SemanticImplementation>>,
+    pub implementations: HashMap<HighTypeId, Vec<SemanticImplementation>>,
 }
 
 impl SemanticEnvironment {
@@ -212,32 +212,38 @@ impl SemanticEnvironment {
         (module_path, *visibility, declaration)
     }
 
+    #[inline]
+    #[must_use]
+    pub fn get_function_declaration(&self, id: HighFunctionId) -> &SemanticFunctionDeclaration {
+        self.get_function(id).2
+    }
+
     #[must_use]
     pub fn get_regular_function(
         &self,
         id: HighRegularFunctionId,
-    ) -> (&[String], Visibility, &SemanticRegularFunctionDeclaration) {
-        let (module_path, visibility, SemanticFunctionDeclaration::Regular(declaration)) =
-            self.get_function(id.into())
+    ) -> &SemanticRegularFunctionDeclaration {
+        let SemanticFunctionDeclaration::Regular(declaration) =
+            self.get_function_declaration(id.into())
         else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        declaration
     }
 
     #[must_use]
     pub fn get_builtin_function(
         &self,
         id: HighBuiltinFunctionId,
-    ) -> (&[String], Visibility, &SemanticBuiltinFunctionDeclaration) {
-        let (module_path, visibility, SemanticFunctionDeclaration::Builtin(declaration)) =
-            self.get_function(id.into())
+    ) -> &SemanticBuiltinFunctionDeclaration {
+        let SemanticFunctionDeclaration::Builtin(declaration) =
+            self.get_function_declaration(id.into())
         else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        declaration
     }
 
     #[must_use]

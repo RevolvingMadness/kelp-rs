@@ -32,6 +32,12 @@ use crate::{
 pub mod named;
 
 #[derive(Debug, Clone)]
+pub struct ParsedSelfFunctionParameter {
+    pub span: Span,
+    pub data_type: Option<(Span, ParsedDataType)>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ParsedItemKind {
     InherentImplementationItem {
         generic_names: Vec<String>,
@@ -50,14 +56,14 @@ pub enum ParsedItemKind {
         name_span: Span,
         name: String,
         generic_names: Vec<String>,
-        is_method: bool,
+        self_parameter: Option<ParsedSelfFunctionParameter>,
         parameters: Vec<(ParsedPattern, ParsedDataType)>,
         return_type: ParsedDataType,
-        body: ParsedBlockExpression,
+        body: Box<ParsedBlockExpression>,
     },
     MinecraftFunctionDeclaration {
         resource_location: ResourceLocation,
-        body: ParsedBlockExpression,
+        body: Box<ParsedBlockExpression>,
     },
     TypeAliasDeclaration {
         name_span: Span,
@@ -111,14 +117,16 @@ impl ParsedItem {
                     })
                     .collect::<Vec<_>>();
 
-                ctx.declare_parsed_type(
+                let self_type_id = ctx.declare_parsed_type(
                     Visibility::Public,
                     ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
                         name: "Self".to_owned(),
-                        generic_ids: generic_ids.clone(),
+                        generic_ids: Vec::new(),
                         alias: target_type.clone(),
                     }),
                 );
+
+                ctx.enter_scope();
 
                 let associated_items = associated_items
                     .into_iter()
@@ -127,6 +135,8 @@ impl ParsedItem {
 
                 let associated_items_scope = ctx.exit_scope();
 
+                ctx.exit_scope();
+
                 let associated_items = associated_items?;
 
                 NamedItemKind::InherentImplementationItem {
@@ -134,6 +144,7 @@ impl ParsedItem {
                     target_type_span,
                     target_type,
                     associated_items,
+                    self_type_id,
                     generic_ids,
                     associated_items_scope,
                 }
@@ -172,7 +183,7 @@ impl ParsedItem {
                 name_span,
                 name,
                 generic_names,
-                is_method,
+                self_parameter: self_parameter_keyword_span,
                 parameters,
                 return_type,
                 body,
@@ -217,7 +228,7 @@ impl ParsedItem {
                     name_span,
                     name,
                     generic_names,
-                    is_method,
+                    self_parameter: self_parameter_keyword_span,
                     parameters,
                     return_type,
                     body,

@@ -350,6 +350,15 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 "The type `{}` does not contain a value named `{}`",
                 type_name, value_name
             ),
+            SemanticAnalysisError::MethodNotFound {
+                type_name,
+                method_name,
+            } => write!(
+                f,
+                "The type `{}` does not contain a method named `{}`",
+                type_name.display(self.semantic_environment),
+                method_name
+            ),
             SemanticAnalysisError::TypeDoesntContainItems { type_name } => {
                 write!(f, "The type `{}` does not contain any items", type_name)
             }
@@ -464,6 +473,10 @@ pub enum SemanticAnalysisError {
     TypeDoesntContainValue {
         type_name: String,
         value_name: String,
+    },
+    MethodNotFound {
+        type_name: SemanticDataType,
+        method_name: String,
     },
     ModuleDoesntContainItem {
         module_name: String,

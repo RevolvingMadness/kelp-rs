@@ -635,25 +635,55 @@ impl ParsedExpression {
                 arguments,
             } => {
                 let receiver = receiver.perform_semantic_analysis(ctx);
-                let _callee = callee.perform_semantic_analysis(ctx);
+                let callee = callee.perform_semantic_analysis(ctx);
                 let arguments = arguments
                     .into_iter()
                     .map(|expression| expression.perform_semantic_analysis(ctx))
-                    .collect_option_all::<Vec<_>>(); // TODO: Remove turbofish
+                    .collect_option_all::<Vec<_>>();
 
-                let (_, _receiver) = receiver?;
-                let _arguments = arguments?;
+                let (_, receiver) = receiver?;
+                let arguments = arguments?;
 
-                todo!()
+                let Some(method_info) = receiver
+                    .data_type
+                    .get_method(&ctx.semantic_environment, &callee)
+                else {
+                    return ctx.add_error(
+                        callee.name_span,
+                        SemanticAnalysisError::MethodNotFound {
+                            type_name: receiver.data_type,
+                            method_name: callee.name,
+                        },
+                    );
+                };
+
+                let callee = SemanticExpressionKind::Value(
+                    method_info.id.into(),
+                    method_info.generic_types.clone(),
+                )
+                .with(SemanticDataType::Function(
+                    method_info.id,
+                    method_info.generic_types,
+                ));
+
+                let mut arguments = arguments
+                    .into_iter()
+                    .map(|(_, argument)| argument)
+                    .collect::<Vec<_>>();
+
+                arguments.insert(0, receiver);
+
+                SemanticExpressionKind::Call(Box::new(callee), arguments)
+                    .with(method_info.return_type)
             }
             ParsedExpressionKind::FieldAccess(expression, field_span, field) => {
-                let (_, place) = expression.perform_semantic_analysis(ctx)?;
+                let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
-                let field_result = place
+                let field_result = expression
                     .data_type
                     .get_field_result_semantic_analysis(ctx, field_span, &field)?;
 
-                SemanticExpressionKind::FieldAccess(Box::new(place), field).with(field_result)
+                SemanticExpressionKind::FieldAccess(Box::new(expression), field).with(field_result)
             }
             ParsedExpressionKind::AsCast(expression, data_type) => {
                 let expression = expression.perform_semantic_analysis(ctx);

@@ -1,5 +1,10 @@
 use kelp_core::{
-    parsed::{data_type::ParsedDataType, item::ParsedItemKind, pattern::ParsedPattern},
+    parsed::{
+        data_type::ParsedDataType,
+        item::{ParsedItemKind, ParsedSelfFunctionParameter},
+        pattern::{ParsedPattern, ParsedPatternKind},
+    },
+    path::generic::GenericPath,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -13,8 +18,8 @@ use crate::{
     lower_context::LowerContext,
     parser::Parser,
     pattern::{lower_pattern, try_parse_pattern},
-    span::text_range_to_span,
-    syntax::SyntaxKind,
+    span::{span_of_cst_node, text_range_to_span},
+    syntax::SyntaxKind::{self},
 };
 
 #[must_use]
@@ -238,18 +243,41 @@ pub fn lower_function_parameter(
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::type_complexity)]
 pub fn lower_function_parameters(
     node: CSTFunctionParameters,
     ctx: &mut LowerContext,
-) -> Option<(bool, Vec<(ParsedPattern, ParsedDataType)>)> {
-    let is_method = node.self_function_parameters().count() != 0;
+) -> Option<(
+    Option<ParsedSelfFunctionParameter>,
+    Vec<(ParsedPattern, ParsedDataType)>,
+)> {
+    let self_parameter = node
+        .self_function_parameters()
+        .next()
+        .and_then(|parameter| {
+            let self_keyword_span =
+                text_range_to_span(parameter.self_keyword_token()?.text_range());
+
+            let self_type = parameter.data_type().and_then(|data_type| {
+                let span = span_of_cst_node(&data_type);
+
+                let data_type = lower_data_type(data_type)?;
+
+                Some((span, data_type))
+            });
+
+            Some(ParsedSelfFunctionParameter {
+                span: self_keyword_span,
+                data_type: self_type,
+            })
+        });
 
     let parameters = node
         .parameters()
         .map(|parameter| lower_function_parameter(parameter, ctx))
         .collect_option_all()?;
 
-    Some((is_method, parameters))
+    Some((self_parameter, parameters))
 }
 
 #[must_use]
@@ -283,11 +311,28 @@ pub fn lower_function_declaration_item_kind(
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
-    let (is_method, parameters) = match parameters {
+    let (self_parameter, mut parameters) = match parameters {
         Some(Some(value)) => value,
         Some(None) => return None,
-        None => (false, Vec::new()),
+        None => (None, Vec::new()),
     };
+
+    if let Some(self_parameter) = &self_parameter {
+        let self_pattern = ParsedPattern {
+            span: self_parameter.span,
+            kind: ParsedPatternKind::Binding(GenericPath::single(self_parameter.span, "self")),
+        };
+
+        let self_type = ParsedDataType::Named(GenericPath::single(
+            self_parameter
+                .data_type
+                .as_ref()
+                .map_or(self_parameter.span, |(span, _)| *span),
+            "Self",
+        ));
+
+        parameters.insert(0, (self_pattern, self_type));
+    }
 
     Some(ParsedItemKind::FunctionDeclaration {
         recursive_keyword_span,
@@ -295,9 +340,9 @@ pub fn lower_function_declaration_item_kind(
         name_span: text_range_to_span(name_span),
         name: name.to_owned(),
         generic_names: generic_names.unwrap_or_default(),
-        is_method,
+        self_parameter,
         parameters,
         return_type,
-        body,
+        body: Box::new(body),
     })
 }

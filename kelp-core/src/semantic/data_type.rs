@@ -3,11 +3,6 @@ use std::{
     fmt::{Display, Write},
 };
 
-use crate::low::data_type::DataType;
-use crate::low::environment::{
-    Environment,
-    r#type::r#struct::{RegularStructId, StructId, TupleStructId},
-};
 use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
@@ -25,6 +20,14 @@ use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     span::Span,
     visibility::Visibility,
+};
+use crate::{low::data_type::DataType, path::generic::GenericPathSegment};
+use crate::{
+    low::environment::{
+        Environment,
+        r#type::r#struct::{RegularStructId, StructId, TupleStructId},
+    },
+    semantic::environment::value::{SemanticValueDeclaration, SemanticValueDeclarationKind},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -74,6 +77,13 @@ pub struct CallInfo {
     pub id: Option<HighFunctionId>,
     pub name: Option<String>,
     pub parameter_types: Vec<SemanticDataType>,
+    pub return_type: SemanticDataType,
+}
+
+#[derive(Debug, Clone)]
+pub struct MethodInfo {
+    pub id: HighFunctionId,
+    pub generic_types: Vec<SemanticDataType>,
     pub return_type: SemanticDataType,
 }
 
@@ -177,7 +187,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
             SemanticDataType::Function(id, generic_types) => {
                 // Maybe display full path?
 
-                let (_, _, declaration) = self.resolved_environment.get_function(*id);
+                let declaration = self.resolved_environment.get_function_declaration(*id);
 
                 write!(f, "fn {}", declaration.name())?;
 
@@ -584,6 +594,42 @@ impl SemanticDataType {
     }
 
     #[must_use]
+    pub fn get_method(
+        &self,
+        environment: &SemanticEnvironment,
+        segment: &GenericPathSegment<Self>,
+    ) -> Option<MethodInfo> {
+        Some(match self {
+            Self::Struct(id, generic_types) => {
+                let implementations = environment.implementations.get(&(*id).into())?;
+
+                let implementation = implementations
+                    .iter()
+                    .find(|implementation| implementation.target_type == *self)?;
+
+                let id = implementation.values.get(&segment.name).copied()?;
+
+                let SemanticValueDeclaration {
+                    kind: SemanticValueDeclarationKind::Function(declaration),
+                    ..
+                } = environment.get_value(id)
+                else {
+                    return None;
+                };
+
+                let id = HighFunctionId(id.0);
+
+                MethodInfo {
+                    id,
+                    generic_types: generic_types.clone(),
+                    return_type: declaration.return_type().clone(),
+                }
+            }
+            _ => return None,
+        })
+    }
+
+    #[must_use]
     pub fn resolve(self, datapack: &mut Datapack) -> Option<DataType> {
         Some(match self {
             Self::Boolean => DataType::Boolean,
@@ -671,7 +717,7 @@ impl SemanticDataType {
             Self::Error => return None,
 
             Self::Function(id, generic_types) => {
-                let (_, _, declaration) = resolved_environment.get_function(*id);
+                let declaration = resolved_environment.get_function_declaration(*id);
 
                 match declaration {
                     SemanticFunctionDeclaration::Regular(declaration) => CallInfo {

@@ -33,11 +33,8 @@ fn calls_recursively(
         return false;
     }
 
-    let (
-        _,
-        _,
-        SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration { calls, .. }),
-    ) = resolved_environment.get_function(call_id)
+    let SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration { calls, .. }) =
+        resolved_environment.get_function_declaration(call_id)
     else {
         return false;
     };

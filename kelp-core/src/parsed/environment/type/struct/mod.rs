@@ -51,7 +51,7 @@ impl ParsedStructDeclaration {
         id: HighTypeId,
         name: &str,
     ) -> Result<HighValueId, SemanticAnalysisError> {
-        if let Some(impls) = ctx.semantic_environment.impls.get(&id) {
+        if let Some(impls) = ctx.semantic_environment.implementations.get(&id) {
             for implementation in impls {
                 if let Some(id) = implementation.values.get(name) {
                     return Ok(*id);

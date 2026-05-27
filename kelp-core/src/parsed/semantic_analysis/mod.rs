@@ -706,12 +706,9 @@ impl SemanticAnalysisContext {
     ) -> Result<(HighTypeId, &'a PathSegment), (Span, SemanticAnalysisError)> {
         let (last_segment, segments) = path.segments.split_last().unwrap();
 
-        assert!(
-            !segments.is_empty(),
-            "segments.len should be checked before calling try_resolve_path"
-        );
-
-        let (first_segment, segments) = segments.split_first().unwrap();
+        let (first_segment, segments) = segments
+            .split_first()
+            .expect("segments.len should be checked before calling try_resolve_path");
 
         let Some(mut current_type_id) = self.get_type_id(&first_segment.name) else {
             return Err((

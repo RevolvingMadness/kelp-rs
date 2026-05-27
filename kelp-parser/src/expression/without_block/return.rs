@@ -29,7 +29,7 @@ pub fn lower_return_expression(
     node: CSTReturnExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let keyword_span = text_range_to_span(node.return_keyword_token()?.text_range());
+    let keyword_span = text_range_to_span(node.return_token()?.text_range());
     let full_span = span_of_cst_node(&node);
 
     let (expression_span, expression) = match node.expression() {

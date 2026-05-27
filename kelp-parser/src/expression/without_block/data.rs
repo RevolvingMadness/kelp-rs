@@ -41,7 +41,7 @@ pub fn lower_data_expression(
     let span = span_of_cst_node(&node);
 
     let target = lower_data_target(node.data_target()?, ctx)?;
-    let path = lower_nbt_path(node.n_b_t_path()?, ctx)?;
+    let path = lower_nbt_path(node.nbt_path()?, ctx)?;
 
     Some(ParsedExpressionKind::Data(Box::new((target, path))).with_span(span))
 }

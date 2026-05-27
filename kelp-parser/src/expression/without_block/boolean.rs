@@ -11,5 +11,5 @@ pub fn lower_boolean_expression(
 ) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
-    Some(ParsedExpressionKind::Boolean(node.true_keyword_token().is_some()).with_span(span))
+    Some(ParsedExpressionKind::Boolean(node.true_token().is_some()).with_span(span))
 }

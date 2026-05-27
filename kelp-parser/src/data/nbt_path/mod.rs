@@ -52,7 +52,7 @@ pub fn try_parse_nbt_path(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_nbt_path(node: CSTNBTPath, ctx: &mut LowerContext) -> Option<NbtPath> {
     let nodes = node
-        .n_b_t_path_nodes()
+        .nbt_path_nodes()
         .filter_map(|nbt_path_node| lower_nbt_path_node(nbt_path_node, ctx))
         .collect();
 

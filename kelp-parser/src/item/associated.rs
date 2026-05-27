@@ -54,7 +54,7 @@ pub fn lower_associated_item(
 ) -> Option<ParsedItem> {
     let span = span_of_cst_node(&node);
 
-    let visibility = if node.pub_keyword_token().is_some() {
+    let visibility = if node.pub_token().is_some() {
         Visibility::Public
     } else {
         Visibility::None

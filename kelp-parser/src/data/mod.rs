@@ -39,7 +39,7 @@ pub fn try_parse_data(parser: &mut Parser) -> bool {
 #[allow(clippy::needless_pass_by_value)]
 pub fn lower_data(node: CSTData, ctx: &mut LowerContext) -> Option<Data> {
     let target = lower_data_target(node.data_target()?, ctx)?;
-    let path = lower_nbt_path(node.n_b_t_path()?, ctx)?;
+    let path = lower_nbt_path(node.nbt_path()?, ctx)?;
 
     Some(Data { target, path })
 }

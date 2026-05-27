@@ -255,8 +255,7 @@ pub fn lower_function_parameters(
         .self_function_parameters()
         .next()
         .and_then(|parameter| {
-            let self_keyword_span =
-                text_range_to_span(parameter.self_keyword_token()?.text_range());
+            let self_keyword_span = text_range_to_span(parameter.self_token()?.text_range());
 
             let self_type = parameter.data_type().and_then(|data_type| {
                 let span = span_of_cst_node(&data_type);
@@ -287,11 +286,11 @@ pub fn lower_function_declaration_item_kind(
     ctx: &mut LowerContext,
 ) -> Option<ParsedItemKind> {
     let recursive_keyword_span = node
-        .recursive_keyword_token()
+        .recursive_token()
         .map(|token| text_range_to_span(token.text_range()));
 
     let runtime_keyword_span = node
-        .runtime_keyword_token()
+        .runtime_token()
         .map(|token| text_range_to_span(token.text_range()));
 
     let name_token = node.name()?;

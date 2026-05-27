@@ -17,7 +17,6 @@ use crate::{
     lower_context::LowerContext,
     parser::Parser,
     path::generic::lower_generic_path,
-    pattern::lower_pattern,
     syntax::SyntaxKind,
 };
 
@@ -61,7 +60,7 @@ impl LowerableAstNode for CSTRegularStructPatternField {
 
         let field_pattern = self
             .pattern()
-            .and_then(|pattern| lower_pattern(pattern, ctx))
+            .and_then(|pattern| pattern.lower(ctx))
             .unwrap_or_else(|| ParsedPattern {
                 span: field_name_span,
                 kind: ParsedPatternKind::Binding(GenericPath::single(field_name_span, field_name)),
@@ -120,7 +119,7 @@ pub fn lower_tuple_struct_pattern_field(
     node: CSTTupleStructPatternField,
     ctx: &mut LowerContext,
 ) -> Option<ParsedPattern> {
-    let field_pattern = lower_pattern(node.pattern()?, ctx)?;
+    let field_pattern = node.pattern()?.lower(ctx)?;
 
     Some(field_pattern)
 }
@@ -138,62 +137,61 @@ fn try_parse_tuple_struct_pattern_field(parser: &mut Parser) -> bool {
     true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-fn lower_tuple_struct_pattern_fields(
-    node: CSTTupleStructPatternFields,
-    ctx: &mut LowerContext,
-) -> Vec<ParsedPattern> {
-    node.tuple_struct_pattern_fields()
-        .filter_map(|field| lower_tuple_struct_pattern_field(field, ctx))
-        .collect()
+impl LowerableAstNode for CSTTupleStructPatternFields {
+    type Lowered = Vec<ParsedPattern>;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(
+            self.tuple_struct_pattern_fields()
+                .filter_map(|field| lower_tuple_struct_pattern_field(field, ctx))
+                .collect(),
+        )
+    }
 }
 
-#[must_use]
-pub fn try_parse_tuple_struct_pattern_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
-
-    if !try_parse_tuple_struct_pattern_field(parser) {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::TupleStructPatternFields);
-
-    loop {
-        let state = parser.save_state();
-        parser.skip_whitespace();
-
-        if !parser.try_bump_char(',') {
-            state.restore(parser);
-            break;
-        }
-
-        parser.skip_whitespace();
+impl ParsableAstNode for CSTTupleStructPatternFields {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
         if !try_parse_tuple_struct_pattern_field(parser) {
-            break;
+            return false;
         }
+
+        marker.start_node(parser, SyntaxKind::TupleStructPatternFields);
+
+        loop {
+            let state = parser.save_state();
+            parser.skip_whitespace();
+
+            if !parser.try_bump_char(',') {
+                state.restore(parser);
+                break;
+            }
+
+            parser.skip_whitespace();
+
+            if !try_parse_tuple_struct_pattern_field(parser) {
+                break;
+            }
+        }
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_struct_pattern(
-    node: CSTTupleStructPattern,
-    ctx: &mut LowerContext,
-) -> Option<ParsedPattern> {
-    let span = node.span();
+impl LowerableAstNode for CSTTupleStructPattern {
+    type Lowered = ParsedPattern;
 
-    let path = lower_generic_path(node.generic_path()?)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let path = lower_generic_path(self.generic_path()?)?;
 
-    let fields = node
-        .tuple_struct_pattern_fields()
-        .map(|fields| lower_tuple_struct_pattern_fields(fields, ctx))
-        .unwrap_or_default();
+        let fields = self
+            .tuple_struct_pattern_fields()
+            .and_then(|fields| fields.lower(ctx))
+            .unwrap_or_default();
 
-    Some(ParsedPatternKind::TupleStruct(path, fields).with_span(span))
+        Some(ParsedPatternKind::TupleStruct(path, fields).with_span(self.span()))
+    }
 }

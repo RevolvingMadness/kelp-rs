@@ -1,9 +1,15 @@
 use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 
-use crate::{cst::CSTWildcardPattern, extension_traits::AstNodeExt as _};
+use crate::{
+    cst::CSTWildcardPattern,
+    extension_traits::{AstNodeExt as _, LowerableAstNode},
+    lower_context::LowerContext,
+};
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_wildcard_pattern(node: CSTWildcardPattern) -> Option<ParsedPattern> {
-    Some(ParsedPatternKind::Wildcard.with_span(node.span()))
+impl LowerableAstNode for CSTWildcardPattern {
+    type Lowered = ParsedPattern;
+
+    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(ParsedPatternKind::Wildcard.with_span(self.span()))
+    }
 }

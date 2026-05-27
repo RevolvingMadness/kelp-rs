@@ -1,15 +1,18 @@
 use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 
 use crate::{
-    cst::CSTBindingPattern, extension_traits::AstNodeExt, path::generic::lower_generic_path,
+    cst::CSTBindingPattern,
+    extension_traits::{AstNodeExt, LowerableAstNode},
+    lower_context::LowerContext,
+    path::generic::lower_generic_path,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_binding_pattern(node: CSTBindingPattern) -> Option<ParsedPattern> {
-    let span = node.span();
+impl LowerableAstNode for CSTBindingPattern {
+    type Lowered = ParsedPattern;
 
-    let path = lower_generic_path(node.generic_path()?)?;
+    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let path = lower_generic_path(self.generic_path()?)?;
 
-    Some(ParsedPatternKind::Binding(path).with_span(span))
+        Some(ParsedPatternKind::Binding(path).with_span(self.span()))
+    }
 }

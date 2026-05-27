@@ -6,7 +6,6 @@ use crate::{
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    pattern::lower_pattern,
     syntax::SyntaxKind,
 };
 
@@ -55,7 +54,7 @@ pub fn lower_iterator_loop_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let pattern = lower_pattern(node.pattern()?, ctx)?;
+    let pattern = node.pattern()?.lower(ctx)?;
 
     let expression = node.expression()?.lower(ctx)?;
 

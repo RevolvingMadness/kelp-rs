@@ -1,20 +1,14 @@
 use kelp_core::parsed::pattern::ParsedPattern;
 
 use crate::{
-    cst::{CSTPattern, CSTRegularStructPatternFields},
+    cst::{
+        CSTDataPattern, CSTPattern, CSTRegularStructPatternFields, CSTScorePattern,
+        CSTTupleStructPatternFields,
+    },
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::try_parse_generic_path,
-    pattern::{
-        binding::lower_binding_pattern,
-        compound::lower_compound_pattern,
-        data::{lower_data_pattern, try_parse_data_pattern},
-        score::{lower_score_pattern, try_parse_score_pattern},
-        r#struct::{lower_tuple_struct_pattern, try_parse_tuple_struct_pattern_fields},
-        tuple::lower_tuple_pattern,
-        wildcard::lower_wildcard_pattern,
-    },
     syntax::SyntaxKind,
 };
 
@@ -108,11 +102,11 @@ impl ParsableAstNode for CSTPattern {
                     true
                 }
                 Some(..) => {
-                    if try_parse_score_pattern(parser) {
+                    if CSTScorePattern::try_parse(parser) {
                         return true;
                     }
 
-                    if try_parse_data_pattern(parser) {
+                    if CSTDataPattern::try_parse(parser) {
                         return true;
                     }
 
@@ -149,7 +143,7 @@ impl ParsableAstNode for CSTPattern {
 
                             parser.skip_whitespace();
 
-                            let _ = try_parse_tuple_struct_pattern_fields(parser);
+                            let _ = CSTTupleStructPatternFields::try_parse(parser);
 
                             parser.skip_whitespace();
 
@@ -172,16 +166,19 @@ impl ParsableAstNode for CSTPattern {
     }
 }
 
-#[must_use]
-pub fn lower_pattern(node: CSTPattern, ctx: &mut LowerContext) -> Option<ParsedPattern> {
-    match node {
-        CSTPattern::WildcardPattern(node) => lower_wildcard_pattern(node),
-        CSTPattern::TuplePattern(node) => lower_tuple_pattern(node, ctx),
-        CSTPattern::BindingPattern(node) => lower_binding_pattern(node),
-        CSTPattern::ScorePattern(node) => lower_score_pattern(node, ctx),
-        CSTPattern::DataPattern(node) => lower_data_pattern(node, ctx),
-        CSTPattern::RegularStructPattern(node) => node.lower(ctx),
-        CSTPattern::TupleStructPattern(node) => lower_tuple_struct_pattern(node, ctx),
-        CSTPattern::CompoundPattern(node) => lower_compound_pattern(node, ctx),
+impl LowerableAstNode for CSTPattern {
+    type Lowered = ParsedPattern;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::WildcardPattern(node) => node.lower(ctx),
+            Self::TuplePattern(node) => node.lower(ctx),
+            Self::BindingPattern(node) => node.lower(ctx),
+            Self::ScorePattern(node) => node.lower(ctx),
+            Self::DataPattern(node) => node.lower(ctx),
+            Self::RegularStructPattern(node) => node.lower(ctx),
+            Self::TupleStructPattern(node) => node.lower(ctx),
+            Self::CompoundPattern(node) => node.lower(ctx),
+        }
     }
 }

@@ -6,6 +6,7 @@ use crate::{
         nbt_path::{lower_nbt_path, try_parse_nbt_path},
         target::{lower_data_target, try_parse_data_target},
     },
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -14,32 +15,35 @@ use crate::{
 pub mod nbt_path;
 pub mod target;
 
-#[must_use]
-pub fn try_parse_data(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTData {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if !try_parse_data_target(parser) {
-        return false;
+        if !try_parse_data_target(parser) {
+            return false;
+        }
+
+        marker.start_node(parser, SyntaxKind::Data);
+
+        parser.expect_inline_whitespace();
+
+        if !try_parse_nbt_path(parser) {
+            parser.error("Expected nbt path");
+        }
+
+        parser.finish_node();
+
+        true
     }
-
-    checkpoint.start_node(parser, SyntaxKind::Data);
-
-    parser.expect_inline_whitespace();
-
-    if !try_parse_nbt_path(parser) {
-        parser.error("Expected nbt path");
-    }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_data(node: CSTData, ctx: &mut LowerContext) -> Option<Data> {
-    let target = lower_data_target(node.data_target()?, ctx)?;
-    let path = lower_nbt_path(node.nbt_path()?, ctx)?;
+impl LowerableAstNode for CSTData {
+    type Lowered = Data;
 
-    Some(Data { target, path })
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let target = lower_data_target(self.data_target()?, ctx)?;
+        let path = lower_nbt_path(self.nbt_path()?, ctx)?;
+
+        Some(Data { target, path })
+    }
 }

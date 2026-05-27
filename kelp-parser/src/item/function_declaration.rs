@@ -15,11 +15,9 @@ use crate::{
         lower_data_type, try_parse_data_type,
     },
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
-    extension_traits::ParsableAstNode,
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
-    pattern::lower_pattern,
     syntax::SyntaxKind::{self},
 };
 
@@ -235,7 +233,7 @@ pub fn lower_function_parameter(
     node: CSTFunctionParameter,
     ctx: &mut LowerContext,
 ) -> Option<(ParsedPattern, ParsedDataType)> {
-    let pattern = lower_pattern(node.pattern()?, ctx)?;
+    let pattern = node.pattern()?.lower(ctx)?;
 
     let data_type = lower_data_type(node.data_type()?)?;
 

@@ -1,29 +1,23 @@
-use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
+use kelp_core::parsed::statement::ParsedStatement;
 
 use crate::{
-    cst::{CSTExpressionStatement, CSTStatement},
-    expression::{
-        is_expression_recovery, try_parse_expression_with_block,
-        try_parse_expression_without_block, with_block::lower_expression_with_block,
-        without_block::lower_expression_without_block,
+    cst::{
+        CSTAppendStatement, CSTBreakStatement, CSTContinueStatement, CSTItemStatement,
+        CSTLetStatement, CSTRemoveStatement, CSTStatement,
     },
-    extension_traits::AstNodeExt,
+    expression::{
+        is_expression_recovery, try_parse_expression_with_block, try_parse_expression_without_block,
+    },
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    statement::{
-        append::{lower_append_statement, try_parse_append_statement},
-        r#break::{lower_break_statement, try_parse_break_statement},
-        r#continue::{lower_continue_statement, try_parse_continue_statement},
-        item::{lower_item_statement, try_parse_item_statement},
-        r#let::{lower_let_statement, try_parse_let_statement},
-        remove::{lower_remove_statement, try_parse_remove_statement},
-    },
     syntax::SyntaxKind,
 };
 
 pub mod append;
 pub mod r#break;
 pub mod r#continue;
+pub mod expression;
 pub mod item;
 pub mod r#let;
 pub mod remove;
@@ -53,32 +47,32 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
     if let Some(text) = parser.peek_identifier() {
         match text {
             "let" => {
-                if try_parse_let_statement(parser) {
+                if CSTLetStatement::try_parse(parser) {
                     return true;
                 }
             }
             "break" => {
-                if try_parse_break_statement(parser) {
+                if CSTBreakStatement::try_parse(parser) {
                     return true;
                 }
             }
             "continue" => {
-                if try_parse_continue_statement(parser) {
+                if CSTContinueStatement::try_parse(parser) {
                     return true;
                 }
             }
             "append" => {
-                if try_parse_append_statement(parser) {
+                if CSTAppendStatement::try_parse(parser) {
                     return true;
                 }
             }
             "remove" => {
-                if try_parse_remove_statement(parser) {
+                if CSTRemoveStatement::try_parse(parser) {
                     return true;
                 }
             }
             _ => {
-                if try_parse_item_statement(parser) {
+                if CSTItemStatement::try_parse(parser) {
                     return true;
                 }
             }
@@ -133,31 +127,14 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_expression_statement(
-    node: CSTExpressionStatement,
-    ctx: &mut LowerContext,
-) -> Option<ParsedStatement> {
-    let expression = if let Some(without_block) = node.expression_without_block() {
-        lower_expression_without_block(without_block, ctx)?
-    } else if let Some(with_block) = node.expression_with_block() {
-        lower_expression_with_block(with_block, ctx)?
-    } else {
-        return None;
-    };
-
-    Some(ParsedStatementKind::Expression(expression).with_span(node.span()))
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
 pub fn lower_statement(node: CSTStatement, ctx: &mut LowerContext) -> Option<ParsedStatement> {
     match node {
-        CSTStatement::ExpressionStatement(node) => lower_expression_statement(node, ctx),
-        CSTStatement::LetStatement(statement) => lower_let_statement(statement, ctx),
-        CSTStatement::BreakStatement(node) => lower_break_statement(node, ctx),
-        CSTStatement::ContinueStatement(node) => lower_continue_statement(node, ctx),
-        CSTStatement::AppendStatement(node) => lower_append_statement(node, ctx),
-        CSTStatement::RemoveStatement(node) => lower_remove_statement(node, ctx),
-        CSTStatement::ItemStatement(node) => lower_item_statement(node, ctx),
+        CSTStatement::ExpressionStatement(node) => node.lower(ctx),
+        CSTStatement::LetStatement(node) => node.lower(ctx),
+        CSTStatement::BreakStatement(node) => node.lower(ctx),
+        CSTStatement::ContinueStatement(node) => node.lower(ctx),
+        CSTStatement::AppendStatement(node) => node.lower(ctx),
+        CSTStatement::RemoveStatement(node) => node.lower(ctx),
+        CSTStatement::ItemStatement(node) => node.lower(ctx),
     }
 }

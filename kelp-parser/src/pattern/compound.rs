@@ -6,44 +6,39 @@ use kelp_core::{
 
 use crate::{
     cst::{CSTCompoundPattern, CSTCompoundPatternEntry},
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, LowerableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
-    pattern::lower_pattern,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_compound_pattern_entry(
-    node: CSTCompoundPatternEntry,
-    ctx: &mut LowerContext,
-) -> Option<((Span, String), ParsedPattern)> {
-    let entry_name_token = node.name()?;
-    let entry_name_span = entry_name_token.span();
-    let entry_name = entry_name_token.text();
+impl LowerableAstNode for CSTCompoundPatternEntry {
+    type Lowered = ((Span, String), ParsedPattern);
 
-    let entry_pattern = node
-        .pattern()
-        .and_then(|pattern| lower_pattern(pattern, ctx))
-        .unwrap_or_else(|| ParsedPattern {
-            span: entry_name_span,
-            kind: ParsedPatternKind::Binding(GenericPath::single(entry_name_span, entry_name)),
-        });
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let name_token = self.name()?;
+        let name_span = name_token.span();
+        let name = name_token.text();
 
-    Some(((entry_name_span, entry_name.to_owned()), entry_pattern))
+        let entry_pattern = self
+            .pattern()
+            .and_then(|pattern| pattern.lower(ctx))
+            .unwrap_or_else(|| ParsedPattern {
+                span: name_span,
+                kind: ParsedPatternKind::Binding(GenericPath::single(name_span, name)),
+            });
+
+        Some(((name_span, name.to_owned()), entry_pattern))
+    }
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_compound_pattern(
-    node: CSTCompoundPattern,
-    ctx: &mut LowerContext,
-) -> Option<ParsedPattern> {
-    let span = node.span();
+impl LowerableAstNode for CSTCompoundPattern {
+    type Lowered = ParsedPattern;
 
-    let entries = node
-        .entries()
-        .filter_map(|entry| lower_compound_pattern_entry(entry, ctx))
-        .collect();
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let entries = self
+            .entries()
+            .filter_map(|entry| entry.lower(ctx))
+            .collect();
 
-    Some(ParsedPatternKind::Compound(entries).with_span(span))
+        Some(ParsedPatternKind::Compound(entries).with_span(self.span()))
+    }
 }

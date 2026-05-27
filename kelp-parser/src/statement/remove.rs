@@ -9,38 +9,36 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-#[must_use]
-pub fn try_parse_remove_statement(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
+impl ParsableAstNode for CSTRemoveStatement {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::RemoveStatement);
+        parser.start_node(SyntaxKind::RemoveStatement);
 
-    parser.bump_str(SyntaxKind::RemoveKeyword, "remove");
+        parser.bump_str(SyntaxKind::RemoveKeyword, "remove");
 
-    parser.skip_inline_whitespace();
+        parser.skip_inline_whitespace();
 
-    if !CSTExpression::try_parse(parser) {
-        state.restore(parser);
+        if !CSTExpression::try_parse(parser) {
+            state.restore(parser);
 
-        return false;
+            return false;
+        }
+
+        expect_semicolon_ending(parser);
+
+        parser.finish_node();
+
+        true
     }
-
-    expect_semicolon_ending(parser);
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_remove_statement(
-    node: CSTRemoveStatement,
-    ctx: &mut LowerContext,
-) -> Option<ParsedStatement> {
-    let span = node.span();
+impl LowerableAstNode for CSTRemoveStatement {
+    type Lowered = ParsedStatement;
 
-    let target = node.target()?.lower(ctx)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let target = self.target()?.lower(ctx)?;
 
-    Some(ParsedStatementKind::Remove(target).with_span(span))
+        Some(ParsedStatementKind::Remove(target).with_span(self.span()))
+    }
 }

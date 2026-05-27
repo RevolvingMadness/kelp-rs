@@ -648,6 +648,7 @@ impl ParsedExpression {
                 let Some(method_info) = receiver
                     .data_type
                     .get_method(&ctx.semantic_environment, &callee)
+                    .ok()?
                 else {
                     return ctx.add_error(
                         callee_span,

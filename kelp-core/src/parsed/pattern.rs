@@ -8,7 +8,7 @@ use crate::{
     parsed::{
         data::Data,
         data_type::ParsedDataType,
-        player_score::PlayerScore,
+        player_score::ParsedPlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
     path::generic::GenericPath,
@@ -26,7 +26,7 @@ pub enum ParsedPatternKind {
     Wildcard,
     Binding(GenericPath<ParsedDataType>),
 
-    Score(PlayerScore),
+    Score(ParsedPlayerScore),
     Data(Box<Data>),
 
     Tuple(Vec<ParsedPattern>),

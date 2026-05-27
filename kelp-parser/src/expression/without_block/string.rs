@@ -1,17 +1,18 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
-use crate::{cst::CSTStringExpression, extension_traits::AstNodeExt, lower_context::LowerContext};
+use crate::{
+    cst::CSTStringExpression,
+    extension_traits::{AstNodeExt, LowerableAstNode},
+    lower_context::LowerContext,
+};
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_string_expression(
-    node: CSTStringExpression,
-    _ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTStringExpression {
+    type Lowered = ParsedExpression;
 
-    let text_token = node.string_literal_token()?;
-    let string = text_token.text().trim_matches('"');
+    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let text_token = self.string_literal_token()?;
+        let string = text_token.text().trim_matches('"');
 
-    Some(ParsedExpressionKind::String(string.to_owned()).with_span(span))
+        Some(ParsedExpressionKind::String(string.to_owned()).with_span(self.span()))
+    }
 }

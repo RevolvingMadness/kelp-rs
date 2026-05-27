@@ -1,12 +1,11 @@
 use kelp_core::parsed::data::{ParsedDataTarget, ParsedDataTargetKind};
 
 use crate::{
-    cst::{CSTCoordinates, CSTDataTarget},
+    cst::{CSTCoordinates, CSTDataTarget, CSTResourceLocation},
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode as _},
     lower_context::LowerContext,
     parser::Parser,
-    resource_location::{lower_resource_location, try_parse_resource_location},
     syntax::SyntaxKind,
 };
 
@@ -45,7 +44,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
 
             parser.bump_identifier_kind(SyntaxKind::StorageKeyword, "storage");
 
-            if !parser.expect_inline_whitespace() || !try_parse_resource_location(parser) {
+            if !parser.expect_inline_whitespace() || !CSTResourceLocation::try_parse(parser) {
                 state.restore(parser);
 
                 return false;
@@ -76,7 +75,7 @@ pub fn lower_data_target(node: CSTDataTarget, ctx: &mut LowerContext) -> Option<
                 ParsedDataTargetKind::Block(Box::new(coordinates))
             }
             CSTDataTarget::StorageDataTarget(node) => {
-                let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
+                let resource_location = node.resource_location()?.lower(ctx)?;
 
                 ParsedDataTargetKind::Storage(resource_location)
             }

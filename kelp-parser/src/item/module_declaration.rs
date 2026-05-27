@@ -1,4 +1,4 @@
-use kelp_core::parsed::item::ParsedItemKind;
+use kelp_core::{parsed::item::ParsedItemKind, trait_ext::CollectOptionAllIterExt};
 
 use crate::{
     cst::{CSTItem, CSTModuleDeclarationItem},
@@ -8,84 +8,60 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-#[must_use]
-pub fn try_parse_module_declaration_item_kind(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
+impl ParsableAstNode for CSTModuleDeclarationItem {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::ModuleDeclarationItem);
-    parser.bump_str(SyntaxKind::ModKeyword, "mod");
+        parser.start_node(SyntaxKind::ModuleDeclarationItem);
+        parser.bump_str(SyntaxKind::ModKeyword, "mod");
 
-    parser.expect_whitespace();
+        parser.expect_whitespace();
 
-    if !parser.try_bump_identifier_kind(SyntaxKind::ModuleName) {
-        state.restore(parser);
+        if !parser.try_bump_identifier_kind(SyntaxKind::ModuleName) {
+            state.restore(parser);
 
-        return false;
-    }
-
-    parser.skip_whitespace();
-
-    parser.expect_char('{', "Expected '{'");
-
-    loop {
-        parser.skip_whitespace();
-
-        if parser.is_eof() || parser.peek_char() == Some('}') {
-            break;
+            return false;
         }
 
-        CSTItem::expect(parser, "Expected item");
-    }
-
-    parser.expect_char('}', "Expected '}'");
-
-    parser.finish_node();
-
-    true
-}
-
-pub fn expect_module_declaration_item_kind(parser: &mut Parser) {
-    parser.start_node(SyntaxKind::ModuleDeclarationItem);
-    parser.bump_str(SyntaxKind::ModKeyword, "mod");
-
-    parser.expect_whitespace();
-
-    parser.expect_identifier_kind(SyntaxKind::ModuleName, "Expected module name");
-
-    parser.skip_whitespace();
-
-    parser.expect_char('{', "Expected '{'");
-
-    loop {
         parser.skip_whitespace();
 
-        if parser.is_eof() || parser.peek_char() == Some('}') {
-            break;
+        parser.expect_char('{', "Expected '{'");
+
+        loop {
+            parser.skip_whitespace();
+
+            if parser.is_eof() || parser.peek_char() == Some('}') {
+                break;
+            }
+
+            CSTItem::expect(parser, "Expected item");
         }
 
-        CSTItem::expect(parser, "Expected item");
+        parser.expect_char('}', "Expected '}'");
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.expect_char('}', "Expected '}'");
-
-    parser.finish_node();
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_module_declaration_item(
-    node: CSTModuleDeclarationItem,
-    ctx: &mut LowerContext,
-) -> Option<ParsedItemKind> {
-    let name_token = node.module_name_token()?;
-    let name_span = name_token.span();
-    let name = name_token.text();
+impl LowerableAstNode for CSTModuleDeclarationItem {
+    type Lowered = ParsedItemKind;
 
-    let items = node.items().filter_map(|item| item.lower(ctx)).collect();
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let name_token = self.module_name_token()?;
+        let name_span = name_token.span();
+        let name = name_token.text();
 
-    Some(ParsedItemKind::ModuleDeclaration {
-        name_span,
-        name: name.to_owned(),
-        items,
-    })
+        let items = self
+            .items()
+            .map(|item| item.lower(ctx))
+            .collect_option_all()?;
+
+        Some(ParsedItemKind::ModuleDeclaration {
+            name_span,
+            name: name.to_owned(),
+            items,
+        })
+    }
 }

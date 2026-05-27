@@ -1,14 +1,14 @@
 use minecraft_command_types::command::execute::ScoreComparisonOperator;
 use minecraft_command_types::range::IntegerRange;
 
-use crate::parsed::player_score::PlayerScore;
+use crate::parsed::player_score::ParsedPlayerScore;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::semantic::score_comparison::SemanticScoreComparison;
 
 #[derive(Debug, Clone)]
 pub enum ScoreComparison {
     Range(IntegerRange),
-    Score(ScoreComparisonOperator, PlayerScore),
+    Score(ScoreComparisonOperator, ParsedPlayerScore),
 }
 
 impl ScoreComparison {

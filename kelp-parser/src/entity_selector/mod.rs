@@ -5,17 +5,17 @@ use minecraft_command_types::entity_selector::EntitySelectorVariable;
 
 use crate::{
     cst::{
-        CSTActualEntitySelector, CSTEntitySelector, CSTNameEntitySelector,
+        CSTActualEntitySelector, CSTEntitySelector, CSTExpressionSigil, CSTNameEntitySelector,
         CSTVariableEntitySelector,
     },
-    expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
 
 pub fn try_parse_entity_selector(parser: &mut Parser) -> bool {
-    if try_parse_expression_sigil(parser) {
+    if CSTExpressionSigil::try_parse(parser) {
         return true;
     }
 
@@ -160,7 +160,9 @@ fn parse_options(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_variable_entity_selector(node: CSTVariableEntitySelector) -> Option<ParsedEntitySelector> {
+pub fn lower_variable_entity_selector(
+    node: CSTVariableEntitySelector,
+) -> Option<ParsedEntitySelector> {
     let variable_token = node.entity_selector_variable_token()?;
     let variable = variable_token.text();
 
@@ -205,6 +207,8 @@ pub fn lower_entity_selector(
         CSTEntitySelector::ActualEntitySelector(node) => {
             lower_actual_entity_selector(node).map(ParsedSupportsExpressionSigil::Regular)
         }
-        CSTEntitySelector::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
+        CSTEntitySelector::ExpressionSigil(node) => node
+            .lower(ctx)
+            .map(|lowered| lowered.retype_sigil().unwrap()),
     }
 }

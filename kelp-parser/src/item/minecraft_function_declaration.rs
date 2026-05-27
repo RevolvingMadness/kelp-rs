@@ -1,13 +1,11 @@
 use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
-    cst::CSTMinecraftFunctionDeclarationItem,
-    expression::with_block::block::{lower_block_expression, try_parse_block_expression},
+    cst::{CSTBlockExpression, CSTMinecraftFunctionDeclarationItem, CSTResourceLocation},
     expression_sigil::assert_not_sigil,
-    extension_traits::AstNodeExt,
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    resource_location::{lower_resource_location, try_parse_resource_location},
     syntax::SyntaxKind,
 };
 
@@ -18,7 +16,7 @@ pub fn try_parse_minecraft_function_declaration_item_kind(parser: &mut Parser) -
     parser.start_node(SyntaxKind::MinecraftFunctionDeclarationItem);
     parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
 
-    if !parser.expect_whitespace() || !try_parse_resource_location(parser) {
+    if !parser.expect_whitespace() || !CSTResourceLocation::try_parse(parser) {
         state.restore(parser);
 
         return false;
@@ -26,48 +24,27 @@ pub fn try_parse_minecraft_function_declaration_item_kind(parser: &mut Parser) -
 
     parser.expect_whitespace();
 
-    if !try_parse_block_expression(parser) {
-        parser.error("Expected block expression");
-    }
+    CSTBlockExpression::expect(parser, "Expected mcfunction body");
 
     parser.finish_node();
 
     true
 }
 
-pub fn expect_minecraft_function_declaration_item_kind(parser: &mut Parser) {
-    parser.start_node(SyntaxKind::MinecraftFunctionDeclarationItem);
-    parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
+impl LowerableAstNode for CSTMinecraftFunctionDeclarationItem {
+    type Lowered = ParsedItemKind;
 
-    let mut succeeded = parser.expect_whitespace();
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let resource_location = self.resource_location()?;
+        let resource_location_span = resource_location.span();
+        let resource_location = resource_location.lower(ctx)?;
+        let resource_location = assert_not_sigil(resource_location, resource_location_span, ctx)?;
 
-    if !try_parse_resource_location(parser) && succeeded {
-        parser.error("Expected resource location");
+        let body = self.block_expression()?.lower(ctx)?;
+
+        Some(ParsedItemKind::MinecraftFunctionDeclaration {
+            resource_location,
+            body: Box::new(body),
+        })
     }
-
-    succeeded = parser.expect_whitespace() || succeeded;
-
-    if !try_parse_block_expression(parser) && succeeded {
-        parser.error("Expected block expression");
-    }
-
-    parser.finish_node();
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_minecraft_function_declaration_item_kind(
-    node: CSTMinecraftFunctionDeclarationItem,
-    ctx: &mut LowerContext,
-) -> Option<ParsedItemKind> {
-    let resource_location_token = node.resource_location()?;
-    let resource_location_span = resource_location_token.span();
-    let resource_location = lower_resource_location(resource_location_token, ctx)?;
-    let resource_location = assert_not_sigil(resource_location, resource_location_span, ctx)?;
-    let body = lower_block_expression(node.block_expression()?, ctx)?;
-
-    Some(ParsedItemKind::MinecraftFunctionDeclaration {
-        resource_location,
-        body: Box::new(body),
-    })
 }

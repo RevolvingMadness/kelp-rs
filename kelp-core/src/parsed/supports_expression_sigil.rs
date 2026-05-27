@@ -20,6 +20,16 @@ pub enum ParsedSupportsExpressionSigil<T> {
     Sigil(ParsedExpression),
 }
 
+impl<T> ParsedSupportsExpressionSigil<T> {
+    #[must_use]
+    pub fn retype_sigil<R>(self) -> Option<ParsedSupportsExpressionSigil<R>> {
+        match self {
+            Self::Regular(_) => None,
+            Self::Sigil(expression) => Some(ParsedSupportsExpressionSigil::Sigil(expression)),
+        }
+    }
+}
+
 pub trait RegularSupportsExpressionSigilExt: Sized {
     fn regular_sigil(self) -> ParsedSupportsExpressionSigil<Self>;
 }

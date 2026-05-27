@@ -6,13 +6,12 @@ use crate::{
     lower_context::LowerContext,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_path_expression(
-    node: CSTPathExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let path = node.generic_path()?.lower(ctx)?;
+impl LowerableAstNode for CSTPathExpression {
+    type Lowered = ParsedExpression;
 
-    Some(ParsedExpressionKind::Path(path).with_span(node.span()))
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let path = self.generic_path()?.lower(ctx)?;
+
+        Some(ParsedExpressionKind::Path(path).with_span(self.span()))
+    }
 }

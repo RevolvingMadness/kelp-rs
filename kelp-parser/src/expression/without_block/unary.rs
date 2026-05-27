@@ -10,23 +10,20 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_unary_expression(
-    node: CSTUnaryExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTUnaryExpression {
+    type Lowered = ParsedExpression;
 
-    let operator = match node.operator()?.kind() {
-        SyntaxKind::ExclamationMark => UnaryOperator::Invert,
-        SyntaxKind::Minus => UnaryOperator::Negate,
-        SyntaxKind::Star => UnaryOperator::Dereference,
-        SyntaxKind::Ampersand => UnaryOperator::Reference,
-        _ => return None,
-    };
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let operator = match self.operator()?.kind() {
+            SyntaxKind::ExclamationMark => UnaryOperator::Invert,
+            SyntaxKind::Minus => UnaryOperator::Negate,
+            SyntaxKind::Star => UnaryOperator::Dereference,
+            SyntaxKind::Ampersand => UnaryOperator::Reference,
+            _ => return None,
+        };
 
-    let operand = node.expression()?.lower(ctx)?;
+        let operand = self.expression()?.lower(ctx)?;
 
-    Some(ParsedExpressionKind::Unary(operator, Box::new(operand)).with_span(span))
+        Some(ParsedExpressionKind::Unary(operator, Box::new(operand)).with_span(self.span()))
+    }
 }

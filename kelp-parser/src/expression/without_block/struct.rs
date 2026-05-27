@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use kelp_core::{
     parsed::expression::{ParsedExpression, ParsedExpressionKind},
     span::Span,
+    trait_ext::CollectOptionAllIterExt,
 };
 
 use crate::{
@@ -15,107 +16,102 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-fn lower_struct_expression_field(
-    node: CSTStructExpressionField,
-    ctx: &mut LowerContext,
-) -> Option<((Span, String), ParsedExpression)> {
-    let name_token = node.name()?;
-    let name_span = name_token.span();
-    let name = name_token.text();
+impl ParsableAstNode for CSTStructExpressionField {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let checkpoint = parser.mark();
 
-    let expression = node.expression()?.lower(ctx)?;
-
-    Some(((name_span, name.to_owned()), expression))
-}
-
-#[must_use]
-fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
-
-    if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
-        && !parser.try_bump_whole_value()
-    {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::StructExpressionField);
-
-    parser.skip_whitespace();
-
-    let parsed_colon = parser.expect_char(':', "Expected ':'");
-
-    parser.skip_whitespace();
-
-    if !CSTExpression::try_parse(parser) && parsed_colon {
-        parser.error("Expected expression");
-    }
-
-    parser.finish_node();
-
-    true
-}
-
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_expression_fields(
-    node: CSTStructExpressionFields,
-    ctx: &mut LowerContext,
-) -> Option<HashMap<(Span, String), ParsedExpression>> {
-    let fields = node
-        .struct_expression_fields()
-        .filter_map(|field| lower_struct_expression_field(field, ctx))
-        .collect::<_>();
-
-    Some(fields)
-}
-
-#[must_use]
-pub fn try_parse_struct_expression_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
-
-    if !try_parse_struct_expression_field(parser) {
-        return false;
-    }
-
-    checkpoint.start_node(parser, SyntaxKind::StructExpressionFields);
-
-    loop {
-        let state = parser.save_state();
-        parser.skip_whitespace();
-
-        if !parser.try_bump_char(',') {
-            state.restore(parser);
-            break;
+        if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
+            && !parser.try_bump_whole_value()
+        {
+            return false;
         }
+
+        checkpoint.start_node(parser, SyntaxKind::StructExpressionField);
 
         parser.skip_whitespace();
 
-        if !try_parse_struct_expression_field(parser) {
-            break;
+        let parsed_colon = parser.expect_char(':', "Expected ':'");
+
+        parser.skip_whitespace();
+
+        if !CSTExpression::try_parse(parser) && parsed_colon {
+            parser.error("Expected expression");
         }
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_struct_expression(
-    node: CSTStructExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTStructExpressionField {
+    type Lowered = ((Span, String), ParsedExpression);
 
-    let path = node.generic_path()?.lower(ctx)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let name_token = self.name()?;
+        let name_span = name_token.span();
+        let name = name_token.text();
 
-    let fields = node
-        .struct_expression_fields()
-        .and_then(|fields| lower_struct_expression_fields(fields, ctx))
-        .unwrap_or_default();
+        let expression = self.expression()?.lower(ctx)?;
 
-    Some(ParsedExpressionKind::RegularStruct(path, fields).with_span(span))
+        Some(((name_span, name.to_owned()), expression))
+    }
+}
+
+impl ParsableAstNode for CSTStructExpressionFields {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let checkpoint = parser.mark();
+
+        if !CSTStructExpressionField::try_parse(parser) {
+            return false;
+        }
+
+        checkpoint.start_node(parser, SyntaxKind::StructExpressionFields);
+
+        loop {
+            let state = parser.save_state();
+            parser.skip_whitespace();
+
+            if !parser.try_bump_char(',') {
+                state.restore(parser);
+
+                break;
+            }
+
+            parser.skip_whitespace();
+
+            if !CSTStructExpressionField::try_parse(parser) {
+                break;
+            }
+        }
+
+        parser.finish_node();
+
+        true
+    }
+}
+
+impl LowerableAstNode for CSTStructExpressionFields {
+    type Lowered = HashMap<(Span, String), ParsedExpression>;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        self.struct_expression_fields()
+            .map(|field| field.lower(ctx))
+            .collect_option_all()
+    }
+}
+
+impl LowerableAstNode for CSTStructExpression {
+    type Lowered = ParsedExpression;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let path = self.generic_path()?.lower(ctx)?;
+
+        let fields = self
+            .struct_expression_fields()
+            .and_then(|fields| fields.lower(ctx))
+            .unwrap_or_default();
+
+        Some(ParsedExpressionKind::RegularStruct(path, fields).with_span(self.span()))
+    }
 }

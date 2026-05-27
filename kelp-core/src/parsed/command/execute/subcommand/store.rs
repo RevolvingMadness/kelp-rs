@@ -7,7 +7,8 @@ use ordered_float::NotNan;
 use crate::{
     parsed::{
         command::execute::subcommand::ParsedExecuteSubcommand, data::ParsedDataTarget,
-        nbt_path::NbtPath, player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
+        nbt_path::NbtPath, player_score::ParsedPlayerScore,
+        semantic_analysis::SemanticAnalysisContext,
     },
     semantic::expression::command::execute::subcommand::store::SemanticExecuteStoreSubcommand,
 };
@@ -29,7 +30,7 @@ pub enum ExecuteStoreSubcommand {
         BossbarStoreType,
         Box<ParsedExecuteSubcommand>,
     ),
-    Score(PlayerScore, Box<ParsedExecuteSubcommand>),
+    Score(ParsedPlayerScore, Box<ParsedExecuteSubcommand>),
 }
 
 impl ExecuteStoreSubcommand {

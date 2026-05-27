@@ -1,12 +1,6 @@
 use crate::{
-    cst::CSTNBTPathNode,
-    data::nbt_path::node::{
-        index::try_parse_index_nbt_path_node, named::try_parse_named_nbt_path_node,
-    },
-    expression::without_block::compound::{
-        lower_compound_expression_inner, try_parse_compound_expression,
-    },
-    extension_traits::LowerableAstNode,
+    cst::{CSTCompoundExpression, CSTIndexNBTPathNode, CSTNBTPathNode, CSTNamedNBTPathNode},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -25,7 +19,7 @@ pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
         '{' => {
             parser.start_node(SyntaxKind::CompoundNBTPathNode);
 
-            if !try_parse_compound_expression(parser) {
+            if !CSTCompoundExpression::try_parse(parser) {
                 parser.error("Expected compound");
             }
 
@@ -33,38 +27,42 @@ pub fn try_parse_start_nbt_path_node(parser: &mut Parser) -> bool {
 
             true
         }
-        '[' => try_parse_index_nbt_path_node(parser),
-        _ => try_parse_named_nbt_path_node(parser),
+        '[' => CSTIndexNBTPathNode::try_parse(parser),
+        _ => CSTNamedNBTPathNode::try_parse(parser),
     }
 }
 
-pub fn lower_nbt_path_node(node: CSTNBTPathNode, ctx: &mut LowerContext) -> Option<NbtPathNode> {
-    match node {
-        CSTNBTPathNode::IndexNBTPathNode(node) => {
-            let index = node.index();
+impl LowerableAstNode for CSTNBTPathNode {
+    type Lowered = NbtPathNode;
 
-            Some(NbtPathNode::Index(
-                index
-                    .and_then(|expression| expression.lower(ctx))
-                    .map(Box::new),
-            ))
-        }
-        CSTNBTPathNode::NamedNBTPathNode(node) => {
-            let name_token = node.name()?;
-            let name = name_token.text();
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::IndexNBTPathNode(node) => {
+                let index = node.index();
 
-            let compound = node.compound().and_then(|compound| {
-                let (_, compound) = lower_compound_expression_inner(compound, ctx)?;
+                Some(NbtPathNode::Index(
+                    index
+                        .and_then(|expression| expression.lower(ctx))
+                        .map(Box::new),
+                ))
+            }
+            Self::NamedNBTPathNode(node) => {
+                let name_token = node.name()?;
+                let name = name_token.text();
 
-                Some(compound)
-            });
+                let compound = node.compound().and_then(|compound| {
+                    let (_, compound) = compound.lower(ctx)?;
 
-            Some(NbtPathNode::Named(name.to_owned(), compound))
-        }
-        CSTNBTPathNode::CompoundNBTPathNode(node) => {
-            let (_, compound) = lower_compound_expression_inner(node.compound_expression()?, ctx)?;
+                    Some(compound)
+                });
 
-            Some(NbtPathNode::RootCompound(compound))
+                Some(NbtPathNode::Named(name.to_owned(), compound))
+            }
+            Self::CompoundNBTPathNode(node) => {
+                let (_, compound) = node.compound_expression()?.lower(ctx)?;
+
+                Some(NbtPathNode::RootCompound(compound))
+            }
         }
     }
 }

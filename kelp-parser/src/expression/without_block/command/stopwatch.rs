@@ -5,14 +5,13 @@ use kelp_core::parsed::{
 
 use crate::{
     cst::{
-        CSTStopwatchCommandExpression, CSTStopwatchCommandExpressionCreate,
+        CSTResourceLocation, CSTStopwatchCommandExpression, CSTStopwatchCommandExpressionCreate,
         CSTStopwatchCommandExpressionOptions, CSTStopwatchCommandExpressionQuery,
         CSTStopwatchCommandExpressionRemove, CSTStopwatchCommandExpressionRestart,
     },
-    extension_traits::AstNodeExt,
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    resource_location::{lower_resource_location, try_parse_resource_location},
     syntax::SyntaxKind,
 };
 
@@ -23,7 +22,7 @@ fn try_parse_stopwatch_command_expression_create(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !try_parse_resource_location(parser) {
+    if !CSTResourceLocation::try_parse(parser) {
         parser.error("Expected resource location");
     }
 
@@ -37,7 +36,7 @@ fn try_parse_stopwatch_command_expression_query(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !try_parse_resource_location(parser) {
+    if !CSTResourceLocation::try_parse(parser) {
         parser.error("Expected resource location");
     }
 
@@ -55,7 +54,7 @@ fn try_parse_stopwatch_command_expression_remove(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !try_parse_resource_location(parser) {
+    if !CSTResourceLocation::try_parse(parser) {
         parser.error("Expected resource location");
     }
 
@@ -69,7 +68,7 @@ fn try_parse_stopwatch_command_expression_restart(parser: &mut Parser) {
 
     parser.expect_inline_whitespace();
 
-    if !try_parse_resource_location(parser) {
+    if !CSTResourceLocation::try_parse(parser) {
         parser.error("Expected resource location");
     }
 
@@ -92,22 +91,25 @@ fn try_parse_stopwatch_command_expression_options(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_stopwatch_command_expression(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
+impl ParsableAstNode for CSTStopwatchCommandExpression {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::StopwatchCommandExpression);
-    parser.bump_str(SyntaxKind::StopwatchKeyword, "stopwatch");
+        parser.start_node(SyntaxKind::StopwatchCommandExpression);
+        parser.bump_str(SyntaxKind::StopwatchKeyword, "stopwatch");
 
-    if !parser.expect_inline_whitespace() || !try_parse_stopwatch_command_expression_options(parser)
-    {
-        state.restore(parser);
+        if !parser.expect_inline_whitespace()
+            || !try_parse_stopwatch_command_expression_options(parser)
+        {
+            state.restore(parser);
 
-        return false;
+            return false;
+        }
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.finish_node();
-
-    true
 }
 
 #[must_use]
@@ -116,7 +118,7 @@ fn lower_stopwatch_command_expression_create(
     node: CSTStopwatchCommandExpressionCreate,
     ctx: &mut LowerContext,
 ) -> Option<ParsedStopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
+    let resource_location = node.resource_location()?.lower(ctx)?;
 
     Some(ParsedStopwatchCommand::Create(resource_location))
 }
@@ -127,7 +129,7 @@ fn lower_stopwatch_command_expression_query(
     node: CSTStopwatchCommandExpressionQuery,
     ctx: &mut LowerContext,
 ) -> Option<ParsedStopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
+    let resource_location = node.resource_location()?.lower(ctx)?;
 
     let scale = node
         .fractional_value_token()
@@ -142,7 +144,7 @@ fn lower_stopwatch_command_expression_remove(
     node: CSTStopwatchCommandExpressionRemove,
     ctx: &mut LowerContext,
 ) -> Option<ParsedStopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
+    let resource_location = node.resource_location()?.lower(ctx)?;
 
     Some(ParsedStopwatchCommand::Remove(resource_location))
 }
@@ -153,7 +155,7 @@ fn lower_stopwatch_command_expression_restart(
     node: CSTStopwatchCommandExpressionRestart,
     ctx: &mut LowerContext,
 ) -> Option<ParsedStopwatchCommand> {
-    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
+    let resource_location = node.resource_location()?.lower(ctx)?;
 
     Some(ParsedStopwatchCommand::Restart(resource_location))
 }
@@ -179,18 +181,18 @@ fn lower_stopwatch_command_expression_options(
     }
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_stopwatch_command_expression(
-    node: CSTStopwatchCommandExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTStopwatchCommandExpression {
+    type Lowered = ParsedExpression;
 
-    let command = lower_stopwatch_command_expression_options(
-        node.stopwatch_command_expression_options()?,
-        ctx,
-    )?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let command = lower_stopwatch_command_expression_options(
+            self.stopwatch_command_expression_options()?,
+            ctx,
+        )?;
 
-    Some(ParsedExpressionKind::Command(Box::new(ParsedCommand::Stopwatch(command))).with_span(span))
+        Some(
+            ParsedExpressionKind::Command(Box::new(ParsedCommand::Stopwatch(command)))
+                .with_span(self.span()),
+        )
+    }
 }

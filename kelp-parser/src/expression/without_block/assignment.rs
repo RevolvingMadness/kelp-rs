@@ -10,45 +10,42 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_assignment_expression(
-    node: CSTAssignmentExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTAssignmentExpression {
+    type Lowered = ParsedExpression;
 
-    let target = node.target()?.lower(ctx)?;
-    let value = node.value()?.lower(ctx)?;
-    let operator = node.operator()?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let target = self.target()?.lower(ctx)?;
+        let value = self.value()?.lower(ctx)?;
+        let operator = self.operator()?;
 
-    let operator_span = operator.span();
+        let operator_span = operator.span();
 
-    let operator = match operator.kind() {
-        SyntaxKind::Equal => None,
-        SyntaxKind::PlusEqual => Some(ArithmeticOperator::Add),
-        SyntaxKind::MinusEqual => Some(ArithmeticOperator::Subtract),
-        SyntaxKind::StarEqual => Some(ArithmeticOperator::Multiply),
-        SyntaxKind::ForwardSlashEqual => Some(ArithmeticOperator::FloorDivide),
-        SyntaxKind::PercentEqual => Some(ArithmeticOperator::Modulo),
-        SyntaxKind::AmpersandEqual => Some(ArithmeticOperator::And),
-        SyntaxKind::PipeEqual => Some(ArithmeticOperator::Or),
-        SyntaxKind::LeftArrowLeftArrowEqual => Some(ArithmeticOperator::LeftShift),
-        SyntaxKind::RightArrowRightArrowEqual => Some(ArithmeticOperator::RightShift),
-        _ => return None,
-    };
+        let operator = match operator.kind() {
+            SyntaxKind::Equal => None,
+            SyntaxKind::PlusEqual => Some(ArithmeticOperator::Add),
+            SyntaxKind::MinusEqual => Some(ArithmeticOperator::Subtract),
+            SyntaxKind::StarEqual => Some(ArithmeticOperator::Multiply),
+            SyntaxKind::ForwardSlashEqual => Some(ArithmeticOperator::FloorDivide),
+            SyntaxKind::PercentEqual => Some(ArithmeticOperator::Modulo),
+            SyntaxKind::AmpersandEqual => Some(ArithmeticOperator::And),
+            SyntaxKind::PipeEqual => Some(ArithmeticOperator::Or),
+            SyntaxKind::LeftArrowLeftArrowEqual => Some(ArithmeticOperator::LeftShift),
+            SyntaxKind::RightArrowRightArrowEqual => Some(ArithmeticOperator::RightShift),
+            _ => return None,
+        };
 
-    Some(
-        (if let Some(operator) = operator {
-            ParsedExpressionKind::AugmentedAssignment(
-                Box::new(target),
-                operator_span,
-                operator,
-                Box::new(value),
-            )
-        } else {
-            ParsedExpressionKind::Assignment(Box::new(target), Box::new(value))
-        })
-        .with_span(span),
-    )
+        Some(
+            (if let Some(operator) = operator {
+                ParsedExpressionKind::AugmentedAssignment(
+                    Box::new(target),
+                    operator_span,
+                    operator,
+                    Box::new(value),
+                )
+            } else {
+                ParsedExpressionKind::Assignment(Box::new(target), Box::new(value))
+            })
+            .with_span(self.span()),
+        )
+    }
 }

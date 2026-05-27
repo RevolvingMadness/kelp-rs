@@ -8,7 +8,7 @@ use crate::{
         block::BlockState, command::execute::subcommand::ParsedExecuteSubcommand,
         data::ParsedDataTarget, entity_selector::ParsedEntitySelector,
         item_source::ParsedItemSource, mc_item::ItemPredicate, nbt_path::NbtPath,
-        player_score::PlayerScore, score_comparison::ScoreComparison,
+        player_score::ParsedPlayerScore, score_comparison::ScoreComparison,
         semantic_analysis::SemanticAnalysisContext,
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
@@ -60,7 +60,7 @@ pub enum ParsedExecuteIfSubcommand {
         Option<Box<ParsedExecuteSubcommand>>,
     ),
     Score(
-        PlayerScore,
+        ParsedPlayerScore,
         ScoreComparison,
         Option<Box<ParsedExecuteSubcommand>>,
     ),

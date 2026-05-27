@@ -2,12 +2,10 @@ use kelp_core::parsed::statement::ParsedStatement;
 
 use crate::{
     cst::{
-        CSTAppendStatement, CSTBreakStatement, CSTContinueStatement, CSTItemStatement,
-        CSTLetStatement, CSTRemoveStatement, CSTStatement,
+        CSTAppendStatement, CSTBreakStatement, CSTContinueStatement, CSTExpressionWithBlock,
+        CSTItemStatement, CSTLetStatement, CSTRemoveStatement, CSTStatement,
     },
-    expression::{
-        is_expression_recovery, try_parse_expression_with_block, try_parse_expression_without_block,
-    },
+    expression::{is_expression_recovery, try_parse_expression_without_block},
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
@@ -81,7 +79,7 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
 
     parser.start_node(SyntaxKind::ExpressionStatement);
 
-    if try_parse_expression_with_block(parser) {
+    if CSTExpressionWithBlock::try_parse(parser) {
         let state = parser.save_state();
         parser.skip_whitespace();
 
@@ -115,8 +113,6 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
 
         if length > 0 {
             parser.error_with_len("Expected statement", length);
-
-            parser.add_token(SyntaxKind::Garbage, length);
         }
     }
 

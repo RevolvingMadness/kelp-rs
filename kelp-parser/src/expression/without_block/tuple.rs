@@ -1,4 +1,7 @@
-use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
+use kelp_core::{
+    parsed::expression::{ParsedExpression, ParsedExpressionKind},
+    trait_ext::CollectOptionAllIterExt,
+};
 
 use crate::{
     cst::CSTTupleExpression,
@@ -6,18 +9,15 @@ use crate::{
     lower_context::LowerContext,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_tuple_expression(
-    node: CSTTupleExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTTupleExpression {
+    type Lowered = ParsedExpression;
 
-    let expressions = node
-        .expressions()
-        .filter_map(|expression| expression.lower(ctx))
-        .collect();
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let expressions = self
+            .expressions()
+            .map(|expression| expression.lower(ctx))
+            .collect_option_all()?;
 
-    Some(ParsedExpressionKind::Tuple(expressions).with_span(span))
+        Some(ParsedExpressionKind::Tuple(expressions).with_span(self.span()))
+    }
 }

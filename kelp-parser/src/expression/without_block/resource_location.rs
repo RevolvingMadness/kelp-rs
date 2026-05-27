@@ -1,49 +1,50 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTResourceLocationExpression,
-    extension_traits::AstNodeExt,
+    cst::{CSTResourceLocation, CSTResourceLocationExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
-    resource_location::{lower_resource_location, try_parse_resource_location},
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_resource_location_expression(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
+impl ParsableAstNode for CSTResourceLocationExpression {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::ResourceLocationExpression);
+        parser.start_node(SyntaxKind::ResourceLocationExpression);
 
-    parser.bump_identifier_kind(SyntaxKind::ResourceLocationKeyword, "resource_location");
+        parser.bump_identifier_kind(SyntaxKind::ResourceLocationKeyword, "resource_location");
 
-    parser.skip_whitespace();
+        parser.skip_whitespace();
 
-    if !parser.try_bump_char(':') {
-        state.restore(parser);
+        if !parser.try_bump_char(':') {
+            state.restore(parser);
 
-        return false;
+            return false;
+        }
+
+        parser.skip_whitespace();
+
+        if !CSTResourceLocation::try_parse(parser) {
+            parser.error("Expected resource location");
+        }
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.skip_whitespace();
-
-    if !try_parse_resource_location(parser) {
-        parser.error("Expected resource location");
-    }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_resource_location_expression(
-    node: CSTResourceLocationExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let resource_location = lower_resource_location(node.resource_location()?, ctx)?;
+impl LowerableAstNode for CSTResourceLocationExpression {
+    type Lowered = ParsedExpression;
 
-    let span = node.span();
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let resource_location = self.resource_location()?.lower(ctx)?;
 
-    Some(ParsedExpressionKind::ResourceLocation(Box::new(resource_location)).with_span(span))
+        Some(
+            ParsedExpressionKind::ResourceLocation(Box::new(resource_location))
+                .with_span(self.span()),
+        )
+    }
 }

@@ -298,6 +298,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn error_with_len(&mut self, message: &str, len: usize) {
+        self.add_token(SyntaxKind::Error, len);
+
         if self.error_count >= self.max_errors {
             return;
         }
@@ -792,11 +794,6 @@ impl Parser<'_> {
         if let Some(char) = self.peek_char() {
             self.add_token(kind, char.len_utf8());
         }
-    }
-
-    #[inline]
-    pub fn bump_garbage(&mut self) {
-        self.bump_char_kind(SyntaxKind::Garbage);
     }
 
     #[inline]

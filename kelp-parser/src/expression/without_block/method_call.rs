@@ -2,33 +2,33 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTMethodCallExpression,
-    expression::without_block::call::lower_call_arguments,
     extension_traits::{AstNodeExt, LowerableAstNode},
     lower_context::LowerContext,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_method_call_expression(
-    node: CSTMethodCallExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let receiver = node.expression()?.lower(ctx)?;
+impl LowerableAstNode for CSTMethodCallExpression {
+    type Lowered = ParsedExpression;
 
-    let callee = node.generic_path_segment()?.lower(ctx)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let receiver = self.expression()?.lower(ctx)?;
 
-    let arguments = node
-        .call_arguments()
-        .map(|arguments| lower_call_arguments(arguments, ctx));
+        let callee = self.generic_path_segment()?.lower(ctx)?;
 
-    let span = node.span();
+        let arguments = self.call_arguments().map(|arguments| arguments.lower(ctx));
 
-    Some(
-        ParsedExpressionKind::MethodCall {
-            receiver: Box::new(receiver),
-            callee,
-            arguments: arguments.unwrap_or_default(),
-        }
-        .with_span(span),
-    )
+        let arguments = match arguments {
+            Some(Some(arguments)) => Some(arguments),
+            Some(None) => return None,
+            None => None,
+        };
+
+        Some(
+            ParsedExpressionKind::MethodCall {
+                receiver: Box::new(receiver),
+                callee,
+                arguments: arguments.unwrap_or_default(),
+            }
+            .with_span(self.span()),
+        )
+    }
 }

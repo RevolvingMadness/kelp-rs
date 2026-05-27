@@ -1,25 +1,7 @@
-use kelp_core::parsed::expression::ParsedExpression;
+use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTExpressionWithoutBlock,
-    expression::without_block::{
-        as_cast::lower_as_cast_expression, assignment::lower_assignment_expression,
-        binary::lower_binary_expression, boolean::lower_boolean_expression,
-        call::lower_call_expression, character::lower_character_expression,
-        command::lower_command_expression, compound::lower_compound_expression,
-        coordinates::lower_coordinates_expression, data::lower_data_expression,
-        entity_selector::lower_entity_selector_expression,
-        field_access::lower_field_access_expression, index::lower_index_expression,
-        list::lower_list_expression, method_call::lower_method_call_expression,
-        numeric::lower_numeric_expression, parenthesized::lower_parenthesized_expression,
-        path::lower_path_expression, resource_location::lower_resource_location_expression,
-        r#return::lower_return_expression, score::lower_score_expression,
-        string::lower_string_expression, r#struct::lower_struct_expression,
-        to_cast::lower_to_cast_expression, tuple::lower_tuple_expression,
-        unary::lower_unary_expression, underscore::lower_underscore_expression,
-        unit::lower_unit_expression,
-    },
-    lower_context::LowerContext,
+    cst::CSTExpressionWithoutBlock, extension_traits::LowerableAstNode, lower_context::LowerContext,
 };
 
 pub mod as_cast;
@@ -51,58 +33,43 @@ pub mod unary;
 pub mod underscore;
 pub mod unit;
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_expression_without_block(
-    node: CSTExpressionWithoutBlock,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    match node {
-        CSTExpressionWithoutBlock::UnaryExpression(node) => lower_unary_expression(node, ctx),
-        CSTExpressionWithoutBlock::PathExpression(node) => lower_path_expression(node, ctx),
-        CSTExpressionWithoutBlock::UnderscoreExpression(node) => {
-            lower_underscore_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::BooleanExpression(node) => lower_boolean_expression(node, ctx),
-        CSTExpressionWithoutBlock::NumericExpression(node) => lower_numeric_expression(node, ctx),
-        CSTExpressionWithoutBlock::CharacterExpression(node) => {
-            lower_character_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::StringExpression(node) => lower_string_expression(node, ctx),
-        CSTExpressionWithoutBlock::AssignmentExpression(node) => {
-            lower_assignment_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::BinaryExpression(node) => lower_binary_expression(node, ctx),
-        CSTExpressionWithoutBlock::DataExpression(node) => lower_data_expression(node, ctx),
-        CSTExpressionWithoutBlock::ScoreExpression(node) => lower_score_expression(node, ctx),
-        CSTExpressionWithoutBlock::CommandExpression(node) => lower_command_expression(node, ctx),
-        CSTExpressionWithoutBlock::UnitExpression(node) => lower_unit_expression(node, ctx),
-        CSTExpressionWithoutBlock::CompoundExpression(node) => lower_compound_expression(node, ctx),
-        CSTExpressionWithoutBlock::ListExpression(node) => lower_list_expression(node, ctx),
-        CSTExpressionWithoutBlock::TupleExpression(node) => lower_tuple_expression(node, ctx),
-        CSTExpressionWithoutBlock::CallExpression(node) => lower_call_expression(node, ctx),
-        CSTExpressionWithoutBlock::ParenthesizedExpression(node) => {
-            lower_parenthesized_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::AsCastExpression(node) => lower_as_cast_expression(node, ctx),
-        CSTExpressionWithoutBlock::ToCastExpression(node) => lower_to_cast_expression(node, ctx),
-        CSTExpressionWithoutBlock::StructExpression(node) => lower_struct_expression(node, ctx),
-        CSTExpressionWithoutBlock::IndexExpression(node) => lower_index_expression(node, ctx),
-        CSTExpressionWithoutBlock::MethodCallExpression(node) => {
-            lower_method_call_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::FieldAccessExpression(node) => {
-            lower_field_access_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::ReturnExpression(node) => lower_return_expression(node, ctx),
-        CSTExpressionWithoutBlock::ResourceLocationExpression(node) => {
-            lower_resource_location_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::EntitySelectorExpression(node) => {
-            lower_entity_selector_expression(node, ctx)
-        }
-        CSTExpressionWithoutBlock::CoordinatesExpression(node) => {
-            lower_coordinates_expression(node, ctx)
+impl LowerableAstNode for CSTExpressionWithoutBlock {
+    type Lowered = ParsedExpression;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::UnaryExpression(node) => node.lower(ctx),
+            Self::PathExpression(node) => node.lower(ctx),
+            Self::UnderscoreExpression(node) => node.lower(ctx),
+            Self::BooleanExpression(node) => node.lower(ctx),
+            Self::NumericExpression(node) => node.lower(ctx),
+            Self::CharacterExpression(node) => node.lower(ctx),
+            Self::StringExpression(node) => node.lower(ctx),
+            Self::AssignmentExpression(node) => node.lower(ctx),
+            Self::BinaryExpression(node) => node.lower(ctx),
+            Self::DataExpression(node) => node.lower(ctx),
+            Self::ScoreExpression(node) => node.lower(ctx),
+            Self::CommandExpression(node) => node.lower(ctx),
+            Self::UnitExpression(node) => node.lower(ctx),
+            Self::CompoundExpression(node) => {
+                let (span, compound) = node.lower(ctx)?;
+
+                Some(ParsedExpressionKind::Compound(compound).with_span(span))
+            }
+            Self::ListExpression(node) => node.lower(ctx),
+            Self::TupleExpression(node) => node.lower(ctx),
+            Self::CallExpression(node) => node.lower(ctx),
+            Self::ParenthesizedExpression(node) => node.lower(ctx),
+            Self::AsCastExpression(node) => node.lower(ctx),
+            Self::ToCastExpression(node) => node.lower(ctx),
+            Self::StructExpression(node) => node.lower(ctx),
+            Self::IndexExpression(node) => node.lower(ctx),
+            Self::MethodCallExpression(node) => node.lower(ctx),
+            Self::FieldAccessExpression(node) => node.lower(ctx),
+            Self::ReturnExpression(node) => node.lower(ctx),
+            Self::ResourceLocationExpression(node) => node.lower(ctx),
+            Self::EntitySelectorExpression(node) => node.lower(ctx),
+            Self::CoordinatesExpression(node) => node.lower(ctx),
         }
     }
 }

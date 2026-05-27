@@ -1,16 +1,15 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTUnderscoreExpression, extension_traits::AstNodeExt, lower_context::LowerContext,
+    cst::CSTUnderscoreExpression,
+    extension_traits::{AstNodeExt, LowerableAstNode},
+    lower_context::LowerContext,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_underscore_expression(
-    node: CSTUnderscoreExpression,
-    _ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTUnderscoreExpression {
+    type Lowered = ParsedExpression;
 
-    Some(ParsedExpressionKind::Underscore.with_span(span))
+    fn lower(self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        Some(ParsedExpressionKind::Underscore.with_span(self.span()))
+    }
 }

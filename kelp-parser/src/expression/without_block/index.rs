@@ -6,18 +6,15 @@ use crate::{
     lower_context::LowerContext,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_index_expression(
-    node: CSTIndexExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTIndexExpression {
+    type Lowered = ParsedExpression;
 
-    let mut expressions = node.expressions();
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let mut expressions = self.expressions();
 
-    let expression = expressions.next()?.lower(ctx)?;
-    let index = expressions.next()?.lower(ctx)?;
+        let target = expressions.next()?.lower(ctx)?;
+        let index = expressions.next()?.lower(ctx)?;
 
-    Some(ParsedExpressionKind::Index(Box::new(expression), Box::new(index)).with_span(span))
+        Some(ParsedExpressionKind::Index(Box::new(target), Box::new(index)).with_span(self.span()))
+    }
 }

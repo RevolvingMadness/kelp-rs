@@ -1,42 +1,39 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTInfiniteLoopExpression,
-    expression::with_block::block::{lower_block_expression, try_parse_block_expression},
-    extension_traits::AstNodeExt,
+    cst::{CSTBlockExpression, CSTInfiniteLoopExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
 
-#[must_use]
-pub fn try_parse_infinite_loop_expression(parser: &mut Parser) -> bool {
-    let state = parser.save_state();
+impl ParsableAstNode for CSTInfiniteLoopExpression {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
 
-    parser.start_node(SyntaxKind::InfiniteLoopExpression);
-    parser.bump_str(SyntaxKind::LoopKeyword, "loop");
-    parser.skip_inline_whitespace();
+        parser.start_node(SyntaxKind::InfiniteLoopExpression);
+        parser.bump_str(SyntaxKind::LoopKeyword, "loop");
+        parser.skip_inline_whitespace();
 
-    if !try_parse_block_expression(parser) {
-        state.restore(parser);
+        if !CSTBlockExpression::try_parse(parser) {
+            state.restore(parser);
 
-        return false;
+            return false;
+        }
+
+        parser.finish_node();
+
+        true
     }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_infinite_loop_expression(
-    node: CSTInfiniteLoopExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTInfiniteLoopExpression {
+    type Lowered = ParsedExpression;
 
-    let body = lower_block_expression(node.block_expression()?, ctx)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let body = self.block_expression()?.lower(ctx)?;
 
-    Some(ParsedExpressionKind::Loop(Box::new(body)).with_span(span))
+        Some(ParsedExpressionKind::Loop(Box::new(body)).with_span(self.span()))
+    }
 }

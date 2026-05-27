@@ -8,41 +8,42 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_return_expression(parser: &mut Parser) -> bool {
-    parser.start_node(SyntaxKind::ReturnExpression);
-    parser.bump_str(SyntaxKind::ReturnKeyword, "return");
+impl ParsableAstNode for CSTReturnExpression {
+    fn try_parse(parser: &mut Parser) -> bool {
+        parser.start_node(SyntaxKind::ReturnExpression);
+        parser.bump_str(SyntaxKind::ReturnKeyword, "return");
 
-    let state = parser.save_state();
+        let state = parser.save_state();
 
-    if parser.try_skip_whitespace() && !CSTExpression::try_parse(parser) {
-        state.restore(parser);
-    }
-
-    parser.finish_node();
-
-    true
-}
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_return_expression(
-    node: CSTReturnExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let keyword_span = node.return_token()?.span();
-    let full_span = node.span();
-
-    let (expression_span, expression) = match node.expression() {
-        Some(expression) => {
-            let span = expression.span();
-            let expr = expression.lower(ctx)?;
-
-            (span, Some(expr))
+        if parser.try_skip_whitespace() && !CSTExpression::try_parse(parser) {
+            state.restore(parser);
         }
-        None => (full_span, None),
-    };
 
-    Some(
-        ParsedExpressionKind::Return(keyword_span, expression_span, expression.map(Box::new))
-            .with_span(full_span),
-    )
+        parser.finish_node();
+
+        true
+    }
+}
+
+impl LowerableAstNode for CSTReturnExpression {
+    type Lowered = ParsedExpression;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let keyword_span = self.return_token()?.span();
+
+        let (expression_span, expression) = match self.expression() {
+            Some(expression) => {
+                let span = expression.span();
+                let expr = expression.lower(ctx)?;
+
+                (span, Some(expr))
+            }
+            None => (self.span(), None),
+        };
+
+        Some(
+            ParsedExpressionKind::Return(keyword_span, expression_span, expression.map(Box::new))
+                .with_span(self.span()),
+        )
+    }
 }

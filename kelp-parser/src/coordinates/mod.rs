@@ -4,8 +4,7 @@ use kelp_core::parsed::{
 
 use crate::{
     coordinates::{local::parse_local_coordinate, world::try_parse_world_coordinate},
-    cst::{CSTActualCoordinates, CSTCoordinates},
-    expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
+    cst::{CSTActualCoordinates, CSTCoordinates, CSTExpressionSigil},
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
@@ -17,7 +16,7 @@ pub mod world;
 
 impl ParsableAstNode for CSTCoordinates {
     fn try_parse(parser: &mut Parser) -> bool {
-        if try_parse_expression_sigil(parser) {
+        if CSTExpressionSigil::try_parse(parser) {
             return true;
         }
 
@@ -73,7 +72,9 @@ impl LowerableAstNode for CSTCoordinates {
             Self::ActualCoordinates(node) => {
                 node.lower(ctx).map(ParsedSupportsExpressionSigil::Regular)
             }
-            Self::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
+            Self::ExpressionSigil(node) => node
+                .lower(ctx)
+                .map(|lowered| lowered.retype_sigil().unwrap()),
         }
     }
 }

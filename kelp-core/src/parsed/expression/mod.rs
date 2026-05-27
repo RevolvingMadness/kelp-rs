@@ -20,7 +20,7 @@ use crate::{
         },
         nbt_path::NbtPath,
         pattern::ParsedPattern,
-        player_score::PlayerScore,
+        player_score::ParsedPlayerScore,
         semantic_analysis::{
             FunctionContext, SemanticAnalysisContext, info::error::SemanticAnalysisError,
         },
@@ -79,7 +79,7 @@ pub enum ParsedExpressionKind {
     Assignment(Box<ParsedExpression>, Box<ParsedExpression>),
     List(Vec<ParsedExpression>),
     Compound(HashMap<String, ParsedExpression>),
-    PlayerScore(PlayerScore),
+    PlayerScore(ParsedPlayerScore),
     Data(Box<(ParsedDataTarget, NbtPath)>),
     Condition(bool, Box<ParsedExecuteIfSubcommand>),
     Command(Box<ParsedCommand>),

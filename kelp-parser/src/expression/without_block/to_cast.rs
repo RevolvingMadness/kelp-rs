@@ -9,28 +9,28 @@ use crate::{
     lower_context::{LowerContext, LowerError},
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_to_cast_expression(
-    node: CSTToCastExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTToCastExpression {
+    type Lowered = ParsedExpression;
 
-    let expression = node.expression()?.lower(ctx)?;
-    let runtime_storage_type_token = node.runtime_storage_type_token()?;
-    let runtime_storage_type = match runtime_storage_type_token.text() {
-        "data" => RuntimeStorageType::Data,
-        "score" => RuntimeStorageType::Score,
-        _ => {
-            ctx.add_error_unit(
-                runtime_storage_type_token.span(),
-                LowerError::UnknownRuntimeStorageType,
-            );
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let expression = self.expression()?.lower(ctx)?;
+        let runtime_storage_type_token = self.runtime_storage_type_token()?;
+        let runtime_storage_type = match runtime_storage_type_token.text() {
+            "data" => RuntimeStorageType::Data,
+            "score" => RuntimeStorageType::Score,
+            _ => {
+                ctx.add_error_unit(
+                    runtime_storage_type_token.span(),
+                    LowerError::UnknownRuntimeStorageType,
+                );
 
-            return Some(ParsedExpressionKind::Invalid.with_span(span));
-        }
-    };
+                return Some(ParsedExpressionKind::Invalid.with_span(self.span()));
+            }
+        };
 
-    Some(ParsedExpressionKind::ToCast(Box::new(expression), runtime_storage_type).with_span(span))
+        Some(
+            ParsedExpressionKind::ToCast(Box::new(expression), runtime_storage_type)
+                .with_span(self.span()),
+        )
+    }
 }

@@ -1,17 +1,12 @@
 use kelp_core::parsed::item::ParsedItem;
 use kelp_core::visibility::Visibility;
 
-use crate::cst::CSTTypeAliasDeclarationItem;
+use crate::cst::{CSTFunctionDeclarationItem, CSTTypeAliasDeclarationItem};
 use crate::extension_traits::{AstNodeExt as _, LowerableAstNode, ParsableAstNode};
 use crate::lower_context::LowerContext;
 use crate::{
     cst::{CSTAssociatedItem, CSTAssociatedItemKind},
-    item::{
-        function_declaration::{
-            expect_function_declaration_item_kind, lower_function_declaration_item_kind,
-        },
-        recover_item,
-    },
+    item::recover_item,
     parser::Parser,
     syntax::SyntaxKind,
 };
@@ -32,14 +27,14 @@ pub fn expect_associated_item(parser: &mut Parser) {
     };
 
     match identifier {
-        "recursive" | "runtime" | "fn" => expect_function_declaration_item_kind(parser),
+        "recursive" | "runtime" | "fn" => {
+            CSTFunctionDeclarationItem::expect(parser, "Expected function declaration item");
+        }
         "type" => {
             CSTTypeAliasDeclarationItem::expect(parser, "Expected type alias declaration");
         }
         _ => {
             parser.error_with_len("Expected associated item", identifier.len());
-
-            parser.add_token(SyntaxKind::Garbage, identifier.len());
         }
     }
 
@@ -61,11 +56,9 @@ pub fn lower_associated_item(
     };
 
     let kind = match node.associated_item_kind()? {
-        CSTAssociatedItemKind::FunctionDeclarationItem(node) => {
-            lower_function_declaration_item_kind(node, ctx)?
-        }
-        CSTAssociatedItemKind::TypeAliasDeclarationItem(node) => node.lower(ctx)?,
-    };
+        CSTAssociatedItemKind::FunctionDeclarationItem(node) => node.lower(ctx),
+        CSTAssociatedItemKind::TypeAliasDeclarationItem(node) => node.lower(ctx),
+    }?;
 
     Some(ParsedItem {
         span,

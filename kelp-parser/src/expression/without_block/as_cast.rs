@@ -6,16 +6,13 @@ use crate::{
     lower_context::LowerContext,
 };
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_as_cast_expression(
-    node: CSTAsCastExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTAsCastExpression {
+    type Lowered = ParsedExpression;
 
-    let expression = node.expression()?.lower(ctx)?;
-    let data_type = node.data_type()?.lower(ctx)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let expression = self.expression()?.lower(ctx)?;
+        let data_type = self.data_type()?.lower(ctx)?;
 
-    Some(ParsedExpressionKind::AsCast(Box::new(expression), data_type).with_span(span))
+        Some(ParsedExpressionKind::AsCast(Box::new(expression), data_type).with_span(self.span()))
+    }
 }

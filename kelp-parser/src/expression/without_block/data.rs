@@ -6,42 +6,41 @@ use crate::{
         nbt_path::{lower_nbt_path, try_parse_nbt_path},
         target::{lower_data_target, try_parse_data_target},
     },
-    extension_traits::AstNodeExt,
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
 };
 
-pub fn try_parse_data_expression(parser: &mut Parser) -> bool {
-    let checkpoint = parser.mark();
+impl ParsableAstNode for CSTDataExpression {
+    fn try_parse(parser: &mut Parser) -> bool {
+        let marker = parser.mark();
 
-    if !try_parse_data_target(parser) {
-        return false;
+        if !try_parse_data_target(parser) {
+            return false;
+        }
+
+        marker.start_node(parser, SyntaxKind::DataExpression);
+
+        parser.expect_inline_whitespace();
+
+        if !try_parse_nbt_path(parser) {
+            parser.error("Expected nbt path");
+        }
+
+        parser.finish_node();
+
+        true
     }
-
-    checkpoint.start_node(parser, SyntaxKind::DataExpression);
-
-    parser.expect_inline_whitespace();
-
-    if !try_parse_nbt_path(parser) {
-        parser.error("Expected nbt path");
-    }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_data_expression(
-    node: CSTDataExpression,
-    ctx: &mut LowerContext,
-) -> Option<ParsedExpression> {
-    let span = node.span();
+impl LowerableAstNode for CSTDataExpression {
+    type Lowered = ParsedExpression;
 
-    let target = lower_data_target(node.data_target()?, ctx)?;
-    let path = lower_nbt_path(node.nbt_path()?, ctx)?;
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let target = lower_data_target(self.data_target()?, ctx)?;
+        let path = lower_nbt_path(self.nbt_path()?, ctx)?;
 
-    Some(ParsedExpressionKind::Data(Box::new((target, path))).with_span(span))
+        Some(ParsedExpressionKind::Data(Box::new((target, path))).with_span(self.span()))
+    }
 }

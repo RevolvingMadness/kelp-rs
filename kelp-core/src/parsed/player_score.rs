@@ -9,13 +9,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct PlayerScore {
+pub struct ParsedPlayerScore {
     pub is_generated: bool,
     pub selector: Box<ParsedSupportsExpressionSigil<ParsedEntitySelector>>,
     pub objective: String,
 }
 
-impl Display for PlayerScore {
+impl Display for ParsedPlayerScore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("score ")?;
 
@@ -29,7 +29,7 @@ impl Display for PlayerScore {
     }
 }
 
-impl PlayerScore {
+impl ParsedPlayerScore {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,

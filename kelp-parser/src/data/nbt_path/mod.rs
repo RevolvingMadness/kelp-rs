@@ -1,11 +1,9 @@
 use kelp_core::parsed::nbt_path::NbtPath;
 
 use crate::{
-    cst::CSTNBTPath,
-    data::nbt_path::node::{
-        index::try_parse_index_nbt_path_node, lower_nbt_path_node,
-        named::try_parse_named_nbt_path_node, try_parse_start_nbt_path_node,
-    },
+    cst::{CSTIndexNBTPathNode, CSTNBTPath, CSTNamedNBTPathNode},
+    data::nbt_path::node::try_parse_start_nbt_path_node,
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -29,12 +27,12 @@ pub fn try_parse_nbt_path(parser: &mut Parser) -> bool {
         let has_dot = parser.try_bump_char('.');
 
         if has_dot {
-            if !try_parse_named_nbt_path_node(parser) && !try_parse_index_nbt_path_node(parser) {
+            if !CSTNamedNBTPathNode::try_parse(parser) && !CSTIndexNBTPathNode::try_parse(parser) {
                 parser.error("Expected path after '.'");
 
                 break;
             }
-        } else if !try_parse_index_nbt_path_node(parser) {
+        } else if !CSTIndexNBTPathNode::try_parse(parser) {
             break;
         }
 
@@ -53,7 +51,7 @@ pub fn try_parse_nbt_path(parser: &mut Parser) -> bool {
 pub fn lower_nbt_path(node: CSTNBTPath, ctx: &mut LowerContext) -> Option<NbtPath> {
     let nodes = node
         .nbt_path_nodes()
-        .filter_map(|nbt_path_node| lower_nbt_path_node(nbt_path_node, ctx))
+        .filter_map(|nbt_path_node| nbt_path_node.lower(ctx))
         .collect();
 
     Some(NbtPath(nodes))

@@ -4,25 +4,16 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::{CSTItem, CSTItemKind, CSTTypeAliasDeclarationItem},
+    cst::{
+        CSTFunctionDeclarationItem, CSTInherentImplementationItem, CSTItem, CSTItemKind,
+        CSTModuleDeclarationItem, CSTTypeAliasDeclarationItem,
+    },
     data_type::generics::lower_generic_names,
     extension_traits::{
         AstNodeExt, LowerableAstNode, ParsableAstNode, RecoverableAstNode, SyntaxTokenExt,
     },
     item::{
-        function_declaration::{
-            lower_function_declaration_item_kind, try_parse_function_declaration_item_kind,
-        },
-        implementation::inherent::{
-            lower_inherent_implementation_item, try_parse_inherent_implementation_item_kind,
-        },
-        minecraft_function_declaration::{
-            lower_minecraft_function_declaration_item_kind,
-            try_parse_minecraft_function_declaration_item_kind,
-        },
-        module_declaration::{
-            lower_module_declaration_item, try_parse_module_declaration_item_kind,
-        },
+        minecraft_function_declaration::try_parse_minecraft_function_declaration_item_kind,
         struct_declaration::try_parse_struct_declaration_item_kind,
         r#use::{lower_use_item, try_parse_use_item_kind},
     },
@@ -47,10 +38,10 @@ impl ParsableAstNode for CSTItemKind {
         };
 
         match identifier {
-            "impl" => try_parse_inherent_implementation_item_kind(parser),
+            "impl" => CSTInherentImplementationItem::try_parse(parser),
             "use" => try_parse_use_item_kind(parser),
-            "mod" => try_parse_module_declaration_item_kind(parser),
-            "recursive" | "runtime" | "fn" => try_parse_function_declaration_item_kind(parser),
+            "mod" => CSTModuleDeclarationItem::try_parse(parser),
+            "recursive" | "runtime" | "fn" => CSTFunctionDeclarationItem::try_parse(parser),
             "mcfn" => try_parse_minecraft_function_declaration_item_kind(parser),
             "struct" => try_parse_struct_declaration_item_kind(parser),
             "type" => CSTTypeAliasDeclarationItem::try_parse(parser),
@@ -70,7 +61,6 @@ fn recover_item(parser: &mut Parser, error_message: &str) {
     let length = length + usize::from(not_end);
 
     parser.error_with_len(error_message, length);
-    parser.add_token(SyntaxKind::Error, length);
 }
 
 impl ParsableAstNode for CSTItem {
@@ -120,12 +110,10 @@ impl LowerableAstNode for CSTItemKind {
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
-            Self::InherentImplementationItem(node) => lower_inherent_implementation_item(node, ctx),
-            Self::ModuleDeclarationItem(node) => lower_module_declaration_item(node, ctx),
-            Self::FunctionDeclarationItem(node) => lower_function_declaration_item_kind(node, ctx),
-            Self::MinecraftFunctionDeclarationItem(node) => {
-                lower_minecraft_function_declaration_item_kind(node, ctx)
-            }
+            Self::InherentImplementationItem(node) => node.lower(ctx),
+            Self::ModuleDeclarationItem(node) => node.lower(ctx),
+            Self::FunctionDeclarationItem(node) => node.lower(ctx),
+            Self::MinecraftFunctionDeclarationItem(node) => node.lower(ctx),
             Self::RegularStructDeclarationItem(node) => {
                 let name_token = node.name()?;
                 let name_span = name_token.span();

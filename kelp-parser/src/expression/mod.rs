@@ -1,27 +1,13 @@
 use kelp_core::parsed::expression::ParsedExpression;
 
 use crate::{
-    cst::{CSTDataType, CSTExpression, CSTGenericPath, CSTGenericPathSegment},
-    expression::{
-        with_block::{
-            block::try_parse_block_expression,
-            r#if::try_parse_if_expression,
-            r#loop::{
-                infinite::try_parse_infinite_loop_expression,
-                iterator::try_parse_iterator_loop_expression,
-                predicate::try_parse_predicate_loop_expression,
-            },
-            lower_expression_with_block,
-        },
-        without_block::{
-            call::try_parse_call_arguments, command::try_parse_command_expression,
-            coordinates::try_parse_coordinates_expression, data::try_parse_data_expression,
-            entity_selector::try_parse_entity_selector_expression, list::try_parse_list_expression,
-            lower_expression_without_block,
-            resource_location::try_parse_resource_location_expression,
-            r#return::try_parse_return_expression, score::try_parse_score_expression,
-            r#struct::try_parse_struct_expression_fields,
-        },
+    cst::{
+        CSTBlockExpression, CSTCallArguments, CSTCommandExpression, CSTCoordinatesExpression,
+        CSTDataExpression, CSTDataType, CSTEntitySelectorExpression, CSTExpression,
+        CSTExpressionWithBlock, CSTGenericPath, CSTGenericPathSegment, CSTIfExpression,
+        CSTInfiniteLoopExpression, CSTIteratorLoopExpression, CSTListExpression,
+        CSTPredicateLoopExpression, CSTResourceLocationExpression, CSTReturnExpression,
+        CSTScoreExpression, CSTStructExpressionFields,
     },
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
@@ -39,7 +25,7 @@ pub fn is_expression_recovery(char: char) -> bool {
 
 impl ParsableAstNode for CSTExpression {
     fn try_parse(parser: &mut Parser) -> bool {
-        try_parse_expression_with_block(parser) || try_parse_expression_without_block(parser)
+        CSTExpressionWithBlock::try_parse(parser) || try_parse_expression_without_block(parser)
     }
 }
 
@@ -442,7 +428,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.skip_whitespace();
 
                 if parser.peek_char() != Some(')') {
-                    try_parse_call_arguments(parser);
+                    CSTCallArguments::try_parse(parser);
                 }
 
                 parser.expect_char(')', "Expected closing parenthesis ')'");
@@ -477,7 +463,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                     parser.skip_whitespace();
 
                     if parser.peek_char() != Some(')') {
-                        try_parse_call_arguments(parser);
+                        CSTCallArguments::try_parse(parser);
                     }
 
                     parser.expect_char(')', "Expected closing parenthesis ')'");
@@ -518,12 +504,12 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
 }
 
 fn try_parse_primary(parser: &mut Parser) -> bool {
-    if try_parse_expression_with_block(parser) {
+    if CSTExpressionWithBlock::try_parse(parser) {
         return true;
     }
 
     match parser.peek_char() {
-        Some('[') => try_parse_list_expression(parser),
+        Some('[') => CSTListExpression::try_parse(parser),
         Some('(') => {
             let checkpoint = parser.mark();
             parser.bump_char(); // Bump '('
@@ -593,19 +579,7 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
 
             parser.skip_whitespace();
 
-            let Some(identifier) = parser.peek_identifier() else {
-                parser.error("Expected command");
-
-                return true;
-            };
-
-            if !try_parse_command_expression(parser, identifier) {
-                parser.error_with_len("Unknown command", identifier.len());
-
-                parser.bump_identifier(identifier);
-
-                return true;
-            }
+            CSTCommandExpression::expect(parser, "Expected command expression");
 
             true
         }
@@ -646,39 +620,39 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
                     return true;
                 }
                 "score" => {
-                    if try_parse_score_expression(parser) {
+                    if CSTScoreExpression::try_parse(parser) {
                         return true;
                     }
                 }
                 "entity" | "block" | "storage" => {
-                    if try_parse_data_expression(parser) {
+                    if CSTDataExpression::try_parse(parser) {
                         return true;
                     }
                 }
                 "resource_location" => {
-                    if try_parse_resource_location_expression(parser) {
+                    if CSTResourceLocationExpression::try_parse(parser) {
                         return true;
                     }
                 }
                 "entity_selector" => {
-                    if try_parse_entity_selector_expression(parser) {
+                    if CSTEntitySelectorExpression::try_parse(parser) {
                         return true;
                     }
                 }
                 "coordinates" => {
-                    if try_parse_coordinates_expression(parser) {
+                    if CSTCoordinatesExpression::try_parse(parser) {
                         return true;
                     }
                 }
                 "return" => {
-                    if try_parse_return_expression(parser) {
+                    if CSTReturnExpression::try_parse(parser) {
                         return true;
                     }
                 }
                 _ => {}
             }
 
-            if try_parse_command_expression(parser, identifier) {
+            if CSTCommandExpression::try_parse(parser) {
                 return true;
             }
 
@@ -707,7 +681,7 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
 
                 parser.skip_whitespace();
 
-                let _ = try_parse_struct_expression_fields(parser);
+                let _ = CSTStructExpressionFields::try_parse(parser);
 
                 parser.skip_whitespace();
 
@@ -728,37 +702,39 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
     }
 }
 
-pub fn try_parse_expression_with_block(parser: &mut Parser) -> bool {
-    if parser.peek_char() == Some('{') {
-        if !try_parse_block_expression(parser) {
-            parser.error("Expected block expression");
+impl ParsableAstNode for CSTExpressionWithBlock {
+    fn try_parse(parser: &mut Parser) -> bool {
+        if parser.peek_char() == Some('{') {
+            if !CSTBlockExpression::try_parse(parser) {
+                parser.error("Expected block expression");
 
-            return false;
+                return false;
+            }
+
+            true
+        } else {
+            let state = parser.save_state();
+
+            let Some(identifier) = parser.peek_identifier() else {
+                state.restore(parser);
+
+                return false;
+            };
+
+            let is_block_expression = match identifier {
+                "if" => CSTIfExpression::try_parse(parser),
+                "while" => CSTPredicateLoopExpression::try_parse(parser),
+                "loop" => CSTInfiniteLoopExpression::try_parse(parser),
+                "for" => CSTIteratorLoopExpression::try_parse(parser),
+                _ => false,
+            };
+
+            if !is_block_expression {
+                state.restore(parser);
+            }
+
+            is_block_expression
         }
-
-        true
-    } else {
-        let state = parser.save_state();
-
-        let Some(identifier) = parser.peek_identifier() else {
-            state.restore(parser);
-
-            return false;
-        };
-
-        let is_block_expression = match identifier {
-            "if" => try_parse_if_expression(parser),
-            "while" => try_parse_predicate_loop_expression(parser),
-            "loop" => try_parse_infinite_loop_expression(parser),
-            "for" => try_parse_iterator_loop_expression(parser),
-            _ => false,
-        };
-
-        if !is_block_expression {
-            state.restore(parser);
-        }
-
-        is_block_expression
     }
 }
 
@@ -767,8 +743,8 @@ impl LowerableAstNode for CSTExpression {
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         match self {
-            Self::ExpressionWithBlock(node) => lower_expression_with_block(node, ctx),
-            Self::ExpressionWithoutBlock(node) => lower_expression_without_block(node, ctx),
+            Self::ExpressionWithBlock(node) => node.lower(ctx),
+            Self::ExpressionWithoutBlock(node) => node.lower(ctx),
         }
     }
 }

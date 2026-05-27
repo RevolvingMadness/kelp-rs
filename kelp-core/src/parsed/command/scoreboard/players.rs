@@ -5,7 +5,7 @@ use minecraft_command_types::command::{
 use crate::{
     parsed::{
         entity_selector::ParsedEntitySelector, expression::ParsedExpression,
-        player_score::PlayerScore, semantic_analysis::SemanticAnalysisContext,
+        player_score::ParsedPlayerScore, semantic_analysis::SemanticAnalysisContext,
     },
     semantic::expression::command::scoreboard::players::{
         SemanticPlayersDisplayScoreboardCommand, SemanticPlayersScoreboardCommand,
@@ -44,8 +44,8 @@ impl ScoreboardNumberFormat {
 
 #[derive(Debug, Clone)]
 pub enum PlayersDisplayScoreboardCommand {
-    Name(PlayerScore, Option<ParsedExpression>),
-    NumberFormat(PlayerScore, Option<ScoreboardNumberFormat>),
+    Name(ParsedPlayerScore, Option<ParsedExpression>),
+    NumberFormat(ParsedPlayerScore, Option<ScoreboardNumberFormat>),
 }
 
 impl PlayersDisplayScoreboardCommand {
@@ -88,13 +88,13 @@ impl PlayersDisplayScoreboardCommand {
 #[derive(Debug, Clone)]
 pub enum PlayersScoreboardCommand {
     List(Option<ParsedEntitySelector>),
-    Get(PlayerScore),
-    Set(PlayerScore, ScoreValue),
-    Add(PlayerScore, ScoreValue),
-    Remove(PlayerScore, ScoreValue),
+    Get(ParsedPlayerScore),
+    Set(ParsedPlayerScore, ScoreValue),
+    Add(ParsedPlayerScore, ScoreValue),
+    Remove(ParsedPlayerScore, ScoreValue),
     Reset(ParsedEntitySelector, Option<String>),
-    Enable(PlayerScore),
-    Operation(PlayerScore, ScoreOperationOperator, PlayerScore),
+    Enable(ParsedPlayerScore),
+    Operation(ParsedPlayerScore, ScoreOperationOperator, ParsedPlayerScore),
     Display(Box<PlayersDisplayScoreboardCommand>),
 }
 

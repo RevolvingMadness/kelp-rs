@@ -47,7 +47,7 @@ pub fn try_parse_expression_without_block(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_assignment(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_to_cast(parser) {
         return false;
     }
@@ -74,7 +74,7 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
     };
 
     if let Some((len, kind)) = op_info {
-        parser.start_node_at(checkpoint, SyntaxKind::AssignmentExpression);
+        checkpoint.start_node(parser, SyntaxKind::AssignmentExpression);
 
         parser.add_token(kind, len);
 
@@ -83,20 +83,20 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
         parser.skip_whitespace();
 
         if !try_parse_assignment(parser) {
-            parser.restore_state(state);
+            state.restore(parser);
 
             parser.recover_not_whitespace("Expected expression after assignment operator");
         }
 
         parser.finish_node();
     } else {
-        parser.restore_state(state);
+        state.restore(parser);
     }
     true
 }
 
 pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_logical_or(parser) {
         return false;
@@ -107,7 +107,7 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
         parser.skip_whitespace();
 
         if parser.peek_identifier() == Some("to") {
-            parser.start_node_at(checkpoint, SyntaxKind::ToCastExpression);
+            checkpoint.start_node(parser, SyntaxKind::ToCastExpression);
             parser.bump_str(SyntaxKind::ToKeyword, "to");
             parser.expect_whitespace();
             parser.expect_identifier_kind(
@@ -119,7 +119,7 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
         }
 
         if parser.peek_identifier() == Some("as") {
-            parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
+            checkpoint.start_node(parser, SyntaxKind::AsCastExpression);
             parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
             parser.expect_whitespace();
             if !try_parse_data_type(parser) {
@@ -129,14 +129,14 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
             continue;
         }
 
-        parser.restore_state(state);
+        state.restore(parser);
         break;
     }
     true
 }
 
 pub fn try_parse_logical_or(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_logical_and(parser) {
         return false;
@@ -147,13 +147,13 @@ pub fn try_parse_logical_or(parser: &mut Parser) -> bool {
         parser.skip_whitespace();
 
         if parser.peek_char() == Some('|') && parser.peek_nth_char(1) == Some('|') {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::PipePipe, 2);
             parser.skip_whitespace();
             try_parse_logical_and(parser);
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -161,7 +161,7 @@ pub fn try_parse_logical_or(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_logical_and(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_bitwise_or(parser) {
         return false;
     }
@@ -171,13 +171,13 @@ pub fn try_parse_logical_and(parser: &mut Parser) -> bool {
         parser.skip_whitespace();
 
         if parser.peek_char() == Some('&') && parser.peek_nth_char(1) == Some('&') {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::AmpersandAmpersand, 2);
             parser.skip_whitespace();
             try_parse_bitwise_or(parser);
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -185,7 +185,7 @@ pub fn try_parse_logical_and(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_bitwise_and(parser) {
         return false;
     }
@@ -198,13 +198,13 @@ pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
             && parser.peek_nth_char(1) != Some('|')
             && parser.peek_nth_char(1) != Some('=')
         {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::Pipe, 1);
             parser.skip_whitespace();
             try_parse_bitwise_and(parser);
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -212,7 +212,7 @@ pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_equality(parser) {
         return false;
     }
@@ -225,13 +225,13 @@ pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
             && parser.peek_nth_char(1) != Some('&')
             && parser.peek_nth_char(1) != Some('=')
         {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.add_token(SyntaxKind::Ampersand, 1);
             parser.skip_whitespace();
             try_parse_equality(parser);
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -239,7 +239,7 @@ pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_equality(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_comparison(parser) {
         return false;
     }
@@ -255,13 +255,13 @@ pub fn try_parse_equality(parser: &mut Parser) -> bool {
         };
 
         if let Some((len, kind)) = op_info {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.add_token(kind, len);
             parser.skip_whitespace();
             try_parse_comparison(parser);
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -269,7 +269,7 @@ pub fn try_parse_equality(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_comparison(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_shift(parser) {
         return false;
     }
@@ -289,13 +289,13 @@ pub fn try_parse_comparison(parser: &mut Parser) -> bool {
         };
 
         if let Some((len, kind)) = op_info {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.add_token(kind, len);
             parser.skip_whitespace();
             try_parse_shift(parser);
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -303,7 +303,7 @@ pub fn try_parse_comparison(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_shift(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_term(parser) {
         return false;
     }
@@ -327,13 +327,13 @@ pub fn try_parse_shift(parser: &mut Parser) -> bool {
         };
 
         if let Some((len, kind)) = op_info {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.add_token(kind, len);
             parser.skip_whitespace();
             try_parse_term(parser);
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -341,7 +341,7 @@ pub fn try_parse_shift(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_term(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_factor(parser) {
         return false;
     }
@@ -354,7 +354,7 @@ pub fn try_parse_term(parser: &mut Parser) -> bool {
             && (c == '+' || c == '-')
             && parser.peek_nth_char(1) != Some('=')
         {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.bump_char();
             parser.skip_whitespace();
             if !try_parse_factor(parser) {
@@ -362,7 +362,7 @@ pub fn try_parse_term(parser: &mut Parser) -> bool {
             }
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -370,7 +370,7 @@ pub fn try_parse_term(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_factor(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_unary(parser) {
         return false;
@@ -384,7 +384,7 @@ pub fn try_parse_factor(parser: &mut Parser) -> bool {
             && (c == '*' || c == '/' || c == '%')
             && parser.peek_nth_char(1) != Some('=')
         {
-            parser.start_node_at(checkpoint, SyntaxKind::BinaryExpression);
+            checkpoint.start_node(parser, SyntaxKind::BinaryExpression);
             parser.bump_char();
             parser.skip_whitespace();
             if !try_parse_unary(parser) {
@@ -392,7 +392,7 @@ pub fn try_parse_factor(parser: &mut Parser) -> bool {
             }
             parser.finish_node();
         } else {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
     }
@@ -414,7 +414,7 @@ pub fn try_parse_unary(parser: &mut Parser) -> bool {
 }
 
 pub fn try_parse_postfix(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     if !try_parse_primary(parser) {
         return false;
     }
@@ -425,7 +425,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
 
         match parser.peek_char() {
             Some('[') => {
-                parser.start_node_at(checkpoint, SyntaxKind::IndexExpression);
+                checkpoint.start_node(parser, SyntaxKind::IndexExpression);
                 parser.bump_char();
                 parser.skip_whitespace();
                 if !try_parse_expression(parser) {
@@ -436,7 +436,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 parser.finish_node();
             }
             Some('(') => {
-                parser.start_node_at(checkpoint, SyntaxKind::CallExpression);
+                checkpoint.start_node(parser, SyntaxKind::CallExpression);
                 parser.bump_char();
                 parser.skip_whitespace();
 
@@ -462,10 +462,10 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                     }
                 }
 
-                parser.restore_state(dot_state);
+                dot_state.restore(parser);
 
                 if is_method_call {
-                    parser.start_node_at(checkpoint, SyntaxKind::MethodCallExpression);
+                    checkpoint.start_node(parser, SyntaxKind::MethodCallExpression);
                     parser.bump_char();
                     parser.skip_whitespace();
 
@@ -481,7 +481,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
 
                     parser.expect_char(')', "Expected closing parenthesis ')'");
                 } else {
-                    parser.start_node_at(checkpoint, SyntaxKind::FieldAccessExpression);
+                    checkpoint.start_node(parser, SyntaxKind::FieldAccessExpression);
                     parser.bump_char();
                     parser.skip_whitespace();
 
@@ -498,7 +498,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
             }
             _ => {
                 if parser.peek_identifier() == Some("as") {
-                    parser.start_node_at(checkpoint, SyntaxKind::AsCastExpression);
+                    checkpoint.start_node(parser, SyntaxKind::AsCastExpression);
                     parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
                     parser.expect_whitespace();
                     if !try_parse_data_type(parser) {
@@ -506,7 +506,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                     }
                     parser.finish_node();
                 } else {
-                    parser.restore_state(state);
+                    state.restore(parser);
                     break;
                 }
             }
@@ -524,12 +524,12 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
     match parser.peek_char() {
         Some('[') => try_parse_list_expression(parser),
         Some('(') => {
-            let checkpoint = parser.checkpoint();
+            let checkpoint = parser.mark();
             parser.bump_char(); // Bump '('
             parser.skip_whitespace();
 
             if parser.peek_char() == Some(')') {
-                parser.start_node_at(checkpoint, SyntaxKind::UnitExpression);
+                checkpoint.start_node(parser, SyntaxKind::UnitExpression);
                 parser.bump_char();
                 parser.finish_node();
                 return true;
@@ -565,7 +565,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 SyntaxKind::ParenthesizedExpression
             };
 
-            parser.start_node_at(checkpoint, kind);
+            checkpoint.start_node(parser, kind);
             if !parser.try_bump_char(')') {
                 parser.error("Expected closing parenthesis ')'");
             }
@@ -689,7 +689,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 return true;
             }
 
-            let checkpoint = parser.checkpoint();
+            let checkpoint = parser.mark();
 
             if !try_parse_generic_path(parser, false) {
                 unreachable!();
@@ -699,8 +699,8 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
             parser.skip_whitespace();
 
             if parser.peek_char() == Some('{') {
-                parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                parser.start_node_at(checkpoint, SyntaxKind::StructExpression);
+                checkpoint.replace_token(parser, SyntaxKind::TypeName);
+                checkpoint.start_node(parser, SyntaxKind::StructExpression);
 
                 parser.bump_char();
 
@@ -716,8 +716,8 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                     parser.bump_char();
                 }
             } else {
-                parser.restore_state(state);
-                parser.start_node_at(checkpoint, SyntaxKind::PathExpression);
+                state.restore(parser);
+                checkpoint.start_node(parser, SyntaxKind::PathExpression);
             }
 
             parser.finish_node();
@@ -740,7 +740,7 @@ pub fn try_parse_expression_with_block(parser: &mut Parser) -> bool {
         let state = parser.save_state();
 
         let Some(identifier) = parser.peek_identifier() else {
-            parser.restore_state(state);
+            state.restore(parser);
 
             return false;
         };
@@ -754,7 +754,7 @@ pub fn try_parse_expression_with_block(parser: &mut Parser) -> bool {
         };
 
         if !is_block_expression {
-            parser.restore_state(state);
+            state.restore(parser);
         }
 
         is_block_expression

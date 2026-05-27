@@ -21,7 +21,7 @@ pub fn try_parse_call_arguments(parser: &mut Parser) {
         parser.skip_whitespace();
 
         if !parser.try_bump_char(',') {
-            parser.restore_state(comma_state);
+            comma_state.restore(parser);
             break;
         }
 
@@ -37,7 +37,10 @@ pub fn try_parse_call_arguments(parser: &mut Parser) {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_call_arguments(node: CSTCallArguments, ctx: &mut LowerContext) -> Vec<ParsedExpression> {
+pub fn lower_call_arguments(
+    node: CSTCallArguments,
+    ctx: &mut LowerContext,
+) -> Vec<ParsedExpression> {
     node.expressions()
         .filter_map(|expression| lower_expression(expression, ctx))
         .collect()

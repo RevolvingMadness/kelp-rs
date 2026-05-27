@@ -13,13 +13,13 @@ use crate::{
 };
 
 pub fn try_parse_data_expression(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_data_target(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::DataExpression);
+    checkpoint.start_node(parser, SyntaxKind::DataExpression);
 
     parser.expect_inline_whitespace();
 

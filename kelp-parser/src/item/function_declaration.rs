@@ -129,7 +129,7 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
         parser.bump_str(SyntaxKind::RecursiveKeyword, "recursive");
 
         if !parser.expect_whitespace() {
-            parser.restore_state(state);
+            state.restore(parser);
             return false;
         }
 
@@ -140,7 +140,7 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
         parser.bump_str(SyntaxKind::RuntimeKeyword, "runtime");
 
         if !parser.expect_whitespace() && !is_recursive {
-            parser.restore_state(state);
+            state.restore(parser);
             return false;
         }
     }
@@ -148,7 +148,7 @@ pub fn try_parse_function_declaration_item_kind(parser: &mut Parser) -> bool {
     parser.bump_str(SyntaxKind::FNKeyword, "fn");
 
     if !parser.expect_whitespace() || !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
-        parser.restore_state(state);
+        state.restore(parser);
         return false;
     }
 

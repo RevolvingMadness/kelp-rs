@@ -15,6 +15,7 @@ pub struct ParseError {
     pub message: String,
 }
 
+#[must_use]
 #[derive(Debug)]
 pub struct ParseResult {
     pub root: SyntaxNode,
@@ -27,6 +28,43 @@ pub enum Event<'a> {
     FinishNode,
     Token { kind: SyntaxKind, text: &'a str },
     Error { message: String, len: usize },
+}
+
+#[must_use]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Marker {
+    checkpoint: usize,
+}
+
+impl Marker {
+    pub fn finish(self, parser: &mut Parser, kind: SyntaxKind) {
+        self.start_node(parser, kind);
+
+        parser.finish_node();
+    }
+
+    #[inline]
+    pub fn replace_token(self, parser: &mut Parser, kind: SyntaxKind) {
+        parser.replace_token_at(self.checkpoint, kind);
+    }
+
+    #[inline]
+    pub fn start_node(self, parser: &mut Parser, kind: SyntaxKind) {
+        parser.start_node_at(self.checkpoint, kind);
+    }
+}
+
+#[must_use]
+pub struct ParserState {
+    pos: usize,
+    number_of_events: usize,
+}
+
+impl ParserState {
+    pub fn restore(self, parser: &mut Parser) {
+        parser.pos = self.pos;
+        parser.events.truncate(self.number_of_events);
+    }
 }
 
 pub struct Parser<'a> {
@@ -334,14 +372,11 @@ impl<'a> Parser<'a> {
         (builder.finish(), errors)
     }
 
-    #[must_use]
-    pub const fn save_state(&self) -> (usize, usize) {
-        (self.pos, self.events.len())
-    }
-
-    pub fn restore_state(&mut self, state: (usize, usize)) {
-        self.pos = state.0;
-        self.events.truncate(state.1);
+    pub const fn save_state(&self) -> ParserState {
+        ParserState {
+            pos: self.pos,
+            number_of_events: self.events.len(),
+        }
     }
 }
 
@@ -568,20 +603,20 @@ impl Parser<'_> {
     pub fn parse_range(&mut self) {
         self.start_node(SyntaxKind::Range);
 
-        let checkpoint = self.checkpoint();
+        let lower_bound_marker = self.mark();
+
         if self.try_parse_fractional_value() {
-            self.start_node_at(checkpoint, SyntaxKind::RangeBound);
-            self.finish_node();
+            lower_bound_marker.finish(self, SyntaxKind::RangeBound);
         }
 
         if self.peek_char() == Some('.') && self.peek_nth_char(1) == Some('.') {
             self.bump_char();
             self.bump_char();
 
-            let checkpoint = self.checkpoint();
+            let upper_bound_marker = self.mark();
+
             if self.try_parse_fractional_value() {
-                self.start_node_at(checkpoint, SyntaxKind::RangeBound);
-                self.finish_node();
+                upper_bound_marker.finish(self, SyntaxKind::RangeBound);
             }
         }
 
@@ -783,9 +818,11 @@ impl Parser<'_> {
         self.add_token(kind, expected_text.len());
     }
 
-    #[must_use]
-    pub const fn checkpoint(&self) -> usize {
-        self.events.len()
+    #[inline]
+    pub const fn mark(&self) -> Marker {
+        Marker {
+            checkpoint: self.events.len(),
+        }
     }
 
     pub fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
@@ -802,5 +839,62 @@ impl Parser<'_> {
 
     pub fn finish_node_at(&mut self, checkpoint: usize) {
         self.events.insert(checkpoint, Event::FinishNode);
+    }
+
+    pub fn attempt<F>(&mut self, f: F) -> bool
+    where
+        F: FnOnce(&mut Self) -> bool,
+    {
+        let state = self.save_state();
+
+        if f(self) {
+            true
+        } else {
+            state.restore(self);
+
+            false
+        }
+    }
+
+    pub fn expect<F>(&mut self, mut try_parse: F, message: &str) -> bool
+    where
+        F: FnMut(&mut Self) -> bool,
+    {
+        if try_parse(self) {
+            true
+        } else {
+            self.error(message);
+
+            false
+        }
+    }
+
+    pub fn parse_comma_separated_list<F>(&mut self, mut parse_element: F) -> bool
+    where
+        F: FnMut(&mut Self) -> bool,
+    {
+        if !parse_element(self) {
+            return false;
+        }
+
+        loop {
+            let parsed_commna = self.attempt(|p| {
+                p.skip_whitespace();
+
+                p.try_bump_char(',')
+            });
+
+            if !parsed_commna {
+                break;
+            }
+
+            self.skip_whitespace();
+
+            if !parse_element(self) {
+                break;
+            }
+        }
+
+        true
     }
 }

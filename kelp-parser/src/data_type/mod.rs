@@ -47,12 +47,12 @@ pub fn try_parse_data_type(parser: &mut Parser) -> bool {
 
 #[must_use]
 fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     parser.bump_char();
     parser.skip_whitespace();
 
     if parser.peek_char() == Some(')') {
-        parser.start_node_at(checkpoint, SyntaxKind::UnitDataType);
+        checkpoint.start_node(parser, SyntaxKind::UnitDataType);
         parser.bump_char();
         parser.finish_node();
         return true;
@@ -72,7 +72,7 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
         parser.skip_whitespace();
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::TupleDataType);
+    checkpoint.start_node(parser, SyntaxKind::TupleDataType);
     parser.expect_char(')', "Expected ')'");
     parser.finish_node();
 

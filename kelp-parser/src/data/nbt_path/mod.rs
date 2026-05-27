@@ -14,11 +14,11 @@ use crate::{
 pub mod node;
 
 pub fn try_parse_nbt_path(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let state = parser.save_state();
     parser.start_node(SyntaxKind::NBTPath);
 
     if !try_parse_start_nbt_path_node(parser) {
-        parser.restore_state((parser.pos, checkpoint));
+        state.restore(parser);
 
         return false;
     }

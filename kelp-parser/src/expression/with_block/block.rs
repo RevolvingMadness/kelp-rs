@@ -13,13 +13,13 @@ use crate::{
 };
 
 pub fn try_parse_block_expression(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !parser.try_bump_char('{') {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::BlockExpression);
+    checkpoint.start_node(parser, SyntaxKind::BlockExpression);
 
     loop {
         parser.skip_whitespace();

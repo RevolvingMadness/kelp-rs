@@ -10,10 +10,10 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_use_tree(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if parser.peek_char() == Some('{') {
-        parser.start_node_at(checkpoint, SyntaxKind::GroupUseTree);
+        checkpoint.start_node(parser, SyntaxKind::GroupUseTree);
         parse_use_tree_group(parser);
         parser.finish_node();
         return true;
@@ -30,16 +30,16 @@ pub fn try_parse_use_tree(parser: &mut Parser) -> bool {
         parser.skip_inline_whitespace();
 
         if parser.try_bump_char('*') {
-            parser.start_node_at(checkpoint, SyntaxKind::WildcardUseTree);
+            checkpoint.start_node(parser, SyntaxKind::WildcardUseTree);
         } else if parser.peek_char() == Some('{') {
-            parser.start_node_at(checkpoint, SyntaxKind::GroupUseTree);
+            checkpoint.start_node(parser, SyntaxKind::GroupUseTree);
             parse_use_tree_group(parser);
         } else {
-            parser.restore_state(state);
-            parser.start_node_at(checkpoint, SyntaxKind::PathUseTree);
+            state.restore(parser);
+            checkpoint.start_node(parser, SyntaxKind::PathUseTree);
         }
     } else if parser.peek_identifier() == Some("as") {
-        parser.start_node_at(checkpoint, SyntaxKind::AsUseTree);
+        checkpoint.start_node(parser, SyntaxKind::AsUseTree);
         parser.bump_identifier_kind(SyntaxKind::AsKeyword, "as");
         parser.expect_inline_whitespace();
 
@@ -49,7 +49,7 @@ pub fn try_parse_use_tree(parser: &mut Parser) -> bool {
             parser.error("Expected alias identifier after 'as'");
         }
     } else {
-        parser.start_node_at(checkpoint, SyntaxKind::PathUseTree);
+        checkpoint.start_node(parser, SyntaxKind::PathUseTree);
     }
 
     parser.finish_node();

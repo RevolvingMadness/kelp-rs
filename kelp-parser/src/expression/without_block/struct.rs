@@ -32,7 +32,7 @@ fn lower_struct_expression_field(
 
 #[must_use]
 fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
         && !parser.try_bump_whole_value()
@@ -40,7 +40,7 @@ fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructExpressionField);
+    checkpoint.start_node(parser, SyntaxKind::StructExpressionField);
 
     parser.skip_whitespace();
 
@@ -73,20 +73,20 @@ pub fn lower_struct_expression_fields(
 
 #[must_use]
 pub fn try_parse_struct_expression_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_struct_expression_field(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructExpressionFields);
+    checkpoint.start_node(parser, SyntaxKind::StructExpressionFields);
 
     loop {
         let state = parser.save_state();
         parser.skip_whitespace();
 
         if !parser.try_bump_char(',') {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
 

@@ -20,7 +20,7 @@ pub fn try_parse_minecraft_function_declaration_item_kind(parser: &mut Parser) -
     parser.bump_str(SyntaxKind::MCFNKeyword, "mcfn");
 
     if !parser.expect_whitespace() || !try_parse_resource_location(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

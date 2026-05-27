@@ -11,13 +11,13 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_item_statement(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_item(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::ItemStatement);
+    checkpoint.start_node(parser, SyntaxKind::ItemStatement);
     parser.finish_node();
 
     true
@@ -25,7 +25,10 @@ pub fn try_parse_item_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_item_statement(node: CSTItemStatement, ctx: &mut LowerContext) -> Option<ParsedStatement> {
+pub fn lower_item_statement(
+    node: CSTItemStatement,
+    ctx: &mut LowerContext,
+) -> Option<ParsedStatement> {
     let span = span_of_cst_node(&node);
 
     let item = lower_item(node.item()?, ctx)?;

@@ -22,7 +22,7 @@ pub fn try_parse_iterator_loop_expression(parser: &mut Parser) -> bool {
     parser.skip_inline_whitespace();
 
     if !try_parse_pattern(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

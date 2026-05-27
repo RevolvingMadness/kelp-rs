@@ -20,7 +20,7 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
     parser.skip_whitespace();
 
     if !try_parse_pattern(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }
@@ -57,7 +57,10 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_let_statement(node: CSTLetStatement, ctx: &mut LowerContext) -> Option<ParsedStatement> {
+pub fn lower_let_statement(
+    node: CSTLetStatement,
+    ctx: &mut LowerContext,
+) -> Option<ParsedStatement> {
     let span = span_of_cst_node(&node);
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;

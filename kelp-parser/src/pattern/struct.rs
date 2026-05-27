@@ -42,7 +42,7 @@ pub fn lower_struct_pattern_field(
 
 #[must_use]
 fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName)
         && !parser.try_bump_whole_value()
@@ -50,7 +50,7 @@ fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::RegularStructPatternField);
+    checkpoint.start_node(parser, SyntaxKind::RegularStructPatternField);
 
     let state = parser.save_state();
 
@@ -63,7 +63,7 @@ fn try_parse_struct_pattern_field(parser: &mut Parser) -> bool {
             parser.error("Expected pattern");
         }
     } else {
-        parser.restore_state(state);
+        state.restore(parser);
     }
 
     parser.finish_node();
@@ -84,20 +84,20 @@ fn lower_struct_pattern_fields(
 
 #[must_use]
 pub fn try_parse_struct_pattern_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_struct_pattern_field(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::RegularStructPatternFields);
+    checkpoint.start_node(parser, SyntaxKind::RegularStructPatternFields);
 
     loop {
         let state = parser.save_state();
         parser.skip_whitespace();
 
         if !parser.try_bump_char(',') {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
 
@@ -144,13 +144,13 @@ pub fn lower_tuple_struct_pattern_field(
 
 #[must_use]
 fn try_parse_tuple_struct_pattern_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_pattern(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::TupleStructPatternField);
+    checkpoint.start_node(parser, SyntaxKind::TupleStructPatternField);
 
     parser.finish_node();
 
@@ -170,20 +170,20 @@ fn lower_tuple_struct_pattern_fields(
 
 #[must_use]
 pub fn try_parse_tuple_struct_pattern_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_tuple_struct_pattern_field(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::TupleStructPatternFields);
+    checkpoint.start_node(parser, SyntaxKind::TupleStructPatternFields);
 
     loop {
         let state = parser.save_state();
         parser.skip_whitespace();
 
         if !parser.try_bump_char(',') {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
 

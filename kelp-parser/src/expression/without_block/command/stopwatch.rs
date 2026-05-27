@@ -100,7 +100,7 @@ pub fn try_parse_stopwatch_command_expression(parser: &mut Parser) -> bool {
 
     if !parser.expect_inline_whitespace() || !try_parse_stopwatch_command_expression_options(parser)
     {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

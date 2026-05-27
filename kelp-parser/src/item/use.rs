@@ -10,9 +10,9 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_use_item_kind(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
-    parser.start_node_at(checkpoint, SyntaxKind::UseItem);
+    checkpoint.start_node(parser, SyntaxKind::UseItem);
     parser.bump_identifier_kind(SyntaxKind::UseKeyword, "use");
     let parsed_whitespace = parser.expect_whitespace();
 
@@ -28,9 +28,9 @@ pub fn try_parse_use_item_kind(parser: &mut Parser) -> bool {
 }
 
 pub fn expect_use_item_kind(parser: &mut Parser) {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
-    parser.start_node_at(checkpoint, SyntaxKind::UseItem);
+    checkpoint.start_node(parser, SyntaxKind::UseItem);
     parser.bump_identifier_kind(SyntaxKind::UseKeyword, "use");
 
     parser.expect_whitespace();

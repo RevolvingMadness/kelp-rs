@@ -20,7 +20,7 @@ pub fn try_parse_if_expression(parser: &mut Parser) -> bool {
     parser.skip_inline_whitespace();
 
     if !try_parse_expression(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }
@@ -58,7 +58,10 @@ pub fn try_parse_if_expression(parser: &mut Parser) -> bool {
 
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
-pub fn lower_if_expression(node: CSTIfExpression, ctx: &mut LowerContext) -> Option<ParsedExpression> {
+pub fn lower_if_expression(
+    node: CSTIfExpression,
+    ctx: &mut LowerContext,
+) -> Option<ParsedExpression> {
     let span = span_of_cst_node(&node);
 
     let condition = lower_expression(node.condition()?, ctx)?;

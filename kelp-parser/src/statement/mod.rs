@@ -42,7 +42,7 @@ pub fn expect_semicolon_ending(parser: &mut Parser) -> bool {
         return true;
     }
 
-    parser.restore_state(state);
+    state.restore(parser);
     parser.error("Expected ';'");
 
     false
@@ -92,7 +92,7 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
         parser.skip_whitespace();
 
         if !parser.try_bump_char(';') {
-            parser.restore_state(state);
+            state.restore(parser);
         }
     } else if try_parse_expression_without_block(parser) {
         let state = parser.save_state();
@@ -101,7 +101,7 @@ pub fn try_parse_statement(parser: &mut Parser) -> bool {
         if !parser.try_bump_char(';') {
             let next_char = parser.peek_char();
 
-            parser.restore_state(state);
+            state.restore(parser);
 
             if next_char != Some('}') && next_char.is_some() {
                 parser.error("Expected ';'");

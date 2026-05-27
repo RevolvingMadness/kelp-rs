@@ -21,7 +21,7 @@ pub fn try_parse_append_statement(parser: &mut Parser) -> bool {
     parser.skip_inline_whitespace();
 
     if !try_parse_expression(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

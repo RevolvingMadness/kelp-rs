@@ -124,7 +124,7 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
                     return true;
                 }
 
-                let checkpoint = parser.checkpoint();
+                let checkpoint = parser.mark();
 
                 if !try_parse_generic_path(parser, false) {
                     unreachable!();
@@ -136,8 +136,8 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
 
                 match parser.peek_char() {
                     Some('{') => {
-                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                        parser.start_node_at(checkpoint, SyntaxKind::RegularStructPattern);
+                        checkpoint.replace_token(parser, SyntaxKind::TypeName);
+                        checkpoint.start_node(parser, SyntaxKind::RegularStructPattern);
 
                         parser.bump_char();
 
@@ -150,8 +150,8 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
                         parser.expect_char('}', "Expected '}'");
                     }
                     Some('(') => {
-                        parser.replace_token_at(checkpoint, SyntaxKind::TypeName);
-                        parser.start_node_at(checkpoint, SyntaxKind::TupleStructPattern);
+                        checkpoint.replace_token(parser, SyntaxKind::TypeName);
+                        checkpoint.start_node(parser, SyntaxKind::TupleStructPattern);
 
                         parser.bump_char();
 
@@ -164,9 +164,9 @@ pub fn try_parse_pattern(parser: &mut Parser) -> bool {
                         parser.expect_char(')', "Expected ')'");
                     }
                     _ => {
-                        parser.restore_state(state);
+                        state.restore(parser);
 
-                        parser.start_node_at(checkpoint, SyntaxKind::BindingPattern);
+                        checkpoint.start_node(parser, SyntaxKind::BindingPattern);
                     }
                 }
 

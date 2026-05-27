@@ -9,13 +9,13 @@ use crate::{
 
 #[must_use]
 fn try_parse_path_segment(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::PathIdentifier) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::PathSegment);
+    checkpoint.start_node(parser, SyntaxKind::PathSegment);
 
     parser.finish_node();
 
@@ -24,13 +24,13 @@ fn try_parse_path_segment(parser: &mut Parser) -> bool {
 
 #[must_use]
 pub fn try_parse_path(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_path_segment(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::Path);
+    checkpoint.start_node(parser, SyntaxKind::Path);
 
     loop {
         let state = parser.save_state();
@@ -38,7 +38,7 @@ pub fn try_parse_path(parser: &mut Parser) -> bool {
         parser.skip_inline_whitespace();
 
         if !parser.try_bump_str("::", SyntaxKind::ColonColon) || !try_parse_path_segment(parser) {
-            parser.restore_state(state);
+            state.restore(parser);
 
             break;
         }

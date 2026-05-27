@@ -19,7 +19,7 @@ pub fn try_parse_module_declaration_item_kind(parser: &mut Parser) -> bool {
     parser.expect_whitespace();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::ModuleName) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

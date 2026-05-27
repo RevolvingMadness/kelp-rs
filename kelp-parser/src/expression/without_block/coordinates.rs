@@ -19,7 +19,7 @@ pub fn try_parse_coordinates_expression(parser: &mut Parser) -> bool {
     parser.skip_whitespace();
 
     if !parser.try_bump_char(':') {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

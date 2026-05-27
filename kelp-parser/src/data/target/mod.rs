@@ -25,7 +25,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
             parser.bump_identifier_kind(SyntaxKind::EntityKeyword, "entity");
 
             if !parser.expect_inline_whitespace() || !try_parse_entity_selector(parser) {
-                parser.restore_state(state);
+                state.restore(parser);
 
                 return false;
             }
@@ -36,7 +36,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
             parser.bump_identifier_kind(SyntaxKind::BlockKeyword, "block");
 
             if !parser.expect_inline_whitespace() || !try_parse_coordinates(parser) {
-                parser.restore_state(state);
+                state.restore(parser);
 
                 return false;
             }
@@ -47,7 +47,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
             parser.bump_identifier_kind(SyntaxKind::StorageKeyword, "storage");
 
             if !parser.expect_inline_whitespace() || !try_parse_resource_location(parser) {
-                parser.restore_state(state);
+                state.restore(parser);
 
                 return false;
             }

@@ -20,7 +20,7 @@ pub fn try_parse_tellraw_command_expression(parser: &mut Parser) -> bool {
     parser.bump_str(SyntaxKind::TellrawKeyword, "tellraw");
 
     if !parser.expect_inline_whitespace() || !try_parse_entity_selector(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }
@@ -51,5 +51,8 @@ pub fn lower_tellraw_command_expression(
     let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
     let value = lower_expression(node.expression()?, ctx)?;
 
-    Some(ParsedExpressionKind::Command(Box::new(ParsedCommand::Tellraw(selector, value))).with_span(span))
+    Some(
+        ParsedExpressionKind::Command(Box::new(ParsedCommand::Tellraw(selector, value)))
+            .with_span(span),
+    )
 }

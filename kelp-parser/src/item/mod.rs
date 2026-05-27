@@ -83,7 +83,7 @@ fn recover_item(parser: &mut Parser, error_message: &str) {
 
 #[must_use]
 pub fn try_parse_item(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     let parsed_visibility = if parser.try_parse_identifier_kind("pub", SyntaxKind::PubKeyword) {
         Some(parser.expect_whitespace())
@@ -105,7 +105,7 @@ pub fn try_parse_item(parser: &mut Parser) -> bool {
         }
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::Item);
+    checkpoint.start_node(parser, SyntaxKind::Item);
 
     parser.finish_node();
 

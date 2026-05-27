@@ -21,7 +21,7 @@ pub fn try_parse_type_alias_declaration_item_kind(parser: &mut Parser) -> bool {
     parser.skip_whitespace();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::DataTypeName) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

@@ -16,7 +16,7 @@ pub fn try_parse_return_expression(parser: &mut Parser) -> bool {
     let state = parser.save_state();
 
     if parser.try_skip_whitespace() && !try_parse_expression(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
     }
 
     parser.finish_node();

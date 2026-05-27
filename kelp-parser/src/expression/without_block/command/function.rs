@@ -19,7 +19,7 @@ pub fn try_parse_function_command_expression(parser: &mut Parser) -> bool {
     parser.bump_str(SyntaxKind::FunctionKeyword, "function");
 
     if !parser.expect_inline_whitespace() || !try_parse_resource_location(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }

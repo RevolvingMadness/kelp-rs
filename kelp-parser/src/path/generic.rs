@@ -13,13 +13,13 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_generic_path_segment(parser: &mut Parser, is_type: bool) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::PathIdentifier) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::GenericPathSegment);
+    checkpoint.start_node(parser, SyntaxKind::GenericPathSegment);
 
     let state = parser.save_state();
 
@@ -27,12 +27,12 @@ pub fn try_parse_generic_path_segment(parser: &mut Parser, is_type: bool) -> boo
         parser.try_bump_str("::", SyntaxKind::ColonColon);
 
         if !try_parse_generic_data_types(parser) {
-            parser.restore_state(state);
+            state.restore(parser);
         }
     } else if parser.try_bump_str("::", SyntaxKind::ColonColon)
         && !try_parse_generic_data_types(parser)
     {
-        parser.restore_state(state);
+        state.restore(parser);
     }
 
     parser.finish_node();
@@ -42,13 +42,13 @@ pub fn try_parse_generic_path_segment(parser: &mut Parser, is_type: bool) -> boo
 
 #[must_use]
 pub fn try_parse_generic_path(parser: &mut Parser, is_type: bool) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_generic_path_segment(parser, is_type) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::GenericPath);
+    checkpoint.start_node(parser, SyntaxKind::GenericPath);
 
     loop {
         let state = parser.save_state();
@@ -56,7 +56,7 @@ pub fn try_parse_generic_path(parser: &mut Parser, is_type: bool) -> bool {
         parser.skip_inline_whitespace();
 
         if !parser.try_bump_str("::", SyntaxKind::ColonColon) {
-            parser.restore_state(state);
+            state.restore(parser);
 
             break;
         }

@@ -11,13 +11,13 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_score_pattern(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_player_score(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::ScorePattern);
+    checkpoint.start_node(parser, SyntaxKind::ScorePattern);
 
     parser.finish_node();
 

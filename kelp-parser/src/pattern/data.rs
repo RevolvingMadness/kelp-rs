@@ -11,13 +11,13 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_data_pattern(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_data(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::DataPattern);
+    checkpoint.start_node(parser, SyntaxKind::DataPattern);
 
     parser.finish_node();
 

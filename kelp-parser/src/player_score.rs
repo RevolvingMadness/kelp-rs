@@ -10,7 +10,7 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_player_score(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
     let state = parser.save_state();
 
     if !parser.try_bump_str("score", SyntaxKind::ScoreKeyword) {
@@ -18,18 +18,18 @@ pub fn try_parse_player_score(parser: &mut Parser) -> bool {
     }
 
     if !parser.expect_inline_whitespace() {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }
 
     if !try_parse_entity_selector(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::PlayerScore);
+    checkpoint.start_node(parser, SyntaxKind::PlayerScore);
 
     parser.expect_inline_whitespace();
 

@@ -40,7 +40,7 @@ pub fn try_parse_coordinates(parser: &mut Parser) -> bool {
         parser.start_node(SyntaxKind::WorldCoordinates);
 
         if !try_parse_world_coordinate(parser) {
-            parser.restore_state(state);
+            state.restore(parser);
             return false;
         }
 

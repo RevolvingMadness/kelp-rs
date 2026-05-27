@@ -8,13 +8,13 @@ use crate::{
 };
 
 pub fn try_parse_path_data_type(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_generic_path(parser, true) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::PathDataType);
+    checkpoint.start_node(parser, SyntaxKind::PathDataType);
 
     parser.finish_node();
 

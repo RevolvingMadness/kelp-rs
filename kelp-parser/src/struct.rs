@@ -22,13 +22,13 @@ pub fn lower_struct_field(node: CSTStructField) -> Option<(String, ParsedDataTyp
 
 #[must_use]
 pub fn try_parse_struct_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !parser.try_bump_identifier_kind(SyntaxKind::StructFieldName) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructField);
+    checkpoint.start_node(parser, SyntaxKind::StructField);
 
     parser.skip_whitespace();
 
@@ -58,20 +58,20 @@ pub fn lower_struct_fields(node: CSTStructFields) -> Option<HashMap<String, Pars
 
 #[must_use]
 pub fn try_parse_struct_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_struct_field(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::StructFields);
+    checkpoint.start_node(parser, SyntaxKind::StructFields);
 
     loop {
         let state = parser.save_state();
         parser.skip_whitespace();
 
         if !parser.try_bump_char(',') {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
 
@@ -96,13 +96,13 @@ pub fn lower_tuple_field(node: CSTTupleField) -> Option<ParsedDataType> {
 
 #[must_use]
 pub fn try_parse_tuple_field(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_data_type(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::TupleField);
+    checkpoint.start_node(parser, SyntaxKind::TupleField);
 
     parser.finish_node();
 
@@ -119,20 +119,20 @@ pub fn lower_tuple_fields(node: CSTTupleFields) -> Option<Vec<ParsedDataType>> {
 
 #[must_use]
 pub fn try_parse_tuple_fields(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_tuple_field(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::TupleFields);
+    checkpoint.start_node(parser, SyntaxKind::TupleFields);
 
     loop {
         let state = parser.save_state();
         parser.skip_whitespace();
 
         if !parser.try_bump_char(',') {
-            parser.restore_state(state);
+            state.restore(parser);
             break;
         }
 

@@ -16,13 +16,13 @@ pub mod target;
 
 #[must_use]
 pub fn try_parse_data(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
+    let checkpoint = parser.mark();
 
     if !try_parse_data_target(parser) {
         return false;
     }
 
-    parser.start_node_at(checkpoint, SyntaxKind::Data);
+    checkpoint.start_node(parser, SyntaxKind::Data);
 
     parser.expect_inline_whitespace();
 

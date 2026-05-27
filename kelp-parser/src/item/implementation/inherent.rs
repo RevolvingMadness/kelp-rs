@@ -20,7 +20,7 @@ pub fn try_parse_inherent_implementation_item_kind(parser: &mut Parser) -> bool 
     parser.start_node(SyntaxKind::InherentImplementationItem);
 
     if !parser.try_bump_str("impl", SyntaxKind::ImplKeyword) {
-        parser.restore_state(state);
+        state.restore(parser);
 
         return false;
     }
@@ -32,14 +32,14 @@ pub fn try_parse_inherent_implementation_item_kind(parser: &mut Parser) -> bool 
     parser.skip_whitespace();
 
     if !try_parse_data_type(parser) {
-        parser.restore_state(state);
+        state.restore(parser);
         return false;
     }
 
     parser.skip_whitespace();
 
     if !parser.expect_char('{', "Expected '{'") {
-        parser.restore_state(state);
+        state.restore(parser);
         return false;
     }
 

@@ -9,8 +9,8 @@ use crate::{
 
 #[must_use]
 pub fn try_parse_reference_data_type(parser: &mut Parser) -> bool {
-    let checkpoint = parser.checkpoint();
-    parser.start_node_at(checkpoint, SyntaxKind::ReferenceDataType);
+    let checkpoint = parser.mark();
+    checkpoint.start_node(parser, SyntaxKind::ReferenceDataType);
 
     parser.bump_char();
 

@@ -34,7 +34,7 @@ pub struct SemanticBuiltinFunctionDeclaration {
 #[derive(Debug, Clone, EnumIter)]
 pub enum BuiltinFunctionKind {
     #[strum(disabled)]
-    TupleConstructor(HighTupleStructId, Vec<SemanticDataType>),
+    TupleStructConstructor(HighTupleStructId, Vec<SemanticDataType>),
 
     StdAdd, // fn add(integer, integer) -> integer
 }
@@ -87,7 +87,7 @@ impl BuiltinFunctionKind {
         }
 
         match self {
-            Self::TupleConstructor(..) => unreachable!(),
+            Self::TupleStructConstructor(..) => unreachable!(),
 
             Self::StdAdd => {
                 declaration!(fn add(SemanticDataType::Integer, SemanticDataType::Integer) -> SemanticDataType::Integer)
@@ -102,7 +102,7 @@ impl BuiltinFunctionKind {
         mut arguments: Vec<Expression>,
     ) -> Expression {
         match self {
-            Self::TupleConstructor(id, generic_types) => {
+            Self::TupleStructConstructor(id, generic_types) => {
                 let id = SemanticDataType::resolve_tuple_struct(datapack, id, generic_types);
 
                 Expression::TupleStruct(id, arguments)

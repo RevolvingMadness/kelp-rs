@@ -406,7 +406,7 @@ impl SemanticDataType {
     ) -> StructId {
         let (module_path, visibility, declaration) = {
             let (module_path, visiblity, declaration) =
-                datapack.resolved_environment.get_struct(id);
+                datapack.semantic_environment.get_struct(id);
 
             (module_path.to_vec(), visiblity, declaration.clone())
         };
@@ -453,7 +453,7 @@ impl SemanticDataType {
     ) -> RegularStructId {
         let (module_path, visibility, declaration) = {
             let (module_path, visiblity, declaration) =
-                datapack.resolved_environment.get_regular_struct(id);
+                datapack.semantic_environment.get_regular_struct(id);
 
             (module_path.to_vec(), visiblity, declaration.clone())
         };
@@ -478,7 +478,7 @@ impl SemanticDataType {
     ) -> TupleStructId {
         let (module_path, visibility, declaration) = {
             let (module_path, visiblity, declaration) =
-                datapack.resolved_environment.get_tuple_struct(id);
+                datapack.semantic_environment.get_tuple_struct(id);
 
             (module_path.to_vec(), visiblity, declaration.clone())
         };

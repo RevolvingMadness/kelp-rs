@@ -149,7 +149,7 @@ pub struct Datapack {
     pub requirements: Cell<DatapackRequirements>,
     pub settings: DatapackSettings,
     pub environment: Environment,
-    pub resolved_environment: SemanticEnvironment,
+    pub semantic_environment: SemanticEnvironment,
     pub variable_values: HashMap<VariableId, (DataType, Expression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
@@ -171,7 +171,7 @@ pub struct Datapack {
 impl Datapack {
     #[must_use]
     pub fn new(
-        resolved_environment: SemanticEnvironment,
+        semantic_environment: SemanticEnvironment,
         name: String,
         description: Option<String>,
     ) -> Self {
@@ -180,7 +180,7 @@ impl Datapack {
             description,
             requirements: Cell::new(DatapackRequirements::default()),
             settings: DatapackSettings::default(),
-            resolved_environment,
+            semantic_environment,
             environment: Environment::default(),
             variable_values: HashMap::new(),
             function_values: HashMap::new(),
@@ -249,7 +249,7 @@ impl Datapack {
             module_path,
             visibility,
             kind: declaration,
-        } = self.resolved_environment.get_value(id.into());
+        } = self.semantic_environment.get_value(id.into());
 
         let resolved_id = self.environment.declare_variable(
             module_path.clone(),
@@ -687,7 +687,7 @@ impl Datapack {
 
         let SemanticValueDeclaration {
             kind: declaration, ..
-        } = self.resolved_environment.get_value(id);
+        } = self.semantic_environment.get_value(id);
 
         match declaration {
             SemanticValueDeclarationKind::Variable(..) => {
@@ -733,7 +733,7 @@ impl Datapack {
             return *id;
         }
 
-        let (module_path, visibility, declaration) = self.resolved_environment.get_function(id);
+        let (module_path, visibility, declaration) = self.semantic_environment.get_function(id);
 
         let module_path = module_path.to_vec();
         let declaration = declaration.clone();

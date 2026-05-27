@@ -2,7 +2,7 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTScoreExpression,
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     player_score::{lower_player_score, try_parse_player_score},

@@ -1,7 +1,7 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTPathExpression, extension_traits::AstNodeExt as _, lower_context::LowerContext,
+    cst::CSTPathExpression, extension_traits::AstNodeExt, lower_context::LowerContext,
     path::generic::lower_generic_path,
 };
 

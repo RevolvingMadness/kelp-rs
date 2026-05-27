@@ -1,9 +1,8 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    coordinates::{lower_coordinates, try_parse_coordinates},
-    cst::CSTCoordinatesExpression,
-    extension_traits::AstNodeExt as _,
+    cst::{CSTCoordinates, CSTCoordinatesExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -26,7 +25,7 @@ pub fn try_parse_coordinates_expression(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_coordinates(parser) {
+    if !CSTCoordinates::try_parse(parser) {
         parser.error("Expected coordinates");
     }
 
@@ -41,7 +40,7 @@ pub fn lower_coordinates_expression(
     node: CSTCoordinatesExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let coordinates = lower_coordinates(node.coordinates()?, ctx)?;
+    let coordinates = node.coordinates()?.lower(ctx)?;
 
     let span = node.span();
 

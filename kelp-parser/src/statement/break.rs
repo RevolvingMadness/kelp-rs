@@ -1,7 +1,7 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::CSTBreakStatement, extension_traits::AstNodeExt as _, lower_context::LowerContext,
+    cst::CSTBreakStatement, extension_traits::AstNodeExt, lower_context::LowerContext,
     parser::Parser, statement::expect_semicolon_ending, syntax::SyntaxKind,
 };
 

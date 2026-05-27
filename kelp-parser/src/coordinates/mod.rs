@@ -3,12 +3,10 @@ use kelp_core::parsed::{
 };
 
 use crate::{
-    coordinates::{
-        local::{lower_local_coordinate, parse_local_coordinate},
-        world::{lower_world_coordinate, try_parse_world_coordinate},
-    },
+    coordinates::{local::parse_local_coordinate, world::try_parse_world_coordinate},
     cst::{CSTActualCoordinates, CSTCoordinates},
     expression_sigil::{lower_expression_sigil, try_parse_expression_sigil},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -17,82 +15,65 @@ use crate::{
 pub mod local;
 pub mod world;
 
-#[must_use]
-pub fn try_parse_coordinates(parser: &mut Parser) -> bool {
-    if try_parse_expression_sigil(parser) {
-        return true;
-    }
+impl ParsableAstNode for CSTCoordinates {
+    fn try_parse(parser: &mut Parser) -> bool {
+        if try_parse_expression_sigil(parser) {
+            return true;
+        }
 
-    let Some(char) = parser.peek_char() else {
-        return false;
-    };
-
-    let state = parser.save_state();
-
-    if char == '^' {
-        parser.start_node(SyntaxKind::LocalCoordinates);
-        parse_local_coordinate(parser);
-        parser.expect_inline_whitespace();
-        parse_local_coordinate(parser);
-        parser.expect_inline_whitespace();
-        parse_local_coordinate(parser);
-    } else {
-        parser.start_node(SyntaxKind::WorldCoordinates);
-
-        if !try_parse_world_coordinate(parser) {
-            state.restore(parser);
+        let Some(char) = parser.peek_char() else {
             return false;
+        };
+
+        let state = parser.save_state();
+
+        if char == '^' {
+            parser.start_node(SyntaxKind::LocalCoordinates);
+            parse_local_coordinate(parser);
+            parser.expect_inline_whitespace();
+            parse_local_coordinate(parser);
+            parser.expect_inline_whitespace();
+            parse_local_coordinate(parser);
+        } else {
+            parser.start_node(SyntaxKind::WorldCoordinates);
+
+            if !try_parse_world_coordinate(parser) {
+                state.restore(parser);
+                return false;
+            }
+
+            parser.expect_inline_whitespace();
+            try_parse_world_coordinate(parser);
+            parser.expect_inline_whitespace();
+            try_parse_world_coordinate(parser);
         }
 
-        parser.expect_inline_whitespace();
-        try_parse_world_coordinate(parser);
-        parser.expect_inline_whitespace();
-        try_parse_world_coordinate(parser);
+        parser.finish_node();
+
+        true
     }
-
-    parser.finish_node();
-
-    true
 }
 
-#[must_use]
-pub fn lower_actual_coordinates(
-    node: CSTActualCoordinates,
-    ctx: &mut LowerContext,
-) -> Option<ParsedCoordinates> {
-    Some(match node {
-        CSTActualCoordinates::WorldCoordinates(node) => {
-            let mut coordinates = node.world_coordinates();
+impl LowerableAstNode for CSTActualCoordinates {
+    type Lowered = ParsedCoordinates;
 
-            let x = lower_world_coordinate(coordinates.next()?, ctx)?;
-            let y = lower_world_coordinate(coordinates.next()?, ctx)?;
-            let z = lower_world_coordinate(coordinates.next()?, ctx)?;
-
-            ParsedCoordinates::World(x, y, z)
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::WorldCoordinates(node) => node.lower(ctx),
+            Self::LocalCoordinates(node) => node.lower(ctx),
         }
-        CSTActualCoordinates::LocalCoordinates(node) => {
-            let mut coordinates = node
-                .local_coordinates()
-                .map(|coordinate| lower_local_coordinate(coordinate, ctx));
-
-            let x = coordinates.next().unwrap()?;
-            let y = coordinates.next().unwrap()?;
-            let z = coordinates.next().unwrap()?;
-
-            ParsedCoordinates::Local(x, y, z)
-        }
-    })
+    }
 }
 
-#[must_use]
-pub fn lower_coordinates(
-    node: CSTCoordinates,
-    ctx: &mut LowerContext,
-) -> Option<ParsedSupportsExpressionSigil<ParsedCoordinates>> {
-    match node {
-        CSTCoordinates::ActualCoordinates(node) => {
-            lower_actual_coordinates(node, ctx).map(ParsedSupportsExpressionSigil::Regular)
+impl LowerableAstNode for CSTCoordinates {
+    type Lowered = ParsedSupportsExpressionSigil<ParsedCoordinates>;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::ActualCoordinates(node) => {
+                node.lower(ctx).map(ParsedSupportsExpressionSigil::Regular)
+            }
+            Self::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
         }
-        CSTCoordinates::ExpressionSigil(node) => lower_expression_sigil(node, ctx),
     }
 }

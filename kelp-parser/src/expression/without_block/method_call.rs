@@ -3,7 +3,7 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTMethodCallExpression,
     expression::{lower_expression, without_block::call::lower_call_arguments},
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     path::generic::lower_generic_path_segment,
 };

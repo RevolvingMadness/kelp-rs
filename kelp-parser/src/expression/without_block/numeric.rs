@@ -5,7 +5,7 @@ use ordered_float::NotNan;
 
 use crate::{
     cst::CSTNumericExpression,
-    extension_traits::{AstNodeExt as _, SyntaxTokenExt as _},
+    extension_traits::{AstNodeExt, SyntaxTokenExt as _},
     lower_context::{LowerContext, LowerDataType, LowerError},
 };
 

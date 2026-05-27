@@ -1,8 +1,9 @@
-use kelp_core::parsed::expression::ParsedExpression;
+use kelp_core::parsed::coordinate::{ParsedCoordinates, ParsedLocalCoordinate};
 
 use crate::{
-    cst::CSTLocalCoordinate,
+    cst::{CSTLocalCoordinate, CSTLocalCoordinates},
     expression::{lower_expression, try_parse_expression},
+    extension_traits::LowerableAstNode,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -20,19 +21,34 @@ pub fn parse_local_coordinate(parser: &mut Parser) {
     parser.finish_node();
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_local_coordinate(
-    node: CSTLocalCoordinate,
-    ctx: &mut LowerContext,
-) -> Option<Option<ParsedExpression>> {
-    let result = node
-        .expression()
-        .map(|expression| lower_expression(expression, ctx));
+impl LowerableAstNode for CSTLocalCoordinate {
+    type Lowered = ParsedLocalCoordinate;
 
-    match result {
-        Some(Some(expression)) => Some(Some(expression)),
-        Some(None) => None,
-        None => Some(None),
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let result = self
+            .expression()
+            .map(|expression| lower_expression(expression, ctx));
+
+        match result {
+            Some(Some(expression)) => Some(Some(expression)),
+            Some(None) => None,
+            None => Some(None),
+        }
+    }
+}
+
+impl LowerableAstNode for CSTLocalCoordinates {
+    type Lowered = ParsedCoordinates;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let mut coordinates = self
+            .local_coordinates()
+            .map(|coordinate| coordinate.lower(ctx));
+
+        let x = coordinates.next().unwrap()?;
+        let y = coordinates.next().unwrap()?;
+        let z = coordinates.next().unwrap()?;
+
+        Some(ParsedCoordinates::Local(x, y, z))
     }
 }

@@ -5,7 +5,7 @@ use kelp_core::parsed::{
 
 use crate::{
     cst::CSTFunctionCommandExpression,
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},

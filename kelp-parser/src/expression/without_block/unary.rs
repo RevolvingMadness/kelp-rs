@@ -4,7 +4,7 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::CSTUnaryExpression, expression::lower_expression, extension_traits::AstNodeExt as _,
+    cst::CSTUnaryExpression, expression::lower_expression, extension_traits::AstNodeExt,
     lower_context::LowerContext, syntax::SyntaxKind,
 };
 

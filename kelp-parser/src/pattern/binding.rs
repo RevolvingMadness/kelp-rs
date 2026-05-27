@@ -1,7 +1,7 @@
 use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 
 use crate::{
-    cst::CSTBindingPattern, extension_traits::AstNodeExt as _, path::generic::lower_generic_path,
+    cst::CSTBindingPattern, extension_traits::AstNodeExt, path::generic::lower_generic_path,
 };
 
 #[must_use]

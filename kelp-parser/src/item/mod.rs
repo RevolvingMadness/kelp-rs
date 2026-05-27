@@ -6,7 +6,7 @@ use kelp_core::{
 use crate::{
     cst::{CSTItem, CSTItemKind},
     data_type::generics::lower_generic_names,
-    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     item::{
         function_declaration::{
             expect_function_declaration_item_kind, lower_function_declaration_item_kind,

@@ -5,7 +5,7 @@ use crate::{
     expression::with_block::{
         block::lower_block_expression, r#if::lower_if_expression, r#loop::lower_loop_expression,
     },
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
 };
 

@@ -6,7 +6,7 @@ use crate::{
         lower_expression, try_parse_expression,
         with_block::block::{lower_block_expression, try_parse_block_expression},
     },
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,

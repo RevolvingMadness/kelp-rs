@@ -7,7 +7,7 @@ use crate::{
     cst::CSTTellrawCommandExpression,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
     expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,

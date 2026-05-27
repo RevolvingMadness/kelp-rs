@@ -6,7 +6,7 @@ use kelp_core::{
 
 use crate::{
     cst::{CSTCompoundPattern, CSTCompoundPatternEntry},
-    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     lower_context::LowerContext,
     pattern::lower_pattern,
 };

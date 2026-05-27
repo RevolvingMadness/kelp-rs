@@ -2,7 +2,7 @@ use kelp_core::parsed::pattern::ParsedPattern;
 
 use crate::{
     cst::{CSTPattern, CSTRegularStructPatternFields},
-    extension_traits::{LowerableAstNode as _, ParsableAstNode},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::try_parse_generic_path,

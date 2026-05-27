@@ -6,7 +6,7 @@ use crate::{
         nbt_path::{lower_nbt_path, try_parse_nbt_path},
         target::{lower_data_target, try_parse_data_target},
     },
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,

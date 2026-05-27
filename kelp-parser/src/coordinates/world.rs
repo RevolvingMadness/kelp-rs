@@ -1,8 +1,9 @@
-use kelp_core::parsed::coordinate::ParsedWorldCoordinate;
+use kelp_core::parsed::coordinate::{ParsedCoordinates, ParsedWorldCoordinate};
 
 use crate::{
-    cst::CSTWorldCoordinate,
+    cst::{CSTWorldCoordinate, CSTWorldCoordinates},
     expression::{lower_expression, try_parse_expression},
+    extension_traits::LowerableAstNode,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -36,21 +37,34 @@ pub fn try_parse_world_coordinate(parser: &mut Parser) -> bool {
     parsed
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_world_coordinate(
-    node: CSTWorldCoordinate,
-    ctx: &mut LowerContext,
-) -> Option<ParsedWorldCoordinate> {
-    let is_relative = node.tilde_token().is_some() || node.caret_token().is_some();
+impl LowerableAstNode for CSTWorldCoordinate {
+    type Lowered = ParsedWorldCoordinate;
 
-    let value = node
-        .expression()
-        .and_then(|expression| lower_expression(expression, ctx));
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let is_relative = self.tilde_token().is_some() || self.caret_token().is_some();
 
-    if is_relative {
-        Some(ParsedWorldCoordinate::Relative(value))
-    } else {
-        value.map(ParsedWorldCoordinate::Absolute)
+        let value = self
+            .expression()
+            .and_then(|expression| lower_expression(expression, ctx));
+
+        if is_relative {
+            Some(ParsedWorldCoordinate::Relative(value))
+        } else {
+            value.map(ParsedWorldCoordinate::Absolute)
+        }
+    }
+}
+
+impl LowerableAstNode for CSTWorldCoordinates {
+    type Lowered = ParsedCoordinates;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let mut coordinates = self.world_coordinates();
+
+        let x = coordinates.next()?.lower(ctx)?;
+        let y = coordinates.next()?.lower(ctx)?;
+        let z = coordinates.next()?.lower(ctx)?;
+
+        Some(ParsedCoordinates::World(x, y, z))
     }
 }

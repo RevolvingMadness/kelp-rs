@@ -58,6 +58,8 @@ impl ParsedWorldCoordinate {
     }
 }
 
+pub type ParsedLocalCoordinate = Option<ParsedExpression>;
+
 #[derive(Debug, Clone)]
 pub enum ParsedCoordinates {
     World(
@@ -66,9 +68,9 @@ pub enum ParsedCoordinates {
         ParsedWorldCoordinate,
     ),
     Local(
-        Option<ParsedExpression>,
-        Option<ParsedExpression>,
-        Option<ParsedExpression>,
+        ParsedLocalCoordinate,
+        ParsedLocalCoordinate,
+        ParsedLocalCoordinate,
     ),
 }
 

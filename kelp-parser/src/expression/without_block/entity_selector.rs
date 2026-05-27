@@ -3,7 +3,7 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTEntitySelectorExpression,
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,

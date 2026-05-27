@@ -45,7 +45,7 @@ use crate::{
         item::SemanticItem,
     },
     span::Span,
-    trait_ext::CollectOptionAllIterExt as _,
+    trait_ext::CollectOptionAllIterExt,
     visibility::Visibility,
 };
 

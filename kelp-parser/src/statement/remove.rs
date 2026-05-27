@@ -3,7 +3,7 @@ use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 use crate::{
     cst::CSTRemoveStatement,
     expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     statement::expect_semicolon_ending,

@@ -7,7 +7,7 @@ use crate::{
         try_parse_expression_without_block, with_block::lower_expression_with_block,
         without_block::lower_expression_without_block,
     },
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     statement::{

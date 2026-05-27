@@ -8,7 +8,7 @@ use kelp_core::{
 use crate::{
     cst::{CSTStructExpression, CSTStructExpressionField, CSTStructExpressionFields},
     expression::{lower_expression, try_parse_expression},
-    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::lower_generic_path,

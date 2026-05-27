@@ -12,7 +12,7 @@ use crate::{
         CSTRegularStructPatternFields, CSTTupleStructPattern, CSTTupleStructPatternField,
         CSTTupleStructPatternFields,
     },
-    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,

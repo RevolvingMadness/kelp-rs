@@ -2,7 +2,7 @@ use kelp_core::path::regular::{Path, PathSegment};
 
 use crate::{
     cst::{CSTPath, CSTPathSegment},
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     parser::Parser,
     syntax::SyntaxKind,
 };

@@ -2,7 +2,7 @@ use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
     cst::CSTItemStatement,
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     item::{lower_item, try_parse_item},
     lower_context::LowerContext,
     parser::Parser,

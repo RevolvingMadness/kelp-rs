@@ -3,7 +3,7 @@ use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 use crate::{
     cst::CSTDataPattern,
     data::{lower_data, try_parse_data},
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,

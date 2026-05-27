@@ -6,7 +6,7 @@ use kelp_core::{
 use crate::{
     cst::{CSTGenericPath, CSTGenericPathSegment},
     data_type::generics::{lower_generic_data_types, try_parse_generic_data_types},
-    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     parser::Parser,
     syntax::SyntaxKind,
 };

@@ -15,7 +15,7 @@ use crate::{
         lower_data_type, try_parse_data_type,
     },
     expression::with_block::block::{lower_block_expression, try_parse_block_expression},
-    extension_traits::ParsableAstNode as _,
+    extension_traits::ParsableAstNode,
     extension_traits::{AstNodeExt, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,

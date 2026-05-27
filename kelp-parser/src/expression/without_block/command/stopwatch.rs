@@ -9,7 +9,7 @@ use crate::{
         CSTStopwatchCommandExpressionOptions, CSTStopwatchCommandExpressionQuery,
         CSTStopwatchCommandExpressionRemove, CSTStopwatchCommandExpressionRestart,
     },
-    extension_traits::AstNodeExt as _,
+    extension_traits::AstNodeExt,
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},

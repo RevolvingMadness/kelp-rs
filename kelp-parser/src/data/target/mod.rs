@@ -1,10 +1,9 @@
 use kelp_core::parsed::data::{ParsedDataTarget, ParsedDataTargetKind};
 
 use crate::{
-    coordinates::{lower_coordinates, try_parse_coordinates},
-    cst::CSTDataTarget,
+    cst::{CSTCoordinates, CSTDataTarget},
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
-    extension_traits::AstNodeExt as _,
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode as _},
     lower_context::LowerContext,
     parser::Parser,
     resource_location::{lower_resource_location, try_parse_resource_location},
@@ -35,7 +34,7 @@ pub fn try_parse_data_target(parser: &mut Parser) -> bool {
 
             parser.bump_identifier_kind(SyntaxKind::BlockKeyword, "block");
 
-            if !parser.expect_inline_whitespace() || !try_parse_coordinates(parser) {
+            if !parser.expect_inline_whitespace() || !CSTCoordinates::try_parse(parser) {
                 state.restore(parser);
 
                 return false;
@@ -72,7 +71,7 @@ pub fn lower_data_target(node: CSTDataTarget, ctx: &mut LowerContext) -> Option<
                 ParsedDataTargetKind::Entity(selector)
             }
             CSTDataTarget::BlockDataTarget(node) => {
-                let coordinates = lower_coordinates(node.coordinates()?, ctx)?;
+                let coordinates = node.coordinates()?.lower(ctx)?;
 
                 ParsedDataTargetKind::Block(Box::new(coordinates))
             }

@@ -1,7 +1,7 @@
 use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 
 use crate::{
-    cst::CSTTuplePattern, extension_traits::AstNodeExt as _, lower_context::LowerContext,
+    cst::CSTTuplePattern, extension_traits::AstNodeExt, lower_context::LowerContext,
     pattern::lower_pattern,
 };
 

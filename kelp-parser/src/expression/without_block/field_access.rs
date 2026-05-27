@@ -3,7 +3,7 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 use crate::{
     cst::CSTFieldAccessExpression,
     expression::lower_expression,
-    extension_traits::{AstNodeExt as _, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, SyntaxTokenExt},
     lower_context::LowerContext,
 };
 

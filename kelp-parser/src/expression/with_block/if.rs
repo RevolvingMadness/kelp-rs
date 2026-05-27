@@ -1,12 +1,9 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTIfExpression,
-    expression::{
-        lower_expression, try_parse_expression,
-        with_block::block::{lower_block_expression, try_parse_block_expression},
-    },
-    extension_traits::AstNodeExt,
+    cst::{CSTExpression, CSTIfExpression},
+    expression::with_block::block::{lower_block_expression, try_parse_block_expression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -19,7 +16,7 @@ pub fn try_parse_if_expression(parser: &mut Parser) -> bool {
     parser.bump_str(SyntaxKind::IfKeyword, "if");
     parser.skip_inline_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         state.restore(parser);
 
         return false;
@@ -64,7 +61,7 @@ pub fn lower_if_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let condition = lower_expression(node.condition()?, ctx)?;
+    let condition = node.condition()?.lower(ctx)?;
     let body = lower_block_expression(node.body()?, ctx)?;
     let else_body = node
         .else_body_block()

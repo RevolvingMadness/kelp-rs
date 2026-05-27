@@ -1,9 +1,8 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTReturnExpression,
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    cst::{CSTExpression, CSTReturnExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -15,7 +14,7 @@ pub fn try_parse_return_expression(parser: &mut Parser) -> bool {
 
     let state = parser.save_state();
 
-    if parser.try_skip_whitespace() && !try_parse_expression(parser) {
+    if parser.try_skip_whitespace() && !CSTExpression::try_parse(parser) {
         state.restore(parser);
     }
 
@@ -35,7 +34,7 @@ pub fn lower_return_expression(
     let (expression_span, expression) = match node.expression() {
         Some(expression) => {
             let span = expression.span();
-            let expr = lower_expression(expression, ctx)?;
+            let expr = expression.lower(ctx)?;
 
             (span, Some(expr))
         }

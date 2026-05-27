@@ -1,9 +1,8 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTListExpression,
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt,
+    cst::{CSTExpression, CSTListExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -40,7 +39,7 @@ pub fn try_parse_list_expression(parser: &mut Parser) -> bool {
             break;
         }
 
-        if !try_parse_expression(parser) {
+        if !CSTExpression::try_parse(parser) {
             parser.error("Expected expression");
             parser.bump_until_char(&[',', ']']);
         }
@@ -63,7 +62,7 @@ pub fn lower_list_expression(
 
     let expressions = node
         .expressions()
-        .filter_map(|expression| lower_expression(expression, ctx))
+        .filter_map(|expression| expression.lower(ctx))
         .collect();
 
     Some(ParsedExpressionKind::List(expressions).with_span(span))

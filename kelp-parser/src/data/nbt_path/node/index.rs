@@ -1,4 +1,6 @@
-use crate::{expression::try_parse_expression, parser::Parser, syntax::SyntaxKind};
+use crate::{
+    cst::CSTExpression, extension_traits::ParsableAstNode, parser::Parser, syntax::SyntaxKind,
+};
 
 pub fn try_parse_index_nbt_path_node(parser: &mut Parser) -> bool {
     if parser.peek_char() != Some('[') {
@@ -10,7 +12,7 @@ pub fn try_parse_index_nbt_path_node(parser: &mut Parser) -> bool {
     parser.skip_whitespace();
 
     if parser.peek_char() != Some(']') {
-        if !try_parse_expression(parser) {
+        if !CSTExpression::try_parse(parser) {
             parser.error("Expected index expression");
         }
 

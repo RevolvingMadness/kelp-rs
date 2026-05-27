@@ -2,8 +2,7 @@ use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
     cst::CSTFieldAccessExpression,
-    expression::lower_expression,
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, LowerableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
 };
 
@@ -13,7 +12,7 @@ pub fn lower_field_access_expression(
     node: CSTFieldAccessExpression,
     ctx: &mut LowerContext,
 ) -> Option<ParsedExpression> {
-    let expression = lower_expression(node.expression()?, ctx)?;
+    let expression = node.expression()?.lower(ctx)?;
     let field_token = node.field_name_token()?;
 
     let field_span = field_token.span();

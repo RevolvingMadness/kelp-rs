@@ -5,8 +5,7 @@ use kelp_core::{
 
 use crate::{
     cst::CSTAssignmentExpression,
-    expression::lower_expression,
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, LowerableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     syntax::SyntaxKind,
 };
@@ -19,8 +18,8 @@ pub fn lower_assignment_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let target = lower_expression(node.target()?, ctx)?;
-    let value = lower_expression(node.value()?, ctx)?;
+    let target = node.target()?.lower(ctx)?;
+    let value = node.value()?.lower(ctx)?;
     let operator = node.operator()?;
 
     let operator_span = operator.span();

@@ -3,10 +3,10 @@ use crate::{
     data::nbt_path::node::{
         index::try_parse_index_nbt_path_node, named::try_parse_named_nbt_path_node,
     },
-    expression::{
-        lower_expression,
-        without_block::compound::{lower_compound_expression_inner, try_parse_compound_expression},
+    expression::without_block::compound::{
+        lower_compound_expression_inner, try_parse_compound_expression,
     },
+    extension_traits::LowerableAstNode,
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -45,7 +45,7 @@ pub fn lower_nbt_path_node(node: CSTNBTPathNode, ctx: &mut LowerContext) -> Opti
 
             Some(NbtPathNode::Index(
                 index
-                    .and_then(|expression| lower_expression(expression, ctx))
+                    .and_then(|expression| expression.lower(ctx))
                     .map(Box::new),
             ))
         }

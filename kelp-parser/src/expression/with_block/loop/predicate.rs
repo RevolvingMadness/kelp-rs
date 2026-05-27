@@ -1,12 +1,9 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTPredicateLoopExpression,
-    expression::{
-        lower_expression, try_parse_expression,
-        with_block::block::{lower_block_expression, try_parse_block_expression},
-    },
-    extension_traits::AstNodeExt,
+    cst::{CSTExpression, CSTPredicateLoopExpression},
+    expression::with_block::block::{lower_block_expression, try_parse_block_expression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -20,7 +17,7 @@ pub fn try_parse_predicate_loop_expression(parser: &mut Parser) -> bool {
     parser.bump_str(SyntaxKind::WhileKeyword, "while");
     parser.skip_inline_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         state.restore(parser);
 
         return false;
@@ -45,7 +42,7 @@ pub fn lower_predicate_loop_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let condition = lower_expression(node.expression()?, ctx)?;
+    let condition = node.expression()?.lower(ctx)?;
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 
     Some(ParsedExpressionKind::WhileLoop(Box::new(condition), Box::new(body)).with_span(span))

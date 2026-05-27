@@ -1,9 +1,8 @@
 use kelp_core::parsed::coordinate::{ParsedCoordinates, ParsedLocalCoordinate};
 
 use crate::{
-    cst::{CSTLocalCoordinate, CSTLocalCoordinates},
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::LowerableAstNode,
+    cst::{CSTExpression, CSTLocalCoordinate, CSTLocalCoordinates},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -16,7 +15,7 @@ pub fn parse_local_coordinate(parser: &mut Parser) {
         parser.error("Expected '^'");
     }
 
-    try_parse_expression(parser);
+    CSTExpression::try_parse(parser);
 
     parser.finish_node();
 }
@@ -25,9 +24,7 @@ impl LowerableAstNode for CSTLocalCoordinate {
     type Lowered = ParsedLocalCoordinate;
 
     fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let result = self
-            .expression()
-            .map(|expression| lower_expression(expression, ctx));
+        let result = self.expression().map(|expression| expression.lower(ctx));
 
         match result {
             Some(Some(expression)) => Some(Some(expression)),

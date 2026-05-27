@@ -5,8 +5,7 @@ use kelp_core::{
 
 use crate::{
     cst::CSTToCastExpression,
-    expression::lower_expression,
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    extension_traits::{AstNodeExt, LowerableAstNode, SyntaxTokenExt},
     lower_context::{LowerContext, LowerError},
 };
 
@@ -18,7 +17,7 @@ pub fn lower_to_cast_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let expression = lower_expression(node.expression()?, ctx)?;
+    let expression = node.expression()?.lower(ctx)?;
     let runtime_storage_type_token = node.runtime_storage_type_token()?;
     let runtime_storage_type = match runtime_storage_type_token.text() {
         "data" => RuntimeStorageType::Data,

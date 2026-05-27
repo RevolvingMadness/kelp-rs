@@ -6,9 +6,10 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::{CSTStructExpression, CSTStructExpressionField, CSTStructExpressionFields},
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::{AstNodeExt, SyntaxTokenExt},
+    cst::{
+        CSTExpression, CSTStructExpression, CSTStructExpressionField, CSTStructExpressionFields,
+    },
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::lower_generic_path,
@@ -25,7 +26,7 @@ fn lower_struct_expression_field(
     let name_span = name_token.span();
     let name = name_token.text();
 
-    let expression = lower_expression(node.expression()?, ctx)?;
+    let expression = node.expression()?.lower(ctx)?;
 
     Some(((name_span, name.to_owned()), expression))
 }
@@ -48,7 +49,7 @@ fn try_parse_struct_expression_field(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_expression(parser) && parsed_colon {
+    if !CSTExpression::try_parse(parser) && parsed_colon {
         parser.error("Expected expression");
     }
 

@@ -1,9 +1,8 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::CSTAppendStatement,
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt,
+    cst::{CSTAppendStatement, CSTExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     statement::expect_semicolon_ending,
@@ -20,7 +19,7 @@ pub fn try_parse_append_statement(parser: &mut Parser) -> bool {
 
     parser.skip_inline_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         state.restore(parser);
 
         return false;
@@ -28,7 +27,7 @@ pub fn try_parse_append_statement(parser: &mut Parser) -> bool {
 
     parser.skip_inline_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         parser.error("Expected expression");
     }
 
@@ -47,8 +46,8 @@ pub fn lower_append_statement(
 ) -> Option<ParsedStatement> {
     let span = node.span();
 
-    let target = lower_expression(node.target()?, ctx)?;
-    let value = lower_expression(node.value()?, ctx)?;
+    let target = node.target()?.lower(ctx)?;
+    let value = node.value()?.lower(ctx)?;
 
     Some(ParsedStatementKind::Append(target, Box::new(value)).with_span(span))
 }

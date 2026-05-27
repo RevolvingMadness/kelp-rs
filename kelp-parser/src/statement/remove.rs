@@ -1,9 +1,8 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::CSTRemoveStatement,
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt,
+    cst::{CSTExpression, CSTRemoveStatement},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     statement::expect_semicolon_ending,
@@ -20,7 +19,7 @@ pub fn try_parse_remove_statement(parser: &mut Parser) -> bool {
 
     parser.skip_inline_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         state.restore(parser);
 
         return false;
@@ -41,7 +40,7 @@ pub fn lower_remove_statement(
 ) -> Option<ParsedStatement> {
     let span = node.span();
 
-    let target = lower_expression(node.target()?, ctx)?;
+    let target = node.target()?.lower(ctx)?;
 
     Some(ParsedStatementKind::Remove(target).with_span(span))
 }

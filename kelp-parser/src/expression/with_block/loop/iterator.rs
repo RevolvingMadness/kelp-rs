@@ -1,13 +1,9 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::{CSTIteratorLoopExpression, CSTPattern},
-    expression::{
-        lower_expression, try_parse_expression,
-        with_block::block::{lower_block_expression, try_parse_block_expression},
-    },
-    extension_traits::AstNodeExt,
-    extension_traits::ParsableAstNode,
+    cst::{CSTExpression, CSTIteratorLoopExpression, CSTPattern},
+    expression::with_block::block::{lower_block_expression, try_parse_block_expression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     pattern::lower_pattern,
@@ -36,7 +32,7 @@ pub fn try_parse_iterator_loop_expression(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         parser.error("Expected expression");
     }
 
@@ -61,7 +57,7 @@ pub fn lower_iterator_loop_expression(
 
     let pattern = lower_pattern(node.pattern()?, ctx)?;
 
-    let expression = lower_expression(node.expression()?, ctx)?;
+    let expression = node.expression()?.lower(ctx)?;
 
     let body = lower_block_expression(node.block_expression()?, ctx)?;
 

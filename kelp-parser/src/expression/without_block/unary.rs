@@ -4,8 +4,10 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::CSTUnaryExpression, expression::lower_expression, extension_traits::AstNodeExt,
-    lower_context::LowerContext, syntax::SyntaxKind,
+    cst::CSTUnaryExpression,
+    extension_traits::{AstNodeExt, LowerableAstNode},
+    lower_context::LowerContext,
+    syntax::SyntaxKind,
 };
 
 #[must_use]
@@ -24,7 +26,7 @@ pub fn lower_unary_expression(
         _ => return None,
     };
 
-    let operand = lower_expression(node.expression()?, ctx)?;
+    let operand = node.expression()?.lower(ctx)?;
 
     Some(ParsedExpressionKind::Unary(operator, Box::new(operand)).with_span(span))
 }

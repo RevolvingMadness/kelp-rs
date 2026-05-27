@@ -1,7 +1,8 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTTupleExpression, expression::lower_expression, extension_traits::AstNodeExt,
+    cst::CSTTupleExpression,
+    extension_traits::{AstNodeExt, LowerableAstNode},
     lower_context::LowerContext,
 };
 
@@ -15,7 +16,7 @@ pub fn lower_tuple_expression(
 
     let expressions = node
         .expressions()
-        .filter_map(|expression| lower_expression(expression, ctx))
+        .filter_map(|expression| expression.lower(ctx))
         .collect();
 
     Some(ParsedExpressionKind::Tuple(expressions).with_span(span))

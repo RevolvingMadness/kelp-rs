@@ -1,9 +1,8 @@
 use kelp_core::parsed::coordinate::{ParsedCoordinates, ParsedWorldCoordinate};
 
 use crate::{
-    cst::{CSTWorldCoordinate, CSTWorldCoordinates},
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::LowerableAstNode,
+    cst::{CSTExpression, CSTWorldCoordinate, CSTWorldCoordinates},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -28,7 +27,7 @@ pub fn try_parse_world_coordinate(parser: &mut Parser) -> bool {
         _ => {}
     }
 
-    if try_parse_expression(parser) {
+    if CSTExpression::try_parse(parser) {
         parsed = true;
     }
 
@@ -45,7 +44,7 @@ impl LowerableAstNode for CSTWorldCoordinate {
 
         let value = self
             .expression()
-            .and_then(|expression| lower_expression(expression, ctx));
+            .and_then(|expression| expression.lower(ctx));
 
         if is_relative {
             Some(ParsedWorldCoordinate::Relative(value))

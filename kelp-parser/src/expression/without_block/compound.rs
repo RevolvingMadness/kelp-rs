@@ -6,9 +6,8 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::CSTCompoundExpression,
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt,
+    cst::{CSTCompoundExpression, CSTExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -52,7 +51,7 @@ pub fn try_parse_compound_expression(parser: &mut Parser) -> bool {
 
         parser.skip_whitespace();
 
-        if !try_parse_expression(parser) {
+        if !CSTExpression::try_parse(parser) {
             parser.error("Expected expression");
 
             bump_until_next_compound_entry_or_end(parser);
@@ -114,7 +113,7 @@ pub fn lower_compound_expression_inner(
         let Some(value) = entry.value() else {
             continue;
         };
-        let Some(value) = lower_expression(value, ctx) else {
+        let Some(value) = value.lower(ctx) else {
             continue;
         };
 

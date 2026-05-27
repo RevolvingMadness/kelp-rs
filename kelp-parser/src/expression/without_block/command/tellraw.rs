@@ -4,10 +4,9 @@ use kelp_core::parsed::{
 };
 
 use crate::{
-    cst::CSTTellrawCommandExpression,
+    cst::{CSTExpression, CSTTellrawCommandExpression},
     entity_selector::{lower_entity_selector, try_parse_entity_selector},
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt,
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -27,7 +26,7 @@ pub fn try_parse_tellraw_command_expression(parser: &mut Parser) -> bool {
 
     let parsed_whitespace = parser.expect_inline_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         if parsed_whitespace {
             parser.recover_not_whitespace("Expected expression");
         } else {
@@ -49,7 +48,7 @@ pub fn lower_tellraw_command_expression(
     let span = node.span();
 
     let selector = lower_entity_selector(node.entity_selector()?, ctx)?;
-    let value = lower_expression(node.expression()?, ctx)?;
+    let value = node.expression()?.lower(ctx)?;
 
     Some(
         ParsedExpressionKind::Command(Box::new(ParsedCommand::Tellraw(selector, value)))

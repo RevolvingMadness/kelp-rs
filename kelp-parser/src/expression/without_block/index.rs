@@ -1,7 +1,8 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::CSTIndexExpression, expression::lower_expression, extension_traits::AstNodeExt,
+    cst::CSTIndexExpression,
+    extension_traits::{AstNodeExt, LowerableAstNode},
     lower_context::LowerContext,
 };
 
@@ -15,8 +16,8 @@ pub fn lower_index_expression(
 
     let mut expressions = node.expressions();
 
-    let expression = lower_expression(expressions.next()?, ctx)?;
-    let index = lower_expression(expressions.next()?, ctx)?;
+    let expression = expressions.next()?.lower(ctx)?;
+    let index = expressions.next()?.lower(ctx)?;
 
     Some(ParsedExpressionKind::Index(Box::new(expression), Box::new(index)).with_span(span))
 }

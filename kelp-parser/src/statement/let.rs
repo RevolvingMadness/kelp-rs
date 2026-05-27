@@ -1,11 +1,9 @@
 use kelp_core::parsed::statement::{ParsedStatement, ParsedStatementKind};
 
 use crate::{
-    cst::{CSTLetStatement, CSTPattern},
+    cst::{CSTExpression, CSTLetStatement, CSTPattern},
     data_type::{lower_data_type, try_parse_data_type},
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt,
-    extension_traits::ParsableAstNode,
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     pattern::lower_pattern,
@@ -45,7 +43,7 @@ pub fn try_parse_let_statement(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_expression(parser) && parsed_equals {
+    if !CSTExpression::try_parse(parser) && parsed_equals {
         parser.recover_not_whitespace("Expected expression");
     }
 
@@ -68,7 +66,7 @@ pub fn lower_let_statement(
 
     let data_type = node.data_type().and_then(lower_data_type);
 
-    let value = lower_expression(node.expression()?, ctx)?;
+    let value = node.expression()?.lower(ctx)?;
 
     Some(ParsedStatementKind::Let(data_type, pattern, value).with_span(span))
 }

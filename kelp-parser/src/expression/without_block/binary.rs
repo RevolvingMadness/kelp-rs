@@ -4,8 +4,10 @@ use kelp_core::{
 };
 
 use crate::{
-    cst::CSTBinaryExpression, expression::lower_expression, extension_traits::AstNodeExt,
-    lower_context::LowerContext, syntax::SyntaxKind,
+    cst::CSTBinaryExpression,
+    extension_traits::{AstNodeExt, LowerableAstNode},
+    lower_context::LowerContext,
+    syntax::SyntaxKind,
 };
 
 #[must_use]
@@ -16,8 +18,8 @@ pub fn lower_binary_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let left = lower_expression(node.lhs()?, ctx)?;
-    let right = lower_expression(node.rhs()?, ctx)?;
+    let left = node.lhs()?.lower(ctx)?;
+    let right = node.rhs()?.lower(ctx)?;
     let operator = node.operator()?;
 
     Some(

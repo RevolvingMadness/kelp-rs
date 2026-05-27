@@ -1,9 +1,8 @@
 use kelp_core::parsed::expression::{ParsedExpression, ParsedExpressionKind};
 
 use crate::{
-    cst::{CSTCallArguments, CSTCallExpression},
-    expression::{lower_expression, try_parse_expression},
-    extension_traits::AstNodeExt,
+    cst::{CSTCallArguments, CSTCallExpression, CSTExpression},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -13,7 +12,7 @@ pub fn try_parse_call_arguments(parser: &mut Parser) {
     parser.start_node(SyntaxKind::CallArguments);
 
     loop {
-        if !try_parse_expression(parser) {
+        if !CSTExpression::try_parse(parser) {
             break;
         }
 
@@ -42,7 +41,7 @@ pub fn lower_call_arguments(
     ctx: &mut LowerContext,
 ) -> Vec<ParsedExpression> {
     node.expressions()
-        .filter_map(|expression| lower_expression(expression, ctx))
+        .filter_map(|expression| expression.lower(ctx))
         .collect()
 }
 
@@ -54,7 +53,7 @@ pub fn lower_call_expression(
 ) -> Option<ParsedExpression> {
     let span = node.span();
 
-    let callee = lower_expression(node.callee()?, ctx)?;
+    let callee = node.callee()?.lower(ctx)?;
 
     let arguments = node
         .call_arguments()

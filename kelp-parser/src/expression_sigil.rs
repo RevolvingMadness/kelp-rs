@@ -1,8 +1,8 @@
 use kelp_core::{parsed::supports_expression_sigil::ParsedSupportsExpressionSigil, span::Span};
 
 use crate::{
-    cst::CSTExpressionSigil,
-    expression::{lower_expression, try_parse_expression},
+    cst::{CSTExpression, CSTExpressionSigil},
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::{LowerContext, LowerError},
     parser::Parser,
     syntax::SyntaxKind,
@@ -19,7 +19,7 @@ pub fn try_parse_expression_sigil(parser: &mut Parser) -> bool {
 
     parser.skip_whitespace();
 
-    if !try_parse_expression(parser) {
+    if !CSTExpression::try_parse(parser) {
         parser.error("Expected expression");
     }
 
@@ -34,7 +34,7 @@ pub fn lower_expression_sigil<T>(
     node: CSTExpressionSigil,
     ctx: &mut LowerContext,
 ) -> Option<ParsedSupportsExpressionSigil<T>> {
-    let expression = lower_expression(node.expression()?, ctx)?;
+    let expression = node.expression()?.lower(ctx)?;
 
     Some(ParsedSupportsExpressionSigil::Sigil(expression))
 }

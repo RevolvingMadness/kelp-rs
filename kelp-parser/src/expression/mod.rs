@@ -24,6 +24,7 @@ use crate::{
             r#struct::try_parse_struct_expression_fields,
         },
     },
+    extension_traits::{LowerableAstNode, ParsableAstNode},
     lower_context::LowerContext,
     parser::Parser,
     path::generic::{try_parse_generic_path, try_parse_generic_path_segment},
@@ -38,15 +39,17 @@ pub fn is_expression_recovery(char: char) -> bool {
     char.is_alphanumeric() || char == '('
 }
 
-pub fn try_parse_expression(parser: &mut Parser) -> bool {
-    try_parse_expression_with_block(parser) || try_parse_expression_without_block(parser)
+impl ParsableAstNode for CSTExpression {
+    fn try_parse(parser: &mut Parser) -> bool {
+        try_parse_expression_with_block(parser) || try_parse_expression_without_block(parser)
+    }
 }
 
 pub fn try_parse_expression_without_block(parser: &mut Parser) -> bool {
     try_parse_assignment(parser)
 }
 
-pub fn try_parse_assignment(parser: &mut Parser) -> bool {
+fn try_parse_assignment(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_to_cast(parser) {
         return false;
@@ -95,7 +98,7 @@ pub fn try_parse_assignment(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
+fn try_parse_to_cast(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
 
     if !try_parse_logical_or(parser) {
@@ -135,7 +138,7 @@ pub fn try_parse_to_cast(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_logical_or(parser: &mut Parser) -> bool {
+fn try_parse_logical_or(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
 
     if !try_parse_logical_and(parser) {
@@ -160,7 +163,7 @@ pub fn try_parse_logical_or(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_logical_and(parser: &mut Parser) -> bool {
+fn try_parse_logical_and(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_bitwise_or(parser) {
         return false;
@@ -184,7 +187,7 @@ pub fn try_parse_logical_and(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
+fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_bitwise_and(parser) {
         return false;
@@ -211,7 +214,7 @@ pub fn try_parse_bitwise_or(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
+fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_equality(parser) {
         return false;
@@ -238,7 +241,7 @@ pub fn try_parse_bitwise_and(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_equality(parser: &mut Parser) -> bool {
+fn try_parse_equality(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_comparison(parser) {
         return false;
@@ -268,7 +271,7 @@ pub fn try_parse_equality(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_comparison(parser: &mut Parser) -> bool {
+fn try_parse_comparison(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_shift(parser) {
         return false;
@@ -302,7 +305,7 @@ pub fn try_parse_comparison(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_shift(parser: &mut Parser) -> bool {
+fn try_parse_shift(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_term(parser) {
         return false;
@@ -340,7 +343,7 @@ pub fn try_parse_shift(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_term(parser: &mut Parser) -> bool {
+fn try_parse_term(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_factor(parser) {
         return false;
@@ -369,7 +372,7 @@ pub fn try_parse_term(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_factor(parser: &mut Parser) -> bool {
+fn try_parse_factor(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
 
     if !try_parse_unary(parser) {
@@ -399,7 +402,7 @@ pub fn try_parse_factor(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_unary(parser: &mut Parser) -> bool {
+fn try_parse_unary(parser: &mut Parser) -> bool {
     if matches!(parser.peek_char(), Some('!' | '-' | '*' | '&')) {
         parser.start_node(SyntaxKind::UnaryExpression);
         parser.bump_char();
@@ -413,7 +416,7 @@ pub fn try_parse_unary(parser: &mut Parser) -> bool {
     try_parse_postfix(parser)
 }
 
-pub fn try_parse_postfix(parser: &mut Parser) -> bool {
+fn try_parse_postfix(parser: &mut Parser) -> bool {
     let checkpoint = parser.mark();
     if !try_parse_primary(parser) {
         return false;
@@ -428,7 +431,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
                 checkpoint.start_node(parser, SyntaxKind::IndexExpression);
                 parser.bump_char();
                 parser.skip_whitespace();
-                if !try_parse_expression(parser) {
+                if !CSTExpression::try_parse(parser) {
                     parser.recover_not_whitespace("Expected index expression");
                 }
                 parser.skip_whitespace();
@@ -516,7 +519,7 @@ pub fn try_parse_postfix(parser: &mut Parser) -> bool {
     true
 }
 
-pub fn try_parse_primary(parser: &mut Parser) -> bool {
+fn try_parse_primary(parser: &mut Parser) -> bool {
     if try_parse_expression_with_block(parser) {
         return true;
     }
@@ -535,7 +538,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                 return true;
             }
 
-            if !try_parse_expression(parser) {
+            if !CSTExpression::try_parse(parser) {
                 parser.error("Expected expression");
             }
 
@@ -552,7 +555,7 @@ pub fn try_parse_primary(parser: &mut Parser) -> bool {
                         break;
                     }
 
-                    if !try_parse_expression(parser) {
+                    if !CSTExpression::try_parse(parser) {
                         parser.error("Expected expression after ','");
                     }
                     parser.skip_whitespace();
@@ -761,11 +764,13 @@ pub fn try_parse_expression_with_block(parser: &mut Parser) -> bool {
     }
 }
 
-#[must_use]
-#[allow(clippy::needless_pass_by_value)]
-pub fn lower_expression(node: CSTExpression, ctx: &mut LowerContext) -> Option<ParsedExpression> {
-    match node {
-        CSTExpression::ExpressionWithBlock(node) => lower_expression_with_block(node, ctx),
-        CSTExpression::ExpressionWithoutBlock(node) => lower_expression_without_block(node, ctx),
+impl LowerableAstNode for CSTExpression {
+    type Lowered = ParsedExpression;
+
+    fn lower(self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        match self {
+            Self::ExpressionWithBlock(node) => lower_expression_with_block(node, ctx),
+            Self::ExpressionWithoutBlock(node) => lower_expression_without_block(node, ctx),
+        }
     }
 }

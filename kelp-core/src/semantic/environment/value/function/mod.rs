@@ -2,6 +2,7 @@ pub mod builtin;
 pub mod regular;
 
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::HighGenericId;
 use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::value::function::{
     builtin::SemanticBuiltinFunctionDeclaration, regular::SemanticRegularFunctionDeclaration,
@@ -32,6 +33,14 @@ impl SemanticFunctionDeclaration {
         match self {
             Self::Regular(declaration) => &declaration.name,
             Self::Builtin(declaration) => &declaration.name,
+        }
+    }
+
+    #[must_use]
+    pub fn generic_ids(&self) -> &[HighGenericId] {
+        match self {
+            Self::Regular(declaration) => &declaration.generic_ids,
+            Self::Builtin(declaration) => &declaration.generic_ids,
         }
     }
 

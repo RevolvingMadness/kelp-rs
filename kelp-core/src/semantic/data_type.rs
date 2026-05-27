@@ -600,29 +600,41 @@ impl SemanticDataType {
         segment: &GenericPathSegment<Self>,
     ) -> Option<MethodInfo> {
         Some(match self {
-            Self::Struct(id, generic_types) => {
+            Self::Struct(id, self_generic_types) => {
                 let implementations = environment.implementations.get(&(*id).into())?;
 
-                let implementation = implementations
-                    .iter()
-                    .find(|implementation| implementation.target_type == *self)?;
+                let implementation = implementations.iter().find(|implementation| {
+                    if let Self::Struct(impl_id, _) = &implementation.target_type {
+                        impl_id == id
+                    } else {
+                        false
+                    }
+                })?;
 
-                let id = implementation.values.get(&segment.name).copied()?;
+                let method_id = implementation.values.get(&segment.name).copied()?;
 
                 let SemanticValueDeclaration {
                     kind: SemanticValueDeclarationKind::Function(declaration),
                     ..
-                } = environment.get_value(id)
+                } = environment.get_value(method_id)
                 else {
                     return None;
                 };
 
-                let id = HighFunctionId(id.0);
+                let method_id = HighFunctionId(method_id.0);
+
+                let mut all_generic_types = self_generic_types.clone();
+                all_generic_types.extend(segment.generic_types.iter().cloned());
+
+                let return_type = declaration
+                    .return_type()
+                    .clone()
+                    .substitute_generics(declaration.generic_ids(), &all_generic_types);
 
                 MethodInfo {
-                    id,
-                    generic_types: generic_types.clone(),
-                    return_type: declaration.return_type().clone(),
+                    id: method_id,
+                    generic_types: all_generic_types,
+                    return_type,
                 }
             }
             _ => return None,

@@ -635,13 +635,14 @@ impl ParsedExpression {
                 arguments,
             } => {
                 let receiver = receiver.perform_semantic_analysis(ctx);
+                let callee_span = callee.name_span;
                 let callee = callee.perform_semantic_analysis(ctx);
                 let arguments = arguments
                     .into_iter()
                     .map(|expression| expression.perform_semantic_analysis(ctx))
                     .collect_option_all::<Vec<_>>();
 
-                let (_, receiver) = receiver?;
+                let (receiver_span, receiver) = receiver?;
                 let arguments = arguments?;
 
                 let Some(method_info) = receiver
@@ -649,7 +650,7 @@ impl ParsedExpression {
                     .get_method(&ctx.semantic_environment, &callee)
                 else {
                     return ctx.add_error(
-                        callee.name_span,
+                        callee_span,
                         SemanticAnalysisError::MethodNotFound {
                             type_name: receiver.data_type,
                             method_name: callee.name,
@@ -666,15 +667,77 @@ impl ParsedExpression {
                     method_info.generic_types,
                 ));
 
-                let mut arguments = arguments
-                    .into_iter()
-                    .map(|(_, argument)| argument)
-                    .collect::<Vec<_>>();
+                let Some(call_info) = callee.data_type.get_call_info(&ctx.semantic_environment)?
+                else {
+                    return ctx
+                        .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
+                };
 
-                arguments.insert(0, receiver);
+                let mut parameter_types = call_info.parameter_types;
 
-                SemanticExpressionKind::Call(Box::new(callee), arguments)
-                    .with(method_info.return_type)
+                let parameter_count = parameter_types.len();
+                let argument_count = arguments.len() + 1;
+
+                if argument_count != parameter_count {
+                    return ctx.add_error(
+                        callee_span,
+                        SemanticAnalysisError::MismatchedParameterCount {
+                            function_name: call_info.name,
+                            expected: parameter_count,
+                            actual: argument_count,
+                        },
+                    );
+                }
+
+                let mut failed = false;
+                let mut new_arguments = Vec::with_capacity(argument_count);
+
+                let receiver_param_type = parameter_types.remove(0);
+                if receiver.data_type.equals(&receiver_param_type) {
+                    new_arguments.push(receiver);
+                } else {
+                    ctx.add_error_unit(
+                        receiver_span,
+                        SemanticAnalysisError::MismatchedTypes {
+                            expected: receiver_param_type,
+                            actual: receiver.data_type,
+                        },
+                    );
+                    failed = true;
+                }
+
+                for (data_type, (argument_span, argument)) in
+                    parameter_types.into_iter().zip(arguments)
+                {
+                    if argument.data_type.equals(&data_type) {
+                        if !failed {
+                            new_arguments.push(argument);
+                        }
+                    } else {
+                        ctx.add_error_unit(
+                            argument_span,
+                            SemanticAnalysisError::MismatchedTypes {
+                                expected: data_type,
+                                actual: argument.data_type,
+                            },
+                        );
+                        failed = true;
+                    }
+                }
+
+                if failed {
+                    return None;
+                }
+
+                if let Some(id) = call_info.id
+                    && let FunctionContext::Regular { calls, .. } =
+                        ctx.function_contexts.last_mut().unwrap()
+                {
+                    calls.insert((callee_span, id));
+                }
+
+                SemanticExpressionKind::Call(Box::new(callee), new_arguments)
+                    .with(call_info.return_type)
             }
             ParsedExpressionKind::FieldAccess(expression, field_span, field) => {
                 let (_, expression) = expression.perform_semantic_analysis(ctx)?;

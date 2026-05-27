@@ -97,14 +97,14 @@ impl ParsedItem {
     pub fn resolve_names(self, ctx: &mut SemanticAnalysisContext) -> Option<NamedItem> {
         let kind = match self.kind {
             ParsedItemKind::InherentImplementationItem {
-                generic_names,
+                generic_names: impl_generic_names,
                 target_type_span,
                 target_type,
                 associated_items,
             } => {
                 ctx.enter_scope();
 
-                let generic_ids = generic_names
+                let impl_generic_ids = impl_generic_names
                     .iter()
                     .cloned()
                     .map(|generic_name| {
@@ -130,7 +130,22 @@ impl ParsedItem {
 
                 let associated_items = associated_items
                     .into_iter()
-                    .map(|item| item.resolve_names(ctx))
+                    .map(|item| {
+                        let mut item = item.resolve_names(ctx)?;
+
+                        if let NamedItemKind::FunctionDeclaration {
+                            generic_names: ref mut fn_generic_names,
+                            generic_ids: ref mut fn_generic_ids,
+                            ..
+                        } = item.kind
+                        {
+                            fn_generic_names.splice(0..0, impl_generic_names.iter().cloned());
+
+                            fn_generic_ids.splice(0..0, impl_generic_ids.iter().copied());
+                        }
+
+                        Some(item)
+                    })
                     .collect_option_all::<Vec<_>>();
 
                 let associated_items_scope = ctx.exit_scope();
@@ -140,12 +155,12 @@ impl ParsedItem {
                 let associated_items = associated_items?;
 
                 NamedItemKind::InherentImplementationItem {
-                    generic_names,
+                    generic_names: impl_generic_names,
                     target_type_span,
                     target_type,
                     associated_items,
                     self_type_id,
-                    generic_ids,
+                    generic_ids: impl_generic_ids,
                     associated_items_scope,
                 }
             }

@@ -603,8 +603,10 @@ impl SemanticDataType {
             return Err(());
         }
 
+        let (_, base_type) = self.unwrap();
+
         Ok((|| {
-            Some(match self {
+            Some(match base_type {
                 Self::Struct(id, self_generic_types) => {
                     let implementations = environment.implementations.get(&(*id).into())?;
 
@@ -1110,9 +1112,9 @@ impl SemanticDataType {
             Self::Boolean => Self::Boolean,
             Self::Byte => Self::Byte,
             Self::Short => Self::Short,
-            Self::Integer => Self::Integer,
+            Self::InferredInteger | Self::Integer => Self::Integer,
             Self::Long => Self::Long,
-            Self::Float => Self::Float,
+            Self::InferredFloat | Self::Float => Self::Float,
             Self::Double => Self::Double,
             Self::String => Self::String,
             Self::Unit => Self::Unit,
@@ -1157,41 +1159,32 @@ impl SemanticDataType {
             Self::Struct(id, generic_types) => {
                 let (_, _, declaration) = resolved_environment.get_struct(*id);
 
+                let generic_types = generic_types
+                    .iter()
+                    .map(|data_type| data_type.get_data_type(resolved_environment))
+                    .collect::<Option<Vec<_>>>()?;
+
                 match declaration {
                     SemanticStructDeclaration::Struct(declaration) => {
-                        let compound = declaration
-                            .field_types
-                            .iter()
-                            .map(|(key, data_type)| {
-                                let data_type = data_type
-                                    .clone()
-                                    .substitute_generics(&declaration.generic_ids, generic_types)
-                                    .get_data_type(resolved_environment)?;
-
-                                Some((key.clone(), data_type))
-                            })
-                            .collect::<Option<_>>()?;
-
-                        Self::TypedCompound(compound)
+                        for data_type in declaration.field_types.values() {
+                            data_type
+                                .clone()
+                                .substitute_generics(&declaration.generic_ids, &generic_types)
+                                .get_data_type(resolved_environment)?;
+                        }
                     }
                     SemanticStructDeclaration::Tuple(declaration) => {
-                        let data_types = declaration
-                            .field_types
-                            .iter()
-                            .map(|data_type| {
-                                data_type
-                                    .clone()
-                                    .substitute_generics(&declaration.generic_ids, generic_types)
-                                    .get_data_type(resolved_environment)
-                            })
-                            .collect::<Option<_>>()?;
-
-                        Self::Tuple(data_types)
+                        for data_type in &declaration.field_types {
+                            data_type
+                                .clone()
+                                .substitute_generics(&declaration.generic_ids, &generic_types)
+                                .get_data_type(resolved_environment)?;
+                        }
                     }
                 }
+
+                Self::Struct(*id, generic_types)
             }
-            Self::InferredInteger => Self::Integer,
-            Self::InferredFloat => Self::Float,
             _ => return None,
         })
     }

@@ -123,6 +123,7 @@ pub struct SemanticAnalysisContext {
     pub environment: Environment,
     pub parsed_environment: ParsedEnvironment,
     pub semantic_environment: SemanticEnvironment,
+    pub is_in_impl: u32,
     pub impl_generic_ids_and_names: Vec<(Vec<HighGenericId>, Vec<String>)>,
 }
 
@@ -139,6 +140,7 @@ impl SemanticAnalysisContext {
             loop_depth: 0,
             current_module_path: Vec::new(),
             function_contexts: SmallVec::new(),
+            is_in_impl: 0,
             impl_generic_ids_and_names: Vec::new(),
         };
 
@@ -168,7 +170,7 @@ impl SemanticAnalysisContext {
         self.scopes.push(Scope::default());
     }
 
-    pub fn enter_implementation(
+    pub fn enter_parsed_implementation(
         &mut self,
         generic_ids: Vec<HighGenericId>,
         generic_names: Vec<String>,
@@ -180,12 +182,27 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn exit_implementation(&mut self) -> (Vec<HighGenericId>, Vec<String>, Scope) {
+    pub fn exit_parsed_implementation(&mut self) -> (Vec<HighGenericId>, Vec<String>, Scope) {
         let scope = self.exit_scope();
 
         let (generic_ids, generic_names) = self.impl_generic_ids_and_names.pop().unwrap();
 
         (generic_ids, generic_names, scope)
+    }
+
+    pub fn enter_semantic_implementation(&mut self, scope: Scope) {
+        self.push_scope(scope);
+
+        self.is_in_impl += 1;
+    }
+
+    #[must_use]
+    pub fn exit_semantic_implementation(&mut self) -> Scope {
+        let scope = self.exit_scope();
+
+        self.is_in_impl -= 1;
+
+        scope
     }
 
     #[inline]
@@ -230,17 +247,17 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn add_invalid_generics<T>(
+    pub fn add_invalid_generics<T, N: Into<String>>(
         &mut self,
         span: Span,
-        type_name: &str,
+        type_name: N,
         expected: usize,
         actual: usize,
     ) -> Option<T> {
         self.add_error(
             span,
             SemanticAnalysisError::InvalidGenerics {
-                type_name: type_name.to_owned(),
+                type_name: type_name.into(),
                 expected,
                 actual,
             },
@@ -248,14 +265,14 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn add_invalid_generics_type(
+    pub fn add_invalid_generics_type<N: Into<String>>(
         &mut self,
         span: Span,
-        type_name: &str,
+        type_name: N,
         expected: usize,
         actual: usize,
     ) -> SemanticDataType {
-        self.add_invalid_generics::<()>(span, type_name, expected, actual);
+        self.add_invalid_generics::<(), _>(span, type_name, expected, actual);
 
         SemanticDataType::Error
     }

@@ -142,7 +142,7 @@ impl ParsedItem {
                     }),
                 );
 
-                ctx.enter_implementation(impl_generic_ids, impl_generic_names);
+                ctx.enter_parsed_implementation(impl_generic_ids, impl_generic_names);
 
                 let associated_items = associated_items
                     .into_iter()
@@ -150,7 +150,7 @@ impl ParsedItem {
                     .collect_option_all::<Vec<_>>();
 
                 let (impl_generic_ids, impl_generic_names, associated_items_scope) =
-                    ctx.exit_implementation();
+                    ctx.exit_parsed_implementation();
 
                 ctx.exit_scope();
 

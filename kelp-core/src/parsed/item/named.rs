@@ -277,14 +277,14 @@ impl NamedItem {
                     }),
                 );
 
-                ctx.push_scope(associated_items_scope);
+                ctx.enter_semantic_implementation(associated_items_scope);
 
                 let associated_items = associated_items
                     .into_iter()
                     .map(|item| item.resolve_types(ctx))
                     .collect();
 
-                let associated_items_scope = ctx.exit_scope();
+                let associated_items_scope = ctx.exit_semantic_implementation();
 
                 ctx.exit_scope();
 
@@ -361,7 +361,7 @@ impl NamedItem {
                 }
 
                 let self_parameter = self_parameter.map(|parameter| {
-                    let data_type = if ctx.impl_generic_ids_and_names.is_empty() {
+                    let data_type = if ctx.is_in_impl == 0 {
                         ctx.add_error_type(
                             parameter.pattern_span,
                             SemanticAnalysisError::MethodNotInImpl,

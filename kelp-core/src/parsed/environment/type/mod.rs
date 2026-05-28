@@ -73,7 +73,7 @@ impl ParsedTypeDeclaration {
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
                         name_span,
-                        &name,
+                        name,
                         expected_generics,
                         actual_generics,
                     );

@@ -2,7 +2,7 @@ use kelp_core::{
     parsed::{
         data_type::ParsedDataType,
         item::{ParsedItemKind, ParsedSelfFunctionParameter},
-        pattern::{ParsedPattern, ParsedPatternKind},
+        pattern::ParsedPattern,
     },
     path::generic::GenericPath,
     trait_ext::CollectOptionAllIterExt,
@@ -205,16 +205,25 @@ impl LowerableAstNode for CSTFunctionParameters {
             .and_then(|parameter| {
                 let self_keyword_span = parameter.self_token()?.span();
 
-                let self_type = parameter.data_type().and_then(|data_type| {
-                    let span = data_type.span();
+                let (self_type_span, self_type) = parameter
+                    .data_type()
+                    .and_then(|data_type| {
+                        let span = data_type.span();
 
-                    let data_type = data_type.lower(ctx)?;
+                        let data_type = data_type.lower(ctx)?;
 
-                    Some((span, data_type))
-                });
+                        Some((span, data_type))
+                    })
+                    .unwrap_or_else(|| {
+                        (
+                            self_keyword_span,
+                            ParsedDataType::Named(GenericPath::single(self_keyword_span, "Self")),
+                        )
+                    });
 
                 Some(ParsedSelfFunctionParameter {
-                    span: self_keyword_span,
+                    pattern_span: self_keyword_span,
+                    data_type_span: self_type_span,
                     data_type: self_type,
                 })
             });
@@ -253,26 +262,11 @@ impl LowerableAstNode for CSTFunctionDeclarationItem {
 
         let body = self.block_expression()?.lower(ctx)?;
 
-        let (self_parameter, mut parameters) = match parameters {
+        let (self_parameter, parameters) = match parameters {
             Some(Some(value)) => value,
             Some(None) => return None,
             None => (None, Vec::new()),
         };
-
-        if let Some(self_parameter) = &self_parameter {
-            let self_pattern = ParsedPattern {
-                span: self_parameter.span,
-                kind: ParsedPatternKind::Binding(GenericPath::single(self_parameter.span, "self")),
-            };
-
-            let self_type = if let Some((_, self_type)) = &self_parameter.data_type {
-                self_type.clone()
-            } else {
-                ParsedDataType::Named(GenericPath::single(self_parameter.span, "Self"))
-            };
-
-            parameters.insert(0, (self_pattern, self_type));
-        }
 
         Some(ParsedItemKind::FunctionDeclaration {
             recursive_keyword_span,

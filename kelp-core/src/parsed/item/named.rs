@@ -7,15 +7,15 @@ use crate::{
         data_type::ParsedDataType,
         environment::r#type::{ParsedTypeDeclaration, ParsedTypeDeclarationKind},
         expression::block::ParsedBlockExpression,
-        item::ParsedSelfFunctionParameter,
-        pattern::ParsedPattern,
+        item::{ParsedSelfFunctionParameter, typed::TypedItem},
+        pattern::{ParsedPattern, ParsedPatternKind},
         semantic_analysis::{
-            FunctionContext, RegularFunctionModifiers, SemanticAnalysisContext,
-            info::error::SemanticAnalysisError, scope::Scope,
+            RegularFunctionModifiers, SemanticAnalysisContext, info::error::SemanticAnalysisError,
+            scope::Scope,
         },
         use_tree::UseTree,
     },
-    path::regular::Path,
+    path::{generic::GenericPath, regular::Path},
     semantic::{
         data_type::SemanticDataType,
         environment::{
@@ -23,7 +23,6 @@ use crate::{
             r#type::{
                 HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
                 alias::SemanticTypeAliasDeclaration,
-                module::HighModuleId,
                 r#struct::{
                     SemanticStructDeclaration,
                     regular::SemanticRegularStructDeclaration,
@@ -38,14 +37,12 @@ use crate::{
                         HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration,
                         SemanticBuiltinFunctionKind,
                     },
-                    regular::HighRegularFunctionId,
+                    regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
                 },
             },
         },
-        item::SemanticItem,
     },
     span::Span,
-    trait_ext::CollectOptionAllIterExt,
     visibility::Visibility,
 };
 
@@ -153,6 +150,13 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
 }
 
 #[derive(Debug, Clone)]
+pub struct TypedSelfFunctionParameter {
+    pub pattern_span: Span,
+    pub data_type_span: Span,
+    pub data_type: SemanticDataType,
+}
+
+#[derive(Debug, Clone)]
 pub enum NamedItemKind {
     InherentImplementationItem {
         generic_names: Vec<String>,
@@ -165,16 +169,14 @@ pub enum NamedItemKind {
         associated_items_scope: Scope,
     },
     ModuleDeclaration {
-        name_span: Span,
         name: String,
         items: Vec<NamedItem>,
-        id: HighModuleId,
     },
     FunctionDeclaration {
         recursive_keyword_span: Option<Span>,
         runtime_keyword_span: Option<Span>,
-        name_span: Span,
         name: String,
+        generic_ids: Vec<HighGenericId>,
         generic_names: Vec<String>,
         self_parameter: Option<ParsedSelfFunctionParameter>,
         parameters: Vec<(ParsedPattern, ParsedDataType)>,
@@ -182,38 +184,34 @@ pub enum NamedItemKind {
         body: Box<ParsedBlockExpression>,
 
         id: HighRegularFunctionId,
-        generic_ids: Vec<HighGenericId>,
     },
     MinecraftFunctionDeclaration {
         resource_location: ResourceLocation,
         body: Box<ParsedBlockExpression>,
     },
     TypeAliasDeclaration {
-        name_span: Span,
         name: String,
+        generic_ids: Vec<HighGenericId>,
         generic_names: Vec<String>,
         alias: ParsedDataType,
 
         id: HighTypeId,
-        generic_ids: Vec<HighGenericId>,
     },
     RegularStructDeclaration {
-        name_span: Span,
         name: String,
+        generic_ids: Vec<HighGenericId>,
         generic_names: Vec<String>,
         field_types: HashMap<String, ParsedDataType>,
 
         id: HighTypeId,
-        generic_ids: Vec<HighGenericId>,
     },
     TupleStructDeclaration {
-        name_span: Span,
         name: String,
+        generic_ids: Vec<HighGenericId>,
         generic_names: Vec<String>,
         field_types: Vec<ParsedDataType>,
 
         id: HighTupleStructId,
-        generic_ids: Vec<HighGenericId>,
         constructor_id: HighBuiltinFunctionId,
     },
     Use(UseTree),
@@ -245,8 +243,9 @@ impl NamedItem {
         Some(())
     }
 
-    pub fn resolve_types(&self, ctx: &mut SemanticAnalysisContext) {
-        match &self.kind {
+    #[must_use]
+    pub fn resolve_types(self, ctx: &mut SemanticAnalysisContext) -> TypedItem {
+        match self.kind {
             NamedItemKind::InherentImplementationItem {
                 generic_names,
                 target_type_span,
@@ -256,288 +255,7 @@ impl NamedItem {
                 associated_items_scope,
                 generic_ids,
             } => {
-                ctx.enter_scope();
-
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
-                {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
-                }
-
-                let target_type = target_type.clone().perform_semantic_analysis(ctx);
-
-                ctx.set_semantic_type(
-                    *self_type_id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
-                        name: "Self".to_owned(),
-                        generic_ids: Vec::new(),
-                        alias: target_type.clone(),
-                    }),
-                );
-
-                ctx.push_scope(associated_items_scope.clone());
-
-                for item in associated_items {
-                    item.resolve_types(ctx);
-                }
-
-                let scope = ctx.exit_scope();
-
-                ctx.exit_scope();
-
-                let (types, values) = scope.into_tuple();
-
-                match target_type {
-                    target_type @ SemanticDataType::Struct(id, _) => {
-                        let implementation = SemanticImplementation {
-                            generic_names: generic_names.clone(),
-                            target_type,
-                            types,
-                            values,
-                        };
-
-                        ctx.semantic_environment
-                            .implementations
-                            .entry(id.into())
-                            .or_default()
-                            .push(implementation);
-                    }
-
-                    SemanticDataType::Error => {}
-
-                    _ => {
-                        ctx.add_error_unit(
-                            *target_type_span,
-                            SemanticAnalysisError::InherentImplRequiresNomialType,
-                        );
-                    }
-                }
-            }
-            NamedItemKind::ModuleDeclaration { name, items, .. } => {
-                ctx.enter_module(name.clone());
-
-                for item in items {
-                    item.resolve_types(ctx);
-                }
-
-                let _ = ctx.exit_module();
-            }
-            NamedItemKind::FunctionDeclaration {
-                recursive_keyword_span,
-                runtime_keyword_span,
-                name,
-                generic_names,
-                parameters,
-                return_type,
-                id,
-                generic_ids,
-                ..
-            } => {
-                ctx.enter_scope();
-
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
-                {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
-                }
-
-                let parameters = parameters
-                    .iter()
-                    .map(|(_, parameter_type)| {
-                        let parameter_type = parameter_type.clone().perform_semantic_analysis(ctx);
-
-                        (None, parameter_type)
-                    })
-                    .collect::<Vec<_>>();
-
-                let return_type = return_type.clone().perform_semantic_analysis(ctx);
-
-                ctx.exit_scope();
-
-                let modifiers = if runtime_keyword_span.is_some() {
-                    RegularFunctionModifiers::Runtime {
-                        recursive: recursive_keyword_span.is_some(),
-                    }
-                } else {
-                    RegularFunctionModifiers::None
-                };
-
-                ctx.declare_regular_function(
-                    (*id).into(),
-                    self.visibility,
-                    modifiers,
-                    name.clone(),
-                    generic_ids.clone(),
-                    parameters,
-                    return_type,
-                );
-            }
-            NamedItemKind::MinecraftFunctionDeclaration { .. } => {}
-            NamedItemKind::TypeAliasDeclaration {
-                name,
-                generic_names,
-                alias,
-                id,
-                generic_ids,
-                ..
-            } => {
-                ctx.enter_scope();
-
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
-                {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
-                }
-
-                let alias = alias.clone().perform_semantic_analysis(ctx);
-
-                ctx.exit_scope();
-
-                ctx.set_semantic_type(
-                    *id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
-                        name: name.clone(),
-                        generic_ids: generic_ids.clone(),
-                        alias,
-                    }),
-                );
-            }
-            NamedItemKind::RegularStructDeclaration {
-                name,
-                generic_names,
-                field_types,
-
-                id,
-                generic_ids,
-                ..
-            } => {
-                ctx.enter_scope();
-
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
-                {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
-                }
-
-                let field_types = field_types
-                    .iter()
-                    .map(|(field_name, field_type)| {
-                        let field_name = field_name.clone();
-                        let field_type = field_type.clone();
-
-                        let field_type = field_type.perform_semantic_analysis(ctx);
-
-                        (field_name, field_type)
-                    })
-                    .collect();
-
-                ctx.exit_scope();
-
-                ctx.set_semantic_type(
-                    *id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
-                        SemanticRegularStructDeclaration {
-                            name: name.clone(),
-                            generic_ids: generic_ids.clone(),
-                            field_types,
-                        },
-                    )),
-                );
-            }
-            NamedItemKind::TupleStructDeclaration {
-                name,
-                generic_names,
-                field_types,
-
-                id,
-                generic_ids,
-                constructor_id,
-                ..
-            } => {
-                ctx.enter_scope();
-
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
-                {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
-                }
-
-                let field_types = field_types
-                    .iter()
-                    .cloned()
-                    .map(|field_type| field_type.perform_semantic_analysis(ctx))
-                    .collect::<Vec<_>>();
-
-                ctx.exit_scope();
-
-                ctx.set_semantic_type(
-                    *id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(
-                        SemanticTupleStructDeclaration {
-                            name: name.clone(),
-                            generic_ids: generic_ids.clone(),
-                            field_types: field_types.clone(),
-                        },
-                    )),
-                );
-
-                ctx.declare_semantic_value(
-                    (*constructor_id).into(),
-                    Visibility::Public,
-                    SemanticValueDeclarationKind::Function(Box::new(
-                        SemanticFunctionDeclaration::Builtin(SemanticBuiltinFunctionDeclaration {
-                            name: name.clone(),
-                            generic_ids: generic_ids.clone(),
-                            parameters: field_types,
-                            return_type: SemanticDataType::Struct(
-                                (*id).into(),
-                                generic_ids
-                                    .iter()
-                                    .copied()
-                                    .map(SemanticDataType::Generic)
-                                    .collect(),
-                            ),
-                            kind: SemanticBuiltinFunctionKind::TupleStructConstructor(
-                                *id,
-                                generic_ids.clone(),
-                            ),
-                        }),
-                    )),
-                );
-            }
-            NamedItemKind::Use(..) => {}
-        }
-    }
-
-    pub fn perform_semantic_analysis(
-        self,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> Option<SemanticItem> {
-        Some(match self.kind {
-            NamedItemKind::InherentImplementationItem {
-                generic_names,
-                target_type,
-                associated_items,
-                self_type_id,
-                generic_ids,
-                associated_items_scope,
-                ..
-            } => {
-                ctx.enter_scope();
+                ctx.enter_implementation();
 
                 for (generic_id, generic_name) in generic_ids
                     .iter()
@@ -555,52 +273,82 @@ impl NamedItem {
                     SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
                         name: "Self".to_owned(),
                         generic_ids: Vec::new(),
-                        alias: target_type,
+                        alias: target_type.clone(),
                     }),
                 );
 
                 ctx.push_scope(associated_items_scope);
 
-                let _associated_items = associated_items
+                let associated_items = associated_items
                     .into_iter()
-                    .map(|item| item.perform_semantic_analysis(ctx))
-                    .collect_option_all::<Vec<_>>();
+                    .map(|item| item.resolve_types(ctx))
+                    .collect();
 
-                ctx.exit_scope();
+                let associated_items_scope = ctx.exit_scope();
 
-                ctx.exit_scope();
+                ctx.exit_implementation();
 
-                SemanticItem::InherentImplementation
-            }
-            NamedItemKind::ModuleDeclaration { name, items, .. } => {
-                let mut failed = false;
+                let (types, values) = associated_items_scope.clone().into_tuple();
 
-                ctx.enter_module(name);
+                match &target_type {
+                    target_type @ SemanticDataType::Struct(id, _) => {
+                        let implementation = SemanticImplementation {
+                            generic_names: generic_names.clone(),
+                            target_type: target_type.clone(),
+                            types,
+                            values,
+                        };
 
-                for item in items {
-                    if item.perform_semantic_analysis(ctx).is_none() {
-                        failed = true;
+                        ctx.semantic_environment
+                            .implementations
+                            .entry((*id).into())
+                            .or_default()
+                            .push(implementation);
+                    }
+
+                    SemanticDataType::Error => {}
+
+                    _ => {
+                        ctx.add_error_unit(
+                            target_type_span,
+                            SemanticAnalysisError::InherentImplRequiresNomialType,
+                        );
                     }
                 }
 
-                ctx.exit_module();
-
-                if failed {
-                    return None;
+                TypedItem::InherentImplementationItem {
+                    generic_names,
+                    target_type_span,
+                    target_type,
+                    associated_items,
+                    self_type_id,
+                    generic_ids,
+                    associated_items_scope,
                 }
+            }
+            NamedItemKind::ModuleDeclaration { name, items } => {
+                ctx.enter_module(name.clone());
 
-                SemanticItem::ModuleDeclaration
+                let items = items
+                    .into_iter()
+                    .map(|item| item.resolve_types(ctx))
+                    .collect();
+
+                let _ = ctx.exit_module();
+
+                TypedItem::ModuleDeclaration { name, items }
             }
             NamedItemKind::FunctionDeclaration {
                 recursive_keyword_span,
                 runtime_keyword_span,
+                name,
+                generic_ids,
                 generic_names,
+                self_parameter,
                 parameters,
                 return_type,
                 body,
                 id,
-                generic_ids,
-                ..
             } => {
                 ctx.enter_scope();
 
@@ -612,69 +360,45 @@ impl NamedItem {
                     ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
                 }
 
-                let parameter_types = parameters
-                    .iter()
-                    .map(|(_, parameter_type)| {
-                        parameter_type.clone().perform_semantic_analysis(ctx)
+                let self_parameter = self_parameter.map(|parameter| {
+                    let data_type = if ctx.is_in_impl == 0 {
+                        ctx.add_error_type(
+                            parameter.pattern_span,
+                            SemanticAnalysisError::MethodNotInImpl,
+                        )
+                    } else {
+                        parameter.data_type.perform_semantic_analysis(ctx)
+                    };
+
+                    TypedSelfFunctionParameter {
+                        pattern_span: parameter.pattern_span,
+                        data_type_span: parameter.pattern_span,
+                        data_type,
+                    }
+                });
+
+                let mut parameters = parameters
+                    .into_iter()
+                    .map(|(pattern, parameter_type)| {
+                        let parameter_type = parameter_type.perform_semantic_analysis(ctx);
+
+                        (pattern, parameter_type)
                     })
                     .collect::<Vec<_>>();
 
+                if let Some(self_parameter) = &self_parameter {
+                    let self_pattern = ParsedPatternKind::Binding(GenericPath::single(
+                        self_parameter.pattern_span,
+                        "self",
+                    ))
+                    .with_span(self_parameter.pattern_span);
+
+                    parameters.insert(0, (self_pattern, self_parameter.data_type.clone()));
+                }
+
                 let return_type = return_type.perform_semantic_analysis(ctx);
 
-                let mut failed = false;
-
-                if let Some(runtime_keyword_span) = runtime_keyword_span {
-                    let all_types_are_runtime = {
-                        let parameter_types_are_runtime =
-                            parameter_types.iter().all(|parameter_type| {
-                                !matches!(parameter_type.is_compiletime(), Some(true))
-                            });
-
-                        let return_type_is_runtime =
-                            !matches!(return_type.is_compiletime(), Some(true));
-
-                        parameter_types_are_runtime && return_type_is_runtime
-                    };
-
-                    if !all_types_are_runtime {
-                        ctx.add_error_unit(
-                            runtime_keyword_span,
-                            SemanticAnalysisError::FunctionTypesNotAllRuntime,
-                        );
-
-                        failed = true;
-                    }
-
-                    if let Some(recursive_keyword_span) = recursive_keyword_span {
-                        let all_types_are_data = {
-                            let parameter_types_valid =
-                                parameter_types.iter().all(|parameter_type| {
-                                    matches!(parameter_type, SemanticDataType::Data(..))
-                                });
-
-                            let return_type_valid =
-                                matches!(return_type, SemanticDataType::Data(..));
-
-                            parameter_types_valid && return_type_valid
-                        };
-
-                        if !all_types_are_data {
-                            ctx.add_error_unit(
-                                recursive_keyword_span,
-                                SemanticAnalysisError::FunctionTypesNotAllData,
-                            );
-
-                            failed = true;
-                        }
-                    }
-                } else if let Some(recursive_keyword_span) = recursive_keyword_span {
-                    ctx.add_error_unit(
-                        recursive_keyword_span,
-                        SemanticAnalysisError::RecursiveFunctionNotRuntime,
-                    );
-
-                    failed = true;
-                }
+                ctx.exit_scope();
 
                 let modifiers = if runtime_keyword_span.is_some() {
                     RegularFunctionModifiers::Runtime {
@@ -684,110 +408,182 @@ impl NamedItem {
                     RegularFunctionModifiers::None
                 };
 
-                let scope = ctx.exit_scope();
+                ctx.set_semantic_value(
+                    id,
+                    self.visibility,
+                    SemanticValueDeclarationKind::Function(Box::new(
+                        SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration {
+                            name,
+                            modifiers,
+                            generic_ids: generic_ids.clone(),
+                            parameters: parameters
+                                .iter()
+                                .map(|(_, data_type)| (None, data_type.clone()))
+                                .collect(),
+                            return_type: return_type.clone(),
+                            body: None,
+                            calls: HashSet::new(),
+                        }),
+                    )),
+                );
 
-                if failed {
-                    return None;
-                }
-
-                ctx.push_scope(scope);
-
-                ctx.function_contexts.push(FunctionContext::Regular {
-                    modifiers,
+                TypedItem::FunctionDeclaration {
+                    recursive_keyword_span,
+                    runtime_keyword_span,
+                    generic_ids,
+                    generic_names,
+                    parameters,
                     return_type,
-                    callee_id: id,
-                    calls: HashSet::new(),
-                });
-
-                let mut resolved_parameters = Vec::with_capacity(parameters.len());
-                let mut resolved_all_parameters = true;
-
-                for ((pattern, _), data_type) in parameters.into_iter().zip(parameter_types) {
-                    let Some(resolved_pattern) = pattern.perform_semantic_analysis(ctx, &data_type)
-                    else {
-                        resolved_all_parameters = false;
-
-                        continue;
-                    };
-
-                    if resolved_all_parameters {
-                        resolved_parameters.push((resolved_pattern, data_type));
-                    }
+                    body,
+                    id,
                 }
-
-                let after_body_analysis = |ctx: &mut SemanticAnalysisContext| {
-                    let context = ctx.function_contexts.pop().unwrap();
-
-                    ctx.exit_scope();
-
-                    ctx.semantic_environment
-                        .update_regular_function(id, |declaration| {
-                            if let FunctionContext::Regular { calls, .. } = &context {
-                                declaration.calls.clone_from(calls);
-                            }
-                        });
-
-                    context
-                };
-
-                let Some((body_span, tail_expression_span, body)) =
-                    body.perform_semantic_analysis(ctx)
-                else {
-                    after_body_analysis(ctx);
-
-                    return None;
-                };
-
-                let context = after_body_analysis(ctx);
-
-                if !body.kind.definitely_diverges() {
-                    body.data_type.assert_equals(
-                        ctx,
-                        tail_expression_span.unwrap_or(body_span),
-                        context.return_type(),
-                    )?;
-                }
-
-                if resolved_all_parameters {
-                    ctx.semantic_environment
-                        .update_regular_function(id, |declaration| {
-                            declaration.parameters = resolved_parameters
-                                .into_iter()
-                                .map(|(pattern, data_type)| (Some(pattern), data_type))
-                                .collect();
-                            declaration.body = Some(Box::new(body));
-                        });
-                } else {
-                    return None;
-                }
-
-                SemanticItem::FunctionDeclaration
             }
             NamedItemKind::MinecraftFunctionDeclaration {
                 resource_location,
                 body,
+            } => TypedItem::MinecraftFunctionDeclaration {
+                resource_location,
+                body,
+            },
+            NamedItemKind::TypeAliasDeclaration {
+                name,
+                generic_names,
+                alias,
+                id,
+                generic_ids,
             } => {
-                ctx.function_contexts.push(FunctionContext::MCFunction);
+                ctx.enter_scope();
 
-                let (body_span, tail_expression_span, body) =
-                    body.perform_semantic_analysis(ctx)?;
+                for (generic_id, generic_name) in generic_ids
+                    .iter()
+                    .copied()
+                    .zip(generic_names.iter().cloned())
+                {
+                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                }
 
-                ctx.function_contexts.pop();
+                let alias = alias.perform_semantic_analysis(ctx);
 
-                body.data_type.assert_equals(
-                    ctx,
-                    tail_expression_span.unwrap_or(body_span),
-                    &SemanticDataType::Unit,
-                )?;
+                ctx.exit_scope();
 
-                SemanticItem::MinecraftFunctionDeclaration(resource_location, body)
+                ctx.set_semantic_type(
+                    id,
+                    Visibility::Public,
+                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                        name,
+                        generic_ids,
+                        alias,
+                    }),
+                );
+
+                TypedItem::TypeAliasDeclaration
             }
-            NamedItemKind::TypeAliasDeclaration { .. } => SemanticItem::TypeAliasDeclaration,
-            NamedItemKind::RegularStructDeclaration { .. } => {
-                SemanticItem::RegularStructDeclaration
+            NamedItemKind::RegularStructDeclaration {
+                name,
+                generic_names,
+                field_types,
+                id,
+                generic_ids,
+            } => {
+                ctx.enter_scope();
+
+                for (generic_id, generic_name) in generic_ids
+                    .iter()
+                    .copied()
+                    .zip(generic_names.iter().cloned())
+                {
+                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                }
+
+                let field_types = field_types
+                    .into_iter()
+                    .map(|(field_name, field_type)| {
+                        let field_type = field_type.perform_semantic_analysis(ctx);
+
+                        (field_name, field_type)
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                ctx.exit_scope();
+
+                ctx.set_semantic_type(
+                    id,
+                    Visibility::Public,
+                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
+                        SemanticRegularStructDeclaration {
+                            name,
+                            generic_ids,
+                            field_types,
+                        },
+                    )),
+                );
+
+                TypedItem::RegularStructDeclaration
             }
-            NamedItemKind::TupleStructDeclaration { .. } => SemanticItem::TupleStructDeclaration,
-            NamedItemKind::Use(..) => SemanticItem::Use,
-        })
+            NamedItemKind::TupleStructDeclaration {
+                name,
+                generic_names,
+                field_types,
+                id,
+                generic_ids,
+                constructor_id,
+            } => {
+                ctx.enter_scope();
+
+                for (generic_id, generic_name) in generic_ids
+                    .iter()
+                    .copied()
+                    .zip(generic_names.iter().cloned())
+                {
+                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                }
+
+                let field_types = field_types
+                    .into_iter()
+                    .map(|field_type| field_type.perform_semantic_analysis(ctx))
+                    .collect::<Vec<_>>();
+
+                ctx.exit_scope();
+
+                ctx.set_semantic_type(
+                    id,
+                    Visibility::Public,
+                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(
+                        SemanticTupleStructDeclaration {
+                            name: name.clone(),
+                            generic_ids: generic_ids.clone(),
+                            field_types: field_types.clone(),
+                        },
+                    )),
+                );
+
+                ctx.set_semantic_value(
+                    constructor_id,
+                    Visibility::Public,
+                    SemanticValueDeclarationKind::Function(Box::new(
+                        SemanticFunctionDeclaration::Builtin(SemanticBuiltinFunctionDeclaration {
+                            name,
+                            generic_ids: generic_ids.clone(),
+                            parameters: field_types,
+                            return_type: SemanticDataType::Struct(
+                                id.into(),
+                                generic_ids
+                                    .iter()
+                                    .copied()
+                                    .map(SemanticDataType::Generic)
+                                    .collect(),
+                            ),
+                            kind: SemanticBuiltinFunctionKind::TupleStructConstructor(
+                                id,
+                                generic_ids.clone(),
+                            ),
+                        }),
+                    )),
+                );
+
+                TypedItem::TupleStructDeclaration
+            }
+            NamedItemKind::Use(..) => TypedItem::Use,
+        }
     }
 }

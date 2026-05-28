@@ -1,4 +1,4 @@
-use kelp_core::{parsed::program::Program, trait_ext::CollectOptionAllIterExt};
+use kelp_core::{parsed::program::ParsedProgram, trait_ext::CollectOptionAllIterExt};
 
 use crate::{
     cst::{CSTItem, CSTProgram},
@@ -29,7 +29,7 @@ impl ParsableAstNode for CSTProgram {
 }
 
 impl LowerableAstNode for CSTProgram {
-    type Lowered = Program;
+    type Lowered = ParsedProgram;
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let items = self
@@ -37,6 +37,6 @@ impl LowerableAstNode for CSTProgram {
             .map(|item| item.lower(ctx))
             .collect_option_all()?;
 
-        Some(Program { items })
+        Some(ParsedProgram { items })
     }
 }

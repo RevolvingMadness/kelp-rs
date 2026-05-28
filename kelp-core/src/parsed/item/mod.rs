@@ -18,6 +18,7 @@ use crate::parsed::environment::{
 };
 use crate::parsed::item::named::{NamedItem, NamedItemKind};
 use crate::parsed::pattern::ParsedPattern;
+use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
 use crate::semantic::environment::value::function::builtin::HighBuiltinFunctionId;
@@ -35,11 +36,20 @@ use crate::{
 };
 
 pub mod named;
+pub mod typed;
+
+#[derive(Debug, Clone)]
+pub struct TypedSelfFunctionParameter {
+    pub pattern_span: Span,
+    pub data_type_span: Span,
+    pub data_type: SemanticDataType,
+}
 
 #[derive(Debug, Clone)]
 pub struct ParsedSelfFunctionParameter {
-    pub span: Span,
-    pub data_type: Option<(Span, ParsedDataType)>,
+    pub pattern_span: Span,
+    pub data_type_span: Span,
+    pub data_type: ParsedDataType,
 }
 
 #[derive(Debug, Clone)]
@@ -99,6 +109,7 @@ pub struct ParsedItem {
 }
 
 impl ParsedItem {
+    #[must_use]
     pub fn resolve_names(self, ctx: &mut SemanticAnalysisContext) -> Option<NamedItem> {
         let kind = match self.kind {
             ParsedItemKind::InherentImplementationItem {
@@ -186,16 +197,11 @@ impl ParsedItem {
                     .map(|item| item.resolve_names(ctx))
                     .collect_option_all::<Vec<_>>();
 
-                let id = ctx.exit_module_and_declare(self.visibility);
+                ctx.exit_module_and_declare(self.visibility);
 
                 let items = items?;
 
-                NamedItemKind::ModuleDeclaration {
-                    name_span,
-                    name,
-                    items,
-                    id,
-                }
+                NamedItemKind::ModuleDeclaration { name, items }
             }
             ParsedItemKind::FunctionDeclaration {
                 recursive_keyword_span,
@@ -203,7 +209,7 @@ impl ParsedItem {
                 name_span,
                 name,
                 generic_names,
-                self_parameter: self_parameter_keyword_span,
+                self_parameter,
                 parameters,
                 return_type,
                 body,
@@ -245,10 +251,9 @@ impl ParsedItem {
                 NamedItemKind::FunctionDeclaration {
                     recursive_keyword_span,
                     runtime_keyword_span,
-                    name_span,
                     name,
                     generic_names,
-                    self_parameter: self_parameter_keyword_span,
+                    self_parameter,
                     parameters,
                     return_type,
                     body,
@@ -301,7 +306,6 @@ impl ParsedItem {
                 );
 
                 NamedItemKind::TypeAliasDeclaration {
-                    name_span,
                     name,
                     generic_names,
                     alias,
@@ -348,7 +352,6 @@ impl ParsedItem {
                 );
 
                 NamedItemKind::RegularStructDeclaration {
-                    name_span,
                     name,
                     generic_names,
                     field_types,
@@ -406,7 +409,6 @@ impl ParsedItem {
                 let constructor_id = HighBuiltinFunctionId(constructor_id.0);
 
                 NamedItemKind::TupleStructDeclaration {
-                    name_span,
                     name,
                     generic_names,
                     field_types,

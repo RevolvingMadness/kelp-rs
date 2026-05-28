@@ -49,11 +49,11 @@ fn calls_recursively(
 }
 
 #[derive(Debug, Clone)]
-pub struct Program {
+pub struct ParsedProgram {
     pub items: Vec<ParsedItem>,
 }
 
-impl Program {
+impl ParsedProgram {
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -68,9 +68,10 @@ impl Program {
             item.resolve_imports(ctx);
         }
 
-        for item in &mut items {
-            item.resolve_types(ctx);
-        }
+        let items = items
+            .into_iter()
+            .map(|item| item.resolve_types(ctx))
+            .collect::<Vec<_>>();
 
         let items = items
             .into_iter()

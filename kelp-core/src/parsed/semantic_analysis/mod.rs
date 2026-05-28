@@ -30,7 +30,7 @@ use crate::semantic::environment::{
                 HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration,
                 SemanticBuiltinFunctionKind,
             },
-            regular::{HighRegularFunctionId, SemanticRegularFunctionDeclaration},
+            regular::HighRegularFunctionId,
         },
         variable::{HighVariableId, SemanticVariableDeclaration},
     },
@@ -47,7 +47,6 @@ use crate::{
         generic::{GenericPath, GenericPathSegment},
         regular::{Path, PathSegment},
     },
-    semantic::pattern::SemanticPattern,
     span::Span,
     visibility::Visibility,
 };
@@ -124,6 +123,7 @@ pub struct SemanticAnalysisContext {
     pub environment: Environment,
     pub parsed_environment: ParsedEnvironment,
     pub semantic_environment: SemanticEnvironment,
+    pub is_in_impl: u32,
 }
 
 impl SemanticAnalysisContext {
@@ -139,6 +139,7 @@ impl SemanticAnalysisContext {
             loop_depth: 0,
             current_module_path: Vec::new(),
             function_contexts: SmallVec::new(),
+            is_in_impl: 0,
         };
 
         self_.declare_std_module();
@@ -165,6 +166,20 @@ impl SemanticAnalysisContext {
     #[inline]
     pub fn enter_scope(&mut self) {
         self.scopes.push(Scope::default());
+    }
+
+    pub fn enter_implementation(&mut self) {
+        self.enter_scope();
+
+        self.is_in_impl += 1;
+    }
+
+    pub fn exit_implementation(&mut self) -> Scope {
+        let scope = self.exit_scope();
+
+        self.is_in_impl -= 1;
+
+        scope
     }
 
     #[inline]
@@ -325,7 +340,7 @@ impl SemanticAnalysisContext {
             ParsedValueDeclarationKind::Variable(ParsedVariableDeclaration { name: name.clone() }),
         );
 
-        self.declare_semantic_value(
+        self.set_semantic_value(
             id,
             visibility,
             SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration { name, data_type }),
@@ -517,12 +532,14 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn declare_semantic_value(
+    pub fn set_semantic_value<I: Into<HighValueId>>(
         &mut self,
-        id: HighValueId,
+        id: I,
         visibility: Visibility,
         kind: SemanticValueDeclarationKind,
     ) {
+        let id = id.into();
+
         self.semantic_environment.declare_value(
             id,
             SemanticValueDeclaration {
@@ -540,37 +557,9 @@ impl SemanticAnalysisContext {
     ) -> HighValueId {
         let id = self.declare_parsed_value(visibility, declaration.clone().into());
 
-        self.declare_semantic_value(id, visibility, declaration);
+        self.set_semantic_value(id, visibility, declaration);
 
         id
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn declare_regular_function(
-        &mut self,
-        id: HighValueId,
-        visibility: Visibility,
-        modifiers: RegularFunctionModifiers,
-        name: String,
-        generic_ids: Vec<HighGenericId>,
-        parameters: Vec<(Option<SemanticPattern>, SemanticDataType)>,
-        return_type: SemanticDataType,
-    ) {
-        self.declare_semantic_value(
-            id,
-            visibility,
-            SemanticValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Regular(
-                SemanticRegularFunctionDeclaration {
-                    name,
-                    modifiers,
-                    generic_ids,
-                    parameters,
-                    return_type,
-                    body: None,
-                    calls: HashSet::new(),
-                },
-            ))),
-        );
     }
 
     pub fn declare_builtin_function(

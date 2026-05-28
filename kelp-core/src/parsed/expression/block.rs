@@ -62,8 +62,21 @@ impl ParsedBlockExpression {
             item.resolve_imports(ctx);
         }
 
-        for item in &mut items {
-            item.resolve_types(ctx);
+        let items = items
+            .into_iter()
+            .map(|item| item.resolve_types(ctx))
+            .collect::<Vec<_>>();
+
+        let mut failed = false;
+
+        for item in items {
+            if item.perform_semantic_analysis(ctx).is_none() {
+                failed = true;
+            }
+        }
+
+        if failed {
+            return None;
         }
 
         let body = statements

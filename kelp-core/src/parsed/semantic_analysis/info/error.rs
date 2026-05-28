@@ -370,12 +370,16 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 "The module `{}` does not contain an item named `{}`",
                 module_name, item_name
             ),
+            SemanticAnalysisError::MethodNotInImpl => {
+                f.write_str("Functions with a `self` parameter can only be used in `impl` blocks")
+            }
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
+    MethodNotInImpl,
     InherentImplRequiresNomialType,
     FunctionTypesNotAllRuntime,
     FunctionTypesNotAllData,

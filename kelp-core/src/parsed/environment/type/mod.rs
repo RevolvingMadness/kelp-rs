@@ -6,7 +6,7 @@ use crate::parsed::environment::{
 use crate::path::generic::GenericPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighGenericId;
-use crate::semantic::environment::{r#type::HighTypeId, value::HighValueId};
+use crate::semantic::environment::r#type::HighTypeId;
 use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     visibility::Visibility,
@@ -47,64 +47,6 @@ pub struct ParsedTypeDeclaration {
 }
 
 impl ParsedTypeDeclaration {
-    #[must_use]
-    pub fn is_visible(&self, current_module_path: &[String]) -> bool {
-        if matches!(self.visibility, Visibility::Public) {
-            return true;
-        }
-
-        current_module_path.starts_with(&self.module_path)
-    }
-
-    pub fn get_visible_type_id(
-        &self,
-        ctx: &SemanticAnalysisContext,
-        id: HighTypeId,
-        name: &str,
-    ) -> Result<HighTypeId, SemanticAnalysisError> {
-        match &self.kind {
-            ParsedTypeDeclarationKind::Module(declaration) => {
-                declaration.get_type_id_semantic_analysis(name)
-            }
-            ParsedTypeDeclarationKind::Struct(declaration) => {
-                if let Some(impls) = ctx.semantic_environment.implementations.get(&id) {
-                    for implementation in impls {
-                        if let Some(id) = implementation.types.get(name) {
-                            return Ok(*id);
-                        }
-                    }
-                }
-
-                Err(SemanticAnalysisError::TypeDoesntContainType {
-                    container_type_name: declaration.name().to_owned(),
-                    type_name: name.to_owned(),
-                })
-            }
-            _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
-                type_name: self.kind.name().to_owned(),
-            }),
-        }
-    }
-
-    pub fn get_visible_value_id(
-        &self,
-        ctx: &SemanticAnalysisContext,
-        id: HighTypeId,
-        name: &str,
-    ) -> Result<HighValueId, SemanticAnalysisError> {
-        match &self.kind {
-            ParsedTypeDeclarationKind::Module(declaration) => {
-                declaration.get_value_id_semantic_analysis(name)
-            }
-            ParsedTypeDeclarationKind::Struct(declaration) => {
-                declaration.get_value_id_semantic_analysis(ctx, id, name)
-            }
-            _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
-                type_name: self.kind.name().to_owned(),
-            }),
-        }
-    }
-
     #[must_use]
     pub fn into_data_type(
         self,

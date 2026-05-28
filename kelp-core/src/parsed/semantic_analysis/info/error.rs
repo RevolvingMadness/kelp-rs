@@ -492,11 +492,11 @@ impl SemanticAnalysisError {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        resolved_environment: &'a SemanticEnvironment,
+        semantic_environment: &'a SemanticEnvironment,
     ) -> SemanticAnalysisErrorDisplay<'a> {
         SemanticAnalysisErrorDisplay {
             error: self,
-            semantic_environment: resolved_environment,
+            semantic_environment,
         }
     }
 }

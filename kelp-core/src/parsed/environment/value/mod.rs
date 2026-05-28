@@ -42,14 +42,3 @@ pub struct ParsedValueDeclaration {
     pub module_path: Vec<String>,
     pub kind: ParsedValueDeclarationKind,
 }
-
-impl ParsedValueDeclaration {
-    #[must_use]
-    pub fn is_visible(&self, current_module_path: &[String]) -> bool {
-        if matches!(self.visibility, Visibility::Public) {
-            return true;
-        }
-
-        current_module_path.starts_with(&self.module_path)
-    }
-}

@@ -356,7 +356,7 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 }
 
 fn process_success(
-    resolved_environment: SemanticEnvironment,
+    semantic_environment: SemanticEnvironment,
     program: SemanticProgram,
     _file_name: &str,
     _source_text: &str,
@@ -367,7 +367,7 @@ fn process_success(
     let project_description = kelp_toml.project.description;
 
     let mut datapack = Datapack::new(
-        resolved_environment,
+        semantic_environment,
         project_name.clone(),
         project_description,
     );

@@ -20,7 +20,7 @@ use crate::{
 };
 
 fn calls_recursively(
-    resolved_environment: &SemanticEnvironment,
+    semantic_environment: &SemanticEnvironment,
     callee_id: HighFunctionId,
     call_id: HighFunctionId,
     visited_calls: &mut HashSet<HighFunctionId>,
@@ -34,13 +34,13 @@ fn calls_recursively(
     }
 
     let SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration { calls, .. }) =
-        resolved_environment.get_function_declaration(call_id)
+        semantic_environment.get_function_declaration(call_id)
     else {
         return false;
     };
 
     for (_, call_id) in calls {
-        if calls_recursively(resolved_environment, callee_id, *call_id, visited_calls) {
+        if calls_recursively(semantic_environment, callee_id, *call_id, visited_calls) {
             return true;
         }
     }

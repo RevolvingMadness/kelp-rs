@@ -89,7 +89,7 @@ pub struct MethodInfo {
 
 pub struct SemanticDataTypeDisplay<'a> {
     pub data_type: &'a SemanticDataType,
-    pub resolved_environment: &'a SemanticEnvironment,
+    pub semantic_environment: &'a SemanticEnvironment,
 }
 
 impl Display for SemanticDataTypeDisplay<'_> {
@@ -107,14 +107,14 @@ impl Display for SemanticDataTypeDisplay<'_> {
             SemanticDataType::Never => f.write_char('!'),
             SemanticDataType::Score(data_type) => {
                 f.write_str("score<")?;
-                data_type.display(self.resolved_environment).fmt(f)?;
+                data_type.display(self.semantic_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
             SemanticDataType::List(data_type) => {
                 f.write_str("list<")?;
-                data_type.display(self.resolved_environment).fmt(f)?;
+                data_type.display(self.semantic_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
@@ -133,7 +133,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
 
                     write!(f, "{}: ", key)?;
 
-                    value_data_type.display(self.resolved_environment).fmt(f)?;
+                    value_data_type.display(self.semantic_environment).fmt(f)?;
                 }
 
                 if !compound.is_empty() {
@@ -146,21 +146,21 @@ impl Display for SemanticDataTypeDisplay<'_> {
             }
             SemanticDataType::Compound(data_type) => {
                 f.write_str("compound<")?;
-                data_type.display(self.resolved_environment).fmt(f)?;
+                data_type.display(self.semantic_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
             SemanticDataType::Data(data_type) => {
                 f.write_str("data<")?;
-                data_type.display(self.resolved_environment).fmt(f)?;
+                data_type.display(self.semantic_environment).fmt(f)?;
                 f.write_char('>')?;
 
                 Ok(())
             }
             SemanticDataType::Reference(data_type) => {
                 f.write_char('&')?;
-                data_type.display(self.resolved_environment).fmt(f)?;
+                data_type.display(self.semantic_environment).fmt(f)?;
 
                 Ok(())
             }
@@ -172,7 +172,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
                         f.write_str(", ")?;
                     }
 
-                    data_type.display(self.resolved_environment).fmt(f)?;
+                    data_type.display(self.semantic_environment).fmt(f)?;
                 }
 
                 f.write_char(')')?;
@@ -180,14 +180,14 @@ impl Display for SemanticDataTypeDisplay<'_> {
                 Ok(())
             }
             SemanticDataType::Generic(id) => {
-                let (_, _, name) = self.resolved_environment.get_generic(*id);
+                let (_, _, name) = self.semantic_environment.get_generic(*id);
 
                 name.fmt(f)
             }
             SemanticDataType::Function(id, generic_types) => {
                 // Maybe display full path?
 
-                let declaration = self.resolved_environment.get_function_declaration(*id);
+                let declaration = self.semantic_environment.get_function_declaration(*id);
 
                 write!(f, "fn {}", declaration.name())?;
 
@@ -199,7 +199,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
                             f.write_str(", ")?;
                         }
 
-                        data_type.display(self.resolved_environment).fmt(f)?;
+                        data_type.display(self.semantic_environment).fmt(f)?;
                     }
 
                     f.write_str(">")?;
@@ -212,13 +212,13 @@ impl Display for SemanticDataTypeDisplay<'_> {
                         f.write_str(", ")?;
                     }
 
-                    data_type.display(self.resolved_environment).fmt(f)?;
+                    data_type.display(self.semantic_environment).fmt(f)?;
                 }
 
                 write!(
                     f,
                     ") -> {}",
-                    declaration.return_type().display(self.resolved_environment)
+                    declaration.return_type().display(self.semantic_environment)
                 )?;
 
                 Ok(())
@@ -226,7 +226,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
             SemanticDataType::Struct(id, generic_types) => {
                 // Maybe display full path?
 
-                let (_, _, declaration) = self.resolved_environment.get_struct(*id);
+                let (_, _, declaration) = self.semantic_environment.get_struct(*id);
 
                 f.write_str(declaration.name())?;
 
@@ -238,7 +238,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
                             f.write_str(", ")?;
                         }
 
-                        generic_type.display(self.resolved_environment).fmt(f)?;
+                        generic_type.display(self.semantic_environment).fmt(f)?;
                     }
 
                     f.write_str(">")?;
@@ -731,13 +731,13 @@ impl SemanticDataType {
     #[must_use]
     pub fn get_call_info(
         &self,
-        resolved_environment: &SemanticEnvironment,
+        semantic_environment: &SemanticEnvironment,
     ) -> Option<Option<CallInfo>> {
         Some(Some(match self {
             Self::Error => return None,
 
             Self::Function(id, generic_types) => {
-                let declaration = resolved_environment.get_function_declaration(*id);
+                let declaration = semantic_environment.get_function_declaration(*id);
 
                 match declaration {
                     SemanticFunctionDeclaration::Regular(declaration) => CallInfo {
@@ -929,11 +929,11 @@ impl SemanticDataType {
     #[must_use]
     pub const fn display<'a>(
         &'a self,
-        resolved_environment: &'a SemanticEnvironment,
+        semantic_environment: &'a SemanticEnvironment,
     ) -> SemanticDataTypeDisplay<'a> {
         SemanticDataTypeDisplay {
             data_type: self,
-            resolved_environment,
+            semantic_environment,
         }
     }
 }
@@ -1103,7 +1103,7 @@ impl SemanticDataType {
     }
 
     #[must_use]
-    pub fn get_data_type(&self, resolved_environment: &SemanticEnvironment) -> Option<Self> {
+    pub fn get_data_type(&self, semantic_environment: &SemanticEnvironment) -> Option<Self> {
         check_error!(self);
 
         Some(match self {
@@ -1119,9 +1119,9 @@ impl SemanticDataType {
             Self::String => Self::String,
             Self::Unit => Self::Unit,
             Self::Never => Self::Never,
-            Self::Score(data_type) => data_type.get_data_type(resolved_environment)?,
+            Self::Score(data_type) => data_type.get_data_type(semantic_environment)?,
             Self::List(data_type) => {
-                let data_type = data_type.get_data_type(resolved_environment)?;
+                let data_type = data_type.get_data_type(semantic_environment)?;
 
                 Self::List(Box::new(data_type))
             }
@@ -1129,7 +1129,7 @@ impl SemanticDataType {
                 let compound = compound
                     .iter()
                     .map(|(key, data_type)| {
-                        let data_type = data_type.get_data_type(resolved_environment)?;
+                        let data_type = data_type.get_data_type(semantic_environment)?;
 
                         Some((key.clone(), data_type))
                     })
@@ -1138,30 +1138,30 @@ impl SemanticDataType {
                 Self::TypedCompound(compound)
             }
             Self::Compound(data_type) => {
-                let data_type = data_type.get_data_type(resolved_environment)?;
+                let data_type = data_type.get_data_type(semantic_environment)?;
 
                 Self::Compound(Box::new(data_type))
             }
-            Self::Data(data_type) => data_type.get_data_type(resolved_environment)?,
+            Self::Data(data_type) => data_type.get_data_type(semantic_environment)?,
             Self::Reference(data_type) => {
-                let data_type = data_type.get_data_type(resolved_environment)?;
+                let data_type = data_type.get_data_type(semantic_environment)?;
 
                 Self::Reference(Box::new(data_type))
             }
             Self::Tuple(data_types) => {
                 let data_types = data_types
                     .iter()
-                    .map(|data_type| data_type.get_data_type(resolved_environment))
+                    .map(|data_type| data_type.get_data_type(semantic_environment))
                     .collect::<Option<_>>()?;
 
                 Self::Tuple(data_types)
             }
             Self::Struct(id, generic_types) => {
-                let (_, _, declaration) = resolved_environment.get_struct(*id);
+                let (_, _, declaration) = semantic_environment.get_struct(*id);
 
                 let generic_types = generic_types
                     .iter()
-                    .map(|data_type| data_type.get_data_type(resolved_environment))
+                    .map(|data_type| data_type.get_data_type(semantic_environment))
                     .collect::<Option<Vec<_>>>()?;
 
                 match declaration {
@@ -1170,7 +1170,7 @@ impl SemanticDataType {
                             data_type
                                 .clone()
                                 .substitute_generics(&declaration.generic_ids, &generic_types)
-                                .get_data_type(resolved_environment)?;
+                                .get_data_type(semantic_environment)?;
                         }
                     }
                     SemanticStructDeclaration::Tuple(declaration) => {
@@ -1178,7 +1178,7 @@ impl SemanticDataType {
                             data_type
                                 .clone()
                                 .substitute_generics(&declaration.generic_ids, &generic_types)
-                                .get_data_type(resolved_environment)?;
+                                .get_data_type(semantic_environment)?;
                         }
                     }
                 }
@@ -1398,16 +1398,16 @@ impl SemanticDataType {
 
     fn get_field_result(
         &self,
-        resolved_environment: &SemanticEnvironment,
+        semantic_environment: &SemanticEnvironment,
         field: &str,
     ) -> Option<Self> {
         check_error!(self);
 
         Some(match self {
-            Self::Reference(inner) => inner.get_field_result(resolved_environment, field)?,
+            Self::Reference(inner) => inner.get_field_result(semantic_environment, field)?,
 
             Self::Struct(id, generic_types) => {
-                let (_, _, declaration) = resolved_environment.get_struct(*id);
+                let (_, _, declaration) = semantic_environment.get_struct(*id);
 
                 let field_type = declaration.get_field(field)?;
 
@@ -1428,7 +1428,7 @@ impl SemanticDataType {
 
             Self::Data(data_type) => Self::Data(Box::new(
                 data_type
-                    .get_field_result(resolved_environment, field)
+                    .get_field_result(semantic_environment, field)
                     .unwrap_or(Self::Inferred),
             )),
 

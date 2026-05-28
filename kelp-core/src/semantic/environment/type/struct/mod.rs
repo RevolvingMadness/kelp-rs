@@ -1,9 +1,12 @@
+use crate::parsed::semantic_analysis::SemanticAnalysisContext;
+use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighTypeId;
 use crate::semantic::environment::r#type::{
     HighGenericId,
     r#struct::{regular::SemanticRegularStructDeclaration, tuple::SemanticTupleStructDeclaration},
 };
+use crate::semantic::environment::value::HighValueId;
 
 pub mod regular;
 pub mod tuple;
@@ -46,6 +49,26 @@ impl SemanticStructDeclaration {
             Self::Struct(declaration) => declaration.generic_ids.len(),
             Self::Tuple(declaration) => declaration.generic_ids.len(),
         }
+    }
+
+    pub fn get_value_id_semantic_analysis(
+        &self,
+        ctx: &SemanticAnalysisContext,
+        id: HighTypeId,
+        name: &str,
+    ) -> Result<HighValueId, SemanticAnalysisError> {
+        if let Some(impls) = ctx.semantic_environment.implementations.get(&id) {
+            for implementation in impls {
+                if let Some(id) = implementation.values.get(name) {
+                    return Ok(*id);
+                }
+            }
+        }
+
+        Err(SemanticAnalysisError::TypeDoesntContainValue {
+            type_name: self.name().to_owned(),
+            value_name: name.to_owned(),
+        })
     }
 
     #[must_use]

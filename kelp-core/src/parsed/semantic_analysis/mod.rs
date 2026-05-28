@@ -592,14 +592,14 @@ impl SemanticAnalysisContext {
         let mut current_type_id = self.get_type_id(&first_segment.name)?;
 
         for segment in segments {
-            let declaration = self.parsed_environment.get_type(current_type_id);
+            let declaration = self.semantic_environment.get_type(current_type_id);
 
             let id = match declaration.get_visible_type_id(self, current_type_id, &segment.name) {
                 Ok(id) => id,
                 Err(error) => return self.add_error(segment.name_span, error),
             };
 
-            let declaration = self.parsed_environment.get_type(id);
+            let declaration = self.semantic_environment.get_type(id);
 
             if !declaration.is_visible(&self.current_module_path) {
                 self.add_error_unit(
@@ -633,14 +633,14 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.resolve_type_path(path)?;
 
-        let declaration = self.parsed_environment.get_type(type_id);
+        let declaration = self.semantic_environment.get_type(type_id);
 
         let id = match declaration.get_visible_type_id(self, type_id, &last_segment.name) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
 
-        let declaration = self.parsed_environment.get_type(id);
+        let declaration = self.semantic_environment.get_type(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             self.add_error_unit(
@@ -671,14 +671,14 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.resolve_type_path(path)?;
 
-        let declaration = self.parsed_environment.get_type(type_id);
+        let declaration = self.semantic_environment.get_type(type_id);
 
         let id = match declaration.get_visible_value_id(self, type_id, &last_segment.name) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
 
-        let declaration = self.parsed_environment.get_value(id);
+        let declaration = self.semantic_environment.get_value(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             self.add_error_unit(
@@ -708,13 +708,13 @@ impl SemanticAnalysisContext {
         };
 
         for segment in segments {
-            let declaration = self.parsed_environment.get_type(current_type_id);
+            let declaration = self.semantic_environment.get_type(current_type_id);
 
             let id = declaration
                 .get_visible_type_id(self, current_type_id, &segment.name)
                 .map_err(|error| (segment.span, error))?;
 
-            let declaration = self.parsed_environment.get_type(id);
+            let declaration = self.semantic_environment.get_type(id);
 
             if !declaration.is_visible(&self.current_module_path) {
                 self.add_error_unit(
@@ -746,13 +746,13 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let declaration = self.parsed_environment.get_type(type_id);
+        let declaration = self.semantic_environment.get_type(type_id);
 
         let id = declaration
             .get_visible_type_id(self, type_id, &last_segment.name)
             .map_err(|error| (last_segment.span, error))?;
 
-        let declaration = self.parsed_environment.get_type(id);
+        let declaration = self.semantic_environment.get_type(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             return Err((
@@ -781,13 +781,13 @@ impl SemanticAnalysisContext {
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let declaration = self.parsed_environment.get_type(type_id);
+        let declaration = self.semantic_environment.get_type(type_id);
 
         let id = declaration
             .get_visible_value_id(self, type_id, &last_segment.name)
             .map_err(|error| (last_segment.span, error))?;
 
-        let declaration = self.parsed_environment.get_value(id);
+        let declaration = self.semantic_environment.get_value(id);
 
         if !declaration.is_visible(&self.current_module_path) {
             return Err((

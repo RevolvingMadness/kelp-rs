@@ -1,16 +1,11 @@
 use crate::parsed::environment::r#type::r#struct::{
     regular::ParsedRegularStructDeclaration, tuple::ParsedTupleStructDeclaration,
 };
-use crate::parsed::semantic_analysis::{
-    SemanticAnalysisContext, info::error::SemanticAnalysisError,
-};
+use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::path::generic::GenericPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
-use crate::semantic::environment::{
-    r#type::{HighTypeId, r#struct::SemanticStructDeclaration},
-    value::HighValueId,
-};
+use crate::semantic::environment::r#type::{HighTypeId, r#struct::SemanticStructDeclaration};
 
 pub mod regular;
 pub mod tuple;
@@ -46,26 +41,6 @@ impl ParsedStructDeclaration {
             Self::Struct(declaration) => declaration.generic_count(),
             Self::Tuple(declaration) => declaration.generic_count(),
         }
-    }
-
-    pub fn get_value_id_semantic_analysis(
-        &self,
-        ctx: &SemanticAnalysisContext,
-        id: HighTypeId,
-        name: &str,
-    ) -> Result<HighValueId, SemanticAnalysisError> {
-        if let Some(impls) = ctx.semantic_environment.implementations.get(&id) {
-            for implementation in impls {
-                if let Some(id) = implementation.values.get(name) {
-                    return Ok(*id);
-                }
-            }
-        }
-
-        Err(SemanticAnalysisError::TypeDoesntContainValue {
-            type_name: self.name().to_owned(),
-            value_name: name.to_owned(),
-        })
     }
 
     #[must_use]

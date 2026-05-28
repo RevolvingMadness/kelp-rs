@@ -37,6 +37,15 @@ pub struct SemanticValueDeclaration {
 }
 
 impl SemanticValueDeclaration {
+    #[must_use]
+    pub fn is_visible(&self, current_module_path: &[String]) -> bool {
+        if matches!(self.visibility, Visibility::Public) {
+            return true;
+        }
+
+        current_module_path.starts_with(&self.module_path)
+    }
+
     pub fn resolve_fully(
         self,
         ctx: &mut SemanticAnalysisContext,

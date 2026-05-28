@@ -596,8 +596,8 @@ impl SemanticDataType {
     #[allow(clippy::result_unit_err)]
     pub fn get_method(
         &self,
-        environment: &SemanticEnvironment,
-        segment: &GenericPathSegment<Self>,
+        ctx: &mut SemanticAnalysisContext,
+        method: &GenericPathSegment<Self>,
     ) -> Result<Option<MethodInfo>, ()> {
         if *self == Self::Error {
             return Err(());
@@ -607,8 +607,11 @@ impl SemanticDataType {
 
         Ok((|| {
             Some(match base_type {
-                Self::Struct(id, self_generic_types) => {
-                    let implementations = environment.implementations.get(&(*id).into())?;
+                Self::Struct(id, struct_generic_types) => {
+                    let implementations = ctx
+                        .semantic_environment
+                        .implementations
+                        .get(&(*id).into())?;
 
                     let implementation = implementations.iter().find(|implementation| {
                         if let Self::Struct(impl_id, _) = &implementation.target_type {
@@ -618,20 +621,35 @@ impl SemanticDataType {
                         }
                     })?;
 
-                    let method_id = implementation.values.get(&segment.name).copied()?;
+                    let method_id = implementation.values.get(&method.name).copied()?;
 
                     let SemanticValueDeclaration {
                         kind: SemanticValueDeclarationKind::Function(declaration),
                         ..
-                    } = environment.get_value(method_id)
+                    } = ctx.semantic_environment.get_value(method_id)
                     else {
                         return None;
                     };
 
+                    let expected_generic_count =
+                        declaration.generic_count() - struct_generic_types.len();
+                    let actual_generic_count = method.generic_types.len();
+
+                    if actual_generic_count != expected_generic_count {
+                        let name = declaration.name().to_owned();
+
+                        return ctx.add_invalid_generics(
+                            method.name_span,
+                            &name,
+                            expected_generic_count,
+                            actual_generic_count,
+                        );
+                    }
+
                     let method_id = HighFunctionId(method_id.0);
 
-                    let mut all_generic_types = self_generic_types.clone();
-                    all_generic_types.extend(segment.generic_types.iter().cloned());
+                    let mut all_generic_types = struct_generic_types.clone();
+                    all_generic_types.extend(method.generic_types.iter().cloned());
 
                     let return_type = declaration
                         .return_type()

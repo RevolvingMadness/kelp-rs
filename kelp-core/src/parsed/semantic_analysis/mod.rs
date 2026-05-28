@@ -700,10 +700,11 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
+    #[allow(clippy::type_complexity)]
     pub fn get_visible_value_id<T: Debug + Clone>(
         &mut self,
         path: &GenericPath<T>,
-    ) -> Option<(HighValueId, Vec<Span>, Vec<T>)> {
+    ) -> Option<(HighValueId, Vec<Span>, Vec<T>, usize, usize)> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
@@ -721,6 +722,8 @@ impl SemanticAnalysisContext {
                     id,
                     segment.generic_spans.clone(),
                     segment.generic_types.clone(),
+                    0,
+                    segment.generic_types.len(),
                 )
             });
         }
@@ -744,10 +747,18 @@ impl SemanticAnalysisContext {
             );
         }
 
+        let provided_generics_count = generic_types.len();
+
         generic_spans.extend(last_segment.generic_spans.iter().copied());
         generic_types.extend(last_segment.generic_types.iter().cloned());
 
-        Some((id, generic_spans, generic_types))
+        Some((
+            id,
+            generic_spans,
+            generic_types,
+            provided_generics_count,
+            last_segment.generic_types.len(),
+        ))
     }
 
     fn try_resolve_path<'a>(

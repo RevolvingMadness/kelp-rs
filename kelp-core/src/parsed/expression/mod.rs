@@ -232,7 +232,8 @@ impl ParsedExpression {
             ParsedExpressionKind::Path(path) => {
                 let mut path = path.perform_semantic_analysis(ctx);
 
-                let (id, _, generic_types) = ctx.get_visible_value_id(&path)?;
+                let (id, _, generic_types, provided_generics_count, last_segment_generics_count) =
+                    ctx.get_visible_value_id(&path)?;
 
                 let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
@@ -242,6 +243,8 @@ impl ParsedExpression {
                     ctx,
                     id,
                     generic_types.clone(),
+                    provided_generics_count,
+                    last_segment_generics_count,
                     last_segment.name_span,
                 )?;
 
@@ -645,11 +648,7 @@ impl ParsedExpression {
                 let (receiver_span, receiver) = receiver?;
                 let arguments = arguments?;
 
-                let Some(method_info) = receiver
-                    .data_type
-                    .get_method(&ctx.semantic_environment, &callee)
-                    .ok()?
-                else {
+                let Some(method_info) = receiver.data_type.get_method(ctx, &callee).ok()? else {
                     return ctx.add_error(
                         callee_span,
                         SemanticAnalysisError::MethodNotFound {
@@ -1085,7 +1084,8 @@ impl ParsedExpression {
             ParsedExpressionKind::Path(path) => {
                 let mut path = path.perform_semantic_analysis(ctx);
 
-                let (id, _, generic_types) = ctx.get_visible_value_id(&path)?;
+                let (id, _, generic_types, provided_generics_count, last_segment_generics_count) =
+                    ctx.get_visible_value_id(&path)?;
 
                 let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
@@ -1095,6 +1095,8 @@ impl ParsedExpression {
                     ctx,
                     id,
                     generic_types.clone(),
+                    provided_generics_count,
+                    last_segment_generics_count,
                     last_segment.name_span,
                 )?;
 

@@ -51,6 +51,8 @@ impl SemanticValueDeclaration {
         ctx: &mut SemanticAnalysisContext,
         original_id: HighValueId,
         generic_types: Vec<SemanticDataType>,
+        provided_generics_count: usize,
+        last_segment_generics_count: usize,
         path_span: Span,
     ) -> Option<SemanticDataType> {
         match self.kind {
@@ -77,8 +79,8 @@ impl SemanticValueDeclaration {
             SemanticValueDeclarationKind::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
-                let expected_generics = declaration.generic_count();
-                let actual_generics = generic_types.len();
+                let expected_generics = declaration.generic_count() - provided_generics_count;
+                let actual_generics = last_segment_generics_count;
 
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics(

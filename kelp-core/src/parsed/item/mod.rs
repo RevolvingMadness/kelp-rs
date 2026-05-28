@@ -142,29 +142,15 @@ impl ParsedItem {
                     }),
                 );
 
-                ctx.enter_scope();
+                ctx.enter_implementation(impl_generic_ids, impl_generic_names);
 
                 let associated_items = associated_items
                     .into_iter()
-                    .map(|item| {
-                        let mut item = item.resolve_names(ctx)?;
-
-                        if let NamedItemKind::FunctionDeclaration {
-                            generic_names: ref mut fn_generic_names,
-                            generic_ids: ref mut fn_generic_ids,
-                            ..
-                        } = item.kind
-                        {
-                            fn_generic_names.splice(0..0, impl_generic_names.iter().cloned());
-
-                            fn_generic_ids.splice(0..0, impl_generic_ids.iter().copied());
-                        }
-
-                        Some(item)
-                    })
+                    .map(|item| item.resolve_names(ctx))
                     .collect_option_all::<Vec<_>>();
 
-                let associated_items_scope = ctx.exit_scope();
+                let (impl_generic_ids, impl_generic_names, associated_items_scope) =
+                    ctx.exit_implementation();
 
                 ctx.exit_scope();
 
@@ -208,7 +194,7 @@ impl ParsedItem {
                 runtime_keyword_span,
                 name_span,
                 name,
-                generic_names,
+                mut generic_names,
                 self_parameter,
                 parameters,
                 return_type,
@@ -221,7 +207,7 @@ impl ParsedItem {
 
                 ctx.enter_scope();
 
-                let generic_ids = generic_names
+                let mut generic_ids = generic_names
                     .iter()
                     .cloned()
                     .map(|generic_name| {
@@ -233,6 +219,13 @@ impl ParsedItem {
                         HighGenericId(id.0)
                     })
                     .collect::<Vec<_>>();
+
+                if let Some((impl_generic_ids, impl_generic_names)) =
+                    ctx.impl_generic_ids_and_names.last()
+                {
+                    generic_ids.splice(0..0, impl_generic_ids.iter().copied());
+                    generic_names.splice(0..0, impl_generic_names.iter().cloned());
+                }
 
                 ctx.exit_scope();
 

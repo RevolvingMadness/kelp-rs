@@ -46,13 +46,13 @@ impl SemanticValueDeclaration {
         current_module_path.starts_with(&self.module_path)
     }
 
-    pub fn resolve_fully(
+    pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
         original_id: HighValueId,
         generic_types: Vec<SemanticDataType>,
         path_span: Span,
-    ) -> Option<(HighValueId, SemanticDataType)> {
+    ) -> Option<SemanticDataType> {
         match self.kind {
             SemanticValueDeclarationKind::Variable(declaration) => {
                 let expected_generics = 0;
@@ -72,7 +72,7 @@ impl SemanticValueDeclaration {
                     );
                 }
 
-                Some((original_id, declaration.data_type))
+                Some(declaration.data_type)
             }
             SemanticValueDeclarationKind::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
@@ -89,10 +89,7 @@ impl SemanticValueDeclaration {
                     );
                 }
 
-                Some((
-                    original_id,
-                    SemanticDataType::Function(id.into(), generic_types),
-                ))
+                Some(SemanticDataType::Function(id.into(), generic_types))
             }
         }
     }

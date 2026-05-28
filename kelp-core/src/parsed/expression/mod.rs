@@ -232,20 +232,20 @@ impl ParsedExpression {
             ParsedExpressionKind::Path(path) => {
                 let mut path = path.perform_semantic_analysis(ctx);
 
-                let id = ctx.get_visible_value_id(&path)?;
+                let (id, _, generic_types) = ctx.get_visible_value_id(&path)?;
 
                 let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let (id, data_type) = value_declaration.resolve_fully(
+                let data_type = value_declaration.into_data_type(
                     ctx,
                     id,
-                    last_segment.generic_types.clone(),
+                    generic_types.clone(),
                     last_segment.name_span,
                 )?;
 
-                ParsedPlaceExpressionKind::Value(id, last_segment.generic_types).with(data_type)
+                ParsedPlaceExpressionKind::Value(id, generic_types).with(data_type)
             }
             ParsedExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
@@ -826,7 +826,7 @@ impl ParsedExpression {
             ParsedExpressionKind::RegularStruct(path, field_values) => {
                 let mut path = path.perform_semantic_analysis(ctx);
 
-                let id = ctx.get_visible_type_id(&path)?;
+                let (id, _, generic_types) = ctx.get_visible_type_id(&path)?;
 
                 let last_segment = path.segments.pop().unwrap();
 
@@ -834,8 +834,7 @@ impl ParsedExpression {
 
                 let id = HighRegularStructId(id.0);
 
-                let data_type =
-                    SemanticDataType::Struct(id.into(), last_segment.generic_types.clone());
+                let data_type = SemanticDataType::Struct(id.into(), generic_types.clone());
 
                 let generic_ids = declaration.generic_ids.clone();
                 let field_types = declaration.field_types.clone();
@@ -855,7 +854,7 @@ impl ParsedExpression {
 
                         let field_type = field_type
                             .clone()
-                            .substitute_generics(&generic_ids, &last_segment.generic_types);
+                            .substitute_generics(&generic_ids, &generic_types);
 
                         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
@@ -893,7 +892,7 @@ impl ParsedExpression {
                     return None;
                 }
 
-                SemanticExpressionKind::RegularStruct(id, last_segment.generic_types, field_values)
+                SemanticExpressionKind::RegularStruct(id, generic_types, field_values)
                     .with(data_type)
             }
             ParsedExpressionKind::Call { callee, arguments } => {
@@ -1086,20 +1085,20 @@ impl ParsedExpression {
             ParsedExpressionKind::Path(path) => {
                 let mut path = path.perform_semantic_analysis(ctx);
 
-                let id = ctx.get_visible_value_id(&path)?;
+                let (id, _, generic_types) = ctx.get_visible_value_id(&path)?;
 
                 let value_declaration = ctx.semantic_environment.get_value(id).clone();
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let (id, data_type) = value_declaration.resolve_fully(
+                let data_type = value_declaration.into_data_type(
                     ctx,
                     id,
-                    last_segment.generic_types.clone(),
+                    generic_types.clone(),
                     last_segment.name_span,
                 )?;
 
-                SemanticExpressionKind::Value(id, last_segment.generic_types).with(data_type)
+                SemanticExpressionKind::Value(id, generic_types).with(data_type)
             }
             ParsedExpressionKind::Boolean(value) => {
                 SemanticExpressionKind::Boolean(value).with(SemanticDataType::Boolean)

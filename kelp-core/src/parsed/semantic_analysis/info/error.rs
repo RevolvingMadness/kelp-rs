@@ -270,7 +270,7 @@ impl Display for SemanticAnalysisErrorDisplay<'_> {
                 let was_were = if *actual == 1 { "was" } else { "were" };
                 write!(
                     f,
-                    "The type `{}` takes {} generic argument{} but {} {} given",
+                    "`{}` takes {} generic argument{} but {} {} given",
                     type_name, expected, s, actual, was_were
                 )
             }

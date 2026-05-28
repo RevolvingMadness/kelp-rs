@@ -1,8 +1,8 @@
 use crate::parsed::data_type::ParsedDataType;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
-use crate::path::generic::GenericPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighGenericId;
+use crate::span::Span;
 
 #[derive(Debug, Clone)]
 pub struct ParsedTypeAliasDeclaration {
@@ -21,14 +21,15 @@ impl ParsedTypeAliasDeclaration {
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        segment: &GenericPathSegment<SemanticDataType>,
+        name_span: Span,
+        generic_types: &[SemanticDataType],
     ) -> SemanticDataType {
         let expected_generics = self.generic_ids.len();
-        let actual_generics = segment.generic_types.len();
+        let actual_generics = generic_types.len();
 
         if actual_generics != expected_generics {
             return ctx.add_invalid_generics_type(
-                segment.name_span,
+                name_span,
                 self.name(),
                 expected_generics,
                 actual_generics,
@@ -37,6 +38,6 @@ impl ParsedTypeAliasDeclaration {
 
         let alias = self.alias.perform_semantic_analysis(ctx);
 
-        alias.substitute_generics(&self.generic_ids, &segment.generic_types)
+        alias.substitute_generics(&self.generic_ids, generic_types)
     }
 }

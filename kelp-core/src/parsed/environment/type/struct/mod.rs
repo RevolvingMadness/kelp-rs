@@ -2,10 +2,10 @@ use crate::parsed::environment::r#type::r#struct::{
     regular::ParsedRegularStructDeclaration, tuple::ParsedTupleStructDeclaration,
 };
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
-use crate::path::generic::GenericPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::{HighTypeId, r#struct::SemanticStructDeclaration};
+use crate::span::Span;
 
 pub mod regular;
 pub mod tuple;
@@ -48,22 +48,23 @@ impl ParsedStructDeclaration {
         self,
         ctx: &mut SemanticAnalysisContext,
         id: HighTypeId,
-        segment: &GenericPathSegment<SemanticDataType>,
+        name_span: Span,
+        generic_types: &[SemanticDataType],
     ) -> SemanticDataType {
         let id = HighStructId(id.0);
 
         let expected_generics = self.generic_count();
-        let actual_generics = segment.generic_types.len();
+        let actual_generics = generic_types.len();
 
         if actual_generics != expected_generics {
             return ctx.add_invalid_generics_type(
-                segment.name_span,
+                name_span,
                 self.name(),
                 expected_generics,
                 actual_generics,
             );
         }
 
-        SemanticDataType::Struct(id, segment.generic_types.clone())
+        SemanticDataType::Struct(id, generic_types.to_vec())
     }
 }

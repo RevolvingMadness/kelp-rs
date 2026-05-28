@@ -123,7 +123,7 @@ pub struct SemanticAnalysisContext {
     pub environment: Environment,
     pub parsed_environment: ParsedEnvironment,
     pub semantic_environment: SemanticEnvironment,
-    pub is_in_impl: u32,
+    pub impl_generic_ids_and_names: Vec<(Vec<HighGenericId>, Vec<String>)>,
 }
 
 impl SemanticAnalysisContext {
@@ -139,7 +139,7 @@ impl SemanticAnalysisContext {
             loop_depth: 0,
             current_module_path: Vec::new(),
             function_contexts: SmallVec::new(),
-            is_in_impl: 0,
+            impl_generic_ids_and_names: Vec::new(),
         };
 
         self_.declare_std_module();
@@ -168,18 +168,24 @@ impl SemanticAnalysisContext {
         self.scopes.push(Scope::default());
     }
 
-    pub fn enter_implementation(&mut self) {
+    pub fn enter_implementation(
+        &mut self,
+        generic_ids: Vec<HighGenericId>,
+        generic_names: Vec<String>,
+    ) {
         self.enter_scope();
 
-        self.is_in_impl += 1;
+        self.impl_generic_ids_and_names
+            .push((generic_ids, generic_names));
     }
 
-    pub fn exit_implementation(&mut self) -> Scope {
+    #[must_use]
+    pub fn exit_implementation(&mut self) -> (Vec<HighGenericId>, Vec<String>, Scope) {
         let scope = self.exit_scope();
 
-        self.is_in_impl -= 1;
+        let (generic_ids, generic_names) = self.impl_generic_ids_and_names.pop().unwrap();
 
-        scope
+        (generic_ids, generic_names, scope)
     }
 
     #[inline]
@@ -577,10 +583,11 @@ impl SemanticAnalysisContext {
         HighBuiltinFunctionId(id.0)
     }
 
-    fn resolve_type_path<'a, T>(
+    #[allow(clippy::type_complexity)]
+    fn resolve_type_path<'a, T: Clone>(
         &mut self,
         path: &'a GenericPath<T>,
-    ) -> Option<(HighTypeId, &'a GenericPathSegment<T>)> {
+    ) -> Option<(HighTypeId, Vec<Span>, Vec<T>, &'a GenericPathSegment<T>)> {
         let (last_segment, segments) = path.segments.split_last()?;
 
         if segments.is_empty() {
@@ -590,6 +597,8 @@ impl SemanticAnalysisContext {
         let (first_segment, segments) = segments.split_first()?;
 
         let mut current_type_id = self.get_type_id(&first_segment.name)?;
+        let mut accumulated_generic_spans = first_segment.generic_spans.clone();
+        let mut accumulated_generic_types = first_segment.generic_types.clone();
 
         for segment in segments {
             let declaration = self.semantic_environment.get_type(current_type_id);
@@ -609,13 +618,24 @@ impl SemanticAnalysisContext {
             }
 
             current_type_id = id;
+
+            accumulated_generic_spans.extend(segment.generic_spans.iter().copied());
+            accumulated_generic_types.extend(segment.generic_types.iter().cloned());
         }
 
-        Some((current_type_id, last_segment))
+        Some((
+            current_type_id,
+            accumulated_generic_spans,
+            accumulated_generic_types,
+            last_segment,
+        ))
     }
 
     #[must_use]
-    pub fn get_visible_type_id<T>(&mut self, path: &GenericPath<T>) -> Option<HighTypeId> {
+    pub fn get_visible_type_id<T: Debug + Clone>(
+        &mut self,
+        path: &GenericPath<T>,
+    ) -> Option<(HighTypeId, Vec<Span>, Vec<T>)> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
@@ -628,10 +648,17 @@ impl SemanticAnalysisContext {
                 );
             }
 
-            return id;
+            return id.map(|id| {
+                (
+                    id,
+                    segment.generic_spans.clone(),
+                    segment.generic_types.clone(),
+                )
+            });
         }
 
-        let (type_id, last_segment) = self.resolve_type_path(path)?;
+        let (type_id, mut generic_spans, mut generic_types, last_segment) =
+            self.resolve_type_path(path)?;
 
         let declaration = self.semantic_environment.get_type(type_id);
 
@@ -649,11 +676,17 @@ impl SemanticAnalysisContext {
             );
         }
 
-        Some(id)
+        generic_spans.extend(last_segment.generic_spans.iter().copied());
+        generic_types.extend(last_segment.generic_types.iter().cloned());
+
+        Some((id, generic_spans, generic_types))
     }
 
     #[must_use]
-    pub fn get_visible_value_id<T: Debug>(&mut self, path: &GenericPath<T>) -> Option<HighValueId> {
+    pub fn get_visible_value_id<T: Debug + Clone>(
+        &mut self,
+        path: &GenericPath<T>,
+    ) -> Option<(HighValueId, Vec<Span>, Vec<T>)> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
@@ -666,10 +699,17 @@ impl SemanticAnalysisContext {
                 );
             }
 
-            return id;
+            return id.map(|id| {
+                (
+                    id,
+                    segment.generic_spans.clone(),
+                    segment.generic_types.clone(),
+                )
+            });
         }
 
-        let (type_id, last_segment) = self.resolve_type_path(path)?;
+        let (type_id, mut generic_spans, mut generic_types, last_segment) =
+            self.resolve_type_path(path)?;
 
         let declaration = self.semantic_environment.get_type(type_id);
 
@@ -687,7 +727,10 @@ impl SemanticAnalysisContext {
             );
         }
 
-        Some(id)
+        generic_spans.extend(last_segment.generic_spans.iter().copied());
+        generic_types.extend(last_segment.generic_types.iter().cloned());
+
+        Some((id, generic_spans, generic_types))
     }
 
     fn try_resolve_path<'a>(

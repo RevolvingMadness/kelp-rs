@@ -255,7 +255,7 @@ impl NamedItem {
                 associated_items_scope,
                 generic_ids,
             } => {
-                ctx.enter_implementation();
+                ctx.enter_scope();
 
                 for (generic_id, generic_name) in generic_ids
                     .iter()
@@ -286,7 +286,7 @@ impl NamedItem {
 
                 let associated_items_scope = ctx.exit_scope();
 
-                ctx.exit_implementation();
+                ctx.exit_scope();
 
                 let (types, values) = associated_items_scope.clone().into_tuple();
 
@@ -361,7 +361,7 @@ impl NamedItem {
                 }
 
                 let self_parameter = self_parameter.map(|parameter| {
-                    let data_type = if ctx.is_in_impl == 0 {
+                    let data_type = if ctx.impl_generic_ids_and_names.is_empty() {
                         ctx.add_error_type(
                             parameter.pattern_span,
                             SemanticAnalysisError::MethodNotInImpl,

@@ -48,6 +48,17 @@ impl SemanticTypeDeclarationKind {
         }
     }
 
+    #[must_use]
+    pub fn generic_ids(&self) -> &[HighGenericId] {
+        match self {
+            Self::Module(..) => &[],
+            Self::Struct(declaration) => declaration.generic_ids(),
+            Self::Alias(declaration) => &declaration.generic_ids,
+            Self::Generic(_) => &[],
+            Self::Builtin(..) => &[],
+        }
+    }
+
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,

@@ -230,23 +230,11 @@ impl ParsedExpression {
     ) -> Option<(Span, ParsedPlaceExpression)> {
         let expression = match self.kind {
             ParsedExpressionKind::Path(path) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
-                let (id, _, generic_types, provided_generics_count, last_segment_generics_count) =
-                    ctx.get_visible_value_id(&path)?;
+                let (id, generic_types, data_type) = ctx.get_visible_value_type(path)?;
 
-                let value_declaration = ctx.semantic_environment.get_value(id).clone();
-
-                let last_segment = path.segments.pop().unwrap();
-
-                let data_type = value_declaration.into_data_type(
-                    ctx,
-                    id,
-                    generic_types.clone(),
-                    provided_generics_count,
-                    last_segment_generics_count,
-                    last_segment.name_span,
-                )?;
+                let data_type = data_type?;
 
                 ParsedPlaceExpressionKind::Value(id, generic_types).with(data_type)
             }
@@ -1082,23 +1070,11 @@ impl ParsedExpression {
                 .with(SemanticDataType::Unit)
             }
             ParsedExpressionKind::Path(path) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
-                let (id, _, generic_types, provided_generics_count, last_segment_generics_count) =
-                    ctx.get_visible_value_id(&path)?;
+                let (id, generic_types, data_type) = ctx.get_visible_value_type(path)?;
 
-                let value_declaration = ctx.semantic_environment.get_value(id).clone();
-
-                let last_segment = path.segments.pop().unwrap();
-
-                let data_type = value_declaration.into_data_type(
-                    ctx,
-                    id,
-                    generic_types.clone(),
-                    provided_generics_count,
-                    last_segment_generics_count,
-                    last_segment.name_span,
-                )?;
+                let data_type = data_type?;
 
                 SemanticExpressionKind::Value(id, generic_types).with(data_type)
             }

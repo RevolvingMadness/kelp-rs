@@ -631,21 +631,6 @@ impl SemanticDataType {
                         return None;
                     };
 
-                    let expected_generic_count =
-                        declaration.generic_count() - struct_generic_types.len();
-                    let actual_generic_count = method.generic_types.len();
-
-                    if actual_generic_count != expected_generic_count {
-                        let name = declaration.name().to_owned();
-
-                        return ctx.add_invalid_generics(
-                            method.name_span,
-                            &name,
-                            expected_generic_count,
-                            actual_generic_count,
-                        );
-                    }
-
                     let method_id = HighFunctionId(method_id.0);
 
                     let mut all_generic_types = struct_generic_types.clone();

@@ -701,35 +701,37 @@ impl SemanticAnalysisContext {
 
     #[must_use]
     #[allow(clippy::type_complexity)]
-    pub fn get_visible_value_id<T: Debug + Clone>(
+    pub fn get_visible_value_type(
         &mut self,
-        path: &GenericPath<T>,
-    ) -> Option<(HighValueId, Vec<Span>, Vec<T>, usize, usize)> {
+        mut path: GenericPath<SemanticDataType>,
+    ) -> Option<(HighValueId, Vec<SemanticDataType>, Option<SemanticDataType>)> {
         if path.segments.len() == 1 {
-            let segment = &path.segments[0];
+            let segment = path.segments.remove(0);
 
             let id = self.get_value_id(&segment.name);
 
             if id.is_none() {
                 return self.add_error(
                     segment.name_span,
-                    SemanticAnalysisError::UnknownValue(segment.name.clone()),
+                    SemanticAnalysisError::UnknownValue(segment.name),
                 );
             }
 
             return id.map(|id| {
-                (
+                let declaration = self.semantic_environment.get_value(id).clone();
+
+                let data_type = declaration.into_data_type(
+                    self,
                     id,
-                    segment.generic_spans.clone(),
                     segment.generic_types.clone(),
-                    0,
-                    segment.generic_types.len(),
-                )
+                    segment.name_span,
+                );
+
+                (id, segment.generic_types, data_type)
             });
         }
 
-        let (type_id, mut generic_spans, mut generic_types, last_segment) =
-            self.resolve_type_path(path)?;
+        let (type_id, _, _, last_segment) = self.resolve_type_path(&path)?;
 
         let declaration = self.semantic_environment.get_type(type_id);
 
@@ -747,18 +749,16 @@ impl SemanticAnalysisContext {
             );
         }
 
-        let provided_generics_count = generic_types.len();
+        let declaration = self.semantic_environment.get_value(id).clone();
 
-        generic_spans.extend(last_segment.generic_spans.iter().copied());
-        generic_types.extend(last_segment.generic_types.iter().cloned());
-
-        Some((
+        let data_type = declaration.into_data_type(
+            self,
             id,
-            generic_spans,
-            generic_types,
-            provided_generics_count,
-            last_segment.generic_types.len(),
-        ))
+            last_segment.generic_types.clone(),
+            last_segment.name_span,
+        );
+
+        Some((id, last_segment.generic_types.clone(), data_type))
     }
 
     fn try_resolve_path<'a>(

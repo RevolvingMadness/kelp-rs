@@ -194,7 +194,7 @@ impl ParsedItem {
                 runtime_keyword_span,
                 name_span,
                 name,
-                mut generic_names,
+                generic_names,
                 self_parameter,
                 parameters,
                 return_type,
@@ -207,7 +207,7 @@ impl ParsedItem {
 
                 ctx.enter_scope();
 
-                let mut generic_ids = generic_names
+                let generic_ids = generic_names
                     .iter()
                     .cloned()
                     .map(|generic_name| {
@@ -219,13 +219,6 @@ impl ParsedItem {
                         HighGenericId(id.0)
                     })
                     .collect::<Vec<_>>();
-
-                if let Some((impl_generic_ids, impl_generic_names)) =
-                    ctx.impl_generic_ids_and_names.last()
-                {
-                    generic_ids.splice(0..0, impl_generic_ids.iter().copied());
-                    generic_names.splice(0..0, impl_generic_names.iter().cloned());
-                }
 
                 ctx.exit_scope();
 

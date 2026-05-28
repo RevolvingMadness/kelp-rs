@@ -4,6 +4,9 @@ use crate::parsed::environment::r#type::r#struct::{
 use crate::parsed::semantic_analysis::{
     SemanticAnalysisContext, info::error::SemanticAnalysisError,
 };
+use crate::path::generic::GenericPathSegment;
+use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::{
     r#type::{HighTypeId, r#struct::SemanticStructDeclaration},
     value::HighValueId,
@@ -63,5 +66,29 @@ impl ParsedStructDeclaration {
             type_name: self.name().to_owned(),
             value_name: name.to_owned(),
         })
+    }
+
+    #[must_use]
+    pub fn into_data_type(
+        self,
+        ctx: &mut SemanticAnalysisContext,
+        id: HighTypeId,
+        segment: &GenericPathSegment<SemanticDataType>,
+    ) -> SemanticDataType {
+        let id = HighStructId(id.0);
+
+        let expected_generics = self.generic_count();
+        let actual_generics = segment.generic_types.len();
+
+        if actual_generics != expected_generics {
+            return ctx.add_invalid_generics_type(
+                segment.name_span,
+                self.name(),
+                expected_generics,
+                actual_generics,
+            );
+        }
+
+        SemanticDataType::Struct(id, segment.generic_types.clone())
     }
 }

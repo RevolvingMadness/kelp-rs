@@ -6,7 +6,6 @@ use crate::parsed::environment::{
 use crate::path::generic::GenericPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighGenericId;
-use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::{r#type::HighTypeId, value::HighValueId};
 use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
@@ -106,6 +105,7 @@ impl ParsedTypeDeclaration {
         }
     }
 
+    #[must_use]
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -117,38 +117,10 @@ impl ParsedTypeDeclaration {
                 ctx.add_error_type(segment.name_span, SemanticAnalysisError::NotAType(name))
             }
             ParsedTypeDeclarationKind::Struct(declaration) => {
-                let id = HighStructId(id.0);
-
-                let expected_generics = declaration.generic_count();
-                let actual_generics = segment.generic_types.len();
-
-                if actual_generics != expected_generics {
-                    return ctx.add_invalid_generics_type(
-                        segment.name_span,
-                        declaration.name(),
-                        expected_generics,
-                        actual_generics,
-                    );
-                }
-
-                SemanticDataType::Struct(id, segment.generic_types.clone())
+                declaration.into_data_type(ctx, id, segment)
             }
             ParsedTypeDeclarationKind::Alias(declaration) => {
-                let expected_generics = declaration.generic_ids.len();
-                let actual_generics = segment.generic_types.len();
-
-                if actual_generics != expected_generics {
-                    return ctx.add_invalid_generics_type(
-                        segment.name_span,
-                        &declaration.name,
-                        expected_generics,
-                        actual_generics,
-                    );
-                }
-
-                let alias = declaration.alias.perform_semantic_analysis(ctx);
-
-                alias.substitute_generics(&declaration.generic_ids, &segment.generic_types)
+                declaration.into_data_type(ctx, segment)
             }
             ParsedTypeDeclarationKind::Generic(name) => {
                 let expected_generics = 0;
@@ -165,7 +137,9 @@ impl ParsedTypeDeclaration {
 
                 SemanticDataType::Generic(HighGenericId(id.0))
             }
-            ParsedTypeDeclarationKind::Builtin(data_type) => data_type.into_data_type(ctx, segment),
+            ParsedTypeDeclarationKind::Builtin(declaration) => {
+                declaration.into_data_type(ctx, segment)
+            }
         }
     }
 }

@@ -265,13 +265,11 @@ impl LowerableAstNode for CSTFunctionDeclarationItem {
                 kind: ParsedPatternKind::Binding(GenericPath::single(self_parameter.span, "self")),
             };
 
-            let self_type = ParsedDataType::Named(GenericPath::single(
-                self_parameter
-                    .data_type
-                    .as_ref()
-                    .map_or(self_parameter.span, |(span, _)| *span),
-                "Self",
-            ));
+            let self_type = if let Some((_, self_type)) = &self_parameter.data_type {
+                self_type.clone()
+            } else {
+                ParsedDataType::Named(GenericPath::single(self_parameter.span, "Self"))
+            };
 
             parameters.insert(0, (self_pattern, self_type));
         }

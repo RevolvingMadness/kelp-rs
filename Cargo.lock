@@ -9,6 +9,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
+name = "annotate-snippets"
+version = "0.12.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f211a51805bc641f3ad5b7664c77d2547af685cc33b4cd8d31964027a46f13f1"
+dependencies = [
+ "anstyle",
+ "memchr",
+ "unicode-width",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -56,16 +67,6 @@ dependencies = [
  "anstyle",
  "once_cell_polyfill",
  "windows-sys",
-]
-
-[[package]]
-name = "ariadne"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8454c8a44ce2cb9cc7e7fae67fc6128465b343b92c6631e94beca3c8d1524ea5"
-dependencies = [
- "unicode-width",
- "yansi",
 ]
 
 [[package]]
@@ -498,7 +499,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 name = "kelp-cli"
 version = "0.1.0"
 dependencies = [
- "ariadne",
+ "annotate-snippets",
  "clap",
  "dirs",
  "kelp-core",
@@ -550,7 +551,6 @@ dependencies = [
  "strum",
  "strum_macros",
  "syn",
- "thiserror",
  "ungrammar",
 ]
 

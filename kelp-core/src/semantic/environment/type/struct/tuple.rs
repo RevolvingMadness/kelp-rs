@@ -2,6 +2,7 @@ use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
+use crate::span::Span;
 
 make_id!(HighTupleStructId);
 
@@ -19,6 +20,7 @@ impl From<HighTupleStructId> for HighTypeId {
 
 #[derive(Debug, Clone)]
 pub struct SemanticTupleStructDeclaration {
+    pub name_span: Span,
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
     pub field_types: Vec<SemanticDataType>,

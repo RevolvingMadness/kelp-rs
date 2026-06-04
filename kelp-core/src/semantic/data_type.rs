@@ -7,6 +7,7 @@ use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
         HighGenericId,
+        module::HighModuleId,
         r#struct::{
             HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
             tuple::HighTupleStructId,
@@ -180,9 +181,9 @@ impl Display for SemanticDataTypeDisplay<'_> {
                 Ok(())
             }
             SemanticDataType::Generic(id) => {
-                let (_, _, name) = self.semantic_environment.get_generic(*id);
+                let (_, _, declaration) = self.semantic_environment.get_generic(*id);
 
-                name.fmt(f)
+                declaration.name.fmt(f)
             }
             SemanticDataType::Function(id, generic_types) => {
                 // Maybe display full path?
@@ -327,7 +328,7 @@ impl SemanticDataType {
     pub fn inner_resolve_regular_struct(
         datapack: &mut Datapack,
         id: HighRegularStructId,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         name: String,
         generic_ids: &[HighGenericId],
@@ -366,7 +367,7 @@ impl SemanticDataType {
     pub fn inner_monomorphize_tuple_struct(
         datapack: &mut Datapack,
         id: HighTupleStructId,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         name: String,
         generic_ids: &[HighGenericId],
@@ -1025,9 +1026,10 @@ impl SemanticDataType {
     ) -> Option<Self> {
         match self.get_iterable_type() {
             Ok(data_type) => Some(data_type),
-            Err(data_type) => {
-                ctx.add_error(span, SemanticAnalysisError::CannotIterateType(data_type))
-            }
+            Err(data_type) => ctx.add_error(SemanticAnalysisError::CannotIterateType {
+                type_span: span,
+                data_type,
+            }),
         }
     }
 
@@ -1383,20 +1385,21 @@ impl SemanticDataType {
         index_type: &Self,
     ) -> Option<Self> {
         let Some((index_result_type, preferred_index_type)) = self.get_index_result() else {
-            return ctx.add_error(span, SemanticAnalysisError::CannotBeIndexed(self.clone()));
+            return ctx.add_error(SemanticAnalysisError::CannotBeIndexed {
+                type_span: span,
+                data_type: self.clone(),
+            });
         };
 
         let (_, index_type) = index_type.unwrap();
         let (_, preferred_index_type) = preferred_index_type.unwrap();
 
         if !index_type.equals(preferred_index_type) {
-            return ctx.add_error(
-                span,
-                SemanticAnalysisError::CannotBeIndexedByType {
-                    target: self.clone(),
-                    index: index_type.clone(),
-                },
-            );
+            return ctx.add_error(SemanticAnalysisError::TypeCannotBeIndexedByType {
+                target_span: span,
+                target: self.clone(),
+                index: index_type.clone(),
+            });
         }
 
         Some(index_result_type)
@@ -1456,21 +1459,19 @@ impl SemanticDataType {
         field: &str,
     ) -> Option<Self> {
         if !self.has_fields() {
-            return ctx.add_error(
-                span,
-                SemanticAnalysisError::TypeDoesntHaveFields(self.clone()),
-            );
+            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveFields {
+                type_span: span,
+                data_type: self.clone(),
+            });
         }
 
         match self.get_field_result(&ctx.semantic_environment, field) {
             Some(result) => Some(result),
-            None => ctx.add_error(
-                span,
-                SemanticAnalysisError::TypeDoesntHaveField {
-                    data_type: self.clone(),
-                    field: field.to_owned(),
-                },
-            ),
+            None => ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                field_span: span,
+                data_type: self.clone(),
+                field: field.to_owned(),
+            }),
         }
     }
 
@@ -1506,7 +1507,10 @@ impl SemanticDataType {
     ) -> Option<Self> {
         match self.get_dereferenced_result() {
             Ok(result) => Some(result),
-            Err(self_) => ctx.add_error(span, SemanticAnalysisError::CannotBeDereferenced(self_)),
+            Err(self_) => ctx.add_error(SemanticAnalysisError::CannotBeDereferenced {
+                type_span: span,
+                data_type: self_,
+            }),
         }
     }
 
@@ -1596,8 +1600,7 @@ impl SemanticDataType {
     ) -> Option<()> {
         if ctx.loop_depth != 0 && self.is_compiletime()? {
             return ctx.add_error(
-                span,
-                SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop,
+                SemanticAnalysisError::CompiletimeValueMutationInRuntimeLoop { value_span: span },
             );
         }
 
@@ -1616,14 +1619,11 @@ impl SemanticDataType {
             return Some(());
         }
 
-        ctx.add_error(
-            value_span,
-            SemanticAnalysisError::InvalidAugmentedAssignmentType(
-                operator,
-                self.clone(),
-                value_type.clone(),
-            ),
-        )
+        ctx.add_error(SemanticAnalysisError::InvalidAugmentedAssignmentType(
+            operator,
+            self.clone(),
+            value_type.clone(),
+        ))
     }
 
     #[must_use]
@@ -1637,13 +1637,11 @@ impl SemanticDataType {
             return Some(());
         }
 
-        ctx.add_error(
+        ctx.add_error(SemanticAnalysisError::MismatchedTypes {
             span,
-            SemanticAnalysisError::MismatchedTypes {
-                expected: other.clone(),
-                actual: self.clone(),
-            },
-        )
+            expected: other.clone(),
+            actual: self.clone(),
+        })
     }
 
     #[must_use]
@@ -1656,10 +1654,10 @@ impl SemanticDataType {
             return Some(());
         }
 
-        ctx.add_error(
-            span,
-            SemanticAnalysisError::TypeIsNotScoreCompatible(self.clone()),
-        )
+        ctx.add_error(SemanticAnalysisError::TypeIsNotScoreCompatible {
+            type_span: span,
+            data_type: self.clone(),
+        })
     }
 
     #[must_use]
@@ -1672,10 +1670,10 @@ impl SemanticDataType {
             return Some(());
         }
 
-        ctx.add_error(
-            span,
-            SemanticAnalysisError::TypeIsNotDataCompatible(self.clone()),
-        )
+        ctx.add_error(SemanticAnalysisError::TypeIsNotDataCompatible {
+            type_span: span,
+            data_type: self.clone(),
+        })
     }
 
     #[must_use]
@@ -1684,9 +1682,9 @@ impl SemanticDataType {
             return Some(());
         }
 
-        ctx.add_error(
-            span,
-            SemanticAnalysisError::TypeIsNotCondition(self.clone()),
-        )
+        ctx.add_error(SemanticAnalysisError::TypeIsNotCondition {
+            type_span: span,
+            data_type: self.clone(),
+        })
     }
 }

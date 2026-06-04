@@ -2,7 +2,7 @@ use kelp_core::{parsed::data_type::ParsedDataType, span::Span};
 
 use crate::{
     cst::{CSTDataType, CSTGenericDataTypes, CSTGenericNames},
-    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode},
+    extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind,
@@ -44,12 +44,17 @@ impl ParsableAstNode for CSTGenericNames {
 }
 
 impl LowerableAstNode for CSTGenericNames {
-    type Lowered = Vec<String>;
+    type Lowered = Vec<(Span, String)>;
 
     fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         Some(
             self.generics()
-                .map(|token| token.text().to_owned())
+                .map(|token| {
+                    let span = token.span();
+                    let name = token.text().to_owned();
+
+                    (span, name)
+                })
                 .collect(),
         )
     }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::{collections::HashSet, fmt::Debug};
 
 use smallvec::SmallVec;
@@ -12,6 +13,7 @@ use crate::parsed::environment::value::{
 };
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighVisibleTypeId;
+use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::regular::HighRegularStructId;
@@ -44,7 +46,7 @@ use crate::{
     parsed::{
         environment::ParsedEnvironment,
         semantic_analysis::{
-            info::{SemanticAnalysisInfo, SemanticAnalysisInfoKind, error::SemanticAnalysisError},
+            info::{SemanticAnalysisInfo, error::SemanticAnalysisError},
             scope::Scope,
         },
     },
@@ -90,15 +92,26 @@ impl RegularFunctionModifiers {
 #[derive(Debug, Clone)]
 pub enum FunctionContext {
     Regular {
+        id: HighRegularFunctionId,
+        declaration_span: Span,
         modifiers: RegularFunctionModifiers,
         return_type: SemanticDataType,
-        callee_id: HighRegularFunctionId,
         calls: HashSet<(Span, HighFunctionId)>,
     },
     MCFunction,
 }
 
 impl FunctionContext {
+    #[must_use]
+    pub const fn declaration_span(&self) -> Option<Span> {
+        match self {
+            Self::Regular {
+                declaration_span, ..
+            } => Some(*declaration_span),
+            Self::MCFunction => None,
+        }
+    }
+
     #[must_use]
     pub const fn is_recursive(&self) -> Option<bool> {
         match self {
@@ -129,7 +142,7 @@ pub struct SemanticAnalysisContext {
     pub infos: Vec<SemanticAnalysisInfo>,
     pub scopes: Vec<Scope>,
     pub loop_depth: u32,
-    pub current_module_path: Vec<String>,
+    pub current_module_path: Vec<HighModuleId>,
     pub function_contexts: SmallVec<[FunctionContext; 5]>,
     pub max_infos: usize,
     pub environment: Environment,
@@ -140,7 +153,7 @@ pub struct SemanticAnalysisContext {
 
 impl SemanticAnalysisContext {
     #[must_use]
-    pub fn new(id: &str, max_infos: usize) -> Self {
+    pub fn new(project_id: &str, max_infos: usize) -> Self {
         let mut self_ = Self {
             infos: Vec::new(),
             max_infos,
@@ -156,13 +169,13 @@ impl SemanticAnalysisContext {
 
         self_.declare_std_module();
 
-        self_.enter_module(id.to_owned());
+        self_.enter_parsed_module(Visibility::Public, None, project_id.to_owned());
 
         self_
     }
 
     pub fn declare_std_module(&mut self) {
-        self.enter_module("std".to_owned());
+        self.enter_parsed_module(Visibility::Public, None, "std".to_owned());
 
         for builtin_type in BuiltinTypeKind::iter() {
             self.declare_builtin_type(builtin_type.declaration());
@@ -172,7 +185,7 @@ impl SemanticAnalysisContext {
             self.declare_builtin_function(Visibility::Public, builtin_function.declaration());
         }
 
-        self.exit_module_and_declare(Visibility::Public);
+        self.exit_module();
     }
 
     #[inline]
@@ -220,30 +233,63 @@ impl SemanticAnalysisContext {
         self.scopes.push(scope);
     }
 
-    #[inline]
-    pub fn enter_module(&mut self, name: String) {
-        self.current_module_path.push(name);
+    pub fn enter_parsed_module(
+        &mut self,
+        visibility: Visibility,
+        name_span: Option<Span>,
+        name: String,
+    ) -> HighModuleId {
+        let id = self.declare_parsed_type(
+            visibility,
+            ParsedTypeDeclarationKind::Module(ParsedModuleDeclaration {
+                name_span,
+                name,
+                types: HashMap::new(),
+                values: HashMap::new(),
+            }),
+        );
+
+        let id = HighModuleId(id.0);
+
+        self.current_module_path.push(id);
+
+        self.enter_scope();
+
+        id
+    }
+
+    pub fn enter_semantic_module(&mut self, id: HighModuleId) {
+        self.current_module_path.push(id);
 
         self.enter_scope();
     }
 
     #[inline]
-    pub fn exit_module(&mut self) -> ParsedModuleDeclaration {
-        let name = self.current_module_path.pop().unwrap();
+    pub fn exit_module(&mut self) {
+        let id = self.current_module_path.pop().unwrap();
 
         let scope = self.exit_scope();
 
-        scope.into_module_declaration(name)
-    }
+        let ParsedTypeDeclaration {
+            kind: ParsedTypeDeclarationKind::Module(declaration),
+            ..
+        } = self.parsed_environment.get_type_mut(id)
+        else {
+            unreachable!();
+        };
 
-    pub fn exit_module_and_declare(&mut self, visibility: Visibility) -> HighModuleId {
-        let module = self.exit_module();
+        let (types, values) = scope.into_tuple();
 
-        self.declare_parsed_module(visibility, module)
+        declaration.types.extend(types);
+        declaration.values.extend(values);
     }
 
     #[must_use]
-    pub fn is_item_visible(&self, target_module_path: &[String], visibility: Visibility) -> bool {
+    pub fn is_item_visible(
+        &self,
+        target_module_path: &[HighModuleId],
+        visibility: Visibility,
+    ) -> bool {
         if matches!(visibility, Visibility::Public) {
             return true;
         }
@@ -259,14 +305,12 @@ impl SemanticAnalysisContext {
         expected: usize,
         actual: usize,
     ) -> Option<T> {
-        self.add_error(
-            span,
-            SemanticAnalysisError::InvalidGenerics {
-                type_name: type_name.into(),
-                expected,
-                actual,
-            },
-        )
+        self.add_error(SemanticAnalysisError::InvalidGenerics {
+            type_span: span,
+            type_name: type_name.into(),
+            expected,
+            actual,
+        })
     }
 
     #[must_use]
@@ -308,11 +352,8 @@ impl SemanticAnalysisContext {
 
     #[inline]
     #[must_use]
-    pub fn add_error<T>(&mut self, span: Span, error: SemanticAnalysisError) -> Option<T> {
-        self.add_info(SemanticAnalysisInfo {
-            span,
-            kind: SemanticAnalysisInfoKind::Error(error),
-        })
+    pub fn add_error<T>(&mut self, error: SemanticAnalysisError) -> Option<T> {
+        self.add_info(SemanticAnalysisInfo::Error(error))
     }
 
     #[inline]
@@ -320,38 +361,29 @@ impl SemanticAnalysisContext {
     pub fn add_error_static<T>(
         infos: &mut Vec<SemanticAnalysisInfo>,
         max_infos: usize,
-        span: Span,
         error: SemanticAnalysisError,
     ) -> Option<T> {
-        Self::add_info_static(
-            infos,
-            max_infos,
-            SemanticAnalysisInfo {
-                span,
-                kind: SemanticAnalysisInfoKind::Error(error),
-            },
-        )
+        Self::add_info_static(infos, max_infos, SemanticAnalysisInfo::Error(error))
     }
 
     #[inline]
-    pub fn add_error_unit(&mut self, span: Span, error: SemanticAnalysisError) -> Option<()> {
-        self.add_error(span, error)
+    pub fn add_error_unit(&mut self, error: SemanticAnalysisError) -> Option<()> {
+        self.add_error(error)
     }
 
     #[inline]
     pub fn add_error_unit_static(
         infos: &mut Vec<SemanticAnalysisInfo>,
         max_infos: usize,
-        span: Span,
         error: SemanticAnalysisError,
     ) -> Option<()> {
-        Self::add_error_static(infos, max_infos, span, error)
+        Self::add_error_static(infos, max_infos, error)
     }
 
     #[inline]
     #[must_use]
-    pub fn add_error_type(&mut self, span: Span, error: SemanticAnalysisError) -> SemanticDataType {
-        self.add_error_unit(span, error);
+    pub fn add_error_type(&mut self, error: SemanticAnalysisError) -> SemanticDataType {
+        self.add_error_unit(error);
 
         SemanticDataType::Error
     }
@@ -360,6 +392,7 @@ impl SemanticAnalysisContext {
     pub fn declare_variable(
         &mut self,
         visibility: Visibility,
+        name_span: Span,
         name: String,
         data_type: SemanticDataType,
     ) -> HighVariableId {
@@ -371,7 +404,11 @@ impl SemanticAnalysisContext {
         self.set_semantic_value(
             id,
             visibility,
-            SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration { name, data_type }),
+            SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration {
+                name_span,
+                name,
+                data_type,
+            }),
         );
 
         HighVariableId(id.0)
@@ -380,6 +417,7 @@ impl SemanticAnalysisContext {
     pub fn get_type_id_in_scope(
         &self,
         name: &str,
+        name_span: Span,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         self.scopes
             .iter()
@@ -391,7 +429,10 @@ impl SemanticAnalysisContext {
 
                 Some(id)
             })
-            .ok_or_else(|| SemanticAnalysisError::UnknownType(name.to_owned()))
+            .ok_or_else(|| SemanticAnalysisError::UnknownType {
+                span: name_span,
+                name: name.to_owned(),
+            })
     }
 
     #[must_use]
@@ -399,9 +440,9 @@ impl SemanticAnalysisContext {
         &mut self,
         segment: &TypedPathSegment<T>,
     ) -> Option<HighVisibleTypeId> {
-        let id = match self.get_type_id_in_scope(&segment.name) {
+        let id = match self.get_type_id_in_scope(&segment.name, segment.name_span) {
             Ok(id) => id,
-            Err(error) => return self.add_error(segment.name_span, error),
+            Err(error) => return self.add_error(error),
         };
 
         let declaration = self.semantic_environment.get_type(id);
@@ -410,14 +451,12 @@ impl SemanticAnalysisContext {
         let actual_generic_count = segment.generic_types.len();
 
         if actual_generic_count != expected_generic_count {
-            return self.add_error(
-                segment.name_span,
-                SemanticAnalysisError::InvalidGenerics {
-                    type_name: segment.name.clone(),
-                    expected: expected_generic_count,
-                    actual: actual_generic_count,
-                },
-            );
+            return self.add_error(SemanticAnalysisError::InvalidGenerics {
+                type_span: segment.name_span,
+                type_name: segment.name.clone(),
+                expected: expected_generic_count,
+                actual: actual_generic_count,
+            });
         }
 
         Some(id)
@@ -435,10 +474,14 @@ impl SemanticAnalysisContext {
     pub fn get_value_id_analysis(
         &self,
         name: &str,
+        name_span: Span,
         actual_generic_count: usize,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         let Some(id) = self.get_value_id(name) else {
-            return Err(SemanticAnalysisError::UnknownValue(name.to_owned()));
+            return Err(SemanticAnalysisError::UnknownValue {
+                span: name_span,
+                name: name.to_owned(),
+            });
         };
 
         let declaration = self.semantic_environment.get_value(id);
@@ -447,6 +490,7 @@ impl SemanticAnalysisContext {
 
         if actual_generic_count != expected_generic_count {
             return Err(SemanticAnalysisError::InvalidGenerics {
+                type_span: name_span,
                 type_name: name.to_owned(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,
@@ -469,10 +513,16 @@ impl SemanticAnalysisContext {
     }
 
     pub fn declare_type_in_current_scope(&mut self, name_span: Span, name: String, id: HighTypeId) {
-        let scope = self.current_scope_mut();
+        let scope = self.current_scope();
 
-        if scope.type_is_declared(&name) {
-            self.add_error_unit(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+        if let Some(declaration_span) =
+            scope.get_type_declaration_span(&self.parsed_environment, &name)
+        {
+            self.add_error_unit(SemanticAnalysisError::TypeAlreadyDeclared {
+                declaration_span,
+                redeclaration_span: name_span,
+                name,
+            });
 
             return;
         }
@@ -486,10 +536,16 @@ impl SemanticAnalysisContext {
         name: String,
         id: HighValueId,
     ) {
-        let scope = self.current_scope_mut();
+        let scope = self.current_scope();
 
-        if scope.value_is_declared(&name) {
-            self.add_error_unit(name_span, SemanticAnalysisError::ValueAlreadyDeclared(name));
+        if let Some(declaration_span) =
+            scope.get_value_declaration_span(&self.semantic_environment, &name)
+        {
+            self.add_error_unit(SemanticAnalysisError::ValueAlreadyDeclared {
+                declaration_span,
+                redeclaration_span: name_span,
+                name,
+            });
 
             return;
         }
@@ -534,9 +590,14 @@ impl SemanticAnalysisContext {
         &mut self,
         id: HighGenericId,
         visibility: Visibility,
+        name_span: Span,
         name: String,
     ) {
-        self.set_semantic_type(id, visibility, SemanticTypeDeclarationKind::Generic(name));
+        self.set_semantic_type(
+            id,
+            visibility,
+            SemanticTypeDeclarationKind::Generic(SemanticGenericDeclaration { name_span, name }),
+        );
     }
 
     pub fn declare_builtin_type(&mut self, declaration: SemanticBuiltinTypeDeclaration) {
@@ -690,7 +751,7 @@ impl SemanticAnalysisContext {
                 &segment.name,
             ) {
                 Ok(id) => id,
-                Err(error) => return self.add_error(segment.name_span, error),
+                Err(error) => return self.add_error(error),
             };
 
             current_type_id = id;
@@ -750,7 +811,7 @@ impl SemanticAnalysisContext {
             &last_segment.name,
         ) {
             Ok(id) => id,
-            Err(error) => return self.add_error(last_segment.name_span, error),
+            Err(error) => return self.add_error(error),
         };
 
         let mut generic_spans = inherited_generic_spans;
@@ -776,9 +837,13 @@ impl SemanticAnalysisContext {
             let segment = path.segments.remove(0);
             let supplied_generic_types = &segment.generic_types;
 
-            let id = match self.get_value_id_analysis(&segment.name, segment.generic_types.len()) {
+            let id = match self.get_value_id_analysis(
+                &segment.name,
+                segment.name_span,
+                segment.generic_types.len(),
+            ) {
                 Ok(id) => id,
-                Err(error) => return self.add_error(segment.name_span, error),
+                Err(error) => return self.add_error(error),
             };
 
             let declaration = self.semantic_environment.get_value(id).clone();
@@ -811,7 +876,7 @@ impl SemanticAnalysisContext {
             &last_segment.name,
         ) {
             Ok(id) => id,
-            Err(error) => return self.add_error(last_segment.name_span, error),
+            Err(error) => return self.add_error(error),
         };
 
         let declaration = self.semantic_environment.get_value(id).clone();
@@ -834,28 +899,25 @@ impl SemanticAnalysisContext {
     fn try_resolve_path<'a>(
         &self,
         path: &'a Path,
-    ) -> Result<(HighVisibleTypeId, &'a PathSegment), (Span, SemanticAnalysisError)> {
+    ) -> Result<(HighVisibleTypeId, &'a PathSegment), SemanticAnalysisError> {
         let (last_segment, segments) = path.segments.split_last().unwrap();
 
         let (first_segment, segments) = segments
             .split_first()
             .expect("segments.len should be checked before calling try_resolve_path");
 
-        let mut current_type_id = self
-            .get_type_id_in_scope(&first_segment.name)
-            .map_err(|error| (first_segment.span, error))?;
+        let mut current_type_id =
+            self.get_type_id_in_scope(&first_segment.name, first_segment.span)?;
 
         for segment in segments {
             let declaration = self.semantic_environment.get_type(current_type_id);
 
-            let id = declaration
-                .get_visible_type_id(
-                    &self.semantic_environment,
-                    &self.current_module_path,
-                    current_type_id,
-                    &segment.name,
-                )
-                .map_err(|error| (segment.span, error))?;
+            let id = declaration.get_visible_type_id(
+                &self.semantic_environment,
+                &self.current_module_path,
+                current_type_id,
+                &segment.name,
+            )?;
 
             current_type_id = id;
         }
@@ -866,27 +928,23 @@ impl SemanticAnalysisContext {
     pub fn try_get_visible_type(
         &mut self,
         path: &Path,
-    ) -> Result<HighVisibleTypeId, (Span, SemanticAnalysisError)> {
+    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            return self
-                .get_type_id_in_scope(&segment.name)
-                .map_err(|error| (segment.span, error));
+            return self.get_type_id_in_scope(&segment.name, segment.span);
         }
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
         let declaration = self.semantic_environment.get_type(type_id);
 
-        let id = declaration
-            .get_visible_type_id(
-                &self.semantic_environment,
-                &self.current_module_path,
-                type_id,
-                &last_segment.name,
-            )
-            .map_err(|error| (last_segment.span, error))?;
+        let id = declaration.get_visible_type_id(
+            &self.semantic_environment,
+            &self.current_module_path,
+            type_id,
+            &last_segment.name,
+        )?;
 
         Ok(id)
     }
@@ -894,27 +952,23 @@ impl SemanticAnalysisContext {
     pub fn try_get_visible_value(
         &mut self,
         path: &Path,
-    ) -> Result<HighVisibleValueId, (Span, SemanticAnalysisError)> {
+    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            return self
-                .get_value_id_analysis(&segment.name, 0)
-                .map_err(|error| (segment.span, error));
+            return self.get_value_id_analysis(&segment.name, segment.span, 0);
         }
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
 
         let declaration = self.semantic_environment.get_type(type_id);
 
-        let id = declaration
-            .get_visible_value_id(
-                &self.semantic_environment,
-                &self.current_module_path,
-                type_id,
-                &last_segment.name,
-            )
-            .map_err(|error| (last_segment.span, error))?;
+        let id = declaration.get_visible_value_id(
+            &self.semantic_environment,
+            &self.current_module_path,
+            type_id,
+            &last_segment.name,
+        )?;
 
         Ok(id)
     }
@@ -932,10 +986,10 @@ impl SemanticAnalysisContext {
         let data_type = declaration.clone().into_data_type(self, id, segment);
 
         let SemanticDataType::Struct(id, _) = data_type else {
-            return self.add_error(
-                segment.name_span,
-                SemanticAnalysisError::NotAStruct(data_type),
-            );
+            return self.add_error(SemanticAnalysisError::NotAStruct {
+                type_span: segment.name_span,
+                data_type,
+            });
         };
 
         let id = HighStructId(id.0);
@@ -956,8 +1010,10 @@ impl SemanticAnalysisContext {
             return Self::add_error_static(
                 &mut self.infos,
                 self.max_infos,
-                name_span,
-                SemanticAnalysisError::NotARegularStruct(data_type),
+                SemanticAnalysisError::NotARegularStruct {
+                    type_span: name_span,
+                    data_type,
+                },
             );
         };
 
@@ -979,8 +1035,10 @@ impl SemanticAnalysisContext {
             return Self::add_error_static(
                 &mut self.infos,
                 self.max_infos,
-                name_span,
-                SemanticAnalysisError::NotATupleStruct(data_type),
+                SemanticAnalysisError::NotATupleStruct {
+                    type_span: name_span,
+                    data_type,
+                },
             );
         };
 

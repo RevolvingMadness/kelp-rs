@@ -18,6 +18,7 @@ use crate::low::environment::{
         variable::{VariableDeclaration, VariableId},
     },
 };
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::{
     semantic::{expression::SemanticExpression, pattern::SemanticPattern},
     visibility::Visibility,
@@ -36,7 +37,7 @@ impl Environment {
     #[must_use]
     pub fn declare_type(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         declaration: TypeDeclarationKind,
     ) -> u32 {
@@ -55,7 +56,7 @@ impl Environment {
     #[must_use]
     pub fn declare_struct(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         declaration: StructDeclaration,
     ) -> StructId {
@@ -72,7 +73,7 @@ impl Environment {
     #[must_use]
     pub fn declare_regular_struct(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         name: String,
         generic_types: Vec<DataType>,
@@ -95,7 +96,7 @@ impl Environment {
     #[must_use]
     pub fn declare_tuple_struct(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         name: String,
         generic_types: Vec<DataType>,
@@ -115,7 +116,7 @@ impl Environment {
     }
 
     #[must_use]
-    pub fn get_struct(&self, id: StructId) -> (&[String], Visibility, &StructDeclaration) {
+    pub fn get_struct(&self, id: StructId) -> (&[HighModuleId], Visibility, &StructDeclaration) {
         #[allow(irrefutable_let_patterns)]
         let TypeDeclaration {
             visibility,
@@ -133,7 +134,7 @@ impl Environment {
     pub fn get_regular_struct(
         &self,
         id: RegularStructId,
-    ) -> (&[String], Visibility, &RegularStructDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &RegularStructDeclaration) {
         let (module_path, visibility, StructDeclaration::Struct(declaration)) =
             self.get_struct(id.into())
         else {
@@ -147,7 +148,7 @@ impl Environment {
     pub fn get_tuple_struct(
         &self,
         id: TupleStructId,
-    ) -> (&[String], Visibility, &TupleStructDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &TupleStructDeclaration) {
         let (module_path, visibility, StructDeclaration::Tuple(declaration)) =
             self.get_struct(id.into())
         else {
@@ -160,7 +161,7 @@ impl Environment {
     #[must_use]
     pub fn declare_value(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         declaration: ValueDeclarationKind,
     ) -> ValueId {
@@ -183,7 +184,7 @@ impl Environment {
 
     #[inline]
     #[must_use]
-    pub fn get_variable(&self, id: ValueId) -> (&[String], Visibility, &VariableDeclaration) {
+    pub fn get_variable(&self, id: ValueId) -> (&[HighModuleId], Visibility, &VariableDeclaration) {
         let ValueDeclaration {
             visibility,
             module_path,
@@ -199,7 +200,7 @@ impl Environment {
     #[must_use]
     pub fn declare_variable(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         name: String,
         data_type: DataType,
@@ -217,7 +218,7 @@ impl Environment {
     #[must_use]
     pub fn declare_function(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         declaration: FunctionDeclaration,
     ) -> FunctionId {
@@ -235,7 +236,7 @@ impl Environment {
     pub fn get_function<I: Into<FunctionId>>(
         &self,
         id: I,
-    ) -> (&[String], Visibility, &FunctionDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &FunctionDeclaration) {
         let id = id.into();
 
         let ValueDeclaration {

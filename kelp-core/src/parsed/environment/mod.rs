@@ -30,6 +30,14 @@ impl ParsedEnvironment {
         &self.types[id.0 as usize]
     }
 
+    #[inline]
+    #[must_use]
+    pub fn get_type_mut<I: Into<HighTypeId>>(&mut self, id: I) -> &mut ParsedTypeDeclaration {
+        let id = id.into();
+
+        &mut self.types[id.0 as usize]
+    }
+
     #[must_use]
     pub fn declare_value(&mut self, declaration: ParsedValueDeclaration) -> HighValueId {
         let id = HighValueId(self.values.len() as u32);

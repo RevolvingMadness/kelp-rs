@@ -26,6 +26,7 @@ impl From<HighRegularFunctionId> for HighValueId {
 
 #[derive(Debug, Clone)]
 pub struct SemanticRegularFunctionDeclaration {
+    pub name_span: Span,
     pub name: String,
     pub modifiers: RegularFunctionModifiers,
     pub generic_ids: Vec<HighGenericId>,

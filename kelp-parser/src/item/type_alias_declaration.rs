@@ -52,13 +52,13 @@ impl LowerableAstNode for CSTTypeAliasDeclarationItem {
         let name_token = self.name()?;
         let name_span = name_token.span();
         let name = name_token.text();
-        let generic_names = self.generic_names().and_then(|names| names.lower(ctx));
+        let generics = self.generic_names().and_then(|names| names.lower(ctx));
         let alias = self.data_type()?.lower(ctx)?;
 
         Some(ParsedItemKind::TypeAliasDeclaration {
             name_span,
             name: name.to_owned(),
-            generic_names: generic_names.unwrap_or_default(),
+            generics: generics.unwrap_or_default(),
             alias,
         })
     }

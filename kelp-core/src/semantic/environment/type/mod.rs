@@ -4,16 +4,20 @@ use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::path::generic::TypedPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
+use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::{
     alias::SemanticTypeAliasDeclaration, builtin_data_type::SemanticBuiltinTypeDeclaration,
     module::SemanticModuleDeclaration, r#struct::SemanticStructDeclaration,
 };
 use crate::semantic::environment::value::HighVisibleValueId;
+use crate::span::Span;
 use crate::visibility::Visibility;
 
 pub mod alias;
 pub mod builtin_data_type;
+pub mod generic;
 pub mod module;
 pub mod r#struct;
 
@@ -31,7 +35,7 @@ impl HighTypeId {
     pub fn assert_visible_result(
         self,
         semantic_environment: &SemanticEnvironment,
-        current_module_path: &[String],
+        current_module_path: &[HighModuleId],
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         let declaration = semantic_environment.get_type(self);
 
@@ -58,18 +62,29 @@ pub enum SemanticTypeDeclarationKind {
     Module(SemanticModuleDeclaration),
     Struct(SemanticStructDeclaration),
     Alias(SemanticTypeAliasDeclaration),
-    Generic(String),
+    Generic(SemanticGenericDeclaration),
     Builtin(SemanticBuiltinTypeDeclaration),
 }
 
 impl SemanticTypeDeclarationKind {
+    #[must_use]
+    pub const fn name_span(&self) -> Option<Span> {
+        Some(match self {
+            Self::Module(declaration) => return declaration.name_span,
+            Self::Struct(declaration) => declaration.name_span(),
+            Self::Alias(declaration) => declaration.name_span,
+            Self::Generic(declaration) => declaration.name_span,
+            Self::Builtin(..) => return None,
+        })
+    }
+
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
             Self::Module(declaration) => &declaration.name,
             Self::Struct(declaration) => declaration.name(),
             Self::Alias(declaration) => &declaration.name,
-            Self::Generic(name) => name,
+            Self::Generic(declaration) => &declaration.name,
             Self::Builtin(data_type) => &data_type.name,
         }
     }
@@ -86,7 +101,7 @@ impl SemanticTypeDeclarationKind {
     }
 
     #[must_use]
-    pub fn generic_count(&self) -> usize {
+    pub const fn generic_count(&self) -> usize {
         match self {
             Self::Module(..) => 0,
             Self::Struct(declaration) => declaration.generic_count(),
@@ -104,7 +119,10 @@ impl SemanticTypeDeclarationKind {
     ) -> SemanticDataType {
         match self {
             Self::Module(SemanticModuleDeclaration { name, .. }) => {
-                ctx.add_error_type(segment.name_span, SemanticAnalysisError::NotAType(name))
+                ctx.add_error_type(SemanticAnalysisError::NotAType {
+                    type_span: segment.name_span,
+                    type_name: name,
+                })
             }
             Self::Struct(declaration) => {
                 let id = HighStructId(id.0);
@@ -140,14 +158,14 @@ impl SemanticTypeDeclarationKind {
                     .alias
                     .substitute_generics(&declaration.generic_ids, &segment.generic_types)
             }
-            Self::Generic(name) => {
+            Self::Generic(declaration) => {
                 let expected_generics = 0;
                 let actual_generics = segment.generic_types.len();
 
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
                         segment.name_span,
-                        &name,
+                        &declaration.name,
                         expected_generics,
                         actual_generics,
                     );
@@ -162,14 +180,14 @@ impl SemanticTypeDeclarationKind {
 
 #[derive(Debug, Clone)]
 pub struct SemanticTypeDeclaration {
-    pub module_path: Vec<String>,
+    pub module_path: Vec<HighModuleId>,
     pub visibility: Visibility,
     pub kind: SemanticTypeDeclarationKind,
 }
 
 impl SemanticTypeDeclaration {
     #[must_use]
-    pub fn is_visible(&self, current_module_path: &[String]) -> bool {
+    pub fn is_visible(&self, current_module_path: &[HighModuleId]) -> bool {
         if matches!(self.visibility, Visibility::Public) {
             return true;
         }
@@ -180,7 +198,7 @@ impl SemanticTypeDeclaration {
     pub fn get_visible_type_id(
         &self,
         semantic_environment: &SemanticEnvironment,
-        current_module_path: &[String],
+        current_module_path: &[HighModuleId],
         base_id: HighVisibleTypeId,
         name: &str,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
@@ -212,7 +230,7 @@ impl SemanticTypeDeclaration {
     pub fn get_visible_value_id(
         &self,
         semantic_environment: &SemanticEnvironment,
-        current_module_path: &[String],
+        current_module_path: &[HighModuleId],
         base_id: HighVisibleTypeId,
         name: &str,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {

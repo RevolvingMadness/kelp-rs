@@ -1,6 +1,5 @@
-use kelp_core::span::Span;
+use kelp_core::{parsed::semantic_analysis::info::diagnostic::Diagnostic, span::Span};
 use strum::Display;
-use thiserror::Error;
 
 #[derive(Display, Debug, Clone, Copy)]
 #[strum(serialize_all = "snake_case")]
@@ -14,28 +13,57 @@ pub enum LowerDataType {
     Double,
 }
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone)]
 pub enum LowerError {
-    #[error("Unknown runtime storage type")]
-    UnknownRuntimeStorageType,
-    #[error("An expression sigil is not allowed here")]
-    ExpressionSigilNotAllowed,
-    #[error("This value is too small to fit in the type `{}`", .0)]
-    ValueTooSmall(LowerDataType),
-    #[error("This value is too big to fit in the type `{}`", .0)]
-    ValueTooBig(LowerDataType),
+    InvalidRuntimeStorageType {
+        span: Span,
+    },
+    ExpressionSigilNotAllowed {
+        span: Span,
+    },
+    ValueTooSmall {
+        value: String,
+        type_span: Span,
+        data_type: LowerDataType,
+    },
+    ValueTooBig {
+        value: String,
+        type_span: Span,
+        data_type: LowerDataType,
+    },
+}
+
+impl LowerError {
+    #[must_use]
+    pub fn into_diagnostic(self) -> Diagnostic {
+        match self {
+            Self::InvalidRuntimeStorageType { span } => {
+                Diagnostic::error("invalid runtime storage type").with_primary_no_label(span)
+            }
+            Self::ExpressionSigilNotAllowed { span } => {
+                Diagnostic::error("expression sigils are not allowed here")
+                    .with_primary_no_label(span)
+            }
+            Self::ValueTooSmall {
+                value,
+                type_span,
+                data_type,
+            } => Diagnostic::error(format!("value `{}` too small for `{}`", value, data_type))
+                .with_primary_no_label(type_span),
+            Self::ValueTooBig {
+                value,
+                type_span,
+                data_type,
+            } => Diagnostic::error(format!("value `{}` too big for `{}`", value, data_type))
+                .with_primary_no_label(type_span),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
-pub enum LowerInfoKind {
+pub enum LowerInfo {
     // Warning(LowerWarning),
     Error(LowerError),
-}
-
-#[derive(Debug, Clone)]
-pub struct LowerInfo {
-    pub span: Span,
-    pub kind: LowerInfoKind,
 }
 
 pub struct LowerContext {
@@ -64,15 +92,12 @@ impl LowerContext {
 
     #[inline]
     #[must_use]
-    pub fn add_error<T>(&mut self, span: Span, error: LowerError) -> Option<T> {
-        self.add_info(LowerInfo {
-            span,
-            kind: LowerInfoKind::Error(error),
-        })
+    pub fn add_error<T>(&mut self, error: LowerError) -> Option<T> {
+        self.add_info(LowerInfo::Error(error))
     }
 
     #[inline]
-    pub fn add_error_unit(&mut self, span: Span, error: LowerError) {
-        let _ = self.add_error::<()>(span, error);
+    pub fn add_error_unit(&mut self, error: LowerError) {
+        let _ = self.add_error::<()>(error);
     }
 }

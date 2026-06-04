@@ -2,6 +2,7 @@ use crate::make_id;
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::value::{
     function::{SemanticFunctionDeclaration, regular::HighRegularFunctionId},
     variable::SemanticVariableDeclaration,
@@ -19,7 +20,7 @@ impl HighValueId {
     pub fn assert_visible_result(
         self,
         semantic_environment: &SemanticEnvironment,
-        current_module_path: &[String],
+        current_module_path: &[HighModuleId],
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         let declaration = semantic_environment.get_value(self);
 
@@ -49,6 +50,14 @@ pub enum SemanticValueDeclarationKind {
 
 impl SemanticValueDeclarationKind {
     #[must_use]
+    pub fn name_span(&self) -> Option<Span> {
+        match self {
+            Self::Variable(declaration) => Some(declaration.name_span),
+            Self::Function(declaration) => declaration.name_span(),
+        }
+    }
+
+    #[must_use]
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
@@ -68,13 +77,13 @@ impl SemanticValueDeclarationKind {
 #[derive(Debug, Clone)]
 pub struct SemanticValueDeclaration {
     pub visibility: Visibility,
-    pub module_path: Vec<String>,
+    pub module_path: Vec<HighModuleId>,
     pub kind: SemanticValueDeclarationKind,
 }
 
 impl SemanticValueDeclaration {
     #[must_use]
-    pub fn is_visible(&self, current_module_path: &[String]) -> bool {
+    pub fn is_visible(&self, current_module_path: &[HighModuleId]) -> bool {
         if matches!(self.visibility, Visibility::Public) {
             return true;
         }

@@ -53,7 +53,7 @@ pub enum ParsedExpressionKind {
     String(String),
     Underscore,
     Unit,
-    Unary(UnaryOperator, Box<ParsedExpression>),
+    Unary(Span, UnaryOperator, Box<ParsedExpression>),
     Arithmetic(
         Box<ParsedExpression>,
         ArithmeticOperator,
@@ -276,7 +276,7 @@ impl ParsedExpression {
 
                 ParsedPlaceExpressionKind::Index(Box::new(target), Box::new(index)).with(index_type)
             }
-            ParsedExpressionKind::Unary(UnaryOperator::Dereference, expression) => {
+            ParsedExpressionKind::Unary(_, UnaryOperator::Dereference, expression) => {
                 let (place_span, place) = expression.as_place_semantic_analysis(ctx)?;
 
                 let dereferenced_type = place
@@ -286,7 +286,10 @@ impl ParsedExpression {
 
                 ParsedPlaceExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
             }
-            _ => return ctx.add_error(self.span, SemanticAnalysisError::ExpressionIsNotAPlace),
+            _ => {
+                return ctx
+                    .add_error(SemanticAnalysisError::ExpressionIsNotAPlace { span: self.span });
+            }
         };
 
         Some((self.span, expression))
@@ -340,26 +343,35 @@ impl ParsedExpression {
         let expression = match self.kind {
             ParsedExpressionKind::Invalid => return None,
 
-            ParsedExpressionKind::Unary(operator, expression) => match operator {
+            ParsedExpressionKind::Unary(operator_span, operator, expression) => match operator {
                 UnaryOperator::Negate => {
                     let (_, expression) = expression.perform_semantic_analysis(ctx)?;
 
                     let Some(negation_result) = expression.data_type.get_negation_result() else {
                         return ctx.add_error(
-                            self.span,
-                            SemanticAnalysisError::CannotNegateType(expression.data_type),
+                            SemanticAnalysisError::CannotApplyUnaryOperatorToType {
+                                operator_span,
+                                operator,
+                                type_span: self.span,
+                                data_type: expression.data_type,
+                            },
                         );
                     };
 
                     SemanticExpressionKind::Negate(Box::new(expression)).with(negation_result)
                 }
                 UnaryOperator::Invert => {
-                    let (_, expression) = expression.perform_semantic_analysis(ctx)?;
+                    let (expression_span, expression) =
+                        expression.perform_semantic_analysis(ctx)?;
 
                     let Some(inverted_result) = expression.data_type.get_inverted_result() else {
                         return ctx.add_error(
-                            self.span,
-                            SemanticAnalysisError::CannotInvertType(expression.data_type),
+                            SemanticAnalysisError::CannotApplyUnaryOperatorToType {
+                                operator_span,
+                                operator,
+                                type_span: expression_span,
+                                data_type: expression.data_type,
+                            },
                         );
                     };
 
@@ -394,10 +406,10 @@ impl ParsedExpression {
                 let Some(result_type) = left.data_type.get_arithmetic_result(&right.data_type)
                 else {
                     return ctx.add_error(
-                        self.span,
                         SemanticAnalysisError::CannotPerformArithmeticOperation {
                             left: left.data_type,
                             operator,
+                            operator_span: self.span,
                             right: right.data_type,
                         },
                     );
@@ -419,8 +431,8 @@ impl ParsedExpression {
                     &right.data_type,
                 ) {
                     return ctx.add_error(
-                        self.span,
                         SemanticAnalysisError::CannotPerformComparisonOperation {
+                            span: self.span,
                             left: left.data_type,
                             operator,
                             right: right.data_type,
@@ -476,9 +488,9 @@ impl ParsedExpression {
                     .is_none()
                 {
                     return ctx.add_error(
-                        operator_span,
                         SemanticAnalysisError::CannotPerformArithmeticOperation {
                             left: target.data_type,
+                            operator_span,
                             operator,
                             right: value.data_type,
                         },
@@ -526,13 +538,11 @@ impl ParsedExpression {
                         else {
                             has_error = true;
 
-                            ctx.add_error_unit(
-                                *expression_span,
-                                SemanticAnalysisError::MismatchedTypes {
-                                    expected: element_type.clone(),
-                                    actual: expression.data_type.clone(),
-                                },
-                            );
+                            ctx.add_error_unit(SemanticAnalysisError::MismatchedTypes {
+                                span: *expression_span,
+                                expected: element_type.clone(),
+                                actual: expression.data_type.clone(),
+                            });
 
                             continue;
                         };
@@ -636,13 +646,11 @@ impl ParsedExpression {
                 let arguments = arguments?;
 
                 let Some(method_info) = receiver.data_type.get_method(ctx, &callee).ok()? else {
-                    return ctx.add_error(
-                        callee_span,
-                        SemanticAnalysisError::MethodNotFound {
-                            type_name: receiver.data_type,
-                            method_name: callee.name,
-                        },
-                    );
+                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                        type_span: callee_span,
+                        type_: receiver.data_type,
+                        method_name: callee.name,
+                    });
                 };
 
                 let callee = SemanticExpressionKind::Value(
@@ -657,7 +665,7 @@ impl ParsedExpression {
                 let Some(call_info) = callee.data_type.get_call_info(&ctx.semantic_environment)?
                 else {
                     return ctx
-                        .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
+                        .add_error(SemanticAnalysisError::ExpressionIsNotCallable { callee_span });
                 };
 
                 let mut parameter_types = call_info.parameter_types;
@@ -666,14 +674,12 @@ impl ParsedExpression {
                 let argument_count = arguments.len() + 1;
 
                 if argument_count != parameter_count {
-                    return ctx.add_error(
+                    return ctx.add_error(SemanticAnalysisError::MismatchedParameterCount {
                         callee_span,
-                        SemanticAnalysisError::MismatchedParameterCount {
-                            function_name: call_info.name,
-                            expected: parameter_count,
-                            actual: argument_count,
-                        },
-                    );
+                        callee_name: call_info.name,
+                        expected: parameter_count,
+                        actual: argument_count,
+                    });
                 }
 
                 let mut failed = false;
@@ -683,13 +689,11 @@ impl ParsedExpression {
                 if receiver.data_type.equals(&receiver_param_type) {
                     new_arguments.push(receiver);
                 } else {
-                    ctx.add_error_unit(
-                        receiver_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: receiver_param_type,
-                            actual: receiver.data_type,
-                        },
-                    );
+                    ctx.add_error_unit(SemanticAnalysisError::MismatchedTypes {
+                        span: receiver_span,
+                        expected: receiver_param_type,
+                        actual: receiver.data_type,
+                    });
                     failed = true;
                 }
 
@@ -701,13 +705,11 @@ impl ParsedExpression {
                             new_arguments.push(argument);
                         }
                     } else {
-                        ctx.add_error_unit(
-                            argument_span,
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: data_type,
-                                actual: argument.data_type,
-                            },
-                        );
+                        ctx.add_error_unit(SemanticAnalysisError::MismatchedTypes {
+                            span: argument_span,
+                            expected: data_type,
+                            actual: argument.data_type,
+                        });
                         failed = true;
                     }
                 }
@@ -742,13 +744,11 @@ impl ParsedExpression {
                 let (_, expression) = expression?;
 
                 if !expression.data_type.can_cast_to(&data_type) {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::CannotCastType {
-                            from: expression.data_type,
-                            to: data_type,
-                        },
-                    );
+                    return ctx.add_error(SemanticAnalysisError::CannotCastType {
+                        span: self.span,
+                        from: expression.data_type,
+                        to: data_type,
+                    });
                 }
 
                 SemanticExpressionKind::AsCast(Box::new(expression), data_type.clone())
@@ -762,10 +762,10 @@ impl ParsedExpression {
                     RuntimeStorageType::Score => {
                         if !expression.data_type.can_be_assigned_to_score() {
                             return ctx.add_error(
-                                expression_span,
-                                SemanticAnalysisError::TypeIsNotScoreCompatible(
-                                    expression.data_type,
-                                ),
+                                SemanticAnalysisError::TypeIsNotScoreCompatible {
+                                    type_span: expression_span,
+                                    data_type: expression.data_type,
+                                },
                             );
                         }
 
@@ -776,12 +776,10 @@ impl ParsedExpression {
                             .data_type
                             .get_data_type(&ctx.semantic_environment)
                         else {
-                            return ctx.add_error(
-                                expression_span,
-                                SemanticAnalysisError::TypeIsNotDataCompatible(
-                                    expression.data_type,
-                                ),
-                            );
+                            return ctx.add_error(SemanticAnalysisError::TypeIsNotDataCompatible {
+                                type_span: expression_span,
+                                data_type: expression.data_type,
+                            });
                         };
 
                         SemanticDataType::Data(Box::new(data_type))
@@ -828,15 +826,13 @@ impl ParsedExpression {
 
                 let field_values = field_values
                     .into_iter()
-                    .map(|((key_span, field), value)| {
+                    .map(|((field_span, field), value)| {
                         let Some(field_type) = field_types.get(&field) else {
-                            return ctx.add_error(
-                                key_span,
-                                SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: data_type.clone(),
-                                    field,
-                                },
-                            );
+                            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                                data_type: data_type.clone(),
+                                field_span,
+                                field,
+                            });
                         };
 
                         let field_type = field_type
@@ -845,15 +841,9 @@ impl ParsedExpression {
 
                         let (value_span, value) = value.perform_semantic_analysis(ctx)?;
 
-                        if !value.data_type.equals(&field_type) {
-                            return ctx.add_error(
-                                value_span,
-                                SemanticAnalysisError::MismatchedTypes {
-                                    expected: field_type,
-                                    actual: value.data_type,
-                                },
-                            );
-                        }
+                        value
+                            .data_type
+                            .assert_equals(ctx, value_span, &field_type)?;
 
                         Some((field, value))
                     })
@@ -868,10 +858,10 @@ impl ParsedExpression {
                     {
                         has_error = true;
 
-                        ctx.add_error_unit(
-                            path_span,
-                            SemanticAnalysisError::MissingField(declared_field_name.clone()),
-                        );
+                        ctx.add_error_unit(SemanticAnalysisError::MissingField {
+                            span: path_span,
+                            name: declared_field_name.clone(),
+                        });
                     }
                 }
 
@@ -893,7 +883,7 @@ impl ParsedExpression {
                 let Some(call_info) = callee.data_type.get_call_info(&ctx.semantic_environment)?
                 else {
                     return ctx
-                        .add_error(callee_span, SemanticAnalysisError::ExpressionIsNotCallable);
+                        .add_error(SemanticAnalysisError::ExpressionIsNotCallable { callee_span });
                 };
 
                 if let Some(id) = call_info.id
@@ -907,14 +897,12 @@ impl ParsedExpression {
                 let argument_count = arguments.len();
 
                 if argument_count != parameter_count {
-                    return ctx.add_error(
+                    return ctx.add_error(SemanticAnalysisError::MismatchedParameterCount {
                         callee_span,
-                        SemanticAnalysisError::MismatchedParameterCount {
-                            function_name: call_info.name,
-                            expected: parameter_count,
-                            actual: argument_count,
-                        },
-                    );
+                        callee_name: call_info.name,
+                        expected: parameter_count,
+                        actual: argument_count,
+                    });
                 }
 
                 let mut failed = false;
@@ -929,13 +917,11 @@ impl ParsedExpression {
                             new_arguments.push(argument);
                         }
                     } else {
-                        ctx.add_error_unit(
-                            argument_span,
-                            SemanticAnalysisError::MismatchedTypes {
-                                expected: data_type,
-                                actual: argument.data_type,
-                            },
-                        );
+                        ctx.add_error_unit(SemanticAnalysisError::MismatchedTypes {
+                            span: argument_span,
+                            expected: data_type,
+                            actual: argument.data_type,
+                        });
 
                         failed = true;
                     }
@@ -960,10 +946,10 @@ impl ParsedExpression {
                 let (condition_span, condition) = condition?;
 
                 if !condition.data_type.is_condition() {
-                    return ctx.add_error(
-                        condition_span,
-                        SemanticAnalysisError::TypeIsNotCondition(condition.data_type),
-                    );
+                    return ctx.add_error(SemanticAnalysisError::TypeIsNotCondition {
+                        type_span: condition_span,
+                        data_type: condition.data_type,
+                    });
                 }
 
                 let (body_span, tail_expression_span, body) = body?;
@@ -1110,7 +1096,8 @@ impl ParsedExpression {
                 SemanticExpressionKind::String(value).with(SemanticDataType::String)
             }
             ParsedExpressionKind::Underscore => {
-                return ctx.add_error(self.span, SemanticAnalysisError::UnderscoreExpression);
+                return ctx
+                    .add_error(SemanticAnalysisError::UnderscoreExpression { span: self.span });
             }
             ParsedExpressionKind::Unit => SemanticExpressionKind::Unit.with(SemanticDataType::Unit),
             ParsedExpressionKind::ResourceLocation(resource_location) => {
@@ -1146,23 +1133,21 @@ impl ParsedExpression {
                 let return_type = context.return_type();
 
                 if !expression.data_type.equals(return_type) {
-                    return ctx.add_error(
-                        expression_span,
-                        SemanticAnalysisError::MismatchedTypes {
-                            expected: return_type.clone(),
-                            actual: expression.data_type,
-                        },
-                    );
+                    return ctx.add_error(SemanticAnalysisError::MismatchedTypes {
+                        span: expression_span,
+                        expected: return_type.clone(),
+                        actual: expression.data_type,
+                    });
                 }
 
                 let context = ctx.function_contexts.last().unwrap();
 
-                if let Some(is_runtime) = context.is_runtime()
-                    && !is_runtime
-                {
+                if context.is_runtime() == Some(false) {
                     return ctx.add_error(
-                        keyword_span,
-                        SemanticAnalysisError::CannotUseReturnInCompiletimeFunction,
+                        SemanticAnalysisError::CannotUseReturnInCompiletimeFunction {
+                            function_declaration_span: context.declaration_span().unwrap(),
+                            return_keyword_span: keyword_span,
+                        },
                     );
                 }
 

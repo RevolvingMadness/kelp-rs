@@ -249,7 +249,7 @@ impl LowerableAstNode for CSTFunctionDeclarationItem {
         let name_span = name_token.span();
         let name = name_token.text();
 
-        let generic_names = self.generic_names().and_then(|names| names.lower(ctx));
+        let generics = self.generic_names().and_then(|names| names.lower(ctx));
 
         let parameters = self
             .function_parameters()
@@ -273,7 +273,7 @@ impl LowerableAstNode for CSTFunctionDeclarationItem {
             runtime_keyword_span,
             name_span,
             name: name.to_owned(),
-            generic_names: generic_names.unwrap_or_default(),
+            generics: generics.unwrap_or_default(),
             self_parameter,
             parameters,
             return_type,

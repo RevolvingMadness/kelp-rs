@@ -23,6 +23,7 @@ use crate::{
             r#type::{
                 HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
                 alias::SemanticTypeAliasDeclaration,
+                module::HighModuleId,
                 r#struct::{
                     SemanticStructDeclaration,
                     regular::SemanticRegularStructDeclaration,
@@ -88,10 +89,10 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
                 );
             }
 
-            if let Err((type_span, type_error)) = type_result
+            if let Err(type_error) = type_result
                 && value_result.is_err()
             {
-                ctx.add_error_unit(type_span, type_error);
+                ctx.add_error_unit(type_error);
 
                 return None;
             }
@@ -99,7 +100,7 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
         UseTree::Wildcard(path) => {
             let id = match ctx.try_get_visible_type(path) {
                 Ok(id) => id,
-                Err((span, error)) => return ctx.add_error(span, error),
+                Err(error) => return ctx.add_error(error),
             };
 
             let ParsedTypeDeclaration {
@@ -108,10 +109,10 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
             } = ctx.parsed_environment.get_type(id).clone()
             else {
                 let last_segment = path.segments.last().unwrap();
-                return ctx.add_error(
-                    last_segment.span,
-                    SemanticAnalysisError::NotAModule(last_segment.name.clone()),
-                );
+                return ctx.add_error(SemanticAnalysisError::NotAModule {
+                    span: last_segment.span,
+                    name: last_segment.name.clone(),
+                });
             };
 
             for (name, id) in module.types {
@@ -132,10 +133,10 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
                 ctx.declare_value_in_current_scope(*alias_span, alias.clone(), id.into());
             }
 
-            if let Err((type_span, type_error)) = type_result
+            if let Err(type_error) = type_result
                 && value_result.is_err()
             {
-                ctx.add_error_unit(type_span, type_error);
+                ctx.add_error_unit(type_error);
 
                 return None;
             }
@@ -163,7 +164,7 @@ pub struct TypedSelfFunctionParameter {
 #[derive(Debug, Clone)]
 pub enum NamedItemKind {
     InherentImplementationItem {
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         target_type_span: Span,
         target_type: ParsedDataType,
         associated_items: Vec<NamedItem>,
@@ -173,15 +174,16 @@ pub enum NamedItemKind {
         associated_items_scope: Scope,
     },
     ModuleDeclaration {
-        name: String,
+        id: HighModuleId,
         items: Vec<NamedItem>,
     },
     FunctionDeclaration {
         recursive_keyword_span: Option<Span>,
         runtime_keyword_span: Option<Span>,
+        name_span: Span,
         name: String,
         generic_ids: Vec<HighGenericId>,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         self_parameter: Option<ParsedSelfFunctionParameter>,
         parameters: Vec<(ParsedPattern, ParsedDataType)>,
         return_type: ParsedDataType,
@@ -194,25 +196,28 @@ pub enum NamedItemKind {
         body: Box<ParsedBlockExpression>,
     },
     TypeAliasDeclaration {
+        name_span: Span,
         name: String,
         generic_ids: Vec<HighGenericId>,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         alias: ParsedDataType,
 
         id: HighTypeId,
     },
     RegularStructDeclaration {
+        name_span: Span,
         name: String,
         generic_ids: Vec<HighGenericId>,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         field_types: HashMap<String, ParsedDataType>,
 
         id: HighTypeId,
     },
     TupleStructDeclaration {
+        name_span: Span,
         name: String,
         generic_ids: Vec<HighGenericId>,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         field_types: Vec<ParsedDataType>,
 
         id: HighTupleStructId,
@@ -231,8 +236,8 @@ pub struct NamedItem {
 impl NamedItem {
     pub fn resolve_imports(&mut self, ctx: &mut SemanticAnalysisContext) -> Option<()> {
         match &mut self.kind {
-            NamedItemKind::ModuleDeclaration { name, items, .. } => {
-                ctx.enter_module(name.clone());
+            NamedItemKind::ModuleDeclaration { id, items, .. } => {
+                ctx.enter_semantic_module(*id);
 
                 for item in items {
                     item.resolve_imports(ctx);
@@ -251,7 +256,7 @@ impl NamedItem {
     pub fn resolve_types(self, ctx: &mut SemanticAnalysisContext) -> TypedItem {
         match self.kind {
             NamedItemKind::InherentImplementationItem {
-                generic_names,
+                generics,
                 target_type_span,
                 target_type,
                 associated_items,
@@ -261,12 +266,15 @@ impl NamedItem {
             } => {
                 ctx.enter_scope();
 
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
+                for (generic_id, (generic_span, generic_name)) in
+                    generic_ids.iter().copied().zip(generics.iter().cloned())
                 {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                    ctx.set_semantic_generic(
+                        generic_id,
+                        Visibility::Public,
+                        generic_span,
+                        generic_name,
+                    );
                 }
 
                 let target_type = target_type.perform_semantic_analysis(ctx);
@@ -275,6 +283,7 @@ impl NamedItem {
                     self_type_id,
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                        name_span: target_type_span,
                         name: "Self".to_owned(),
                         generic_ids: Vec::new(),
                         alias: target_type.clone(),
@@ -297,7 +306,10 @@ impl NamedItem {
                 match &target_type {
                     target_type @ SemanticDataType::Struct(id, _) => {
                         let implementation = SemanticImplementation::new(
-                            generic_names.clone(),
+                            generics
+                                .iter()
+                                .map(|(_, generic_name)| generic_name.clone())
+                                .collect(),
                             target_type.clone(),
                             types,
                             values,
@@ -310,15 +322,15 @@ impl NamedItem {
                     SemanticDataType::Error => {}
 
                     _ => {
-                        ctx.add_error_unit(
-                            target_type_span,
-                            SemanticAnalysisError::InherentImplRequiresNomialType,
-                        );
+                        ctx.add_error_unit(SemanticAnalysisError::InherentImplRequiresNomialType {
+                            type_span: target_type_span,
+                            data_type: target_type.clone(),
+                        });
                     }
                 }
 
                 TypedItem::InherentImplementationItem {
-                    generic_names,
+                    generics,
                     target_type_span,
                     target_type,
                     associated_items,
@@ -327,24 +339,25 @@ impl NamedItem {
                     associated_items_scope,
                 }
             }
-            NamedItemKind::ModuleDeclaration { name, items } => {
-                ctx.enter_module(name.clone());
+            NamedItemKind::ModuleDeclaration { id, items } => {
+                ctx.enter_semantic_module(id);
 
                 let items = items
                     .into_iter()
                     .map(|item| item.resolve_types(ctx))
                     .collect();
 
-                let _ = ctx.exit_module();
+                ctx.exit_module();
 
-                TypedItem::ModuleDeclaration { name, items }
+                TypedItem::ModuleDeclaration { id, items }
             }
             NamedItemKind::FunctionDeclaration {
                 recursive_keyword_span,
                 runtime_keyword_span,
+                name_span,
                 name,
                 mut generic_ids,
-                generic_names,
+                generics,
                 self_parameter,
                 parameters,
                 return_type,
@@ -353,12 +366,15 @@ impl NamedItem {
             } => {
                 ctx.enter_scope();
 
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
+                for (generic_id, (generic_span, generic_name)) in
+                    generic_ids.iter().copied().zip(generics.iter().cloned())
                 {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                    ctx.set_semantic_generic(
+                        generic_id,
+                        Visibility::Public,
+                        generic_span,
+                        generic_name,
+                    );
                 }
 
                 let declared_generic_count = generic_ids.len();
@@ -369,10 +385,9 @@ impl NamedItem {
 
                 let self_parameter = self_parameter.map(|parameter| {
                     let data_type = if ctx.impl_generic_ids.is_empty() {
-                        ctx.add_error_type(
-                            parameter.pattern_span,
-                            SemanticAnalysisError::MethodNotInImpl,
-                        )
+                        ctx.add_error_type(SemanticAnalysisError::MethodNotInImpl {
+                            span: parameter.pattern_span,
+                        })
                     } else {
                         parameter.data_type.perform_semantic_analysis(ctx)
                     };
@@ -422,6 +437,7 @@ impl NamedItem {
                     self.visibility,
                     SemanticValueDeclarationKind::Function(Box::new(
                         SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration {
+                            name_span,
                             name,
                             modifiers,
                             declared_generic_count,
@@ -442,7 +458,8 @@ impl NamedItem {
                     recursive_keyword_span,
                     runtime_keyword_span,
                     generic_ids,
-                    generic_names,
+                    generics,
+                    name_span,
                     parameters,
                     return_type,
                     body,
@@ -457,20 +474,24 @@ impl NamedItem {
                 body,
             },
             NamedItemKind::TypeAliasDeclaration {
+                name_span,
                 name,
-                generic_names,
+                generics,
                 alias,
                 id,
                 generic_ids,
             } => {
                 ctx.enter_scope();
 
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
+                for (generic_id, (generic_span, generic_name)) in
+                    generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                    ctx.set_semantic_generic(
+                        generic_id,
+                        Visibility::Public,
+                        generic_span,
+                        generic_name,
+                    );
                 }
 
                 let alias = alias.perform_semantic_analysis(ctx);
@@ -481,6 +502,7 @@ impl NamedItem {
                     id,
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                        name_span,
                         name,
                         generic_ids,
                         alias,
@@ -490,20 +512,26 @@ impl NamedItem {
                 TypedItem::TypeAliasDeclaration
             }
             NamedItemKind::RegularStructDeclaration {
+                name_span,
                 name,
-                generic_names,
+                generics: generic_names,
                 field_types,
                 id,
                 generic_ids,
             } => {
                 ctx.enter_scope();
 
-                for (generic_id, generic_name) in generic_ids
+                for (generic_id, (generic_span, generic_name)) in generic_ids
                     .iter()
                     .copied()
                     .zip(generic_names.iter().cloned())
                 {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                    ctx.set_semantic_generic(
+                        generic_id,
+                        Visibility::Public,
+                        generic_span,
+                        generic_name,
+                    );
                 }
 
                 let field_types = field_types
@@ -522,6 +550,7 @@ impl NamedItem {
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
                         SemanticRegularStructDeclaration {
+                            name_span,
                             name,
                             generic_ids,
                             field_types,
@@ -532,8 +561,9 @@ impl NamedItem {
                 TypedItem::RegularStructDeclaration
             }
             NamedItemKind::TupleStructDeclaration {
+                name_span,
                 name,
-                generic_names,
+                generics,
                 field_types,
                 id,
                 generic_ids,
@@ -541,12 +571,15 @@ impl NamedItem {
             } => {
                 ctx.enter_scope();
 
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
+                for (generic_id, (generic_span, generic_name)) in
+                    generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                    ctx.set_semantic_generic(
+                        generic_id,
+                        Visibility::Public,
+                        generic_span,
+                        generic_name,
+                    );
                 }
 
                 let field_types = field_types
@@ -561,6 +594,7 @@ impl NamedItem {
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(
                         SemanticTupleStructDeclaration {
+                            name_span,
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),
                             field_types: field_types.clone(),

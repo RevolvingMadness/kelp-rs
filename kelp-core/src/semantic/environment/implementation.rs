@@ -23,8 +23,8 @@ impl SemanticImplementation {
         values: HashMap<String, HighValueId>,
     ) -> Self {
         Self {
-            generic_names,
             target_type,
+            generic_names,
             types,
             values,
         }

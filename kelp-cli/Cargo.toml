@@ -7,7 +7,7 @@ edition = "2024"
 kelp-core.workspace = true
 kelp-parser.workspace = true
 
-ariadne.workspace = true
+annotate-snippets.workspace = true
 clap.workspace = true
 dirs.workspace = true
 serde.workspace = true

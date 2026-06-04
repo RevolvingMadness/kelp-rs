@@ -1,8 +1,10 @@
 use crate::semantic::environment::r#type::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::regular::SemanticRegularStructDeclaration;
+use crate::span::Span;
 
 #[derive(Debug, Clone)]
 pub struct ParsedRegularStructDeclaration {
+    pub name_span: Span,
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
 }
@@ -10,6 +12,7 @@ pub struct ParsedRegularStructDeclaration {
 impl From<SemanticRegularStructDeclaration> for ParsedRegularStructDeclaration {
     fn from(value: SemanticRegularStructDeclaration) -> Self {
         Self {
+            name_span: value.name_span,
             name: value.name,
             generic_ids: value.generic_ids,
         }
@@ -17,15 +20,6 @@ impl From<SemanticRegularStructDeclaration> for ParsedRegularStructDeclaration {
 }
 
 impl ParsedRegularStructDeclaration {
-    #[inline]
-    #[must_use]
-    pub fn new(name: &str, generic_ids: Vec<HighGenericId>) -> Self {
-        Self {
-            name: name.to_owned(),
-            generic_ids,
-        }
-    }
-
     #[inline]
     #[must_use]
     pub fn name(&self) -> &str {

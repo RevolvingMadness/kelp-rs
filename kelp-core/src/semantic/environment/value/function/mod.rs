@@ -8,6 +8,7 @@ use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::value::function::{
     builtin::SemanticBuiltinFunctionDeclaration, regular::SemanticRegularFunctionDeclaration,
 };
+use crate::span::Span;
 use crate::{
     parameter_types_iter::{ParameterTypesIter, take_second},
     semantic::pattern::SemanticPattern,
@@ -37,6 +38,14 @@ impl SemanticFunctionDeclaration {
     }
 
     #[must_use]
+    pub const fn name_span(&self) -> Option<Span> {
+        match self {
+            Self::Regular(declaration) => Some(declaration.name_span),
+            Self::Builtin(..) => None,
+        }
+    }
+
+    #[must_use]
     pub fn generic_ids(&self) -> &[HighGenericId] {
         match self {
             Self::Regular(declaration) => &declaration.generic_ids,
@@ -53,7 +62,7 @@ impl SemanticFunctionDeclaration {
     }
 
     #[must_use]
-    pub fn is_method(&self) -> bool {
+    pub const fn is_method(&self) -> bool {
         match self {
             Self::Regular(declaration) => declaration.is_method,
             Self::Builtin(_declaration) => false,

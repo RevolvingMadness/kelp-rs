@@ -81,20 +81,20 @@ impl ParsedStatement {
             }
             ParsedStatementKind::Break => {
                 if ctx.loop_depth == 0 {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::ControlFlowNotInLoop(LoopControlFlowKind::Break),
-                    );
+                    return ctx.add_error(SemanticAnalysisError::ControlFlowNotInLoop {
+                        span: self.span,
+                        kind: LoopControlFlowKind::Break,
+                    });
                 }
 
                 SemanticStatement::Break
             }
             ParsedStatementKind::Continue => {
                 if ctx.loop_depth == 0 {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::ControlFlowNotInLoop(LoopControlFlowKind::Continue),
-                    );
+                    return ctx.add_error(SemanticAnalysisError::ControlFlowNotInLoop {
+                        span: self.span,
+                        kind: LoopControlFlowKind::Continue,
+                    });
                 }
 
                 SemanticStatement::Continue

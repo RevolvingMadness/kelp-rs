@@ -24,6 +24,7 @@ impl LowerableAstNode for CSTNumericExpression {
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let value_token = self.fractional_value_token()?;
+        let value_span = value_token.span();
         let value_text = value_token.text();
 
         let suffix = self
@@ -48,18 +49,20 @@ impl LowerableAstNode for CSTNumericExpression {
                     Ok(value) => ParsedExpressionKind::Byte(value),
                     Err(error) => match error.kind() {
                         IntErrorKind::PosOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooBig(LowerDataType::Byte),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooBig {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Byte,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
                         IntErrorKind::NegOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooSmall(LowerDataType::Byte),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooSmall {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Byte,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
@@ -70,18 +73,20 @@ impl LowerableAstNode for CSTNumericExpression {
                     Ok(value) => ParsedExpressionKind::Short(value),
                     Err(error) => match error.kind() {
                         IntErrorKind::PosOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooBig(LowerDataType::Short),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooBig {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Short,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
                         IntErrorKind::NegOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooSmall(LowerDataType::Short),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooSmall {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Short,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
@@ -92,18 +97,20 @@ impl LowerableAstNode for CSTNumericExpression {
                     Ok(value) => ParsedExpressionKind::Integer(value),
                     Err(error) => match error.kind() {
                         IntErrorKind::PosOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooBig(LowerDataType::Integer),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooBig {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Integer,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
                         IntErrorKind::NegOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooSmall(LowerDataType::Integer),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooSmall {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Integer,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
@@ -114,18 +121,20 @@ impl LowerableAstNode for CSTNumericExpression {
                     Ok(value) => ParsedExpressionKind::Long(value),
                     Err(error) => match error.kind() {
                         IntErrorKind::PosOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooBig(LowerDataType::Long),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooBig {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Long,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
                         IntErrorKind::NegOverflow => {
-                            ctx.add_error_unit(
-                                value_token.span(),
-                                LowerError::ValueTooSmall(LowerDataType::Long),
-                            );
+                            ctx.add_error_unit(LowerError::ValueTooSmall {
+                                value: value_text.to_owned(),
+                                type_span: value_span,
+                                data_type: LowerDataType::Long,
+                            });
 
                             ParsedExpressionKind::Invalid
                         }
@@ -152,18 +161,20 @@ impl LowerableAstNode for CSTNumericExpression {
                             Ok(value) => ParsedExpressionKind::InferredInteger(value),
                             Err(error) => match error.kind() {
                                 IntErrorKind::PosOverflow => {
-                                    ctx.add_error_unit(
-                                        value_token.span(),
-                                        LowerError::ValueTooBig(LowerDataType::Integer),
-                                    );
+                                    ctx.add_error_unit(LowerError::ValueTooBig {
+                                        value: value_text.to_owned(),
+                                        type_span: value_span,
+                                        data_type: LowerDataType::Integer,
+                                    });
 
                                     ParsedExpressionKind::Invalid
                                 }
                                 IntErrorKind::NegOverflow => {
-                                    ctx.add_error_unit(
-                                        value_token.span(),
-                                        LowerError::ValueTooSmall(LowerDataType::Integer),
-                                    );
+                                    ctx.add_error_unit(LowerError::ValueTooSmall {
+                                        value: value_text.to_owned(),
+                                        type_span: value_span,
+                                        data_type: LowerDataType::Integer,
+                                    });
 
                                     ParsedExpressionKind::Invalid
                                 }

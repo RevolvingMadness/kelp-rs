@@ -76,7 +76,7 @@ impl ParsableAstNode for CSTItem {
         if !parsed_item_kind {
             match parsed_visibility {
                 Some(true) => {
-                    parser.error("Expected item");
+                    parser.error("expected item");
                 }
                 Some(false) => {}
                 None => {
@@ -117,7 +117,7 @@ impl LowerableAstNode for CSTItemKind {
                 let name_span = name_token.span();
                 let name = name_token.text();
 
-                let generic_names = node.generic_names().and_then(|names| names.lower(ctx));
+                let generics = node.generic_names().and_then(|names| names.lower(ctx));
 
                 let field_types = node
                     .regular_struct_fields()
@@ -126,7 +126,7 @@ impl LowerableAstNode for CSTItemKind {
                 Some(ParsedItemKind::RegularStructDeclaration {
                     name_span,
                     name: name.to_owned(),
-                    generic_names: generic_names.unwrap_or_default(),
+                    generics: generics.unwrap_or_default(),
                     field_types: field_types.unwrap_or_default(),
                 })
             }
@@ -135,7 +135,7 @@ impl LowerableAstNode for CSTItemKind {
                 let name_span = name_token.span();
                 let name = name_token.text();
 
-                let generic_names = node.generic_names().and_then(|names| names.lower(ctx));
+                let generics = node.generic_names().and_then(|names| names.lower(ctx));
 
                 let field_types = node
                     .tuple_struct_fields()
@@ -144,7 +144,7 @@ impl LowerableAstNode for CSTItemKind {
                 Some(ParsedItemKind::TupleStructDeclaration {
                     name_span,
                     name: name.to_owned(),
-                    generic_names: generic_names.unwrap_or_default(),
+                    generics: generics.unwrap_or_default(),
                     field_types: field_types.unwrap_or_default(),
                 })
             }

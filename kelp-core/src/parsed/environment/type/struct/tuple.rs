@@ -1,15 +1,18 @@
 use crate::semantic::environment::r#type::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::tuple::SemanticTupleStructDeclaration;
+use crate::span::Span;
 
 #[derive(Debug, Clone)]
 pub struct ParsedTupleStructDeclaration {
-    name: String,
-    generic_ids: Vec<HighGenericId>,
+    pub name_span: Span,
+    pub name: String,
+    pub generic_ids: Vec<HighGenericId>,
 }
 
 impl From<SemanticTupleStructDeclaration> for ParsedTupleStructDeclaration {
     fn from(value: SemanticTupleStructDeclaration) -> Self {
         Self {
+            name_span: value.name_span,
             name: value.name,
             generic_ids: value.generic_ids,
         }
@@ -17,12 +20,6 @@ impl From<SemanticTupleStructDeclaration> for ParsedTupleStructDeclaration {
 }
 
 impl ParsedTupleStructDeclaration {
-    #[inline]
-    #[must_use]
-    pub const fn new(name: String, generic_ids: Vec<HighGenericId>) -> Self {
-        Self { name, generic_ids }
-    }
-
     #[inline]
     #[must_use]
     pub fn name(&self) -> &str {

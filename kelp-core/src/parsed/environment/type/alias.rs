@@ -6,17 +6,13 @@ use crate::span::Span;
 
 #[derive(Debug, Clone)]
 pub struct ParsedTypeAliasDeclaration {
+    pub name_span: Span,
     pub name: String,
     pub generic_ids: Vec<HighGenericId>,
     pub alias: ParsedDataType,
 }
 
 impl ParsedTypeAliasDeclaration {
-    #[must_use]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
     #[must_use]
     pub fn into_data_type(
         self,
@@ -30,7 +26,7 @@ impl ParsedTypeAliasDeclaration {
         if actual_generics != expected_generics {
             return ctx.add_invalid_generics_type(
                 name_span,
-                self.name(),
+                self.name,
                 expected_generics,
                 actual_generics,
             );

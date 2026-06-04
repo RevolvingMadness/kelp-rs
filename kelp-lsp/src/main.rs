@@ -1,9 +1,7 @@
-use kelp_core::parsed::semantic_analysis::{
-    SemanticAnalysisContext, info::SemanticAnalysisInfoKind,
-};
+use kelp_core::parsed::semantic_analysis::{SemanticAnalysisContext, info::SemanticAnalysisInfo};
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::extension_traits::LowerableAstNode;
-use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
+use kelp_parser::lower_context::{LowerContext, LowerInfo};
 use kelp_parser::parser::{ParseError, ParseResult, Parser};
 use kelp_parser::semantic_token::{SemanticToken as KelpSemanticToken, collect_semantic_tokens};
 use kelp_parser::syntax::SyntaxNode;
@@ -154,20 +152,27 @@ impl Backend {
                     let program = cst_program.lower(&mut lower_context).unwrap();
 
                     for info in lower_context.infos {
-                        diagnostics.push(Diagnostic {
-                            range: Range {
-                                start: line_index.offset_to_position(info.span.start),
-                                end: line_index.offset_to_position(info.span.end),
-                            },
-                            severity: Some(match info.kind {
-                                LowerInfoKind::Error(..) => DiagnosticSeverity::ERROR,
-                            }),
-                            source: source.clone(),
-                            message: match &info.kind {
-                                LowerInfoKind::Error(error) => error.to_string(),
-                            },
-                            ..Default::default()
-                        });
+                        match info {
+                            LowerInfo::Error(error) => {
+                                let diagnostic = error.into_diagnostic();
+
+                                for label in diagnostic.labels {
+                                    let message =
+                                        label.message.unwrap_or_else(|| diagnostic.message.clone());
+
+                                    diagnostics.push(Diagnostic {
+                                        range: Range {
+                                            start: line_index.offset_to_position(label.span.start),
+                                            end: line_index.offset_to_position(label.span.end),
+                                        },
+                                        severity: Some(DiagnosticSeverity::ERROR),
+                                        source: source.clone(),
+                                        message,
+                                        ..Default::default()
+                                    });
+                                }
+                            }
+                        }
                     }
 
                     let mut semantic_analysis_context =
@@ -176,22 +181,29 @@ impl Backend {
                     program.perform_semantic_analysis(&mut semantic_analysis_context);
 
                     for info in semantic_analysis_context.infos {
-                        diagnostics.push(Diagnostic {
-                            range: Range {
-                                start: line_index.offset_to_position(info.span.start),
-                                end: line_index.offset_to_position(info.span.end),
-                            },
-                            severity: Some(match info.kind {
-                                SemanticAnalysisInfoKind::Error(..) => DiagnosticSeverity::ERROR,
-                            }),
-                            source: source.clone(),
-                            message: match &info.kind {
-                                SemanticAnalysisInfoKind::Error(error) => error
-                                    .display(&semantic_analysis_context.semantic_environment)
-                                    .to_string(),
-                            },
-                            ..Default::default()
-                        });
+                        match info {
+                            SemanticAnalysisInfo::Error(error) => {
+                                let diagnostic = error.into_diagnostic(
+                                    &semantic_analysis_context.semantic_environment,
+                                );
+
+                                for label in diagnostic.labels {
+                                    let message =
+                                        label.message.unwrap_or_else(|| diagnostic.message.clone());
+
+                                    diagnostics.push(Diagnostic {
+                                        range: Range {
+                                            start: line_index.offset_to_position(label.span.start),
+                                            end: line_index.offset_to_position(label.span.end),
+                                        },
+                                        severity: Some(DiagnosticSeverity::ERROR),
+                                        source: source.clone(),
+                                        message,
+                                        ..Default::default()
+                                    });
+                                }
+                            }
+                        }
                     }
 
                     cst_program.syntax()

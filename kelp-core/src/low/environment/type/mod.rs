@@ -1,5 +1,6 @@
 use crate::low::environment::r#type::r#struct::StructDeclaration;
 use crate::make_id;
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::visibility::Visibility;
 
 pub mod builtin_data_type;
@@ -24,6 +25,6 @@ impl TypeDeclarationKind {
 #[derive(Debug, Clone)]
 pub struct TypeDeclaration {
     pub visibility: Visibility,
-    pub module_path: Vec<String>,
+    pub module_path: Vec<HighModuleId>,
     pub kind: TypeDeclarationKind,
 }

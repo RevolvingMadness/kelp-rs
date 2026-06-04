@@ -59,7 +59,7 @@ impl LowerableAstNode for CSTInherentImplementationItem {
     type Lowered = ParsedItemKind;
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let generic_names = self.generic_names().and_then(|names| names.lower(ctx));
+        let geerics = self.generic_names().and_then(|names| names.lower(ctx));
         let target_type = self.data_type()?;
         let target_type_span = target_type.span();
         let target_type = target_type.lower(ctx)?;
@@ -70,7 +70,7 @@ impl LowerableAstNode for CSTInherentImplementationItem {
             .collect();
 
         Some(ParsedItemKind::InherentImplementationItem {
-            generic_names: generic_names.unwrap_or_default(),
+            generics: geerics.unwrap_or_default(),
             target_type_span,
             target_type,
             associated_items,

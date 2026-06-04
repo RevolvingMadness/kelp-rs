@@ -1,3 +1,4 @@
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::visibility::Visibility;
 use crate::{
     low::environment::value::{
@@ -35,7 +36,7 @@ impl ValueDeclarationKind {
     #[must_use]
     pub const fn with_visibility(
         self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
     ) -> ValueDeclaration {
         ValueDeclaration {
@@ -47,13 +48,13 @@ impl ValueDeclarationKind {
 
     #[inline]
     #[must_use]
-    pub const fn public(self, module_path: Vec<String>) -> ValueDeclaration {
+    pub const fn public(self, module_path: Vec<HighModuleId>) -> ValueDeclaration {
         self.with_visibility(module_path, Visibility::Public)
     }
 
     #[inline]
     #[must_use]
-    pub const fn none_visibility(self, module_path: Vec<String>) -> ValueDeclaration {
+    pub const fn none_visibility(self, module_path: Vec<HighModuleId>) -> ValueDeclaration {
         self.with_visibility(module_path, Visibility::None)
     }
 
@@ -69,6 +70,6 @@ impl ValueDeclarationKind {
 #[derive(Debug, Clone)]
 pub struct ValueDeclaration {
     pub visibility: Visibility,
-    pub module_path: Vec<String>,
+    pub module_path: Vec<HighModuleId>,
     pub kind: ValueDeclarationKind,
 }

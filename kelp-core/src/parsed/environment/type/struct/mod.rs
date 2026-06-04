@@ -28,6 +28,14 @@ impl From<SemanticStructDeclaration> for ParsedStructDeclaration {
 
 impl ParsedStructDeclaration {
     #[must_use]
+    pub const fn name_span(&self) -> Span {
+        match self {
+            Self::Struct(declaration) => declaration.name_span,
+            Self::Tuple(declaration) => declaration.name_span,
+        }
+    }
+
+    #[must_use]
     pub fn name(&self) -> &str {
         match self {
             Self::Struct(declaration) => declaration.name(),

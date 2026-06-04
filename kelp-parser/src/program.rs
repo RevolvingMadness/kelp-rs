@@ -19,7 +19,7 @@ impl ParsableAstNode for CSTProgram {
                 break;
             }
 
-            CSTItem::expect(parser, "Expected item");
+            CSTItem::expect(parser, "expected item");
         }
 
         parser.finish_node();

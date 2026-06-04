@@ -135,8 +135,10 @@ impl ParsedCoordinates {
 
                         if !x.data_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
-                                x_span,
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat(x.data_type),
+                                SemanticAnalysisError::CannotBeRepresentedAsFloat {
+                                    type_span: x_span,
+                                    data_type: x.data_type,
+                                },
                             );
                         }
 
@@ -151,8 +153,10 @@ impl ParsedCoordinates {
 
                         if !y.data_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
-                                y_span,
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat(y.data_type),
+                                SemanticAnalysisError::CannotBeRepresentedAsFloat {
+                                    type_span: y_span,
+                                    data_type: y.data_type,
+                                },
                             );
                         }
 
@@ -167,8 +171,10 @@ impl ParsedCoordinates {
 
                         if !z.data_type.can_be_represented_as_snbt_float_macro() {
                             return ctx.add_error(
-                                z_span,
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat(z.data_type),
+                                SemanticAnalysisError::CannotBeRepresentedAsFloat {
+                                    type_span: z_span,
+                                    data_type: z.data_type,
+                                },
                             );
                         }
 

@@ -88,9 +88,16 @@ impl ParsedPatternKind {
                     return;
                 }
 
-                let name = path.segments[0].name.clone();
+                let segment = &path.segments[0];
+                let name_span = segment.name_span;
+                let name = segment.name.clone();
 
-                let _ = ctx.declare_variable(Visibility::Public, name, SemanticDataType::Error);
+                let _ = ctx.declare_variable(
+                    Visibility::Public,
+                    name_span,
+                    name,
+                    SemanticDataType::Error,
+                );
             }
             Self::Tuple(patterns) => {
                 for pattern in patterns {
@@ -138,29 +145,33 @@ impl ParsedPattern {
             (ParsedPatternKind::Binding(path), _) => {
                 if path.segments.len() == 1 {
                     let segment = &path.segments[0];
+                    let name_span = segment.name_span;
                     let name = segment.name.clone();
 
-                    let id = ctx.declare_variable(Visibility::Public, name, variable_type.clone());
+                    let id = ctx.declare_variable(
+                        Visibility::Public,
+                        name_span,
+                        name,
+                        variable_type.clone(),
+                    );
 
                     SemanticPattern::Binding(id)
                 } else {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::UnknownItem(path.to_string()),
-                    );
+                    return ctx.add_error(SemanticAnalysisError::UnknownItem {
+                        span: self.span,
+                        name: path.to_string(),
+                    });
                 }
             }
             (ParsedPatternKind::Score(score), _) => {
                 let score = score.perform_semantic_analysis(ctx)?;
 
                 if !variable_type.can_be_assigned_to_score() {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: variable_type.clone(),
-                            actual: Box::new(self_type),
-                        },
-                    );
+                    return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
+                        span: self.span,
+                        expected: variable_type.clone(),
+                        actual: Box::new(self_type),
+                    });
                 }
 
                 SemanticPattern::Score(score)
@@ -172,13 +183,11 @@ impl ParsedPattern {
                     .get_data_type(&ctx.semantic_environment)
                     .is_none()
                 {
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: variable_type.clone(),
-                            actual: Box::new(self_type),
-                        },
-                    );
+                    return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
+                        span: self.span,
+                        expected: variable_type.clone(),
+                        actual: Box::new(self_type),
+                    });
                 }
 
                 SemanticPattern::Data(data)
@@ -214,13 +223,11 @@ impl ParsedPattern {
                         else {
                             pattern.kind.destructure_unknown(ctx);
 
-                            return ctx.add_error(
-                                key_span,
-                                SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: variable_type.clone(),
-                                    field: key,
-                                },
-                            );
+                            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                                data_type: variable_type.clone(),
+                                field_span: key_span,
+                                field: key,
+                            });
                         };
 
                         let pattern = pattern
@@ -271,13 +278,11 @@ impl ParsedPattern {
                         pattern.kind.destructure_unknown(ctx);
                     }
 
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: variable_type.clone(),
-                            actual: Box::new(self_type),
-                        },
-                    );
+                    return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
+                        span: self.span,
+                        expected: variable_type.clone(),
+                        actual: Box::new(self_type),
+                    });
                 }
 
                 let field_types = pattern_declaration.field_types.clone();
@@ -288,13 +293,11 @@ impl ParsedPattern {
                         let Some(field_type) = field_types.get(&name) else {
                             pattern.kind.destructure_unknown(ctx);
 
-                            return ctx.add_error(
-                                name_span,
-                                SemanticAnalysisError::TypeDoesntHaveField {
-                                    data_type: variable_type.clone(),
-                                    field: name,
-                                },
-                            );
+                            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                                field_span: name_span,
+                                data_type: variable_type.clone(),
+                                field: name,
+                            });
                         };
 
                         let field_type = field_type
@@ -331,13 +334,11 @@ impl ParsedPattern {
                         pattern.kind.destructure_unknown(ctx);
                     }
 
-                    return ctx.add_error(
-                        self.span,
-                        SemanticAnalysisError::MismatchedPatternTypes {
-                            expected: variable_type.clone(),
-                            actual: Box::new(self_type),
-                        },
-                    );
+                    return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
+                        span: self.span,
+                        expected: variable_type.clone(),
+                        actual: Box::new(self_type),
+                    });
                 }
 
                 let field_types = pattern_declaration.field_types.clone();
@@ -346,14 +347,12 @@ impl ParsedPattern {
                 let actual_field_count = field_patterns.len();
 
                 if expected_field_count != actual_field_count {
-                    return ctx.add_error(
-                        last_segment.name_span,
-                        SemanticAnalysisError::MismatchedTupleStructFieldCount(
-                            last_segment.name.clone(),
-                            expected_field_count,
-                            actual_field_count,
-                        ),
-                    );
+                    return ctx.add_error(SemanticAnalysisError::MismatchedTupleStructFieldCount {
+                        name_span: last_segment.name_span,
+                        name: last_segment.name.clone(),
+                        expected: expected_field_count,
+                        actual: actual_field_count,
+                    });
                 }
 
                 let pattern_generic_names = pattern_declaration.generic_ids.clone();
@@ -377,13 +376,11 @@ impl ParsedPattern {
             (kind, _) => {
                 kind.destructure_unknown(ctx);
 
-                return ctx.add_error(
-                    self.span,
-                    SemanticAnalysisError::MismatchedPatternTypes {
-                        expected: variable_type.clone(),
-                        actual: Box::new(self_type),
-                    },
-                );
+                return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
+                    span: self.span,
+                    expected: variable_type.clone(),
+                    actual: Box::new(self_type),
+                });
             }
         })
     }

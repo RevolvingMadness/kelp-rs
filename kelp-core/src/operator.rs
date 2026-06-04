@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Write};
 
 use minecraft_command_types::command::{
     enums::score_operation_operator::ScoreOperationOperator, execute::ScoreComparisonOperator,
@@ -132,4 +132,17 @@ pub enum UnaryOperator {
     Reference,
     Dereference,
     Invert,
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let symbol = match self {
+            Self::Negate => '-',
+            Self::Reference => '&',
+            Self::Dereference => '*',
+            Self::Invert => '!',
+        };
+
+        f.write_char(symbol)
+    }
 }

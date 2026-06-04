@@ -16,7 +16,7 @@ use crate::{
         environment::{
             r#type::{
                 HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
-                alias::SemanticTypeAliasDeclaration,
+                alias::SemanticTypeAliasDeclaration, module::HighModuleId,
             },
             value::function::regular::HighRegularFunctionId,
         },
@@ -30,7 +30,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum TypedItem {
     InherentImplementationItem {
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         target_type_span: Span,
         target_type: SemanticDataType,
         associated_items: Vec<Self>,
@@ -40,14 +40,15 @@ pub enum TypedItem {
         associated_items_scope: Scope,
     },
     ModuleDeclaration {
-        name: String,
+        id: HighModuleId,
         items: Vec<Self>,
     },
     FunctionDeclaration {
         recursive_keyword_span: Option<Span>,
         runtime_keyword_span: Option<Span>,
         generic_ids: Vec<HighGenericId>,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
+        name_span: Span,
         parameters: Vec<(ParsedPattern, SemanticDataType)>,
         return_type: SemanticDataType,
         body: Box<ParsedBlockExpression>,
@@ -71,28 +72,32 @@ impl TypedItem {
     ) -> Option<SemanticItem> {
         Some(match self {
             Self::InherentImplementationItem {
-                generic_names,
+                generics,
+                target_type_span,
                 target_type,
                 associated_items,
                 self_type_id,
                 generic_ids,
                 associated_items_scope,
-                ..
             } => {
                 ctx.enter_scope();
 
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
+                for (generic_id, (generic_span, generic_name)) in
+                    generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                    ctx.set_semantic_generic(
+                        generic_id,
+                        Visibility::Public,
+                        generic_span,
+                        generic_name,
+                    );
                 }
 
                 ctx.set_semantic_type(
                     self_type_id,
                     Visibility::Public,
                     SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                        name_span: target_type_span,
                         name: "Self".to_owned(),
                         generic_ids: Vec::new(),
                         alias: target_type,
@@ -112,10 +117,10 @@ impl TypedItem {
 
                 SemanticItem::InherentImplementation
             }
-            Self::ModuleDeclaration { name, items } => {
+            Self::ModuleDeclaration { id, items } => {
                 let mut failed = false;
 
-                ctx.enter_module(name);
+                ctx.enter_semantic_module(id);
 
                 for item in items {
                     if item.perform_semantic_analysis(ctx).is_none() {
@@ -135,7 +140,8 @@ impl TypedItem {
                 recursive_keyword_span,
                 runtime_keyword_span,
                 generic_ids,
-                generic_names,
+                generics,
+                name_span,
                 parameters,
                 return_type,
                 body,
@@ -143,12 +149,15 @@ impl TypedItem {
             } => {
                 ctx.enter_scope();
 
-                for (generic_id, generic_name) in generic_ids
-                    .iter()
-                    .copied()
-                    .zip(generic_names.iter().cloned())
+                for (generic_id, (generic_span, generic_name)) in
+                    generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
+                    ctx.set_semantic_generic(
+                        generic_id,
+                        Visibility::Public,
+                        generic_span,
+                        generic_name,
+                    );
                 }
 
                 let mut failed = false;
@@ -167,10 +176,9 @@ impl TypedItem {
                     };
 
                     if !all_types_are_runtime {
-                        ctx.add_error_unit(
+                        ctx.add_error_unit(SemanticAnalysisError::FunctionTypesNotAllRuntime {
                             runtime_keyword_span,
-                            SemanticAnalysisError::FunctionTypesNotAllRuntime,
-                        );
+                        });
 
                         failed = true;
                     }
@@ -189,19 +197,17 @@ impl TypedItem {
                         };
 
                         if !all_types_are_data {
-                            ctx.add_error_unit(
+                            ctx.add_error_unit(SemanticAnalysisError::FunctionTypesNotAllData {
                                 recursive_keyword_span,
-                                SemanticAnalysisError::FunctionTypesNotAllData,
-                            );
+                            });
 
                             failed = true;
                         }
                     }
-                } else if let Some(recursive_keyword_span) = recursive_keyword_span {
-                    ctx.add_error_unit(
-                        recursive_keyword_span,
-                        SemanticAnalysisError::RecursiveFunctionNotRuntime,
-                    );
+                } else if let Some(keyword_span) = recursive_keyword_span {
+                    ctx.add_error_unit(SemanticAnalysisError::RecursiveFunctionNotRuntime {
+                        keyword_span,
+                    });
 
                     failed = true;
                 }
@@ -223,9 +229,10 @@ impl TypedItem {
                 ctx.push_scope(scope);
 
                 ctx.function_contexts.push(FunctionContext::Regular {
+                    id,
+                    declaration_span: name_span,
                     modifiers,
                     return_type,
-                    callee_id: id,
                     calls: HashSet::new(),
                 });
 

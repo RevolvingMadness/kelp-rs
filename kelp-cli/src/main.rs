@@ -1,13 +1,14 @@
-use ariadne::{Color, Label, Report, ReportKind, Source};
+use annotate_snippets::{AnnotationKind, Group, Level, Renderer, Snippet};
 use clap::{Parser as ClapParser, Subcommand};
 use kelp_core::datapack::Datapack;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
-use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
+use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfo;
+use kelp_core::parsed::semantic_analysis::info::diagnostic::LabelType;
 use kelp_core::semantic::environment::SemanticEnvironment;
 use kelp_core::semantic::program::SemanticProgram;
 use kelp_parser::cst::CSTProgram;
 use kelp_parser::extension_traits::LowerableAstNode;
-use kelp_parser::lower_context::{LowerContext, LowerInfoKind};
+use kelp_parser::lower_context::{LowerContext, LowerInfo};
 use kelp_parser::parser::{ParseResult, Parser};
 use serde::Deserialize;
 use std::fs;
@@ -160,45 +161,98 @@ struct KelpToml {
 }
 
 fn display_semantic_analysis_infos(
-    ctx: &SemanticAnalysisContext,
+    infos: Vec<SemanticAnalysisInfo>,
+    semantic_environment: &SemanticEnvironment,
     main_kelp_path: &str,
     main_kelp: &str,
 ) -> bool {
-    for info in &ctx.infos {
-        match &info.kind {
-            SemanticAnalysisInfoKind::Error(error) => {
-                let span = (main_kelp_path, info.span.into_range());
-                Report::build(ReportKind::Error, span.clone())
-                    .with_label(
-                        Label::new(span)
-                            .with_message(error.display(&ctx.semantic_environment))
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-                    .print((main_kelp_path, Source::from(main_kelp)))
-                    .unwrap();
+    let renderer = Renderer::styled();
+
+    let displayed = !infos.is_empty();
+
+    for info in infos {
+        match info {
+            SemanticAnalysisInfo::Error(error) => {
+                let diagnostic = error.into_diagnostic(semantic_environment);
+
+                let mut snippet = Snippet::source(main_kelp).path(main_kelp_path).fold(true);
+
+                for label in &diagnostic.labels {
+                    let kind = match label.type_ {
+                        LabelType::Primary => AnnotationKind::Primary,
+                        LabelType::Secondary => AnnotationKind::Context,
+                    };
+
+                    snippet = snippet.annotation(
+                        kind.span(label.span.into_range())
+                            .label(label.message.as_ref()),
+                    );
+                }
+
+                let mut group =
+                    Group::with_title(Level::ERROR.primary_title(diagnostic.message.clone()))
+                        .element(snippet);
+
+                for note in &diagnostic.notes {
+                    group = group.element(Level::NOTE.message(note.clone()));
+                }
+
+                if let Some(help) = &diagnostic.help {
+                    group = group.element(Level::HELP.message(help.clone()));
+                }
+
+                println!("{}", renderer.render(&[group]));
+                println!();
             }
         }
     }
 
-    !ctx.infos.is_empty()
+    displayed
 }
 
-fn display_parse_infos(ctx: &LowerContext, main_kelp_path: &str, main_kelp: &str) -> bool {
-    for info in &ctx.infos {
-        match &info.kind {
-            LowerInfoKind::Error(error) => {
-                let span = (main_kelp_path, info.span.into_range());
-                Report::build(ReportKind::Error, span.clone())
-                    .with_label(Label::new(span).with_message(error).with_color(Color::Red))
-                    .finish()
-                    .print((main_kelp_path, Source::from(main_kelp)))
-                    .unwrap();
+fn display_parse_infos(infos: Vec<LowerInfo>, main_kelp_path: &str, main_kelp: &str) -> bool {
+    let renderer = Renderer::styled();
+
+    let displayed = !infos.is_empty();
+
+    for info in infos {
+        match info {
+            LowerInfo::Error(error) => {
+                let diagnostic = error.into_diagnostic();
+
+                let mut snippet = Snippet::source(main_kelp).path(main_kelp_path).fold(true);
+
+                for label in &diagnostic.labels {
+                    let kind = match label.type_ {
+                        LabelType::Primary => AnnotationKind::Primary,
+                        LabelType::Secondary => AnnotationKind::Context,
+                    };
+
+                    snippet = snippet.annotation(
+                        kind.span(label.span.into_range())
+                            .label(label.message.as_ref()),
+                    );
+                }
+
+                let mut group =
+                    Group::with_title(Level::ERROR.primary_title(diagnostic.message.clone()))
+                        .element(snippet);
+
+                for note in &diagnostic.notes {
+                    group = group.element(Level::NOTE.message(note.clone()));
+                }
+
+                if let Some(help) = &diagnostic.help {
+                    group = group.element(Level::HELP.message(help.clone()));
+                }
+
+                println!("{}", renderer.render(&[group]));
+                println!();
             }
         }
     }
 
-    !ctx.infos.is_empty()
+    displayed
 }
 
 fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
@@ -266,22 +320,20 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
 
     let root = CSTProgram::cast(root).unwrap();
 
-    let error_input_text = format!("{} ", main_kelp);
-
     let parse_succeeded = errors.is_empty();
 
-    for error in errors {
-        let span = (main_kelp_path.as_ref(), error.span.into_range());
+    let renderer = Renderer::styled();
 
-        Report::build(ReportKind::Error, span.clone())
-            .with_label(
-                Label::new(span)
-                    .with_message(error.message)
-                    .with_color(Color::Red),
-            )
-            .finish()
-            .print((main_kelp_path.as_ref(), Source::from(&error_input_text)))
-            .unwrap();
+    for error in errors {
+        let snippet = Snippet::source(&main_kelp)
+            .path(&main_kelp_path)
+            .fold(true)
+            .annotation(AnnotationKind::Primary.span(error.span.into_range()));
+
+        let group = Group::with_title(Level::ERROR.primary_title(error.message)).element(snippet);
+
+        println!("{}", renderer.render(&[group]));
+        println!();
     }
 
     let max_infos = 10;
@@ -292,14 +344,19 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
     let program = root.lower(&mut lower_context).unwrap();
     let lower_elapsed = lower_start.elapsed();
 
-    let lower_succeeded = !display_parse_infos(&lower_context, &main_kelp_path, &main_kelp);
+    let lower_succeeded = !display_parse_infos(lower_context.infos, &main_kelp_path, &main_kelp);
 
     let start_semantic = Instant::now();
 
-    let display_info = |ctx: &SemanticAnalysisContext| {
+    let display_info = |infos: Vec<SemanticAnalysisInfo>,
+                        semantic_environment: &SemanticEnvironment| {
         let semantic_elapsed = start_semantic.elapsed();
-        let semantic_analysis_succeeded =
-            !display_semantic_analysis_infos(ctx, &main_kelp_path, &main_kelp);
+        let semantic_analysis_succeeded = !display_semantic_analysis_infos(
+            infos,
+            semantic_environment,
+            &main_kelp_path,
+            &main_kelp,
+        );
 
         let part_1_elapsed = parse_elapsed + lower_elapsed + semantic_elapsed;
 
@@ -335,12 +392,18 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         SemanticAnalysisContext::new(&kelp_toml.project.id, max_infos);
 
     let Some(program) = program.perform_semantic_analysis(&mut semantic_analysis_context) else {
-        display_info(&semantic_analysis_context);
+        display_info(
+            semantic_analysis_context.infos,
+            &semantic_analysis_context.semantic_environment,
+        );
 
         return;
     };
 
-    let (semantic_analysis_succeeded, part_1_elapsed) = display_info(&semantic_analysis_context);
+    let (semantic_analysis_succeeded, part_1_elapsed) = display_info(
+        semantic_analysis_context.infos,
+        &semantic_analysis_context.semantic_environment,
+    );
 
     if lower_succeeded && semantic_analysis_succeeded && parse_succeeded {
         process_success(

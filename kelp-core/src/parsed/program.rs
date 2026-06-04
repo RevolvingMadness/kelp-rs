@@ -113,8 +113,10 @@ impl ParsedProgram {
                         SemanticAnalysisContext::add_error_unit_static(
                             &mut ctx.infos,
                             ctx.max_infos,
-                            *call_span,
-                            SemanticAnalysisError::RecursiveFunctionCall,
+                            SemanticAnalysisError::RecursiveFunctionCall {
+                                span: *call_span,
+                                declaration_span: declaration.name_span().unwrap(),
+                            },
                         );
 
                         failed = true;

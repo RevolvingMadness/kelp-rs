@@ -34,7 +34,7 @@ impl ParsableAstNode for CSTModuleDeclarationItem {
                 break;
             }
 
-            CSTItem::expect(parser, "Expected item");
+            CSTItem::expect(parser, "expected item");
         }
 
         parser.expect_char('}', "Expected '}'");

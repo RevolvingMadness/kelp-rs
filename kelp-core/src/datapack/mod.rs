@@ -21,6 +21,7 @@ use crate::runtime_storage::RuntimeStorageTarget;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
 use crate::semantic::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
@@ -223,7 +224,10 @@ impl Datapack {
 
     #[inline]
     #[must_use]
-    pub fn get_struct_type(&self, id: StructId) -> (&[String], Visibility, &StructDeclaration) {
+    pub fn get_struct_type(
+        &self,
+        id: StructId,
+    ) -> (&[HighModuleId], Visibility, &StructDeclaration) {
         self.environment.get_struct(id)
     }
 
@@ -232,7 +236,7 @@ impl Datapack {
     pub fn get_regular_struct_type(
         &self,
         id: RegularStructId,
-    ) -> (&[String], Visibility, &RegularStructDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &RegularStructDeclaration) {
         self.environment.get_regular_struct(id)
     }
 
@@ -241,7 +245,7 @@ impl Datapack {
     pub fn get_tuple_struct_type(
         &self,
         id: TupleStructId,
-    ) -> (&[String], Visibility, &TupleStructDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &TupleStructDeclaration) {
         self.environment.get_tuple_struct(id)
     }
 
@@ -303,7 +307,7 @@ impl Datapack {
     pub fn get_function<I: Into<FunctionId>>(
         &self,
         id: I,
-    ) -> (&[String], Visibility, &FunctionDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &FunctionDeclaration) {
         self.environment.get_function(id)
     }
 
@@ -778,7 +782,7 @@ impl Datapack {
                 let body = *declaration.body.unwrap();
 
                 let declaration = RegularFunctionDeclaration {
-                    module_paths: module_path.clone(),
+                    module_path: module_path.clone(),
                     visibility,
                     name: declaration.name,
                     modifiers: declaration.modifiers,
@@ -841,7 +845,7 @@ impl Datapack {
     #[inline]
     pub fn declare_monomorphized_regular_struct(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         original_id: HighStructId,
         name: String,
@@ -864,7 +868,7 @@ impl Datapack {
     #[inline]
     pub fn declare_monomorphized_tuple_struct(
         &mut self,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         original_id: HighStructId,
         name: String,
@@ -887,7 +891,7 @@ impl Datapack {
     pub fn declare_monomorphized_function<I: Into<HighFunctionId>, D: Into<FunctionDeclaration>>(
         &mut self,
         original_id: I,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
         visibility: Visibility,
         declaration: D,
     ) -> FunctionId {

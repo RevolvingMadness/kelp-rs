@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
+use crate::parsed::environment::r#type::generic::ParsedGenericDeclaration;
 use crate::parsed::environment::value::ParsedValueDeclarationKind;
 use crate::parsed::environment::value::function::ParsedFunctionDeclaration;
 use crate::parsed::environment::value::function::regular::ParsedRegularFunctionDeclaration;
@@ -55,7 +56,7 @@ pub struct ParsedSelfFunctionParameter {
 #[derive(Debug, Clone)]
 pub enum ParsedItemKind {
     InherentImplementationItem {
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         target_type_span: Span,
         target_type: ParsedDataType,
         associated_items: Vec<ParsedItem>,
@@ -70,7 +71,7 @@ pub enum ParsedItemKind {
         runtime_keyword_span: Option<Span>,
         name_span: Span,
         name: String,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         self_parameter: Option<ParsedSelfFunctionParameter>,
         parameters: Vec<(ParsedPattern, ParsedDataType)>,
         return_type: ParsedDataType,
@@ -83,19 +84,19 @@ pub enum ParsedItemKind {
     TypeAliasDeclaration {
         name_span: Span,
         name: String,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         alias: ParsedDataType,
     },
     RegularStructDeclaration {
         name_span: Span,
         name: String,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         field_types: HashMap<String, ParsedDataType>,
     },
     TupleStructDeclaration {
         name_span: Span,
         name: String,
-        generic_names: Vec<String>,
+        generics: Vec<(Span, String)>,
         field_types: Vec<ParsedDataType>,
     },
     Use(UseTree),
@@ -113,20 +114,23 @@ impl ParsedItem {
     pub fn resolve_names(self, ctx: &mut SemanticAnalysisContext) -> Option<NamedItem> {
         let kind = match self.kind {
             ParsedItemKind::InherentImplementationItem {
-                generic_names: impl_generic_names,
+                generics: impl_generics,
                 target_type_span,
                 target_type,
                 associated_items,
             } => {
                 ctx.enter_scope();
 
-                let impl_generic_ids = impl_generic_names
+                let impl_generic_ids = impl_generics
                     .iter()
                     .cloned()
-                    .map(|generic_name| {
+                    .map(|(span, name)| {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            ParsedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
+                                span,
+                                name,
+                            }),
                         );
 
                         HighGenericId(id.0)
@@ -136,6 +140,7 @@ impl ParsedItem {
                 let self_type_id = ctx.declare_parsed_type(
                     Visibility::Public,
                     ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
+                        name_span: target_type_span,
                         name: "Self".to_owned(),
                         generic_ids: Vec::new(),
                         alias: target_type.clone(),
@@ -156,7 +161,7 @@ impl ParsedItem {
                 let associated_items = associated_items?;
 
                 NamedItemKind::InherentImplementationItem {
-                    generic_names: impl_generic_names,
+                    generics: impl_generics,
                     target_type_span,
                     target_type,
                     associated_items,
@@ -170,38 +175,50 @@ impl ParsedItem {
                 name,
                 items,
             } => {
-                if ctx.current_scope().type_is_declared(&name) {
-                    return ctx
-                        .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+                if let Some(declaration_span) = ctx
+                    .current_scope()
+                    .get_type_declaration_span(&ctx.parsed_environment, &name)
+                {
+                    return ctx.add_error(SemanticAnalysisError::TypeAlreadyDeclared {
+                        declaration_span,
+                        redeclaration_span: name_span,
+                        name,
+                    });
                 }
 
-                ctx.enter_module(name.clone());
+                let id = ctx.enter_parsed_module(self.visibility, Some(name_span), name);
 
                 let items = items
                     .into_iter()
                     .map(|item| item.resolve_names(ctx))
                     .collect_option_all::<Vec<_>>();
 
-                ctx.exit_module_and_declare(self.visibility);
+                ctx.exit_module();
 
                 let items = items?;
 
-                NamedItemKind::ModuleDeclaration { name, items }
+                NamedItemKind::ModuleDeclaration { id, items }
             }
             ParsedItemKind::FunctionDeclaration {
                 recursive_keyword_span,
                 runtime_keyword_span,
                 name_span,
                 name,
-                generic_names,
+                generics: generic_names,
                 self_parameter,
                 parameters,
                 return_type,
                 body,
             } => {
-                if ctx.current_scope().value_is_declared(&name) {
-                    return ctx
-                        .add_error(name_span, SemanticAnalysisError::ValueAlreadyDeclared(name));
+                if let Some(declaration_span) = ctx
+                    .current_scope()
+                    .get_type_declaration_span(&ctx.parsed_environment, &name)
+                {
+                    return ctx.add_error(SemanticAnalysisError::ValueAlreadyDeclared {
+                        declaration_span,
+                        redeclaration_span: name_span,
+                        name,
+                    });
                 }
 
                 ctx.enter_scope();
@@ -209,10 +226,13 @@ impl ParsedItem {
                 let generic_ids = generic_names
                     .iter()
                     .cloned()
-                    .map(|generic_name| {
+                    .map(|(span, name)| {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            ParsedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
+                                span,
+                                name,
+                            }),
                         );
 
                         HighGenericId(id.0)
@@ -236,8 +256,9 @@ impl ParsedItem {
                 NamedItemKind::FunctionDeclaration {
                     recursive_keyword_span,
                     runtime_keyword_span,
+                    name_span,
                     name,
-                    generic_names,
+                    generics: generic_names,
                     self_parameter,
                     parameters,
                     return_type,
@@ -256,12 +277,18 @@ impl ParsedItem {
             ParsedItemKind::TypeAliasDeclaration {
                 name_span,
                 name,
-                generic_names,
+                generics: generic_names,
                 alias,
             } => {
-                if ctx.current_scope().type_is_declared(&name) {
-                    return ctx
-                        .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+                if let Some(declaration_span) = ctx
+                    .current_scope()
+                    .get_type_declaration_span(&ctx.parsed_environment, &name)
+                {
+                    return ctx.add_error(SemanticAnalysisError::TypeAlreadyDeclared {
+                        declaration_span,
+                        redeclaration_span: name_span,
+                        name,
+                    });
                 }
 
                 ctx.enter_scope();
@@ -269,10 +296,13 @@ impl ParsedItem {
                 let generic_ids = generic_names
                     .iter()
                     .cloned()
-                    .map(|generic_name| {
+                    .map(|(span, name)| {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            ParsedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
+                                span,
+                                name,
+                            }),
                         );
 
                         HighGenericId(id.0)
@@ -284,6 +314,7 @@ impl ParsedItem {
                 let id = ctx.declare_parsed_type(
                     self.visibility,
                     ParsedTypeDeclarationKind::Alias(ParsedTypeAliasDeclaration {
+                        name_span,
                         name: name.clone(),
                         generic_ids: generic_ids.clone(),
                         alias: alias.clone(),
@@ -291,8 +322,9 @@ impl ParsedItem {
                 );
 
                 NamedItemKind::TypeAliasDeclaration {
+                    name_span,
                     name,
-                    generic_names,
+                    generics: generic_names,
                     alias,
                     id,
                     generic_ids,
@@ -301,12 +333,18 @@ impl ParsedItem {
             ParsedItemKind::RegularStructDeclaration {
                 name_span,
                 name,
-                generic_names,
+                generics: generic_names,
                 field_types,
             } => {
-                if ctx.current_scope().type_is_declared(&name) {
-                    return ctx
-                        .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+                if let Some(declaration_span) = ctx
+                    .current_scope()
+                    .get_type_declaration_span(&ctx.parsed_environment, &name)
+                {
+                    return ctx.add_error(SemanticAnalysisError::TypeAlreadyDeclared {
+                        declaration_span,
+                        redeclaration_span: name_span,
+                        name,
+                    });
                 }
 
                 ctx.enter_scope();
@@ -314,10 +352,13 @@ impl ParsedItem {
                 let generic_ids = generic_names
                     .iter()
                     .cloned()
-                    .map(|generic_name| {
+                    .map(|(span, name)| {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            ParsedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
+                                span,
+                                name,
+                            }),
                         );
 
                         HighGenericId(id.0)
@@ -330,6 +371,7 @@ impl ParsedItem {
                     self.visibility,
                     ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Struct(
                         ParsedRegularStructDeclaration {
+                            name_span,
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),
                         },
@@ -337,8 +379,9 @@ impl ParsedItem {
                 );
 
                 NamedItemKind::RegularStructDeclaration {
+                    name_span,
                     name,
-                    generic_names,
+                    generics: generic_names,
                     field_types,
                     id,
                     generic_ids,
@@ -347,12 +390,18 @@ impl ParsedItem {
             ParsedItemKind::TupleStructDeclaration {
                 name_span,
                 name,
-                generic_names,
+                generics: generic_names,
                 field_types,
             } => {
-                if ctx.current_scope().type_is_declared(&name) {
-                    return ctx
-                        .add_error(name_span, SemanticAnalysisError::TypeAlreadyDeclared(name));
+                if let Some(declaration_span) = ctx
+                    .current_scope()
+                    .get_type_declaration_span(&ctx.parsed_environment, &name)
+                {
+                    return ctx.add_error(SemanticAnalysisError::TypeAlreadyDeclared {
+                        declaration_span,
+                        redeclaration_span: name_span,
+                        name,
+                    });
                 }
 
                 ctx.enter_scope();
@@ -360,10 +409,13 @@ impl ParsedItem {
                 let generic_ids = generic_names
                     .iter()
                     .cloned()
-                    .map(|generic_name| {
+                    .map(|(span, name)| {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
-                            ParsedTypeDeclarationKind::Generic(generic_name),
+                            ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
+                                span,
+                                name,
+                            }),
                         );
 
                         HighGenericId(id.0)
@@ -375,7 +427,11 @@ impl ParsedItem {
                 let id = ctx.declare_parsed_type(
                     self.visibility,
                     ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Tuple(
-                        ParsedTupleStructDeclaration::new(name.clone(), generic_ids.clone()),
+                        ParsedTupleStructDeclaration {
+                            name_span,
+                            name: name.clone(),
+                            generic_ids: generic_ids.clone(),
+                        },
                     )),
                 );
 
@@ -394,8 +450,9 @@ impl ParsedItem {
                 let constructor_id = HighBuiltinFunctionId(constructor_id.0);
 
                 NamedItemKind::TupleStructDeclaration {
+                    name_span,
                     name,
-                    generic_names,
+                    generics: generic_names,
                     field_types,
                     id,
                     generic_ids,

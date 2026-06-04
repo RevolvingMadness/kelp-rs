@@ -8,6 +8,7 @@ use crate::{
         r#type::{HighTypeId, HighVisibleTypeId},
         value::{HighValueId, HighVisibleValueId},
     },
+    span::Span,
 };
 
 make_id!(HighModuleId);
@@ -20,6 +21,7 @@ impl From<HighModuleId> for HighTypeId {
 
 #[derive(Debug, Clone)]
 pub struct SemanticModuleDeclaration {
+    pub name_span: Option<Span>,
     pub name: String,
     pub types: HashMap<String, HighTypeId>,
     pub values: HashMap<String, HighValueId>,
@@ -39,7 +41,7 @@ impl SemanticModuleDeclaration {
     pub fn get_visible_type_id(
         &self,
         semantic_environment: &SemanticEnvironment,
-        current_module_path: &[String],
+        current_module_path: &[HighModuleId],
         name: &str,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         let Some(id) = self.get_type_id(name) else {
@@ -61,7 +63,7 @@ impl SemanticModuleDeclaration {
     pub fn get_visible_value_id(
         &self,
         semantic_environment: &SemanticEnvironment,
-        current_module_path: &[String],
+        current_module_path: &[HighModuleId],
         name: &str,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         let Some(id) = self.get_value_id(name) else {

@@ -46,7 +46,7 @@ pub fn assert_not_sigil<T>(
     match sigil {
         ParsedSupportsExpressionSigil::Regular(value) => Some(value),
         ParsedSupportsExpressionSigil::Sigil(..) => {
-            ctx.add_error(span, LowerError::ExpressionSigilNotAllowed)
+            ctx.add_error(LowerError::ExpressionSigilNotAllowed { span })
         }
     }
 }

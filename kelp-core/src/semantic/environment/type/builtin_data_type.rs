@@ -60,10 +60,10 @@ impl SemanticBuiltinTypeDeclaration {
                 let Some(data_type) = element_type.get_data_type(&ctx.semantic_environment) else {
                     let element_span = segment.generic_spans[0];
 
-                    return ctx.add_error_type(
-                        element_span,
-                        SemanticAnalysisError::TypeIsNotDataCompatible(element_type),
-                    );
+                    return ctx.add_error_type(SemanticAnalysisError::TypeIsNotDataCompatible {
+                        type_span: element_span,
+                        data_type: element_type,
+                    });
                 };
 
                 SemanticDataType::Data(Box::new(data_type))
@@ -74,10 +74,10 @@ impl SemanticBuiltinTypeDeclaration {
                 if !element_type.is_score_compatible() {
                     let element_span = segment.generic_spans[0];
 
-                    return ctx.add_error_type(
-                        element_span,
-                        SemanticAnalysisError::TypeIsNotScoreCompatible(element_type),
-                    );
+                    return ctx.add_error_type(SemanticAnalysisError::TypeIsNotScoreCompatible {
+                        type_span: element_span,
+                        data_type: element_type,
+                    });
                 }
 
                 SemanticDataType::Score(Box::new(element_type))

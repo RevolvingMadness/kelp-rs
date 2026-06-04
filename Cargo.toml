@@ -8,7 +8,7 @@ kelp-parser = { path = "kelp-parser" }
 minecraft-command-types = { path = "../minecraft-command-types" }
 minecraft-command-types_procedural-macros = { path = "../minecraft-command-types/minecraft-command-types_procedural-macros" }
 
-ariadne = "0.6.0"
+annotate-snippets = "0.12.16"
 clap = { version = "4.6.1", features = ["derive"] }
 dirs = "6.0.0"
 hashbrown = "0.17.1"
@@ -25,7 +25,6 @@ smallvec = "1.15.1"
 strum = "0.28.0"
 strum_macros = "0.28.0"
 syn = "2.0.117"
-thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = [
     "macros",
     "rt",

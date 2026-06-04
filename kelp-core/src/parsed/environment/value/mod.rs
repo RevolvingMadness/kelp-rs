@@ -1,6 +1,7 @@
 use crate::parsed::environment::value::{
     function::ParsedFunctionDeclaration, variable::ParsedVariableDeclaration,
 };
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::value::SemanticValueDeclarationKind;
 use crate::visibility::Visibility;
 
@@ -39,6 +40,6 @@ impl ParsedValueDeclarationKind {
 #[derive(Debug, Clone)]
 pub struct ParsedValueDeclaration {
     pub visibility: Visibility,
-    pub module_path: Vec<String>,
+    pub module_path: Vec<HighModuleId>,
     pub kind: ParsedValueDeclarationKind,
 }

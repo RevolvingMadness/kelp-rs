@@ -1,15 +1,10 @@
-use crate::{parsed::semantic_analysis::info::error::SemanticAnalysisError, span::Span};
+use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 
+pub mod diagnostic;
 pub mod error;
 
 #[derive(Debug, Clone)]
-pub enum SemanticAnalysisInfoKind {
+pub enum SemanticAnalysisInfo {
     // Warning(SemanticAnalysisWarning),
     Error(SemanticAnalysisError),
-}
-
-#[derive(Debug, Clone)]
-pub struct SemanticAnalysisInfo {
-    pub span: Span,
-    pub kind: SemanticAnalysisInfoKind,
 }

@@ -2,6 +2,8 @@ use std::collections::{HashMap, hash_map::Iter};
 
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::implementation::SemanticImplementation;
+use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
+use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::{
     r#type::{
         HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
@@ -21,6 +23,7 @@ use crate::semantic::environment::{
         variable::{HighVariableId, SemanticVariableDeclaration},
     },
 };
+use crate::span::Span;
 use crate::visibility::Visibility;
 
 pub mod implementation;
@@ -78,7 +81,8 @@ impl SemanticEnvironment {
         &mut self,
         id: HighVariableId,
         visibility: Visibility,
-        module_path: Vec<String>,
+        module_path: Vec<HighModuleId>,
+        name_span: Span,
         name: String,
         data_type: SemanticDataType,
     ) {
@@ -88,6 +92,7 @@ impl SemanticEnvironment {
                 visibility,
                 module_path,
                 kind: SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration {
+                    name_span,
                     name,
                     data_type,
                 }),
@@ -145,24 +150,27 @@ impl SemanticEnvironment {
     }
 
     #[must_use]
-    pub fn get_generic(&self, id: HighGenericId) -> (&[String], Visibility, &String) {
+    pub fn get_generic(
+        &self,
+        id: HighGenericId,
+    ) -> (&[HighModuleId], Visibility, &SemanticGenericDeclaration) {
         let SemanticTypeDeclaration {
             module_path,
             visibility,
-            kind: SemanticTypeDeclarationKind::Generic(name),
+            kind: SemanticTypeDeclarationKind::Generic(declaration),
         } = self.get_type(id)
         else {
             unreachable!();
         };
 
-        (module_path, *visibility, name)
+        (module_path, *visibility, declaration)
     }
 
     #[must_use]
     pub fn get_struct(
         &self,
         id: HighStructId,
-    ) -> (&[String], Visibility, &SemanticStructDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &SemanticStructDeclaration) {
         let SemanticTypeDeclaration {
             module_path,
             visibility,
@@ -187,7 +195,11 @@ impl SemanticEnvironment {
     pub fn get_regular_struct(
         &self,
         id: HighRegularStructId,
-    ) -> (&[String], Visibility, &SemanticRegularStructDeclaration) {
+    ) -> (
+        &[HighModuleId],
+        Visibility,
+        &SemanticRegularStructDeclaration,
+    ) {
         let (module_path, visibility, SemanticStructDeclaration::Struct(declaration)) =
             self.get_struct(id.into())
         else {
@@ -201,7 +213,7 @@ impl SemanticEnvironment {
     pub fn get_tuple_struct(
         &self,
         id: HighTupleStructId,
-    ) -> (&[String], Visibility, &SemanticTupleStructDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &SemanticTupleStructDeclaration) {
         let (module_path, visibility, SemanticStructDeclaration::Tuple(declaration)) =
             self.get_struct(id.into())
         else {
@@ -223,7 +235,7 @@ impl SemanticEnvironment {
     pub fn get_variable(
         &self,
         id: HighVariableId,
-    ) -> (&[String], Visibility, &SemanticVariableDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &SemanticVariableDeclaration) {
         let SemanticValueDeclaration {
             module_path,
             visibility,
@@ -240,7 +252,7 @@ impl SemanticEnvironment {
     pub fn get_function(
         &self,
         id: HighFunctionId,
-    ) -> (&[String], Visibility, &SemanticFunctionDeclaration) {
+    ) -> (&[HighModuleId], Visibility, &SemanticFunctionDeclaration) {
         let SemanticValueDeclaration {
             module_path,
             visibility,

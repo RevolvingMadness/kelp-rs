@@ -4,7 +4,6 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::r#struct::regular::HighRegularStructId;
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
     parsed::{
@@ -236,7 +235,7 @@ impl ParsedExpression {
 
                 let data_type = data_type?;
 
-                ParsedPlaceExpressionKind::Value(id, generic_types).with(data_type)
+                ParsedPlaceExpressionKind::Value(id.into(), generic_types).with(data_type)
             }
             ParsedExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
@@ -817,9 +816,10 @@ impl ParsedExpression {
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let declaration = ctx.get_visible_regular_struct(id, &last_segment)?;
+                let (id, data_type) = ctx.get_struct_id(id, &last_segment)?;
 
-                let id = HighRegularStructId(id.0);
+                let (id, declaration) =
+                    ctx.get_regular_struct(id, data_type, last_segment.name_span)?;
 
                 let data_type = SemanticDataType::Struct(id.into(), generic_types.clone());
 
@@ -1076,7 +1076,7 @@ impl ParsedExpression {
 
                 let data_type = data_type?;
 
-                SemanticExpressionKind::Value(id, generic_types).with(data_type)
+                SemanticExpressionKind::Value(id.into(), generic_types).with(data_type)
             }
             ParsedExpressionKind::Boolean(value) => {
                 SemanticExpressionKind::Boolean(value).with(SemanticDataType::Boolean)

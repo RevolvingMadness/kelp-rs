@@ -72,7 +72,11 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
             let last_segment = path.segments.last().unwrap();
             let type_result = ctx.try_get_visible_type(path);
             if let Ok(id) = type_result {
-                ctx.declare_type_in_current_scope(last_segment.span, last_segment.name.clone(), id);
+                ctx.declare_type_in_current_scope(
+                    last_segment.span,
+                    last_segment.name.clone(),
+                    id.into(),
+                );
             }
 
             let value_result = ctx.try_get_visible_value(path);
@@ -80,7 +84,7 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
                 ctx.declare_value_in_current_scope(
                     last_segment.span,
                     last_segment.name.clone(),
-                    id,
+                    id.into(),
                 );
             }
 
@@ -120,12 +124,12 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
         UseTree::As(path, alias_span, alias) => {
             let type_result = ctx.try_get_visible_type(path);
             if let Ok(id) = type_result {
-                ctx.declare_type_in_current_scope(*alias_span, alias.clone(), id);
+                ctx.declare_type_in_current_scope(*alias_span, alias.clone(), id.into());
             }
 
             let value_result = ctx.try_get_visible_value(path);
             if let Ok(id) = value_result {
-                ctx.declare_value_in_current_scope(*alias_span, alias.clone(), id);
+                ctx.declare_value_in_current_scope(*alias_span, alias.clone(), id.into());
             }
 
             if let Err((type_span, type_error)) = type_result
@@ -292,18 +296,15 @@ impl NamedItem {
 
                 match &target_type {
                     target_type @ SemanticDataType::Struct(id, _) => {
-                        let implementation = SemanticImplementation {
-                            generic_names: generic_names.clone(),
-                            target_type: target_type.clone(),
+                        let implementation = SemanticImplementation::new(
+                            generic_names.clone(),
+                            target_type.clone(),
                             types,
                             values,
-                        };
+                        );
 
                         ctx.semantic_environment
-                            .implementations
-                            .entry((*id).into())
-                            .or_default()
-                            .push(implementation);
+                            .add_implementation(*id, implementation);
                     }
 
                     SemanticDataType::Error => {}

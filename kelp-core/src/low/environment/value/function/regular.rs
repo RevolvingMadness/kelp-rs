@@ -1,4 +1,5 @@
 use crate::low::data_type::DataType;
+use crate::make_id;
 use crate::semantic::environment::r#type::HighGenericId;
 use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,
@@ -6,8 +7,7 @@ use crate::{
     visibility::Visibility,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RegularFunctionId(pub u32);
+make_id!(RegularFunctionId);
 
 #[derive(Debug, Clone)]
 pub struct RegularFunctionDeclaration {

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::{r#type::HighGenericId, value::function::HighFunctionId};
@@ -9,8 +10,7 @@ use crate::{
     span::Span,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighRegularFunctionId(pub u32);
+make_id!(HighRegularFunctionId);
 
 impl From<HighRegularFunctionId> for HighFunctionId {
     fn from(value: HighRegularFunctionId) -> Self {

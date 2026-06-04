@@ -7,8 +7,42 @@ use crate::semantic::{
 
 #[derive(Debug, Clone)]
 pub struct SemanticImplementation {
-    pub generic_names: Vec<String>,
-    pub target_type: SemanticDataType,
-    pub types: HashMap<String, HighTypeId>,
-    pub values: HashMap<String, HighValueId>,
+    generic_names: Vec<String>,
+    target_type: SemanticDataType,
+    types: HashMap<String, HighTypeId>,
+    values: HashMap<String, HighValueId>,
+}
+
+impl SemanticImplementation {
+    #[inline]
+    #[must_use]
+    pub const fn new(
+        generic_names: Vec<String>,
+        target_type: SemanticDataType,
+        types: HashMap<String, HighTypeId>,
+        values: HashMap<String, HighValueId>,
+    ) -> Self {
+        Self {
+            generic_names,
+            target_type,
+            types,
+            values,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn get_target_type(&self) -> &SemanticDataType {
+        &self.target_type
+    }
+
+    #[must_use]
+    pub fn get_type(&self, name: &str) -> Option<HighTypeId> {
+        self.types.get(name).copied()
+    }
+
+    #[must_use]
+    pub fn get_value(&self, name: &str) -> Option<HighValueId> {
+        self.values.get(name).copied()
+    }
 }

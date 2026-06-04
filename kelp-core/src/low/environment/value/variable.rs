@@ -1,7 +1,6 @@
-use crate::low::data_type::DataType;
+use crate::{low::data_type::DataType, make_id};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct VariableId(pub u32);
+make_id!(VariableId);
 
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration {

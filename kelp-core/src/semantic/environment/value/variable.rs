@@ -1,7 +1,9 @@
-use crate::semantic::{data_type::SemanticDataType, environment::value::HighValueId};
+use crate::{
+    make_id,
+    semantic::{data_type::SemanticDataType, environment::value::HighValueId},
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighVariableId(pub u32);
+make_id!(HighVariableId);
 
 impl From<HighVariableId> for HighValueId {
     fn from(value: HighVariableId) -> Self {

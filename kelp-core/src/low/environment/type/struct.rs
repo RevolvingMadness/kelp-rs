@@ -3,7 +3,10 @@ use std::{
     slice::Iter,
 };
 
-use crate::low::data_type::{FieldAccessType, DataType};
+use crate::{
+    low::data_type::{DataType, FieldAccessType},
+    make_id,
+};
 
 pub enum FieldTypesIter<'a> {
     Struct(Values<'a, String, DataType>),
@@ -21,8 +24,7 @@ impl<'a> Iterator for FieldTypesIter<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructId(pub u32);
+make_id!(StructId);
 
 impl From<RegularStructId> for StructId {
     fn from(value: RegularStructId) -> Self {
@@ -76,8 +78,7 @@ impl StructDeclaration {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RegularStructId(pub u32);
+make_id!(RegularStructId);
 
 #[derive(Debug, Clone)]
 pub struct RegularStructDeclaration {
@@ -86,8 +87,7 @@ pub struct RegularStructDeclaration {
     pub field_types: HashMap<String, DataType>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TupleStructId(pub u32);
+make_id!(TupleStructId);
 
 #[derive(Debug, Clone)]
 pub struct TupleStructDeclaration {

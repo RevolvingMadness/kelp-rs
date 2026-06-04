@@ -1,18 +1,18 @@
-use crate::{
-    parameter_types_iter::{take_second, ParameterTypesIter},
-    semantic::pattern::SemanticPattern,
-};
+use crate::low::data_type::DataType;
 use crate::low::environment::value::function::{
     builtin::{BuiltinFunctionDeclaration, BuiltinFunctionId},
     regular::{RegularFunctionDeclaration, RegularFunctionId},
 };
-use crate::low::data_type::DataType;
+use crate::make_id;
+use crate::{
+    parameter_types_iter::{ParameterTypesIter, take_second},
+    semantic::pattern::SemanticPattern,
+};
 
 pub mod builtin;
 pub mod regular;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FunctionId(pub u32);
+make_id!(FunctionId);
 
 impl From<RegularFunctionId> for FunctionId {
     fn from(value: RegularFunctionId) -> Self {

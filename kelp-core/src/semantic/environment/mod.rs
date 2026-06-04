@@ -32,7 +32,7 @@ pub struct SemanticEnvironment {
     types: HashMap<HighTypeId, SemanticTypeDeclaration>,
     values: HashMap<HighValueId, SemanticValueDeclaration>,
 
-    pub implementations: HashMap<HighTypeId, Vec<SemanticImplementation>>,
+    implementations: HashMap<HighTypeId, Vec<SemanticImplementation>>,
 }
 
 impl SemanticEnvironment {
@@ -107,10 +107,41 @@ impl SemanticEnvironment {
         id
     }
 
-    #[inline]
     #[must_use]
-    pub fn get_type(&self, id: HighTypeId) -> &SemanticTypeDeclaration {
+    pub fn get_type<I: Into<HighTypeId>>(&self, id: I) -> &SemanticTypeDeclaration {
+        let id = id.into();
+
         self.types.get(&id).unwrap()
+    }
+
+    #[must_use]
+    pub fn get_implementations<I: Into<HighTypeId>>(
+        &self,
+        id: I,
+    ) -> Option<&[SemanticImplementation]> {
+        let id = id.into();
+
+        self.implementations.get(&id).map(AsRef::as_ref)
+    }
+
+    #[must_use]
+    pub fn get_implementations_mut<I: Into<HighTypeId>>(
+        &mut self,
+        id: I,
+    ) -> &mut Vec<SemanticImplementation> {
+        let id = id.into();
+
+        self.implementations.entry(id).or_default()
+    }
+
+    pub fn add_implementation<I: Into<HighTypeId>>(
+        &mut self,
+        id: I,
+        implementation: SemanticImplementation,
+    ) {
+        let implementations = self.get_implementations_mut(id);
+
+        implementations.push(implementation);
     }
 
     #[must_use]
@@ -119,7 +150,7 @@ impl SemanticEnvironment {
             module_path,
             visibility,
             kind: SemanticTypeDeclarationKind::Generic(name),
-        } = self.get_type(id.into())
+        } = self.get_type(id)
         else {
             unreachable!();
         };
@@ -136,12 +167,20 @@ impl SemanticEnvironment {
             module_path,
             visibility,
             kind: SemanticTypeDeclarationKind::Struct(declaration),
-        } = self.get_type(id.into())
+        } = self.get_type(id)
         else {
             unreachable!();
         };
 
         (module_path, *visibility, declaration)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_struct_declaration(&self, id: HighStructId) -> &SemanticStructDeclaration {
+        let (_, _, declaration) = self.get_struct(id);
+
+        declaration
     }
 
     #[must_use]
@@ -174,7 +213,9 @@ impl SemanticEnvironment {
 
     #[inline]
     #[must_use]
-    pub fn get_value(&self, id: HighValueId) -> &SemanticValueDeclaration {
+    pub fn get_value<I: Into<HighValueId>>(&self, id: I) -> &SemanticValueDeclaration {
+        let id = id.into();
+
         self.values.get(&id).unwrap()
     }
 
@@ -187,7 +228,7 @@ impl SemanticEnvironment {
             module_path,
             visibility,
             kind: SemanticValueDeclarationKind::Variable(declaration),
-        } = self.get_value(id.into())
+        } = self.get_value(id)
         else {
             unreachable!();
         };
@@ -204,7 +245,7 @@ impl SemanticEnvironment {
             module_path,
             visibility,
             kind: SemanticValueDeclarationKind::Function(declaration),
-        } = self.get_value(id.into())
+        } = self.get_value(id)
         else {
             unreachable!();
         };

@@ -11,7 +11,12 @@ use crate::parsed::environment::value::{
     ParsedValueDeclaration, ParsedValueDeclarationKind, variable::ParsedVariableDeclaration,
 };
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::HighVisibleTypeId;
 use crate::semantic::environment::r#type::module::HighModuleId;
+use crate::semantic::environment::r#type::r#struct::HighStructId;
+use crate::semantic::environment::r#type::r#struct::regular::HighRegularStructId;
+use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
+use crate::semantic::environment::value::HighVisibleValueId;
 use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
@@ -373,19 +378,21 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
-    pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
+    pub fn get_type_id(&self, name: &str) -> Option<HighVisibleTypeId> {
         self.scopes
             .iter()
             .rev()
             .find_map(|scope| scope.get_type_id(name))
+            .map(|id| HighVisibleTypeId(id.0))
     }
 
     #[must_use]
-    pub fn get_value_id(&self, name: &str) -> Option<HighValueId> {
+    pub fn get_value_id(&self, name: &str) -> Option<HighVisibleValueId> {
         self.scopes
             .iter()
             .rev()
             .find_map(|scope| scope.get_value_id(name))
+            .map(|id| HighVisibleValueId(id.0))
     }
 
     #[inline]
@@ -604,7 +611,12 @@ impl SemanticAnalysisContext {
     fn resolve_type_path<'a, T: Clone>(
         &mut self,
         path: &'a GenericPath<T>,
-    ) -> Option<(HighTypeId, Vec<Span>, Vec<T>, &'a GenericPathSegment<T>)> {
+    ) -> Option<(
+        HighVisibleTypeId,
+        Vec<Span>,
+        Vec<T>,
+        &'a GenericPathSegment<T>,
+    )> {
         let (last_segment, segments) = path.segments.split_last()?;
 
         if segments.is_empty() {
@@ -620,19 +632,15 @@ impl SemanticAnalysisContext {
         for segment in segments {
             let declaration = self.semantic_environment.get_type(current_type_id);
 
-            let id = match declaration.get_visible_type_id(self, current_type_id, &segment.name) {
+            let id = match declaration.get_visible_type_id(
+                &self.semantic_environment,
+                &self.current_module_path,
+                current_type_id,
+                &segment.name,
+            ) {
                 Ok(id) => id,
                 Err(error) => return self.add_error(segment.name_span, error),
             };
-
-            let declaration = self.semantic_environment.get_type(id);
-
-            if !declaration.is_visible(&self.current_module_path) {
-                self.add_error_unit(
-                    segment.name_span,
-                    SemanticAnalysisError::TypeNotPublic(segment.name.clone()),
-                );
-            }
 
             current_type_id = id;
 
@@ -652,26 +660,22 @@ impl SemanticAnalysisContext {
     pub fn get_visible_type_id<T: Debug + Clone>(
         &mut self,
         path: &GenericPath<T>,
-    ) -> Option<(HighTypeId, Vec<Span>, Vec<T>)> {
+    ) -> Option<(HighVisibleTypeId, Vec<Span>, Vec<T>)> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            let id = self.get_type_id(&segment.name);
-
-            if id.is_none() {
+            let Some(id) = self.get_type_id(&segment.name) else {
                 return self.add_error(
                     segment.name_span,
                     SemanticAnalysisError::UnknownType(segment.name.clone()),
                 );
-            }
+            };
 
-            return id.map(|id| {
-                (
-                    id,
-                    segment.generic_spans.clone(),
-                    segment.generic_types.clone(),
-                )
-            });
+            return Some((
+                id,
+                segment.generic_spans.clone(),
+                segment.generic_types.clone(),
+            ));
         }
 
         let (type_id, mut generic_spans, mut generic_types, last_segment) =
@@ -679,19 +683,15 @@ impl SemanticAnalysisContext {
 
         let declaration = self.semantic_environment.get_type(type_id);
 
-        let id = match declaration.get_visible_type_id(self, type_id, &last_segment.name) {
+        let id = match declaration.get_visible_type_id(
+            &self.semantic_environment,
+            &self.current_module_path,
+            type_id,
+            &last_segment.name,
+        ) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
-
-        let declaration = self.semantic_environment.get_type(id);
-
-        if !declaration.is_visible(&self.current_module_path) {
-            self.add_error_unit(
-                last_segment.name_span,
-                SemanticAnalysisError::TypeNotPublic(last_segment.name.clone()),
-            );
-        }
 
         generic_spans.extend(last_segment.generic_spans.iter().copied());
         generic_types.extend(last_segment.generic_types.iter().cloned());
@@ -704,7 +704,11 @@ impl SemanticAnalysisContext {
     pub fn get_visible_value_type(
         &mut self,
         mut path: GenericPath<SemanticDataType>,
-    ) -> Option<(HighValueId, Vec<SemanticDataType>, Option<SemanticDataType>)> {
+    ) -> Option<(
+        HighVisibleValueId,
+        Vec<SemanticDataType>,
+        Option<SemanticDataType>,
+    )> {
         if path.segments.len() == 1 {
             let segment = path.segments.remove(0);
 
@@ -735,19 +739,15 @@ impl SemanticAnalysisContext {
 
         let declaration = self.semantic_environment.get_type(type_id);
 
-        let id = match declaration.get_visible_value_id(self, type_id, &last_segment.name) {
+        let id = match declaration.get_visible_value_id(
+            &self.semantic_environment,
+            &self.current_module_path,
+            type_id,
+            &last_segment.name,
+        ) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
-
-        let declaration = self.semantic_environment.get_value(id);
-
-        if !declaration.is_visible(&self.current_module_path) {
-            self.add_error_unit(
-                last_segment.name_span,
-                SemanticAnalysisError::ValueNotPublic(last_segment.name.clone()),
-            );
-        }
 
         let declaration = self.semantic_environment.get_value(id).clone();
 
@@ -762,9 +762,9 @@ impl SemanticAnalysisContext {
     }
 
     fn try_resolve_path<'a>(
-        &mut self,
+        &self,
         path: &'a Path,
-    ) -> Result<(HighTypeId, &'a PathSegment), (Span, SemanticAnalysisError)> {
+    ) -> Result<(HighVisibleTypeId, &'a PathSegment), (Span, SemanticAnalysisError)> {
         let (last_segment, segments) = path.segments.split_last().unwrap();
 
         let (first_segment, segments) = segments
@@ -782,17 +782,13 @@ impl SemanticAnalysisContext {
             let declaration = self.semantic_environment.get_type(current_type_id);
 
             let id = declaration
-                .get_visible_type_id(self, current_type_id, &segment.name)
+                .get_visible_type_id(
+                    &self.semantic_environment,
+                    &self.current_module_path,
+                    current_type_id,
+                    &segment.name,
+                )
                 .map_err(|error| (segment.span, error))?;
-
-            let declaration = self.semantic_environment.get_type(id);
-
-            if !declaration.is_visible(&self.current_module_path) {
-                self.add_error_unit(
-                    segment.span,
-                    SemanticAnalysisError::TypeNotPublic(segment.name.clone()),
-                );
-            }
 
             current_type_id = id;
         }
@@ -803,16 +799,17 @@ impl SemanticAnalysisContext {
     pub fn try_get_visible_type(
         &mut self,
         path: &Path,
-    ) -> Result<HighTypeId, (Span, SemanticAnalysisError)> {
+    ) -> Result<HighVisibleTypeId, (Span, SemanticAnalysisError)> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            return self.get_type_id(&segment.name).ok_or_else(|| {
-                (
+            return match self.get_type_id(&segment.name) {
+                Some(id) => Ok(id),
+                None => Err((
                     segment.span,
                     SemanticAnalysisError::UnknownType(segment.name.clone()),
-                )
-            });
+                )),
+            };
         }
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
@@ -820,17 +817,13 @@ impl SemanticAnalysisContext {
         let declaration = self.semantic_environment.get_type(type_id);
 
         let id = declaration
-            .get_visible_type_id(self, type_id, &last_segment.name)
+            .get_visible_type_id(
+                &self.semantic_environment,
+                &self.current_module_path,
+                type_id,
+                &last_segment.name,
+            )
             .map_err(|error| (last_segment.span, error))?;
-
-        let declaration = self.semantic_environment.get_type(id);
-
-        if !declaration.is_visible(&self.current_module_path) {
-            return Err((
-                last_segment.span,
-                SemanticAnalysisError::TypeNotPublic(last_segment.name.clone()),
-            ));
-        }
 
         Ok(id)
     }
@@ -838,7 +831,7 @@ impl SemanticAnalysisContext {
     pub fn try_get_visible_value(
         &mut self,
         path: &Path,
-    ) -> Result<HighValueId, (Span, SemanticAnalysisError)> {
+    ) -> Result<HighVisibleValueId, (Span, SemanticAnalysisError)> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
@@ -855,41 +848,26 @@ impl SemanticAnalysisContext {
         let declaration = self.semantic_environment.get_type(type_id);
 
         let id = declaration
-            .get_visible_value_id(self, type_id, &last_segment.name)
+            .get_visible_value_id(
+                &self.semantic_environment,
+                &self.current_module_path,
+                type_id,
+                &last_segment.name,
+            )
             .map_err(|error| (last_segment.span, error))?;
-
-        let declaration = self.semantic_environment.get_value(id);
-
-        if !declaration.is_visible(&self.current_module_path) {
-            return Err((
-                last_segment.span,
-                SemanticAnalysisError::ValueNotPublic(last_segment.name.clone()),
-            ));
-        }
 
         Ok(id)
     }
 
     #[must_use]
-    pub fn get_visible_regular_struct(
+    pub fn get_struct_id(
         &mut self,
-        id: HighTypeId,
+        id: HighVisibleTypeId,
         segment: &GenericPathSegment<SemanticDataType>,
-    ) -> Option<&SemanticRegularStructDeclaration> {
+    ) -> Option<(HighStructId, SemanticDataType)> {
         let SemanticTypeDeclaration {
-            module_path,
-            visibility,
-            kind: declaration,
+            kind: declaration, ..
         } = self.semantic_environment.get_type(id);
-
-        let is_visible = self.is_item_visible(module_path, *visibility);
-
-        if !is_visible {
-            return self.add_error(
-                segment.name_span,
-                SemanticAnalysisError::TypeNotPublic(segment.name.clone()),
-            );
-        }
 
         let data_type = declaration.clone().into_data_type(self, id, segment);
 
@@ -900,61 +878,54 @@ impl SemanticAnalysisContext {
             );
         };
 
-        let (_, _, declaration) = self.semantic_environment.get_struct(id);
+        let id = HighStructId(id.0);
+
+        Some((id, data_type))
+    }
+
+    #[must_use]
+    pub fn get_regular_struct(
+        &mut self,
+        id: HighStructId,
+        data_type: SemanticDataType,
+        name_span: Span,
+    ) -> Option<(HighRegularStructId, &SemanticRegularStructDeclaration)> {
+        let declaration = self.semantic_environment.get_struct_declaration(id);
 
         let SemanticStructDeclaration::Struct(declaration) = declaration else {
             return Self::add_error_static(
                 &mut self.infos,
                 self.max_infos,
-                segment.name_span,
+                name_span,
                 SemanticAnalysisError::NotARegularStruct(data_type),
             );
         };
 
-        Some(declaration)
+        let id = HighRegularStructId(id.0);
+
+        Some((id, declaration))
     }
 
     #[must_use]
-    pub fn get_visible_tuple_struct(
+    pub fn get_tuple_struct(
         &mut self,
-        id: HighTypeId,
-        segment: &GenericPathSegment<SemanticDataType>,
-    ) -> Option<&SemanticTupleStructDeclaration> {
-        let SemanticTypeDeclaration {
-            module_path,
-            visibility,
-            kind: declaration,
-        } = self.semantic_environment.get_type(id);
-
-        let is_visible = self.is_item_visible(module_path, *visibility);
-
-        if !is_visible {
-            return self.add_error(
-                segment.name_span,
-                SemanticAnalysisError::TypeNotPublic(segment.name.clone()),
-            );
-        }
-
-        let data_type = declaration.clone().into_data_type(self, id, segment);
-
-        let SemanticDataType::Struct(id, _) = data_type else {
-            return self.add_error(
-                segment.name_span,
-                SemanticAnalysisError::NotAStruct(data_type),
-            );
-        };
-
-        let (_, _, declaration) = self.semantic_environment.get_struct(id);
+        id: HighStructId,
+        data_type: SemanticDataType,
+        name_span: Span,
+    ) -> Option<(HighTupleStructId, &SemanticTupleStructDeclaration)> {
+        let declaration = self.semantic_environment.get_struct_declaration(id);
 
         let SemanticStructDeclaration::Tuple(declaration) = declaration else {
             return Self::add_error_static(
                 &mut self.infos,
                 self.max_infos,
-                segment.name_span,
+                name_span,
                 SemanticAnalysisError::NotATupleStruct(data_type),
             );
         };
 
-        Some(declaration)
+        let id = HighTupleStructId(id.0);
+
+        Some((id, declaration))
     }
 }

@@ -226,7 +226,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
             SemanticDataType::Struct(id, generic_types) => {
                 // Maybe display full path?
 
-                let (_, _, declaration) = self.semantic_environment.get_struct(*id);
+                let declaration = self.semantic_environment.get_struct_declaration(*id);
 
                 f.write_str(declaration.name())?;
 
@@ -608,20 +608,17 @@ impl SemanticDataType {
         Ok((|| {
             Some(match base_type {
                 Self::Struct(id, struct_generic_types) => {
-                    let implementations = ctx
-                        .semantic_environment
-                        .implementations
-                        .get(&(*id).into())?;
+                    let implementations = ctx.semantic_environment.get_implementations(*id)?;
 
                     let implementation = implementations.iter().find(|implementation| {
-                        if let Self::Struct(impl_id, _) = &implementation.target_type {
+                        if let Self::Struct(impl_id, _) = implementation.get_target_type() {
                             impl_id == id
                         } else {
                             false
                         }
                     })?;
 
-                    let method_id = implementation.values.get(&method.name).copied()?;
+                    let method_id = implementation.get_value(&method.name)?;
 
                     let SemanticValueDeclaration {
                         kind: SemanticValueDeclarationKind::Function(declaration),
@@ -1160,7 +1157,7 @@ impl SemanticDataType {
                 Self::Tuple(data_types)
             }
             Self::Struct(id, generic_types) => {
-                let (_, _, declaration) = semantic_environment.get_struct(*id);
+                let declaration = semantic_environment.get_struct_declaration(*id);
 
                 let generic_types = generic_types
                     .iter()
@@ -1410,7 +1407,7 @@ impl SemanticDataType {
             Self::Reference(inner) => inner.get_field_result(semantic_environment, field)?,
 
             Self::Struct(id, generic_types) => {
-                let (_, _, declaration) = semantic_environment.get_struct(*id);
+                let declaration = semantic_environment.get_struct_declaration(*id);
 
                 let field_type = declaration.get_field(field)?;
 

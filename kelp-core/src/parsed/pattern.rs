@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::r#struct::{
-    HighStructId, regular::HighRegularStructId, tuple::HighTupleStructId,
-};
+use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::{
     parsed::{
         data::Data,
@@ -257,12 +255,13 @@ impl ParsedPattern {
                 let mut path = path.perform_semantic_analysis(ctx);
 
                 let (pattern_id, _, pattern_generic_types) = ctx.get_visible_type_id(&path)?;
-                let pattern_id = HighRegularStructId(pattern_id.0);
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let pattern_declaration =
-                    ctx.get_visible_regular_struct(pattern_id.into(), &last_segment)?;
+                let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
+
+                let (pattern_id, pattern_declaration) =
+                    ctx.get_regular_struct(pattern_id, pattern_type, last_segment.name_span)?;
 
                 let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
@@ -322,10 +321,10 @@ impl ParsedPattern {
 
                 let last_segment = path.segments.pop().unwrap();
 
-                let pattern_declaration =
-                    ctx.get_visible_tuple_struct(pattern_id, &last_segment)?;
+                let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
 
-                let pattern_id = HighTupleStructId(pattern_id.0);
+                let (pattern_id, pattern_declaration) =
+                    ctx.get_tuple_struct(pattern_id, pattern_type, last_segment.name_span)?;
 
                 if HighStructId::from(pattern_id) != *value_id
                     || pattern_generic_types != *value_generic_types

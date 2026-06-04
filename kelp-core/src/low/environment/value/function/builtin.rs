@@ -5,9 +5,9 @@ use crate::datapack::Datapack;
 use crate::low::data_type::DataType;
 use crate::low::environment::r#type::r#struct::TupleStructId;
 use crate::low::expression::Expression;
+use crate::make_id;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BuiltinFunctionId(pub u32);
+make_id!(BuiltinFunctionId);
 
 #[derive(Debug, Clone)]
 pub struct BuiltinFunctionDeclaration {

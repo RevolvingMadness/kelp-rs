@@ -24,7 +24,9 @@ impl ParsedEnvironment {
 
     #[inline]
     #[must_use]
-    pub fn get_type(&self, id: HighTypeId) -> &ParsedTypeDeclaration {
+    pub fn get_type<I: Into<HighTypeId>>(&self, id: I) -> &ParsedTypeDeclaration {
+        let id = id.into();
+
         &self.types[id.0 as usize]
     }
 

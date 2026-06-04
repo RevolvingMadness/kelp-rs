@@ -1,6 +1,7 @@
 pub mod builtin;
 pub mod regular;
 
+use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighGenericId;
 use crate::semantic::environment::value::HighValueId;
@@ -12,8 +13,7 @@ use crate::{
     semantic::pattern::SemanticPattern,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighFunctionId(pub u32);
+make_id!(HighFunctionId);
 
 impl From<HighFunctionId> for HighValueId {
     fn from(value: HighFunctionId) -> Self {

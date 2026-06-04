@@ -1,14 +1,16 @@
 use crate::visibility::Visibility;
-use crate::low::environment::value::{
-    function::{FunctionDeclaration, FunctionId},
-    variable::{VariableDeclaration, VariableId},
+use crate::{
+    low::environment::value::{
+        function::{FunctionDeclaration, FunctionId},
+        variable::{VariableDeclaration, VariableId},
+    },
+    make_id,
 };
 
 pub mod function;
 pub mod variable;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ValueId(pub u32);
+make_id!(ValueId);
 
 impl From<VariableId> for ValueId {
     fn from(value: VariableId) -> Self {

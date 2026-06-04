@@ -1,11 +1,11 @@
-use crate::visibility::Visibility;
 use crate::low::environment::r#type::r#struct::StructDeclaration;
+use crate::make_id;
+use crate::visibility::Visibility;
 
 pub mod builtin_data_type;
 pub mod r#struct;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeId(pub u32);
+make_id!(TypeId);
 
 #[derive(Debug, Clone)]
 pub enum TypeDeclarationKind {

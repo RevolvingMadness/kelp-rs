@@ -1,13 +1,15 @@
+use crate::make_id;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::path::generic::GenericPathSegment;
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::{
     alias::SemanticTypeAliasDeclaration, builtin_data_type::SemanticBuiltinTypeDeclaration,
     module::SemanticModuleDeclaration, r#struct::SemanticStructDeclaration,
 };
-use crate::semantic::environment::value::HighValueId;
+use crate::semantic::environment::value::HighVisibleValueId;
 use crate::visibility::Visibility;
 
 pub mod alias;
@@ -15,8 +17,7 @@ pub mod builtin_data_type;
 pub mod module;
 pub mod r#struct;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighGenericId(pub u32);
+make_id!(HighGenericId);
 
 impl From<HighGenericId> for HighTypeId {
     fn from(value: HighGenericId) -> Self {
@@ -24,8 +25,33 @@ impl From<HighGenericId> for HighTypeId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighTypeId(pub u32);
+make_id!(HighTypeId);
+
+impl HighTypeId {
+    pub fn assert_visible_result(
+        self,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[String],
+    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
+        let declaration = semantic_environment.get_type(self);
+
+        if !declaration.is_visible(current_module_path) {
+            return Err(SemanticAnalysisError::TypeNotPublic(
+                declaration.kind.name().to_owned(),
+            ));
+        }
+
+        Ok(HighVisibleTypeId(self.0))
+    }
+}
+
+make_id!(HighVisibleTypeId);
+
+impl From<HighVisibleTypeId> for HighTypeId {
+    fn from(value: HighVisibleTypeId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum SemanticTypeDeclarationKind {
@@ -62,7 +88,7 @@ impl SemanticTypeDeclarationKind {
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        id: HighTypeId,
+        id: HighVisibleTypeId,
         segment: &GenericPathSegment<SemanticDataType>,
     ) -> SemanticDataType {
         match self {
@@ -142,19 +168,21 @@ impl SemanticTypeDeclaration {
 
     pub fn get_visible_type_id(
         &self,
-        ctx: &SemanticAnalysisContext,
-        id: HighTypeId,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[String],
+        base_id: HighVisibleTypeId,
         name: &str,
-    ) -> Result<HighTypeId, SemanticAnalysisError> {
+    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         match &self.kind {
             SemanticTypeDeclarationKind::Module(declaration) => {
-                declaration.get_type_id_semantic_analysis(name)
+                declaration.get_visible_type_id(semantic_environment, current_module_path, name)
             }
             SemanticTypeDeclarationKind::Struct(declaration) => {
-                if let Some(impls) = ctx.semantic_environment.implementations.get(&id) {
+                if let Some(impls) = semantic_environment.get_implementations(base_id) {
                     for implementation in impls {
-                        if let Some(id) = implementation.types.get(name) {
-                            return Ok(*id);
+                        if let Some(id) = implementation.get_type(name) {
+                            return id
+                                .assert_visible_result(semantic_environment, current_module_path);
                         }
                     }
                 }
@@ -172,17 +200,21 @@ impl SemanticTypeDeclaration {
 
     pub fn get_visible_value_id(
         &self,
-        ctx: &SemanticAnalysisContext,
-        id: HighTypeId,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[String],
+        base_id: HighVisibleTypeId,
         name: &str,
-    ) -> Result<HighValueId, SemanticAnalysisError> {
+    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         match &self.kind {
             SemanticTypeDeclarationKind::Module(declaration) => {
-                declaration.get_value_id_semantic_analysis(name)
+                declaration.get_visible_value_id(semantic_environment, current_module_path, name)
             }
-            SemanticTypeDeclarationKind::Struct(declaration) => {
-                declaration.get_value_id_semantic_analysis(ctx, id, name)
-            }
+            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_value_id(
+                semantic_environment,
+                current_module_path,
+                base_id,
+                name,
+            ),
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
                 type_name: self.kind.name().to_owned(),
             }),

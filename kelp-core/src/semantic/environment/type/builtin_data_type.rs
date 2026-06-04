@@ -1,13 +1,13 @@
 use strum::{Display, EnumIter};
 
 use crate::{
+    make_id,
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     path::generic::GenericPathSegment,
     semantic::data_type::SemanticDataType,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighBuiltinTypeId(pub u32);
+make_id!(HighBuiltinTypeId);
 
 #[derive(Debug, Clone)]
 pub struct SemanticBuiltinTypeDeclaration {

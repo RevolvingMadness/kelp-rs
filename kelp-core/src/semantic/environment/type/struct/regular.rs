@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
+use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
-use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
+use crate::semantic::environment::r#type::{HighGenericId, HighVisibleTypeId};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighRegularStructId(pub u32);
+make_id!(HighRegularStructId);
 
 impl From<HighRegularStructId> for HighStructId {
     fn from(value: HighRegularStructId) -> Self {
@@ -13,7 +13,7 @@ impl From<HighRegularStructId> for HighStructId {
     }
 }
 
-impl From<HighRegularStructId> for HighTypeId {
+impl From<HighRegularStructId> for HighVisibleTypeId {
     fn from(value: HighRegularStructId) -> Self {
         Self(value.0)
     }

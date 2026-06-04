@@ -1,7 +1,6 @@
-use crate::semantic::environment::r#type::builtin_data_type::BuiltinTypeKind;
+use crate::{make_id, semantic::environment::r#type::builtin_data_type::BuiltinTypeKind};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BuiltinTypeId(pub u32);
+make_id!(BuiltinTypeId);
 
 #[derive(Debug, Clone)]
 pub struct BuiltinTypeDeclaration {

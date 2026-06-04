@@ -28,7 +28,6 @@ impl Scope {
         self.types.contains_key(name)
     }
 
-    #[inline]
     #[must_use]
     pub fn get_type_id(&self, name: &str) -> Option<HighTypeId> {
         self.types.get(name).copied()
@@ -45,7 +44,6 @@ impl Scope {
         self.values.contains_key(name)
     }
 
-    #[inline]
     #[must_use]
     pub fn get_value_id(&self, name: &str) -> Option<HighValueId> {
         self.values.get(name).copied()

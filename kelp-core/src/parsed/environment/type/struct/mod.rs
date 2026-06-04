@@ -3,8 +3,9 @@ use crate::parsed::environment::r#type::r#struct::{
 };
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::HighVisibleTypeId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
-use crate::semantic::environment::r#type::{HighTypeId, r#struct::SemanticStructDeclaration};
+use crate::semantic::environment::r#type::r#struct::SemanticStructDeclaration;
 use crate::span::Span;
 
 pub mod regular;
@@ -47,7 +48,7 @@ impl ParsedStructDeclaration {
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        id: HighTypeId,
+        id: HighVisibleTypeId,
         name_span: Span,
         generic_types: &[SemanticDataType],
     ) -> SemanticDataType {

@@ -1,4 +1,7 @@
+use crate::make_id;
+use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::value::{
     function::{HighFunctionId, SemanticFunctionDeclaration, regular::HighRegularFunctionId},
     variable::SemanticVariableDeclaration,
@@ -10,8 +13,33 @@ use crate::{
 pub mod function;
 pub mod variable;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighValueId(pub u32);
+make_id!(HighValueId);
+
+impl HighValueId {
+    pub fn assert_visible_result(
+        self,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[String],
+    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
+        let declaration = semantic_environment.get_value(self);
+
+        if !declaration.is_visible(current_module_path) {
+            return Err(SemanticAnalysisError::ValueNotPublic(
+                declaration.kind.name().to_owned(),
+            ));
+        }
+
+        Ok(HighVisibleValueId(self.0))
+    }
+}
+
+make_id!(HighVisibleValueId);
+
+impl From<HighVisibleValueId> for HighValueId {
+    fn from(value: HighVisibleValueId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum SemanticValueDeclarationKind {
@@ -49,7 +77,7 @@ impl SemanticValueDeclaration {
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        original_id: HighValueId,
+        original_id: HighVisibleValueId,
         segment_generic_types: Vec<SemanticDataType>,
         path_span: Span,
     ) -> Option<SemanticDataType> {

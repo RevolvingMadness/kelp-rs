@@ -1,18 +1,18 @@
-use crate::parsed::semantic_analysis::SemanticAnalysisContext;
+use crate::make_id;
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::HighTypeId;
+use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::{
     HighGenericId,
     r#struct::{regular::SemanticRegularStructDeclaration, tuple::SemanticTupleStructDeclaration},
 };
-use crate::semantic::environment::value::HighValueId;
+use crate::semantic::environment::r#type::{HighTypeId, HighVisibleTypeId};
+use crate::semantic::environment::value::HighVisibleValueId;
 
 pub mod regular;
 pub mod tuple;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighStructId(pub u32);
+make_id!(HighStructId);
 
 impl From<HighStructId> for HighTypeId {
     fn from(value: HighStructId) -> Self {
@@ -51,16 +51,17 @@ impl SemanticStructDeclaration {
         }
     }
 
-    pub fn get_value_id_semantic_analysis(
+    pub fn get_visible_value_id(
         &self,
-        ctx: &SemanticAnalysisContext,
-        id: HighTypeId,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[String],
+        id: HighVisibleTypeId,
         name: &str,
-    ) -> Result<HighValueId, SemanticAnalysisError> {
-        if let Some(impls) = ctx.semantic_environment.implementations.get(&id) {
-            for implementation in impls {
-                if let Some(id) = implementation.values.get(name) {
-                    return Ok(*id);
+    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
+        if let Some(implementations) = semantic_environment.get_implementations(id) {
+            for implementation in implementations {
+                if let Some(id) = implementation.get_value(name) {
+                    return id.assert_visible_result(semantic_environment, current_module_path);
                 }
             }
         }

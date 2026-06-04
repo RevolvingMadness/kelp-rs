@@ -251,7 +251,7 @@ impl Datapack {
             module_path,
             visibility,
             kind: declaration,
-        } = self.semantic_environment.get_value(id.into());
+        } = self.semantic_environment.get_value(id);
 
         let resolved_id = self.environment.declare_variable(
             module_path.clone(),

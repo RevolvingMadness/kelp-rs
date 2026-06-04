@@ -1,9 +1,9 @@
+use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::{HighGenericId, HighTypeId};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HighTupleStructId(pub u32);
+make_id!(HighTupleStructId);
 
 impl From<HighTupleStructId> for HighStructId {
     fn from(value: HighTupleStructId) -> Self {

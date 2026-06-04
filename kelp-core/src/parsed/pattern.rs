@@ -252,11 +252,10 @@ impl ParsedPattern {
                 ParsedPatternKind::RegularStruct(path, field_patterns),
                 SemanticDataType::Struct(value_id, value_generic_types),
             ) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
-                let (pattern_id, _, pattern_generic_types) = ctx.get_visible_type_id(&path)?;
-
-                let last_segment = path.segments.pop().unwrap();
+                let (pattern_id, _, pattern_generic_types, last_segment) =
+                    ctx.get_visible_type_id(path)?;
 
                 let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
 
@@ -315,11 +314,10 @@ impl ParsedPattern {
                 ParsedPatternKind::TupleStruct(path, field_patterns),
                 SemanticDataType::Struct(value_id, value_generic_types),
             ) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
-                let (pattern_id, _, pattern_generic_types) = ctx.get_visible_type_id(&path)?;
-
-                let last_segment = path.segments.pop().unwrap();
+                let (pattern_id, _, pattern_generic_types, last_segment) =
+                    ctx.get_visible_type_id(path)?;
 
                 let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
 

@@ -810,11 +810,11 @@ impl ParsedExpression {
                     .with(SemanticDataType::Tuple(expression_data_types))
             }
             ParsedExpressionKind::RegularStruct(path, field_values) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
-                let (id, _, generic_types) = ctx.get_visible_type_id(&path)?;
+                let path_span = path.span;
 
-                let last_segment = path.segments.pop().unwrap();
+                let (id, _, generic_types, last_segment) = ctx.get_visible_type_id(path)?;
 
                 let (id, data_type) = ctx.get_struct_id(id, &last_segment)?;
 
@@ -869,7 +869,7 @@ impl ParsedExpression {
                         has_error = true;
 
                         ctx.add_error_unit(
-                            path.span,
+                            path_span,
                             SemanticAnalysisError::MissingField(declared_field_name.clone()),
                         );
                     }

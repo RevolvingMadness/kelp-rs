@@ -59,6 +59,13 @@ use crate::{
 pub mod info;
 pub mod scope;
 
+pub struct ResolvedTypePath {
+    pub id: HighVisibleTypeId,
+    pub inherited_generic_spans: Vec<Span>,
+    pub inherited_generic_types: Vec<SemanticDataType>,
+    pub last_segment: TypedPathSegment<SemanticDataType>,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum RegularFunctionModifiers {
     None,
@@ -662,27 +669,16 @@ impl SemanticAnalysisContext {
     }
 
     #[allow(clippy::type_complexity)]
-    fn resolve_type_path<'a, T: Clone>(
-        &mut self,
-        path: &'a TypedPath<T>,
-    ) -> Option<(
-        HighVisibleTypeId,
-        Vec<Span>,
-        Vec<T>,
-        &'a TypedPathSegment<T>,
-    )> {
-        let (last_segment, segments) = path.segments.split_last()?;
+    fn resolve_type_path(&mut self, path: TypedPath<SemanticDataType>) -> Option<ResolvedTypePath> {
+        let mut segments = path.segments.into_iter();
 
-        if segments.is_empty() {
-            return None;
-        }
+        let first_segment = segments.next()?;
+        let last_segment = segments.next_back()?;
 
-        let (first_segment, segments) = segments.split_first()?;
+        let mut current_type_id = self.get_semantic_type_id(&first_segment)?;
 
-        let mut current_type_id = self.get_semantic_type_id(first_segment)?;
-
-        let mut accumulated_generic_spans = first_segment.generic_spans.clone();
-        let mut accumulated_generic_types = first_segment.generic_types.clone();
+        let mut inherited_generic_spans = first_segment.generic_spans.clone();
+        let mut inherited_generic_types = first_segment.generic_types.clone();
 
         for segment in segments {
             let declaration = self.semantic_environment.get_type(current_type_id);
@@ -699,54 +695,70 @@ impl SemanticAnalysisContext {
 
             current_type_id = id;
 
-            accumulated_generic_spans.extend(segment.generic_spans.iter().copied());
-            accumulated_generic_types.extend(segment.generic_types.iter().cloned());
+            inherited_generic_spans.extend(segment.generic_spans.iter().copied());
+            inherited_generic_types.extend(segment.generic_types.iter().cloned());
         }
 
-        Some((
-            current_type_id,
-            accumulated_generic_spans,
-            accumulated_generic_types,
+        Some(ResolvedTypePath {
+            id: current_type_id,
+            inherited_generic_spans,
+            inherited_generic_types,
             last_segment,
-        ))
+        })
     }
 
     #[must_use]
-    pub fn get_visible_type_id<T: Debug + Clone>(
+    pub fn get_visible_type_id(
         &mut self,
-        path: &TypedPath<T>,
-    ) -> Option<(HighVisibleTypeId, Vec<Span>, Vec<T>)> {
+        mut path: TypedPath<SemanticDataType>,
+    ) -> Option<(
+        HighVisibleTypeId,
+        Vec<Span>,
+        Vec<SemanticDataType>,
+        TypedPathSegment<SemanticDataType>,
+    )> {
         if path.segments.len() == 1 {
-            let segment = &path.segments[0];
+            let segment = path.segments.pop().unwrap();
 
-            let id = self.get_semantic_type_id(segment)?;
+            let id = self.get_semantic_type_id(&segment)?;
 
             return Some((
                 id,
                 segment.generic_spans.clone(),
                 segment.generic_types.clone(),
+                segment,
             ));
         }
 
-        let (type_id, mut generic_spans, mut generic_types, last_segment) =
-            self.resolve_type_path(path)?;
+        let ResolvedTypePath {
+            id,
+            inherited_generic_spans,
+            inherited_generic_types,
+            last_segment,
+        } = self.resolve_type_path(path)?;
 
-        let declaration = self.semantic_environment.get_type(type_id);
+        let supplied_generic_spans = &last_segment.generic_spans;
+        let supplied_generic_types = &last_segment.generic_types;
+
+        let declaration = self.semantic_environment.get_type(id);
 
         let id = match declaration.get_visible_type_id(
             &self.semantic_environment,
             &self.current_module_path,
-            type_id,
+            id,
             &last_segment.name,
         ) {
             Ok(id) => id,
             Err(error) => return self.add_error(last_segment.name_span, error),
         };
 
-        generic_spans.extend(last_segment.generic_spans.iter().copied());
-        generic_types.extend(last_segment.generic_types.iter().cloned());
+        let mut generic_spans = inherited_generic_spans;
+        generic_spans.extend(supplied_generic_spans.iter().copied());
 
-        Some((id, generic_spans, generic_types))
+        let mut generic_types = inherited_generic_types;
+        generic_types.extend(supplied_generic_types.iter().cloned());
+
+        Some((id, generic_spans, generic_types, last_segment))
     }
 
     #[must_use]
@@ -781,15 +793,20 @@ impl SemanticAnalysisContext {
             return Some((id, segment.generic_types, data_type));
         }
 
-        let (type_id, _, inherited_generic_types, last_segment) = self.resolve_type_path(&path)?;
+        let ResolvedTypePath {
+            id,
+            inherited_generic_types,
+            last_segment,
+            ..
+        } = self.resolve_type_path(path)?;
         let supplied_generic_types = &last_segment.generic_types;
 
-        let declaration = self.semantic_environment.get_type(type_id);
+        let declaration = self.semantic_environment.get_type(id);
 
         let id = match declaration.get_visible_value_id(
             &self.semantic_environment,
             &self.current_module_path,
-            type_id,
+            id,
             &last_segment.name,
         ) {
             Ok(id) => id,

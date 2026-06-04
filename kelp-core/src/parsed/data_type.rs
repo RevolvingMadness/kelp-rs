@@ -70,14 +70,13 @@ impl ParsedDataType {
     pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> SemanticDataType {
         match self {
             Self::Named(path) => {
-                let mut path = path.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx);
 
-                let Some((id, generic_spans, generic_types)) = ctx.get_visible_type_id(&path)
+                let Some((id, generic_spans, generic_types, last_segment)) =
+                    ctx.get_visible_type_id(path)
                 else {
                     return SemanticDataType::Error;
                 };
-
-                let last_segment = path.segments.pop().unwrap();
 
                 let declaration = ctx.parsed_environment.get_type(id).clone();
 

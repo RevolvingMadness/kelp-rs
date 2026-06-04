@@ -1,6 +1,6 @@
 use kelp_core::{
     parsed::pattern::{ParsedPattern, ParsedPatternKind},
-    path::generic::GenericPath,
+    path::generic::TypedPath,
     span::Span,
 };
 
@@ -23,7 +23,7 @@ impl LowerableAstNode for CSTCompoundPatternEntry {
             .and_then(|pattern| pattern.lower(ctx))
             .unwrap_or_else(|| ParsedPattern {
                 span: name_span,
-                kind: ParsedPatternKind::Binding(GenericPath::single(name_span, name)),
+                kind: ParsedPatternKind::Binding(TypedPath::single(name_span, name)),
             });
 
         Some(((name_span, name.to_owned()), entry_pattern))

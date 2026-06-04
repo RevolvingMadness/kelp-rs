@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use kelp_core::{
     parsed::pattern::{ParsedPattern, ParsedPatternKind},
-    path::generic::GenericPath,
+    path::generic::TypedPath,
     span::Span,
 };
 
@@ -62,7 +62,7 @@ impl LowerableAstNode for CSTRegularStructPatternField {
             .and_then(|pattern| pattern.lower(ctx))
             .unwrap_or_else(|| ParsedPattern {
                 span: field_name_span,
-                kind: ParsedPatternKind::Binding(GenericPath::single(field_name_span, field_name)),
+                kind: ParsedPatternKind::Binding(TypedPath::single(field_name_span, field_name)),
             });
 
         Some(((field_name_span, field_name.to_owned()), field_pattern))

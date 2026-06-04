@@ -3,7 +3,7 @@ use strum::{Display, EnumIter};
 use crate::{
     make_id,
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-    path::generic::GenericPathSegment,
+    path::generic::TypedPathSegment,
     semantic::data_type::SemanticDataType,
 };
 
@@ -21,7 +21,7 @@ impl SemanticBuiltinTypeDeclaration {
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        segment: &GenericPathSegment<SemanticDataType>,
+        segment: &TypedPathSegment<SemanticDataType>,
     ) -> SemanticDataType {
         let expected_generic_count = self.generic_count;
         let actual_generic_count = segment.generic_types.len();

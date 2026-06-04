@@ -7,3 +7,11 @@ pub struct SemanticTypeAliasDeclaration {
     pub generic_ids: Vec<HighGenericId>,
     pub alias: SemanticDataType,
 }
+
+impl SemanticTypeAliasDeclaration {
+    #[inline]
+    #[must_use]
+    pub fn generic_count(&self) -> usize {
+        self.generic_ids.len()
+    }
+}

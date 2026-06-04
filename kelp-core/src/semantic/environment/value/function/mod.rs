@@ -45,9 +45,9 @@ impl SemanticFunctionDeclaration {
     }
 
     #[must_use]
-    pub const fn generic_count(&self) -> usize {
+    pub const fn declared_generic_count(&self) -> usize {
         match self {
-            Self::Regular(declaration) => declaration.generic_ids.len(),
+            Self::Regular(declaration) => declaration.generic_count(),
             Self::Builtin(declaration) => declaration.generic_ids.len(),
         }
     }

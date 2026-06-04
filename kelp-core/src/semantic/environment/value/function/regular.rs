@@ -29,8 +29,17 @@ pub struct SemanticRegularFunctionDeclaration {
     pub name: String,
     pub modifiers: RegularFunctionModifiers,
     pub generic_ids: Vec<HighGenericId>,
+    pub declared_generic_count: usize,
     pub parameters: Vec<(Option<SemanticPattern>, SemanticDataType)>,
     pub return_type: SemanticDataType,
     pub body: Option<Box<SemanticExpression>>,
     pub calls: HashSet<(Span, HighFunctionId)>,
+}
+
+impl SemanticRegularFunctionDeclaration {
+    #[inline]
+    #[must_use]
+    pub const fn generic_count(&self) -> usize {
+        self.declared_generic_count
+    }
 }

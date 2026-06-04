@@ -1,7 +1,7 @@
 use crate::make_id;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
-use crate::path::generic::GenericPathSegment;
+use crate::path::generic::TypedPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
@@ -85,11 +85,22 @@ impl SemanticTypeDeclarationKind {
         }
     }
 
+    #[must_use]
+    pub fn generic_count(&self) -> usize {
+        match self {
+            Self::Module(..) => 0,
+            Self::Struct(declaration) => declaration.generic_count(),
+            Self::Alias(declaration) => declaration.generic_count(),
+            Self::Generic(_) => 0,
+            Self::Builtin(..) => 0,
+        }
+    }
+
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
         id: HighVisibleTypeId,
-        segment: &GenericPathSegment<SemanticDataType>,
+        segment: &TypedPathSegment<SemanticDataType>,
     ) -> SemanticDataType {
         match self {
             Self::Module(SemanticModuleDeclaration { name, .. }) => {

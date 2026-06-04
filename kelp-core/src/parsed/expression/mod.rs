@@ -25,7 +25,7 @@ use crate::{
         },
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    path::generic::{GenericPath, GenericPathSegment},
+    path::generic::{TypedPath, TypedPathSegment},
     runtime_storage::RuntimeStorageType,
     semantic::{
         data::SemanticData,
@@ -85,16 +85,16 @@ pub enum ParsedExpressionKind {
     Index(Box<ParsedExpression>, Box<ParsedExpression>),
     MethodCall {
         receiver: Box<ParsedExpression>,
-        callee: GenericPathSegment<ParsedDataType>,
+        callee: TypedPathSegment<ParsedDataType>,
         arguments: Vec<ParsedExpression>,
     },
     FieldAccess(Box<ParsedExpression>, Span, String),
     AsCast(Box<ParsedExpression>, ParsedDataType),
     ToCast(Box<ParsedExpression>, RuntimeStorageType),
     Tuple(Vec<ParsedExpression>),
-    Path(GenericPath<ParsedDataType>),
+    Path(TypedPath<ParsedDataType>),
     RegularStruct(
-        GenericPath<ParsedDataType>,
+        TypedPath<ParsedDataType>,
         HashMap<(Span, String), ParsedExpression>,
     ),
     Call {
@@ -231,7 +231,7 @@ impl ParsedExpression {
             ParsedExpressionKind::Path(path) => {
                 let path = path.perform_semantic_analysis(ctx);
 
-                let (id, generic_types, data_type) = ctx.get_visible_value_type(path)?;
+                let (id, generic_types, data_type) = ctx.get_visible_value_within_type(path)?;
 
                 let data_type = data_type?;
 
@@ -1072,7 +1072,7 @@ impl ParsedExpression {
             ParsedExpressionKind::Path(path) => {
                 let path = path.perform_semantic_analysis(ctx);
 
-                let (id, generic_types, data_type) = ctx.get_visible_value_type(path)?;
+                let (id, generic_types, data_type) = ctx.get_visible_value_within_type(path)?;
 
                 let data_type = data_type?;
 

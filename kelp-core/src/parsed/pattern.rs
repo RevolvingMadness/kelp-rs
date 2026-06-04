@@ -9,7 +9,7 @@ use crate::{
         player_score::ParsedPlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    path::generic::GenericPath,
+    path::generic::TypedPath,
     pattern_type::PatternType,
     semantic::{expression::literal::SemanticLiteralExpression, pattern::SemanticPattern},
     span::Span,
@@ -22,17 +22,17 @@ pub enum ParsedPatternKind {
     Literal(SemanticLiteralExpression),
 
     Wildcard,
-    Binding(GenericPath<ParsedDataType>),
+    Binding(TypedPath<ParsedDataType>),
 
     Score(ParsedPlayerScore),
     Data(Box<Data>),
 
     Tuple(Vec<ParsedPattern>),
     RegularStruct(
-        GenericPath<ParsedDataType>,
+        TypedPath<ParsedDataType>,
         HashMap<(Span, String), ParsedPattern>,
     ),
-    TupleStruct(GenericPath<ParsedDataType>, Vec<ParsedPattern>),
+    TupleStruct(TypedPath<ParsedDataType>, Vec<ParsedPattern>),
 
     Compound(HashMap<(Span, String), ParsedPattern>),
 }

@@ -3,7 +3,7 @@ use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::value::{
-    function::{HighFunctionId, SemanticFunctionDeclaration, regular::HighRegularFunctionId},
+    function::{SemanticFunctionDeclaration, regular::HighRegularFunctionId},
     variable::SemanticVariableDeclaration,
 };
 use crate::{
@@ -55,6 +55,14 @@ impl SemanticValueDeclarationKind {
             Self::Function(declaration) => declaration.name(),
         }
     }
+
+    #[must_use]
+    pub fn generic_count(&self) -> usize {
+        match self {
+            Self::Variable(..) => 0,
+            Self::Function(declaration) => declaration.declared_generic_count(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -78,13 +86,14 @@ impl SemanticValueDeclaration {
         self,
         ctx: &mut SemanticAnalysisContext,
         original_id: HighVisibleValueId,
-        segment_generic_types: Vec<SemanticDataType>,
+        inherited_generic_types: Vec<SemanticDataType>,
+        supplied_generic_types: &[SemanticDataType],
         path_span: Span,
     ) -> Option<SemanticDataType> {
         match self.kind {
             SemanticValueDeclarationKind::Variable(declaration) => {
                 let expected_generics = 0;
-                let actual_generics = segment_generic_types.len();
+                let actual_generics = supplied_generic_types.len();
 
                 if actual_generics != expected_generics {
                     let type_name = &declaration
@@ -105,8 +114,8 @@ impl SemanticValueDeclaration {
             SemanticValueDeclarationKind::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
-                let expected_generics = declaration.generic_count();
-                let actual_generics = segment_generic_types.len();
+                let expected_generics = declaration.declared_generic_count();
+                let actual_generics = supplied_generic_types.len();
 
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics(
@@ -117,21 +126,11 @@ impl SemanticValueDeclaration {
                     );
                 }
 
-                Some(SemanticDataType::Function(id.into(), segment_generic_types))
-            }
-        }
-    }
+                let mut generic_types = inherited_generic_types;
 
-    #[must_use]
-    pub fn data_type(
-        &self,
-        id: HighValueId,
-        generic_types: &[SemanticDataType],
-    ) -> SemanticDataType {
-        match &self.kind {
-            SemanticValueDeclarationKind::Variable(declaration) => declaration.data_type.clone(),
-            SemanticValueDeclarationKind::Function(..) => {
-                SemanticDataType::Function(HighFunctionId(id.0), generic_types.to_vec())
+                generic_types.extend(supplied_generic_types.iter().cloned());
+
+                Some(SemanticDataType::Function(id.into(), generic_types))
             }
         }
     }

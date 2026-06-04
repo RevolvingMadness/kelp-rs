@@ -15,7 +15,7 @@ use crate::{
         },
         use_tree::UseTree,
     },
-    path::{generic::GenericPath, regular::Path},
+    path::{generic::TypedPath, regular::Path},
     semantic::{
         data_type::SemanticDataType,
         environment::{
@@ -281,14 +281,14 @@ impl NamedItem {
                     }),
                 );
 
-                ctx.enter_semantic_implementation(associated_items_scope);
+                ctx.enter_semantic_implementation(associated_items_scope, generic_ids);
 
                 let associated_items = associated_items
                     .into_iter()
                     .map(|item| item.resolve_types(ctx))
                     .collect();
 
-                let associated_items_scope = ctx.exit_semantic_implementation();
+                let (generic_ids, associated_items_scope) = ctx.exit_semantic_implementation();
 
                 ctx.exit_scope();
 
@@ -343,7 +343,7 @@ impl NamedItem {
                 recursive_keyword_span,
                 runtime_keyword_span,
                 name,
-                generic_ids,
+                mut generic_ids,
                 generic_names,
                 self_parameter,
                 parameters,
@@ -361,8 +361,14 @@ impl NamedItem {
                     ctx.set_semantic_generic(generic_id, Visibility::Public, generic_name);
                 }
 
+                let declared_generic_count = generic_ids.len();
+
+                if let Some(impl_generic_ids) = ctx.impl_generic_ids.last() {
+                    generic_ids.splice(0..0, impl_generic_ids.iter().copied());
+                }
+
                 let self_parameter = self_parameter.map(|parameter| {
-                    let data_type = if ctx.is_in_impl == 0 {
+                    let data_type = if ctx.impl_generic_ids.is_empty() {
                         ctx.add_error_type(
                             parameter.pattern_span,
                             SemanticAnalysisError::MethodNotInImpl,
@@ -388,7 +394,7 @@ impl NamedItem {
                     .collect::<Vec<_>>();
 
                 if let Some(self_parameter) = &self_parameter {
-                    let self_pattern = ParsedPatternKind::Binding(GenericPath::single(
+                    let self_pattern = ParsedPatternKind::Binding(TypedPath::single(
                         self_parameter.pattern_span,
                         "self",
                     ))
@@ -416,6 +422,7 @@ impl NamedItem {
                         SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration {
                             name,
                             modifiers,
+                            declared_generic_count,
                             generic_ids: generic_ids.clone(),
                             parameters: parameters
                                 .iter()

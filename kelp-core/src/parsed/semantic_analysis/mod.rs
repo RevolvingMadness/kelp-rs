@@ -49,7 +49,7 @@ use crate::{
         },
     },
     path::{
-        generic::{GenericPath, GenericPathSegment},
+        generic::{TypedPath, TypedPathSegment},
         regular::{Path, PathSegment},
     },
     span::Span,
@@ -128,8 +128,7 @@ pub struct SemanticAnalysisContext {
     pub environment: Environment,
     pub parsed_environment: ParsedEnvironment,
     pub semantic_environment: SemanticEnvironment,
-    pub is_in_impl: u32,
-    pub impl_generic_ids_and_names: Vec<(Vec<HighGenericId>, Vec<String>)>,
+    pub impl_generic_ids: Vec<Vec<HighGenericId>>,
 }
 
 impl SemanticAnalysisContext {
@@ -145,8 +144,7 @@ impl SemanticAnalysisContext {
             loop_depth: 0,
             current_module_path: Vec::new(),
             function_contexts: SmallVec::new(),
-            is_in_impl: 0,
-            impl_generic_ids_and_names: Vec::new(),
+            impl_generic_ids: Vec::new(),
         };
 
         self_.declare_std_module();
@@ -175,39 +173,34 @@ impl SemanticAnalysisContext {
         self.scopes.push(Scope::default());
     }
 
-    pub fn enter_parsed_implementation(
-        &mut self,
-        generic_ids: Vec<HighGenericId>,
-        generic_names: Vec<String>,
-    ) {
+    pub fn enter_parsed_implementation(&mut self, generic_ids: Vec<HighGenericId>) {
         self.enter_scope();
 
-        self.impl_generic_ids_and_names
-            .push((generic_ids, generic_names));
+        self.impl_generic_ids.push(generic_ids);
     }
 
     #[must_use]
-    pub fn exit_parsed_implementation(&mut self) -> (Vec<HighGenericId>, Vec<String>, Scope) {
+    pub fn exit_parsed_implementation(&mut self) -> (Vec<HighGenericId>, Scope) {
         let scope = self.exit_scope();
 
-        let (generic_ids, generic_names) = self.impl_generic_ids_and_names.pop().unwrap();
+        let generic_ids = self.impl_generic_ids.pop().unwrap();
 
-        (generic_ids, generic_names, scope)
+        (generic_ids, scope)
     }
 
-    pub fn enter_semantic_implementation(&mut self, scope: Scope) {
+    pub fn enter_semantic_implementation(&mut self, scope: Scope, generic_ids: Vec<HighGenericId>) {
         self.push_scope(scope);
 
-        self.is_in_impl += 1;
+        self.impl_generic_ids.push(generic_ids);
     }
 
     #[must_use]
-    pub fn exit_semantic_implementation(&mut self) -> Scope {
+    pub fn exit_semantic_implementation(&mut self) -> (Vec<HighGenericId>, Scope) {
         let scope = self.exit_scope();
 
-        self.is_in_impl -= 1;
+        let generic_ids = self.impl_generic_ids.pop().unwrap();
 
-        scope
+        (generic_ids, scope)
     }
 
     #[inline]
@@ -377,13 +370,50 @@ impl SemanticAnalysisContext {
         HighVariableId(id.0)
     }
 
-    #[must_use]
-    pub fn get_type_id(&self, name: &str) -> Option<HighVisibleTypeId> {
+    pub fn get_type_id_in_scope(
+        &self,
+        name: &str,
+    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         self.scopes
             .iter()
             .rev()
-            .find_map(|scope| scope.get_type_id(name))
-            .map(|id| HighVisibleTypeId(id.0))
+            .find_map(|scope| {
+                let id = scope.get_type_id(name)?;
+
+                let id = HighVisibleTypeId(id.0);
+
+                Some(id)
+            })
+            .ok_or_else(|| SemanticAnalysisError::UnknownType(name.to_owned()))
+    }
+
+    #[must_use]
+    pub fn get_semantic_type_id<T>(
+        &mut self,
+        segment: &TypedPathSegment<T>,
+    ) -> Option<HighVisibleTypeId> {
+        let id = match self.get_type_id_in_scope(&segment.name) {
+            Ok(id) => id,
+            Err(error) => return self.add_error(segment.name_span, error),
+        };
+
+        let declaration = self.semantic_environment.get_type(id);
+
+        let expected_generic_count = declaration.kind.generic_count();
+        let actual_generic_count = segment.generic_types.len();
+
+        if actual_generic_count != expected_generic_count {
+            return self.add_error(
+                segment.name_span,
+                SemanticAnalysisError::InvalidGenerics {
+                    type_name: segment.name.clone(),
+                    expected: expected_generic_count,
+                    actual: actual_generic_count,
+                },
+            );
+        }
+
+        Some(id)
     }
 
     #[must_use]
@@ -393,6 +423,30 @@ impl SemanticAnalysisContext {
             .rev()
             .find_map(|scope| scope.get_value_id(name))
             .map(|id| HighVisibleValueId(id.0))
+    }
+
+    pub fn get_value_id_analysis(
+        &self,
+        name: &str,
+        actual_generic_count: usize,
+    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
+        let Some(id) = self.get_value_id(name) else {
+            return Err(SemanticAnalysisError::UnknownValue(name.to_owned()));
+        };
+
+        let declaration = self.semantic_environment.get_value(id);
+
+        let expected_generic_count = declaration.kind.generic_count();
+
+        if actual_generic_count != expected_generic_count {
+            return Err(SemanticAnalysisError::InvalidGenerics {
+                type_name: name.to_owned(),
+                expected: expected_generic_count,
+                actual: actual_generic_count,
+            });
+        }
+
+        Ok(id)
     }
 
     #[inline]
@@ -610,12 +664,12 @@ impl SemanticAnalysisContext {
     #[allow(clippy::type_complexity)]
     fn resolve_type_path<'a, T: Clone>(
         &mut self,
-        path: &'a GenericPath<T>,
+        path: &'a TypedPath<T>,
     ) -> Option<(
         HighVisibleTypeId,
         Vec<Span>,
         Vec<T>,
-        &'a GenericPathSegment<T>,
+        &'a TypedPathSegment<T>,
     )> {
         let (last_segment, segments) = path.segments.split_last()?;
 
@@ -625,7 +679,8 @@ impl SemanticAnalysisContext {
 
         let (first_segment, segments) = segments.split_first()?;
 
-        let mut current_type_id = self.get_type_id(&first_segment.name)?;
+        let mut current_type_id = self.get_semantic_type_id(first_segment)?;
+
         let mut accumulated_generic_spans = first_segment.generic_spans.clone();
         let mut accumulated_generic_types = first_segment.generic_types.clone();
 
@@ -659,17 +714,12 @@ impl SemanticAnalysisContext {
     #[must_use]
     pub fn get_visible_type_id<T: Debug + Clone>(
         &mut self,
-        path: &GenericPath<T>,
+        path: &TypedPath<T>,
     ) -> Option<(HighVisibleTypeId, Vec<Span>, Vec<T>)> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            let Some(id) = self.get_type_id(&segment.name) else {
-                return self.add_error(
-                    segment.name_span,
-                    SemanticAnalysisError::UnknownType(segment.name.clone()),
-                );
-            };
+            let id = self.get_semantic_type_id(segment)?;
 
             return Some((
                 id,
@@ -701,9 +751,9 @@ impl SemanticAnalysisContext {
 
     #[must_use]
     #[allow(clippy::type_complexity)]
-    pub fn get_visible_value_type(
+    pub fn get_visible_value_within_type(
         &mut self,
-        mut path: GenericPath<SemanticDataType>,
+        mut path: TypedPath<SemanticDataType>,
     ) -> Option<(
         HighVisibleValueId,
         Vec<SemanticDataType>,
@@ -711,31 +761,28 @@ impl SemanticAnalysisContext {
     )> {
         if path.segments.len() == 1 {
             let segment = path.segments.remove(0);
+            let supplied_generic_types = &segment.generic_types;
 
-            let id = self.get_value_id(&segment.name);
+            let id = match self.get_value_id_analysis(&segment.name, segment.generic_types.len()) {
+                Ok(id) => id,
+                Err(error) => return self.add_error(segment.name_span, error),
+            };
 
-            if id.is_none() {
-                return self.add_error(
-                    segment.name_span,
-                    SemanticAnalysisError::UnknownValue(segment.name),
-                );
-            }
+            let declaration = self.semantic_environment.get_value(id).clone();
 
-            return id.map(|id| {
-                let declaration = self.semantic_environment.get_value(id).clone();
+            let data_type = declaration.into_data_type(
+                self,
+                id,
+                Vec::new(),
+                supplied_generic_types,
+                segment.name_span,
+            );
 
-                let data_type = declaration.into_data_type(
-                    self,
-                    id,
-                    segment.generic_types.clone(),
-                    segment.name_span,
-                );
-
-                (id, segment.generic_types, data_type)
-            });
+            return Some((id, segment.generic_types, data_type));
         }
 
-        let (type_id, _, _, last_segment) = self.resolve_type_path(&path)?;
+        let (type_id, _, inherited_generic_types, last_segment) = self.resolve_type_path(&path)?;
+        let supplied_generic_types = &last_segment.generic_types;
 
         let declaration = self.semantic_environment.get_type(type_id);
 
@@ -754,11 +801,16 @@ impl SemanticAnalysisContext {
         let data_type = declaration.into_data_type(
             self,
             id,
-            last_segment.generic_types.clone(),
+            inherited_generic_types.clone(),
+            supplied_generic_types,
             last_segment.name_span,
         );
 
-        Some((id, last_segment.generic_types.clone(), data_type))
+        let mut generic_types = inherited_generic_types;
+
+        generic_types.extend(supplied_generic_types.iter().cloned());
+
+        Some((id, generic_types, data_type))
     }
 
     fn try_resolve_path<'a>(
@@ -771,12 +823,9 @@ impl SemanticAnalysisContext {
             .split_first()
             .expect("segments.len should be checked before calling try_resolve_path");
 
-        let Some(mut current_type_id) = self.get_type_id(&first_segment.name) else {
-            return Err((
-                first_segment.span,
-                SemanticAnalysisError::UnknownType(first_segment.name.clone()),
-            ));
-        };
+        let mut current_type_id = self
+            .get_type_id_in_scope(&first_segment.name)
+            .map_err(|error| (first_segment.span, error))?;
 
         for segment in segments {
             let declaration = self.semantic_environment.get_type(current_type_id);
@@ -803,13 +852,9 @@ impl SemanticAnalysisContext {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            return match self.get_type_id(&segment.name) {
-                Some(id) => Ok(id),
-                None => Err((
-                    segment.span,
-                    SemanticAnalysisError::UnknownType(segment.name.clone()),
-                )),
-            };
+            return self
+                .get_type_id_in_scope(&segment.name)
+                .map_err(|error| (segment.span, error));
         }
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
@@ -835,12 +880,9 @@ impl SemanticAnalysisContext {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            return self.get_value_id(&segment.name).ok_or_else(|| {
-                (
-                    segment.span,
-                    SemanticAnalysisError::UnknownValue(segment.name.clone()),
-                )
-            });
+            return self
+                .get_value_id_analysis(&segment.name, 0)
+                .map_err(|error| (segment.span, error));
         }
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
@@ -863,7 +905,7 @@ impl SemanticAnalysisContext {
     pub fn get_struct_id(
         &mut self,
         id: HighVisibleTypeId,
-        segment: &GenericPathSegment<SemanticDataType>,
+        segment: &TypedPathSegment<SemanticDataType>,
     ) -> Option<(HighStructId, SemanticDataType)> {
         let SemanticTypeDeclaration {
             kind: declaration, ..

@@ -4,7 +4,7 @@ use kelp_core::{
         item::{ParsedItemKind, ParsedSelfFunctionParameter},
         pattern::ParsedPattern,
     },
-    path::generic::GenericPath,
+    path::generic::TypedPath,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -217,7 +217,7 @@ impl LowerableAstNode for CSTFunctionParameters {
                     .unwrap_or_else(|| {
                         (
                             self_keyword_span,
-                            ParsedDataType::Named(GenericPath::single(self_keyword_span, "Self")),
+                            ParsedDataType::Named(TypedPath::single(self_keyword_span, "Self")),
                         )
                     });
 

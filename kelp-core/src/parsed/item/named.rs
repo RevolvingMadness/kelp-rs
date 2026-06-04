@@ -384,6 +384,8 @@ impl NamedItem {
                     }
                 });
 
+                let is_method = self_parameter.is_some();
+
                 let mut parameters = parameters
                     .into_iter()
                     .map(|(pattern, parameter_type)| {
@@ -424,6 +426,7 @@ impl NamedItem {
                             modifiers,
                             declared_generic_count,
                             generic_ids: generic_ids.clone(),
+                            is_method,
                             parameters: parameters
                                 .iter()
                                 .map(|(_, data_type)| (None, data_type.clone()))

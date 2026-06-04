@@ -53,6 +53,14 @@ impl SemanticFunctionDeclaration {
     }
 
     #[must_use]
+    pub fn is_method(&self) -> bool {
+        match self {
+            Self::Regular(declaration) => declaration.is_method,
+            Self::Builtin(_declaration) => false,
+        }
+    }
+
+    #[must_use]
     pub fn parameter_types(
         &self,
     ) -> ParameterTypesIter<'_, Option<SemanticPattern>, SemanticDataType> {

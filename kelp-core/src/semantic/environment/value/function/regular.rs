@@ -30,6 +30,7 @@ pub struct SemanticRegularFunctionDeclaration {
     pub modifiers: RegularFunctionModifiers,
     pub generic_ids: Vec<HighGenericId>,
     pub declared_generic_count: usize,
+    pub is_method: bool,
     pub parameters: Vec<(Option<SemanticPattern>, SemanticDataType)>,
     pub return_type: SemanticDataType,
     pub body: Option<Box<SemanticExpression>>,

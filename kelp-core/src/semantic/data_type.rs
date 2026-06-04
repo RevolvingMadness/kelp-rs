@@ -630,6 +630,10 @@ impl SemanticDataType {
                         return None;
                     };
 
+                    if !declaration.is_method() {
+                        return None;
+                    }
+
                     let method_id = HighFunctionId(method_id.0);
 
                     let mut all_generic_types = struct_generic_types.clone();

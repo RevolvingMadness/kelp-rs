@@ -17,7 +17,7 @@ pub enum SemanticItem {
 }
 
 impl SemanticItem {
-    pub fn compile(self, datapack: &mut Datapack, _ctx: &mut CompileContext) {
+    pub fn compile(self, datapack: &mut Datapack) {
         match self {
             Self::InherentImplementation => {}
             Self::ModuleDeclaration => {}

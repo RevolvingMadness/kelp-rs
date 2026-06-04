@@ -1,6 +1,5 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use clap::{Parser as ClapParser, Subcommand};
-use kelp_core::compile_context::CompileContext;
 use kelp_core::datapack::Datapack;
 use kelp_core::parsed::semantic_analysis::SemanticAnalysisContext;
 use kelp_core::parsed::semantic_analysis::info::SemanticAnalysisInfoKind;
@@ -372,17 +371,10 @@ fn process_success(
         project_description,
     );
     datapack.settings.num_match_cases_to_split = 5;
-    datapack.push_namespace("main");
-    datapack.push_function_to_current_namespace(vec!["main".to_string()]);
 
-    let mut ctx = CompileContext::default();
     let start_compile = Instant::now();
-    program.compile(&mut datapack, &mut ctx);
+    program.compile(&mut datapack);
     let compile_elapsed = start_compile.elapsed();
-
-    datapack.add_context_to_current_function(&mut ctx);
-    datapack.pop_function_from_current_namespace();
-    datapack.pop_namespace();
 
     let number_of_commands = datapack.number_of_commands();
     let number_of_functions = datapack.number_of_functions();

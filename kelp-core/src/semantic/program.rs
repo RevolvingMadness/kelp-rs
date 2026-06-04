@@ -1,4 +1,4 @@
-use crate::{compile_context::CompileContext, datapack::Datapack, semantic::item::SemanticItem};
+use crate::{datapack::Datapack, semantic::item::SemanticItem};
 
 #[derive(Debug, Clone)]
 pub struct SemanticProgram {
@@ -6,9 +6,9 @@ pub struct SemanticProgram {
 }
 
 impl SemanticProgram {
-    pub fn compile(self, datapack: &mut Datapack, ctx: &mut CompileContext) {
+    pub fn compile(self, datapack: &mut Datapack) {
         for item in self.items {
-            item.compile(datapack, ctx);
+            item.compile(datapack);
         }
     }
 }

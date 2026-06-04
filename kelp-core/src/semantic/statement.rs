@@ -121,7 +121,7 @@ impl SemanticStatement {
                     Command::Return(ReturnCommand::Run(Box::new(command))),
                 );
             }
-            Self::Item(item) => item.compile(datapack, ctx),
+            Self::Item(item) => item.compile(datapack),
         }
     }
 }

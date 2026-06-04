@@ -72,7 +72,7 @@ impl ParsedDataType {
             Self::Named(path) => {
                 let path = path.perform_semantic_analysis(ctx);
 
-                let Some((id, generic_spans, generic_types, last_segment)) =
+                let Some((id, inherited_generic_spans, inherited_generic_types, last_segment)) =
                     ctx.get_visible_type_id(path)
                 else {
                     return SemanticDataType::Error;
@@ -84,8 +84,8 @@ impl ParsedDataType {
                     ctx,
                     id,
                     last_segment.name_span,
-                    &generic_spans,
-                    &generic_types,
+                    &inherited_generic_spans,
+                    &inherited_generic_types,
                 )
             }
             Self::Unit => SemanticDataType::Unit,

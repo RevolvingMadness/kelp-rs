@@ -1,0 +1,37 @@
+use std::*;
+
+pub struct Adder<T> {
+    first: T,
+    second: T,
+}
+
+fn create_adder(first: integer, second: integer) -> Adder<score<integer>> {
+    Adder::<score<integer>> {
+        first: first to score,
+        second: second to score,
+    }
+}
+
+impl<T> Adder<T> {
+    fn new(first: integer, second: integer) -> Adder<score<integer>> {
+        create_adder(first, second)
+    }
+}
+
+impl Adder<score<integer>> {
+    fn get_value(self) -> score<integer> {
+        self.first + self.second
+    }
+
+    fn say_it(self, target: entity_selector) {
+        tellraw $target self.get_value();
+    }
+}
+
+mcfn namespace:main {
+    let adder = Adder::<()>::new(1, 2);
+
+    tellraw @a Adder::<score<integer>>::get_value(adder);
+    tellraw @a adder.get_value();
+    adder.say_it(entity_selector: @a);
+}

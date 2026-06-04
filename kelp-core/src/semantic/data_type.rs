@@ -611,8 +611,10 @@ impl SemanticDataType {
                     let implementations = ctx.semantic_environment.get_implementations(*id)?;
 
                     let implementation = implementations.iter().find(|implementation| {
-                        if let Self::Struct(impl_id, _) = implementation.get_target_type() {
-                            impl_id == id
+                        if let Self::Struct(impl_id, generic_types) =
+                            implementation.get_target_type()
+                        {
+                            impl_id == id && struct_generic_types == generic_types
                         } else {
                             false
                         }

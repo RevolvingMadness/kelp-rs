@@ -92,7 +92,7 @@ impl SemanticTypeDeclarationKind {
             Self::Struct(declaration) => declaration.generic_count(),
             Self::Alias(declaration) => declaration.generic_count(),
             Self::Generic(_) => 0,
-            Self::Builtin(..) => 0,
+            Self::Builtin(declaration) => declaration.generic_count,
         }
     }
 

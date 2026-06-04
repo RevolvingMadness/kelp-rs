@@ -708,6 +708,7 @@ impl SemanticAnalysisContext {
     }
 
     #[must_use]
+    #[allow(clippy::type_complexity)]
     pub fn get_visible_type_id(
         &mut self,
         mut path: TypedPath<SemanticDataType>,

@@ -7,8 +7,8 @@ use crate::semantic::{
 
 #[derive(Debug, Clone)]
 pub struct SemanticImplementation {
-    generic_names: Vec<String>,
     target_type: SemanticDataType,
+    generic_names: Vec<String>,
     types: HashMap<String, HighTypeId>,
     values: HashMap<String, HighValueId>,
 }

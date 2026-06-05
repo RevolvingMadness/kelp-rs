@@ -230,15 +230,21 @@ impl ParsedExpression {
     ) -> Option<(Span, ParsedPlaceExpression)> {
         let expression = match self.kind {
             ParsedExpressionKind::Path(path) => {
-                // let path = path.perform_semantic_analysis(ctx)?;
+                let path = path.perform_semantic_analysis(ctx)?;
 
-                // let (id, generic_types, data_type) = ctx.get_visible_value_within_type(path)?;
+                let id = path.get_value_id(ctx)?;
 
-                // let data_type = data_type?;
+                let declaration = ctx.semantic_environment.get_value(id).clone();
 
-                // ParsedPlaceExpressionKind::Value(id.into(), generic_types).with(data_type)
+                let data_type = declaration.into_data_type(
+                    ctx,
+                    id,
+                    path.inherited_generic_types,
+                    &path.generic_types,
+                    path.name_span,
+                )?;
 
-                todo!()
+                ParsedPlaceExpressionKind::Value(id.into(), path.generic_types).with(data_type)
             }
             ParsedExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;

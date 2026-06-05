@@ -189,8 +189,6 @@ impl Display for SemanticDataTypeDisplay<'_> {
                 declaration.name.fmt(f)
             }
             SemanticDataType::Function(id, generic_types) => {
-                // Maybe display full path?
-
                 let declaration = self.semantic_environment.get_function_declaration(*id);
 
                 write!(f, "fn {}", declaration.name())?;

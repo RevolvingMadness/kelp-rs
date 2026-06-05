@@ -66,6 +66,20 @@ impl Diagnostic {
 
     #[inline]
     #[must_use]
+    pub fn with_optional_secondary_label(
+        self,
+        span: Option<Span>,
+        message: impl Into<String>,
+    ) -> Self {
+        let Some(span) = span else {
+            return self;
+        };
+
+        self.with_label(span, message, LabelType::Secondary)
+    }
+
+    #[inline]
+    #[must_use]
     pub fn with_no_label(self, span: Span, type_: LabelType) -> Self {
         self.inner_with_label(span, None, type_)
     }

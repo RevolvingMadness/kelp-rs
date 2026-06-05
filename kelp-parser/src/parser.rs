@@ -642,7 +642,7 @@ impl Parser<'_> {
         if self.try_bump_char(char) {
             true
         } else {
-            self.error(format!("Expected '{}'", char));
+            self.error(format!("expected '{}'", char));
 
             false
         }

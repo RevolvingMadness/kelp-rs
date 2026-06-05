@@ -203,7 +203,6 @@ pub enum SemanticAnalysisError {
         redeclaration_span: Span,
         name: String,
     },
-    PatternIsNotIrrefutable,
     TypeIsNotScoreCompatible {
         type_span: Span,
         data_type: SemanticDataType,
@@ -212,7 +211,6 @@ pub enum SemanticAnalysisError {
         type_span: Span,
         data_type: SemanticDataType,
     },
-    CannotBeAssignedToData(SemanticDataType),
     CannotBeIndexed {
         type_span: Span,
         data_type: SemanticDataType,
@@ -222,7 +220,6 @@ pub enum SemanticAnalysisError {
         target: SemanticDataType,
         index: SemanticDataType,
     },
-    IndexOutOfBounds,
     CannotBeDereferenced {
         type_span: Span,
         data_type: SemanticDataType,
@@ -277,10 +274,12 @@ pub enum SemanticAnalysisError {
         data_type: SemanticDataType,
     },
     NotARegularStruct {
+        declaration_span: Option<Span>,
         type_span: Span,
         data_type: SemanticDataType,
     },
     NotATupleStruct {
+        declaration_span: Option<Span>,
         type_span: Span,
         data_type: SemanticDataType,
     },
@@ -308,7 +307,6 @@ pub enum SemanticAnalysisError {
         span: Span,
         name: String,
     },
-    UnknownModule(String),
     TypeDoesntContainType {
         container_type_declaration_span: Option<Span>,
         container_type_kind: TypeKind,
@@ -502,16 +500,26 @@ impl SemanticAnalysisError {
             ))
             .with_primary_label(redeclaration_span, "redeclared here")
             .with_secondary_label(declaration_span, "originally declared here"),
-            Self::PatternIsNotIrrefutable => todo!(),
             Self::TypeIsNotScoreCompatible {
                 type_span,
                 data_type,
-            } => todo!(),
+            } => Diagnostic::error("type not score compatible").with_primary_label(
+                type_span,
+                format!(
+                    "the type `{}` cannot be assigned to a score",
+                    data_type.display(environment)
+                ),
+            ),
             Self::TypeIsNotDataCompatible {
                 type_span,
                 data_type,
-            } => todo!(),
-            Self::CannotBeAssignedToData(semantic_data_type) => todo!(),
+            } => Diagnostic::error("type not data compatible").with_primary_label(
+                type_span,
+                format!(
+                    "the type `{}` cannot be assigned to a data storage",
+                    data_type.display(environment)
+                ),
+            ),
             Self::CannotBeIndexed {
                 type_span,
                 data_type,
@@ -527,7 +535,6 @@ impl SemanticAnalysisError {
                 target,
                 index,
             } => todo!(),
-            Self::IndexOutOfBounds => todo!(),
             Self::CannotBeDereferenced {
                 type_span,
                 data_type,
@@ -561,41 +568,27 @@ impl SemanticAnalysisError {
                 declaration_span,
                 expected,
                 actual,
-            } => {
-                let mut diagnostic = Diagnostic::error("mismatched argument count")
-                    .with_primary_label(
-                        callee_span,
-                        format!("expected {} argument(s), found {}", expected, actual),
-                    );
-
-                if let Some(declaration_span) = declaration_span {
-                    diagnostic = diagnostic.with_secondary_label(declaration_span, "declared here");
-                }
-
-                diagnostic
-            }
+            } => Diagnostic::error("mismatched argument count")
+                .with_primary_label(
+                    callee_span,
+                    format!("expected {} argument(s), found {}", expected, actual),
+                )
+                .with_optional_secondary_label(declaration_span, "declared here"),
             Self::InvalidGenerics {
                 type_name_span,
                 item_kind: type_kind,
                 declaration_span,
                 expected,
                 actual,
-            } => {
-                let mut diagnostic = Diagnostic::error("mismatched generic count")
-                    .with_primary_label(
-                        type_name_span,
-                        format!("expected {} generic(s), found {}", expected, actual),
-                    );
-
-                if let Some(declaration_span) = declaration_span {
-                    diagnostic = diagnostic.with_secondary_label(
-                        declaration_span,
-                        format!("{} declared here", type_kind.name()),
-                    );
-                }
-
-                diagnostic
-            }
+            } => Diagnostic::error("mismatched generic count")
+                .with_primary_label(
+                    type_name_span,
+                    format!("expected {} generic(s), found {}", expected, actual),
+                )
+                .with_optional_secondary_label(
+                    declaration_span,
+                    format!("{} declared here", type_kind.name()),
+                ),
             Self::ControlFlowNotInLoop { span, kind } => {
                 Diagnostic::error("loop control flow outside loop")
                     .with_primary_label(span, format!("cannot `{}` outside of a loop", kind))
@@ -617,15 +610,31 @@ impl SemanticAnalysisError {
             Self::NotAStruct {
                 type_span,
                 data_type,
-            } => todo!(),
+            } => Diagnostic::error(format!(
+                "the type `{}` is not a struct",
+                data_type.display(environment)
+            ))
+            .with_primary_no_label(type_span),
             Self::NotARegularStruct {
+                declaration_span,
                 type_span,
                 data_type,
-            } => todo!(),
+            } => Diagnostic::error(format!(
+                "the type `{}` is not a regular struct",
+                data_type.display(environment)
+            ))
+            .with_primary_label(type_span, "expected regular struct, found tuple struct")
+            .with_optional_secondary_label(declaration_span, "struct declared here"),
             Self::NotATupleStruct {
+                declaration_span,
                 type_span,
                 data_type,
-            } => todo!(),
+            } => Diagnostic::error(format!(
+                "the type `{}` is not a tuple struct",
+                data_type.display(environment)
+            ))
+            .with_primary_label(type_span, "expected tuple struct, found regular struct")
+            .with_optional_secondary_label(declaration_span, "struct declared here"),
             Self::MismatchedTupleStructFieldCount {
                 name_span,
                 struct_id: name,
@@ -645,55 +654,40 @@ impl SemanticAnalysisError {
                     .with_primary_no_label(span)
             }
             Self::UnknownItem { span, name } => todo!(),
-            Self::UnknownModule(_) => todo!(),
             Self::TypeDoesntContainType {
                 container_type_declaration_span,
                 container_type_kind,
                 container_type_name,
                 type_span,
                 type_name,
-            } => {
-                let mut diagnostic = Diagnostic::error(format!(
-                    "type `{}` not found in {} `{}`",
-                    type_name,
-                    container_type_kind.name(),
-                    container_type_name
-                ))
-                .with_primary_no_label(type_span);
-
-                if let Some(type_declaration_span) = container_type_declaration_span {
-                    diagnostic = diagnostic.with_secondary_label(
-                        type_declaration_span,
-                        format!("{} declared here", container_type_kind.name()),
-                    );
-                }
-
-                diagnostic
-            }
+            } => Diagnostic::error(format!(
+                "type `{}` not found in {} `{}`",
+                type_name,
+                container_type_kind.name(),
+                container_type_name
+            ))
+            .with_primary_no_label(type_span)
+            .with_optional_secondary_label(
+                container_type_declaration_span,
+                format!("{} declared here", container_type_kind.name()),
+            ),
             Self::TypeDoesntContainValue {
                 type_declaration_span,
                 type_kind,
                 type_name,
                 value_span,
                 value_name,
-            } => {
-                let mut diagnostic = Diagnostic::error(format!(
-                    "value `{}` not found in {} `{}`",
-                    value_name,
-                    type_kind.name(),
-                    type_name
-                ))
-                .with_primary_no_label(value_span);
-
-                if let Some(type_declaration_span) = type_declaration_span {
-                    diagnostic = diagnostic.with_secondary_label(
-                        type_declaration_span,
-                        format!("{} declared here", type_kind.name()),
-                    );
-                }
-
-                diagnostic
-            }
+            } => Diagnostic::error(format!(
+                "value `{}` not found in {} `{}`",
+                value_name,
+                type_kind.name(),
+                type_name
+            ))
+            .with_primary_no_label(value_span)
+            .with_optional_secondary_label(
+                type_declaration_span,
+                format!("{} declared here", type_kind.name()),
+            ),
             Self::TypeDoesntContainItems {
                 type_span,
                 type_kind,

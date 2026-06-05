@@ -1,5 +1,6 @@
 use crate::parsed::data_type::ParsedDataType;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
+use crate::parsed::semantic_analysis::info::error::ItemKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighGenericId;
 use crate::span::Span;
@@ -26,7 +27,7 @@ impl ParsedTypeAliasDeclaration {
         if actual_generics != expected_generics {
             return ctx.add_invalid_generics_type(
                 name_span,
-                self.name,
+                Some(self.name_span),
                 expected_generics,
                 actual_generics,
             );

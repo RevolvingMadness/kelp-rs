@@ -5,7 +5,7 @@ use kelp_core::{
 
 use crate::{
     cst::CSTBinaryExpression,
-    extension_traits::{AstNodeExt, LowerableAstNode},
+    extension_traits::{AstNodeExt, LowerableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     syntax::SyntaxKind,
 };
@@ -17,6 +17,7 @@ impl LowerableAstNode for CSTBinaryExpression {
         let left = self.lhs()?.lower(ctx)?;
         let right = self.rhs()?.lower(ctx)?;
         let operator = self.operator()?;
+        let operator_span = operator.span();
 
         Some(
             (match operator.kind() {
@@ -41,7 +42,13 @@ impl LowerableAstNode for CSTBinaryExpression {
                         SyntaxKind::RightArrowRightArrow => ArithmeticOperator::RightShift,
                         _ => unreachable!(),
                     };
-                    ParsedExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
+
+                    ParsedExpressionKind::Arithmetic(
+                        Box::new(left),
+                        operator_span,
+                        operator,
+                        Box::new(right),
+                    )
                 }
                 SyntaxKind::EqualEqual
                 | SyntaxKind::ExclamationMarkEqual
@@ -58,7 +65,12 @@ impl LowerableAstNode for CSTBinaryExpression {
                         SyntaxKind::LeftArrowEqual => ComparisonOperator::LessThanOrEqualTo,
                         _ => unreachable!(),
                     };
-                    ParsedExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
+                    ParsedExpressionKind::Comparison(
+                        Box::new(left),
+                        operator_span,
+                        operator,
+                        Box::new(right),
+                    )
                 }
                 SyntaxKind::AmpersandAmpersand | SyntaxKind::PipePipe => {
                     let operator = match operator.kind() {
@@ -66,7 +78,12 @@ impl LowerableAstNode for CSTBinaryExpression {
                         SyntaxKind::PipePipe => LogicalOperator::Or,
                         _ => unreachable!(),
                     };
-                    ParsedExpressionKind::Logical(Box::new(left), operator, Box::new(right))
+                    ParsedExpressionKind::Logical(
+                        Box::new(left),
+                        operator_span,
+                        operator,
+                        Box::new(right),
+                    )
                 }
                 _ => return None,
             })

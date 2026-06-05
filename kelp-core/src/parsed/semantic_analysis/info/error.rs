@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::operator::UnaryOperator;
 use crate::parsed::semantic_analysis::info::diagnostic::{Diagnostic, LabelType};
 use crate::semantic::data_type::SemanticDataType;
@@ -9,377 +11,64 @@ use crate::{
     semantic::statement::LoopControlFlowKind,
 };
 
+#[derive(Debug, Clone, Copy)]
+pub enum ItemKind {
+    Type,
+    Value,
+}
+
+impl Display for ItemKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Type => "type",
+            Self::Value => "value",
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TypeKind {
+    Module,
+    Struct,
+    Alias,
+    Generic,
+    Builtin,
+}
+
+impl TypeKind {
+    #[must_use]
+    pub const fn name(&self) -> &str {
+        match self {
+            Self::Module => "module",
+            Self::Struct => "struct",
+            Self::Alias => "alias",
+            Self::Generic => "generic",
+            Self::Builtin => "builtin",
+        }
+    }
+
+    #[must_use]
+    pub const fn name_plural(&self) -> &str {
+        match self {
+            Self::Module => "modules",
+            Self::Struct => "structs",
+            Self::Alias => "type aliases",
+            Self::Generic => "type generics",
+            Self::Builtin => "builtin types",
+        }
+    }
+}
+
 pub struct SemanticAnalysisErrorDisplay<'a> {
     pub error: &'a SemanticAnalysisError,
     pub semantic_environment: &'a SemanticEnvironment,
 }
 
-// impl Display for SemanticAnalysisErrorDisplay<'_> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match &self.error {
-//             Self::InherentImplRequiresNomialType => {
-//                 f.write_str("An inherent `impl` requires a nomial type")
-//             }
-//             Self::FunctionTypesNotAllRuntime => {
-//                 f.write_str("Every type in a `runtime` function signature must be runtime")
-//             }
-//             Self::FunctionTypesNotAllData => {
-//                 f.write_str("Every type in a `recursive` function signature must be `data<_>`")
-//             }
-//             Self::RecursiveFunctionNotRuntime => {
-//                 f.write_str("A function marked as `recursive` must also be marked as `runtime`")
-//             }
-//             Self::CannotPerformArithmeticOperation {
-//                 left,
-//                 operator,
-//                 right,
-//             } => {
-//                 write!(
-//                     f,
-//                     "Cannot perform: `{}` {} `{}`",
-//                     left.display(self.semantic_environment),
-//                     operator,
-//                     right.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotPerformComparisonOperation {
-//                 left,
-//                 operator,
-//                 right,
-//             } => {
-//                 write!(
-//                     f,
-//                     "Cannot perform: `{}` {} `{}`",
-//                     left.display(self.semantic_environment),
-//                     operator,
-//                     right.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotPerformAugmentedAssignment(data_type) => {
-//                 write!(
-//                     f,
-//                     "Cannot perform augmented assignment on type `{}`",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::MismatchedPatternTypes { expected, actual } => {
-//                 write!(
-//                     f,
-//                     "Expected type `{}` but got `{}`",
-//                     expected.display(self.semantic_environment),
-//                     actual
-//                 )
-//             }
-//             Self::UnderscoreExpression => write!(
-//                 f,
-//                 "The underscore expression can only be used as an assignee"
-//             ),
-//             Self::CannotIterateType(data_type) => {
-//                 write!(
-//                     f,
-//                     "Cannot iterate over type `{}`",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::MismatchedTypes { expected, actual } => {
-//                 write!(
-//                     f,
-//                     "Expected type `{}` but got `{}`",
-//                     expected.display(self.semantic_environment),
-//                     actual.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::InvalidAugmentedAssignmentType(op, target, value) => {
-//                 write!(
-//                     f,
-//                     "Cannot {}-assign type `{}` to type `{}`",
-//                     op.name(),
-//                     value.display(self.semantic_environment),
-//                     target.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotCastType { from, to } => {
-//                 write!(
-//                     f,
-//                     "Cannot cast type `{}` to `{}`",
-//                     from.display(self.semantic_environment),
-//                     to.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotUseReturnInCompiletimeFunction => {
-//                 write!(
-//                     f,
-//                     "`return` can only be used in functions marked as `runtime`"
-//                 )
-//             }
-//             Self::CannotBeRepresentedAsFloat(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be represented as a float",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::RecursiveFunctionCall => f.write_str(
-//                 "Recursive function calls can only be used inside functions marked as `recursive`",
-//             ),
-//             Self::CompiletimeValueMutationInRuntimeLoop => {
-//                 f.write_str("Cannot mutate a compile-time value in a runtime loop")
-//             }
-//             Self::MissingKey(key) => write!(f, "Missing key `{}`", key),
-//             Self::UnexpectedKey(key) => write!(f, "Unexpected key `{}`", key),
-//             Self::MissingField(field) => {
-//                 write!(f, "Missing field `{}`", field)
-//             }
-//             Self::TypeAlreadyDeclared(name) => {
-//                 write!(
-//                     f,
-//                     "A type with the name `{}` has already been declared",
-//                     name
-//                 )
-//             }
-//             Self::ValueAlreadyDeclared(name) => {
-//                 write!(
-//                     f,
-//                     "A value with the name `{}` has already been declared",
-//                     name
-//                 )
-//             }
-//             Self::PatternIsNotIrrefutable => {
-//                 write!(f, "This pattern is not irrefutable")
-//             }
-//             Self::TypeIsNotCondition(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be used in conditions",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::TypeIsNotScoreCompatible(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` is not score compatible",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::TypeIsNotDataCompatible(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` is not data compatible",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotBeAssignedToData(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be assigned to data storage",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotBeIndexed(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be indexed",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotBeIndexedByType { target, index } => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be indexed by `{}`",
-//                     target.display(self.semantic_environment),
-//                     index.display(self.semantic_environment),
-//                 )
-//             }
-//             Self::IndexOutOfBounds => write!(f, "Index out of bounds"),
-//             Self::CannotBeDereferenced(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be dereferenced",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotBeReferenced(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be referenced",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::ExpressionIsNotAPlace => {
-//                 write!(f, "This expression is not a place")
-//             }
-//             Self::ExpressionIsNotAnAssignee => {
-//                 write!(f, "This expression is not an assignee")
-//             }
-//             Self::TypeDoesntHaveFields(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` does not have any fields",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotNegateType(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be negated",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::CannotInvertType(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` cannot be inverted",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::TypeDoesntHaveField { data_type, field } => {
-//                 write!(
-//                     f,
-//                     "The type `{}` does not have a field named `{}`",
-//                     data_type.display(self.semantic_environment),
-//                     field
-//                 )
-//             }
-//             Self::MismatchedParameterCount {
-//                 function_name,
-//                 expected,
-//                 actual,
-//             } => {
-//                 let s = if *expected == 1 { "" } else { "s" };
-//                 let was_were = if *actual == 1 { "was" } else { "were" };
-
-//                 if let Some(function_name) = function_name {
-//                     write!(
-//                         f,
-//                         "The function `{}` takes {} parameter{} but {} {} given",
-//                         function_name, expected, s, actual, was_were
-//                     )
-//                 } else {
-//                     write!(
-//                         f,
-//                         "Epxected {} parameter{} but {} {} given",
-//                         expected, s, actual, was_were
-//                     )
-//                 }
-//             }
-//             Self::InvalidGenerics {
-//                 type_name,
-//                 expected,
-//                 actual,
-//             } => {
-//                 let s = if *expected == 1 { "" } else { "s" };
-//                 let was_were = if *actual == 1 { "was" } else { "were" };
-//                 write!(
-//                     f,
-//                     "`{}` takes {} generic argument{} but {} {} given",
-//                     type_name, expected, s, actual, was_were
-//                 )
-//             }
-//             Self::MacroConflict => {
-//                 write!(
-//                     f,
-//                     "This string conflicts with the compiler-generated command macros"
-//                 )
-//             }
-//             Self::ControlFlowNotInLoop(kind) => {
-//                 write!(f, "Cannot `{}` outside of a loop", kind.name())
-//             }
-//             Self::ExpressionIsNotCallable => f.write_str("This expression is not callable"),
-//             Self::NotAFunction(name) => write!(f, "`{}` is not a function", name),
-//             Self::NotAType(name) => write!(f, "`{}` is not a type", name),
-//             Self::NotAStruct(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` is not a struct",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::NotARegularStruct(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` is not a regular struct",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::NotATupleStruct(data_type) => {
-//                 write!(
-//                     f,
-//                     "The type `{}` is not a tuple struct",
-//                     data_type.display(self.semantic_environment)
-//                 )
-//             }
-//             Self::MismatchedTupleStructFieldCount(name, expected, actual) => {
-//                 let s = if *expected == 1 { "" } else { "s" };
-//                 let was_were = if *actual == 1 { "was" } else { "were" };
-
-//                 write!(
-//                     f,
-//                     "The tuple struct `{}` requires {} field{} but only {} {} passed",
-//                     name, expected, s, actual, was_were
-//                 )
-//             }
-//             Self::NotAModule(name) => {
-//                 write!(f, "The type `{}` is not a module", name)
-//             }
-//             Self::TypeNotPublic(name) => {
-//                 write!(f, "The type `{}` is not public", name)
-//             }
-//             Self::ValueNotPublic(name) => {
-//                 write!(f, "The value `{}` is not public", name)
-//             }
-//             Self::UnknownType(name) => write!(f, "Unknown type `{}`", name),
-//             Self::UnknownValue(name) => write!(f, "Unknown value `{}`", name),
-//             Self::UnknownItem(name) => write!(f, "Unknown item `{}`", name),
-//             Self::UnknownModule(name) => {
-//                 write!(f, "Unknown module `{}`", name)
-//             }
-//             Self::TypeDoesntContainType {
-//                 container_type_name,
-//                 type_name,
-//             } => write!(
-//                 f,
-//                 "The type `{}` does not contain a type named `{}`",
-//                 container_type_name, type_name
-//             ),
-//             Self::TypeDoesntContainValue {
-//                 type_name,
-//                 value_name,
-//             } => write!(
-//                 f,
-//                 "The type `{}` does not contain a value named `{}`",
-//                 type_name, value_name
-//             ),
-//             Self::MethodNotFound {
-//                 type_name,
-//                 method_name,
-//             } => write!(
-//                 f,
-//                 "The type `{}` does not contain a method named `{}`",
-//                 type_name.display(self.semantic_environment),
-//                 method_name
-//             ),
-//             Self::TypeDoesntContainItems { type_name } => {
-//                 write!(f, "The type `{}` does not contain any items", type_name)
-//             }
-//             Self::ModuleDoesntContainItem {
-//                 module_name,
-//                 item_name,
-//             } => write!(
-//                 f,
-//                 "The module `{}` does not contain an item named `{}`",
-//                 module_name, item_name
-//             ),
-//             Self::MethodNotInImpl => {
-//                 f.write_str("Functions with a `self` parameter can only be used in `impl` blocks")
-//             }
-//         }
-//     }
-// }
-
 #[derive(Debug, Clone)]
 pub enum SemanticAnalysisError {
     MethodNotInImpl {
-        span: Span,
+        method_name_span: Span,
+        self_keyword_span: Span,
     },
     InherentImplRequiresNomialType {
         type_span: Span,
@@ -401,12 +90,11 @@ pub enum SemanticAnalysisError {
         right: SemanticDataType,
     },
     CannotPerformComparisonOperation {
-        span: Span,
         left: SemanticDataType,
+        operator_span: Span,
         operator: ComparisonOperator,
         right: SemanticDataType,
     },
-    CannotPerformAugmentedAssignment(SemanticDataType),
     MismatchedPatternTypes {
         span: Span,
         expected: SemanticDataType,
@@ -424,7 +112,6 @@ pub enum SemanticAnalysisError {
         expected: SemanticDataType,
         actual: SemanticDataType,
     },
-    InvalidAugmentedAssignmentType(ArithmeticOperator, SemanticDataType, SemanticDataType),
     CannotCastType {
         span: Span,
         from: SemanticDataType,
@@ -434,10 +121,6 @@ pub enum SemanticAnalysisError {
         function_declaration_span: Span,
         return_keyword_span: Span,
     },
-    CannotBeRepresentedAsFloat {
-        type_span: Span,
-        data_type: SemanticDataType,
-    },
     RecursiveFunctionCall {
         declaration_span: Span,
         span: Span,
@@ -445,8 +128,6 @@ pub enum SemanticAnalysisError {
     CompiletimeValueMutationInRuntimeLoop {
         value_span: Span,
     },
-    MissingKey(String),
-    UnexpectedKey(String),
     MissingField {
         span: Span,
         name: String,
@@ -462,10 +143,6 @@ pub enum SemanticAnalysisError {
         name: String,
     },
     PatternIsNotIrrefutable,
-    TypeIsNotCondition {
-        type_span: Span,
-        data_type: SemanticDataType,
-    },
     TypeIsNotScoreCompatible {
         type_span: Span,
         data_type: SemanticDataType,
@@ -510,13 +187,13 @@ pub enum SemanticAnalysisError {
     },
     MismatchedParameterCount {
         callee_span: Span,
-        callee_name: Option<String>,
+        declaration_span: Option<Span>,
         expected: usize,
         actual: usize,
     },
     InvalidGenerics {
-        type_span: Span,
-        type_name: String,
+        name_span: Span,
+        declaration_span: Option<Span>,
         expected: usize,
         actual: usize,
     },
@@ -527,8 +204,8 @@ pub enum SemanticAnalysisError {
     },
     ExpressionIsNotCallable {
         callee_span: Span,
+        callee_type: SemanticDataType,
     },
-    NotAFunction(String),
     NotAType {
         type_span: Span,
         type_name: String,
@@ -575,7 +252,8 @@ pub enum SemanticAnalysisError {
         type_name: String,
     },
     TypeDoesntContainItems {
-        type_name: String,
+        type_span: Span,
+        type_kind: TypeKind,
     },
     TypeDoesntContainValue {
         type_name: String,
@@ -596,7 +274,18 @@ impl SemanticAnalysisError {
     #[must_use]
     pub fn into_diagnostic(self, environment: &SemanticEnvironment) -> Diagnostic {
         match self {
-            Self::MethodNotInImpl { span } => todo!(),
+            Self::MethodNotInImpl {
+                method_name_span,
+                self_keyword_span,
+            } => Diagnostic::error("method not declared in `impl`")
+                .with_primary_label(
+                    method_name_span,
+                    "methods can only be declared in `impl` blocks",
+                )
+                .with_secondary_label(
+                    self_keyword_span,
+                    "function is a method because of `self` parameter",
+                ),
             Self::InherentImplRequiresNomialType {
                 type_span,
                 data_type,
@@ -609,13 +298,12 @@ impl SemanticAnalysisError {
             ),
             Self::FunctionTypesNotAllRuntime {
                 runtime_keyword_span,
-            } => Diagnostic::error(
-                "all types of a function marked as `runtime` must also be runtime",
-            )
-            .with_primary_no_label(runtime_keyword_span),
+            } => Diagnostic::error("all types of a `runtime` function must be runtime")
+                .with_primary_no_label(runtime_keyword_span),
             Self::FunctionTypesNotAllData {
                 recursive_keyword_span,
-            } => todo!(),
+            } => Diagnostic::error("all types of a `recursive` function must be `data`")
+                .with_primary_no_label(recursive_keyword_span),
             Self::RecursiveFunctionNotRuntime { keyword_span } => {
                 Diagnostic::error("`recursive` functions must also be marked as `runtime`")
                     .with_primary_label(
@@ -628,20 +316,47 @@ impl SemanticAnalysisError {
                 operator_span,
                 operator,
                 right,
-            } => todo!(),
+            } => Diagnostic::error(format!("invalid operands for operator `{}`", operator))
+                .with_primary_label(
+                    operator_span,
+                    format!(
+                        "cannot perform `{}` {} `{}`",
+                        left.display(environment),
+                        operator,
+                        right.display(environment)
+                    ),
+                ),
             Self::CannotPerformComparisonOperation {
-                span,
                 left,
+                operator_span,
                 operator,
                 right,
-            } => todo!(),
-            Self::CannotPerformAugmentedAssignment(semantic_data_type) => todo!(),
+            } => Diagnostic::error(format!("invalid operands for operator `{}`", operator))
+                .with_primary_label(
+                    operator_span,
+                    format!(
+                        "cannot perform `{}` {} `{}`",
+                        left.display(environment),
+                        operator,
+                        right.display(environment)
+                    ),
+                ),
             Self::MismatchedPatternTypes {
                 span,
                 expected,
                 actual,
-            } => todo!(),
-            Self::UnderscoreExpression { span } => todo!(),
+            } => Diagnostic::error("mismatched pattern types").with_primary_label(
+                span,
+                format!(
+                    "expected `{}`, found `{}`",
+                    expected.display(environment),
+                    actual
+                ),
+            ),
+            Self::UnderscoreExpression { span } => {
+                Diagnostic::error("invalid usage of underscore expression")
+                    .with_primary_label(span, "underscore expressions can only be used as places")
+            }
             Self::CannotIterateType {
                 type_span,
                 data_type,
@@ -664,12 +379,16 @@ impl SemanticAnalysisError {
                     actual.display(environment)
                 ),
             ),
-            Self::InvalidAugmentedAssignmentType(
-                arithmetic_operator,
-                semantic_data_type,
-                semantic_data_type1,
-            ) => todo!(),
-            Self::CannotCastType { span, from, to } => todo!(),
+            Self::CannotCastType { span, from, to } => {
+                Diagnostic::error("cannot cast between types").with_primary_label(
+                    span,
+                    format!(
+                        "cannot cast from type `{}` to `{}`",
+                        from.display(environment),
+                        to.display(environment)
+                    ),
+                )
+            }
             Self::CannotUseReturnInCompiletimeFunction {
                 function_declaration_span,
                 return_keyword_span,
@@ -679,10 +398,6 @@ impl SemanticAnalysisError {
                     function_declaration_span,
                     "function declared here without `runtime` modifier",
                 ),
-            Self::CannotBeRepresentedAsFloat {
-                type_span,
-                data_type,
-            } => todo!(),
             Self::RecursiveFunctionCall {
                 declaration_span,
                 span,
@@ -695,8 +410,6 @@ impl SemanticAnalysisError {
                 "function declared here without `recursive` modifier",
             ),
             Self::CompiletimeValueMutationInRuntimeLoop { value_span } => todo!(),
-            Self::MissingKey(_) => todo!(),
-            Self::UnexpectedKey(_) => todo!(),
             Self::MissingField { span, name } => {
                 Diagnostic::error(format!("missing required field `{}`", name))
                     .with_primary_no_label(span)
@@ -710,17 +423,18 @@ impl SemanticAnalysisError {
                 name
             ))
             .with_primary_label(redeclaration_span, "redeclared here")
-            .with_secondary_label(declaration_span, "declared here"),
+            .with_secondary_label(declaration_span, "originally declared here"),
             Self::ValueAlreadyDeclared {
                 declaration_span,
-                redeclaration_span: span,
+                redeclaration_span,
                 name,
-            } => todo!(),
+            } => Diagnostic::error(format!(
+                "the value `{}` has already been declared in this scope",
+                name
+            ))
+            .with_primary_label(redeclaration_span, "redeclared here")
+            .with_secondary_label(declaration_span, "originally declared here"),
             Self::PatternIsNotIrrefutable => todo!(),
-            Self::TypeIsNotCondition {
-                type_span,
-                data_type,
-            } => todo!(),
             Self::TypeIsNotScoreCompatible {
                 type_span,
                 data_type,
@@ -733,7 +447,13 @@ impl SemanticAnalysisError {
             Self::CannotBeIndexed {
                 type_span,
                 data_type,
-            } => todo!(),
+            } => Diagnostic::error("type is not indexable").with_primary_label(
+                type_span,
+                format!(
+                    "the type `{}` cannot be indexed",
+                    data_type.display(environment)
+                ),
+            ),
             Self::TypeCannotBeIndexedByType {
                 target_span,
                 target,
@@ -770,19 +490,60 @@ impl SemanticAnalysisError {
             } => todo!(),
             Self::MismatchedParameterCount {
                 callee_span,
-                callee_name,
+                declaration_span,
                 expected,
                 actual,
-            } => todo!(),
+            } => {
+                let mut diagnostic = Diagnostic::error("mismatched argument count")
+                    .with_primary_label(
+                        callee_span,
+                        format!("expected {} argument(s), found {}", expected, actual),
+                    );
+
+                if let Some(declaration_span) = declaration_span {
+                    diagnostic = diagnostic.with_secondary_label(declaration_span, "declared here");
+                }
+
+                diagnostic
+            }
             Self::InvalidGenerics {
-                type_span,
-                type_name,
+                name_span: span,
+                declaration_span,
                 expected,
                 actual,
-            } => todo!(),
-            Self::ControlFlowNotInLoop { span, kind } => todo!(),
-            Self::ExpressionIsNotCallable { callee_span } => todo!(),
-            Self::NotAFunction(_) => todo!(),
+            } => {
+                let mut diagnostic = Diagnostic::error("mismatched generic type argument count")
+                    .with_primary_label(
+                        span,
+                        format!(
+                            "expected {} generic type argument(s), found {}",
+                            expected, actual
+                        ),
+                    );
+
+                if let Some(declaration_span) = declaration_span {
+                    diagnostic = diagnostic.with_secondary_label(
+                        declaration_span,
+                        format!("declared here with {} generic type parameter(s)", expected),
+                    );
+                }
+
+                diagnostic
+            }
+            Self::ControlFlowNotInLoop { span, kind } => {
+                Diagnostic::error("loop control flow outside loop")
+                    .with_primary_label(span, format!("cannot `{}` outside of a loop", kind))
+            }
+            Self::ExpressionIsNotCallable {
+                callee_span,
+                callee_type,
+            } => Diagnostic::error("type is not callable").with_primary_label(
+                callee_span,
+                format!(
+                    "the type `{}` cannot be called",
+                    callee_type.display(environment)
+                ),
+            ),
             Self::NotAType {
                 type_span,
                 type_name,
@@ -822,7 +583,14 @@ impl SemanticAnalysisError {
                 container_type_name,
                 type_name,
             } => todo!(),
-            Self::TypeDoesntContainItems { type_name } => todo!(),
+            Self::TypeDoesntContainItems {
+                type_span,
+                type_kind,
+            } => Diagnostic::error(format!(
+                "{} do not contain any items",
+                type_kind.name_plural()
+            ))
+            .with_primary_no_label(type_span),
             Self::TypeDoesntContainValue {
                 type_name,
                 value_name,

@@ -33,7 +33,7 @@ impl ParsableAstNode for CSTInherentImplementationItem {
 
         parser.skip_whitespace();
 
-        if !parser.expect_char('{', "Expected '{'") {
+        if !parser.expect_char('{') {
             state.restore(parser);
             return false;
         }
@@ -48,7 +48,7 @@ impl ParsableAstNode for CSTInherentImplementationItem {
             CSTAssociatedItem::expect(parser, "Expected associated item");
         }
 
-        parser.expect_char('}', "Expected '}'");
+        parser.expect_char('}');
         parser.finish_node();
 
         true

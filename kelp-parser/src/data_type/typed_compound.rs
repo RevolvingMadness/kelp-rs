@@ -24,7 +24,7 @@ pub fn try_parse_typed_compound_data_type(parser: &mut Parser) -> bool {
         }
 
         parser.skip_whitespace();
-        parser.expect_char(':', "Expected ':' after field name");
+        parser.expect_char(':');
         parser.skip_whitespace();
 
         CSTDataType::expect(parser, "Expected data type");
@@ -39,7 +39,7 @@ pub fn try_parse_typed_compound_data_type(parser: &mut Parser) -> bool {
         }
     }
 
-    parser.expect_char('}', "Expected closing brace '}'");
+    parser.expect_char('}');
     parser.finish_node();
     true
 }

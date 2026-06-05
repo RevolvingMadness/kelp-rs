@@ -175,34 +175,36 @@ impl TypedItem {
                         parameter_types_are_runtime && return_type_is_runtime
                     };
 
-                    if !all_types_are_runtime {
+                    if all_types_are_runtime {
+                        if let Some(recursive_keyword_span) = recursive_keyword_span {
+                            let all_types_are_data = {
+                                let parameter_types_valid =
+                                    parameters.iter().all(|(_, parameter_type)| {
+                                        matches!(parameter_type, SemanticDataType::Data(..))
+                                    });
+
+                                let return_type_valid =
+                                    matches!(return_type, SemanticDataType::Data(..));
+
+                                parameter_types_valid && return_type_valid
+                            };
+
+                            if !all_types_are_data {
+                                ctx.add_error_unit(
+                                    SemanticAnalysisError::FunctionTypesNotAllData {
+                                        recursive_keyword_span,
+                                    },
+                                );
+
+                                failed = true;
+                            }
+                        }
+                    } else {
                         ctx.add_error_unit(SemanticAnalysisError::FunctionTypesNotAllRuntime {
                             runtime_keyword_span,
                         });
 
                         failed = true;
-                    }
-
-                    if let Some(recursive_keyword_span) = recursive_keyword_span {
-                        let all_types_are_data = {
-                            let parameter_types_valid =
-                                parameters.iter().all(|(_, parameter_type)| {
-                                    matches!(parameter_type, SemanticDataType::Data(..))
-                                });
-
-                            let return_type_valid =
-                                matches!(return_type, SemanticDataType::Data(..));
-
-                            parameter_types_valid && return_type_valid
-                        };
-
-                        if !all_types_are_data {
-                            ctx.add_error_unit(SemanticAnalysisError::FunctionTypesNotAllData {
-                                recursive_keyword_span,
-                            });
-
-                            failed = true;
-                        }
                     }
                 } else if let Some(keyword_span) = recursive_keyword_span {
                     ctx.add_error_unit(SemanticAnalysisError::RecursiveFunctionNotRuntime {

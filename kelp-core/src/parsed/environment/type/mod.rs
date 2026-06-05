@@ -4,6 +4,7 @@ use crate::parsed::environment::{
     r#type::builtin_data_type::ParsedBuiltinTypeDeclaration,
     r#type::module::ParsedModuleDeclaration, r#type::r#struct::ParsedStructDeclaration,
 };
+use crate::parsed::semantic_analysis::info::error::ItemKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::{HighGenericId, HighVisibleTypeId};
@@ -35,7 +36,7 @@ impl ParsedTypeDeclarationKind {
             Self::Module(declaration) => return declaration.name_span,
             Self::Struct(declaration) => declaration.name_span(),
             Self::Alias(declaration) => declaration.name_span,
-            Self::Generic(declaration) => declaration.span,
+            Self::Generic(declaration) => declaration.name_span,
             Self::Builtin(..) => return None,
         })
     }
@@ -88,7 +89,7 @@ impl ParsedTypeDeclaration {
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
                         name_span,
-                        declaration.name,
+                        Some(declaration.name_span),
                         expected_generics,
                         actual_generics,
                     );

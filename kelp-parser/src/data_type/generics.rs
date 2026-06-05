@@ -35,7 +35,7 @@ impl ParsableAstNode for CSTGenericNames {
             }
         }
 
-        parser.expect_char('>', "Expected closing angle bracket '>'");
+        parser.expect_char('>');
 
         parser.finish_node();
 
@@ -85,7 +85,7 @@ impl ParsableAstNode for CSTGenericDataTypes {
             }
         }
 
-        parser.expect_char('>', "Expected closing angle bracket '>'");
+        parser.expect_char('>');
 
         parser.finish_node();
 

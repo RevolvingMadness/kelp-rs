@@ -128,7 +128,7 @@ impl ParsedItem {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
-                                span,
+                                name_span: span,
                                 name,
                             }),
                         );
@@ -212,7 +212,7 @@ impl ParsedItem {
             } => {
                 if let Some(declaration_span) = ctx
                     .current_scope()
-                    .get_type_declaration_span(&ctx.parsed_environment, &name)
+                    .get_value_declaration_span(&ctx.parsed_environment, &name)
                 {
                     return ctx.add_error(SemanticAnalysisError::ValueAlreadyDeclared {
                         declaration_span,
@@ -230,7 +230,7 @@ impl ParsedItem {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
-                                span,
+                                name_span: span,
                                 name,
                             }),
                         );
@@ -245,6 +245,7 @@ impl ParsedItem {
                     self.visibility,
                     ParsedValueDeclarationKind::Function(Box::new(
                         ParsedFunctionDeclaration::Regular(ParsedRegularFunctionDeclaration {
+                            name_span,
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),
                         }),
@@ -300,7 +301,7 @@ impl ParsedItem {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
-                                span,
+                                name_span: span,
                                 name,
                             }),
                         );
@@ -356,7 +357,7 @@ impl ParsedItem {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
-                                span,
+                                name_span: span,
                                 name,
                             }),
                         );
@@ -413,7 +414,7 @@ impl ParsedItem {
                         let id = ctx.declare_parsed_type(
                             Visibility::Public,
                             ParsedTypeDeclarationKind::Generic(ParsedGenericDeclaration {
-                                span,
+                                name_span: span,
                                 name,
                             }),
                         );

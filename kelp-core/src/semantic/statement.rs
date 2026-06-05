@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::compile_context::{LoopInfo, LoopType};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::expression::SemanticExpression;
@@ -31,13 +33,12 @@ pub enum LoopControlFlowKind {
     Continue,
 }
 
-impl LoopControlFlowKind {
-    #[must_use]
-    pub const fn name(&self) -> &str {
-        match self {
+impl Display for LoopControlFlowKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
             Self::Break => "break",
             Self::Continue => "continue",
-        }
+        })
     }
 }
 

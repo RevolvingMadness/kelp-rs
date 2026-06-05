@@ -76,7 +76,7 @@ macro_rules! check_error {
 #[derive(Debug, Clone)]
 pub struct CallInfo {
     pub id: Option<HighFunctionId>,
-    pub name: Option<String>,
+    pub declaration_span: Option<Span>,
     pub parameter_types: Vec<SemanticDataType>,
     pub return_type: SemanticDataType,
 }
@@ -749,7 +749,7 @@ impl SemanticDataType {
                 match declaration {
                     SemanticFunctionDeclaration::Regular(declaration) => CallInfo {
                         id: Some(*id),
-                        name: Some(declaration.name.clone()),
+                        declaration_span: Some(declaration.name_span),
                         parameter_types: declaration
                             .parameters
                             .iter()
@@ -766,7 +766,7 @@ impl SemanticDataType {
                     },
                     SemanticFunctionDeclaration::Builtin(declaration) => CallInfo {
                         id: None,
-                        name: Some(declaration.name.clone()),
+                        declaration_span: None,
                         parameter_types: declaration
                             .parameters
                             .iter()
@@ -785,30 +785,12 @@ impl SemanticDataType {
             }
             Self::ResourceLocation => CallInfo {
                 id: None,
-                name: None,
+                declaration_span: None,
                 return_type: Self::Integer,
                 parameter_types: Vec::new(),
             },
             _ => return Some(None),
         }))
-    }
-
-    #[must_use]
-    pub fn can_be_represented_as_snbt_float_macro(&self) -> bool {
-        match self {
-            Self::Score(data_type) | Self::Data(data_type) | Self::Reference(data_type) => {
-                data_type.can_be_represented_as_snbt_float_macro()
-            }
-            Self::Byte
-            | Self::Short
-            | Self::Integer
-            | Self::Long
-            | Self::Float
-            | Self::Double
-            | Self::InferredInteger
-            | Self::InferredFloat => true,
-            _ => false,
-        }
     }
 
     #[must_use]
@@ -1078,12 +1060,6 @@ impl SemanticDataType {
 
             _ => self == data_type,
         }
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn is_condition(&self) -> bool {
-        matches!(self, Self::Error | Self::Boolean)
     }
 
     #[must_use]
@@ -1608,25 +1584,6 @@ impl SemanticDataType {
     }
 
     #[must_use]
-    pub fn assert_can_perform_augmented_assignment(
-        &self,
-        ctx: &mut SemanticAnalysisContext,
-        operator: ArithmeticOperator,
-        value_span: Span,
-        value_type: &Self,
-    ) -> Option<()> {
-        if self.can_perform_augmented_assignment(value_type) {
-            return Some(());
-        }
-
-        ctx.add_error(SemanticAnalysisError::InvalidAugmentedAssignmentType(
-            operator,
-            self.clone(),
-            value_type.clone(),
-        ))
-    }
-
-    #[must_use]
     pub fn assert_equals(
         &self,
         ctx: &mut SemanticAnalysisContext,
@@ -1678,13 +1635,14 @@ impl SemanticDataType {
 
     #[must_use]
     pub fn assert_condition(&self, ctx: &mut SemanticAnalysisContext, span: Span) -> Option<()> {
-        if self.is_condition() {
+        if *self == Self::Boolean {
             return Some(());
         }
 
-        ctx.add_error(SemanticAnalysisError::TypeIsNotCondition {
-            type_span: span,
-            data_type: self.clone(),
+        ctx.add_error(SemanticAnalysisError::MismatchedTypes {
+            span,
+            expected: Self::Boolean,
+            actual: self.clone(),
         })
     }
 }

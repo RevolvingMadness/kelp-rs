@@ -386,7 +386,8 @@ impl NamedItem {
                 let self_parameter = self_parameter.map(|parameter| {
                     let data_type = if ctx.impl_generic_ids.is_empty() {
                         ctx.add_error_type(SemanticAnalysisError::MethodNotInImpl {
-                            span: parameter.pattern_span,
+                            method_name_span: name_span,
+                            self_keyword_span: parameter.pattern_span,
                         })
                     } else {
                         parameter.data_type.perform_semantic_analysis(ctx)

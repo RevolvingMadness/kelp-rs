@@ -1,5 +1,8 @@
 use crate::{
-    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    parsed::semantic_analysis::{
+        SemanticAnalysisContext,
+        info::error::{ItemKind, SemanticAnalysisError},
+    },
     semantic::{
         data_type::SemanticDataType,
         environment::r#type::builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
@@ -39,7 +42,7 @@ impl ParsedBuiltinTypeDeclaration {
         if actual_generic_count != expected_generic_count {
             return ctx.add_invalid_generics_type(
                 name_span,
-                &self.name,
+                None,
                 expected_generic_count,
                 actual_generic_count,
             );

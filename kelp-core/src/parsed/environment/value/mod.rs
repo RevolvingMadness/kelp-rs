@@ -3,6 +3,7 @@ use crate::parsed::environment::value::{
 };
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::value::SemanticValueDeclarationKind;
+use crate::span::Span;
 use crate::visibility::Visibility;
 
 pub mod function;
@@ -28,6 +29,14 @@ impl From<SemanticValueDeclarationKind> for ParsedValueDeclarationKind {
 }
 
 impl ParsedValueDeclarationKind {
+    #[must_use]
+    pub fn name_span(&self) -> Option<Span> {
+        match self {
+            Self::Variable(declaration) => Some(declaration.name_span),
+            Self::Function(declaration) => declaration.name_span(),
+        }
+    }
+
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

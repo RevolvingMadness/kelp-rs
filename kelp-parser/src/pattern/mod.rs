@@ -49,7 +49,7 @@ impl ParsableAstNode for CSTPattern {
 
                 parser.skip_whitespace();
 
-                parser.expect_char(')', "Expected ')'");
+                parser.expect_char(')');
 
                 parser.finish_node();
 
@@ -86,7 +86,7 @@ impl ParsableAstNode for CSTPattern {
                     }
                 }
 
-                parser.expect_char('}', "Expected closing brace after struct pattern");
+                parser.expect_char('}');
 
                 parser.finish_node();
 
@@ -130,7 +130,7 @@ impl ParsableAstNode for CSTPattern {
 
                             parser.skip_whitespace();
 
-                            parser.expect_char('}', "Expected '}'");
+                            parser.expect_char('}');
                         }
                         Some('(') => {
                             marker.replace_token(parser, SyntaxKind::TypeName);
@@ -144,7 +144,7 @@ impl ParsableAstNode for CSTPattern {
 
                             parser.skip_whitespace();
 
-                            parser.expect_char(')', "Expected ')'");
+                            parser.expect_char(')');
                         }
                         _ => {
                             state.restore(parser);

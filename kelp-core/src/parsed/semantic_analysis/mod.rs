@@ -11,6 +11,7 @@ use crate::parsed::environment::r#type::{
 use crate::parsed::environment::value::{
     ParsedValueDeclaration, ParsedValueDeclarationKind, variable::ParsedVariableDeclaration,
 };
+use crate::parsed::semantic_analysis::info::error::ItemKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighVisibleTypeId;
 use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
@@ -298,30 +299,30 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn add_invalid_generics<T, N: Into<String>>(
+    pub fn add_invalid_generics<T>(
         &mut self,
-        span: Span,
-        type_name: N,
+        name_span: Span,
+        declaration_span: Option<Span>,
         expected: usize,
         actual: usize,
     ) -> Option<T> {
         self.add_error(SemanticAnalysisError::InvalidGenerics {
-            type_span: span,
-            type_name: type_name.into(),
+            name_span,
+            declaration_span,
             expected,
             actual,
         })
     }
 
     #[must_use]
-    pub fn add_invalid_generics_type<N: Into<String>>(
+    pub fn add_invalid_generics_type(
         &mut self,
-        span: Span,
-        type_name: N,
+        name_span: Span,
+        declaration_span: Option<Span>,
         expected: usize,
         actual: usize,
     ) -> SemanticDataType {
-        self.add_invalid_generics::<(), _>(span, type_name, expected, actual);
+        self.add_invalid_generics::<()>(name_span, declaration_span, expected, actual);
 
         SemanticDataType::Error
     }
@@ -398,7 +399,10 @@ impl SemanticAnalysisContext {
     ) -> HighVariableId {
         let id = self.declare_parsed_value(
             visibility,
-            ParsedValueDeclarationKind::Variable(ParsedVariableDeclaration { name: name.clone() }),
+            ParsedValueDeclarationKind::Variable(ParsedVariableDeclaration {
+                name_span,
+                name: name.clone(),
+            }),
         );
 
         self.set_semantic_value(
@@ -452,8 +456,8 @@ impl SemanticAnalysisContext {
 
         if actual_generic_count != expected_generic_count {
             return self.add_error(SemanticAnalysisError::InvalidGenerics {
-                type_span: segment.name_span,
-                type_name: segment.name.clone(),
+                name_span: segment.name_span,
+                declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,
             });
@@ -490,8 +494,8 @@ impl SemanticAnalysisContext {
 
         if actual_generic_count != expected_generic_count {
             return Err(SemanticAnalysisError::InvalidGenerics {
-                type_span: name_span,
-                type_name: name.to_owned(),
+                name_span,
+                declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,
             });
@@ -539,7 +543,7 @@ impl SemanticAnalysisContext {
         let scope = self.current_scope();
 
         if let Some(declaration_span) =
-            scope.get_value_declaration_span(&self.semantic_environment, &name)
+            scope.get_value_declaration_span(&self.parsed_environment, &name)
         {
             self.add_error_unit(SemanticAnalysisError::ValueAlreadyDeclared {
                 declaration_span,
@@ -737,6 +741,7 @@ impl SemanticAnalysisContext {
         let last_segment = segments.next_back()?;
 
         let mut current_type_id = self.get_semantic_type_id(&first_segment)?;
+        let mut current_span = first_segment.name_span;
 
         let mut inherited_generic_spans = first_segment.generic_spans.clone();
         let mut inherited_generic_types = first_segment.generic_types.clone();
@@ -748,6 +753,7 @@ impl SemanticAnalysisContext {
                 &self.semantic_environment,
                 &self.current_module_path,
                 current_type_id,
+                current_span,
                 &segment.name,
             ) {
                 Ok(id) => id,
@@ -755,6 +761,7 @@ impl SemanticAnalysisContext {
             };
 
             current_type_id = id;
+            current_span = segment.name_span;
 
             inherited_generic_spans.extend(segment.generic_spans.iter().copied());
             inherited_generic_types.extend(segment.generic_types.iter().cloned());
@@ -808,6 +815,7 @@ impl SemanticAnalysisContext {
             &self.semantic_environment,
             &self.current_module_path,
             id,
+            last_segment.name_span,
             &last_segment.name,
         ) {
             Ok(id) => id,
@@ -873,6 +881,7 @@ impl SemanticAnalysisContext {
             &self.semantic_environment,
             &self.current_module_path,
             id,
+            last_segment.name_span,
             &last_segment.name,
         ) {
             Ok(id) => id,
@@ -909,6 +918,8 @@ impl SemanticAnalysisContext {
         let mut current_type_id =
             self.get_type_id_in_scope(&first_segment.name, first_segment.span)?;
 
+        let mut current_span = first_segment.span;
+
         for segment in segments {
             let declaration = self.semantic_environment.get_type(current_type_id);
 
@@ -916,10 +927,12 @@ impl SemanticAnalysisContext {
                 &self.semantic_environment,
                 &self.current_module_path,
                 current_type_id,
+                current_span,
                 &segment.name,
             )?;
 
             current_type_id = id;
+            current_span = segment.span;
         }
 
         Ok((current_type_id, last_segment))
@@ -943,6 +956,7 @@ impl SemanticAnalysisContext {
             &self.semantic_environment,
             &self.current_module_path,
             type_id,
+            last_segment.span,
             &last_segment.name,
         )?;
 
@@ -967,6 +981,7 @@ impl SemanticAnalysisContext {
             &self.semantic_environment,
             &self.current_module_path,
             type_id,
+            last_segment.span,
             &last_segment.name,
         )?;
 

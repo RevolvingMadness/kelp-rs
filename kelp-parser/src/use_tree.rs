@@ -79,7 +79,7 @@ fn parse_use_tree_group(parser: &mut Parser) {
         }
     }
 
-    parser.expect_char('}', "Expected '}'");
+    parser.expect_char('}');
 }
 
 impl LowerableAstNode for CSTUseTree {

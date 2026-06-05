@@ -71,7 +71,7 @@ fn try_parse_tuple_or_unit_data_type(parser: &mut Parser) -> bool {
     }
 
     marker.start_node(parser, SyntaxKind::TupleDataType);
-    parser.expect_char(')', "Expected ')'");
+    parser.expect_char(')');
     parser.finish_node();
 
     true

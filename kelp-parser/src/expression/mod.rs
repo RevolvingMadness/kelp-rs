@@ -413,7 +413,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                     parser.recover_not_whitespace("Expected index expression");
                 }
                 parser.skip_whitespace();
-                parser.expect_char(']', "Expected closing bracket ']'");
+                parser.expect_char(']');
                 parser.finish_node();
             }
             Some('(') => {
@@ -425,7 +425,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                     CSTCallArguments::try_parse(parser);
                 }
 
-                parser.expect_char(')', "Expected closing parenthesis ')'");
+                parser.expect_char(')');
                 parser.finish_node();
             }
             Some('.') => {
@@ -460,7 +460,7 @@ fn try_parse_postfix(parser: &mut Parser) -> bool {
                         CSTCallArguments::try_parse(parser);
                     }
 
-                    parser.expect_char(')', "Expected closing parenthesis ')'");
+                    parser.expect_char(')');
                 } else {
                     marker.start_node(parser, SyntaxKind::FieldAccessExpression);
                     parser.bump_char();
@@ -673,7 +673,7 @@ fn try_parse_primary(parser: &mut Parser) -> bool {
 
                 parser.skip_whitespace();
 
-                if !parser.expect_char('}', "Expected '}'") {
+                if !parser.expect_char('}') {
                     parser.bump_until_char(&['}']);
 
                     parser.bump_char();

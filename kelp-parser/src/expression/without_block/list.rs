@@ -46,7 +46,7 @@ impl ParsableAstNode for CSTListExpression {
             is_first = false;
         }
 
-        parser.expect_char(']', "Expected ']' to terminate array");
+        parser.expect_char(']');
         parser.finish_node();
         true
     }

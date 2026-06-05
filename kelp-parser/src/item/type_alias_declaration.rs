@@ -29,7 +29,7 @@ impl ParsableAstNode for CSTTypeAliasDeclarationItem {
             parser.skip_whitespace();
         }
 
-        parser.expect_char('=', "Expected '='");
+        parser.expect_char('=');
 
         parser.skip_whitespace();
 

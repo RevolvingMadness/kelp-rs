@@ -56,16 +56,19 @@ pub enum ParsedExpressionKind {
     Unary(Span, UnaryOperator, Box<ParsedExpression>),
     Arithmetic(
         Box<ParsedExpression>,
+        Span,
         ArithmeticOperator,
         Box<ParsedExpression>,
     ),
     Comparison(
         Box<ParsedExpression>,
+        Span,
         ComparisonOperator,
         Box<ParsedExpression>,
     ),
     Logical(
         Box<ParsedExpression>,
+        Span,
         LogicalOperator,
         Box<ParsedExpression>,
     ),
@@ -162,7 +165,7 @@ impl ParsedExpressionKind {
 
     #[must_use]
     pub fn extract_scale(self) -> (Option<NotNan<f32>>, Self) {
-        if let Self::Arithmetic(left, ArithmeticOperator::Multiply, right) = self {
+        if let Self::Arithmetic(left, operator_span, ArithmeticOperator::Multiply, right) = self {
             match right.try_as_f32() {
                 Ok(scale) => (Some(scale), left.kind),
                 Err(right) => match left.try_as_f32() {
@@ -171,6 +174,7 @@ impl ParsedExpressionKind {
                         None,
                         Self::Arithmetic(
                             Box::new(left),
+                            operator_span,
                             ArithmeticOperator::Multiply,
                             Box::new(right),
                         ),
@@ -396,7 +400,7 @@ impl ParsedExpression {
                     SemanticExpressionKind::Dereference(Box::new(place)).with(dereferenced_type)
                 }
             },
-            ParsedExpressionKind::Arithmetic(left, operator, right) => {
+            ParsedExpressionKind::Arithmetic(left, operator_span, operator, right) => {
                 let left = left.perform_semantic_analysis(ctx);
                 let right = right.perform_semantic_analysis(ctx);
 
@@ -409,7 +413,7 @@ impl ParsedExpression {
                         SemanticAnalysisError::CannotPerformArithmeticOperation {
                             left: left.data_type,
                             operator,
-                            operator_span: self.span,
+                            operator_span,
                             right: right.data_type,
                         },
                     );
@@ -418,7 +422,7 @@ impl ParsedExpression {
                 SemanticExpressionKind::Arithmetic(Box::new(left), operator, Box::new(right))
                     .with(result_type)
             }
-            ParsedExpressionKind::Comparison(left, operator, right) => {
+            ParsedExpressionKind::Comparison(left, operator_span, operator, right) => {
                 let left = left.perform_semantic_analysis(ctx);
                 let right = right.perform_semantic_analysis(ctx);
 
@@ -432,8 +436,8 @@ impl ParsedExpression {
                 ) {
                     return ctx.add_error(
                         SemanticAnalysisError::CannotPerformComparisonOperation {
-                            span: self.span,
                             left: left.data_type,
+                            operator_span,
                             operator,
                             right: right.data_type,
                         },
@@ -443,7 +447,7 @@ impl ParsedExpression {
                 SemanticExpressionKind::Comparison(Box::new(left), operator, Box::new(right))
                     .with(SemanticDataType::Boolean)
             }
-            ParsedExpressionKind::Logical(left, operator, right) => {
+            ParsedExpressionKind::Logical(left, _operator_span, operator, right) => {
                 let left = left.perform_semantic_analysis(ctx);
                 let right = right.perform_semantic_analysis(ctx);
 
@@ -664,8 +668,10 @@ impl ParsedExpression {
 
                 let Some(call_info) = callee.data_type.get_call_info(&ctx.semantic_environment)?
                 else {
-                    return ctx
-                        .add_error(SemanticAnalysisError::ExpressionIsNotCallable { callee_span });
+                    return ctx.add_error(SemanticAnalysisError::ExpressionIsNotCallable {
+                        callee_span,
+                        callee_type: callee.data_type,
+                    });
                 };
 
                 let mut parameter_types = call_info.parameter_types;
@@ -676,7 +682,7 @@ impl ParsedExpression {
                 if argument_count != parameter_count {
                     return ctx.add_error(SemanticAnalysisError::MismatchedParameterCount {
                         callee_span,
-                        callee_name: call_info.name,
+                        declaration_span: call_info.declaration_span,
                         expected: parameter_count,
                         actual: argument_count,
                     });
@@ -741,11 +747,11 @@ impl ParsedExpression {
                 let expression = expression.perform_semantic_analysis(ctx);
                 let data_type = data_type.perform_semantic_analysis(ctx);
 
-                let (_, expression) = expression?;
+                let (expression_span, expression) = expression?;
 
                 if !expression.data_type.can_cast_to(&data_type) {
                     return ctx.add_error(SemanticAnalysisError::CannotCastType {
-                        span: self.span,
+                        span: expression_span,
                         from: expression.data_type,
                         to: data_type,
                     });
@@ -882,8 +888,10 @@ impl ParsedExpression {
 
                 let Some(call_info) = callee.data_type.get_call_info(&ctx.semantic_environment)?
                 else {
-                    return ctx
-                        .add_error(SemanticAnalysisError::ExpressionIsNotCallable { callee_span });
+                    return ctx.add_error(SemanticAnalysisError::ExpressionIsNotCallable {
+                        callee_span,
+                        callee_type: callee.data_type,
+                    });
                 };
 
                 if let Some(id) = call_info.id
@@ -899,7 +907,7 @@ impl ParsedExpression {
                 if argument_count != parameter_count {
                     return ctx.add_error(SemanticAnalysisError::MismatchedParameterCount {
                         callee_span,
-                        callee_name: call_info.name,
+                        declaration_span: call_info.declaration_span,
                         expected: parameter_count,
                         actual: argument_count,
                     });
@@ -945,12 +953,7 @@ impl ParsedExpression {
 
                 let (condition_span, condition) = condition?;
 
-                if !condition.data_type.is_condition() {
-                    return ctx.add_error(SemanticAnalysisError::TypeIsNotCondition {
-                        type_span: condition_span,
-                        data_type: condition.data_type,
-                    });
-                }
+                condition.data_type.assert_condition(ctx, condition_span)?;
 
                 let (body_span, tail_expression_span, body) = body?;
                 let else_body = match else_body {

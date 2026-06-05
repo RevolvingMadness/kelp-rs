@@ -1,5 +1,5 @@
 use crate::make_id;
-use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
+use crate::parsed::semantic_analysis::info::error::{ItemKind, SemanticAnalysisError};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::module::HighModuleId;
@@ -112,7 +112,7 @@ impl SemanticValueDeclaration {
 
                     return ctx.add_invalid_generics(
                         path_span,
-                        type_name,
+                        Some(declaration.name_span),
                         expected_generics,
                         actual_generics,
                     );
@@ -129,7 +129,7 @@ impl SemanticValueDeclaration {
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics(
                         path_span,
-                        declaration.name(),
+                        declaration.name_span(),
                         expected_generics,
                         actual_generics,
                     );

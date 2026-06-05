@@ -1,11 +1,11 @@
 pub mod builtin;
 pub mod regular;
 
-use crate::semantic::environment::value::function::SemanticFunctionDeclaration;
 use crate::parsed::environment::value::function::{
-    builtin::ParsedBuiltinFunctionDeclaration,
-    regular::ParsedRegularFunctionDeclaration,
+    builtin::ParsedBuiltinFunctionDeclaration, regular::ParsedRegularFunctionDeclaration,
 };
+use crate::semantic::environment::value::function::SemanticFunctionDeclaration;
+use crate::span::Span;
 
 #[derive(Debug, Clone)]
 pub enum ParsedFunctionDeclaration {
@@ -28,6 +28,14 @@ impl ParsedFunctionDeclaration {
         match self {
             Self::Regular(declaration) => &declaration.name,
             Self::Builtin(declaration) => &declaration.name,
+        }
+    }
+
+    #[must_use]
+    pub fn name_span(&self) -> Option<Span> {
+        match self {
+            Self::Regular(declaration) => Some(declaration.name_span),
+            Self::Builtin(declaration) => None,
         }
     }
 }

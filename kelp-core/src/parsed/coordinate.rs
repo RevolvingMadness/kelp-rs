@@ -129,57 +129,25 @@ impl ParsedCoordinates {
                 SemanticCoordinates::World(x, y, z)
             }
             Self::Local(x, y, z) => {
+                let x = x.map(|x| x.perform_semantic_analysis(ctx));
+                let y = y.map(|y| y.perform_semantic_analysis(ctx));
+                let z = z.map(|z| z.perform_semantic_analysis(ctx));
+
                 let x = match x {
-                    Some(x) => {
-                        let (x_span, x) = x.perform_semantic_analysis(ctx)?;
-
-                        if !x.data_type.can_be_represented_as_snbt_float_macro() {
-                            return ctx.add_error(
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat {
-                                    type_span: x_span,
-                                    data_type: x.data_type,
-                                },
-                            );
-                        }
-
-                        Some(x)
-                    }
+                    Some(Some((_, x))) => Some(x),
+                    Some(None) => return None,
                     None => None,
                 };
 
                 let y = match y {
-                    Some(y) => {
-                        let (y_span, y) = y.perform_semantic_analysis(ctx)?;
-
-                        if !y.data_type.can_be_represented_as_snbt_float_macro() {
-                            return ctx.add_error(
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat {
-                                    type_span: y_span,
-                                    data_type: y.data_type,
-                                },
-                            );
-                        }
-
-                        Some(y)
-                    }
+                    Some(Some((_, y))) => Some(y),
+                    Some(None) => return None,
                     None => None,
                 };
 
                 let z = match z {
-                    Some(z) => {
-                        let (z_span, z) = z.perform_semantic_analysis(ctx)?;
-
-                        if !z.data_type.can_be_represented_as_snbt_float_macro() {
-                            return ctx.add_error(
-                                SemanticAnalysisError::CannotBeRepresentedAsFloat {
-                                    type_span: z_span,
-                                    data_type: z.data_type,
-                                },
-                            );
-                        }
-
-                        Some(z)
-                    }
+                    Some(Some((_, z))) => Some(z),
+                    Some(None) => return None,
                     None => None,
                 };
 

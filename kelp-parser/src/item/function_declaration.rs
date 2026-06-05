@@ -32,7 +32,7 @@ impl ParsableAstNode for CSTFunctionParameter {
 
         parser.skip_whitespace();
 
-        let parsed_colon = parser.expect_char(':', "Expected ':'");
+        let parsed_colon = parser.expect_char(':');
 
         parser.skip_whitespace();
 
@@ -84,7 +84,7 @@ impl ParsableAstNode for CSTFunctionParameters {
     fn try_parse(parser: &mut Parser) -> bool {
         parser.start_node(SyntaxKind::FunctionParameters);
 
-        if !parser.expect_char('(', "Expected '('") {
+        if !parser.expect_char('(') {
             parser.finish_node();
             return false;
         }
@@ -121,7 +121,7 @@ impl ParsableAstNode for CSTFunctionParameters {
             }
         }
 
-        parser.expect_char(')', "Expected ')'");
+        parser.expect_char(')');
         parser.finish_node();
 
         true

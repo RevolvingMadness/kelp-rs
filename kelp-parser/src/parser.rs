@@ -294,7 +294,7 @@ impl<'a> Parser<'a> {
         self.events.push(Event::FinishNode);
     }
 
-    pub fn error(&mut self, message: &str) {
+    pub fn error(&mut self, message: impl ToString) {
         self.error_with_len(message, 1);
     }
 
@@ -302,20 +302,16 @@ impl<'a> Parser<'a> {
         self.error_with_len_at(position, message, 1);
     }
 
-    pub fn error_with_len(&mut self, message: &str, len: usize) {
+    pub fn error_with_len(&mut self, message: impl ToString, len: usize) {
         self.pos += len;
 
         if self.error_count >= self.max_errors {
             return;
         }
 
-        #[cfg(debug_assertions)]
-        println!("Error: {}", message);
+        let message = message.to_string();
 
-        self.events.push(Event::Error {
-            message: message.to_string(),
-            len,
-        });
+        self.events.push(Event::Error { message, len });
 
         self.error_count += 1;
     }
@@ -642,11 +638,12 @@ impl Parser<'_> {
         }
     }
 
-    pub fn expect_char(&mut self, expected: char, message: &str) -> bool {
-        if self.try_bump_char(expected) {
+    pub fn expect_char(&mut self, char: char) -> bool {
+        if self.try_bump_char(char) {
             true
         } else {
-            self.error(message);
+            self.error(format!("Expected '{}'", char));
+
             false
         }
     }

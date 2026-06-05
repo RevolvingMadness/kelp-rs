@@ -2,7 +2,10 @@ use strum::{Display, EnumIter};
 
 use crate::{
     make_id,
-    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    parsed::semantic_analysis::{
+        SemanticAnalysisContext,
+        info::error::{ItemKind, SemanticAnalysisError},
+    },
     path::generic::TypedPathSegment,
     semantic::data_type::SemanticDataType,
 };
@@ -29,7 +32,7 @@ impl SemanticBuiltinTypeDeclaration {
         if actual_generic_count != expected_generic_count {
             return ctx.add_invalid_generics_type(
                 segment.name_span,
-                &self.name,
+                None,
                 expected_generic_count,
                 actual_generic_count,
             );

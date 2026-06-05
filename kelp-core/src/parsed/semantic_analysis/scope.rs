@@ -77,7 +77,7 @@ impl Scope {
     #[must_use]
     pub fn get_value_declaration_span(
         &self,
-        environment: &SemanticEnvironment,
+        environment: &ParsedEnvironment,
         name: &str,
     ) -> Option<Span> {
         let id = self.get_value_id(name)?;

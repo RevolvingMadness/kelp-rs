@@ -38,7 +38,7 @@ impl ParsableAstNode for CSTRegularStructField {
 
         parser.skip_whitespace();
 
-        let parsed_colon = parser.expect_char(':', "Expected ':'");
+        let parsed_colon = parser.expect_char(':');
 
         parser.skip_whitespace();
 

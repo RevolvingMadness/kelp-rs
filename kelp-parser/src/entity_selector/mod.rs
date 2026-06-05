@@ -63,7 +63,7 @@ fn parse_option(parser: &mut Parser) -> bool {
     parser.bump_identifier(key_name);
     parser.skip_whitespace();
 
-    parser.expect_char('=', "Expected '=' after option name");
+    parser.expect_char('=');
 
     parser.skip_whitespace();
 
@@ -112,12 +112,12 @@ fn parse_option(parser: &mut Parser) -> bool {
 }
 
 fn parse_scores_option(parser: &mut Parser) {
-    if !parser.expect_char('{', "Expected '{'") {
+    if !parser.expect_char('{') {
         recover_option(parser);
         return;
     }
 
-    parser.expect_char('}', "Expected '}'");
+    parser.expect_char('}');
 }
 
 #[inline]
@@ -141,7 +141,7 @@ fn parse_options(parser: &mut Parser) {
         }
 
         if !is_first {
-            if !parser.expect_char(',', "Expected ',' or ']'") {
+            if !parser.expect_char(',') {
                 recover_option(parser);
 
                 continue;

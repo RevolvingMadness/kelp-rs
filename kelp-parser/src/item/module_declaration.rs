@@ -25,7 +25,7 @@ impl ParsableAstNode for CSTModuleDeclarationItem {
 
         parser.skip_whitespace();
 
-        parser.expect_char('{', "Expected '{'");
+        parser.expect_char('{');
 
         loop {
             parser.skip_whitespace();
@@ -37,7 +37,7 @@ impl ParsableAstNode for CSTModuleDeclarationItem {
             CSTItem::expect(parser, "expected item");
         }
 
-        parser.expect_char('}', "Expected '}'");
+        parser.expect_char('}');
 
         parser.finish_node();
 

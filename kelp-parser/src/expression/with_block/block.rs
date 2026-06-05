@@ -28,7 +28,7 @@ impl ParsableAstNode for CSTBlockExpression {
             CSTStatement::expect(parser, "Expected statement");
         }
 
-        parser.expect_char('}', "Expected '}'");
+        parser.expect_char('}');
 
         parser.finish_node();
 

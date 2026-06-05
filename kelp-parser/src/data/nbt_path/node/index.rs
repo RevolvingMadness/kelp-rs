@@ -21,7 +21,7 @@ impl ParsableAstNode for CSTIndexNBTPathNode {
             parser.skip_whitespace();
         }
 
-        parser.expect_char(']', "Expected ']'");
+        parser.expect_char(']');
         parser.finish_node();
 
         true

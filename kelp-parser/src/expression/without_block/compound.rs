@@ -40,7 +40,7 @@ impl ParsableAstNode for CSTCompoundExpression {
 
             parser.skip_whitespace();
 
-            if !parser.expect_char(':', "Expected ':'") {
+            if !parser.expect_char(':') {
                 bump_until_next_compound_entry_or_end(parser);
                 parser.finish_node();
 
@@ -68,7 +68,7 @@ impl ParsableAstNode for CSTCompoundExpression {
             }
         }
 
-        parser.expect_char('}', "Expected '}'");
+        parser.expect_char('}');
         parser.finish_node();
 
         true

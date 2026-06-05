@@ -37,7 +37,7 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
 
             parser.skip_whitespace();
 
-            parser.expect_char('}', "Expected '}'");
+            parser.expect_char('}');
         }
         Some('(') => {
             marker.start_node(parser, SyntaxKind::TupleStructDeclarationItem);
@@ -50,11 +50,11 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
 
             parser.skip_whitespace();
 
-            parser.expect_char(')', "Expected ')'");
+            parser.expect_char(')');
 
             parser.skip_whitespace();
 
-            parser.expect_char(';', "Expected ';'");
+            parser.expect_char(';');
         }
         _ => {
             marker.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
@@ -93,7 +93,7 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
 
             parser.skip_whitespace();
 
-            parser.expect_char('}', "Expected '}'");
+            parser.expect_char('}');
         }
         Some('(') => {
             marker.start_node(parser, SyntaxKind::TupleStructDeclarationItem);
@@ -106,11 +106,11 @@ pub fn expect_struct_declaration_item_kind(parser: &mut Parser) {
 
             parser.skip_whitespace();
 
-            parser.expect_char(')', "Expected ')'");
+            parser.expect_char(')');
 
             parser.skip_whitespace();
 
-            parser.expect_char(';', "Expected ';'");
+            parser.expect_char(';');
         }
         _ => {
             marker.start_node(parser, SyntaxKind::RegularStructDeclarationItem);

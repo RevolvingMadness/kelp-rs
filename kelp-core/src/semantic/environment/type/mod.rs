@@ -1,6 +1,6 @@
 use crate::make_id;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
-use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
+use crate::parsed::semantic_analysis::info::error::{ItemKind, SemanticAnalysisError, TypeKind};
 use crate::path::generic::TypedPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
@@ -68,6 +68,17 @@ pub enum SemanticTypeDeclarationKind {
 
 impl SemanticTypeDeclarationKind {
     #[must_use]
+    pub fn get_type_kind(&self) -> TypeKind {
+        match self {
+            Self::Module(..) => TypeKind::Module,
+            Self::Struct(..) => TypeKind::Struct,
+            Self::Alias(..) => TypeKind::Alias,
+            Self::Generic(..) => TypeKind::Generic,
+            Self::Builtin(..) => TypeKind::Builtin,
+        }
+    }
+
+    #[must_use]
     pub const fn name_span(&self) -> Option<Span> {
         Some(match self {
             Self::Module(declaration) => return declaration.name_span,
@@ -133,7 +144,7 @@ impl SemanticTypeDeclarationKind {
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
                         segment.name_span,
-                        declaration.name(),
+                        Some(declaration.name_span()),
                         expected_generics,
                         actual_generics,
                     );
@@ -148,7 +159,7 @@ impl SemanticTypeDeclarationKind {
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
                         segment.name_span,
-                        &declaration.name,
+                        Some(declaration.name_span),
                         expected_generics,
                         actual_generics,
                     );
@@ -165,7 +176,7 @@ impl SemanticTypeDeclarationKind {
                 if actual_generics != expected_generics {
                     return ctx.add_invalid_generics_type(
                         segment.name_span,
-                        &declaration.name,
+                        Some(declaration.name_span),
                         expected_generics,
                         actual_generics,
                     );
@@ -200,6 +211,7 @@ impl SemanticTypeDeclaration {
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
         base_id: HighVisibleTypeId,
+        base_span: Span,
         name: &str,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         match &self.kind {
@@ -222,7 +234,8 @@ impl SemanticTypeDeclaration {
                 })
             }
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
-                type_name: self.kind.name().to_owned(),
+                type_span: base_span,
+                type_kind: self.kind.get_type_kind(),
             }),
         }
     }
@@ -232,6 +245,7 @@ impl SemanticTypeDeclaration {
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
         base_id: HighVisibleTypeId,
+        base_span: Span,
         name: &str,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         match &self.kind {
@@ -245,7 +259,8 @@ impl SemanticTypeDeclaration {
                 name,
             ),
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
-                type_name: self.kind.name().to_owned(),
+                type_span: base_span,
+                type_kind: self.kind.get_type_kind(),
             }),
         }
     }

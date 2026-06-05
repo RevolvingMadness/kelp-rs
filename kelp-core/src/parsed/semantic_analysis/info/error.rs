@@ -4,6 +4,8 @@ use crate::operator::UnaryOperator;
 use crate::parsed::semantic_analysis::info::diagnostic::{Diagnostic, LabelType};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
+use crate::semantic::environment::r#type::HighTypeId;
+use crate::semantic::environment::value::HighValueId;
 use crate::span::Span;
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
@@ -285,7 +287,7 @@ pub enum SemanticAnalysisError {
     },
     MismatchedTupleStructFieldCount {
         name_span: Span,
-        name: String,
+        struct_id: HighTypeId,
         expected: usize,
         actual: usize,
     },
@@ -627,7 +629,7 @@ impl SemanticAnalysisError {
             } => todo!(),
             Self::MismatchedTupleStructFieldCount {
                 name_span,
-                name,
+                struct_id: name,
                 expected,
                 actual,
             } => todo!(),

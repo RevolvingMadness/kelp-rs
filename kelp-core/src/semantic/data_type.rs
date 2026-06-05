@@ -598,7 +598,7 @@ impl SemanticDataType {
     pub fn get_method(
         &self,
         ctx: &mut SemanticAnalysisContext,
-        method: &SemanticTypedPathSegment,
+        segment: &SemanticTypedPathSegment,
     ) -> Result<Option<MethodInfo>, ()> {
         if *self == Self::Error {
             return Err(());
@@ -609,47 +609,49 @@ impl SemanticDataType {
         Ok((|| {
             Some(match base_type {
                 Self::Struct(id, struct_generic_types) => {
-                    let implementations = ctx.semantic_environment.get_implementations(*id)?;
+                    // let implementations = ctx.semantic_environment.get_implementations(*id)?;
 
-                    let implementation = implementations.iter().find(|implementation| {
-                        if let Self::Struct(impl_id, generic_types) =
-                            implementation.get_target_type()
-                        {
-                            impl_id == id && struct_generic_types == generic_types
-                        } else {
-                            false
-                        }
-                    })?;
+                    // let implementation = implementations.iter().find(|implementation| {
+                    //     if let Self::Struct(impl_id, generic_types) =
+                    //         implementation.get_target_type()
+                    //     {
+                    //         impl_id == id && struct_generic_types == generic_types
+                    //     } else {
+                    //         false
+                    //     }
+                    // })?;
 
-                    let method_id = implementation.get_value(&method.name)?;
+                    // let method_id = segment.get_value_id(ctx)?;
 
-                    let SemanticValueDeclaration {
-                        kind: SemanticValueDeclarationKind::Function(declaration),
-                        ..
-                    } = ctx.semantic_environment.get_value(method_id)
-                    else {
-                        return None;
-                    };
+                    // let SemanticValueDeclaration {
+                    //     kind: SemanticValueDeclarationKind::Function(declaration),
+                    //     ..
+                    // } = ctx.semantic_environment.get_value(method_id)
+                    // else {
+                    //     return None;
+                    // };
 
-                    if !declaration.is_method() {
-                        return None;
-                    }
+                    // if !declaration.is_method() {
+                    //     return None;
+                    // }
 
-                    let method_id = HighFunctionId(method_id.0);
+                    // let method_id = HighFunctionId(method_id.0);
 
-                    let mut all_generic_types = struct_generic_types.clone();
-                    all_generic_types.extend(method.generic_types.iter().cloned());
+                    // let mut all_generic_types = struct_generic_types.clone();
+                    // all_generic_types.extend(segment.generic_types.iter().cloned());
 
-                    let return_type = declaration
-                        .return_type()
-                        .clone()
-                        .substitute_generics(declaration.generic_ids(), &all_generic_types);
+                    // let return_type = declaration
+                    //     .return_type()
+                    //     .clone()
+                    //     .substitute_generics(declaration.generic_ids(), &all_generic_types);
 
-                    MethodInfo {
-                        id: method_id,
-                        generic_types: all_generic_types,
-                        return_type,
-                    }
+                    // MethodInfo {
+                    //     id: method_id,
+                    //     generic_types: all_generic_types,
+                    //     return_type,
+                    // }
+
+                    todo!()
                 }
                 _ => return None,
             })

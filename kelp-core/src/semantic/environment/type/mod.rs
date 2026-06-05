@@ -117,25 +117,27 @@ impl SemanticTypeDeclarationKind {
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        id: HighVisibleTypeId,
-        segment: &SemanticTypedPathSegment,
+        self_id: HighVisibleTypeId,
+        generic_spans: &[Span],
+        generic_types: &[SemanticDataType],
+        name_span: Span,
     ) -> SemanticDataType {
         match self {
             Self::Module(SemanticModuleDeclaration { name, .. }) => {
                 ctx.add_error_type(SemanticAnalysisError::NotAType {
-                    type_span: segment.name_span,
+                    type_span: name_span,
                     type_name: name,
                 })
             }
             Self::Struct(declaration) => {
-                let id = HighStructId(id.0);
+                let id = HighStructId(self_id.0);
 
                 let expected_generic_count = declaration.generic_count();
-                let actual_generic_count = segment.generic_types.len();
+                let actual_generic_count = generic_types.len();
 
                 if actual_generic_count != expected_generic_count {
                     return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
-                        type_name_span: segment.name_span,
+                        type_name_span: name_span,
                         type_kind: TypeKind::Struct.into(),
                         declaration_span: Some(declaration.name_span()),
                         expected: expected_generic_count,
@@ -143,15 +145,15 @@ impl SemanticTypeDeclarationKind {
                     });
                 }
 
-                SemanticDataType::Struct(id, segment.generic_types.clone())
+                SemanticDataType::Struct(id, generic_types.to_vec())
             }
             Self::Alias(declaration) => {
                 let expected_generic_count = declaration.generic_ids.len();
-                let actual_generic_count = segment.generic_types.len();
+                let actual_generic_count = generic_types.len();
 
                 if actual_generic_count != expected_generic_count {
                     return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
-                        type_name_span: segment.name_span,
+                        type_name_span: name_span,
                         type_kind: TypeKind::Alias.into(),
                         declaration_span: Some(declaration.name_span),
                         expected: expected_generic_count,
@@ -161,15 +163,15 @@ impl SemanticTypeDeclarationKind {
 
                 declaration
                     .alias
-                    .substitute_generics(&declaration.generic_ids, &segment.generic_types)
+                    .substitute_generics(&declaration.generic_ids, &generic_types)
             }
             Self::Generic(declaration) => {
                 let expected_generic_count = 0;
-                let actual_generic_count = segment.generic_types.len();
+                let actual_generic_count = generic_types.len();
 
                 if actual_generic_count != expected_generic_count {
                     return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
-                        type_name_span: segment.name_span,
+                        type_name_span: name_span,
                         type_kind: TypeKind::Generic.into(),
                         declaration_span: Some(declaration.name_span),
                         expected: expected_generic_count,
@@ -177,9 +179,11 @@ impl SemanticTypeDeclarationKind {
                     });
                 }
 
-                SemanticDataType::Generic(HighGenericId(id.0))
+                SemanticDataType::Generic(HighGenericId(self_id.0))
             }
-            Self::Builtin(data_type) => data_type.into_data_type(ctx, segment),
+            Self::Builtin(data_type) => {
+                data_type.into_data_type(ctx, generic_spans, generic_types, name_span)
+            }
         }
     }
 }

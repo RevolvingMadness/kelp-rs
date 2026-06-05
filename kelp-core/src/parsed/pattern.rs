@@ -255,119 +255,123 @@ impl ParsedPattern {
                 ParsedPatternKind::RegularStruct(path, field_patterns),
                 SemanticDataType::Struct(value_id, value_generic_types),
             ) => {
-                let path = path.perform_semantic_analysis(ctx);
+                // let path = path.perform_semantic_analysis(ctx)?;
 
-                let (pattern_id, _, pattern_generic_types, last_segment) =
-                    ctx.get_visible_type_id(path)?;
+                // let pattern_id = path.type_id.unwrap();
+                // let pattern_generic_types = path.generic_types;
 
-                let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
+                // let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
 
-                let (pattern_id, pattern_declaration) =
-                    ctx.get_regular_struct(pattern_id, pattern_type, last_segment.name_span)?;
+                // let (pattern_id, pattern_declaration) =
+                //     ctx.get_regular_struct(pattern_id, pattern_type, last_segment.name_span)?;
 
-                let pattern_generic_names = pattern_declaration.generic_ids.clone();
+                // let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
-                if HighStructId::from(pattern_id) != *value_id
-                    || pattern_generic_types != *value_generic_types
-                {
-                    for pattern in field_patterns.into_values() {
-                        pattern.kind.destructure_unknown(ctx);
-                    }
+                // if HighStructId::from(pattern_id) != *value_id
+                //     || pattern_generic_types != *value_generic_types
+                // {
+                //     for pattern in field_patterns.into_values() {
+                //         pattern.kind.destructure_unknown(ctx);
+                //     }
 
-                    return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
-                        span: self.span,
-                        expected: variable_type.clone(),
-                        actual: Box::new(self_type),
-                    });
-                }
+                //     return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
+                //         span: self.span,
+                //         expected: variable_type.clone(),
+                //         actual: Box::new(self_type),
+                //     });
+                // }
 
-                let field_types = pattern_declaration.field_types.clone();
+                // let field_types = pattern_declaration.field_types.clone();
 
-                let field_patterns = field_patterns
-                    .into_iter()
-                    .map(|((name_span, name), pattern)| {
-                        let Some(field_type) = field_types.get(&name) else {
-                            pattern.kind.destructure_unknown(ctx);
+                // let field_patterns = field_patterns
+                //     .into_iter()
+                //     .map(|((name_span, name), pattern)| {
+                //         let Some(field_type) = field_types.get(&name) else {
+                //             pattern.kind.destructure_unknown(ctx);
 
-                            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
-                                field_span: name_span,
-                                data_type: variable_type.clone(),
-                                field: name,
-                            });
-                        };
+                //             return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                //                 field_span: name_span,
+                //                 data_type: variable_type.clone(),
+                //                 field: name,
+                //             });
+                //         };
 
-                        let field_type = field_type
-                            .clone()
-                            .substitute_generics(&pattern_generic_names, &pattern_generic_types);
+                //         let field_type = field_type
+                //             .clone()
+                //             .substitute_generics(&pattern_generic_names, &pattern_generic_types);
 
-                        let pattern =
-                            pattern.perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
+                //         let pattern =
+                //             pattern.perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
 
-                        Some((name, pattern))
-                    })
-                    .collect_option_all()?;
+                //         Some((name, pattern))
+                //     })
+                //     .collect_option_all()?;
 
-                SemanticPattern::RegularStruct(pattern_id, pattern_generic_types, field_patterns)
+                // SemanticPattern::RegularStruct(pattern_id, pattern_generic_types, field_patterns)
+
+                todo!()
             }
             (
                 ParsedPatternKind::TupleStruct(path, field_patterns),
                 SemanticDataType::Struct(value_id, value_generic_types),
             ) => {
-                let path = path.perform_semantic_analysis(ctx);
+                // let path = path.perform_semantic_analysis(ctx);
 
-                let (pattern_id, _, pattern_generic_types, last_segment) =
-                    ctx.get_visible_type_id(path)?;
+                // let (pattern_id, _, pattern_generic_types, last_segment) =
+                //     ctx.get_visible_type_id(path)?;
 
-                let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
+                // let (pattern_id, pattern_type) = ctx.get_struct_id(pattern_id, &last_segment)?;
 
-                let (pattern_id, pattern_declaration) =
-                    ctx.get_tuple_struct(pattern_id, pattern_type, last_segment.name_span)?;
+                // let (pattern_id, pattern_declaration) =
+                //     ctx.get_tuple_struct(pattern_id, pattern_type, last_segment.name_span)?;
 
-                if HighStructId::from(pattern_id) != *value_id
-                    || pattern_generic_types != *value_generic_types
-                {
-                    for pattern in field_patterns {
-                        pattern.kind.destructure_unknown(ctx);
-                    }
+                // if HighStructId::from(pattern_id) != *value_id
+                //     || pattern_generic_types != *value_generic_types
+                // {
+                //     for pattern in field_patterns {
+                //         pattern.kind.destructure_unknown(ctx);
+                //     }
 
-                    return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
-                        span: self.span,
-                        expected: variable_type.clone(),
-                        actual: Box::new(self_type),
-                    });
-                }
+                //     return ctx.add_error(SemanticAnalysisError::MismatchedPatternTypes {
+                //         span: self.span,
+                //         expected: variable_type.clone(),
+                //         actual: Box::new(self_type),
+                //     });
+                // }
 
-                let field_types = pattern_declaration.field_types.clone();
+                // let field_types = pattern_declaration.field_types.clone();
 
-                let expected_field_count = field_types.len();
-                let actual_field_count = field_patterns.len();
+                // let expected_field_count = field_types.len();
+                // let actual_field_count = field_patterns.len();
 
-                if expected_field_count != actual_field_count {
-                    return ctx.add_error(SemanticAnalysisError::MismatchedTupleStructFieldCount {
-                        name_span: last_segment.name_span,
-                        name: last_segment.name.clone(),
-                        expected: expected_field_count,
-                        actual: actual_field_count,
-                    });
-                }
+                // if expected_field_count != actual_field_count {
+                //     return ctx.add_error(SemanticAnalysisError::MismatchedTupleStructFieldCount {
+                //         name_span: last_segment.name_span,
+                //         struct_id: last_segment.type_id.unwrap().into(),
+                //         expected: expected_field_count,
+                //         actual: actual_field_count,
+                //     });
+                // }
 
-                let pattern_generic_names = pattern_declaration.generic_ids.clone();
+                // let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
-                let field_patterns = field_patterns
-                    .into_iter()
-                    .zip(field_types)
-                    .map(|(field_pattern, field_type)| {
-                        let field_type = field_type
-                            .substitute_generics(&pattern_generic_names, &pattern_generic_types);
+                // let field_patterns = field_patterns
+                //     .into_iter()
+                //     .zip(field_types)
+                //     .map(|(field_pattern, field_type)| {
+                //         let field_type = field_type
+                //             .substitute_generics(&pattern_generic_names, &pattern_generic_types);
 
-                        let pattern = field_pattern
-                            .perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
+                //         let pattern = field_pattern
+                //             .perform_semantic_analysis(ctx, &field_type.wrap(&wrappers))?;
 
-                        Some(pattern)
-                    })
-                    .collect_option_all()?;
+                //         Some(pattern)
+                //     })
+                //     .collect_option_all()?;
 
-                SemanticPattern::TupleStruct(pattern_id, pattern_generic_types, field_patterns)
+                // SemanticPattern::TupleStruct(pattern_id, pattern_generic_types, field_patterns)
+
+                todo!()
             }
             (kind, _) => {
                 kind.destructure_unknown(ctx);

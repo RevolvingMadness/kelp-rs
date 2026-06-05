@@ -69,41 +69,40 @@ fn prepend_path_to_tree(tree: &mut UseTree, prefix: &ParsedPath) {
     }
 }
 
-fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option<()> {
+fn resolve_use_tree(tree: UseTree, ctx: &mut SemanticAnalysisContext) -> Option<()> {
     match tree {
         UseTree::Path(path) => {
-            let last_segment = path.segments.last().unwrap();
-            let type_result = ctx.try_get_visible_type(path);
-            if let Ok(id) = type_result {
-                ctx.declare_type_in_current_scope(
-                    last_segment.span,
-                    last_segment.name.clone(),
-                    id.into(),
-                );
-            }
+            let path = path.perform_semantic_analysis(ctx)?;
 
-            let value_result = ctx.try_get_visible_value(path);
-            if let Ok(id) = value_result {
-                ctx.declare_value_in_current_scope(
-                    last_segment.span,
-                    last_segment.name.clone(),
-                    id.into(),
-                );
-            }
+            match (path.type_result, path.value_result) {
+                (Err(type_error), Err(value_error)) => {
+                    ctx.add_error_unit(type_error);
+                    ctx.add_error_unit(value_error);
+                    return None;
+                }
 
-            if let Err(type_error) = type_result
-                && value_result.is_err()
-            {
-                ctx.add_error_unit(type_error);
+                (Ok(type_id), Ok(value_id)) => {
+                    ctx.declare_type_in_current_scope(
+                        path.name_span,
+                        path.name.clone(),
+                        type_id.into(),
+                    );
+                    ctx.declare_value_in_current_scope(path.name_span, path.name, value_id.into());
+                }
 
-                return None;
+                (Ok(type_id), Err(_)) => {
+                    ctx.declare_type_in_current_scope(path.name_span, path.name, type_id.into());
+                }
+
+                (Err(_), Ok(value_id)) => {
+                    ctx.declare_value_in_current_scope(path.name_span, path.name, value_id.into());
+                }
             }
         }
         UseTree::Wildcard(path) => {
-            let id = match ctx.try_get_visible_type(path) {
-                Ok(id) => id,
-                Err(error) => return ctx.add_error(error),
-            };
+            let path = path.perform_semantic_analysis(ctx)?;
+
+            let id = path.get_type_id(ctx)?;
 
             let declaration = ctx.parsed_environment.get_type(id).clone();
 
@@ -114,9 +113,8 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
                 ..
             } = declaration
             else {
-                let last_segment = path.segments.last().unwrap();
                 return ctx.add_error(SemanticAnalysisError::NotAModule {
-                    span: last_segment.span,
+                    span: path.name_span,
                     type_kind,
                 });
             };
@@ -129,31 +127,36 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
             }
         }
         UseTree::As(path, alias_span, alias) => {
-            let type_result = ctx.try_get_visible_type(path);
-            if let Ok(id) = type_result {
-                ctx.declare_type_in_current_scope(*alias_span, alias.clone(), id.into());
-            }
+            let path = path.perform_semantic_analysis(ctx)?;
 
-            let value_result = ctx.try_get_visible_value(path);
-            if let Ok(id) = value_result {
-                ctx.declare_value_in_current_scope(*alias_span, alias.clone(), id.into());
-            }
+            match (path.type_result, path.value_result) {
+                (Err(type_error), Err(value_error)) => {
+                    ctx.add_error_unit(type_error);
+                    ctx.add_error_unit(value_error);
+                    return None;
+                }
 
-            if let Err(type_error) = type_result
-                && value_result.is_err()
-            {
-                ctx.add_error_unit(type_error);
+                (Ok(type_id), Ok(value_id)) => {
+                    ctx.declare_type_in_current_scope(alias_span, alias.clone(), type_id.into());
+                    ctx.declare_value_in_current_scope(alias_span, alias, value_id.into());
+                }
 
-                return None;
+                (Ok(type_id), Err(_)) => {
+                    ctx.declare_type_in_current_scope(alias_span, alias, type_id.into());
+                }
+
+                (Err(_), Ok(value_id)) => {
+                    ctx.declare_value_in_current_scope(alias_span, alias, value_id.into());
+                }
             }
         }
         UseTree::Group(prefix, trees) => {
             for mut tree in trees.iter().cloned() {
-                if let Some(prefix_path) = prefix {
+                if let Some(prefix_path) = &prefix {
                     prepend_path_to_tree(&mut tree, prefix_path);
                 }
 
-                resolve_use_tree(&tree, ctx)?;
+                resolve_use_tree(tree, ctx)?;
             }
         }
     }
@@ -251,7 +254,7 @@ impl NamedItem {
 
                 ctx.exit_module();
             }
-            NamedItemKind::Use(tree) => return resolve_use_tree(tree, ctx),
+            NamedItemKind::Use(tree) => return resolve_use_tree(tree.clone(), ctx),
             _ => {}
         }
 

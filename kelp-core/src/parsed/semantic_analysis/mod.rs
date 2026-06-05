@@ -59,13 +59,6 @@ use crate::{
 pub mod info;
 pub mod scope;
 
-pub struct ResolvedTypePath {
-    pub id: HighVisibleTypeId,
-    pub inherited_generic_spans: Vec<Span>,
-    pub inherited_generic_types: Vec<SemanticDataType>,
-    pub last_segment: SemanticTypedPathSegment,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum RegularFunctionModifiers {
     None,
@@ -401,45 +394,9 @@ impl SemanticAnalysisContext {
                 Some(id)
             })
             .ok_or_else(|| SemanticAnalysisError::UnknownType {
-                span: segment.span,
-                name: segment.name.clone(),
-            })
-    }
-
-    #[must_use]
-    pub fn get_semantic_type_id(
-        &mut self,
-        segment: &SemanticTypedPathSegment,
-    ) -> Option<HighVisibleTypeId> {
-        let Some(id) = self
-            .scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.get_type_id(&segment.name))
-            .map(|id| HighVisibleTypeId(id.0))
-        else {
-            return self.add_error(SemanticAnalysisError::UnknownType {
                 span: segment.name_span,
                 name: segment.name.clone(),
-            });
-        };
-
-        let declaration = self.semantic_environment.get_type(id);
-
-        let expected_generic_count = declaration.kind.generic_count();
-        let actual_generic_count = segment.generic_types.len();
-
-        if actual_generic_count != expected_generic_count {
-            return self.add_error(SemanticAnalysisError::InvalidGenerics {
-                type_name_span: segment.name_span,
-                type_kind: declaration.kind.get_type_kind().into(),
-                declaration_span: declaration.kind.name_span(),
-                expected: expected_generic_count,
-                actual: actual_generic_count,
-            });
-        }
-
-        Some(id)
+            })
     }
 
     pub fn get_semantic_value_id(
@@ -707,280 +664,268 @@ impl SemanticAnalysisContext {
         HighBuiltinFunctionId(id.0)
     }
 
-    fn resolve_type_path(&mut self, path: SemanticTypedPath) -> Option<ResolvedTypePath> {
-        let mut segments = path.segments.into_iter();
+    // fn resolve_type_path(&mut self, path: SemanticTypedPath) -> Option<ResolvedTypePath> {
+    //     let mut segments = path.segments.into_iter();
 
-        let first_segment = segments.next()?;
-        let last_segment = segments.next_back()?;
+    //     let first_segment = segments.next()?;
+    //     let last_segment = segments.next_back()?;
 
-        let mut current_type_id = self.get_semantic_type_id(&first_segment)?;
-        let mut current_span = first_segment.name_span;
+    //     let mut current_type_id = first_segment.get_type_id(self)?;
+    //     let mut current_span = first_segment.name_span;
 
-        let mut inherited_generic_spans = first_segment.generic_spans.clone();
-        let mut inherited_generic_types = first_segment.generic_types.clone();
+    //     let mut inherited_generic_spans = first_segment.generic_spans.clone();
+    //     let mut inherited_generic_types = first_segment.generic_types.clone();
 
-        for segment in segments {
-            let declaration = self.semantic_environment.get_type(current_type_id);
+    //     for segment in segments {
+    //         let declaration = self.semantic_environment.get_type(current_type_id);
 
-            let id = match declaration.get_visible_type_id(
-                &self.semantic_environment,
-                &self.current_module_path,
-                current_type_id,
-                current_span,
-                &segment.name,
-                segment.name_span,
-            ) {
-                Ok(id) => id,
-                Err(error) => return self.add_error(error),
-            };
+    //         let type_id = segment.type_id.unwrap();
+    //         // let id = match declaration.get_visible_type_id(
+    //         //     &self.semantic_environment,
+    //         //     &self.current_module_path,
+    //         //     current_type_id,
+    //         //     current_span,
+    //         //     &segment.type_id,
+    //         //     segment.name_span,
+    //         // ) {
+    //         //     Ok(id) => id,
+    //         //     Err(error) => return self.add_error(error),
+    //         // };
 
-            current_type_id = id;
-            current_span = segment.name_span;
+    //         current_type_id = type_id;
+    //         current_span = segment.name_span;
 
-            inherited_generic_spans.extend(segment.generic_spans.iter().copied());
-            inherited_generic_types.extend(segment.generic_types.iter().cloned());
-        }
+    //         inherited_generic_spans.extend(segment.generic_spans.iter().copied());
+    //         inherited_generic_types.extend(segment.generic_types.iter().cloned());
+    //     }
 
-        Some(ResolvedTypePath {
-            id: current_type_id,
-            inherited_generic_spans,
-            inherited_generic_types,
-            last_segment,
-        })
-    }
+    //     Some(ResolvedTypePath {
+    //         id: current_type_id,
+    //         inherited_generic_spans,
+    //         inherited_generic_types,
+    //         last_segment,
+    //     })
+    // }
 
-    #[must_use]
-    #[allow(clippy::type_complexity)]
-    pub fn get_visible_type_id(
-        &mut self,
-        mut path: SemanticTypedPath,
-    ) -> Option<(
-        HighVisibleTypeId,
-        Vec<Span>,
-        Vec<SemanticDataType>,
-        SemanticTypedPathSegment,
-    )> {
-        if path.segments.len() == 1 {
-            let segment = path.segments.pop().unwrap();
+    // #[must_use]
+    // #[allow(clippy::type_complexity)]
+    // pub fn get_visible_type_id(
+    //     &mut self,
+    //     mut path: SemanticTypedPath,
+    // ) -> Option<(
+    //     HighVisibleTypeId,
+    //     Vec<Span>,
+    //     Vec<SemanticDataType>,
+    //     SemanticTypedPathSegment,
+    // )> {
+    //     if path.segments.len() == 1 {
+    //         let segment = path.segments.pop().unwrap();
 
-            let id = self.get_semantic_type_id(&segment)?;
+    //         let id = segment.get_type_id(self)?;
 
-            return Some((
-                id,
-                segment.generic_spans.clone(),
-                segment.generic_types.clone(),
-                segment,
-            ));
-        }
+    //         return Some((
+    //             id,
+    //             segment.generic_spans.clone(),
+    //             segment.generic_types.clone(),
+    //             segment,
+    //         ));
+    //     }
 
-        let ResolvedTypePath {
-            id,
-            inherited_generic_spans,
-            inherited_generic_types,
-            last_segment,
-        } = self.resolve_type_path(path)?;
+    //     let ResolvedTypePath {
+    //         id,
+    //         inherited_generic_spans,
+    //         inherited_generic_types,
+    //         last_segment,
+    //     } = self.resolve_type_path(path)?;
 
-        let supplied_generic_spans = &last_segment.generic_spans;
-        let supplied_generic_types = &last_segment.generic_types;
+    //     let supplied_generic_spans = &last_segment.generic_spans;
+    //     let supplied_generic_types = &last_segment.generic_types;
 
-        let declaration = self.semantic_environment.get_type(id);
+    //     let declaration = self.semantic_environment.get_type(id);
 
-        let id = match declaration.get_visible_type_id(
-            &self.semantic_environment,
-            &self.current_module_path,
-            id,
-            last_segment.name_span,
-            &last_segment.name,
-            last_segment.name_span,
-        ) {
-            Ok(id) => id,
-            Err(error) => return self.add_error(error),
-        };
+    //     let id = last_segment.type_id.unwrap();
+    //     // let id = match declaration.get_visible_type_id(
+    //     //     &self.semantic_environment,
+    //     //     &self.current_module_path,
+    //     //     id,
+    //     //     last_segment.name_span,
+    //     //     &last_segment.type_id,
+    //     //     last_segment.name_span,
+    //     // ) {
+    //     //     Ok(id) => id,
+    //     //     Err(error) => return self.add_error(error),
+    //     // };
 
-        let mut generic_spans = inherited_generic_spans;
-        generic_spans.extend(supplied_generic_spans.iter().copied());
+    //     let mut generic_spans = inherited_generic_spans;
+    //     generic_spans.extend(supplied_generic_spans.iter().copied());
 
-        let mut generic_types = inherited_generic_types;
-        generic_types.extend(supplied_generic_types.iter().cloned());
+    //     let mut generic_types = inherited_generic_types;
+    //     generic_types.extend(supplied_generic_types.iter().cloned());
 
-        Some((id, generic_spans, generic_types, last_segment))
-    }
+    //     Some((id, generic_spans, generic_types, last_segment))
+    // }
 
-    #[must_use]
-    #[allow(clippy::type_complexity)]
-    pub fn get_visible_value_within_type(
-        &mut self,
-        mut path: SemanticTypedPath,
-    ) -> Option<(
-        HighVisibleValueId,
-        Vec<SemanticDataType>,
-        Option<SemanticDataType>,
-    )> {
-        if path.segments.len() == 1 {
-            let segment = path.segments.remove(0);
-            let supplied_generic_types = &segment.generic_types;
+    // #[must_use]
+    // #[allow(clippy::type_complexity)]
+    // pub fn get_visible_value_within_type(
+    //     &mut self,
+    //     mut path: SemanticTypedPath,
+    // ) -> Option<(
+    //     HighVisibleValueId,
+    //     Vec<SemanticDataType>,
+    //     Option<SemanticDataType>,
+    // )> {
+    //     if path.segments.len() == 1 {
+    //         let segment = path.segments.remove(0);
+    //         let supplied_generic_types = &segment.generic_types;
 
-            let id = match self.get_semantic_value_id(
-                &segment.name,
-                segment.name_span,
-                segment.generic_types.len(),
-            ) {
-                Ok(id) => id,
-                Err(error) => return self.add_error(error),
-            };
+    //         let id = segment.get_value_id(self)?;
 
-            let declaration = self.semantic_environment.get_value(id).clone();
+    //         let declaration = self.semantic_environment.get_value(id).clone();
 
-            let data_type = declaration.into_data_type(
-                self,
-                id,
-                Vec::new(),
-                supplied_generic_types,
-                segment.name_span,
-            );
+    //         let data_type = declaration.into_data_type(
+    //             self,
+    //             id,
+    //             Vec::new(),
+    //             supplied_generic_types,
+    //             segment.name_span,
+    //         );
 
-            return Some((id, segment.generic_types, data_type));
-        }
+    //         return Some((id, segment.generic_types, data_type));
+    //     }
 
-        let ResolvedTypePath {
-            id,
-            inherited_generic_types,
-            last_segment,
-            ..
-        } = self.resolve_type_path(path)?;
-        let supplied_generic_types = &last_segment.generic_types;
+    //     let ResolvedTypePath {
+    //         id,
+    //         inherited_generic_types,
+    //         last_segment,
+    //         ..
+    //     } = self.resolve_type_path(path)?;
+    //     let supplied_generic_types = &last_segment.generic_types;
 
-        let declaration = self.semantic_environment.get_type(id);
+    //     let id = last_segment.get_value_id(self)?;
 
-        let id = match declaration.get_visible_value_id(
-            &self.semantic_environment,
-            &self.current_module_path,
-            id,
-            last_segment.name_span,
-            &last_segment.name,
-            last_segment.name_span,
-        ) {
-            Ok(id) => id,
-            Err(error) => return self.add_error(error),
-        };
+    //     let declaration = self.semantic_environment.get_value(id).clone();
 
-        let declaration = self.semantic_environment.get_value(id).clone();
+    //     let data_type = declaration.into_data_type(
+    //         self,
+    //         id,
+    //         inherited_generic_types.clone(),
+    //         supplied_generic_types,
+    //         last_segment.name_span,
+    //     );
 
-        let data_type = declaration.into_data_type(
-            self,
-            id,
-            inherited_generic_types.clone(),
-            supplied_generic_types,
-            last_segment.name_span,
-        );
+    //     let mut generic_types = inherited_generic_types;
 
-        let mut generic_types = inherited_generic_types;
+    //     generic_types.extend(supplied_generic_types.iter().cloned());
 
-        generic_types.extend(supplied_generic_types.iter().cloned());
+    //     Some((id, generic_types, data_type))
+    // }
 
-        Some((id, generic_types, data_type))
-    }
+    // fn try_resolve_path<'a>(
+    //     &self,
+    //     path: &'a ParsedPath,
+    // ) -> Result<(HighVisibleTypeId, &'a ParsedPathSegment), SemanticAnalysisError> {
+    //     let (last_segment, segments) = path.segments.split_last().unwrap();
 
-    fn try_resolve_path<'a>(
-        &self,
-        path: &'a ParsedPath,
-    ) -> Result<(HighVisibleTypeId, &'a ParsedPathSegment), SemanticAnalysisError> {
-        let (last_segment, segments) = path.segments.split_last().unwrap();
+    //     let (first_segment, segments) = segments
+    //         .split_first()
+    //         .expect("segments.len should be checked before calling try_resolve_path");
 
-        let (first_segment, segments) = segments
-            .split_first()
-            .expect("segments.len should be checked before calling try_resolve_path");
+    //     let mut current_type_id = self.get_type_id_in_scope(first_segment)?;
 
-        let mut current_type_id = self.get_type_id_in_scope(first_segment)?;
+    //     let mut current_span = first_segment.name_span;
 
-        let mut current_span = first_segment.span;
+    //     for segment in segments {
+    //         let declaration = self.semantic_environment.get_type(current_type_id);
 
-        for segment in segments {
-            let declaration = self.semantic_environment.get_type(current_type_id);
+    //         let id = declaration.get_visible_type_id(
+    //             &self.semantic_environment,
+    //             &self.current_module_path,
+    //             current_type_id,
+    //             current_span,
+    //             &segment.name,
+    //             segment.name_span,
+    //         )?;
 
-            let id = declaration.get_visible_type_id(
-                &self.semantic_environment,
-                &self.current_module_path,
-                current_type_id,
-                current_span,
-                &segment.name,
-                segment.span,
-            )?;
+    //         current_type_id = id;
+    //         current_span = segment.name_span;
+    //     }
 
-            current_type_id = id;
-            current_span = segment.span;
-        }
+    //     Ok((current_type_id, last_segment))
+    // }
 
-        Ok((current_type_id, last_segment))
-    }
+    // pub fn try_get_visible_type(
+    //     &mut self,
+    //     path: &ParsedPath,
+    // ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
+    //     if path.segments.len() == 1 {
+    //         let segment = &path.segments[0];
 
-    pub fn try_get_visible_type(
-        &mut self,
-        path: &ParsedPath,
-    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
-        if path.segments.len() == 1 {
-            let segment = &path.segments[0];
+    //         return self.get_type_id_in_scope(segment);
+    //     }
 
-            return self.get_type_id_in_scope(segment);
-        }
+    //     let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let (type_id, last_segment) = self.try_resolve_path(path)?;
+    //     let declaration = self.semantic_environment.get_type(type_id);
 
-        let declaration = self.semantic_environment.get_type(type_id);
+    //     let id = declaration.get_visible_type_id(
+    //         &self.semantic_environment,
+    //         &self.current_module_path,
+    //         type_id,
+    //         last_segment.name_span,
+    //         &last_segment.name,
+    //         last_segment.name_span,
+    //     )?;
 
-        let id = declaration.get_visible_type_id(
-            &self.semantic_environment,
-            &self.current_module_path,
-            type_id,
-            last_segment.span,
-            &last_segment.name,
-            last_segment.span,
-        )?;
+    //     Ok(id)
+    // }
 
-        Ok(id)
-    }
+    // pub fn try_get_visible_value(
+    //     &mut self,
+    //     path: &ParsedPath,
+    // ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
+    //     if path.segments.len() == 1 {
+    //         let segment = &path.segments[0];
 
-    pub fn try_get_visible_value(
-        &mut self,
-        path: &ParsedPath,
-    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
-        if path.segments.len() == 1 {
-            let segment = &path.segments[0];
+    //         return self.get_semantic_value_id(&segment.name, segment.name_span, 0);
+    //     }
 
-            return self.get_semantic_value_id(&segment.name, segment.span, 0);
-        }
+    //     let (type_id, last_segment) = self.try_resolve_path(path)?;
 
-        let (type_id, last_segment) = self.try_resolve_path(path)?;
+    //     let declaration = self.semantic_environment.get_type(type_id);
 
-        let declaration = self.semantic_environment.get_type(type_id);
+    //     let id = declaration.get_visible_value_id(
+    //         &self.semantic_environment,
+    //         &self.current_module_path,
+    //         type_id,
+    //         last_segment.name_span,
+    //         &last_segment.name,
+    //         last_segment.name_span,
+    //     )?;
 
-        let id = declaration.get_visible_value_id(
-            &self.semantic_environment,
-            &self.current_module_path,
-            type_id,
-            last_segment.span,
-            &last_segment.name,
-            last_segment.span,
-        )?;
-
-        Ok(id)
-    }
+    //     Ok(id)
+    // }
 
     #[must_use]
     pub fn get_struct_id(
         &mut self,
         id: HighVisibleTypeId,
-        segment: &SemanticTypedPathSegment,
+        generic_spans: &[Span],
+        generic_types: &[SemanticDataType],
+        name_span: Span,
     ) -> Option<(HighStructId, SemanticDataType)> {
         let SemanticTypeDeclaration {
             kind: declaration, ..
         } = self.semantic_environment.get_type(id);
 
-        let data_type = declaration.clone().into_data_type(self, id, segment);
+        let data_type =
+            declaration
+                .clone()
+                .into_data_type(self, id, generic_spans, generic_types, name_span);
 
         let SemanticDataType::Struct(id, _) = data_type else {
             return self.add_error(SemanticAnalysisError::NotAStruct {
-                type_span: segment.name_span,
+                type_span: name_span,
                 data_type,
             });
         };

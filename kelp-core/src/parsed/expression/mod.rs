@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
+use crate::low::environment::r#type::TypeId;
 use crate::semantic::data_type::SemanticDataType;
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -230,13 +231,15 @@ impl ParsedExpression {
     ) -> Option<(Span, ParsedPlaceExpression)> {
         let expression = match self.kind {
             ParsedExpressionKind::Path(path) => {
-                let path = path.perform_semantic_analysis(ctx);
+                // let path = path.perform_semantic_analysis(ctx)?;
 
-                let (id, generic_types, data_type) = ctx.get_visible_value_within_type(path)?;
+                // let (id, generic_types, data_type) = ctx.get_visible_value_within_type(path)?;
 
-                let data_type = data_type?;
+                // let data_type = data_type?;
 
-                ParsedPlaceExpressionKind::Value(id.into(), generic_types).with(data_type)
+                // ParsedPlaceExpressionKind::Value(id.into(), generic_types).with(data_type)
+
+                todo!()
             }
             ParsedExpressionKind::PlayerScore(score) => {
                 let score = score.perform_semantic_analysis(ctx)?;
@@ -650,7 +653,7 @@ impl ParsedExpression {
                     return ctx.add_error(SemanticAnalysisError::MethodNotFound {
                         type_span: callee_span,
                         type_: receiver.data_type,
-                        method_name: callee.name,
+                        method_name: callee.name.clone(),
                     });
                 };
 
@@ -810,59 +813,68 @@ impl ParsedExpression {
                 SemanticExpressionKind::Tuple(expressions)
                     .with(SemanticDataType::Tuple(expression_data_types))
             }
-            ParsedExpressionKind::RegularStruct(path, field_values) => {
-                let path = path.perform_semantic_analysis(ctx);
+            ParsedExpressionKind::RegularStruct(path, supplied_field_values) => {
+                let path = path.perform_semantic_analysis(ctx)?;
 
-                let path_span = path.span;
+                let type_id = path.get_type_id(ctx)?;
 
-                let (id, _, generic_types, last_segment) = ctx.get_visible_type_id(path)?;
+                let (id, data_type) = ctx.get_struct_id(
+                    type_id,
+                    &path.generic_spans,
+                    &path.generic_types,
+                    path.name_span,
+                )?;
 
-                let (id, data_type) = ctx.get_struct_id(id, &last_segment)?;
+                let (id, declaration) = ctx.get_regular_struct(id, data_type, path.name_span)?;
 
-                let (id, declaration) =
-                    ctx.get_regular_struct(id, data_type, last_segment.name_span)?;
+                let data_type = SemanticDataType::Struct(id.into(), path.generic_types.clone());
 
-                let data_type = SemanticDataType::Struct(id.into(), generic_types.clone());
+                let declared_generic_ids = declaration.generic_ids.clone();
+                let declared_field_types = declaration.field_types.clone();
 
-                let generic_ids = declaration.generic_ids.clone();
-                let field_types = declaration.field_types.clone();
-
-                let field_values = field_values
+                let supplied_field_values = supplied_field_values
                     .into_iter()
-                    .map(|((field_span, field), value)| {
-                        let Some(field_type) = field_types.get(&field) else {
-                            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
-                                data_type: data_type.clone(),
-                                field_span,
-                                field,
-                            });
-                        };
+                    .map(
+                        |((supplied_field_span, supplied_field_name), supplied_field_value)| {
+                            let Some(declared_field_type) =
+                                declared_field_types.get(&supplied_field_name)
+                            else {
+                                return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                                    data_type: data_type.clone(),
+                                    field_span: supplied_field_span,
+                                    field: supplied_field_name,
+                                });
+                            };
 
-                        let field_type = field_type
-                            .clone()
-                            .substitute_generics(&generic_ids, &generic_types);
+                            let declared_field_type = declared_field_type
+                                .clone()
+                                .substitute_generics(&declared_generic_ids, &path.generic_types);
 
-                        let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+                            let (supplied_field_value_span, supplied_field_value) =
+                                supplied_field_value.perform_semantic_analysis(ctx)?;
 
-                        value
-                            .data_type
-                            .assert_equals(ctx, value_span, &field_type)?;
+                            supplied_field_value.data_type.assert_equals(
+                                ctx,
+                                supplied_field_value_span,
+                                &declared_field_type,
+                            )?;
 
-                        Some((field, value))
-                    })
+                            Some((supplied_field_name, supplied_field_value))
+                        },
+                    )
                     .collect_option_all::<HashMap<_, _>>()?;
 
                 let mut has_error = false;
 
-                for declared_field_name in field_types.into_keys() {
-                    if !field_values
+                for declared_field_name in declared_field_types.into_keys() {
+                    if !supplied_field_values
                         .keys()
-                        .any(|given_field_name| *given_field_name == declared_field_name)
+                        .any(|supplied_field_name| *supplied_field_name == declared_field_name)
                     {
                         has_error = true;
 
                         ctx.add_error_unit(SemanticAnalysisError::MissingField {
-                            span: path_span,
+                            span: path.name_span,
                             name: declared_field_name.clone(),
                         });
                     }
@@ -872,8 +884,12 @@ impl ParsedExpression {
                     return None;
                 }
 
-                SemanticExpressionKind::RegularStruct(id, generic_types, field_values)
-                    .with(data_type)
+                SemanticExpressionKind::RegularStruct(
+                    id,
+                    path.generic_types.clone(),
+                    supplied_field_values,
+                )
+                .with(data_type)
             }
             ParsedExpressionKind::Call { callee, arguments } => {
                 let (callee_span, callee) = callee.perform_semantic_analysis(ctx)?;
@@ -1056,13 +1072,21 @@ impl ParsedExpression {
                 .with(SemanticDataType::Unit)
             }
             ParsedExpressionKind::Path(path) => {
-                let path = path.perform_semantic_analysis(ctx);
+                let path = path.perform_semantic_analysis(ctx)?;
 
-                let (id, generic_types, data_type) = ctx.get_visible_value_within_type(path)?;
+                let id = path.get_value_id(ctx)?;
 
-                let data_type = data_type?;
+                let declaration = ctx.semantic_environment.get_value(id).clone();
 
-                SemanticExpressionKind::Value(id.into(), generic_types).with(data_type)
+                let data_type = declaration.into_data_type(
+                    ctx,
+                    id,
+                    path.inherited_generic_types,
+                    &path.generic_types,
+                    path.name_span,
+                )?;
+
+                SemanticExpressionKind::Value(id.into(), path.generic_types).with(data_type)
             }
             ParsedExpressionKind::Boolean(value) => {
                 SemanticExpressionKind::Boolean(value).with(SemanticDataType::Boolean)

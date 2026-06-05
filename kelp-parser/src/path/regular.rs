@@ -35,7 +35,7 @@ impl LowerableAstNode for CSTPathSegment {
         let name = name_token.text();
 
         Some(ParsedPathSegment {
-            span: self.span(),
+            name_span: self.span(),
             name: name.to_owned(),
         })
     }

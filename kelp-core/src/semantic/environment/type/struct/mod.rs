@@ -1,5 +1,5 @@
 use crate::make_id;
-use crate::parsed::semantic_analysis::info::error::SemanticAnalysisError;
+use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::module::HighModuleId;
@@ -61,14 +61,40 @@ impl SemanticStructDeclaration {
         }
     }
 
+    pub fn get_visible_type_id(
+        &self,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[HighModuleId],
+        self_id: HighVisibleTypeId,
+        name: &str,
+        name_span: Span,
+    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
+        if let Some(impls) = semantic_environment.get_implementations(self_id) {
+            for implementation in impls {
+                if let Some(id) = implementation.get_type(name) {
+                    return id.assert_visible_result(semantic_environment, current_module_path);
+                }
+            }
+        }
+
+        Err(SemanticAnalysisError::TypeDoesntContainType {
+            container_type_declaration_span: Some(self.name_span()),
+            container_type_kind: TypeKind::Struct,
+            container_type_name: self.name().to_owned(),
+            type_span: name_span,
+            type_name: name.to_owned(),
+        })
+    }
+
     pub fn get_visible_value_id(
         &self,
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
-        id: HighVisibleTypeId,
+        self_id: HighVisibleTypeId,
         name: &str,
+        name_span: Span,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
-        if let Some(implementations) = semantic_environment.get_implementations(id) {
+        if let Some(implementations) = semantic_environment.get_implementations(self_id) {
             for implementation in implementations {
                 if let Some(id) = implementation.get_value(name) {
                     return id.assert_visible_result(semantic_environment, current_module_path);
@@ -77,7 +103,10 @@ impl SemanticStructDeclaration {
         }
 
         Err(SemanticAnalysisError::TypeDoesntContainValue {
+            type_declaration_span: Some(self.name_span()),
+            type_kind: TypeKind::Struct,
             type_name: self.name().to_owned(),
+            value_span: name_span,
             value_name: name.to_owned(),
         })
     }

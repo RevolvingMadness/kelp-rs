@@ -11,7 +11,7 @@ use crate::parsed::environment::r#type::{
 use crate::parsed::environment::value::{
     ParsedValueDeclaration, ParsedValueDeclarationKind, variable::ParsedVariableDeclaration,
 };
-use crate::parsed::semantic_analysis::info::error::ItemKind;
+use crate::parsed::semantic_analysis::info::error::TypeKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighVisibleTypeId;
 use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
@@ -298,35 +298,6 @@ impl SemanticAnalysisContext {
         self.current_module_path.starts_with(target_module_path)
     }
 
-    #[inline]
-    pub fn add_invalid_generics<T>(
-        &mut self,
-        name_span: Span,
-        declaration_span: Option<Span>,
-        expected: usize,
-        actual: usize,
-    ) -> Option<T> {
-        self.add_error(SemanticAnalysisError::InvalidGenerics {
-            name_span,
-            declaration_span,
-            expected,
-            actual,
-        })
-    }
-
-    #[must_use]
-    pub fn add_invalid_generics_type(
-        &mut self,
-        name_span: Span,
-        declaration_span: Option<Span>,
-        expected: usize,
-        actual: usize,
-    ) -> SemanticDataType {
-        self.add_invalid_generics::<()>(name_span, declaration_span, expected, actual);
-
-        SemanticDataType::Error
-    }
-
     pub fn add_info<T>(&mut self, info: SemanticAnalysisInfo) -> Option<T> {
         if self.infos.len() >= self.max_infos {
             return None;
@@ -456,7 +427,8 @@ impl SemanticAnalysisContext {
 
         if actual_generic_count != expected_generic_count {
             return self.add_error(SemanticAnalysisError::InvalidGenerics {
-                name_span: segment.name_span,
+                type_name_span: segment.name_span,
+                type_kind: declaration.kind.get_type_kind().into(),
                 declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,
@@ -475,7 +447,7 @@ impl SemanticAnalysisContext {
             .map(|id| HighVisibleValueId(id.0))
     }
 
-    pub fn get_value_id_analysis(
+    pub fn get_semantic_value_id(
         &self,
         name: &str,
         name_span: Span,
@@ -494,7 +466,8 @@ impl SemanticAnalysisContext {
 
         if actual_generic_count != expected_generic_count {
             return Err(SemanticAnalysisError::InvalidGenerics {
-                name_span,
+                type_name_span: name_span,
+                type_kind: declaration.kind.get_value_kind().into(),
                 declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,
@@ -755,6 +728,7 @@ impl SemanticAnalysisContext {
                 current_type_id,
                 current_span,
                 &segment.name,
+                segment.name_span,
             ) {
                 Ok(id) => id,
                 Err(error) => return self.add_error(error),
@@ -817,6 +791,7 @@ impl SemanticAnalysisContext {
             id,
             last_segment.name_span,
             &last_segment.name,
+            last_segment.name_span,
         ) {
             Ok(id) => id,
             Err(error) => return self.add_error(error),
@@ -845,7 +820,7 @@ impl SemanticAnalysisContext {
             let segment = path.segments.remove(0);
             let supplied_generic_types = &segment.generic_types;
 
-            let id = match self.get_value_id_analysis(
+            let id = match self.get_semantic_value_id(
                 &segment.name,
                 segment.name_span,
                 segment.generic_types.len(),
@@ -883,6 +858,7 @@ impl SemanticAnalysisContext {
             id,
             last_segment.name_span,
             &last_segment.name,
+            last_segment.name_span,
         ) {
             Ok(id) => id,
             Err(error) => return self.add_error(error),
@@ -929,6 +905,7 @@ impl SemanticAnalysisContext {
                 current_type_id,
                 current_span,
                 &segment.name,
+                segment.span,
             )?;
 
             current_type_id = id;
@@ -958,6 +935,7 @@ impl SemanticAnalysisContext {
             type_id,
             last_segment.span,
             &last_segment.name,
+            last_segment.span,
         )?;
 
         Ok(id)
@@ -970,7 +948,7 @@ impl SemanticAnalysisContext {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            return self.get_value_id_analysis(&segment.name, segment.span, 0);
+            return self.get_semantic_value_id(&segment.name, segment.span, 0);
         }
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
@@ -983,6 +961,7 @@ impl SemanticAnalysisContext {
             type_id,
             last_segment.span,
             &last_segment.name,
+            last_segment.span,
         )?;
 
         Ok(id)

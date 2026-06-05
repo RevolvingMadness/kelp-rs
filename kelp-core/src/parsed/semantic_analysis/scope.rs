@@ -6,7 +6,6 @@ use crate::{
         },
     },
     semantic::environment::{
-        SemanticEnvironment,
         r#type::{HighTypeId, module::HighModuleId},
         value::HighValueId,
     },

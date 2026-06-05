@@ -27,6 +27,42 @@ impl Display for ItemKind {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum BothItemKinds {
+    Type(TypeKind),
+    Value(ValueKind),
+}
+
+impl From<TypeKind> for BothItemKinds {
+    fn from(value: TypeKind) -> Self {
+        Self::Type(value)
+    }
+}
+
+impl From<ValueKind> for BothItemKinds {
+    fn from(value: ValueKind) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl BothItemKinds {
+    #[must_use]
+    pub const fn name(&self) -> &str {
+        match self {
+            Self::Type(kind) => kind.name(),
+            Self::Value(kind) => kind.name(),
+        }
+    }
+
+    #[must_use]
+    pub const fn name_plural(&self) -> &str {
+        match self {
+            Self::Type(kind) => kind.name_plural(),
+            Self::Value(kind) => kind.name_plural(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum TypeKind {
     Module,
     Struct,
@@ -41,9 +77,9 @@ impl TypeKind {
         match self {
             Self::Module => "module",
             Self::Struct => "struct",
-            Self::Alias => "alias",
-            Self::Generic => "generic",
-            Self::Builtin => "builtin",
+            Self::Alias => "type alias",
+            Self::Generic => "type generic",
+            Self::Builtin => "builtin type",
         }
     }
 
@@ -55,6 +91,30 @@ impl TypeKind {
             Self::Alias => "type aliases",
             Self::Generic => "type generics",
             Self::Builtin => "builtin types",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ValueKind {
+    Variable,
+    Function,
+}
+
+impl ValueKind {
+    #[must_use]
+    pub const fn name(&self) -> &str {
+        match self {
+            Self::Variable => "variable",
+            Self::Function => "function",
+        }
+    }
+
+    #[must_use]
+    pub const fn name_plural(&self) -> &str {
+        match self {
+            Self::Variable => "variables",
+            Self::Function => "functions",
         }
     }
 }
@@ -192,7 +252,8 @@ pub enum SemanticAnalysisError {
         actual: usize,
     },
     InvalidGenerics {
-        name_span: Span,
+        type_name_span: Span,
+        type_kind: BothItemKinds,
         declaration_span: Option<Span>,
         expected: usize,
         actual: usize,
@@ -230,7 +291,7 @@ pub enum SemanticAnalysisError {
     },
     NotAModule {
         span: Span,
-        name: String,
+        type_kind: TypeKind,
     },
     TypeNotPublic(String),
     ValueNotPublic(String),
@@ -248,16 +309,22 @@ pub enum SemanticAnalysisError {
     },
     UnknownModule(String),
     TypeDoesntContainType {
+        container_type_declaration_span: Option<Span>,
+        container_type_kind: TypeKind,
         container_type_name: String,
+        type_span: Span,
         type_name: String,
+    },
+    TypeDoesntContainValue {
+        type_declaration_span: Option<Span>,
+        type_kind: TypeKind,
+        type_name: String,
+        value_span: Span,
+        value_name: String,
     },
     TypeDoesntContainItems {
         type_span: Span,
         type_kind: TypeKind,
-    },
-    TypeDoesntContainValue {
-        type_name: String,
-        value_name: String,
     },
     MethodNotFound {
         type_span: Span,
@@ -507,24 +574,22 @@ impl SemanticAnalysisError {
                 diagnostic
             }
             Self::InvalidGenerics {
-                name_span: span,
+                type_name_span,
+                type_kind,
                 declaration_span,
                 expected,
                 actual,
             } => {
-                let mut diagnostic = Diagnostic::error("mismatched generic type argument count")
+                let mut diagnostic = Diagnostic::error("mismatched generic count")
                     .with_primary_label(
-                        span,
-                        format!(
-                            "expected {} generic type argument(s), found {}",
-                            expected, actual
-                        ),
+                        type_name_span,
+                        format!("expected {} generic(s), found {}", expected, actual),
                     );
 
                 if let Some(declaration_span) = declaration_span {
                     diagnostic = diagnostic.with_secondary_label(
                         declaration_span,
-                        format!("declared here with {} generic type parameter(s)", expected),
+                        format!("{} declared here", type_kind.name()),
                     );
                 }
 
@@ -566,7 +631,8 @@ impl SemanticAnalysisError {
                 expected,
                 actual,
             } => todo!(),
-            Self::NotAModule { span, name } => todo!(),
+            Self::NotAModule { span, type_kind } => Diagnostic::error("type not a module")
+                .with_primary_label(span, format!("expected module, found {}", type_kind.name())),
             Self::TypeNotPublic(_) => todo!(),
             Self::ValueNotPublic(_) => todo!(),
             Self::UnknownType { span, name } => {
@@ -580,9 +646,53 @@ impl SemanticAnalysisError {
             Self::UnknownItem { span, name } => todo!(),
             Self::UnknownModule(_) => todo!(),
             Self::TypeDoesntContainType {
+                container_type_declaration_span,
+                container_type_kind,
                 container_type_name,
+                type_span,
                 type_name,
-            } => todo!(),
+            } => {
+                let mut diagnostic = Diagnostic::error(format!(
+                    "type `{}` not found in {} `{}`",
+                    type_name,
+                    container_type_kind.name(),
+                    container_type_name
+                ))
+                .with_primary_no_label(type_span);
+
+                if let Some(type_declaration_span) = container_type_declaration_span {
+                    diagnostic = diagnostic.with_secondary_label(
+                        type_declaration_span,
+                        format!("{} declared here", container_type_kind.name()),
+                    );
+                }
+
+                diagnostic
+            }
+            Self::TypeDoesntContainValue {
+                type_declaration_span,
+                type_kind,
+                type_name,
+                value_span,
+                value_name,
+            } => {
+                let mut diagnostic = Diagnostic::error(format!(
+                    "value `{}` not found in {} `{}`",
+                    value_name,
+                    type_kind.name(),
+                    type_name
+                ))
+                .with_primary_no_label(value_span);
+
+                if let Some(type_declaration_span) = type_declaration_span {
+                    diagnostic = diagnostic.with_secondary_label(
+                        type_declaration_span,
+                        format!("{} declared here", type_kind.name()),
+                    );
+                }
+
+                diagnostic
+            }
             Self::TypeDoesntContainItems {
                 type_span,
                 type_kind,
@@ -591,17 +701,13 @@ impl SemanticAnalysisError {
                 type_kind.name_plural()
             ))
             .with_primary_no_label(type_span),
-            Self::TypeDoesntContainValue {
-                type_name,
-                value_name,
-            } => todo!(),
             Self::MethodNotFound {
                 type_span,
                 type_,
                 method_name,
             } => Diagnostic::error("Method not found").with_label(
                 type_span,
-                format!("method not found in `{}`", type_.display(environment),),
+                format!("method not found in type `{}`", type_.display(environment),),
                 LabelType::Primary,
             ),
             Self::ModuleDoesntContainItem {

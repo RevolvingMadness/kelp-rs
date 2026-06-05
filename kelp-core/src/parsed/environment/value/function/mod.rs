@@ -32,10 +32,10 @@ impl ParsedFunctionDeclaration {
     }
 
     #[must_use]
-    pub fn name_span(&self) -> Option<Span> {
+    pub const fn name_span(&self) -> Option<Span> {
         match self {
             Self::Regular(declaration) => Some(declaration.name_span),
-            Self::Builtin(declaration) => None,
+            Self::Builtin(..) => None,
         }
     }
 }

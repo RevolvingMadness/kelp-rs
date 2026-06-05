@@ -1,6 +1,6 @@
 use crate::make_id;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
-use crate::parsed::semantic_analysis::info::error::{ItemKind, SemanticAnalysisError, TypeKind};
+use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
 use crate::path::generic::TypedPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
@@ -68,7 +68,7 @@ pub enum SemanticTypeDeclarationKind {
 
 impl SemanticTypeDeclarationKind {
     #[must_use]
-    pub fn get_type_kind(&self) -> TypeKind {
+    pub const fn get_type_kind(&self) -> TypeKind {
         match self {
             Self::Module(..) => TypeKind::Module,
             Self::Struct(..) => TypeKind::Struct,
@@ -138,31 +138,33 @@ impl SemanticTypeDeclarationKind {
             Self::Struct(declaration) => {
                 let id = HighStructId(id.0);
 
-                let expected_generics = declaration.generic_count();
-                let actual_generics = segment.generic_types.len();
+                let expected_generic_count = declaration.generic_count();
+                let actual_generic_count = segment.generic_types.len();
 
-                if actual_generics != expected_generics {
-                    return ctx.add_invalid_generics_type(
-                        segment.name_span,
-                        Some(declaration.name_span()),
-                        expected_generics,
-                        actual_generics,
-                    );
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: segment.name_span,
+                        type_kind: TypeKind::Struct.into(),
+                        declaration_span: Some(declaration.name_span()),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
                 }
 
                 SemanticDataType::Struct(id, segment.generic_types.clone())
             }
             Self::Alias(declaration) => {
-                let expected_generics = declaration.generic_ids.len();
-                let actual_generics = segment.generic_types.len();
+                let expected_generic_count = declaration.generic_ids.len();
+                let actual_generic_count = segment.generic_types.len();
 
-                if actual_generics != expected_generics {
-                    return ctx.add_invalid_generics_type(
-                        segment.name_span,
-                        Some(declaration.name_span),
-                        expected_generics,
-                        actual_generics,
-                    );
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: segment.name_span,
+                        type_kind: TypeKind::Alias.into(),
+                        declaration_span: Some(declaration.name_span),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
                 }
 
                 declaration
@@ -170,16 +172,17 @@ impl SemanticTypeDeclarationKind {
                     .substitute_generics(&declaration.generic_ids, &segment.generic_types)
             }
             Self::Generic(declaration) => {
-                let expected_generics = 0;
-                let actual_generics = segment.generic_types.len();
+                let expected_generic_count = 0;
+                let actual_generic_count = segment.generic_types.len();
 
-                if actual_generics != expected_generics {
-                    return ctx.add_invalid_generics_type(
-                        segment.name_span,
-                        Some(declaration.name_span),
-                        expected_generics,
-                        actual_generics,
-                    );
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: segment.name_span,
+                        type_kind: TypeKind::Generic.into(),
+                        declaration_span: Some(declaration.name_span),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
                 }
 
                 SemanticDataType::Generic(HighGenericId(id.0))
@@ -210,31 +213,27 @@ impl SemanticTypeDeclaration {
         &self,
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
-        base_id: HighVisibleTypeId,
-        base_span: Span,
+        self_id: HighVisibleTypeId,
+        self_name_span: Span,
         name: &str,
+        name_span: Span,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         match &self.kind {
-            SemanticTypeDeclarationKind::Module(declaration) => {
-                declaration.get_visible_type_id(semantic_environment, current_module_path, name)
-            }
-            SemanticTypeDeclarationKind::Struct(declaration) => {
-                if let Some(impls) = semantic_environment.get_implementations(base_id) {
-                    for implementation in impls {
-                        if let Some(id) = implementation.get_type(name) {
-                            return id
-                                .assert_visible_result(semantic_environment, current_module_path);
-                        }
-                    }
-                }
-
-                Err(SemanticAnalysisError::TypeDoesntContainType {
-                    container_type_name: declaration.name().to_owned(),
-                    type_name: name.to_owned(),
-                })
-            }
+            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_type_id(
+                semantic_environment,
+                current_module_path,
+                name,
+                name_span,
+            ),
+            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_type_id(
+                semantic_environment,
+                current_module_path,
+                self_id,
+                name,
+                name_span,
+            ),
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
-                type_span: base_span,
+                type_span: self_name_span,
                 type_kind: self.kind.get_type_kind(),
             }),
         }
@@ -244,19 +243,24 @@ impl SemanticTypeDeclaration {
         &self,
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
-        base_id: HighVisibleTypeId,
+        self_id: HighVisibleTypeId,
         base_span: Span,
         name: &str,
+        name_span: Span,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         match &self.kind {
-            SemanticTypeDeclarationKind::Module(declaration) => {
-                declaration.get_visible_value_id(semantic_environment, current_module_path, name)
-            }
+            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_value_id(
+                semantic_environment,
+                current_module_path,
+                name,
+                name_span,
+            ),
             SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_value_id(
                 semantic_environment,
                 current_module_path,
-                base_id,
+                self_id,
                 name,
+                name_span,
             ),
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
                 type_span: base_span,

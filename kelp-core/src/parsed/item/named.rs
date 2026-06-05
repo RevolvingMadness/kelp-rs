@@ -103,15 +103,19 @@ fn resolve_use_tree(tree: &UseTree, ctx: &mut SemanticAnalysisContext) -> Option
                 Err(error) => return ctx.add_error(error),
             };
 
+            let declaration = ctx.parsed_environment.get_type(id).clone();
+
+            let type_kind = declaration.kind.get_type_kind();
+
             let ParsedTypeDeclaration {
                 kind: ParsedTypeDeclarationKind::Module(module),
                 ..
-            } = ctx.parsed_environment.get_type(id).clone()
+            } = declaration
             else {
                 let last_segment = path.segments.last().unwrap();
                 return ctx.add_error(SemanticAnalysisError::NotAModule {
                     span: last_segment.span,
-                    name: last_segment.name.clone(),
+                    type_kind,
                 });
             };
 

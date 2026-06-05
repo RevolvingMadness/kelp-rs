@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     make_id,
-    parsed::semantic_analysis::info::error::SemanticAnalysisError,
+    parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind},
     semantic::environment::{
         SemanticEnvironment,
         r#type::{HighTypeId, HighVisibleTypeId},
@@ -43,10 +43,14 @@ impl SemanticModuleDeclaration {
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
         name: &str,
+        name_span: Span,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         let Some(id) = self.get_type_id(name) else {
             return Err(SemanticAnalysisError::TypeDoesntContainType {
+                container_type_declaration_span: self.name_span,
+                container_type_kind: TypeKind::Module,
                 container_type_name: self.name.clone(),
+                type_span: name_span,
                 type_name: name.to_owned(),
             });
         };
@@ -65,10 +69,14 @@ impl SemanticModuleDeclaration {
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
         name: &str,
+        name_span: Span,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         let Some(id) = self.get_value_id(name) else {
             return Err(SemanticAnalysisError::TypeDoesntContainValue {
+                type_declaration_span: self.name_span,
+                type_kind: TypeKind::Module,
                 type_name: self.name.clone(),
+                value_span: name_span,
                 value_name: name.to_owned(),
             });
         };

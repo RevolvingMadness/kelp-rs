@@ -4,7 +4,7 @@ use crate::parsed::environment::{
     r#type::builtin_data_type::ParsedBuiltinTypeDeclaration,
     r#type::module::ParsedModuleDeclaration, r#type::r#struct::ParsedStructDeclaration,
 };
-use crate::parsed::semantic_analysis::info::error::ItemKind;
+use crate::parsed::semantic_analysis::info::error::TypeKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::{HighGenericId, HighVisibleTypeId};
@@ -30,6 +30,17 @@ pub enum ParsedTypeDeclarationKind {
 }
 
 impl ParsedTypeDeclarationKind {
+    #[must_use]
+    pub const fn get_type_kind(&self) -> TypeKind {
+        match self {
+            Self::Module(..) => TypeKind::Module,
+            Self::Struct(..) => TypeKind::Struct,
+            Self::Alias(..) => TypeKind::Alias,
+            Self::Generic(..) => TypeKind::Generic,
+            Self::Builtin(..) => TypeKind::Builtin,
+        }
+    }
+
     #[must_use]
     pub const fn name_span(&self) -> Option<Span> {
         Some(match self {
@@ -83,16 +94,17 @@ impl ParsedTypeDeclaration {
                 declaration.into_data_type(ctx, name_span, generic_types)
             }
             ParsedTypeDeclarationKind::Generic(declaration) => {
-                let expected_generics = 0;
-                let actual_generics = generic_types.len();
+                let expected_generic_count = 0;
+                let actual_generic_count = generic_types.len();
 
-                if actual_generics != expected_generics {
-                    return ctx.add_invalid_generics_type(
-                        name_span,
-                        Some(declaration.name_span),
-                        expected_generics,
-                        actual_generics,
-                    );
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: name_span,
+                        type_kind: TypeKind::Generic.into(),
+                        declaration_span: Some(declaration.name_span),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
                 }
 
                 SemanticDataType::Generic(HighGenericId(id.0))

@@ -17,7 +17,7 @@ use crate::semantic::environment::{
 };
 use crate::{
     datapack::Datapack,
-    operator::{ArithmeticOperator, ComparisonOperator},
+    operator::ComparisonOperator,
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     span::Span,
     visibility::Visibility,

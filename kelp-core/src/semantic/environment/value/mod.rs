@@ -1,5 +1,5 @@
 use crate::make_id;
-use crate::parsed::semantic_analysis::info::error::{ItemKind, SemanticAnalysisError};
+use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, ValueKind};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::module::HighModuleId;
@@ -50,6 +50,14 @@ pub enum SemanticValueDeclarationKind {
 
 impl SemanticValueDeclarationKind {
     #[must_use]
+    pub const fn get_value_kind(&self) -> ValueKind {
+        match self {
+            Self::Variable(..) => ValueKind::Variable,
+            Self::Function(..) => ValueKind::Function,
+        }
+    }
+
+    #[must_use]
     pub fn name_span(&self) -> Option<Span> {
         match self {
             Self::Variable(declaration) => Some(declaration.name_span),
@@ -97,25 +105,21 @@ impl SemanticValueDeclaration {
         original_id: HighVisibleValueId,
         inherited_generic_types: Vec<SemanticDataType>,
         supplied_generic_types: &[SemanticDataType],
-        path_span: Span,
+        name_span: Span,
     ) -> Option<SemanticDataType> {
         match self.kind {
             SemanticValueDeclarationKind::Variable(declaration) => {
-                let expected_generics = 0;
-                let actual_generics = supplied_generic_types.len();
+                let expected_generic_count = 0;
+                let actual_generic_count = supplied_generic_types.len();
 
-                if actual_generics != expected_generics {
-                    let type_name = &declaration
-                        .data_type
-                        .display(&ctx.semantic_environment)
-                        .to_string();
-
-                    return ctx.add_invalid_generics(
-                        path_span,
-                        Some(declaration.name_span),
-                        expected_generics,
-                        actual_generics,
-                    );
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: name_span,
+                        type_kind: ValueKind::Variable.into(),
+                        declaration_span: Some(declaration.name_span),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
                 }
 
                 Some(declaration.data_type)
@@ -123,16 +127,17 @@ impl SemanticValueDeclaration {
             SemanticValueDeclarationKind::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
-                let expected_generics = declaration.declared_generic_count();
-                let actual_generics = supplied_generic_types.len();
+                let expected_generic_count = declaration.declared_generic_count();
+                let actual_generic_count = supplied_generic_types.len();
 
-                if actual_generics != expected_generics {
-                    return ctx.add_invalid_generics(
-                        path_span,
-                        declaration.name_span(),
-                        expected_generics,
-                        actual_generics,
-                    );
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: name_span,
+                        type_kind: ValueKind::Function.into(),
+                        declaration_span: declaration.name_span(),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
                 }
 
                 let mut generic_types = inherited_generic_types;

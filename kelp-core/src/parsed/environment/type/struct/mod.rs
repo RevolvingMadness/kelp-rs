@@ -2,7 +2,7 @@ use crate::parsed::environment::r#type::r#struct::{
     regular::ParsedRegularStructDeclaration, tuple::ParsedTupleStructDeclaration,
 };
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
-use crate::parsed::semantic_analysis::info::error::ItemKind;
+use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighVisibleTypeId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
@@ -63,16 +63,17 @@ impl ParsedStructDeclaration {
     ) -> SemanticDataType {
         let id = HighStructId(id.0);
 
-        let expected_generics = self.generic_count();
-        let actual_generics = generic_types.len();
+        let expected_generic_count = self.generic_count();
+        let actual_generic_count = generic_types.len();
 
-        if actual_generics != expected_generics {
-            return ctx.add_invalid_generics_type(
-                name_span,
-                Some(self.name_span()),
-                expected_generics,
-                actual_generics,
-            );
+        if actual_generic_count != expected_generic_count {
+            return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
+                type_name_span: name_span,
+                type_kind: TypeKind::Struct.into(),
+                declaration_span: Some(self.name_span()),
+                expected: expected_generic_count,
+                actual: actual_generic_count,
+            });
         }
 
         SemanticDataType::Struct(id, generic_types.to_vec())

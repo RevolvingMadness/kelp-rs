@@ -1,10 +1,7 @@
 use std::fmt::{Display, Write};
 
 use crate::{
-    parsed::{
-        expression::ParsedExpression,
-        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
-    },
+    parsed::{expression::ParsedExpression, semantic_analysis::SemanticAnalysisContext},
     semantic::coordinate::{SemanticCoordinates, SemanticWorldCoordinate},
 };
 

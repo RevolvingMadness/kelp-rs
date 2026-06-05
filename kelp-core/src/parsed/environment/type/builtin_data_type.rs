@@ -1,7 +1,7 @@
 use crate::{
     parsed::semantic_analysis::{
         SemanticAnalysisContext,
-        info::error::{ItemKind, SemanticAnalysisError},
+        info::error::{SemanticAnalysisError, TypeKind},
     },
     semantic::{
         data_type::SemanticDataType,
@@ -40,12 +40,13 @@ impl ParsedBuiltinTypeDeclaration {
         let actual_generic_count = generic_types.len();
 
         if actual_generic_count != expected_generic_count {
-            return ctx.add_invalid_generics_type(
-                name_span,
-                None,
-                expected_generic_count,
-                actual_generic_count,
-            );
+            return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
+                type_name_span: name_span,
+                type_kind: TypeKind::Builtin.into(),
+                declaration_span: None,
+                expected: expected_generic_count,
+                actual: actual_generic_count,
+            });
         }
 
         match self.kind {

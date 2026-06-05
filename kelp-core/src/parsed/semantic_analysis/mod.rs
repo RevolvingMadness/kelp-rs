@@ -11,7 +11,6 @@ use crate::parsed::environment::r#type::{
 use crate::parsed::environment::value::{
     ParsedValueDeclaration, ParsedValueDeclarationKind, variable::ParsedVariableDeclaration,
 };
-use crate::parsed::semantic_analysis::info::error::TypeKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighVisibleTypeId;
 use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
@@ -43,6 +42,8 @@ use crate::semantic::environment::{
         variable::{HighVariableId, SemanticVariableDeclaration},
     },
 };
+use crate::semantic::path::{ParsedPath, ParsedPathSegment};
+use crate::semantic::typed_path::{SemanticTypedPath, SemanticTypedPathSegment};
 use crate::{
     parsed::{
         environment::ParsedEnvironment,
@@ -50,10 +51,6 @@ use crate::{
             info::{SemanticAnalysisInfo, error::SemanticAnalysisError},
             scope::Scope,
         },
-    },
-    path::{
-        generic::{TypedPath, TypedPathSegment},
-        regular::{Path, PathSegment},
     },
     span::Span,
     visibility::Visibility,
@@ -66,7 +63,7 @@ pub struct ResolvedTypePath {
     pub id: HighVisibleTypeId,
     pub inherited_generic_spans: Vec<Span>,
     pub inherited_generic_types: Vec<SemanticDataType>,
-    pub last_segment: TypedPathSegment<SemanticDataType>,
+    pub last_segment: SemanticTypedPathSegment,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -391,33 +388,40 @@ impl SemanticAnalysisContext {
 
     pub fn get_type_id_in_scope(
         &self,
-        name: &str,
-        name_span: Span,
+        segment: &ParsedPathSegment,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         self.scopes
             .iter()
             .rev()
             .find_map(|scope| {
-                let id = scope.get_type_id(name)?;
+                let id = scope.get_type_id(&segment.name)?;
 
                 let id = HighVisibleTypeId(id.0);
 
                 Some(id)
             })
             .ok_or_else(|| SemanticAnalysisError::UnknownType {
-                span: name_span,
-                name: name.to_owned(),
+                span: segment.span,
+                name: segment.name.clone(),
             })
     }
 
     #[must_use]
-    pub fn get_semantic_type_id<T>(
+    pub fn get_semantic_type_id(
         &mut self,
-        segment: &TypedPathSegment<T>,
+        segment: &SemanticTypedPathSegment,
     ) -> Option<HighVisibleTypeId> {
-        let id = match self.get_type_id_in_scope(&segment.name, segment.name_span) {
-            Ok(id) => id,
-            Err(error) => return self.add_error(error),
+        let Some(id) = self
+            .scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get_type_id(&segment.name))
+            .map(|id| HighVisibleTypeId(id.0))
+        else {
+            return self.add_error(SemanticAnalysisError::UnknownType {
+                span: segment.name_span,
+                name: segment.name.clone(),
+            });
         };
 
         let declaration = self.semantic_environment.get_type(id);
@@ -438,22 +442,19 @@ impl SemanticAnalysisContext {
         Some(id)
     }
 
-    #[must_use]
-    pub fn get_value_id(&self, name: &str) -> Option<HighVisibleValueId> {
-        self.scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.get_value_id(name))
-            .map(|id| HighVisibleValueId(id.0))
-    }
-
     pub fn get_semantic_value_id(
         &self,
         name: &str,
         name_span: Span,
         actual_generic_count: usize,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
-        let Some(id) = self.get_value_id(name) else {
+        let Some(id) = self
+            .scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get_value_id(name))
+            .map(|id| HighVisibleValueId(id.0))
+        else {
             return Err(SemanticAnalysisError::UnknownValue {
                 span: name_span,
                 name: name.to_owned(),
@@ -706,8 +707,7 @@ impl SemanticAnalysisContext {
         HighBuiltinFunctionId(id.0)
     }
 
-    #[allow(clippy::type_complexity)]
-    fn resolve_type_path(&mut self, path: TypedPath<SemanticDataType>) -> Option<ResolvedTypePath> {
+    fn resolve_type_path(&mut self, path: SemanticTypedPath) -> Option<ResolvedTypePath> {
         let mut segments = path.segments.into_iter();
 
         let first_segment = segments.next()?;
@@ -753,12 +753,12 @@ impl SemanticAnalysisContext {
     #[allow(clippy::type_complexity)]
     pub fn get_visible_type_id(
         &mut self,
-        mut path: TypedPath<SemanticDataType>,
+        mut path: SemanticTypedPath,
     ) -> Option<(
         HighVisibleTypeId,
         Vec<Span>,
         Vec<SemanticDataType>,
-        TypedPathSegment<SemanticDataType>,
+        SemanticTypedPathSegment,
     )> {
         if path.segments.len() == 1 {
             let segment = path.segments.pop().unwrap();
@@ -810,7 +810,7 @@ impl SemanticAnalysisContext {
     #[allow(clippy::type_complexity)]
     pub fn get_visible_value_within_type(
         &mut self,
-        mut path: TypedPath<SemanticDataType>,
+        mut path: SemanticTypedPath,
     ) -> Option<(
         HighVisibleValueId,
         Vec<SemanticDataType>,
@@ -883,16 +883,15 @@ impl SemanticAnalysisContext {
 
     fn try_resolve_path<'a>(
         &self,
-        path: &'a Path,
-    ) -> Result<(HighVisibleTypeId, &'a PathSegment), SemanticAnalysisError> {
+        path: &'a ParsedPath,
+    ) -> Result<(HighVisibleTypeId, &'a ParsedPathSegment), SemanticAnalysisError> {
         let (last_segment, segments) = path.segments.split_last().unwrap();
 
         let (first_segment, segments) = segments
             .split_first()
             .expect("segments.len should be checked before calling try_resolve_path");
 
-        let mut current_type_id =
-            self.get_type_id_in_scope(&first_segment.name, first_segment.span)?;
+        let mut current_type_id = self.get_type_id_in_scope(first_segment)?;
 
         let mut current_span = first_segment.span;
 
@@ -917,12 +916,12 @@ impl SemanticAnalysisContext {
 
     pub fn try_get_visible_type(
         &mut self,
-        path: &Path,
+        path: &ParsedPath,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
 
-            return self.get_type_id_in_scope(&segment.name, segment.span);
+            return self.get_type_id_in_scope(segment);
         }
 
         let (type_id, last_segment) = self.try_resolve_path(path)?;
@@ -943,7 +942,7 @@ impl SemanticAnalysisContext {
 
     pub fn try_get_visible_value(
         &mut self,
-        path: &Path,
+        path: &ParsedPath,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         if path.segments.len() == 1 {
             let segment = &path.segments[0];
@@ -971,7 +970,7 @@ impl SemanticAnalysisContext {
     pub fn get_struct_id(
         &mut self,
         id: HighVisibleTypeId,
-        segment: &TypedPathSegment<SemanticDataType>,
+        segment: &SemanticTypedPathSegment,
     ) -> Option<(HighStructId, SemanticDataType)> {
         let SemanticTypeDeclaration {
             kind: declaration, ..

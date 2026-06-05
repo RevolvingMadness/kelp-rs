@@ -13,9 +13,9 @@ use crate::{
             RegularFunctionModifiers, SemanticAnalysisContext, info::error::SemanticAnalysisError,
             scope::Scope,
         },
+        typed_path::ParsedTypedPath,
         use_tree::UseTree,
     },
-    path::{generic::TypedPath, regular::Path},
     semantic::{
         data_type::SemanticDataType,
         environment::{
@@ -42,12 +42,13 @@ use crate::{
                 },
             },
         },
+        path::ParsedPath,
     },
     span::Span,
     visibility::Visibility,
 };
 
-fn prepend_path_to_tree(tree: &mut UseTree, prefix: &Path) {
+fn prepend_path_to_tree(tree: &mut UseTree, prefix: &ParsedPath) {
     match tree {
         UseTree::Path(path) | UseTree::Wildcard(path) | UseTree::As(path, _, _) => {
             let mut new_segments = prefix.segments.clone();
@@ -416,7 +417,7 @@ impl NamedItem {
                     .collect::<Vec<_>>();
 
                 if let Some(self_parameter) = &self_parameter {
-                    let self_pattern = ParsedPatternKind::Binding(TypedPath::single(
+                    let self_pattern = ParsedPatternKind::Binding(ParsedTypedPath::single(
                         self_parameter.pattern_span,
                         "self",
                     ))

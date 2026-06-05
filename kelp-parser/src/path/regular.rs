@@ -1,5 +1,5 @@
 use kelp_core::{
-    path::regular::{Path, PathSegment},
+    semantic::path::{ParsedPath, ParsedPathSegment},
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -28,13 +28,13 @@ impl ParsableAstNode for CSTPathSegment {
 }
 
 impl LowerableAstNode for CSTPathSegment {
-    type Lowered = PathSegment;
+    type Lowered = ParsedPathSegment;
 
     fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.path_identifier_token()?;
         let name = name_token.text();
 
-        Some(PathSegment {
+        Some(ParsedPathSegment {
             span: self.span(),
             name: name.to_owned(),
         })
@@ -71,7 +71,7 @@ impl ParsableAstNode for CSTPath {
 }
 
 impl LowerableAstNode for CSTPath {
-    type Lowered = Path;
+    type Lowered = ParsedPath;
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let segments = self
@@ -79,7 +79,7 @@ impl LowerableAstNode for CSTPath {
             .map(|segment| segment.lower(ctx))
             .collect_option_all()?;
 
-        Some(Path {
+        Some(ParsedPath {
             span: self.span(),
             segments,
         })

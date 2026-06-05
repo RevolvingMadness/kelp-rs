@@ -1,22 +1,21 @@
 use std::fmt::{Display, Write};
 
-use crate::low::data_type::DataType;
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::typed_path::{SemanticTypedPath, SemanticTypedPathSegment};
 use crate::{
-    datapack::Datapack,
     parsed::{data_type::ParsedDataType, semantic_analysis::SemanticAnalysisContext},
     span::Span,
 };
 
 #[derive(Debug, Clone)]
-pub struct TypedPathSegment<T> {
+pub struct ParsedTypedPathSegment {
     pub name: String,
     pub name_span: Span,
     pub generic_spans: Vec<Span>,
-    pub generic_types: Vec<T>,
+    pub generic_types: Vec<ParsedDataType>,
 }
 
-impl Display for TypedPathSegment<ParsedDataType> {
+impl Display for ParsedTypedPathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
 
@@ -38,37 +37,19 @@ impl Display for TypedPathSegment<ParsedDataType> {
     }
 }
 
-impl TypedPathSegment<SemanticDataType> {
-    #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack) -> Option<TypedPathSegment<DataType>> {
-        let generic_types = self
-            .generic_types
-            .into_iter()
-            .map(|data_type| data_type.resolve(datapack))
-            .collect::<Option<_>>()?;
-
-        Some(TypedPathSegment {
-            name: self.name,
-            name_span: self.name_span,
-            generic_spans: self.generic_spans,
-            generic_types,
-        })
-    }
-}
-
-impl TypedPathSegment<ParsedDataType> {
+impl ParsedTypedPathSegment {
     #[must_use]
     pub fn perform_semantic_analysis(
         self,
         ctx: &mut SemanticAnalysisContext,
-    ) -> TypedPathSegment<SemanticDataType> {
+    ) -> SemanticTypedPathSegment {
         let generic_types = self
             .generic_types
             .into_iter()
             .map(|data_type| data_type.perform_semantic_analysis(ctx))
             .collect();
 
-        TypedPathSegment {
+        SemanticTypedPathSegment {
             name: self.name,
             name_span: self.name_span,
             generic_spans: self.generic_spans,
@@ -78,12 +59,12 @@ impl TypedPathSegment<ParsedDataType> {
 }
 
 #[derive(Debug, Clone)]
-pub struct TypedPath<T> {
+pub struct ParsedTypedPath {
     pub span: Span,
-    pub segments: Vec<TypedPathSegment<T>>,
+    pub segments: Vec<ParsedTypedPathSegment>,
 }
 
-impl Display for TypedPath<ParsedDataType> {
+impl Display for ParsedTypedPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, segment) in self.segments.iter().enumerate() {
             if i != 0 {
@@ -97,35 +78,16 @@ impl Display for TypedPath<ParsedDataType> {
     }
 }
 
-impl TypedPath<SemanticDataType> {
+impl ParsedTypedPath {
     #[must_use]
-    pub fn resolve(self, datapack: &mut Datapack) -> Option<TypedPath<DataType>> {
-        let segments = self
-            .segments
-            .into_iter()
-            .map(|segment| segment.resolve(datapack))
-            .collect::<Option<_>>()?;
-
-        Some(TypedPath {
-            span: self.span,
-            segments,
-        })
-    }
-}
-
-impl TypedPath<ParsedDataType> {
-    #[must_use]
-    pub fn perform_semantic_analysis(
-        self,
-        ctx: &mut SemanticAnalysisContext,
-    ) -> TypedPath<SemanticDataType> {
+    pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> SemanticTypedPath {
         let segments = self
             .segments
             .into_iter()
             .map(|segment| segment.perform_semantic_analysis(ctx))
             .collect();
 
-        TypedPath {
+        SemanticTypedPath {
             span: self.span,
             segments,
         }
@@ -135,7 +97,7 @@ impl TypedPath<ParsedDataType> {
     pub fn single(span: Span, segment_name: &str) -> Self {
         Self {
             span,
-            segments: vec![TypedPathSegment {
+            segments: vec![ParsedTypedPathSegment {
                 name: segment_name.to_owned(),
                 name_span: span,
                 generic_spans: Vec::new(),

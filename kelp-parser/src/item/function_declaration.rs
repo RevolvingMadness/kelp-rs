@@ -1,10 +1,10 @@
 use kelp_core::{
+    parsed::typed_path::ParsedTypedPath,
     parsed::{
         data_type::ParsedDataType,
         item::{ParsedItemKind, ParsedSelfFunctionParameter},
         pattern::ParsedPattern,
     },
-    path::generic::TypedPath,
     trait_ext::CollectOptionAllIterExt,
 };
 
@@ -217,7 +217,7 @@ impl LowerableAstNode for CSTFunctionParameters {
                     .unwrap_or_else(|| {
                         (
                             self_keyword_span,
-                            ParsedDataType::Named(TypedPath::single(self_keyword_span, "Self")),
+                            ParsedDataType::Named(ParsedTypedPath::single(self_keyword_span, "Self")),
                         )
                     });
 

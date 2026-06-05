@@ -6,8 +6,7 @@ use crate::{
         SemanticAnalysisContext,
         info::error::{SemanticAnalysisError, TypeKind},
     },
-    path::generic::TypedPathSegment,
-    semantic::data_type::SemanticDataType,
+    semantic::{data_type::SemanticDataType, typed_path::SemanticTypedPathSegment},
 };
 
 make_id!(HighBuiltinTypeId);
@@ -24,7 +23,7 @@ impl SemanticBuiltinTypeDeclaration {
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
-        segment: &TypedPathSegment<SemanticDataType>,
+        segment: &SemanticTypedPathSegment,
     ) -> SemanticDataType {
         let expected_generic_count = self.generic_count;
         let actual_generic_count = segment.generic_types.len();

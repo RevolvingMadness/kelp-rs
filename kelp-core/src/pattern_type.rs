@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
+    parsed::typed_path::ParsedTypedPath,
     parsed::{data::Data, data_type::ParsedDataType, player_score::ParsedPlayerScore},
-    path::generic::TypedPath,
 };
 
 #[derive(Debug, Clone)]
@@ -21,8 +21,8 @@ pub enum PatternType {
     Score(ParsedPlayerScore),
     Data(Box<Data>),
     Tuple(Vec<Self>),
-    RegularStruct(TypedPath<ParsedDataType>, HashMap<String, Self>),
-    TupleStruct(TypedPath<ParsedDataType>, Vec<Self>),
+    RegularStruct(ParsedTypedPath, HashMap<String, Self>),
+    TupleStruct(ParsedTypedPath, Vec<Self>),
     Reference(Box<Self>),
     Compound(HashMap<String, Self>),
     Any,

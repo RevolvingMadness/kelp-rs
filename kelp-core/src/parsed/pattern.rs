@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::{
+    parsed::typed_path::ParsedTypedPath,
     parsed::{
         data::Data,
         data_type::ParsedDataType,
         player_score::ParsedPlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },
-    path::generic::TypedPath,
     pattern_type::PatternType,
     semantic::{expression::literal::SemanticLiteralExpression, pattern::SemanticPattern},
     span::Span,
@@ -22,17 +22,14 @@ pub enum ParsedPatternKind {
     Literal(SemanticLiteralExpression),
 
     Wildcard,
-    Binding(TypedPath<ParsedDataType>),
+    Binding(ParsedTypedPath),
 
     Score(ParsedPlayerScore),
     Data(Box<Data>),
 
     Tuple(Vec<ParsedPattern>),
-    RegularStruct(
-        TypedPath<ParsedDataType>,
-        HashMap<(Span, String), ParsedPattern>,
-    ),
-    TupleStruct(TypedPath<ParsedDataType>, Vec<ParsedPattern>),
+    RegularStruct(ParsedTypedPath, HashMap<(Span, String), ParsedPattern>),
+    TupleStruct(ParsedTypedPath, Vec<ParsedPattern>),
 
     Compound(HashMap<(Span, String), ParsedPattern>),
 }

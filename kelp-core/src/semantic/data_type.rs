@@ -22,7 +22,7 @@ use crate::{
     span::Span,
     visibility::Visibility,
 };
-use crate::{low::data_type::DataType, path::generic::TypedPathSegment};
+use crate::{low::data_type::DataType, semantic::typed_path::SemanticTypedPathSegment};
 use crate::{
     low::environment::{
         Environment,
@@ -598,7 +598,7 @@ impl SemanticDataType {
     pub fn get_method(
         &self,
         ctx: &mut SemanticAnalysisContext,
-        method: &TypedPathSegment<Self>,
+        method: &SemanticTypedPathSegment,
     ) -> Result<Option<MethodInfo>, ()> {
         if *self == Self::Error {
             return Err(());

@@ -62,6 +62,17 @@ impl ParsedTypeDeclarationKind {
             Self::Builtin(data_type) => &data_type.name,
         }
     }
+
+    #[must_use]
+    pub const fn generic_count(&self) -> usize {
+        match self {
+            Self::Module(..) => 0,
+            Self::Struct(declaration) => declaration.generic_count(),
+            Self::Alias(declaration) => declaration.generic_ids.len(),
+            Self::Generic(..) => 0,
+            Self::Builtin(declaration) => declaration.generic_count,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

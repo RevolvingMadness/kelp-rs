@@ -4,11 +4,13 @@ use std::{
 };
 
 use crate::semantic::data_type::SemanticDataType;
-use crate::{parsed::semantic_analysis::SemanticAnalysisContext, path::generic::TypedPath};
+use crate::{
+    parsed::semantic_analysis::SemanticAnalysisContext, parsed::typed_path::ParsedTypedPath,
+};
 
 #[derive(Debug, Clone)]
 pub enum ParsedDataType {
-    Named(TypedPath<Self>),
+    Named(ParsedTypedPath),
     TypedCompound(HashMap<String, Self>),
     Reference(Box<Self>),
     Tuple(Vec<Self>),

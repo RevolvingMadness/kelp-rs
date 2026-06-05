@@ -1,6 +1,6 @@
 use kelp_core::{
     parsed::data_type::ParsedDataType,
-    path::generic::{TypedPath, TypedPathSegment},
+    parsed::typed_path::{ParsedTypedPath, ParsedTypedPathSegment},
 };
 
 use crate::{
@@ -68,7 +68,7 @@ impl ParsableAstNode for CSTTypePath {
 }
 
 impl LowerableAstNode for CSTTypePathSegment {
-    type Lowered = TypedPathSegment<ParsedDataType>;
+    type Lowered = ParsedTypedPathSegment;
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let name_token = self.path_identifier_token()?;
@@ -80,7 +80,7 @@ impl LowerableAstNode for CSTTypePathSegment {
             .and_then(|data_types| data_types.lower(ctx))
             .unwrap_or_default();
 
-        Some(TypedPathSegment {
+        Some(ParsedTypedPathSegment {
             name_span,
             name: name.to_owned(),
             generic_spans,
@@ -90,7 +90,7 @@ impl LowerableAstNode for CSTTypePathSegment {
 }
 
 impl LowerableAstNode for CSTTypePath {
-    type Lowered = TypedPath<ParsedDataType>;
+    type Lowered = ParsedTypedPath;
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
         let segments = self
@@ -98,7 +98,7 @@ impl LowerableAstNode for CSTTypePath {
             .filter_map(|segment| segment.lower(ctx))
             .collect();
 
-        Some(TypedPath {
+        Some(ParsedTypedPath {
             span: self.span(),
             segments,
         })

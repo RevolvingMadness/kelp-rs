@@ -6,6 +6,7 @@ use ordered_float::NotNan;
 use crate::semantic::data_type::SemanticDataType;
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
+    parsed::typed_path::{ParsedTypedPath, ParsedTypedPathSegment},
     parsed::{
         command::{ParsedCommand, execute::subcommand::r#if::ParsedExecuteIfSubcommand},
         coordinate::ParsedCoordinates,
@@ -25,7 +26,6 @@ use crate::{
         },
         supports_expression_sigil::ParsedSupportsExpressionSigil,
     },
-    path::generic::{TypedPath, TypedPathSegment},
     runtime_storage::RuntimeStorageType,
     semantic::{
         data::SemanticData,
@@ -88,18 +88,15 @@ pub enum ParsedExpressionKind {
     Index(Box<ParsedExpression>, Box<ParsedExpression>),
     MethodCall {
         receiver: Box<ParsedExpression>,
-        callee: TypedPathSegment<ParsedDataType>,
+        callee: ParsedTypedPathSegment,
         arguments: Vec<ParsedExpression>,
     },
     FieldAccess(Box<ParsedExpression>, Span, String),
     AsCast(Box<ParsedExpression>, ParsedDataType),
     ToCast(Box<ParsedExpression>, RuntimeStorageType),
     Tuple(Vec<ParsedExpression>),
-    Path(TypedPath<ParsedDataType>),
-    RegularStruct(
-        TypedPath<ParsedDataType>,
-        HashMap<(Span, String), ParsedExpression>,
-    ),
+    Path(ParsedTypedPath),
+    RegularStruct(ParsedTypedPath, HashMap<(Span, String), ParsedExpression>),
     Call {
         callee: Box<ParsedExpression>,
         arguments: Vec<ParsedExpression>,

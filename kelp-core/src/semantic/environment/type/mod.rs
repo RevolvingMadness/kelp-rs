@@ -1,7 +1,6 @@
 use crate::make_id;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
-use crate::path::generic::TypedPathSegment;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
@@ -12,6 +11,7 @@ use crate::semantic::environment::r#type::{
     module::SemanticModuleDeclaration, r#struct::SemanticStructDeclaration,
 };
 use crate::semantic::environment::value::HighVisibleValueId;
+use crate::semantic::typed_path::SemanticTypedPathSegment;
 use crate::span::Span;
 use crate::visibility::Visibility;
 
@@ -126,7 +126,7 @@ impl SemanticTypeDeclarationKind {
         self,
         ctx: &mut SemanticAnalysisContext,
         id: HighVisibleTypeId,
-        segment: &TypedPathSegment<SemanticDataType>,
+        segment: &SemanticTypedPathSegment,
     ) -> SemanticDataType {
         match self {
             Self::Module(SemanticModuleDeclaration { name, .. }) => {

@@ -5,7 +5,6 @@ pub mod low;
 pub mod operator;
 pub mod parameter_types_iter;
 pub mod parsed;
-pub mod path;
 pub mod pattern_type;
 pub mod player_score;
 pub mod runtime_storage;

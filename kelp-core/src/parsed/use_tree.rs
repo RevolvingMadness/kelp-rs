@@ -1,9 +1,9 @@
-use crate::{path::regular::Path, span::Span};
+use crate::{semantic::path::ParsedPath, span::Span};
 
 #[derive(Debug, Clone)]
 pub enum UseTree {
-    Wildcard(Path),
-    Group(Option<Path>, Vec<Self>),
-    As(Path, Span, String),
-    Path(Path),
+    Wildcard(ParsedPath),
+    Group(Option<ParsedPath>, Vec<Self>),
+    As(ParsedPath, Span, String),
+    Path(ParsedPath),
 }

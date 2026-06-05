@@ -72,25 +72,23 @@ impl ParsedDataType {
     pub fn perform_semantic_analysis(self, ctx: &mut SemanticAnalysisContext) -> SemanticDataType {
         match self {
             Self::Named(path) => {
-                // let path = path.perform_semantic_analysis(ctx);
+                let Some(path) = path.perform_semantic_analysis(ctx) else {
+                    return SemanticDataType::Error;
+                };
 
-                // let Some((id, inherited_generic_spans, inherited_generic_types, last_segment)) =
-                //     ctx.get_visible_type_id(path)
-                // else {
-                //     return SemanticDataType::Error;
-                // };
+                let Some(id) = path.get_type_id(ctx) else {
+                    return SemanticDataType::Error;
+                };
 
-                // let declaration = ctx.parsed_environment.get_type(id).clone();
+                let declaration = ctx.parsed_environment.get_type(id).clone();
 
-                // declaration.into_data_type(
-                //     ctx,
-                //     id,
-                //     last_segment.name_span,
-                //     &inherited_generic_spans,
-                //     &inherited_generic_types,
-                // )
-
-                todo!()
+                declaration.into_data_type(
+                    ctx,
+                    id,
+                    path.name_span,
+                    &path.generic_spans,
+                    &path.generic_types,
+                )
             }
             Self::Unit => SemanticDataType::Unit,
             Self::Never => SemanticDataType::Never,

@@ -115,7 +115,7 @@ impl SemanticValueDeclaration {
                 if actual_generic_count != expected_generic_count {
                     return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
                         type_name_span: name_span,
-                        type_kind: ValueKind::Variable.into(),
+                        item_kind: ValueKind::Variable.into(),
                         declaration_span: Some(declaration.name_span),
                         expected: expected_generic_count,
                         actual: actual_generic_count,
@@ -133,7 +133,7 @@ impl SemanticValueDeclaration {
                 if actual_generic_count != expected_generic_count {
                     return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
                         type_name_span: name_span,
-                        type_kind: ValueKind::Function.into(),
+                        item_kind: ValueKind::Function.into(),
                         declaration_span: declaration.name_span(),
                         expected: expected_generic_count,
                         actual: actual_generic_count,

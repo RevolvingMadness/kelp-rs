@@ -42,8 +42,7 @@ use crate::semantic::environment::{
         variable::{HighVariableId, SemanticVariableDeclaration},
     },
 };
-use crate::semantic::path::{ParsedPath, ParsedPathSegment};
-use crate::semantic::typed_path::{SemanticTypedPath, SemanticTypedPathSegment};
+use crate::semantic::path::ParsedPathSegment;
 use crate::{
     parsed::{
         environment::ParsedEnvironment,
@@ -425,7 +424,7 @@ impl SemanticAnalysisContext {
         if actual_generic_count != expected_generic_count {
             return Err(SemanticAnalysisError::InvalidGenerics {
                 type_name_span: name_span,
-                type_kind: declaration.kind.get_value_kind().into(),
+                item_kind: declaration.kind.get_value_kind().into(),
                 declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,

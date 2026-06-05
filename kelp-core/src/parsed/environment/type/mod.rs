@@ -85,6 +85,15 @@ pub struct ParsedTypeDeclaration {
 
 impl ParsedTypeDeclaration {
     #[must_use]
+    pub fn is_visible(&self, current_module_path: &[HighModuleId]) -> bool {
+        if matches!(self.visibility, Visibility::Public) {
+            return true;
+        }
+
+        current_module_path.starts_with(&self.module_path)
+    }
+
+    #[must_use]
     pub fn into_data_type(
         self,
         ctx: &mut SemanticAnalysisContext,
@@ -112,7 +121,7 @@ impl ParsedTypeDeclaration {
                 if actual_generic_count != expected_generic_count {
                     return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
                         type_name_span: name_span,
-                        type_kind: TypeKind::Generic.into(),
+                        item_kind: TypeKind::Generic.into(),
                         declaration_span: Some(declaration.name_span),
                         expected: expected_generic_count,
                         actual: actual_generic_count,

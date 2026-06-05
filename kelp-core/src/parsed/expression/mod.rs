@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
-use crate::low::environment::r#type::TypeId;
 use crate::semantic::data_type::SemanticDataType;
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -649,13 +648,7 @@ impl ParsedExpression {
                 let (receiver_span, receiver) = receiver?;
                 let arguments = arguments?;
 
-                let Some(method_info) = receiver.data_type.get_method(ctx, &callee).ok()? else {
-                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
-                        type_span: callee_span,
-                        type_: receiver.data_type,
-                        method_name: callee.name.clone(),
-                    });
-                };
+                let method_info = receiver.data_type.get_method(ctx, &callee)?;
 
                 let callee = SemanticExpressionKind::Value(
                     method_info.id.into(),
@@ -676,30 +669,32 @@ impl ParsedExpression {
 
                 let mut parameter_types = call_info.parameter_types;
 
-                let parameter_count = parameter_types.len();
-                let argument_count = arguments.len() + 1;
+                let expected_argument_count = parameter_types.len() - 1; // minus one because of implicit self parameter
+                let actual_argument_count = arguments.len();
 
-                if argument_count != parameter_count {
-                    return ctx.add_error(SemanticAnalysisError::MismatchedParameterCount {
+                if actual_argument_count != expected_argument_count {
+                    return ctx.add_error(SemanticAnalysisError::MismatchedArgumentCount {
                         callee_span,
                         declaration_span: call_info.declaration_span,
-                        expected: parameter_count,
-                        actual: argument_count,
+                        expected: expected_argument_count,
+                        actual: actual_argument_count,
                     });
                 }
 
                 let mut failed = false;
-                let mut new_arguments = Vec::with_capacity(argument_count);
+                let mut new_arguments = Vec::with_capacity(actual_argument_count);
 
-                let receiver_param_type = parameter_types.remove(0);
-                if receiver.data_type.equals(&receiver_param_type) {
+                let self_type = parameter_types.remove(0);
+
+                if receiver.data_type.equals(&self_type) {
                     new_arguments.push(receiver);
                 } else {
                     ctx.add_error_unit(SemanticAnalysisError::MismatchedTypes {
                         span: receiver_span,
-                        expected: receiver_param_type,
+                        expected: self_type,
                         actual: receiver.data_type,
                     });
+
                     failed = true;
                 }
 
@@ -918,7 +913,7 @@ impl ParsedExpression {
                 let argument_count = arguments.len();
 
                 if argument_count != parameter_count {
-                    return ctx.add_error(SemanticAnalysisError::MismatchedParameterCount {
+                    return ctx.add_error(SemanticAnalysisError::MismatchedArgumentCount {
                         callee_span,
                         declaration_span: call_info.declaration_span,
                         expected: parameter_count,

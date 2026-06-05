@@ -88,7 +88,7 @@ impl ResolvedTypedPath {
         if actual_generic_count != expected_generic_count {
             return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
                 type_name_span: self.name_span,
-                type_kind: declaration.kind.get_type_kind().into(),
+                item_kind: declaration.kind.get_type_kind().into(),
                 declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,
@@ -113,7 +113,7 @@ impl ResolvedTypedPath {
         if actual_generic_count != expected_generic_count {
             return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
                 type_name_span: self.name_span,
-                type_kind: declaration.kind.get_value_kind().into(),
+                item_kind: declaration.kind.get_value_kind().into(),
                 declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,

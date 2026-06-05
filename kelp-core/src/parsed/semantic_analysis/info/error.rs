@@ -4,8 +4,7 @@ use crate::operator::UnaryOperator;
 use crate::parsed::semantic_analysis::info::diagnostic::{Diagnostic, LabelType};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
-use crate::semantic::environment::r#type::HighTypeId;
-use crate::semantic::environment::value::HighValueId;
+use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
 use crate::span::Span;
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator},
@@ -247,7 +246,7 @@ pub enum SemanticAnalysisError {
         field_span: Span,
         field: String,
     },
-    MismatchedParameterCount {
+    MismatchedArgumentCount {
         callee_span: Span,
         declaration_span: Option<Span>,
         expected: usize,
@@ -255,7 +254,7 @@ pub enum SemanticAnalysisError {
     },
     InvalidGenerics {
         type_name_span: Span,
-        type_kind: BothItemKinds,
+        item_kind: BothItemKinds,
         declaration_span: Option<Span>,
         expected: usize,
         actual: usize,
@@ -287,7 +286,7 @@ pub enum SemanticAnalysisError {
     },
     MismatchedTupleStructFieldCount {
         name_span: Span,
-        struct_id: HighTypeId,
+        struct_id: HighTupleStructId,
         expected: usize,
         actual: usize,
     },
@@ -557,7 +556,7 @@ impl SemanticAnalysisError {
                 field_span,
                 field,
             } => todo!(),
-            Self::MismatchedParameterCount {
+            Self::MismatchedArgumentCount {
                 callee_span,
                 declaration_span,
                 expected,
@@ -577,7 +576,7 @@ impl SemanticAnalysisError {
             }
             Self::InvalidGenerics {
                 type_name_span,
-                type_kind,
+                item_kind: type_kind,
                 declaration_span,
                 expected,
                 actual,
@@ -707,7 +706,7 @@ impl SemanticAnalysisError {
                 type_span,
                 type_,
                 method_name,
-            } => Diagnostic::error("Method not found").with_label(
+            } => Diagnostic::error("method not found").with_label(
                 type_span,
                 format!("method not found in type `{}`", type_.display(environment),),
                 LabelType::Primary,

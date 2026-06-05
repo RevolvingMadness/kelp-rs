@@ -18,7 +18,10 @@ use crate::semantic::environment::{
 use crate::{
     datapack::Datapack,
     operator::ComparisonOperator,
-    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    parsed::semantic_analysis::{
+        SemanticAnalysisContext,
+        info::error::{SemanticAnalysisError, ValueKind},
+    },
     span::Span,
     visibility::Visibility,
 };
@@ -599,63 +602,86 @@ impl SemanticDataType {
         &self,
         ctx: &mut SemanticAnalysisContext,
         segment: &SemanticTypedPathSegment,
-    ) -> Result<Option<MethodInfo>, ()> {
+    ) -> Option<MethodInfo> {
         if *self == Self::Error {
-            return Err(());
+            return None;
         }
 
         let (_, base_type) = self.unwrap();
 
-        Ok((|| {
-            Some(match base_type {
-                Self::Struct(id, struct_generic_types) => {
-                    // let implementations = ctx.semantic_environment.get_implementations(*id)?;
+        Some(match base_type {
+            Self::Struct(id, struct_generic_types) => {
+                let implementations = ctx.semantic_environment.get_implementations(*id)?;
 
-                    // let implementation = implementations.iter().find(|implementation| {
-                    //     if let Self::Struct(impl_id, generic_types) =
-                    //         implementation.get_target_type()
-                    //     {
-                    //         impl_id == id && struct_generic_types == generic_types
-                    //     } else {
-                    //         false
-                    //     }
-                    // })?;
+                let implementation = implementations.iter().find(|implementation| {
+                    if let Self::Struct(impl_id, generic_types) = implementation.get_target_type() {
+                        impl_id == id && struct_generic_types == generic_types
+                    } else {
+                        false
+                    }
+                })?;
 
-                    // let method_id = segment.get_value_id(ctx)?;
+                let method_id = implementation.get_value(&segment.name)?;
 
-                    // let SemanticValueDeclaration {
-                    //     kind: SemanticValueDeclarationKind::Function(declaration),
-                    //     ..
-                    // } = ctx.semantic_environment.get_value(method_id)
-                    // else {
-                    //     return None;
-                    // };
+                let SemanticValueDeclaration {
+                    kind: SemanticValueDeclarationKind::Function(declaration),
+                    ..
+                } = ctx.semantic_environment.get_value(method_id)
+                else {
+                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                        type_span: segment.name_span,
+                        type_: self.clone(),
+                        method_name: segment.name.clone(),
+                    });
+                };
 
-                    // if !declaration.is_method() {
-                    //     return None;
-                    // }
+                if !declaration.is_method() {
+                    // TODO: SemanticAnalysisError::NotAMethod
 
-                    // let method_id = HighFunctionId(method_id.0);
-
-                    // let mut all_generic_types = struct_generic_types.clone();
-                    // all_generic_types.extend(segment.generic_types.iter().cloned());
-
-                    // let return_type = declaration
-                    //     .return_type()
-                    //     .clone()
-                    //     .substitute_generics(declaration.generic_ids(), &all_generic_types);
-
-                    // MethodInfo {
-                    //     id: method_id,
-                    //     generic_types: all_generic_types,
-                    //     return_type,
-                    // }
-
-                    todo!()
+                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                        type_span: segment.name_span,
+                        type_: self.clone(),
+                        method_name: segment.name.clone(),
+                    });
                 }
-                _ => return None,
-            })
-        })())
+
+                let expected_generic_count = declaration.declared_generic_count();
+                let actual_generic_count = segment.generic_types.len();
+
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: segment.name_span,
+                        item_kind: ValueKind::Function.into(),
+                        declaration_span: declaration.name_span(),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
+                }
+
+                let method_id = HighFunctionId(method_id.0);
+
+                let mut all_generic_types = struct_generic_types.clone();
+                all_generic_types.extend(segment.generic_types.iter().cloned());
+
+                let return_type = declaration
+                    .return_type()
+                    .clone()
+                    .substitute_generics(declaration.generic_ids(), &all_generic_types);
+
+                MethodInfo {
+                    id: method_id,
+                    generic_types: all_generic_types,
+                    return_type,
+                }
+            }
+            _ => {
+                return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                    type_span: segment.name_span,
+                    type_: self.clone(),
+                    method_name: segment.name.clone(),
+                });
+            }
+        })
     }
 
     #[must_use]

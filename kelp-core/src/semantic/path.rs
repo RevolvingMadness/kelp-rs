@@ -1,5 +1,8 @@
 use crate::{
-    parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    parsed::{
+        environment::r#type::{ParsedTypeDeclaration, ParsedTypeDeclarationKind},
+        semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
+    },
     semantic::environment::{r#type::HighVisibleTypeId, value::HighVisibleValueId},
     span::Span,
 };
@@ -120,22 +123,31 @@ impl ParsedPath {
             current_span = segment.name_span;
         }
 
-        let declaration = ctx.semantic_environment.get_type(current_type_id);
+        let declaration = ctx.parsed_environment.get_type(current_type_id);
+
+        let type_kind = declaration.kind.get_type_kind();
+
+        let ParsedTypeDeclaration {
+            kind: ParsedTypeDeclarationKind::Module(declaration),
+            ..
+        } = declaration
+        else {
+            return ctx.add_error(SemanticAnalysisError::NotAModule {
+                span: current_span,
+                type_kind,
+            });
+        };
 
         let type_result = declaration.get_visible_type_id(
-            &ctx.semantic_environment,
+            &ctx.parsed_environment,
             &ctx.current_module_path,
-            current_type_id,
-            current_span,
             &last_segment.name,
             last_segment.name_span,
         );
 
         let value_result = declaration.get_visible_value_id(
-            &ctx.semantic_environment,
+            &ctx.parsed_environment,
             &ctx.current_module_path,
-            current_type_id,
-            current_span,
             &last_segment.name,
             last_segment.name_span,
         );

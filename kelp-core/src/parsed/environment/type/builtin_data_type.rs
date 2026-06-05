@@ -42,7 +42,7 @@ impl ParsedBuiltinTypeDeclaration {
         if actual_generic_count != expected_generic_count {
             return ctx.add_error_type(SemanticAnalysisError::InvalidGenerics {
                 type_name_span: name_span,
-                type_kind: TypeKind::Builtin.into(),
+                item_kind: TypeKind::Builtin.into(),
                 declaration_span: None,
                 expected: expected_generic_count,
                 actual: actual_generic_count,

@@ -49,7 +49,9 @@ impl ParsedEnvironment {
 
     #[inline]
     #[must_use]
-    pub fn get_value(&self, id: HighValueId) -> &ParsedValueDeclaration {
+    pub fn get_value<I: Into<HighValueId>>(&self, id: I) -> &ParsedValueDeclaration {
+        let id = id.into();
+
         &self.values[id.0 as usize]
     }
 }

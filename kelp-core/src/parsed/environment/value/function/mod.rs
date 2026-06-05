@@ -38,4 +38,12 @@ impl ParsedFunctionDeclaration {
             Self::Builtin(..) => None,
         }
     }
+
+    #[must_use]
+    pub const fn generic_count(&self) -> usize {
+        match self {
+            Self::Regular(declaration) => declaration.generic_ids.len(),
+            Self::Builtin(declaration) => declaration.generic_ids.len(),
+        }
+    }
 }

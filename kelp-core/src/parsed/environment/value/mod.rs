@@ -1,6 +1,7 @@
 use crate::parsed::environment::value::{
     function::ParsedFunctionDeclaration, variable::ParsedVariableDeclaration,
 };
+use crate::parsed::semantic_analysis::info::error::ValueKind;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::value::SemanticValueDeclarationKind;
 use crate::span::Span;
@@ -30,6 +31,14 @@ impl From<SemanticValueDeclarationKind> for ParsedValueDeclarationKind {
 
 impl ParsedValueDeclarationKind {
     #[must_use]
+    pub const fn get_kind(&self) -> ValueKind {
+        match self {
+            Self::Variable(..) => ValueKind::Variable,
+            Self::Function(..) => ValueKind::Function,
+        }
+    }
+
+    #[must_use]
     pub fn name_span(&self) -> Option<Span> {
         match self {
             Self::Variable(declaration) => Some(declaration.name_span),
@@ -42,6 +51,14 @@ impl ParsedValueDeclarationKind {
         match self {
             Self::Variable(declaration) => &declaration.name,
             Self::Function(declaration) => declaration.name(),
+        }
+    }
+
+    #[must_use]
+    pub fn generic_count(&self) -> usize {
+        match self {
+            Self::Variable(..) => 0,
+            Self::Function(declaration) => declaration.generic_count(),
         }
     }
 }

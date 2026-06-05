@@ -103,11 +103,12 @@ impl ParsedTypeDeclaration {
         generic_types: &[SemanticDataType],
     ) -> SemanticDataType {
         match self.kind {
-            ParsedTypeDeclarationKind::Module(ParsedModuleDeclaration { name, .. }) => ctx
-                .add_error_type(SemanticAnalysisError::NotAType {
-                    type_span: name_span,
-                    type_name: name,
-                }),
+            ParsedTypeDeclarationKind::Module(..) => {
+                ctx.add_error_type(SemanticAnalysisError::NotAType {
+                    span: name_span,
+                    kind: TypeKind::Module,
+                })
+            }
             ParsedTypeDeclarationKind::Struct(declaration) => {
                 declaration.into_data_type(ctx, id, name_span, generic_types)
             }

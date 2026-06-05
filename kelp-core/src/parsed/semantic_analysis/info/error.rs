@@ -269,8 +269,8 @@ pub enum SemanticAnalysisError {
         callee_type: SemanticDataType,
     },
     NotAType {
-        type_span: Span,
-        type_name: String,
+        span: Span,
+        kind: TypeKind,
     },
     NotAStruct {
         type_span: Span,
@@ -610,10 +610,10 @@ impl SemanticAnalysisError {
                     callee_type.display(environment)
                 ),
             ),
-            Self::NotAType {
-                type_span,
-                type_name,
-            } => todo!(),
+            Self::NotAType { span, kind } => {
+                Diagnostic::error(format!("expected type, found {}", kind.name()))
+                    .with_primary_label(span, "not a type")
+            }
             Self::NotAStruct {
                 type_span,
                 data_type,

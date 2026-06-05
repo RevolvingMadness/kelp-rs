@@ -59,7 +59,7 @@ pub enum SemanticTypeDeclarationKind {
 
 impl SemanticTypeDeclarationKind {
     #[must_use]
-    pub const fn get_type_kind(&self) -> TypeKind {
+    pub const fn get_kind(&self) -> TypeKind {
         match self {
             Self::Module(..) => TypeKind::Module,
             Self::Struct(..) => TypeKind::Struct,
@@ -122,12 +122,10 @@ impl SemanticTypeDeclarationKind {
         name_span: Span,
     ) -> SemanticDataType {
         match self {
-            Self::Module(SemanticModuleDeclaration { name, .. }) => {
-                ctx.add_error_type(SemanticAnalysisError::NotAType {
-                    type_span: name_span,
-                    type_name: name,
-                })
-            }
+            Self::Module(..) => ctx.add_error_type(SemanticAnalysisError::NotAType {
+                span: name_span,
+                kind: TypeKind::Module,
+            }),
             Self::Struct(declaration) => {
                 let id = HighStructId(self_id.0);
 
@@ -162,7 +160,7 @@ impl SemanticTypeDeclarationKind {
 
                 declaration
                     .alias
-                    .substitute_generics(&declaration.generic_ids, &generic_types)
+                    .substitute_generics(&declaration.generic_ids, generic_types)
             }
             Self::Generic(declaration) => {
                 let expected_generic_count = 0;
@@ -229,7 +227,7 @@ impl SemanticTypeDeclaration {
             ),
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
                 type_span: self_name_span,
-                type_kind: self.kind.get_type_kind(),
+                type_kind: self.kind.get_kind(),
             }),
         }
     }
@@ -259,7 +257,7 @@ impl SemanticTypeDeclaration {
             ),
             _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
                 type_span: base_span,
-                type_kind: self.kind.get_type_kind(),
+                type_kind: self.kind.get_kind(),
             }),
         }
     }

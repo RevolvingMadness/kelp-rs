@@ -80,7 +80,7 @@ impl ResolvedTypedPath {
             Err(error) => return ctx.add_error(error.clone()),
         };
 
-        let declaration = ctx.semantic_environment.get_type(type_id);
+        let declaration = ctx.parsed_environment.get_type(type_id);
 
         let expected_generic_count = declaration.kind.generic_count();
         let actual_generic_count = self.generic_types.len();
@@ -105,7 +105,7 @@ impl ResolvedTypedPath {
             Err(error) => return ctx.add_error(error.clone()),
         };
 
-        let declaration = ctx.semantic_environment.get_value(value_id);
+        let declaration = ctx.parsed_environment.get_value(value_id);
 
         let expected_generic_count = declaration.kind.generic_count();
         let actual_generic_count = self.generic_types.len();
@@ -113,7 +113,7 @@ impl ResolvedTypedPath {
         if actual_generic_count != expected_generic_count {
             return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
                 type_name_span: self.name_span,
-                item_kind: declaration.kind.get_value_kind().into(),
+                item_kind: declaration.kind.get_kind().into(),
                 declaration_span: declaration.kind.name_span(),
                 expected: expected_generic_count,
                 actual: actual_generic_count,

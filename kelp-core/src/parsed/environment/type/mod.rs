@@ -6,8 +6,9 @@ use crate::parsed::environment::{
 };
 use crate::parsed::semantic_analysis::info::error::TypeKind;
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::HighVisibleTypeId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::module::HighModuleId;
-use crate::semantic::environment::r#type::{HighGenericId, HighVisibleTypeId};
 use crate::span::Span;
 use crate::{
     parsed::semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},

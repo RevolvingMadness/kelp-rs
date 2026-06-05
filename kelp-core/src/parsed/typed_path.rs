@@ -1,6 +1,5 @@
 use std::fmt::{Display, Write};
 
-use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::typed_path::{SemanticTypedPath, SemanticTypedPathSegment};
 use crate::{
     parsed::{data_type::ParsedDataType, semantic_analysis::SemanticAnalysisContext},

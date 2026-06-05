@@ -1,6 +1,7 @@
 use crate::{
     semantic::environment::{
-        r#type::HighGenericId, value::function::regular::SemanticRegularFunctionDeclaration,
+        r#type::generic::HighGenericId,
+        value::function::regular::SemanticRegularFunctionDeclaration,
     },
     span::Span,
 };

@@ -1,4 +1,4 @@
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::regular::SemanticRegularStructDeclaration;
 use crate::span::Span;
 

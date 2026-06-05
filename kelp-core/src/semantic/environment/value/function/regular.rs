@@ -2,8 +2,9 @@ use std::collections::HashSet;
 
 use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::value::HighValueId;
-use crate::semantic::environment::{r#type::HighGenericId, value::function::HighFunctionId};
+use crate::semantic::environment::value::function::HighFunctionId;
 use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,
     semantic::{expression::SemanticExpression, pattern::SemanticPattern},

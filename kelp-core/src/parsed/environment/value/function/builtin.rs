@@ -1,5 +1,5 @@
 use crate::semantic::environment::{
-    r#type::HighGenericId, value::function::builtin::SemanticBuiltinFunctionDeclaration,
+    r#type::generic::HighGenericId, value::function::builtin::SemanticBuiltinFunctionDeclaration,
 };
 
 #[derive(Debug, Clone)]

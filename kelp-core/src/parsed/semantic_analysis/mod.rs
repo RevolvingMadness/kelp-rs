@@ -13,7 +13,7 @@ use crate::parsed::environment::value::{
 };
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::HighVisibleTypeId;
-use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
+use crate::semantic::environment::r#type::generic::{HighGenericId, SemanticGenericDeclaration};
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::regular::HighRegularStructId;
@@ -22,7 +22,7 @@ use crate::semantic::environment::value::HighVisibleValueId;
 use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
-        HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
+        HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
         builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
         r#struct::{
             SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,

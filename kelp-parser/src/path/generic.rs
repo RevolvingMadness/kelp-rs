@@ -1,7 +1,4 @@
-use kelp_core::{
-    parsed::data_type::ParsedDataType,
-    parsed::typed_path::{ParsedTypedPath, ParsedTypedPathSegment},
-};
+use kelp_core::parsed::typed_path::{ParsedTypedPath, ParsedTypedPathSegment};
 
 use crate::{
     cst::{CSTGenericDataTypes, CSTGenericPath, CSTGenericPathSegment},

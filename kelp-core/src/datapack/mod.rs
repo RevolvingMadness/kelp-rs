@@ -20,7 +20,7 @@ use crate::player_score::GeneratedPlayerScore;
 use crate::runtime_storage::RuntimeStorageTarget;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;

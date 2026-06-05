@@ -3,7 +3,7 @@ pub mod regular;
 
 use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::value::function::{
     builtin::SemanticBuiltinFunctionDeclaration, regular::SemanticRegularFunctionDeclaration,

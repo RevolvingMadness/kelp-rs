@@ -1,10 +1,8 @@
-use serde_json::ser::CharEscape::Solidus;
-
 use crate::parsed::data_type::ParsedDataType;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::span::Span;
 
 #[derive(Debug, Clone)]

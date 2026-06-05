@@ -3,7 +3,7 @@ use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
-use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
+use crate::semantic::environment::r#type::generic::{HighGenericId, SemanticGenericDeclaration};
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::{
@@ -20,14 +20,6 @@ pub mod builtin_data_type;
 pub mod generic;
 pub mod module;
 pub mod r#struct;
-
-make_id!(HighGenericId);
-
-impl From<HighGenericId> for HighTypeId {
-    fn from(value: HighGenericId) -> Self {
-        Self(value.0)
-    }
-}
 
 make_id!(HighTypeId);
 

@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     parsed::typed_path::ParsedTypedPath,
-    parsed::{data::Data, data_type::ParsedDataType, player_score::ParsedPlayerScore},
+    parsed::{data::Data, player_score::ParsedPlayerScore},
 };
 
 #[derive(Debug, Clone)]

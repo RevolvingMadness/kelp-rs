@@ -6,7 +6,7 @@ use crate::low::environment::{
     r#type::r#struct::{RegularStructId, TupleStructId},
     value::function::{FunctionDeclaration, FunctionId},
 };
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedData,

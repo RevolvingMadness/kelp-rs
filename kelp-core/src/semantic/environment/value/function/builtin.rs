@@ -5,7 +5,8 @@ use crate::low::environment::r#type::r#struct::TupleStructId;
 use crate::low::environment::value::function::builtin::BuiltinFunctionKind;
 use crate::make_id;
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::{HighGenericId, r#struct::tuple::HighTupleStructId};
+use crate::semantic::environment::r#type::generic::HighGenericId;
+use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
 
 use crate::semantic::environment::value::HighValueId;
 use crate::semantic::environment::value::function::HighFunctionId;

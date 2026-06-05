@@ -6,7 +6,6 @@ use crate::{
     parsed::typed_path::ParsedTypedPath,
     parsed::{
         data::Data,
-        data_type::ParsedDataType,
         player_score::ParsedPlayerScore,
         semantic_analysis::{SemanticAnalysisContext, info::error::SemanticAnalysisError},
     },

@@ -21,8 +21,9 @@ use crate::{
         environment::{
             implementation::SemanticImplementation,
             r#type::{
-                HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
+                HighTypeId, SemanticTypeDeclarationKind,
                 alias::SemanticTypeAliasDeclaration,
+                generic::HighGenericId,
                 module::HighModuleId,
                 r#struct::{
                     SemanticStructDeclaration,

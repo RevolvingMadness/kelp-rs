@@ -6,7 +6,7 @@ use std::{
 use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
-        HighGenericId,
+        generic::HighGenericId,
         module::HighModuleId,
         r#struct::{
             HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,

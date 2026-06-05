@@ -1,6 +1,6 @@
 use crate::low::data_type::DataType;
 use crate::make_id;
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::{
     parsed::semantic_analysis::RegularFunctionModifiers,

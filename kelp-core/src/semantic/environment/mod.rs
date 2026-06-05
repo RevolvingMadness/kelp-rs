@@ -2,11 +2,11 @@ use std::collections::{HashMap, hash_map::Iter};
 
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::implementation::SemanticImplementation;
-use crate::semantic::environment::r#type::generic::SemanticGenericDeclaration;
+use crate::semantic::environment::r#type::generic::{HighGenericId, SemanticGenericDeclaration};
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::{
     r#type::{
-        HighGenericId, HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
+        HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
         r#struct::{
             HighStructId, SemanticStructDeclaration,
             regular::{HighRegularStructId, SemanticRegularStructDeclaration},

@@ -20,7 +20,7 @@ use crate::parsed::environment::{
 use crate::parsed::item::named::{NamedItem, NamedItemKind};
 use crate::parsed::pattern::ParsedPattern;
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::r#type::HighGenericId;
+use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
 use crate::semantic::environment::value::function::builtin::HighBuiltinFunctionId;
 use crate::semantic::environment::value::function::regular::HighRegularFunctionId;

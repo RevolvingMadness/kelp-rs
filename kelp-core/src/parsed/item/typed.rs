@@ -15,8 +15,8 @@ use crate::{
         data_type::SemanticDataType,
         environment::{
             r#type::{
-                HighGenericId, HighTypeId, SemanticTypeDeclarationKind,
-                alias::SemanticTypeAliasDeclaration, module::HighModuleId,
+                HighTypeId, SemanticTypeDeclarationKind, alias::SemanticTypeAliasDeclaration,
+                generic::HighGenericId, module::HighModuleId,
             },
             value::function::regular::HighRegularFunctionId,
         },

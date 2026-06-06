@@ -1,4 +1,5 @@
 use crate::make_id;
+use crate::parsed::environment::ParsedEnvironment;
 use crate::parsed::semantic_analysis::SemanticAnalysisContext;
 use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
 use crate::semantic::data_type::SemanticDataType;
@@ -25,10 +26,10 @@ make_id!(HighTypeId);
 impl HighTypeId {
     pub fn assert_visible_result(
         self,
-        semantic_environment: &SemanticEnvironment,
+        parsed_environment: &ParsedEnvironment,
         current_module_path: &[HighModuleId],
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
-        let declaration = semantic_environment.get_type(self);
+        let declaration = parsed_environment.get_type(self);
 
         if !declaration.is_visible(current_module_path) {
             return Err(SemanticAnalysisError::TypeNotPublic(
@@ -70,17 +71,6 @@ impl SemanticTypeDeclarationKind {
     }
 
     #[must_use]
-    pub const fn name_span(&self) -> Option<Span> {
-        Some(match self {
-            Self::Module(declaration) => return declaration.name_span,
-            Self::Struct(declaration) => declaration.name_span(),
-            Self::Alias(declaration) => declaration.name_span,
-            Self::Generic(declaration) => declaration.name_span,
-            Self::Builtin(..) => return None,
-        })
-    }
-
-    #[must_use]
     pub fn name(&self) -> &str {
         match self {
             Self::Module(declaration) => &declaration.name,
@@ -91,25 +81,67 @@ impl SemanticTypeDeclarationKind {
         }
     }
 
-    #[must_use]
-    pub fn generic_ids(&self) -> &[HighGenericId] {
+    pub fn get_visible_type_id(
+        &self,
+        parsed_environment: &ParsedEnvironment,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[HighModuleId],
+        self_id: HighVisibleTypeId,
+        self_name_span: Span,
+        name: &str,
+        name_span: Span,
+    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         match self {
-            Self::Module(..) => &[],
-            Self::Struct(declaration) => declaration.generic_ids(),
-            Self::Alias(declaration) => &declaration.generic_ids,
-            Self::Generic(_) => &[],
-            Self::Builtin(..) => &[],
+            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_type_id(
+                parsed_environment,
+                current_module_path,
+                name,
+                name_span,
+            ),
+            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_type_id(
+                parsed_environment,
+                semantic_environment,
+                current_module_path,
+                self_id,
+                name,
+                name_span,
+            ),
+            _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
+                type_span: self_name_span,
+                type_kind: self.get_kind(),
+            }),
         }
     }
 
-    #[must_use]
-    pub const fn generic_count(&self) -> usize {
+    pub fn get_visible_value_id(
+        &self,
+        parsed_environment: &ParsedEnvironment,
+        semantic_environment: &SemanticEnvironment,
+        current_module_path: &[HighModuleId],
+        self_id: HighVisibleTypeId,
+        base_span: Span,
+        name: &str,
+        name_span: Span,
+    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         match self {
-            Self::Module(..) => 0,
-            Self::Struct(declaration) => declaration.generic_count(),
-            Self::Alias(declaration) => declaration.generic_count(),
-            Self::Generic(_) => 0,
-            Self::Builtin(declaration) => declaration.generic_count,
+            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_value_id(
+                parsed_environment,
+                current_module_path,
+                name,
+                name_span,
+            ),
+            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_value_id(
+                parsed_environment,
+                semantic_environment,
+                current_module_path,
+                self_id,
+                name,
+                name_span,
+            ),
+            _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
+                type_span: base_span,
+                type_kind: self.get_kind(),
+            }),
         }
     }
 
@@ -190,75 +222,4 @@ pub struct SemanticTypeDeclaration {
     pub module_path: Vec<HighModuleId>,
     pub visibility: Visibility,
     pub kind: SemanticTypeDeclarationKind,
-}
-
-impl SemanticTypeDeclaration {
-    #[must_use]
-    pub fn is_visible(&self, current_module_path: &[HighModuleId]) -> bool {
-        if matches!(self.visibility, Visibility::Public) {
-            return true;
-        }
-
-        current_module_path.starts_with(&self.module_path)
-    }
-
-    pub fn get_visible_type_id(
-        &self,
-        semantic_environment: &SemanticEnvironment,
-        current_module_path: &[HighModuleId],
-        self_id: HighVisibleTypeId,
-        self_name_span: Span,
-        name: &str,
-        name_span: Span,
-    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
-        match &self.kind {
-            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_type_id(
-                semantic_environment,
-                current_module_path,
-                name,
-                name_span,
-            ),
-            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_type_id(
-                semantic_environment,
-                current_module_path,
-                self_id,
-                name,
-                name_span,
-            ),
-            _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
-                type_span: self_name_span,
-                type_kind: self.kind.get_kind(),
-            }),
-        }
-    }
-
-    pub fn get_visible_value_id(
-        &self,
-        semantic_environment: &SemanticEnvironment,
-        current_module_path: &[HighModuleId],
-        self_id: HighVisibleTypeId,
-        base_span: Span,
-        name: &str,
-        name_span: Span,
-    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
-        match &self.kind {
-            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_value_id(
-                semantic_environment,
-                current_module_path,
-                name,
-                name_span,
-            ),
-            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_value_id(
-                semantic_environment,
-                current_module_path,
-                self_id,
-                name,
-                name_span,
-            ),
-            _ => Err(SemanticAnalysisError::TypeDoesntContainItems {
-                type_span: base_span,
-                type_kind: self.kind.get_kind(),
-            }),
-        }
-    }
 }

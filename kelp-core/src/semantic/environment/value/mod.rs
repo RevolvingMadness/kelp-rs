@@ -1,7 +1,7 @@
 use crate::make_id;
+use crate::parsed::environment::ParsedEnvironment;
 use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, ValueKind};
 use crate::semantic::data_type::SemanticDataType;
-use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::value::constant::SemanticConstantDeclaration;
 use crate::semantic::environment::value::{
@@ -21,10 +21,10 @@ make_id!(HighValueId);
 impl HighValueId {
     pub fn assert_visible_result(
         self,
-        semantic_environment: &SemanticEnvironment,
+        parsed_environment: &ParsedEnvironment,
         current_module_path: &[HighModuleId],
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
-        let declaration = semantic_environment.get_value(self);
+        let declaration = parsed_environment.get_value(self);
 
         if !declaration.is_visible(current_module_path) {
             return Err(SemanticAnalysisError::ValueNotPublic(
@@ -62,48 +62,12 @@ impl SemanticValueDeclarationKind {
     }
 
     #[must_use]
-    pub fn name_span(&self) -> Option<Span> {
-        match self {
-            Self::Variable(declaration) => Some(declaration.name_span),
-            Self::Constant(declaration) => Some(declaration.name_span),
-            Self::Function(declaration) => declaration.name_span(),
-        }
-    }
-
-    #[must_use]
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
             Self::Constant(declaration) => &declaration.name,
             Self::Function(declaration) => declaration.name(),
         }
-    }
-
-    #[must_use]
-    pub fn generic_count(&self) -> usize {
-        match self {
-            Self::Variable(..) => 0,
-            Self::Constant(..) => 0,
-            Self::Function(declaration) => declaration.declared_generic_count(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SemanticValueDeclaration {
-    pub visibility: Visibility,
-    pub module_path: Vec<HighModuleId>,
-    pub kind: SemanticValueDeclarationKind,
-}
-
-impl SemanticValueDeclaration {
-    #[must_use]
-    pub fn is_visible(&self, current_module_path: &[HighModuleId]) -> bool {
-        if matches!(self.visibility, Visibility::Public) {
-            return true;
-        }
-
-        current_module_path.starts_with(&self.module_path)
     }
 
     pub fn into_data_type(
@@ -114,7 +78,7 @@ impl SemanticValueDeclaration {
         supplied_generic_types: &[SemanticDataType],
         name_span: Span,
     ) -> Option<SemanticDataType> {
-        match self.kind {
+        match self {
             SemanticValueDeclarationKind::Variable(declaration) => {
                 let expected_generic_count = 0;
                 let actual_generic_count = supplied_generic_types.len();
@@ -171,4 +135,11 @@ impl SemanticValueDeclaration {
             }
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct SemanticValueDeclaration {
+    pub visibility: Visibility,
+    pub module_path: Vec<HighModuleId>,
+    pub kind: SemanticValueDeclarationKind,
 }

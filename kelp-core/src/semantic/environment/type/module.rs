@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use crate::{
     make_id,
-    parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind},
+    parsed::{
+        environment::ParsedEnvironment,
+        semantic_analysis::info::error::{SemanticAnalysisError, TypeKind},
+    },
     semantic::environment::{
         SemanticEnvironment,
         r#type::{HighTypeId, HighVisibleTypeId},
@@ -40,7 +43,7 @@ impl SemanticModuleDeclaration {
 
     pub fn get_visible_type_id(
         &self,
-        semantic_environment: &SemanticEnvironment,
+        parsed_environment: &ParsedEnvironment,
         current_module_path: &[HighModuleId],
         name: &str,
         name_span: Span,
@@ -55,7 +58,7 @@ impl SemanticModuleDeclaration {
             });
         };
 
-        let declaration = semantic_environment.get_type(id);
+        let declaration = parsed_environment.get_type(id);
 
         if !declaration.is_visible(current_module_path) {
             return Err(SemanticAnalysisError::TypeNotPublic(name.to_owned()));
@@ -66,7 +69,7 @@ impl SemanticModuleDeclaration {
 
     pub fn get_visible_value_id(
         &self,
-        semantic_environment: &SemanticEnvironment,
+        parsed_environment: &ParsedEnvironment,
         current_module_path: &[HighModuleId],
         name: &str,
         name_span: Span,
@@ -81,7 +84,7 @@ impl SemanticModuleDeclaration {
             });
         };
 
-        let declaration = semantic_environment.get_value(id);
+        let declaration = parsed_environment.get_value(id);
 
         if !declaration.is_visible(current_module_path) {
             return Err(SemanticAnalysisError::TypeNotPublic(name.to_owned()));

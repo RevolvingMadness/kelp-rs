@@ -1,4 +1,5 @@
 use crate::make_id;
+use crate::parsed::environment::ParsedEnvironment;
 use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeKind};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
@@ -63,6 +64,7 @@ impl SemanticStructDeclaration {
 
     pub fn get_visible_type_id(
         &self,
+        parsed_environment: &ParsedEnvironment,
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
         self_id: HighVisibleTypeId,
@@ -72,7 +74,7 @@ impl SemanticStructDeclaration {
         if let Some(impls) = semantic_environment.get_implementations(self_id) {
             for implementation in impls {
                 if let Some(id) = implementation.get_type(name) {
-                    return id.assert_visible_result(semantic_environment, current_module_path);
+                    return id.assert_visible_result(parsed_environment, current_module_path);
                 }
             }
         }
@@ -88,6 +90,7 @@ impl SemanticStructDeclaration {
 
     pub fn get_visible_value_id(
         &self,
+        parsed_environment: &ParsedEnvironment,
         semantic_environment: &SemanticEnvironment,
         current_module_path: &[HighModuleId],
         self_id: HighVisibleTypeId,
@@ -97,7 +100,7 @@ impl SemanticStructDeclaration {
         if let Some(implementations) = semantic_environment.get_implementations(self_id) {
             for implementation in implementations {
                 if let Some(id) = implementation.get_value(name) {
-                    return id.assert_visible_result(semantic_environment, current_module_path);
+                    return id.assert_visible_result(parsed_environment, current_module_path);
                 }
             }
         }

@@ -237,7 +237,7 @@ impl ParsedExpression {
 
                 let declaration = ctx.semantic_environment.get_value(id).clone();
 
-                let data_type = declaration.into_data_type(
+                let data_type = declaration.kind.into_data_type(
                     ctx,
                     id,
                     path.inherited_generic_types,
@@ -1085,7 +1085,7 @@ impl ParsedExpression {
 
                 let declaration = ctx.semantic_environment.get_value(id).clone();
 
-                let data_type = declaration.into_data_type(
+                let data_type = declaration.kind.into_data_type(
                     ctx,
                     id,
                     path.inherited_generic_types,

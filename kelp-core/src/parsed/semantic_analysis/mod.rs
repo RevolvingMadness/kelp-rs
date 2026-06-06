@@ -274,19 +274,6 @@ impl SemanticAnalysisContext {
         declaration.values.extend(values);
     }
 
-    #[must_use]
-    pub fn is_item_visible(
-        &self,
-        target_module_path: &[HighModuleId],
-        visibility: Visibility,
-    ) -> bool {
-        if matches!(visibility, Visibility::Public) {
-            return true;
-        }
-
-        self.current_module_path.starts_with(target_module_path)
-    }
-
     pub fn add_info<T>(&mut self, info: SemanticAnalysisInfo) -> Option<T> {
         if self.infos.len() >= self.max_infos {
             return None;
@@ -376,62 +363,6 @@ impl SemanticAnalysisContext {
         );
 
         HighVariableId(id.0)
-    }
-
-    pub fn get_type_id_in_scope(
-        &self,
-        segment: &ParsedPathSegment,
-    ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
-        self.scopes
-            .iter()
-            .rev()
-            .find_map(|scope| {
-                let id = scope.get_type_id(&segment.name)?;
-
-                let id = HighVisibleTypeId(id.0);
-
-                Some(id)
-            })
-            .ok_or_else(|| SemanticAnalysisError::UnknownType {
-                span: segment.name_span,
-                name: segment.name.clone(),
-            })
-    }
-
-    pub fn get_semantic_value_id(
-        &self,
-        name: &str,
-        name_span: Span,
-        actual_generic_count: usize,
-    ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
-        let Some(id) = self
-            .scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.get_value_id(name))
-            .map(|id| HighVisibleValueId(id.0))
-        else {
-            return Err(SemanticAnalysisError::UnknownValue {
-                span: name_span,
-                name: name.to_owned(),
-            });
-        };
-
-        let declaration = self.semantic_environment.get_value(id);
-
-        let expected_generic_count = declaration.kind.generic_count();
-
-        if actual_generic_count != expected_generic_count {
-            return Err(SemanticAnalysisError::InvalidGenerics {
-                type_name_span: name_span,
-                item_kind: declaration.kind.get_value_kind().into(),
-                declaration_span: declaration.kind.name_span(),
-                expected: expected_generic_count,
-                actual: actual_generic_count,
-            });
-        }
-
-        Ok(id)
     }
 
     #[inline]

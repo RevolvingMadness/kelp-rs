@@ -61,6 +61,7 @@ pub struct ParsedSelfFunctionParameter {
 pub struct FunctionQualifiers {
     pub recursive: Option<Span>,
     pub runtime: Option<Span>,
+    pub constant: Option<Span>,
 }
 
 impl FunctionQualifiers {

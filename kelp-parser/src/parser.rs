@@ -502,7 +502,7 @@ impl Parser<'_> {
         if self.pos > start_pos {
             true
         } else {
-            self.error("Expected whitespace");
+            self.error("expected whitespace");
 
             false
         }

@@ -46,7 +46,7 @@ AsUseTree =
 PathUseTree =
   Path
 
-FunctionQualifiers = 'recursive'? 'runtime'?
+FunctionQualifiers = 'recursive'? 'runtime'? 'const'?
 
 FunctionDeclarationItem =
   FunctionQualifiers

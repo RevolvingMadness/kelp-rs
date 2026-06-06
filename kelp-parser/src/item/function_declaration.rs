@@ -22,23 +22,45 @@ use crate::{
 
 impl ParsableAstNode for CSTFunctionQualifiers {
     fn try_parse(parser: &mut Parser) -> bool {
+        let state = parser.save_state();
+
+        let mut parsed = false;
+
         parser.start_node(SyntaxKind::FunctionQualifiers);
 
         if parser.peek_identifier() == Some("recursive") {
             parser.bump_identifier_kind(SyntaxKind::RecursiveKeyword, "recursive");
 
             parser.skip_whitespace();
+
+            parsed = true;
         }
 
         if parser.peek_identifier() == Some("runtime") {
             parser.bump_identifier_kind(SyntaxKind::RuntimeKeyword, "runtime");
 
             parser.skip_whitespace();
+
+            parsed = true;
+        }
+
+        if parser.peek_identifier() == Some("const") {
+            parser.bump_identifier_kind(SyntaxKind::ConstKeyword, "const");
+
+            parser.skip_whitespace();
+
+            parsed = true;
         }
 
         parser.finish_node();
 
-        true
+        if parsed {
+            true
+        } else {
+            state.restore(parser);
+
+            false
+        }
     }
 }
 
@@ -50,9 +72,12 @@ impl LowerableAstNode for CSTFunctionQualifiers {
 
         let runtime_span = self.runtime_token().map(|token| token.span());
 
+        let constant_span = self.const_token().map(|token| token.span());
+
         Some(FunctionQualifiers {
             recursive: recursive_span,
             runtime: runtime_span,
+            constant: constant_span,
         })
     }
 }
@@ -173,14 +198,22 @@ impl ParsableAstNode for CSTFunctionDeclarationItem {
 
         parser.start_node(SyntaxKind::FunctionDeclarationItem);
 
-        assert!(CSTFunctionQualifiers::try_parse(parser));
+        let parsed_qualifiers = CSTFunctionQualifiers::try_parse(parser);
 
-        parser.bump_str(SyntaxKind::FNKeyword, "fn");
+        if !parser.try_bump_str("fn", SyntaxKind::FNKeyword) {
+            if parsed_qualifiers {
+                parser.error("expected 'fn'");
+            } else {
+                state.restore(parser);
 
-        if !parser.expect_whitespace() || !parser.try_bump_identifier_kind(SyntaxKind::FunctionName)
-        {
-            state.restore(parser);
-            return false;
+                return false;
+            }
+        }
+
+        parser.expect_whitespace();
+
+        if !parser.try_bump_identifier_kind(SyntaxKind::FunctionName) {
+            parser.error("Expected function name");
         }
 
         parser.skip_whitespace();

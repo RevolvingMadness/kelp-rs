@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::parsed::semantic_analysis::info::error::TypeKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::{
@@ -219,10 +220,10 @@ impl ParsedPattern {
                         else {
                             pattern.kind.destructure_unknown(ctx);
 
-                            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                            return ctx.add_error(SemanticAnalysisError::CompoundDoesntHaveKey {
                                 data_type: variable_type.clone(),
-                                field_span: key_span,
-                                field: key,
+                                key_span,
+                                key_name: key,
                             });
                         };
 
@@ -270,6 +271,7 @@ impl ParsedPattern {
 
                 let (pattern_id, pattern_declaration) =
                     ctx.get_regular_struct(pattern_id, pattern_type, path.name_span)?;
+                let pattern_name_span = pattern_declaration.name_span;
 
                 let pattern_generic_names = pattern_declaration.generic_ids.clone();
 
@@ -296,9 +298,13 @@ impl ParsedPattern {
                             pattern.kind.destructure_unknown(ctx);
 
                             return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                                type_declaration_span_and_kind: Some((
+                                    pattern_name_span,
+                                    TypeKind::Struct,
+                                )),
                                 field_span: name_span,
                                 data_type: variable_type.clone(),
-                                field: name,
+                                field_name: name,
                             });
                         };
 

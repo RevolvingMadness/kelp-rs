@@ -224,11 +224,10 @@ pub enum SemanticAnalysisError {
         type_span: Span,
         data_type: SemanticDataType,
     },
-    CannotBeReferenced(SemanticDataType),
     ExpressionIsNotAPlace {
         span: Span,
     },
-    TypeDoesntHaveFields {
+    FieldAccessNotAllowed {
         type_span: Span,
         data_type: SemanticDataType,
     },
@@ -239,9 +238,15 @@ pub enum SemanticAnalysisError {
         data_type: SemanticDataType,
     },
     TypeDoesntHaveField {
+        type_declaration_span_and_kind: Option<(Span, TypeKind)>,
         data_type: SemanticDataType,
         field_span: Span,
-        field: String,
+        field_name: String,
+    },
+    CompoundDoesntHaveKey {
+        data_type: SemanticDataType,
+        key_span: Span,
+        key_name: String,
     },
     MismatchedArgumentCount {
         callee_span: Span,
@@ -538,15 +543,26 @@ impl SemanticAnalysisError {
             Self::CannotBeDereferenced {
                 type_span,
                 data_type,
-            } => todo!(),
-            Self::CannotBeReferenced(semantic_data_type) => todo!(),
+            } => Diagnostic::error("type cannot be dereferenced").with_primary_label(
+                type_span,
+                format!(
+                    "the type `{}` cannot be dereferenced",
+                    data_type.display(environment)
+                ),
+            ),
             Self::ExpressionIsNotAPlace { span } => {
                 Diagnostic::error("expression is not a place").with_primary_no_label(span)
             }
-            Self::TypeDoesntHaveFields {
+            Self::FieldAccessNotAllowed {
                 type_span,
                 data_type,
-            } => todo!(),
+            } => Diagnostic::error("field access not allowed on type").with_primary_label(
+                type_span,
+                format!(
+                    "the type `{}` does not have fields",
+                    data_type.display(environment)
+                ),
+            ),
             Self::CannotApplyUnaryOperatorToType {
                 operator_span,
                 operator,
@@ -559,10 +575,40 @@ impl SemanticAnalysisError {
             ))
             .with_primary_no_label(operator_span),
             Self::TypeDoesntHaveField {
+                type_declaration_span_and_kind,
                 data_type,
                 field_span,
-                field,
-            } => todo!(),
+                field_name,
+            } => {
+                let mut diagnostic = Diagnostic::error("field not found on type")
+                    .with_primary_label(
+                        field_span,
+                        format!(
+                            "the type `{}` does not have a field named `{}`",
+                            data_type.display(environment),
+                            field_name
+                        ),
+                    );
+
+                if let Some((span, kind)) = type_declaration_span_and_kind {
+                    diagnostic = diagnostic
+                        .with_secondary_label(span, format!("{} declared here", kind.name()));
+                }
+
+                diagnostic
+            }
+            Self::CompoundDoesntHaveKey {
+                data_type,
+                key_span,
+                key_name,
+            } => Diagnostic::error("key not found in compound").with_primary_label(
+                key_span,
+                format!(
+                    "the compound `{}` does not have a key named `{}`",
+                    data_type.display(environment),
+                    key_name
+                ),
+            ),
             Self::MismatchedArgumentCount {
                 callee_span,
                 declaration_span,

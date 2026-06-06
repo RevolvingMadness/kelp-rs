@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use minecraft_command_types::resource_location::ResourceLocation;
 use ordered_float::NotNan;
 
+use crate::parsed::semantic_analysis::info::error::TypeKind;
 use crate::semantic::data_type::SemanticDataType;
 use crate::{
     operator::{ArithmeticOperator, ComparisonOperator, LogicalOperator, UnaryOperator},
@@ -830,6 +831,7 @@ impl ParsedExpression {
 
                 let data_type = SemanticDataType::Struct(id.into(), path.generic_types.clone());
 
+                let declaration_span = declaration.name_span;
                 let declared_generic_ids = declaration.generic_ids.clone();
                 let declared_field_types = declaration.field_types.clone();
 
@@ -841,9 +843,13 @@ impl ParsedExpression {
                                 declared_field_types.get(&supplied_field_name)
                             else {
                                 return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
+                                    type_declaration_span_and_kind: Some((
+                                        declaration_span,
+                                        TypeKind::Struct,
+                                    )),
                                     data_type: data_type.clone(),
                                     field_span: supplied_field_span,
-                                    field: supplied_field_name,
+                                    field_name: supplied_field_name,
                                 });
                             };
 

@@ -609,17 +609,36 @@ impl SemanticDataType {
 
         Some(match base_type {
             Self::Struct(id, struct_generic_types) => {
-                let implementations = ctx.semantic_environment.get_implementations(*id)?;
+                let Some(implementations) = ctx.semantic_environment.get_implementations(*id)
+                else {
+                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                        type_span: segment.name_span,
+                        type_: self.clone(),
+                        method_name: segment.name.clone(),
+                    });
+                };
 
-                let implementation = implementations.iter().find(|implementation| {
+                let Some(implementation) = implementations.iter().find(|implementation| {
                     if let Self::Struct(impl_id, generic_types) = implementation.get_target_type() {
                         impl_id == id && struct_generic_types == generic_types
                     } else {
                         false
                     }
-                })?;
+                }) else {
+                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                        type_span: segment.name_span,
+                        type_: self.clone(),
+                        method_name: segment.name.clone(),
+                    });
+                };
 
-                let method_id = implementation.get_value(&segment.name)?;
+                let Some(method_id) = implementation.get_value(&segment.name) else {
+                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                        type_span: segment.name_span,
+                        type_: self.clone(),
+                        method_name: segment.name.clone(),
+                    });
+                };
 
                 let SemanticValueDeclaration {
                     kind: SemanticValueDeclarationKind::Function(declaration),
@@ -1461,7 +1480,7 @@ impl SemanticDataType {
         field: &str,
     ) -> Option<Self> {
         if !self.has_fields() {
-            return ctx.add_error(SemanticAnalysisError::TypeDoesntHaveFields {
+            return ctx.add_error(SemanticAnalysisError::FieldAccessNotAllowed {
                 type_span: span,
                 data_type: self.clone(),
             });
@@ -1470,9 +1489,10 @@ impl SemanticDataType {
         match self.get_field_result(&ctx.semantic_environment, field) {
             Some(result) => Some(result),
             None => ctx.add_error(SemanticAnalysisError::TypeDoesntHaveField {
-                field_span: span,
+                type_declaration_span_and_kind: None,
                 data_type: self.clone(),
-                field: field.to_owned(),
+                field_span: span,
+                field_name: field.to_owned(),
             }),
         }
     }

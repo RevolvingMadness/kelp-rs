@@ -1874,13 +1874,9 @@ impl Expression {
                 if force_display {
                     // Maybe display full path?
 
-                    let (_, visibility, declaration) = datapack.get_regular_struct_type(id);
+                    let declaration = datapack.environment.get_regular_struct(id);
 
                     let mut output = Vec::new();
-
-                    if visibility.should_display() {
-                        output.push(SNBT::string(format!("{} ", visibility)));
-                    }
 
                     output.push(SNBT::string(if declaration.generic_types.is_empty() {
                         if fields.is_empty() {
@@ -1939,13 +1935,9 @@ impl Expression {
                 if force_display {
                     // Maybe display full path?
 
-                    let (_, visibility, declaration) = datapack.get_tuple_struct_type(id);
+                    let declaration = datapack.environment.get_tuple_struct(id);
 
                     let mut output = Vec::new();
-
-                    if visibility.should_display() {
-                        output.push(SNBT::string(format!("{} ", visibility)));
-                    }
 
                     output.push(SNBT::string(if declaration.generic_types.is_empty() {
                         format!("{}(", declaration.name)

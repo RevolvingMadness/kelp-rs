@@ -4,10 +4,7 @@ use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
 use crate::low::data_type::DataType;
 use crate::low::environment::Environment;
-use crate::low::environment::r#type::r#struct::{
-    RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
-    TupleStructId,
-};
+use crate::low::environment::r#type::r#struct::{RegularStructId, StructId, TupleStructId};
 use crate::low::environment::value::constant::ConstantId;
 use crate::low::environment::value::function::builtin::BuiltinFunctionDeclaration;
 use crate::low::environment::value::function::regular::{
@@ -226,33 +223,6 @@ impl Datapack {
     #[must_use]
     pub fn create_resource_location(&self, paths: Vec<String>) -> ResourceLocation {
         ResourceLocation::new_namespace_paths(self.current_namespace_name(), paths)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_struct_type(
-        &self,
-        id: StructId,
-    ) -> (&[HighModuleId], Visibility, &StructDeclaration) {
-        self.environment.get_struct(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_regular_struct_type(
-        &self,
-        id: RegularStructId,
-    ) -> (&[HighModuleId], Visibility, &RegularStructDeclaration) {
-        self.environment.get_regular_struct(id)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_tuple_struct_type(
-        &self,
-        id: TupleStructId,
-    ) -> (&[HighModuleId], Visibility, &TupleStructDeclaration) {
-        self.environment.get_tuple_struct(id)
     }
 
     pub fn declare_variable(&mut self, id: HighVariableId, data_type: DataType, value: Expression) {
@@ -884,20 +854,14 @@ impl Datapack {
     #[inline]
     pub fn declare_monomorphized_regular_struct(
         &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
         original_id: HighStructId,
         name: String,
         generic_types: Vec<DataType>,
         field_types: HashMap<String, DataType>,
     ) -> RegularStructId {
-        let monomorphized_id = self.environment.declare_regular_struct(
-            module_path,
-            visibility,
-            name,
-            generic_types.clone(),
-            field_types,
-        );
+        let monomorphized_id =
+            self.environment
+                .declare_regular_struct(name, generic_types.clone(), field_types);
 
         self.declare_monomorphized_struct(original_id, monomorphized_id.into(), generic_types);
 
@@ -907,20 +871,14 @@ impl Datapack {
     #[inline]
     pub fn declare_monomorphized_tuple_struct(
         &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
         original_id: HighStructId,
         name: String,
         generic_types: Vec<DataType>,
         field_types: Vec<DataType>,
     ) -> TupleStructId {
-        let monomorphized_id = self.environment.declare_tuple_struct(
-            module_path,
-            visibility,
-            name,
-            generic_types.clone(),
-            field_types,
-        );
+        let monomorphized_id =
+            self.environment
+                .declare_tuple_struct(name, generic_types.clone(), field_types);
 
         self.declare_monomorphized_struct(original_id, monomorphized_id.into(), generic_types);
 

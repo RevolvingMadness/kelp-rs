@@ -18,11 +18,10 @@ use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::regular::HighRegularStructId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
-use crate::semantic::environment::value::HighVisibleValueId;
 use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
-        HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
+        HighTypeId, SemanticTypeDeclaration,
         builtin_data_type::{BuiltinTypeKind, SemanticBuiltinTypeDeclaration},
         r#struct::{
             SemanticStructDeclaration, regular::SemanticRegularStructDeclaration,
@@ -42,7 +41,6 @@ use crate::semantic::environment::{
         variable::{HighVariableId, SemanticVariableDeclaration},
     },
 };
-use crate::semantic::path::ParsedPathSegment;
 use crate::{
     parsed::{
         environment::ParsedEnvironment,
@@ -451,17 +449,10 @@ impl SemanticAnalysisContext {
     }
 
     #[inline]
-    pub fn set_semantic_generic(
-        &mut self,
-        id: HighGenericId,
-        visibility: Visibility,
-        name_span: Span,
-        name: String,
-    ) {
+    pub fn set_semantic_generic(&mut self, id: HighGenericId, name_span: Span, name: String) {
         self.set_semantic_type(
             id,
-            visibility,
-            SemanticTypeDeclarationKind::Generic(SemanticGenericDeclaration { name_span, name }),
+            SemanticTypeDeclaration::Generic(SemanticGenericDeclaration { name_span, name }),
         );
     }
 
@@ -469,7 +460,7 @@ impl SemanticAnalysisContext {
         self.declare_type(
             Visibility::Public,
             ParsedTypeDeclarationKind::Builtin(declaration.clone().into()),
-            SemanticTypeDeclarationKind::Builtin(declaration),
+            SemanticTypeDeclaration::Builtin(declaration),
         );
     }
 
@@ -515,12 +506,12 @@ impl SemanticAnalysisContext {
     pub fn declare_type(
         &mut self,
         visibility: Visibility,
-        parsed: ParsedTypeDeclarationKind,
-        semantic: SemanticTypeDeclarationKind,
+        parsed_declaration: ParsedTypeDeclarationKind,
+        declaration: SemanticTypeDeclaration,
     ) -> HighTypeId {
-        let id = self.declare_parsed_type(visibility, parsed);
+        let id = self.declare_parsed_type(visibility, parsed_declaration);
 
-        self.set_semantic_type(id, visibility, semantic);
+        self.set_semantic_type(id, declaration);
 
         id
     }
@@ -529,21 +520,13 @@ impl SemanticAnalysisContext {
     pub fn set_semantic_type<I: Into<HighTypeId>>(
         &mut self,
         id: I,
-        visibility: Visibility,
-        declaration: SemanticTypeDeclarationKind,
+        declaration: SemanticTypeDeclaration,
     ) {
         let id = id.into();
 
         let name = declaration.name().to_owned();
 
-        self.semantic_environment.declare_type(
-            id,
-            SemanticTypeDeclaration {
-                visibility,
-                module_path: self.current_module_path.clone(),
-                kind: declaration,
-            },
-        );
+        self.semantic_environment.declare_type(id, declaration);
 
         self.current_scope_mut().declare_type(name, id);
     }
@@ -602,9 +585,7 @@ impl SemanticAnalysisContext {
         generic_types: &[SemanticDataType],
         name_span: Span,
     ) -> Option<(HighStructId, SemanticDataType)> {
-        let SemanticTypeDeclaration {
-            kind: declaration, ..
-        } = self.semantic_environment.get_type(id);
+        let declaration = self.semantic_environment.get_type(id);
 
         let data_type =
             declaration
@@ -630,7 +611,7 @@ impl SemanticAnalysisContext {
         data_type: SemanticDataType,
         name_span: Span,
     ) -> Option<(HighRegularStructId, &SemanticRegularStructDeclaration)> {
-        let declaration = self.semantic_environment.get_struct_declaration(id);
+        let declaration = self.semantic_environment.get_struct(id);
 
         let SemanticStructDeclaration::Struct(declaration) = declaration else {
             return Self::add_error_static(
@@ -656,7 +637,7 @@ impl SemanticAnalysisContext {
         data_type: SemanticDataType,
         name_span: Span,
     ) -> Option<(HighTupleStructId, &SemanticTupleStructDeclaration)> {
-        let declaration = self.semantic_environment.get_struct_declaration(id);
+        let declaration = self.semantic_environment.get_struct(id);
 
         let SemanticStructDeclaration::Tuple(declaration) = declaration else {
             return Self::add_error_static(

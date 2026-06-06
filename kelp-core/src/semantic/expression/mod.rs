@@ -730,10 +730,8 @@ impl SemanticExpressionKind {
                     .collect(),
             ),
             Self::RegularStruct(id, generic_types, field_expressions) => {
-                let (module_path, visiblity, declaration) =
-                    datapack.semantic_environment.get_regular_struct(id);
+                let declaration = datapack.semantic_environment.get_regular_struct(id);
 
-                let module_path = module_path.to_vec();
                 let name = declaration.name.clone();
 
                 let generic_types = generic_types
@@ -751,8 +749,6 @@ impl SemanticExpressionKind {
                     .collect();
 
                 let id = datapack.declare_monomorphized_regular_struct(
-                    module_path,
-                    visiblity,
                     id.into(),
                     name,
                     generic_types,
@@ -771,10 +767,8 @@ impl SemanticExpressionKind {
                 Expression::RegularStruct(id, field_expressions)
             }
             Self::TupleStruct(id, generic_types, field_expressions) => {
-                let (module_path, visiblity, declaration) =
-                    datapack.semantic_environment.get_tuple_struct(id);
+                let declaration = datapack.semantic_environment.get_tuple_struct(id);
 
-                let module_path = module_path.to_vec();
                 let name = declaration.name.clone();
 
                 let generic_types = generic_types
@@ -788,8 +782,6 @@ impl SemanticExpressionKind {
                     .collect();
 
                 let id = datapack.declare_monomorphized_tuple_struct(
-                    module_path,
-                    visiblity,
                     id.into(),
                     name,
                     generic_types,

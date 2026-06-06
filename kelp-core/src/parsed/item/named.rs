@@ -20,7 +20,7 @@ use crate::{
         environment::{
             implementation::SemanticImplementation,
             r#type::{
-                HighTypeId, SemanticTypeDeclarationKind,
+                HighTypeId, SemanticTypeDeclaration,
                 alias::SemanticTypeAliasDeclaration,
                 generic::HighGenericId,
                 module::HighModuleId,
@@ -284,20 +284,14 @@ impl NamedItem {
                 for (generic_id, (generic_span, generic_name)) in
                     generic_ids.iter().copied().zip(generics.iter().cloned())
                 {
-                    ctx.set_semantic_generic(
-                        generic_id,
-                        Visibility::Public,
-                        generic_span,
-                        generic_name,
-                    );
+                    ctx.set_semantic_generic(generic_id, generic_span, generic_name);
                 }
 
                 let target_type = target_type.perform_semantic_analysis(ctx);
 
                 ctx.set_semantic_type(
                     self_type_id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                    SemanticTypeDeclaration::Alias(SemanticTypeAliasDeclaration {
                         name_span: target_type_span,
                         name: "Self".to_owned(),
                         generic_ids: Vec::new(),
@@ -383,12 +377,7 @@ impl NamedItem {
                 for (generic_id, (generic_span, generic_name)) in
                     generic_ids.iter().copied().zip(generics.iter().cloned())
                 {
-                    ctx.set_semantic_generic(
-                        generic_id,
-                        Visibility::Public,
-                        generic_span,
-                        generic_name,
-                    );
+                    ctx.set_semantic_generic(generic_id, generic_span, generic_name);
                 }
 
                 let declared_generic_count = generic_ids.len();
@@ -494,12 +483,7 @@ impl NamedItem {
                 for (generic_id, (generic_span, generic_name)) in
                     generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(
-                        generic_id,
-                        Visibility::Public,
-                        generic_span,
-                        generic_name,
-                    );
+                    ctx.set_semantic_generic(generic_id, generic_span, generic_name);
                 }
 
                 let alias = alias.perform_semantic_analysis(ctx);
@@ -508,8 +492,7 @@ impl NamedItem {
 
                 ctx.set_semantic_type(
                     id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                    SemanticTypeDeclaration::Alias(SemanticTypeAliasDeclaration {
                         name_span,
                         name,
                         generic_ids,
@@ -534,12 +517,7 @@ impl NamedItem {
                     .copied()
                     .zip(generic_names.iter().cloned())
                 {
-                    ctx.set_semantic_generic(
-                        generic_id,
-                        Visibility::Public,
-                        generic_span,
-                        generic_name,
-                    );
+                    ctx.set_semantic_generic(generic_id, generic_span, generic_name);
                 }
 
                 let field_types = field_types
@@ -555,8 +533,7 @@ impl NamedItem {
 
                 ctx.set_semantic_type(
                     id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Struct(
+                    SemanticTypeDeclaration::Struct(SemanticStructDeclaration::Struct(
                         SemanticRegularStructDeclaration {
                             name_span,
                             name,
@@ -582,12 +559,7 @@ impl NamedItem {
                 for (generic_id, (generic_span, generic_name)) in
                     generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(
-                        generic_id,
-                        Visibility::Public,
-                        generic_span,
-                        generic_name,
-                    );
+                    ctx.set_semantic_generic(generic_id, generic_span, generic_name);
                 }
 
                 let field_types = field_types
@@ -599,8 +571,7 @@ impl NamedItem {
 
                 ctx.set_semantic_type(
                     id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Struct(SemanticStructDeclaration::Tuple(
+                    SemanticTypeDeclaration::Struct(SemanticStructDeclaration::Tuple(
                         SemanticTupleStructDeclaration {
                             name_span,
                             name: name.clone(),

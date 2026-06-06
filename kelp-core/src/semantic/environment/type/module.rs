@@ -7,7 +7,6 @@ use crate::{
         semantic_analysis::info::error::{SemanticAnalysisError, TypeKind},
     },
     semantic::environment::{
-        SemanticEnvironment,
         r#type::{HighTypeId, HighVisibleTypeId},
         value::{HighValueId, HighVisibleValueId},
     },

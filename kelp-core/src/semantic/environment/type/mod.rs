@@ -13,7 +13,6 @@ use crate::semantic::environment::r#type::{
 };
 use crate::semantic::environment::value::HighVisibleValueId;
 use crate::span::Span;
-use crate::visibility::Visibility;
 
 pub mod alias;
 pub mod builtin_data_type;
@@ -50,7 +49,7 @@ impl From<HighVisibleTypeId> for HighTypeId {
 }
 
 #[derive(Debug, Clone)]
-pub enum SemanticTypeDeclarationKind {
+pub enum SemanticTypeDeclaration {
     Module(SemanticModuleDeclaration),
     Struct(SemanticStructDeclaration),
     Alias(SemanticTypeAliasDeclaration),
@@ -58,7 +57,7 @@ pub enum SemanticTypeDeclarationKind {
     Builtin(SemanticBuiltinTypeDeclaration),
 }
 
-impl SemanticTypeDeclarationKind {
+impl SemanticTypeDeclaration {
     #[must_use]
     pub const fn get_kind(&self) -> TypeKind {
         match self {
@@ -92,13 +91,13 @@ impl SemanticTypeDeclarationKind {
         name_span: Span,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         match self {
-            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_type_id(
+            SemanticTypeDeclaration::Module(declaration) => declaration.get_visible_type_id(
                 parsed_environment,
                 current_module_path,
                 name,
                 name_span,
             ),
-            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_type_id(
+            SemanticTypeDeclaration::Struct(declaration) => declaration.get_visible_type_id(
                 parsed_environment,
                 semantic_environment,
                 current_module_path,
@@ -124,13 +123,13 @@ impl SemanticTypeDeclarationKind {
         name_span: Span,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         match self {
-            SemanticTypeDeclarationKind::Module(declaration) => declaration.get_visible_value_id(
+            SemanticTypeDeclaration::Module(declaration) => declaration.get_visible_value_id(
                 parsed_environment,
                 current_module_path,
                 name,
                 name_span,
             ),
-            SemanticTypeDeclarationKind::Struct(declaration) => declaration.get_visible_value_id(
+            SemanticTypeDeclaration::Struct(declaration) => declaration.get_visible_value_id(
                 parsed_environment,
                 semantic_environment,
                 current_module_path,
@@ -215,11 +214,4 @@ impl SemanticTypeDeclarationKind {
             }
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct SemanticTypeDeclaration {
-    pub module_path: Vec<HighModuleId>,
-    pub visibility: Visibility,
-    pub kind: SemanticTypeDeclarationKind,
 }

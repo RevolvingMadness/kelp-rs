@@ -6,7 +6,7 @@ use crate::semantic::environment::r#type::generic::{HighGenericId, SemanticGener
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::{
     r#type::{
-        HighTypeId, SemanticTypeDeclaration, SemanticTypeDeclarationKind,
+        HighTypeId, SemanticTypeDeclaration,
         r#struct::{
             HighStructId, SemanticStructDeclaration,
             regular::{HighRegularStructId, SemanticRegularStructDeclaration},
@@ -150,77 +150,39 @@ impl SemanticEnvironment {
     }
 
     #[must_use]
-    pub fn get_generic(
-        &self,
-        id: HighGenericId,
-    ) -> (&[HighModuleId], Visibility, &SemanticGenericDeclaration) {
-        let SemanticTypeDeclaration {
-            module_path,
-            visibility,
-            kind: SemanticTypeDeclarationKind::Generic(declaration),
-        } = self.get_type(id)
-        else {
+    pub fn get_generic(&self, id: HighGenericId) -> &SemanticGenericDeclaration {
+        let SemanticTypeDeclaration::Generic(declaration) = self.get_type(id) else {
             unreachable!();
         };
-
-        (module_path, *visibility, declaration)
-    }
-
-    #[must_use]
-    pub fn get_struct(
-        &self,
-        id: HighStructId,
-    ) -> (&[HighModuleId], Visibility, &SemanticStructDeclaration) {
-        let SemanticTypeDeclaration {
-            module_path,
-            visibility,
-            kind: SemanticTypeDeclarationKind::Struct(declaration),
-        } = self.get_type(id)
-        else {
-            unreachable!();
-        };
-
-        (module_path, *visibility, declaration)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_struct_declaration(&self, id: HighStructId) -> &SemanticStructDeclaration {
-        let (_, _, declaration) = self.get_struct(id);
 
         declaration
     }
 
     #[must_use]
-    pub fn get_regular_struct(
-        &self,
-        id: HighRegularStructId,
-    ) -> (
-        &[HighModuleId],
-        Visibility,
-        &SemanticRegularStructDeclaration,
-    ) {
-        let (module_path, visibility, SemanticStructDeclaration::Struct(declaration)) =
-            self.get_struct(id.into())
-        else {
+    pub fn get_struct(&self, id: HighStructId) -> &SemanticStructDeclaration {
+        let SemanticTypeDeclaration::Struct(declaration) = self.get_type(id) else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        declaration
     }
 
     #[must_use]
-    pub fn get_tuple_struct(
-        &self,
-        id: HighTupleStructId,
-    ) -> (&[HighModuleId], Visibility, &SemanticTupleStructDeclaration) {
-        let (module_path, visibility, SemanticStructDeclaration::Tuple(declaration)) =
-            self.get_struct(id.into())
-        else {
+    pub fn get_regular_struct(&self, id: HighRegularStructId) -> &SemanticRegularStructDeclaration {
+        let SemanticStructDeclaration::Struct(declaration) = self.get_struct(id.into()) else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        declaration
+    }
+
+    #[must_use]
+    pub fn get_tuple_struct(&self, id: HighTupleStructId) -> &SemanticTupleStructDeclaration {
+        let SemanticStructDeclaration::Tuple(declaration) = self.get_struct(id.into()) else {
+            unreachable!();
+        };
+
+        declaration
     }
 
     #[inline]

@@ -1,4 +1,4 @@
-use kelp_core::parsed::item::{ParsedItem, ParsedItemKind};
+use kelp_core::parsed::item::ParsedItemKind;
 
 use crate::{
     cst::{CSTConstantDeclarationItem, CSTDataType, CSTExpression},

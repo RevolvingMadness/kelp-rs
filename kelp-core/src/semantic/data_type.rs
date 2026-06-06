@@ -7,7 +7,6 @@ use crate::semantic::environment::{
     SemanticEnvironment,
     r#type::{
         generic::HighGenericId,
-        module::HighModuleId,
         r#struct::{
             HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
             tuple::HighTupleStructId,
@@ -23,7 +22,6 @@ use crate::{
         info::error::{SemanticAnalysisError, ValueKind},
     },
     span::Span,
-    visibility::Visibility,
 };
 use crate::{low::data_type::DataType, semantic::typed_path::SemanticTypedPathSegment};
 use crate::{
@@ -184,7 +182,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
                 Ok(())
             }
             SemanticDataType::Generic(id) => {
-                let (_, _, declaration) = self.semantic_environment.get_generic(*id);
+                let declaration = self.semantic_environment.get_generic(*id);
 
                 declaration.name.fmt(f)
             }
@@ -228,7 +226,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
             SemanticDataType::Struct(id, generic_types) => {
                 // Maybe display full path?
 
-                let declaration = self.semantic_environment.get_struct_declaration(*id);
+                let declaration = self.semantic_environment.get_struct(*id);
 
                 f.write_str(declaration.name())?;
 
@@ -329,8 +327,6 @@ impl SemanticDataType {
     pub fn inner_resolve_regular_struct(
         datapack: &mut Datapack,
         id: HighRegularStructId,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
         name: String,
         generic_ids: &[HighGenericId],
         field_types: HashMap<String, Self>,
@@ -353,14 +349,7 @@ impl SemanticDataType {
             .map(|data_type| data_type.resolve(datapack).unwrap())
             .collect();
 
-        datapack.declare_monomorphized_regular_struct(
-            module_path,
-            visibility,
-            id.into(),
-            name,
-            generic_types,
-            field_types,
-        )
+        datapack.declare_monomorphized_regular_struct(id.into(), name, generic_types, field_types)
     }
 
     #[must_use]
@@ -368,8 +357,6 @@ impl SemanticDataType {
     pub fn inner_monomorphize_tuple_struct(
         datapack: &mut Datapack,
         id: HighTupleStructId,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
         name: String,
         generic_ids: &[HighGenericId],
         field_types: Vec<Self>,
@@ -390,14 +377,7 @@ impl SemanticDataType {
             .map(|data_type| data_type.resolve(datapack).unwrap())
             .collect();
 
-        datapack.declare_monomorphized_tuple_struct(
-            module_path,
-            visibility,
-            id.into(),
-            name,
-            generic_types,
-            field_types,
-        )
+        datapack.declare_monomorphized_tuple_struct(id.into(), name, generic_types, field_types)
     }
 
     #[must_use]
@@ -406,12 +386,7 @@ impl SemanticDataType {
         id: HighStructId,
         generic_types: Vec<Self>,
     ) -> StructId {
-        let (module_path, visibility, declaration) = {
-            let (module_path, visiblity, declaration) =
-                datapack.semantic_environment.get_struct(id);
-
-            (module_path.to_vec(), visiblity, declaration.clone())
-        };
+        let declaration = datapack.semantic_environment.get_struct(id);
 
         match declaration {
             SemanticStructDeclaration::Struct(declaration) => {
@@ -420,11 +395,9 @@ impl SemanticDataType {
                 Self::inner_resolve_regular_struct(
                     datapack,
                     id,
-                    module_path,
-                    visibility,
-                    declaration.name,
-                    &declaration.generic_ids,
-                    declaration.field_types,
+                    declaration.name.clone(),
+                    &declaration.generic_ids.clone(),
+                    declaration.field_types.clone(),
                     generic_types,
                 )
                 .into()
@@ -435,11 +408,9 @@ impl SemanticDataType {
                 Self::inner_monomorphize_tuple_struct(
                     datapack,
                     id,
-                    module_path,
-                    visibility,
-                    declaration.name,
-                    &declaration.generic_ids,
-                    declaration.field_types,
+                    declaration.name.clone(),
+                    &declaration.generic_ids.clone(),
+                    declaration.field_types.clone(),
                     generic_types,
                 )
                 .into()
@@ -453,20 +424,13 @@ impl SemanticDataType {
         id: HighRegularStructId,
         generic_types: Vec<Self>,
     ) -> RegularStructId {
-        let (module_path, visibility, declaration) = {
-            let (module_path, visiblity, declaration) =
-                datapack.semantic_environment.get_regular_struct(id);
-
-            (module_path.to_vec(), visiblity, declaration.clone())
-        };
+        let declaration = datapack.semantic_environment.get_regular_struct(id);
 
         Self::inner_resolve_regular_struct(
             datapack,
             id,
-            module_path,
-            visibility,
             declaration.name.clone(),
-            &declaration.generic_ids,
+            &declaration.generic_ids.clone(),
             declaration.field_types.clone(),
             generic_types,
         )
@@ -478,20 +442,13 @@ impl SemanticDataType {
         id: HighTupleStructId,
         generic_types: Vec<Self>,
     ) -> TupleStructId {
-        let (module_path, visibility, declaration) = {
-            let (module_path, visiblity, declaration) =
-                datapack.semantic_environment.get_tuple_struct(id);
-
-            (module_path.to_vec(), visiblity, declaration.clone())
-        };
+        let declaration = datapack.semantic_environment.get_tuple_struct(id);
 
         Self::inner_monomorphize_tuple_struct(
             datapack,
             id,
-            module_path,
-            visibility,
             declaration.name.clone(),
-            &declaration.generic_ids,
+            &declaration.generic_ids.clone(),
             declaration.field_types.clone(),
             generic_types,
         )
@@ -1186,7 +1143,7 @@ impl SemanticDataType {
                 Self::Tuple(data_types)
             }
             Self::Struct(id, generic_types) => {
-                let declaration = semantic_environment.get_struct_declaration(*id);
+                let declaration = semantic_environment.get_struct(*id);
 
                 let generic_types = generic_types
                     .iter()
@@ -1437,7 +1394,7 @@ impl SemanticDataType {
             Self::Reference(inner) => inner.get_field_result(semantic_environment, field)?,
 
             Self::Struct(id, generic_types) => {
-                let declaration = semantic_environment.get_struct_declaration(*id);
+                let declaration = semantic_environment.get_struct(*id);
 
                 let field_type = declaration.get_field(field)?;
 

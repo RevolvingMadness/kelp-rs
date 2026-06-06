@@ -4,7 +4,7 @@ use crate::low::data_type::DataType;
 use crate::low::environment::value::constant::{ConstantDeclaration, ConstantId};
 use crate::low::environment::{
     r#type::{
-        TypeDeclaration, TypeDeclarationKind,
+        TypeDeclaration,
         r#struct::{
             RegularStructDeclaration, RegularStructId, StructDeclaration, StructId,
             TupleStructDeclaration, TupleStructId,
@@ -36,36 +36,18 @@ pub struct Environment {
 
 impl Environment {
     #[must_use]
-    pub fn declare_type(
-        &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
-        declaration: TypeDeclarationKind,
-    ) -> u32 {
+    pub fn declare_type(&mut self, declaration: TypeDeclaration) -> u32 {
         let len = self.types.len() as u32;
 
-        self.types.push(TypeDeclaration {
-            visibility,
-            module_path,
-            kind: declaration,
-        });
+        self.types.push(declaration);
 
         len
     }
 
     #[inline]
     #[must_use]
-    pub fn declare_struct(
-        &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
-        declaration: StructDeclaration,
-    ) -> StructId {
-        let id = self.declare_type(
-            module_path,
-            visibility,
-            TypeDeclarationKind::Struct(declaration),
-        );
+    pub fn declare_struct(&mut self, declaration: StructDeclaration) -> StructId {
+        let id = self.declare_type(TypeDeclaration::Struct(declaration));
 
         StructId(id)
     }
@@ -74,21 +56,15 @@ impl Environment {
     #[must_use]
     pub fn declare_regular_struct(
         &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
         name: String,
         generic_types: Vec<DataType>,
         field_types: HashMap<String, DataType>,
     ) -> RegularStructId {
-        let id = self.declare_struct(
-            module_path,
-            visibility,
-            StructDeclaration::Struct(RegularStructDeclaration {
-                name,
-                generic_types,
-                field_types,
-            }),
-        );
+        let id = self.declare_struct(StructDeclaration::Struct(RegularStructDeclaration {
+            name,
+            generic_types,
+            field_types,
+        }));
 
         RegularStructId(id.0)
     }
@@ -97,66 +73,45 @@ impl Environment {
     #[must_use]
     pub fn declare_tuple_struct(
         &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
         name: String,
         generic_types: Vec<DataType>,
         field_types: Vec<DataType>,
     ) -> TupleStructId {
-        let id = self.declare_struct(
-            module_path,
-            visibility,
-            StructDeclaration::Tuple(TupleStructDeclaration {
-                name,
-                generic_types,
-                field_types,
-            }),
-        );
+        let id = self.declare_struct(StructDeclaration::Tuple(TupleStructDeclaration {
+            name,
+            generic_types,
+            field_types,
+        }));
 
         TupleStructId(id.0)
     }
 
     #[must_use]
-    pub fn get_struct(&self, id: StructId) -> (&[HighModuleId], Visibility, &StructDeclaration) {
+    pub fn get_struct(&self, id: StructId) -> &StructDeclaration {
         #[allow(irrefutable_let_patterns)]
-        let TypeDeclaration {
-            visibility,
-            module_path,
-            kind: TypeDeclarationKind::Struct(declaration),
-        } = &self.types[id.0 as usize]
-        else {
+        let TypeDeclaration::Struct(declaration) = &self.types[id.0 as usize] else {
             unreachable!();
         };
 
-        (module_path, *visibility, declaration)
+        declaration
     }
 
     #[must_use]
-    pub fn get_regular_struct(
-        &self,
-        id: RegularStructId,
-    ) -> (&[HighModuleId], Visibility, &RegularStructDeclaration) {
-        let (module_path, visibility, StructDeclaration::Struct(declaration)) =
-            self.get_struct(id.into())
-        else {
+    pub fn get_regular_struct(&self, id: RegularStructId) -> &RegularStructDeclaration {
+        let StructDeclaration::Struct(declaration) = self.get_struct(id.into()) else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        declaration
     }
 
     #[must_use]
-    pub fn get_tuple_struct(
-        &self,
-        id: TupleStructId,
-    ) -> (&[HighModuleId], Visibility, &TupleStructDeclaration) {
-        let (module_path, visibility, StructDeclaration::Tuple(declaration)) =
-            self.get_struct(id.into())
-        else {
+    pub fn get_tuple_struct(&self, id: TupleStructId) -> &TupleStructDeclaration {
+        let StructDeclaration::Tuple(declaration) = self.get_struct(id.into()) else {
             unreachable!();
         };
 
-        (module_path, visibility, declaration)
+        declaration
     }
 
     #[must_use]

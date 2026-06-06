@@ -16,7 +16,7 @@ use crate::{
         data_type::SemanticDataType,
         environment::{
             r#type::{
-                HighTypeId, SemanticTypeDeclarationKind, alias::SemanticTypeAliasDeclaration,
+                HighTypeId, SemanticTypeDeclaration, alias::SemanticTypeAliasDeclaration,
                 generic::HighGenericId, module::HighModuleId,
             },
             value::{
@@ -28,7 +28,6 @@ use crate::{
     },
     span::Span,
     trait_ext::CollectOptionAllIterExt,
-    visibility::Visibility,
 };
 
 #[derive(Debug, Clone)]
@@ -93,18 +92,12 @@ impl TypedItem {
                 for (generic_id, (generic_span, generic_name)) in
                     generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(
-                        generic_id,
-                        Visibility::Public,
-                        generic_span,
-                        generic_name,
-                    );
+                    ctx.set_semantic_generic(generic_id, generic_span, generic_name);
                 }
 
                 ctx.set_semantic_type(
                     self_type_id,
-                    Visibility::Public,
-                    SemanticTypeDeclarationKind::Alias(SemanticTypeAliasDeclaration {
+                    SemanticTypeDeclaration::Alias(SemanticTypeAliasDeclaration {
                         name_span: target_type_span,
                         name: "Self".to_owned(),
                         generic_ids: Vec::new(),
@@ -159,12 +152,7 @@ impl TypedItem {
                 for (generic_id, (generic_span, generic_name)) in
                     generic_ids.iter().copied().zip(generics)
                 {
-                    ctx.set_semantic_generic(
-                        generic_id,
-                        Visibility::Public,
-                        generic_span,
-                        generic_name,
-                    );
+                    ctx.set_semantic_generic(generic_id, generic_span, generic_name);
                 }
 
                 let mut failed = false;

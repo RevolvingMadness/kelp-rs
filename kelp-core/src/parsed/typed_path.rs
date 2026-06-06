@@ -216,7 +216,7 @@ impl ParsedTypedPath {
         for segment in segments {
             let declaration = ctx.semantic_environment.get_type(current_type_id);
 
-            let next_type_id = match declaration.kind.get_visible_type_id(
+            let next_type_id = match declaration.get_visible_type_id(
                 &ctx.parsed_environment,
                 &ctx.semantic_environment,
                 &ctx.current_module_path,
@@ -238,7 +238,7 @@ impl ParsedTypedPath {
 
         let declaration = ctx.semantic_environment.get_type(current_type_id);
 
-        let type_result = declaration.kind.get_visible_type_id(
+        let type_result = declaration.get_visible_type_id(
             &ctx.parsed_environment,
             &ctx.semantic_environment,
             &ctx.current_module_path,
@@ -248,7 +248,7 @@ impl ParsedTypedPath {
             last_segment.name_span,
         );
 
-        let value_result = declaration.kind.get_visible_value_id(
+        let value_result = declaration.get_visible_value_id(
             &ctx.parsed_environment,
             &ctx.semantic_environment,
             &ctx.current_module_path,

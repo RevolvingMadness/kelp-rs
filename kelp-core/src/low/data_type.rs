@@ -5,11 +5,13 @@ use std::{
 
 use minecraft_command_types::{
     nbt_path::NbtPathNode,
-    snbt::{SNBTString, SNBT},
+    snbt::{SNBT, SNBTString},
 };
 
+use crate::low::environment::{
+    Environment, r#type::r#struct::StructId, value::function::FunctionId,
+};
 use crate::runtime_storage::RuntimeStorageType;
-use crate::low::environment::{r#type::r#struct::StructId, value::function::FunctionId, Environment};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FieldAccessType {
@@ -70,7 +72,7 @@ impl DataType {
             Self::Data(..) => FieldAccessType::Name,
             Self::Reference(data_type) => data_type.get_field_access_type(environment)?,
             Self::Tuple(..) => FieldAccessType::Index,
-            Self::Struct(id) => environment.get_struct(*id).2.get_field_access_type(),
+            Self::Struct(id) => environment.get_struct(*id).get_field_access_type(),
 
             _ => return None,
         })
@@ -306,7 +308,7 @@ impl Display for DataTypeDisplay<'_> {
             DataType::Struct(id) => {
                 // Maybe display full path?
 
-                let (_, _, declaration) = self.environment.get_struct(*id);
+                let declaration = self.environment.get_struct(*id);
 
                 let generic_types = declaration.generic_types();
 
@@ -340,10 +342,7 @@ impl Display for DataTypeDisplay<'_> {
 
 impl DataType {
     #[must_use]
-    pub const fn display<'a>(
-        &'a self,
-        environment: &'a Environment,
-    ) -> DataTypeDisplay<'a> {
+    pub const fn display<'a>(&'a self, environment: &'a Environment) -> DataTypeDisplay<'a> {
         DataTypeDisplay {
             data_type: self,
             environment,

@@ -112,7 +112,7 @@ fn destructure_regular_struct(
 ) {
     match (data_type, value) {
         (DataType::Struct(..), Expression::RegularStruct(_, fields)) => {
-            let (_, _, declaration) = datapack.get_regular_struct_type(id);
+            let declaration = datapack.environment.get_regular_struct(id);
 
             let field_types = declaration.field_types.clone();
 
@@ -124,7 +124,7 @@ fn destructure_regular_struct(
             }
         }
         (DataType::Struct(..), Expression::Data(data)) => {
-            let (_, _, declaration) = datapack.get_regular_struct_type(id);
+            let declaration = datapack.environment.get_regular_struct(id);
 
             let field_types = declaration.field_types.clone();
 
@@ -164,7 +164,7 @@ fn destructure_tuple_struct(
 ) {
     match (value, value_data_type) {
         (Expression::TupleStruct(_, field_expressions), DataType::Struct(..)) => {
-            let (_, _, declaration) = datapack.get_tuple_struct_type(id);
+            let declaration = datapack.environment.get_tuple_struct(id);
 
             let field_types = declaration.field_types.clone();
 
@@ -177,7 +177,7 @@ fn destructure_tuple_struct(
             }
         }
         (Expression::Data(data), DataType::Struct(..)) => {
-            let (_, _, declaration) = datapack.get_tuple_struct_type(id);
+            let declaration = datapack.environment.get_tuple_struct(id);
 
             let field_types = declaration.field_types.clone();
 

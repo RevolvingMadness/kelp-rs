@@ -44,7 +44,19 @@ impl ParsableAstNode for CSTItemKind {
             "mcfn" => try_parse_minecraft_function_declaration_item_kind(parser),
             "struct" => try_parse_struct_declaration_item_kind(parser),
             "type" => CSTTypeAliasDeclarationItem::try_parse(parser),
-            "const" => CSTConstantDeclarationItem::try_parse(parser),
+            "const" => {
+                if CSTFunctionDeclarationItem::try_parse(parser) {
+                    return true;
+                }
+
+                if CSTConstantDeclarationItem::try_parse(parser) {
+                    return true;
+                }
+
+                parser.error("expected constant declaration or function");
+
+                true
+            }
             _ => false,
         }
     }

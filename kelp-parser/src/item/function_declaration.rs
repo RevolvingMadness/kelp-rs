@@ -198,16 +198,12 @@ impl ParsableAstNode for CSTFunctionDeclarationItem {
 
         parser.start_node(SyntaxKind::FunctionDeclarationItem);
 
-        let parsed_qualifiers = CSTFunctionQualifiers::try_parse(parser);
+        CSTFunctionQualifiers::try_parse(parser);
 
         if !parser.try_bump_str("fn", SyntaxKind::FNKeyword) {
-            if parsed_qualifiers {
-                parser.error("expected 'fn'");
-            } else {
-                state.restore(parser);
+            state.restore(parser);
 
-                return false;
-            }
+            return false;
         }
 
         parser.expect_whitespace();

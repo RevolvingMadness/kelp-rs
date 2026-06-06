@@ -267,7 +267,7 @@ impl Display for DataTypeDisplay<'_> {
             DataType::Function(id) => {
                 // Maybe display full path?
 
-                let (_, _, declaration) = self.environment.get_function(*id);
+                let declaration = self.environment.get_function(*id);
 
                 let generic_types = declaration.generic_types();
 

@@ -8,9 +8,7 @@ use crate::semantic::environment::value::{
     function::{SemanticFunctionDeclaration, regular::HighRegularFunctionId},
     variable::SemanticVariableDeclaration,
 };
-use crate::{
-    parsed::semantic_analysis::SemanticAnalysisContext, span::Span, visibility::Visibility,
-};
+use crate::{parsed::semantic_analysis::SemanticAnalysisContext, span::Span};
 
 pub mod constant;
 pub mod function;
@@ -45,13 +43,13 @@ impl From<HighVisibleValueId> for HighValueId {
 }
 
 #[derive(Debug, Clone)]
-pub enum SemanticValueDeclarationKind {
+pub enum SemanticValueDeclaration {
     Variable(SemanticVariableDeclaration),
     Constant(SemanticConstantDeclaration),
     Function(SemanticFunctionDeclaration),
 }
 
-impl SemanticValueDeclarationKind {
+impl SemanticValueDeclaration {
     #[must_use]
     pub const fn get_value_kind(&self) -> ValueKind {
         match self {
@@ -79,7 +77,7 @@ impl SemanticValueDeclarationKind {
         name_span: Span,
     ) -> Option<SemanticDataType> {
         match self {
-            SemanticValueDeclarationKind::Variable(declaration) => {
+            SemanticValueDeclaration::Variable(declaration) => {
                 let expected_generic_count = 0;
                 let actual_generic_count = supplied_generic_types.len();
 
@@ -95,7 +93,7 @@ impl SemanticValueDeclarationKind {
 
                 Some(declaration.data_type)
             }
-            SemanticValueDeclarationKind::Constant(declaration) => {
+            SemanticValueDeclaration::Constant(declaration) => {
                 let expected_generic_count = 0;
                 let actual_generic_count = supplied_generic_types.len();
 
@@ -111,7 +109,7 @@ impl SemanticValueDeclarationKind {
 
                 Some(declaration.data_type)
             }
-            SemanticValueDeclarationKind::Function(declaration) => {
+            SemanticValueDeclaration::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
                 let expected_generic_count = declaration.declared_generic_count();
@@ -135,11 +133,4 @@ impl SemanticValueDeclarationKind {
             }
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct SemanticValueDeclaration {
-    pub visibility: Visibility,
-    pub module_path: Vec<HighModuleId>,
-    pub kind: SemanticValueDeclarationKind,
 }

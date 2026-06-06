@@ -19,7 +19,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::low::environment::value::{
-    ValueDeclarationKind, constant::ConstantId, function::FunctionId, variable::VariableId,
+    ValueDeclaration, constant::ConstantId, function::FunctionId, variable::VariableId,
 };
 use crate::low::expression::Expression;
 use crate::semantic::data_type::SemanticDataType;
@@ -812,18 +812,18 @@ impl SemanticExpressionKind {
 
                 let declaration = datapack.get_value(id);
 
-                match &declaration.kind {
-                    ValueDeclarationKind::Variable(..) => {
+                match declaration {
+                    ValueDeclaration::Variable(..) => {
                         let id = VariableId(id.0);
 
                         datapack.get_variable_value(id)
                     }
-                    ValueDeclarationKind::Constant(..) => {
+                    ValueDeclaration::Constant(..) => {
                         let id = ConstantId(id.0);
 
                         datapack.get_constant_value(id)
                     }
-                    ValueDeclarationKind::Function(..) => Expression::Function(FunctionId(id.0)),
+                    ValueDeclaration::Function(..) => Expression::Function(FunctionId(id.0)),
                 }
             }
             Self::Block(statements, tail_expression) => {

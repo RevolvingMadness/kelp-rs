@@ -4,7 +4,7 @@ use crate::parsed::environment::value::{
 };
 use crate::parsed::semantic_analysis::info::error::ValueKind;
 use crate::semantic::environment::r#type::module::HighModuleId;
-use crate::semantic::environment::value::SemanticValueDeclarationKind;
+use crate::semantic::environment::value::SemanticValueDeclaration;
 use crate::span::Span;
 use crate::visibility::Visibility;
 
@@ -19,18 +19,12 @@ pub enum ParsedValueDeclarationKind {
     Function(ParsedFunctionDeclaration),
 }
 
-impl From<SemanticValueDeclarationKind> for ParsedValueDeclarationKind {
-    fn from(value: SemanticValueDeclarationKind) -> Self {
+impl From<SemanticValueDeclaration> for ParsedValueDeclarationKind {
+    fn from(value: SemanticValueDeclaration) -> Self {
         match value {
-            SemanticValueDeclarationKind::Variable(declaration) => {
-                Self::Variable(declaration.into())
-            }
-            SemanticValueDeclarationKind::Constant(declaration) => {
-                Self::Constant(declaration.into())
-            }
-            SemanticValueDeclarationKind::Function(declaration) => {
-                Self::Function(declaration.into())
-            }
+            SemanticValueDeclaration::Variable(declaration) => Self::Variable(declaration.into()),
+            SemanticValueDeclaration::Constant(declaration) => Self::Constant(declaration.into()),
+            SemanticValueDeclaration::Function(declaration) => Self::Function(declaration.into()),
         }
     }
 }

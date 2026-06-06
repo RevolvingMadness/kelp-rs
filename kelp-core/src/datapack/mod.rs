@@ -19,16 +19,12 @@ use crate::runtime_storage::RuntimeStorageTarget;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::generic::HighGenericId;
-use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
 use crate::semantic::environment::value::constant::HighConstantId;
 use crate::semantic::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
 use crate::semantic::environment::value::variable::HighVariableId;
-use crate::semantic::environment::value::{
-    HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
-};
-use crate::visibility::Visibility;
+use crate::semantic::environment::value::{HighValueId, SemanticValueDeclaration};
 use hashbrown::{Equivalent, HashMap as HashbrownMap};
 use minecraft_command_types::command::data::{DataCommand, DataTarget};
 use minecraft_command_types::command::execute::ExecuteIfSubcommand;
@@ -226,18 +222,11 @@ impl Datapack {
     }
 
     pub fn declare_variable(&mut self, id: HighVariableId, data_type: DataType, value: Expression) {
-        let SemanticValueDeclaration {
-            module_path,
-            visibility,
-            kind: declaration,
-        } = self.semantic_environment.get_value(id);
+        let declaration = self.semantic_environment.get_value(id);
 
-        let resolved_id = self.environment.declare_variable(
-            module_path.clone(),
-            *visibility,
-            declaration.name().to_owned(),
-            data_type.clone(),
-        );
+        let resolved_id = self
+            .environment
+            .declare_variable(declaration.name().to_owned(), data_type.clone());
 
         self.resolved_variables.insert(id, resolved_id);
 
@@ -245,18 +234,11 @@ impl Datapack {
     }
 
     pub fn declare_constant(&mut self, id: HighConstantId, data_type: DataType, value: Expression) {
-        let SemanticValueDeclaration {
-            module_path,
-            visibility,
-            kind: declaration,
-        } = self.semantic_environment.get_value(id);
+        let declaration = self.semantic_environment.get_value(id);
 
-        let resolved_id = self.environment.declare_constant(
-            module_path.clone(),
-            *visibility,
-            declaration.name().to_owned(),
-            data_type.clone(),
-        );
+        let resolved_id = self
+            .environment
+            .declare_constant(declaration.name().to_owned(), data_type.clone());
 
         self.resolved_constants.insert(id, resolved_id);
 
@@ -302,15 +284,6 @@ impl Datapack {
     #[must_use]
     pub fn get_function_value(&self, id: RegularFunctionId) -> &RegularFunctionDeclaration {
         self.function_values.get(&id).unwrap()
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_function<I: Into<FunctionId>>(
-        &self,
-        id: I,
-    ) -> (&[HighModuleId], Visibility, &FunctionDeclaration) {
-        self.environment.get_function(id)
     }
 
     pub fn compile_and_add_to_function(&mut self, paths: &[String], ctx: &mut CompileContext) {
@@ -707,8 +680,8 @@ impl Datapack {
 
         let declaration = self.semantic_environment.get_value(id);
 
-        match &declaration.kind {
-            SemanticValueDeclarationKind::Variable(..) => {
+        match declaration {
+            SemanticValueDeclaration::Variable(..) => {
                 assert!(generic_types.is_empty());
 
                 let id = HighVariableId(id.0);
@@ -717,7 +690,7 @@ impl Datapack {
 
                 Some(id.into())
             }
-            SemanticValueDeclarationKind::Constant(..) => {
+            SemanticValueDeclaration::Constant(..) => {
                 assert!(generic_types.is_empty());
 
                 let id = HighConstantId(id.0);
@@ -726,7 +699,7 @@ impl Datapack {
 
                 Some(id.into())
             }
-            SemanticValueDeclarationKind::Function(..) => {
+            SemanticValueDeclaration::Function(..) => {
                 let id = HighFunctionId(id.0);
 
                 let id = self.get_monomorphized_function_id(id, generic_types);
@@ -760,9 +733,8 @@ impl Datapack {
             return *id;
         }
 
-        let (module_path, visibility, declaration) = self.semantic_environment.get_function(id);
+        let declaration = self.semantic_environment.get_function(id);
 
-        let module_path = module_path.to_vec();
         let declaration = declaration.clone();
 
         match declaration {
@@ -791,8 +763,6 @@ impl Datapack {
                 let body = *declaration.body.unwrap();
 
                 let declaration = RegularFunctionDeclaration {
-                    module_path: module_path.clone(),
-                    visibility,
                     name: declaration.name,
                     modifiers: declaration.modifiers,
                     generic_ids: declaration.generic_ids,
@@ -802,7 +772,7 @@ impl Datapack {
                     body,
                 };
 
-                self.declare_monomorphized_function(id, module_path, visibility, declaration)
+                self.declare_monomorphized_function(id, declaration)
             }
             SemanticFunctionDeclaration::Builtin(declaration) => {
                 let parameters = declaration
@@ -832,7 +802,7 @@ impl Datapack {
                     kind,
                 };
 
-                self.declare_monomorphized_function(id, module_path, visibility, declaration)
+                self.declare_monomorphized_function(id, declaration)
             }
         }
     }
@@ -888,8 +858,6 @@ impl Datapack {
     pub fn declare_monomorphized_function<I: Into<HighFunctionId>, D: Into<FunctionDeclaration>>(
         &mut self,
         original_id: I,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
         declaration: D,
     ) -> FunctionId {
         let declaration = declaration.into();
@@ -899,9 +867,7 @@ impl Datapack {
             generic_types: declaration.generic_types().to_vec(),
         };
 
-        let monomorphized_id =
-            self.environment
-                .declare_function(module_path, visibility, declaration);
+        let monomorphized_id = self.environment.declare_function(declaration);
 
         self.monomorphized_functions.insert(key, monomorphized_id);
 

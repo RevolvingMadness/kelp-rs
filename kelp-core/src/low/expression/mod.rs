@@ -577,7 +577,7 @@ impl Expression {
                 }
             }
             Self::Function(id) => {
-                let (_, _, declaration) = datapack.get_function(id);
+                let declaration = datapack.environment.get_function(id);
 
                 match declaration {
                     FunctionDeclaration::Regular(declaration) => compile_function(
@@ -1840,7 +1840,7 @@ impl Expression {
                     .as_text_component(datapack, ctx, force_display)
             }
             Self::Function(id) => {
-                let (_, _, declaration) = datapack.get_function(id);
+                let declaration = datapack.environment.get_function(id);
 
                 let mut output = format!("fn {}", declaration.name());
 

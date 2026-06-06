@@ -29,7 +29,7 @@ use crate::{
         Environment,
         r#type::r#struct::{RegularStructId, StructId, TupleStructId},
     },
-    semantic::environment::value::{SemanticValueDeclaration, SemanticValueDeclarationKind},
+    semantic::environment::value::SemanticValueDeclaration,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -187,7 +187,7 @@ impl Display for SemanticDataTypeDisplay<'_> {
                 declaration.name.fmt(f)
             }
             SemanticDataType::Function(id, generic_types) => {
-                let declaration = self.semantic_environment.get_function_declaration(*id);
+                let declaration = self.semantic_environment.get_function(*id);
 
                 write!(f, "fn {}", declaration.name())?;
 
@@ -600,10 +600,8 @@ impl SemanticDataType {
                     });
                 };
 
-                let SemanticValueDeclaration {
-                    kind: SemanticValueDeclarationKind::Function(declaration),
-                    ..
-                } = ctx.semantic_environment.get_value(method_id)
+                let SemanticValueDeclaration::Function(declaration) =
+                    ctx.semantic_environment.get_value(method_id)
                 else {
                     return ctx.add_error(SemanticAnalysisError::MethodNotFound {
                         type_span: segment.name_span,
@@ -746,7 +744,7 @@ impl SemanticDataType {
             Self::Error => return None,
 
             Self::Function(id, generic_types) => {
-                let declaration = semantic_environment.get_function_declaration(*id);
+                let declaration = semantic_environment.get_function(*id);
 
                 match declaration {
                     SemanticFunctionDeclaration::Regular(declaration) => CallInfo {

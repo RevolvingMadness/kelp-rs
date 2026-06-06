@@ -3,7 +3,6 @@ use std::collections::{HashMap, hash_map::Iter};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::implementation::SemanticImplementation;
 use crate::semantic::environment::r#type::generic::{HighGenericId, SemanticGenericDeclaration};
-use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::{
     r#type::{
         HighTypeId, SemanticTypeDeclaration,
@@ -14,7 +13,7 @@ use crate::semantic::environment::{
         },
     },
     value::{
-        HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
+        HighValueId, SemanticValueDeclaration,
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             builtin::{HighBuiltinFunctionId, SemanticBuiltinFunctionDeclaration},
@@ -61,11 +60,7 @@ impl SemanticEnvironment {
         f: impl FnOnce(&mut SemanticRegularFunctionDeclaration),
     ) {
         self.update_value(id.into(), |declaration| {
-            let SemanticValueDeclaration {
-                kind: SemanticValueDeclarationKind::Function(declaration),
-                ..
-            } = declaration
-            else {
+            let SemanticValueDeclaration::Function(declaration) = declaration else {
                 unreachable!("Value is not a function");
             };
 
@@ -80,23 +75,17 @@ impl SemanticEnvironment {
     pub fn declare_variable(
         &mut self,
         id: HighVariableId,
-        visibility: Visibility,
-        module_path: Vec<HighModuleId>,
         name_span: Span,
         name: String,
         data_type: SemanticDataType,
     ) {
         self.declare_value(
             id.into(),
-            SemanticValueDeclaration {
-                visibility,
-                module_path,
-                kind: SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration {
-                    name_span,
-                    name,
-                    data_type,
-                }),
-            },
+            SemanticValueDeclaration::Variable(SemanticVariableDeclaration {
+                name_span,
+                name,
+                data_type,
+            }),
         );
     }
 
@@ -202,43 +191,21 @@ impl SemanticEnvironment {
     }
 
     #[must_use]
-    pub fn get_variable(
-        &self,
-        id: HighVariableId,
-    ) -> (&[HighModuleId], Visibility, &SemanticVariableDeclaration) {
-        let SemanticValueDeclaration {
-            module_path,
-            visibility,
-            kind: SemanticValueDeclarationKind::Variable(declaration),
-        } = self.get_value(id)
-        else {
+    pub fn get_variable(&self, id: HighVariableId) -> &SemanticVariableDeclaration {
+        let SemanticValueDeclaration::Variable(declaration) = self.get_value(id) else {
             unreachable!();
         };
 
-        (module_path, *visibility, declaration)
+        declaration
     }
 
     #[must_use]
-    pub fn get_function(
-        &self,
-        id: HighFunctionId,
-    ) -> (&[HighModuleId], Visibility, &SemanticFunctionDeclaration) {
-        let SemanticValueDeclaration {
-            module_path,
-            visibility,
-            kind: SemanticValueDeclarationKind::Function(declaration),
-        } = self.get_value(id)
-        else {
+    pub fn get_function(&self, id: HighFunctionId) -> &SemanticFunctionDeclaration {
+        let SemanticValueDeclaration::Function(declaration) = self.get_value(id) else {
             unreachable!();
         };
 
-        (module_path, *visibility, declaration)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn get_function_declaration(&self, id: HighFunctionId) -> &SemanticFunctionDeclaration {
-        self.get_function(id).2
+        declaration
     }
 
     #[must_use]
@@ -246,9 +213,7 @@ impl SemanticEnvironment {
         &self,
         id: HighRegularFunctionId,
     ) -> &SemanticRegularFunctionDeclaration {
-        let SemanticFunctionDeclaration::Regular(declaration) =
-            self.get_function_declaration(id.into())
-        else {
+        let SemanticFunctionDeclaration::Regular(declaration) = self.get_function(id.into()) else {
             unreachable!();
         };
 
@@ -260,9 +225,7 @@ impl SemanticEnvironment {
         &self,
         id: HighBuiltinFunctionId,
     ) -> &SemanticBuiltinFunctionDeclaration {
-        let SemanticFunctionDeclaration::Builtin(declaration) =
-            self.get_function_declaration(id.into())
-        else {
+        let SemanticFunctionDeclaration::Builtin(declaration) = self.get_function(id.into()) else {
             unreachable!();
         };
 

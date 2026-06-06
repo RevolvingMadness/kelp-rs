@@ -31,7 +31,7 @@ use crate::{
                 },
             },
             value::{
-                SemanticValueDeclarationKind,
+                SemanticValueDeclaration,
                 constant::{HighConstantId, SemanticConstantDeclaration},
                 function::{
                     SemanticFunctionDeclaration,
@@ -432,8 +432,7 @@ impl NamedItem {
 
                 ctx.set_semantic_value(
                     id,
-                    self.visibility,
-                    SemanticValueDeclarationKind::Function(SemanticFunctionDeclaration::Regular(
+                    SemanticValueDeclaration::Function(SemanticFunctionDeclaration::Regular(
                         SemanticRegularFunctionDeclaration {
                             name_span,
                             name,
@@ -583,8 +582,7 @@ impl NamedItem {
 
                 ctx.set_semantic_value(
                     constructor_id,
-                    Visibility::Public,
-                    SemanticValueDeclarationKind::Function(SemanticFunctionDeclaration::Builtin(
+                    SemanticValueDeclaration::Function(SemanticFunctionDeclaration::Builtin(
                         SemanticBuiltinFunctionDeclaration {
                             name,
                             generic_ids: generic_ids.clone(),
@@ -618,8 +616,7 @@ impl NamedItem {
 
                 ctx.set_semantic_value(
                     id,
-                    self.visibility,
-                    SemanticValueDeclarationKind::Constant(SemanticConstantDeclaration {
+                    SemanticValueDeclaration::Constant(SemanticConstantDeclaration {
                         name_span,
                         name,
                         data_type: data_type.clone(),

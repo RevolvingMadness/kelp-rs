@@ -29,7 +29,7 @@ use crate::semantic::environment::{
         },
     },
     value::{
-        HighValueId, SemanticValueDeclaration, SemanticValueDeclarationKind,
+        HighValueId, SemanticValueDeclaration,
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             builtin::{
@@ -352,8 +352,7 @@ impl SemanticAnalysisContext {
 
         self.set_semantic_value(
             id,
-            visibility,
-            SemanticValueDeclarationKind::Variable(SemanticVariableDeclaration {
+            SemanticValueDeclaration::Variable(SemanticVariableDeclaration {
                 name_span,
                 name,
                 data_type,
@@ -535,29 +534,21 @@ impl SemanticAnalysisContext {
     pub fn set_semantic_value<I: Into<HighValueId>>(
         &mut self,
         id: I,
-        visibility: Visibility,
-        kind: SemanticValueDeclarationKind,
+        declaration: SemanticValueDeclaration,
     ) {
         let id = id.into();
 
-        self.semantic_environment.declare_value(
-            id,
-            SemanticValueDeclaration {
-                visibility,
-                module_path: self.current_module_path.clone(),
-                kind,
-            },
-        );
+        self.semantic_environment.declare_value(id, declaration);
     }
 
     pub fn declare_value(
         &mut self,
         visibility: Visibility,
-        declaration: SemanticValueDeclarationKind,
+        declaration: SemanticValueDeclaration,
     ) -> HighValueId {
         let id = self.declare_parsed_value(visibility, declaration.clone().into());
 
-        self.set_semantic_value(id, visibility, declaration);
+        self.set_semantic_value(id, declaration);
 
         id
     }
@@ -569,9 +560,7 @@ impl SemanticAnalysisContext {
     ) -> HighBuiltinFunctionId {
         let id = self.declare_value(
             visibility,
-            SemanticValueDeclarationKind::Function(SemanticFunctionDeclaration::Builtin(
-                declaration,
-            )),
+            SemanticValueDeclaration::Function(SemanticFunctionDeclaration::Builtin(declaration)),
         );
 
         HighBuiltinFunctionId(id.0)

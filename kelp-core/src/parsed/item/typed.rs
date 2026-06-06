@@ -20,7 +20,7 @@ use crate::{
                 generic::HighGenericId, module::HighModuleId,
             },
             value::{
-                SemanticValueDeclaration, SemanticValueDeclarationKind, constant::HighConstantId,
+                SemanticValueDeclaration, constant::HighConstantId,
                 function::regular::HighRegularFunctionId,
             },
         },
@@ -321,10 +321,8 @@ impl TypedItem {
 
                 value.data_type.assert_equals(ctx, value_span, &data_type)?;
 
-                let SemanticValueDeclaration {
-                    kind: SemanticValueDeclarationKind::Constant(declaration),
-                    ..
-                } = ctx.semantic_environment.get_value_mut(id)
+                let SemanticValueDeclaration::Constant(declaration) =
+                    ctx.semantic_environment.get_value_mut(id)
                 else {
                     unreachable!();
                 };

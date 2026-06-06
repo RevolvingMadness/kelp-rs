@@ -11,7 +11,7 @@ use crate::low::environment::{
         },
     },
     value::{
-        ValueDeclaration, ValueDeclarationKind, ValueId,
+        ValueDeclaration, ValueId,
         function::{
             FunctionDeclaration, FunctionId,
             regular::{RegularFunctionDeclaration, RegularFunctionId},
@@ -19,11 +19,7 @@ use crate::low::environment::{
         variable::{VariableDeclaration, VariableId},
     },
 };
-use crate::semantic::environment::r#type::module::HighModuleId;
-use crate::{
-    semantic::{expression::SemanticExpression, pattern::SemanticPattern},
-    visibility::Visibility,
-};
+use crate::semantic::{expression::SemanticExpression, pattern::SemanticPattern};
 
 pub mod r#type;
 pub mod value;
@@ -115,19 +111,10 @@ impl Environment {
     }
 
     #[must_use]
-    pub fn declare_value(
-        &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
-        declaration: ValueDeclarationKind,
-    ) -> ValueId {
+    pub fn declare_value(&mut self, declaration: ValueDeclaration) -> ValueId {
         let id = self.values.len() as u32;
 
-        self.values.push(ValueDeclaration {
-            visibility,
-            module_path,
-            kind: declaration,
-        });
+        self.values.push(declaration);
 
         ValueId(id)
     }
@@ -140,89 +127,53 @@ impl Environment {
 
     #[inline]
     #[must_use]
-    pub fn get_variable(&self, id: ValueId) -> (&[HighModuleId], Visibility, &VariableDeclaration) {
-        let ValueDeclaration {
-            visibility,
-            module_path,
-            kind: ValueDeclarationKind::Variable(declaration),
-        } = self.get_value(id)
-        else {
+    pub fn get_variable(&self, id: ValueId) -> &VariableDeclaration {
+        let ValueDeclaration::Variable(declaration) = self.get_value(id) else {
             unreachable!();
         };
 
-        (module_path, *visibility, declaration)
+        declaration
     }
 
     #[must_use]
-    pub fn declare_variable(
-        &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
-        name: String,
-        data_type: DataType,
-    ) -> VariableId {
-        let id = VariableId(self.values.len() as u32);
+    pub fn declare_variable(&mut self, name: String, data_type: DataType) -> VariableId {
+        let id = self.declare_value(ValueDeclaration::Variable(VariableDeclaration {
+            name,
+            data_type,
+        }));
 
-        self.values.push(
-            ValueDeclarationKind::Variable(VariableDeclaration { name, data_type })
-                .with_visibility(module_path, visibility),
-        );
-
-        id
+        VariableId(id.0)
     }
 
     #[must_use]
-    pub fn declare_constant(
-        &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
-        name: String,
-        data_type: DataType,
-    ) -> ConstantId {
-        let id = ConstantId(self.values.len() as u32);
+    pub fn declare_constant(&mut self, name: String, data_type: DataType) -> ConstantId {
+        let id = self.declare_value(ValueDeclaration::Constant(ConstantDeclaration {
+            name,
+            data_type,
+        }));
 
-        self.values.push(
-            ValueDeclarationKind::Constant(ConstantDeclaration { name, data_type })
-                .with_visibility(module_path, visibility),
-        );
-
-        id
+        ConstantId(id.0)
     }
 
     #[must_use]
-    pub fn declare_function(
-        &mut self,
-        module_path: Vec<HighModuleId>,
-        visibility: Visibility,
-        declaration: FunctionDeclaration,
-    ) -> FunctionId {
+    pub fn declare_function(&mut self, declaration: FunctionDeclaration) -> FunctionId {
         let id = FunctionId(self.values.len() as u32);
 
-        self.values.push(
-            ValueDeclarationKind::Function(Box::new(declaration))
-                .with_visibility(module_path, visibility),
-        );
+        self.values
+            .push(ValueDeclaration::Function(Box::new(declaration)));
 
         id
     }
 
     #[must_use]
-    pub fn get_function<I: Into<FunctionId>>(
-        &self,
-        id: I,
-    ) -> (&[HighModuleId], Visibility, &FunctionDeclaration) {
+    pub fn get_function<I: Into<FunctionId>>(&self, id: I) -> &FunctionDeclaration {
         let id = id.into();
 
-        let ValueDeclaration {
-            visibility,
-            module_path,
-            kind: ValueDeclarationKind::Function(declaration),
-        } = &self.values[id.0 as usize]
-        else {
+        let ValueDeclaration::Function(declaration) = &self.values[id.0 as usize] else {
             unreachable!();
         };
 
-        (module_path, *visibility, declaration)
+        declaration
     }
 
     pub fn update_regular_function(
@@ -231,11 +182,7 @@ impl Environment {
         new_parameters: Vec<(SemanticPattern, DataType)>,
         new_body: SemanticExpression,
     ) {
-        let ValueDeclaration {
-            kind: ValueDeclarationKind::Function(declaration),
-            ..
-        } = &mut self.values[id.0 as usize]
-        else {
+        let ValueDeclaration::Function(declaration) = &mut self.values[id.0 as usize] else {
             unreachable!();
         };
 

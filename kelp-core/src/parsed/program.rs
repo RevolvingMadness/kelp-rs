@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::semantic::environment::{
     SemanticEnvironment,
     value::{
-        SemanticValueDeclaration, SemanticValueDeclarationKind,
+        SemanticValueDeclaration,
         function::{
             HighFunctionId, SemanticFunctionDeclaration,
             regular::SemanticRegularFunctionDeclaration,
@@ -34,7 +34,7 @@ fn calls_recursively(
     }
 
     let SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration { calls, .. }) =
-        semantic_environment.get_function_declaration(call_id)
+        semantic_environment.get_function(call_id)
     else {
         return false;
     };
@@ -83,11 +83,7 @@ impl ParsedProgram {
         for (callee_id, value) in ctx.semantic_environment.iter_values() {
             let callee_id = HighFunctionId(callee_id.0);
 
-            let SemanticValueDeclaration {
-                kind: SemanticValueDeclarationKind::Function(declaration),
-                ..
-            } = value
-            else {
+            let SemanticValueDeclaration::Function(declaration) = value else {
                 continue;
             };
 

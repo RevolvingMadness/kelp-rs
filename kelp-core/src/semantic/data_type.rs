@@ -3,18 +3,6 @@ use std::{
     fmt::{Display, Write},
 };
 
-use crate::semantic::environment::{
-    SemanticEnvironment,
-    r#type::{
-        generic::HighGenericId,
-        module::HighModuleId,
-        r#struct::{
-            HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
-            tuple::HighTupleStructId,
-        },
-    },
-    value::function::{HighFunctionId, SemanticFunctionDeclaration},
-};
 use crate::{
     datapack::Datapack,
     operator::ComparisonOperator,
@@ -32,6 +20,21 @@ use crate::{
         r#type::r#struct::{RegularStructId, StructId, TupleStructId},
     },
     semantic::environment::value::{SemanticValueDeclaration, SemanticValueDeclarationKind},
+};
+use crate::{
+    parsed::semantic_analysis::info::error::TypeKind,
+    semantic::environment::{
+        SemanticEnvironment,
+        r#type::{
+            generic::HighGenericId,
+            module::HighModuleId,
+            r#struct::{
+                HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
+                tuple::HighTupleStructId,
+            },
+        },
+        value::function::{HighFunctionId, SemanticFunctionDeclaration},
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -608,8 +611,9 @@ impl SemanticDataType {
         let (_, base_type) = self.unwrap();
 
         Some(match base_type {
-            Self::Struct(id, struct_generic_types) => {
-                let Some(implementations) = ctx.semantic_environment.get_implementations(*id)
+            Self::Struct(struct_id, struct_generic_types) => {
+                let Some(implementations) =
+                    ctx.semantic_environment.get_implementations(*struct_id)
                 else {
                     return ctx.add_error(SemanticAnalysisError::MethodNotFound {
                         type_span: segment.name_span,
@@ -619,8 +623,10 @@ impl SemanticDataType {
                 };
 
                 let Some(implementation) = implementations.iter().find(|implementation| {
-                    if let Self::Struct(impl_id, generic_types) = implementation.get_target_type() {
-                        impl_id == id && struct_generic_types == generic_types
+                    if let Self::Struct(impl_id, impl_generic_types) =
+                        implementation.get_target_type()
+                    {
+                        impl_id == struct_id && struct_generic_types == impl_generic_types
                     } else {
                         false
                     }
@@ -653,12 +659,9 @@ impl SemanticDataType {
                 };
 
                 if !declaration.is_method() {
-                    // TODO: SemanticAnalysisError::NotAMethod
-
-                    return ctx.add_error(SemanticAnalysisError::MethodNotFound {
+                    return ctx.add_error(SemanticAnalysisError::NotAMethod {
                         type_span: segment.name_span,
-                        type_: self.clone(),
-                        method_name: segment.name.clone(),
+                        associated_function_name: segment.name.clone(),
                     });
                 }
 

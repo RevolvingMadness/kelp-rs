@@ -335,6 +335,10 @@ pub enum SemanticAnalysisError {
         type_: SemanticDataType,
         method_name: String,
     },
+    NotAMethod {
+        type_span: Span,
+        associated_function_name: String,
+    },
     ModuleDoesntContainItem {
         module_name: String,
         item_name: String,
@@ -750,6 +754,16 @@ impl SemanticAnalysisError {
                 type_span,
                 format!("method not found in type `{}`", type_.display(environment),),
                 LabelType::Primary,
+            ),
+            Self::NotAMethod {
+                type_span,
+                associated_function_name,
+            } => Diagnostic::error("associated function not a method").with_primary_label(
+                type_span,
+                format!(
+                    "`{}` is an associated function, not a method",
+                    associated_function_name
+                ),
             ),
             Self::ModuleDoesntContainItem {
                 module_name,

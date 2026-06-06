@@ -1,5 +1,22 @@
 use std::*;
 
+const OP_PUSH: integer = 1;
+const OP_LOAD: integer = 2;
+const OP_STORE: integer = 3;
+
+const OP_ADD: integer = 4;
+const OP_SUB: integer = 5;
+const OP_MUL: integer = 6;
+const OP_DIV: integer = 7;
+
+const OP_DUP: integer = 8;
+const OP_POP: integer = 9;
+
+const OP_JUMP: integer = 10;
+const OP_JUMP_IF_ZERO: integer = 11;
+
+const OP_HALT: integer = 255;
+
 struct Instruction {
     opcode: integer,
     arg: integer
@@ -14,38 +31,21 @@ struct VM {
 
 impl VM {
     runtime fn execute(self: data<Self>) -> data<integer> {
-        let op_push = 1;
-        let op_load = 2;
-        let op_store = 3;
-
-        let op_add = 4;
-        let op_sub = 5;
-        let op_mul = 6;
-        let op_div = 7;
-
-        let op_dup = 8;
-        let op_pop = 9;
-
-        let op_jump = 10;
-        let op_jump_if_zero = 11;
-
-        let op_halt = 255;
-
         loop {
             let instruction = *self.program[self.ip];
             self.ip += 1;
 
-            if instruction.opcode == (op_push) {
+            if instruction.opcode == (OP_PUSH) {
                 tellraw @a ["push ", instruction.arg];
 
                 append self.stack instruction.arg;
-            } else if instruction.opcode == (op_load) {
+            } else if instruction.opcode == (OP_LOAD) {
                 tellraw @a ["load ", instruction.arg];
 
                 let value = self.locals[instruction.arg];
 
                 append self.stack value;
-            } else if instruction.opcode == (op_store) {
+            } else if instruction.opcode == (OP_STORE) {
                 tellraw @a ["store ", instruction.arg];
 
                 let value = self.stack[-1];
@@ -53,7 +53,7 @@ impl VM {
                 self.locals[instruction.arg] = value;
 
                 remove self.stack[-1];
-            } else if instruction.opcode == (op_add) {
+            } else if instruction.opcode == (OP_ADD) {
                 tellraw @a "add";
 
                 let b = self.stack[-1];
@@ -65,7 +65,7 @@ impl VM {
                 remove self.stack[-1];
 
                 append self.stack result;
-            } else if instruction.opcode == (op_sub) {
+            } else if instruction.opcode == (OP_SUB) {
                 tellraw @a "sub";
 
                 let b = self.stack[-1];
@@ -77,7 +77,7 @@ impl VM {
                 remove self.stack[-1];
 
                 append self.stack result;
-            } else if instruction.opcode == (op_mul) {
+            } else if instruction.opcode == (OP_MUL) {
                 tellraw @a "mul";
 
                 let b = self.stack[-1];
@@ -89,7 +89,7 @@ impl VM {
                 remove self.stack[-1];
 
                 append self.stack result;
-            } else if instruction.opcode == (op_div) {
+            } else if instruction.opcode == (OP_DIV) {
                 tellraw @a "div";
 
                 let b = self.stack[-1];
@@ -101,19 +101,19 @@ impl VM {
                 remove self.stack[-1];
 
                 append self.stack result;
-            } else if instruction.opcode == (op_dup) {
+            } else if instruction.opcode == (OP_DUP) {
                 tellraw @a "dup";
 
                 append self.stack self.stack[-1];
-            } else if instruction.opcode == (op_pop) {
+            } else if instruction.opcode == (OP_POP) {
                 tellraw @a "pop";
 
                 remove self.stack[-1];
-            } else if instruction.opcode == (op_jump) {
+            } else if instruction.opcode == (OP_JUMP) {
                 tellraw @a ["jump ", instruction.arg];
 
                 self.ip = instruction.arg
-            } else if instruction.opcode == (op_jump_if_zero) {
+            } else if instruction.opcode == (OP_JUMP_IF_ZERO) {
                 tellraw @a ["jump if zero ", instruction.arg];
 
                 let value = self.stack[-1];
@@ -123,7 +123,7 @@ impl VM {
                 }
 
                 remove self.stack[-1];
-            } else if instruction.opcode == (op_halt) {
+            } else if instruction.opcode == (OP_HALT) {
                 tellraw @a "halt";
 
                 let value = *self.stack[-1];
@@ -142,60 +142,43 @@ impl VM {
 }
 
 mcfn namespace:main {
-    let op_push = 1;
-    let op_load = 2;
-    let op_store = 3;
-
-    let op_add = 4;
-    let op_sub = 5;
-    let op_mul = 6;
-    let op_div = 7;
-
-    let op_dup = 8;
-    let op_pop = 9;
-
-    let op_jump = 10;
-    let op_jump_if_zero = 11;
-
-    let op_halt = 255;
-
     let n = 10;
 
     let program = [
         // 0
-        Instruction { opcode: op_push, arg: n },
-        Instruction { opcode: op_store, arg: 0 },
-        Instruction { opcode: op_push, arg: 0 },
-        Instruction { opcode: op_store, arg: 1 }, // a
-        Instruction { opcode: op_push, arg: 1 },
-        Instruction { opcode: op_store, arg: 2 }, // b
-        Instruction { opcode: op_push, arg: 0 },
-        Instruction { opcode: op_store, arg: 3 }, // i
+        Instruction { opcode: OP_PUSH, arg: n },
+        Instruction { opcode: OP_STORE, arg: 0 },
+        Instruction { opcode: OP_PUSH, arg: 0 },
+        Instruction { opcode: OP_STORE, arg: 1 }, // a
+        Instruction { opcode: OP_PUSH, arg: 1 },
+        Instruction { opcode: OP_STORE, arg: 2 }, // b
+        Instruction { opcode: OP_PUSH, arg: 0 },
+        Instruction { opcode: OP_STORE, arg: 3 }, // i
         // ---- loop_start (8) ----
-        Instruction { opcode: op_load, arg: 3 },          // 8
-        Instruction { opcode: op_load, arg: 0 },          // 9
-        Instruction { opcode: op_sub, arg: 0 },           // 10
-        Instruction { opcode: op_jump_if_zero, arg: 25 }, // 11 -> end
+        Instruction { opcode: OP_LOAD, arg: 3 },          // 8
+        Instruction { opcode: OP_LOAD, arg: 0 },          // 9
+        Instruction { opcode: OP_SUB, arg: 0 },           // 10
+        Instruction { opcode: OP_JUMP_IF_ZERO, arg: 25 }, // 11 -> end
         // tmp = a + b
-        Instruction { opcode: op_load, arg: 1 },  // 12
-        Instruction { opcode: op_load, arg: 2 },  // 13
-        Instruction { opcode: op_add, arg: 0 },   // 14
-        Instruction { opcode: op_store, arg: 4 }, // 15
+        Instruction { opcode: OP_LOAD, arg: 1 },  // 12
+        Instruction { opcode: OP_LOAD, arg: 2 },  // 13
+        Instruction { opcode: OP_ADD, arg: 0 },   // 14
+        Instruction { opcode: OP_STORE, arg: 4 }, // 15
         // a = b
-        Instruction { opcode: op_load, arg: 2 },  // 16
-        Instruction { opcode: op_store, arg: 1 }, // 17
+        Instruction { opcode: OP_LOAD, arg: 2 },  // 16
+        Instruction { opcode: OP_STORE, arg: 1 }, // 17
         // b = tmp
-        Instruction { opcode: op_load, arg: 4 },  // 18
-        Instruction { opcode: op_store, arg: 2 }, // 19
+        Instruction { opcode: OP_LOAD, arg: 4 },  // 18
+        Instruction { opcode: OP_STORE, arg: 2 }, // 19
         // i = i + 1
-        Instruction { opcode: op_load, arg: 3 },  // 20
-        Instruction { opcode: op_push, arg: 1 },  // 21
-        Instruction { opcode: op_add, arg: 0 },   // 22
-        Instruction { opcode: op_store, arg: 3 }, // 23
-        Instruction { opcode: op_jump, arg: 8 },  // 24
+        Instruction { opcode: OP_LOAD, arg: 3 },  // 20
+        Instruction { opcode: OP_PUSH, arg: 1 },  // 21
+        Instruction { opcode: OP_ADD, arg: 0 },   // 22
+        Instruction { opcode: OP_STORE, arg: 3 }, // 23
+        Instruction { opcode: OP_JUMP, arg: 8 },  // 24
         // ---- end ----
-        Instruction { opcode: op_load, arg: 1 }, // 25
-        Instruction { opcode: op_halt, arg: 0 }, // 26
+        Instruction { opcode: OP_LOAD, arg: 1 }, // 25
+        Instruction { opcode: OP_HALT, arg: 0 }, // 26
     ];
 
     let vm = VM {

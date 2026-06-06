@@ -182,6 +182,7 @@ pub enum SyntaxKind {
     RegularStructDeclarationItem,
     TupleStructDeclarationItem,
     TypeAliasDeclarationItem,
+    ConstantDeclarationItem,
     UseItem,
 
     ExpressionStatement,

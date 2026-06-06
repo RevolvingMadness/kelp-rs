@@ -238,7 +238,7 @@ impl SemanticPattern {
         match self {
             Self::Literal(..) | Self::Wildcard => {}
             Self::Binding(id) => {
-                datapack.declare_value(id, data_type, value);
+                datapack.declare_variable(id, data_type, value);
             }
             Self::Score(score) => {
                 let score = score.compile(datapack, ctx);

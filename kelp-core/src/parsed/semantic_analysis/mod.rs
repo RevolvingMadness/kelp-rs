@@ -655,9 +655,9 @@ impl SemanticAnalysisContext {
     ) -> HighBuiltinFunctionId {
         let id = self.declare_value(
             visibility,
-            SemanticValueDeclarationKind::Function(Box::new(SemanticFunctionDeclaration::Builtin(
+            SemanticValueDeclarationKind::Function(SemanticFunctionDeclaration::Builtin(
                 declaration,
-            ))),
+            )),
         );
 
         HighBuiltinFunctionId(id.0)

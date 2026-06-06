@@ -69,7 +69,7 @@ impl SemanticEnvironment {
                 unreachable!("Value is not a function");
             };
 
-            let SemanticFunctionDeclaration::Regular(declaration) = &mut **declaration else {
+            let SemanticFunctionDeclaration::Regular(declaration) = declaration else {
                 unreachable!("Function is not regular");
             };
 
@@ -229,6 +229,14 @@ impl SemanticEnvironment {
         let id = id.into();
 
         self.values.get(&id).unwrap()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_value_mut<I: Into<HighValueId>>(&mut self, id: I) -> &mut SemanticValueDeclaration {
+        let id = id.into();
+
+        self.values.get_mut(&id).unwrap()
     }
 
     #[must_use]

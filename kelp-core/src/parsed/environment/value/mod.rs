@@ -1,3 +1,4 @@
+use crate::parsed::environment::value::constant::ParsedConstantDeclaration;
 use crate::parsed::environment::value::{
     function::ParsedFunctionDeclaration, variable::ParsedVariableDeclaration,
 };
@@ -7,13 +8,15 @@ use crate::semantic::environment::value::SemanticValueDeclarationKind;
 use crate::span::Span;
 use crate::visibility::Visibility;
 
+pub mod constant;
 pub mod function;
 pub mod variable;
 
 #[derive(Debug, Clone)]
 pub enum ParsedValueDeclarationKind {
     Variable(ParsedVariableDeclaration),
-    Function(Box<ParsedFunctionDeclaration>),
+    Constant(ParsedConstantDeclaration),
+    Function(ParsedFunctionDeclaration),
 }
 
 impl From<SemanticValueDeclarationKind> for ParsedValueDeclarationKind {
@@ -22,8 +25,11 @@ impl From<SemanticValueDeclarationKind> for ParsedValueDeclarationKind {
             SemanticValueDeclarationKind::Variable(declaration) => {
                 Self::Variable(declaration.into())
             }
+            SemanticValueDeclarationKind::Constant(declaration) => {
+                Self::Constant(declaration.into())
+            }
             SemanticValueDeclarationKind::Function(declaration) => {
-                Self::Function(Box::new((*declaration).into()))
+                Self::Function(declaration.into())
             }
         }
     }
@@ -34,6 +40,7 @@ impl ParsedValueDeclarationKind {
     pub const fn get_kind(&self) -> ValueKind {
         match self {
             Self::Variable(..) => ValueKind::Variable,
+            Self::Constant(..) => ValueKind::Constant,
             Self::Function(..) => ValueKind::Function,
         }
     }
@@ -42,6 +49,7 @@ impl ParsedValueDeclarationKind {
     pub fn name_span(&self) -> Option<Span> {
         match self {
             Self::Variable(declaration) => Some(declaration.name_span),
+            Self::Constant(declaration) => Some(declaration.name_span),
             Self::Function(declaration) => declaration.name_span(),
         }
     }
@@ -50,6 +58,7 @@ impl ParsedValueDeclarationKind {
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
+            Self::Constant(declaration) => &declaration.name,
             Self::Function(declaration) => declaration.name(),
         }
     }
@@ -58,6 +67,7 @@ impl ParsedValueDeclarationKind {
     pub fn generic_count(&self) -> usize {
         match self {
             Self::Variable(..) => 0,
+            Self::Constant(..) => 0,
             Self::Function(declaration) => declaration.generic_count(),
         }
     }

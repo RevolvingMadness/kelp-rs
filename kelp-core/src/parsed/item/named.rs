@@ -6,7 +6,7 @@ use crate::{
     parsed::{
         data_type::ParsedDataType,
         environment::r#type::{ParsedTypeDeclaration, ParsedTypeDeclarationKind},
-        expression::block::ParsedBlockExpression,
+        expression::{ParsedExpression, block::ParsedBlockExpression},
         item::{FunctionQualifiers, ParsedSelfFunctionParameter, typed::TypedItem},
         pattern::{ParsedPattern, ParsedPatternKind},
         semantic_analysis::{
@@ -32,6 +32,7 @@ use crate::{
             },
             value::{
                 SemanticValueDeclarationKind,
+                constant::{HighConstantId, SemanticConstantDeclaration},
                 function::{
                     SemanticFunctionDeclaration,
                     builtin::{
@@ -200,7 +201,7 @@ pub enum NamedItemKind {
     },
     MinecraftFunctionDeclaration {
         resource_location: ResourceLocation,
-        body: Box<ParsedBlockExpression>,
+        body: ParsedBlockExpression,
     },
     TypeAliasDeclaration {
         name_span: Span,
@@ -229,6 +230,13 @@ pub enum NamedItemKind {
 
         id: HighTupleStructId,
         constructor_id: HighBuiltinFunctionId,
+    },
+    ConstantDeclaration {
+        id: HighConstantId,
+        name_span: Span,
+        name: String,
+        data_type: ParsedDataType,
+        value: ParsedExpression,
     },
     Use(UseTree),
 }
@@ -436,8 +444,8 @@ impl NamedItem {
                 ctx.set_semantic_value(
                     id,
                     self.visibility,
-                    SemanticValueDeclarationKind::Function(Box::new(
-                        SemanticFunctionDeclaration::Regular(SemanticRegularFunctionDeclaration {
+                    SemanticValueDeclarationKind::Function(SemanticFunctionDeclaration::Regular(
+                        SemanticRegularFunctionDeclaration {
                             name_span,
                             name,
                             modifiers,
@@ -451,7 +459,7 @@ impl NamedItem {
                             return_type: return_type.clone(),
                             body: None,
                             calls: HashSet::new(),
-                        }),
+                        },
                     )),
                 );
 
@@ -605,8 +613,8 @@ impl NamedItem {
                 ctx.set_semantic_value(
                     constructor_id,
                     Visibility::Public,
-                    SemanticValueDeclarationKind::Function(Box::new(
-                        SemanticFunctionDeclaration::Builtin(SemanticBuiltinFunctionDeclaration {
+                    SemanticValueDeclarationKind::Function(SemanticFunctionDeclaration::Builtin(
+                        SemanticBuiltinFunctionDeclaration {
                             name,
                             generic_ids: generic_ids.clone(),
                             parameters: field_types,
@@ -622,11 +630,37 @@ impl NamedItem {
                                 id,
                                 generic_ids.clone(),
                             ),
-                        }),
+                        },
                     )),
                 );
 
                 TypedItem::TupleStructDeclaration
+            }
+            NamedItemKind::ConstantDeclaration {
+                id,
+                name_span,
+                name,
+                data_type,
+                value,
+            } => {
+                let data_type = data_type.perform_semantic_analysis(ctx);
+
+                ctx.set_semantic_value(
+                    id,
+                    self.visibility,
+                    SemanticValueDeclarationKind::Constant(SemanticConstantDeclaration {
+                        name_span,
+                        name,
+                        data_type: data_type.clone(),
+                        value: None,
+                    }),
+                );
+
+                TypedItem::ConstantDeclaration {
+                    id,
+                    data_type,
+                    value,
+                }
             }
             NamedItemKind::Use(..) => TypedItem::Use,
         }

@@ -3,6 +3,7 @@ use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, Value
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::module::HighModuleId;
+use crate::semantic::environment::value::constant::SemanticConstantDeclaration;
 use crate::semantic::environment::value::{
     function::{SemanticFunctionDeclaration, regular::HighRegularFunctionId},
     variable::SemanticVariableDeclaration,
@@ -11,6 +12,7 @@ use crate::{
     parsed::semantic_analysis::SemanticAnalysisContext, span::Span, visibility::Visibility,
 };
 
+pub mod constant;
 pub mod function;
 pub mod variable;
 
@@ -45,7 +47,8 @@ impl From<HighVisibleValueId> for HighValueId {
 #[derive(Debug, Clone)]
 pub enum SemanticValueDeclarationKind {
     Variable(SemanticVariableDeclaration),
-    Function(Box<SemanticFunctionDeclaration>),
+    Constant(SemanticConstantDeclaration),
+    Function(SemanticFunctionDeclaration),
 }
 
 impl SemanticValueDeclarationKind {
@@ -53,6 +56,7 @@ impl SemanticValueDeclarationKind {
     pub const fn get_value_kind(&self) -> ValueKind {
         match self {
             Self::Variable(..) => ValueKind::Variable,
+            Self::Constant(..) => ValueKind::Constant,
             Self::Function(..) => ValueKind::Function,
         }
     }
@@ -61,6 +65,7 @@ impl SemanticValueDeclarationKind {
     pub fn name_span(&self) -> Option<Span> {
         match self {
             Self::Variable(declaration) => Some(declaration.name_span),
+            Self::Constant(declaration) => Some(declaration.name_span),
             Self::Function(declaration) => declaration.name_span(),
         }
     }
@@ -69,6 +74,7 @@ impl SemanticValueDeclarationKind {
     pub fn name(&self) -> &str {
         match self {
             Self::Variable(declaration) => &declaration.name,
+            Self::Constant(declaration) => &declaration.name,
             Self::Function(declaration) => declaration.name(),
         }
     }
@@ -77,6 +83,7 @@ impl SemanticValueDeclarationKind {
     pub fn generic_count(&self) -> usize {
         match self {
             Self::Variable(..) => 0,
+            Self::Constant(..) => 0,
             Self::Function(declaration) => declaration.declared_generic_count(),
         }
     }
@@ -109,6 +116,22 @@ impl SemanticValueDeclaration {
     ) -> Option<SemanticDataType> {
         match self.kind {
             SemanticValueDeclarationKind::Variable(declaration) => {
+                let expected_generic_count = 0;
+                let actual_generic_count = supplied_generic_types.len();
+
+                if actual_generic_count != expected_generic_count {
+                    return ctx.add_error(SemanticAnalysisError::InvalidGenerics {
+                        type_name_span: name_span,
+                        item_kind: ValueKind::Variable.into(),
+                        declaration_span: Some(declaration.name_span),
+                        expected: expected_generic_count,
+                        actual: actual_generic_count,
+                    });
+                }
+
+                Some(declaration.data_type)
+            }
+            SemanticValueDeclarationKind::Constant(declaration) => {
                 let expected_generic_count = 0;
                 let actual_generic_count = supplied_generic_types.len();
 

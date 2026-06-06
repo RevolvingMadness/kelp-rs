@@ -4,7 +4,7 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::{
     parsed::{
-        expression::block::ParsedBlockExpression,
+        expression::{ParsedExpression, block::ParsedBlockExpression},
         item::FunctionQualifiers,
         pattern::ParsedPattern,
         semantic_analysis::{
@@ -19,7 +19,10 @@ use crate::{
                 HighTypeId, SemanticTypeDeclarationKind, alias::SemanticTypeAliasDeclaration,
                 generic::HighGenericId, module::HighModuleId,
             },
-            value::function::regular::HighRegularFunctionId,
+            value::{
+                SemanticValueDeclaration, SemanticValueDeclarationKind, constant::HighConstantId,
+                function::regular::HighRegularFunctionId,
+            },
         },
         item::SemanticItem,
     },
@@ -57,11 +60,16 @@ pub enum TypedItem {
     },
     MinecraftFunctionDeclaration {
         resource_location: ResourceLocation,
-        body: Box<ParsedBlockExpression>,
+        body: ParsedBlockExpression,
     },
     TypeAliasDeclaration,
     RegularStructDeclaration,
     TupleStructDeclaration,
+    ConstantDeclaration {
+        id: HighConstantId,
+        data_type: SemanticDataType,
+        value: ParsedExpression,
+    },
     Use,
 }
 
@@ -316,6 +324,31 @@ impl TypedItem {
             Self::TypeAliasDeclaration => SemanticItem::TypeAliasDeclaration,
             Self::RegularStructDeclaration => SemanticItem::RegularStructDeclaration,
             Self::TupleStructDeclaration => SemanticItem::TupleStructDeclaration,
+            Self::ConstantDeclaration {
+                id,
+                data_type,
+                value,
+            } => {
+                let (value_span, value) = value.perform_semantic_analysis(ctx)?;
+
+                value.data_type.assert_equals(ctx, value_span, &data_type)?;
+
+                let SemanticValueDeclaration {
+                    kind: SemanticValueDeclarationKind::Constant(declaration),
+                    ..
+                } = ctx.semantic_environment.get_value_mut(id)
+                else {
+                    unreachable!();
+                };
+
+                declaration.value = Some(value.clone());
+
+                SemanticItem::ConstantDeclaration {
+                    id,
+                    data_type,
+                    value,
+                }
+            }
             Self::Use => SemanticItem::Use,
         })
     }

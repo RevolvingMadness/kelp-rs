@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::low::data_type::DataType;
+use crate::low::environment::value::constant::{ConstantDeclaration, ConstantId};
 use crate::low::environment::{
     r#type::{
         TypeDeclaration, TypeDeclarationKind,
@@ -209,6 +210,24 @@ impl Environment {
 
         self.values.push(
             ValueDeclarationKind::Variable(VariableDeclaration { name, data_type })
+                .with_visibility(module_path, visibility),
+        );
+
+        id
+    }
+
+    #[must_use]
+    pub fn declare_constant(
+        &mut self,
+        module_path: Vec<HighModuleId>,
+        visibility: Visibility,
+        name: String,
+        data_type: DataType,
+    ) -> ConstantId {
+        let id = ConstantId(self.values.len() as u32);
+
+        self.values.push(
+            ValueDeclarationKind::Constant(ConstantDeclaration { name, data_type })
                 .with_visibility(module_path, visibility),
         );
 

@@ -99,6 +99,7 @@ impl TypeKind {
 #[derive(Debug, Clone, Copy)]
 pub enum ValueKind {
     Variable,
+    Constant,
     Function,
 }
 
@@ -107,6 +108,7 @@ impl ValueKind {
     pub const fn name(&self) -> &str {
         match self {
             Self::Variable => "variable",
+            Self::Constant => "constant",
             Self::Function => "function",
         }
     }
@@ -115,6 +117,7 @@ impl ValueKind {
     pub const fn name_plural(&self) -> &str {
         match self {
             Self::Variable => "variables",
+            Self::Constant => "constants",
             Self::Function => "functions",
         }
     }

@@ -1,33 +1,21 @@
+use crate::low::environment::value::constant::ConstantDeclaration;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::visibility::Visibility;
 use crate::{
-    low::environment::value::{
-        function::{FunctionDeclaration, FunctionId},
-        variable::{VariableDeclaration, VariableId},
-    },
+    low::environment::value::{function::FunctionDeclaration, variable::VariableDeclaration},
     make_id,
 };
 
+pub mod constant;
 pub mod function;
 pub mod variable;
 
 make_id!(ValueId);
 
-impl From<VariableId> for ValueId {
-    fn from(value: VariableId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<FunctionId> for ValueId {
-    fn from(value: FunctionId) -> Self {
-        Self(value.0)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum ValueDeclarationKind {
     Variable(VariableDeclaration),
+    Constant(ConstantDeclaration),
     Function(Box<FunctionDeclaration>),
 }
 
@@ -56,14 +44,6 @@ impl ValueDeclarationKind {
     #[must_use]
     pub const fn none_visibility(self, module_path: Vec<HighModuleId>) -> ValueDeclaration {
         self.with_visibility(module_path, Visibility::None)
-    }
-
-    #[must_use]
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Variable(declaration) => &declaration.name,
-            Self::Function(declaration) => declaration.name(),
-        }
     }
 }
 

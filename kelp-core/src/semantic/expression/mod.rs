@@ -19,7 +19,7 @@ use minecraft_command_types::{
 use ordered_float::NotNan;
 
 use crate::low::environment::value::{
-    ValueDeclarationKind, function::FunctionId, variable::VariableId,
+    ValueDeclarationKind, constant::ConstantId, function::FunctionId, variable::VariableId,
 };
 use crate::low::expression::Expression;
 use crate::semantic::data_type::SemanticDataType;
@@ -826,6 +826,11 @@ impl SemanticExpressionKind {
 
                         datapack.get_variable_value(id)
                     }
+                    ValueDeclarationKind::Constant(..) => {
+                        let id = ConstantId(id.0);
+
+                        datapack.get_constant_value(id)
+                    }
                     ValueDeclarationKind::Function(..) => Expression::Function(FunctionId(id.0)),
                 }
             }
@@ -1015,6 +1020,73 @@ impl SemanticExpressionKind {
 
                 Expression::Never
             }
+        }
+    }
+
+    #[must_use]
+    pub fn resolve_constant(self, datapack: &mut Datapack) -> Expression {
+        match self {
+            Self::Boolean(value) => Expression::Boolean(value),
+            Self::Byte(value) => Expression::Byte(value),
+            Self::Short(value) => Expression::Short(value),
+            Self::Integer(value) => Expression::Integer(value),
+            Self::InferredInteger(value) => Expression::Integer(value),
+            Self::Long(value) => Expression::Long(value),
+            Self::Float(value) => Expression::Float(value),
+            Self::InferredFloat(value) => Expression::Float(value),
+            Self::Double(value) => Expression::Double(value),
+            Self::String(value) => Expression::String(value),
+            Self::Unit => todo!(),
+            Self::Underscore => todo!(),
+            Self::Negate(semantic_expression) => todo!(),
+            Self::Invert(semantic_expression) => todo!(),
+            Self::Reference(parsed_place_expression) => todo!(),
+            Self::Dereference(parsed_place_expression) => todo!(),
+            Self::Arithmetic(semantic_expression, arithmetic_operator, semantic_expression1) => {
+                todo!()
+            }
+            Self::Comparison(semantic_expression, comparison_operator, semantic_expression1) => {
+                todo!()
+            }
+            Self::Logical(semantic_expression, logical_operator, semantic_expression1) => todo!(),
+            Self::AugmentedAssignment(
+                parsed_place_expression,
+                arithmetic_operator,
+                semantic_expression,
+            ) => todo!(),
+            Self::Assignment(parsed_assignee_expression, semantic_expression) => todo!(),
+            Self::List(semantic_expressions) => todo!(),
+            Self::Compound(hash_map) => todo!(),
+            Self::Score(semantic_player_score) => todo!(),
+            Self::Data(semantic_data) => todo!(),
+            Self::Condition(_, semantic_execute_if_subcommand) => todo!(),
+            Self::Command(semantic_command) => todo!(),
+            Self::Index(semantic_expression, semantic_expression1) => todo!(),
+            Self::FieldAccess(semantic_expression, _) => todo!(),
+            Self::AsCast(semantic_expression, semantic_data_type) => todo!(),
+            Self::ToCast(not_nan, semantic_expression, runtime_storage_type) => todo!(),
+            Self::Tuple(semantic_expressions) => todo!(),
+            Self::Call(semantic_expression, semantic_expressions) => todo!(),
+            Self::Value(high_value_id, semantic_data_types) => todo!(),
+            Self::RegularStruct(high_regular_struct_id, semantic_data_types, hash_map) => todo!(),
+            Self::TupleStruct(high_tuple_struct_id, semantic_data_types, semantic_expressions) => {
+                todo!()
+            }
+            Self::If {
+                condition,
+                body,
+                else_body,
+            } => todo!(),
+            Self::Block(semantic_statements, semantic_expression) => todo!(),
+            Self::WhileLoop(semantic_expression, semantic_expression1) => todo!(),
+            Self::Loop(semantic_expression) => todo!(),
+            Self::ForLoop(_, semantic_pattern, semantic_expression, semantic_expression1) => {
+                todo!()
+            }
+            Self::ResourceLocation(semantic_supports_expression_sigil) => todo!(),
+            Self::EntitySelector(semantic_supports_expression_sigil) => todo!(),
+            Self::Coordinates(semantic_supports_expression_sigil) => todo!(),
+            Self::Return(semantic_expression) => todo!(),
         }
     }
 

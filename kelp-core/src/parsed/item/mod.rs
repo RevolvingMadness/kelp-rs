@@ -4,6 +4,7 @@ use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::parsed::environment::r#type::generic::ParsedGenericDeclaration;
 use crate::parsed::environment::value::ParsedValueDeclarationKind;
+use crate::parsed::environment::value::constant::ParsedConstantDeclaration;
 use crate::parsed::environment::value::function::ParsedFunctionDeclaration;
 use crate::parsed::environment::value::function::regular::ParsedRegularFunctionDeclaration;
 use crate::parsed::environment::{
@@ -17,12 +18,14 @@ use crate::parsed::environment::{
     },
     value::function::builtin::ParsedBuiltinFunctionDeclaration,
 };
+use crate::parsed::expression::ParsedExpression;
 use crate::parsed::item::named::{NamedItem, NamedItemKind};
 use crate::parsed::pattern::ParsedPattern;
 use crate::parsed::semantic_analysis::RegularFunctionModifiers;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
+use crate::semantic::environment::value::constant::HighConstantId;
 use crate::semantic::environment::value::function::builtin::HighBuiltinFunctionId;
 use crate::semantic::environment::value::function::regular::HighRegularFunctionId;
 use crate::{
@@ -97,7 +100,7 @@ pub enum ParsedItemKind {
     },
     MinecraftFunctionDeclaration {
         resource_location: ResourceLocation,
-        body: Box<ParsedBlockExpression>,
+        body: ParsedBlockExpression,
     },
     TypeAliasDeclaration {
         name_span: Span,
@@ -116,6 +119,12 @@ pub enum ParsedItemKind {
         name: String,
         generics: Vec<(Span, String)>,
         field_types: Vec<ParsedDataType>,
+    },
+    ConstantDeclaration {
+        name_span: Span,
+        name: String,
+        data_type: ParsedDataType,
+        value: ParsedExpression,
     },
     Use(UseTree),
 }
@@ -260,12 +269,12 @@ impl ParsedItem {
 
                 let id = ctx.declare_parsed_value(
                     self.visibility,
-                    ParsedValueDeclarationKind::Function(Box::new(
-                        ParsedFunctionDeclaration::Regular(ParsedRegularFunctionDeclaration {
+                    ParsedValueDeclarationKind::Function(ParsedFunctionDeclaration::Regular(
+                        ParsedRegularFunctionDeclaration {
                             name_span,
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),
-                        }),
+                        },
                     )),
                 );
 
@@ -456,11 +465,11 @@ impl ParsedItem {
 
                 let constructor_id = ctx.declare_parsed_value(
                     self.visibility,
-                    ParsedValueDeclarationKind::Function(Box::new(
-                        ParsedFunctionDeclaration::Builtin(ParsedBuiltinFunctionDeclaration {
+                    ParsedValueDeclarationKind::Function(ParsedFunctionDeclaration::Builtin(
+                        ParsedBuiltinFunctionDeclaration {
                             name: name.clone(),
                             generic_ids: generic_ids.clone(),
-                        }),
+                        },
                     )),
                 );
 
@@ -474,6 +483,41 @@ impl ParsedItem {
                     id,
                     generic_ids,
                     constructor_id,
+                }
+            }
+            ParsedItemKind::ConstantDeclaration {
+                name_span,
+                name,
+                data_type,
+                value,
+            } => {
+                if let Some(declaration_span) = ctx
+                    .current_scope()
+                    .get_value_declaration_span(&ctx.parsed_environment, &name)
+                {
+                    return ctx.add_error(SemanticAnalysisError::ValueAlreadyDeclared {
+                        declaration_span,
+                        redeclaration_span: name_span,
+                        name,
+                    });
+                }
+
+                let id = ctx.declare_parsed_value(
+                    self.visibility,
+                    ParsedValueDeclarationKind::Constant(ParsedConstantDeclaration {
+                        name_span,
+                        name: name.clone(),
+                    }),
+                );
+
+                let id = HighConstantId(id.0);
+
+                NamedItemKind::ConstantDeclaration {
+                    id,
+                    name_span,
+                    name,
+                    data_type,
+                    value,
                 }
             }
             ParsedItemKind::Use(tree) => NamedItemKind::Use(tree),

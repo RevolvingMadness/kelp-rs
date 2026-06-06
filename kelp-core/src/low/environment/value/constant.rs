@@ -3,16 +3,16 @@ use crate::{
     make_id,
 };
 
-make_id!(VariableId);
+make_id!(ConstantId);
 
-impl From<VariableId> for ValueId {
-    fn from(value: VariableId) -> Self {
+impl From<ConstantId> for ValueId {
+    fn from(value: ConstantId) -> Self {
         Self(value.0)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct VariableDeclaration {
+pub struct ConstantDeclaration {
     pub name: String,
     pub data_type: DataType,
 }

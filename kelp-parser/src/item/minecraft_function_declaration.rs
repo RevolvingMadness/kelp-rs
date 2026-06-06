@@ -44,7 +44,7 @@ impl LowerableAstNode for CSTMinecraftFunctionDeclarationItem {
 
         Some(ParsedItemKind::MinecraftFunctionDeclaration {
             resource_location,
-            body: Box::new(body),
+            body,
         })
     }
 }

@@ -1,4 +1,5 @@
 use crate::low::data_type::DataType;
+use crate::low::environment::value::ValueId;
 use crate::low::environment::value::function::{
     builtin::{BuiltinFunctionDeclaration, BuiltinFunctionId},
     regular::{RegularFunctionDeclaration, RegularFunctionId},
@@ -13,6 +14,12 @@ pub mod builtin;
 pub mod regular;
 
 make_id!(FunctionId);
+
+impl From<FunctionId> for ValueId {
+    fn from(value: FunctionId) -> Self {
+        Self(value.0)
+    }
+}
 
 impl From<RegularFunctionId> for FunctionId {
     fn from(value: RegularFunctionId) -> Self {

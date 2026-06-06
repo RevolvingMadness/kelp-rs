@@ -5,8 +5,8 @@ use kelp_core::{
 
 use crate::{
     cst::{
-        CSTFunctionDeclarationItem, CSTInherentImplementationItem, CSTItem, CSTItemKind,
-        CSTModuleDeclarationItem, CSTTypeAliasDeclarationItem, CSTUseItem,
+        CSTConstantDeclarationItem, CSTFunctionDeclarationItem, CSTInherentImplementationItem,
+        CSTItem, CSTItemKind, CSTModuleDeclarationItem, CSTTypeAliasDeclarationItem, CSTUseItem,
     },
     extension_traits::{
         AstNodeExt, LowerableAstNode, ParsableAstNode, RecoverableAstNode, SyntaxTokenExt,
@@ -21,6 +21,7 @@ use crate::{
 };
 
 pub mod associated;
+pub mod constant_declaration;
 pub mod function_declaration;
 pub mod implementation;
 pub mod minecraft_function_declaration;
@@ -43,6 +44,7 @@ impl ParsableAstNode for CSTItemKind {
             "mcfn" => try_parse_minecraft_function_declaration_item_kind(parser),
             "struct" => try_parse_struct_declaration_item_kind(parser),
             "type" => CSTTypeAliasDeclarationItem::try_parse(parser),
+            "const" => CSTConstantDeclarationItem::try_parse(parser),
             _ => false,
         }
     }
@@ -149,6 +151,7 @@ impl LowerableAstNode for CSTItemKind {
                 })
             }
             Self::TypeAliasDeclarationItem(node) => node.lower(ctx),
+            Self::ConstantDeclarationItem(node) => node.lower(ctx),
             Self::UseItem(node) => node.lower(ctx),
         }
     }

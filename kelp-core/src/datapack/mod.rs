@@ -8,6 +8,7 @@ use crate::low::environment::r#type::r#struct::{
     RegularStructDeclaration, RegularStructId, StructDeclaration, StructId, TupleStructDeclaration,
     TupleStructId,
 };
+use crate::low::environment::value::constant::ConstantId;
 use crate::low::environment::value::function::builtin::BuiltinFunctionDeclaration;
 use crate::low::environment::value::function::regular::{
     RegularFunctionDeclaration, RegularFunctionId,
@@ -24,6 +25,7 @@ use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::module::HighModuleId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
+use crate::semantic::environment::value::constant::HighConstantId;
 use crate::semantic::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
 use crate::semantic::environment::value::variable::HighVariableId;
 use crate::semantic::environment::value::{
@@ -154,6 +156,7 @@ pub struct Datapack {
     pub environment: Environment,
     pub semantic_environment: SemanticEnvironment,
     pub variable_values: HashMap<VariableId, (DataType, Expression)>,
+    pub constant_values: HashMap<ConstantId, (DataType, Expression)>,
     pub function_values: HashMap<RegularFunctionId, RegularFunctionDeclaration>,
     pub function_return_targets: SmallVec<[RuntimeStorageTarget; 5]>,
     namespaces: HashMap<String, DatapackNamespace>,
@@ -166,6 +169,7 @@ pub struct Datapack {
     monomorphized_functions: HashbrownMap<MonomorphizedFunctionKey, FunctionId>,
     generic_mapping: HashMap<HighGenericId, DataType>,
     resolved_variables: HashMap<HighVariableId, VariableId>,
+    resolved_constants: HashMap<HighConstantId, ConstantId>,
     pub cached_runtime_functions: HashMap<FunctionId, RuntimeFunction>,
     pub cached_compiletime_functions: HashbrownMap<CompiletimeFunctionKey, CompiletimeFunction>,
     pub prefix_data: Option<GeneratedData>,
@@ -186,6 +190,7 @@ impl Datapack {
             semantic_environment,
             environment: Environment::default(),
             variable_values: HashMap::new(),
+            constant_values: HashMap::new(),
             function_values: HashMap::new(),
             function_return_targets: SmallVec::new(),
             namespaces: HashMap::new(),
@@ -199,6 +204,7 @@ impl Datapack {
             generic_mapping: HashMap::new(),
 
             resolved_variables: HashMap::new(),
+            resolved_constants: HashMap::new(),
             cached_runtime_functions: HashMap::new(),
             cached_compiletime_functions: HashbrownMap::new(),
             prefix_data: None,
@@ -249,8 +255,7 @@ impl Datapack {
         self.environment.get_tuple_struct(id)
     }
 
-    #[inline]
-    pub fn declare_value(&mut self, id: HighVariableId, data_type: DataType, value: Expression) {
+    pub fn declare_variable(&mut self, id: HighVariableId, data_type: DataType, value: Expression) {
         let SemanticValueDeclaration {
             module_path,
             visibility,
@@ -269,6 +274,25 @@ impl Datapack {
         self.variable_values.insert(resolved_id, (data_type, value));
     }
 
+    pub fn declare_constant(&mut self, id: HighConstantId, data_type: DataType, value: Expression) {
+        let SemanticValueDeclaration {
+            module_path,
+            visibility,
+            kind: declaration,
+        } = self.semantic_environment.get_value(id);
+
+        let resolved_id = self.environment.declare_constant(
+            module_path.clone(),
+            *visibility,
+            declaration.name().to_owned(),
+            data_type.clone(),
+        );
+
+        self.resolved_constants.insert(id, resolved_id);
+
+        self.constant_values.insert(resolved_id, (data_type, value));
+    }
+
     #[inline]
     pub fn set_variable(&mut self, id: VariableId, value: Expression) {
         self.variable_values.get_mut(&id).unwrap().1 = value;
@@ -284,6 +308,14 @@ impl Datapack {
     #[must_use]
     pub fn get_variable_value(&self, id: VariableId) -> Expression {
         let (_, expression) = self.variable_values.get(&id).unwrap();
+
+        expression.clone()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_constant_value(&self, id: ConstantId) -> Expression {
+        let (_, expression) = self.constant_values.get(&id).unwrap();
 
         expression.clone()
     }
@@ -703,17 +735,24 @@ impl Datapack {
     ) -> Option<ValueId> {
         let id = id.into();
 
-        let SemanticValueDeclaration {
-            kind: declaration, ..
-        } = self.semantic_environment.get_value(id);
+        let declaration = self.semantic_environment.get_value(id);
 
-        match declaration {
+        match &declaration.kind {
             SemanticValueDeclarationKind::Variable(..) => {
                 assert!(generic_types.is_empty());
 
                 let id = HighVariableId(id.0);
 
                 let id = *self.resolved_variables.get(&id)?;
+
+                Some(id.into())
+            }
+            SemanticValueDeclarationKind::Constant(..) => {
+                assert!(generic_types.is_empty());
+
+                let id = HighConstantId(id.0);
+
+                let id = *self.resolved_constants.get(&id)?;
 
                 Some(id.into())
             }

@@ -14,6 +14,7 @@ ItemKind =
 | RegularStructDeclarationItem
 | TupleStructDeclarationItem
 | TypeAliasDeclarationItem
+| ConstantDeclarationItem
 
 ModuleDeclarationItem =
   'mod' 'module_name' '{' Item* '}'
@@ -96,6 +97,8 @@ TupleStructField =
 
 TypeAliasDeclarationItem =
   'type' name:'data_type_name' GenericNames? '=' DataType
+
+ConstantDeclarationItem = 'const' name:'ident' ':' DataType ('=' Expression)
 
 // ----- Statement -----
 Statement =

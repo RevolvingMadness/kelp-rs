@@ -95,7 +95,7 @@ impl ParsedProgram {
                 modifiers,
                 calls,
                 ..
-            }) = &**declaration
+            }) = declaration
             else {
                 continue;
             };

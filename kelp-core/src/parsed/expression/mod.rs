@@ -489,7 +489,7 @@ impl ParsedExpression {
                 let target = target.as_place_semantic_analysis(ctx);
                 let value = value.perform_semantic_analysis(ctx);
 
-                let (_, target) = target?;
+                let (target_span, target) = target?;
                 let (_, value) = value?;
 
                 if target
@@ -506,6 +506,10 @@ impl ParsedExpression {
                         },
                     );
                 }
+
+                target
+                    .data_type
+                    .assert_runtime_value_mutation_in_runtime_loop(ctx, target_span)?;
 
                 SemanticExpressionKind::AugmentedAssignment(
                     Box::new(target),

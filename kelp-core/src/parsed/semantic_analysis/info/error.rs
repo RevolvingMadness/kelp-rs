@@ -484,7 +484,12 @@ impl SemanticAnalysisError {
                 declaration_span,
                 "function declared here without `recursive` modifier",
             ),
-            Self::CompiletimeValueMutationInRuntimeLoop { value_span } => todo!(),
+            Self::CompiletimeValueMutationInRuntimeLoop { value_span } => {
+                Diagnostic::error("compiletime value mutation in runtime loop").with_primary_label(
+                    value_span,
+                    "cannot mutate a compiletime variable while in a runtime loop",
+                )
+            }
             Self::MissingField { span, name } => {
                 Diagnostic::error(format!("missing required field `{}`", name))
                     .with_primary_no_label(span)

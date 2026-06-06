@@ -45,9 +45,10 @@ AsUseTree =
 PathUseTree =
   Path
 
+FunctionQualifiers = 'recursive'? 'runtime'?
+
 FunctionDeclarationItem =
-  'recursive'?
-  'runtime'?
+  FunctionQualifiers
   'fn'
   name:'function_name'
   GenericNames

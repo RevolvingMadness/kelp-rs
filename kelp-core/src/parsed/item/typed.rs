@@ -5,10 +5,11 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use crate::{
     parsed::{
         expression::block::ParsedBlockExpression,
+        item::FunctionQualifiers,
         pattern::ParsedPattern,
         semantic_analysis::{
-            FunctionContext, RegularFunctionModifiers, SemanticAnalysisContext,
-            info::error::SemanticAnalysisError, scope::Scope,
+            FunctionContext, SemanticAnalysisContext, info::error::SemanticAnalysisError,
+            scope::Scope,
         },
     },
     semantic::{
@@ -44,8 +45,7 @@ pub enum TypedItem {
         items: Vec<Self>,
     },
     FunctionDeclaration {
-        recursive_keyword_span: Option<Span>,
-        runtime_keyword_span: Option<Span>,
+        qualifiers: FunctionQualifiers,
         generic_ids: Vec<HighGenericId>,
         generics: Vec<(Span, String)>,
         name_span: Span,
@@ -137,8 +137,7 @@ impl TypedItem {
                 SemanticItem::ModuleDeclaration
             }
             Self::FunctionDeclaration {
-                recursive_keyword_span,
-                runtime_keyword_span,
+                qualifiers,
                 generic_ids,
                 generics,
                 name_span,
@@ -162,7 +161,7 @@ impl TypedItem {
 
                 let mut failed = false;
 
-                if let Some(runtime_keyword_span) = runtime_keyword_span {
+                if let Some(runtime_keyword_span) = qualifiers.runtime {
                     let all_types_are_runtime = {
                         let parameter_types_are_runtime =
                             parameters.iter().all(|(_, parameter_type)| {
@@ -176,7 +175,7 @@ impl TypedItem {
                     };
 
                     if all_types_are_runtime {
-                        if let Some(recursive_keyword_span) = recursive_keyword_span {
+                        if let Some(recursive_keyword_span) = qualifiers.recursive {
                             let all_types_are_data = {
                                 let parameter_types_valid =
                                     parameters.iter().all(|(_, parameter_type)| {
@@ -206,7 +205,7 @@ impl TypedItem {
 
                         failed = true;
                     }
-                } else if let Some(keyword_span) = recursive_keyword_span {
+                } else if let Some(keyword_span) = qualifiers.recursive {
                     ctx.add_error_unit(SemanticAnalysisError::RecursiveFunctionNotRuntime {
                         keyword_span,
                     });
@@ -214,13 +213,7 @@ impl TypedItem {
                     failed = true;
                 }
 
-                let modifiers = if runtime_keyword_span.is_some() {
-                    RegularFunctionModifiers::Runtime {
-                        recursive: recursive_keyword_span.is_some(),
-                    }
-                } else {
-                    RegularFunctionModifiers::None
-                };
+                let modifiers = qualifiers.into_modifiers();
 
                 let scope = ctx.exit_scope();
 

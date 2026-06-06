@@ -380,11 +380,8 @@ impl SemanticAnalysisError {
             } => Diagnostic::error("all types of a `recursive` function must be `data`")
                 .with_primary_no_label(recursive_keyword_span),
             Self::RecursiveFunctionNotRuntime { keyword_span } => {
-                Diagnostic::error("`recursive` functions must also be marked as `runtime`")
-                    .with_primary_label(
-                        keyword_span,
-                        "expected `runtime` modifier alongside the existing `recurisve` modifier",
-                    )
+                Diagnostic::error("`recursive` functions must also be marked `runtime`")
+                    .with_primary_no_label(keyword_span)
             }
             Self::CannotPerformArithmeticOperation {
                 left,

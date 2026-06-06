@@ -19,6 +19,7 @@ use crate::parsed::environment::{
 };
 use crate::parsed::item::named::{NamedItem, NamedItemKind};
 use crate::parsed::pattern::ParsedPattern;
+use crate::parsed::semantic_analysis::RegularFunctionModifiers;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
@@ -53,6 +54,24 @@ pub struct ParsedSelfFunctionParameter {
     pub data_type: ParsedDataType,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct FunctionQualifiers {
+    pub recursive: Option<Span>,
+    pub runtime: Option<Span>,
+}
+
+impl FunctionQualifiers {
+    pub fn into_modifiers(self) -> RegularFunctionModifiers {
+        if self.runtime.is_some() {
+            let recursive = self.recursive.is_some();
+
+            RegularFunctionModifiers::Runtime { recursive }
+        } else {
+            RegularFunctionModifiers::None
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ParsedItemKind {
     InherentImplementationItem {
@@ -67,8 +86,7 @@ pub enum ParsedItemKind {
         items: Vec<ParsedItem>,
     },
     FunctionDeclaration {
-        recursive_keyword_span: Option<Span>,
-        runtime_keyword_span: Option<Span>,
+        qualifiers: FunctionQualifiers,
         name_span: Span,
         name: String,
         generics: Vec<(Span, String)>,
@@ -200,8 +218,7 @@ impl ParsedItem {
                 NamedItemKind::ModuleDeclaration { id, items }
             }
             ParsedItemKind::FunctionDeclaration {
-                recursive_keyword_span,
-                runtime_keyword_span,
+                qualifiers,
                 name_span,
                 name,
                 generics: generic_names,
@@ -255,8 +272,7 @@ impl ParsedItem {
                 let id = HighRegularFunctionId(id.0);
 
                 NamedItemKind::FunctionDeclaration {
-                    recursive_keyword_span,
-                    runtime_keyword_span,
+                    qualifiers,
                     name_span,
                     name,
                     generics: generic_names,

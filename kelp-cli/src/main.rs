@@ -336,6 +336,10 @@ fn handle_run(project_path: Option<PathBuf>, _ignore_validation_errors: bool) {
         println!();
     }
 
+    if !parse_succeeded {
+        return;
+    }
+
     let max_infos = 10;
 
     let mut lower_context = LowerContext::new(max_infos);

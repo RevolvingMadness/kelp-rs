@@ -1,9 +1,9 @@
 use kelp_core::{
-    parsed::typed_path::ParsedTypedPath,
     parsed::{
         data_type::ParsedDataType,
-        item::{ParsedItemKind, ParsedSelfFunctionParameter},
+        item::{FunctionQualifiers, ParsedItemKind, ParsedSelfFunctionParameter},
         pattern::ParsedPattern,
+        typed_path::ParsedTypedPath,
     },
     trait_ext::CollectOptionAllIterExt,
 };
@@ -11,13 +11,51 @@ use kelp_core::{
 use crate::{
     cst::{
         CSTBlockExpression, CSTDataType, CSTFunctionDeclarationItem, CSTFunctionParameter,
-        CSTFunctionParameters, CSTGenericNames, CSTPattern, CSTSelfFunctionParameter,
+        CSTFunctionParameters, CSTFunctionQualifiers, CSTGenericNames, CSTPattern,
+        CSTSelfFunctionParameter,
     },
     extension_traits::{AstNodeExt, LowerableAstNode, ParsableAstNode, SyntaxTokenExt},
     lower_context::LowerContext,
     parser::Parser,
     syntax::SyntaxKind::{self},
 };
+
+impl ParsableAstNode for CSTFunctionQualifiers {
+    fn try_parse(parser: &mut Parser) -> bool {
+        parser.start_node(SyntaxKind::FunctionQualifiers);
+
+        if parser.peek_identifier() == Some("recursive") {
+            parser.bump_identifier_kind(SyntaxKind::RecursiveKeyword, "recursive");
+
+            parser.skip_whitespace();
+        }
+
+        if parser.peek_identifier() == Some("runtime") {
+            parser.bump_identifier_kind(SyntaxKind::RuntimeKeyword, "runtime");
+
+            parser.skip_whitespace();
+        }
+
+        parser.finish_node();
+
+        true
+    }
+}
+
+impl LowerableAstNode for CSTFunctionQualifiers {
+    type Lowered = FunctionQualifiers;
+
+    fn lower(&self, _ctx: &mut LowerContext) -> Option<Self::Lowered> {
+        let recursive_span = self.recursive_token().map(|token| token.span());
+
+        let runtime_span = self.runtime_token().map(|token| token.span());
+
+        Some(FunctionQualifiers {
+            recursive: recursive_span,
+            runtime: runtime_span,
+        })
+    }
+}
 
 impl ParsableAstNode for CSTFunctionParameter {
     fn try_parse(parser: &mut Parser) -> bool {
@@ -76,6 +114,7 @@ impl ParsableAstNode for CSTSelfFunctionParameter {
         }
 
         parser.finish_node();
+
         true
     }
 }
@@ -134,27 +173,7 @@ impl ParsableAstNode for CSTFunctionDeclarationItem {
 
         parser.start_node(SyntaxKind::FunctionDeclarationItem);
 
-        let mut is_recursive = false;
-
-        if parser.peek_identifier() == Some("recursive") {
-            parser.bump_str(SyntaxKind::RecursiveKeyword, "recursive");
-
-            if !parser.expect_whitespace() {
-                state.restore(parser);
-                return false;
-            }
-
-            is_recursive = true;
-        }
-
-        if parser.peek_identifier() == Some("runtime") {
-            parser.bump_str(SyntaxKind::RuntimeKeyword, "runtime");
-
-            if !parser.expect_whitespace() && !is_recursive {
-                state.restore(parser);
-                return false;
-            }
-        }
+        assert!(CSTFunctionQualifiers::try_parse(parser));
 
         parser.bump_str(SyntaxKind::FNKeyword, "fn");
 
@@ -217,7 +236,10 @@ impl LowerableAstNode for CSTFunctionParameters {
                     .unwrap_or_else(|| {
                         (
                             self_keyword_span,
-                            ParsedDataType::Named(ParsedTypedPath::single(self_keyword_span, "Self")),
+                            ParsedDataType::Named(ParsedTypedPath::single(
+                                self_keyword_span,
+                                "Self",
+                            )),
                         )
                     });
 
@@ -241,9 +263,7 @@ impl LowerableAstNode for CSTFunctionDeclarationItem {
     type Lowered = ParsedItemKind;
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {
-        let recursive_keyword_span = self.recursive_token().map(|token| token.span());
-
-        let runtime_keyword_span = self.runtime_token().map(|token| token.span());
+        let qualifiers = self.function_qualifiers()?.lower(ctx)?;
 
         let name_token = self.name()?;
         let name_span = name_token.span();
@@ -269,8 +289,7 @@ impl LowerableAstNode for CSTFunctionDeclarationItem {
         };
 
         Some(ParsedItemKind::FunctionDeclaration {
-            recursive_keyword_span,
-            runtime_keyword_span,
+            qualifiers,
             name_span,
             name: name.to_owned(),
             generics: generics.unwrap_or_default(),

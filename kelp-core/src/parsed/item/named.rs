@@ -7,11 +7,10 @@ use crate::{
         data_type::ParsedDataType,
         environment::r#type::{ParsedTypeDeclaration, ParsedTypeDeclarationKind},
         expression::block::ParsedBlockExpression,
-        item::{ParsedSelfFunctionParameter, typed::TypedItem},
+        item::{FunctionQualifiers, ParsedSelfFunctionParameter, typed::TypedItem},
         pattern::{ParsedPattern, ParsedPatternKind},
         semantic_analysis::{
-            RegularFunctionModifiers, SemanticAnalysisContext, info::error::SemanticAnalysisError,
-            scope::Scope,
+            SemanticAnalysisContext, info::error::SemanticAnalysisError, scope::Scope,
         },
         typed_path::ParsedTypedPath,
         use_tree::UseTree,
@@ -187,8 +186,7 @@ pub enum NamedItemKind {
         items: Vec<NamedItem>,
     },
     FunctionDeclaration {
-        recursive_keyword_span: Option<Span>,
-        runtime_keyword_span: Option<Span>,
+        qualifiers: FunctionQualifiers,
         name_span: Span,
         name: String,
         generic_ids: Vec<HighGenericId>,
@@ -361,8 +359,7 @@ impl NamedItem {
                 TypedItem::ModuleDeclaration { id, items }
             }
             NamedItemKind::FunctionDeclaration {
-                recursive_keyword_span,
-                runtime_keyword_span,
+                qualifiers,
                 name_span,
                 name,
                 mut generic_ids,
@@ -434,13 +431,7 @@ impl NamedItem {
 
                 ctx.exit_scope();
 
-                let modifiers = if runtime_keyword_span.is_some() {
-                    RegularFunctionModifiers::Runtime {
-                        recursive: recursive_keyword_span.is_some(),
-                    }
-                } else {
-                    RegularFunctionModifiers::None
-                };
+                let modifiers = qualifiers.into_modifiers();
 
                 ctx.set_semantic_value(
                     id,
@@ -465,8 +456,7 @@ impl NamedItem {
                 );
 
                 TypedItem::FunctionDeclaration {
-                    recursive_keyword_span,
-                    runtime_keyword_span,
+                    qualifiers,
                     generic_ids,
                     generics,
                     name_span,

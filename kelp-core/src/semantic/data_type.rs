@@ -3,6 +3,18 @@ use std::{
     fmt::{Display, Write},
 };
 
+use crate::semantic::environment::{
+    SemanticEnvironment,
+    r#type::{
+        generic::HighGenericId,
+        module::HighModuleId,
+        r#struct::{
+            HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
+            tuple::HighTupleStructId,
+        },
+    },
+    value::function::{HighFunctionId, SemanticFunctionDeclaration},
+};
 use crate::{
     datapack::Datapack,
     operator::ComparisonOperator,
@@ -20,21 +32,6 @@ use crate::{
         r#type::r#struct::{RegularStructId, StructId, TupleStructId},
     },
     semantic::environment::value::{SemanticValueDeclaration, SemanticValueDeclarationKind},
-};
-use crate::{
-    parsed::semantic_analysis::info::error::TypeKind,
-    semantic::environment::{
-        SemanticEnvironment,
-        r#type::{
-            generic::HighGenericId,
-            module::HighModuleId,
-            r#struct::{
-                HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
-                tuple::HighTupleStructId,
-            },
-        },
-        value::function::{HighFunctionId, SemanticFunctionDeclaration},
-    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

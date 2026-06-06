@@ -172,6 +172,7 @@ pub enum SyntaxKind {
     AssociatedItem,
     AssociatedItemKind,
     ModuleDeclarationItem,
+    FunctionQualifiers,
     FunctionDeclarationItem,
     FunctionName,
     FunctionParameters,

@@ -22,8 +22,6 @@ use crate::{
 
 impl ParsableAstNode for CSTFunctionQualifiers {
     fn try_parse(parser: &mut Parser) -> bool {
-        let state = parser.save_state();
-
         let mut parsed = false;
 
         parser.start_node(SyntaxKind::FunctionQualifiers);
@@ -54,13 +52,7 @@ impl ParsableAstNode for CSTFunctionQualifiers {
 
         parser.finish_node();
 
-        if parsed {
-            true
-        } else {
-            state.restore(parser);
-
-            false
-        }
+        parsed
     }
 }
 

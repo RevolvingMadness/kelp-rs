@@ -574,6 +574,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "path_identifier" => "PathIdentifier",
         "module_name" => "ModuleName",
         "function_name" => "FunctionName",
+        "enum" => "EnumKeyword",
 
         _ => panic!("Unknown token: '{:?}'", token),
     }

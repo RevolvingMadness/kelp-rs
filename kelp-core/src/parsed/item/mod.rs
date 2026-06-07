@@ -79,6 +79,17 @@ impl FunctionQualifiers {
 }
 
 #[derive(Debug, Clone)]
+pub enum ParsedEnumVariantKind {
+    Unit,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParsedEnumVariant {
+    pub name_span: Span,
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
 pub enum ParsedItemKind {
     InherentImplementationItem {
         generics: Vec<(Span, String)>,
@@ -127,6 +138,12 @@ pub enum ParsedItemKind {
         name_span: Span,
         name: String,
         generics_span: Option<Span>,
+    },
+    EnumDeclaration {
+        name_span: Span,
+        name: String,
+        generics: Vec<(Span, String)>,
+        variants: Vec<ParsedEnumVariant>,
     },
     ConstantDeclaration {
         name_span: Span,
@@ -539,6 +556,14 @@ impl ParsedItem {
                     id,
                     constant_id,
                 }
+            }
+            ParsedItemKind::EnumDeclaration {
+                name_span,
+                name,
+                generics,
+                variants,
+            } => {
+                todo!()
             }
             ParsedItemKind::ConstantDeclaration {
                 name_span,

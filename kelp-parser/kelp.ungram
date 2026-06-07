@@ -14,6 +14,7 @@ ItemKind =
 | RegularStructDeclarationItem
 | TupleStructDeclarationItem
 | UnitStructDeclarationItem
+| EnumDeclarationItem
 | TypeAliasDeclarationItem
 | ConstantDeclarationItem
 
@@ -90,14 +91,20 @@ RegularStructField =
 TupleStructDeclarationItem =
   'struct' name:'type_name' GenericNames? '(' TupleStructFields? ')' ';'
 
-UnitStructDeclarationItem =
-  'struct' name:'type_name' GenericNames? ';'
-
 TupleStructFields =
   (TupleStructField (',' TupleStructField)*) ','?
 
 TupleStructField =
   DataType
+
+UnitStructDeclarationItem =
+  'struct' name:'type_name' GenericNames? ';'
+
+EnumDeclarationItem = 'enum' name:'type_name' GenericNames? '{' EnumVariants? '}'
+
+EnumVariants = EnumVariant (',' EnumVariant)* ','?
+
+EnumVariant = name:'ident'
 
 TypeAliasDeclarationItem =
   'type' name:'data_type_name' GenericNames? '=' DataType

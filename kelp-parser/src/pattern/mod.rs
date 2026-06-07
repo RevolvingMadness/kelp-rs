@@ -149,7 +149,7 @@ impl ParsableAstNode for CSTPattern {
                         _ => {
                             state.restore(parser);
 
-                            marker.start_node(parser, SyntaxKind::BindingPattern);
+                            marker.start_node(parser, SyntaxKind::PathPattern);
                         }
                     }
 
@@ -170,7 +170,7 @@ impl LowerableAstNode for CSTPattern {
         match self {
             Self::WildcardPattern(node) => node.lower(ctx),
             Self::TuplePattern(node) => node.lower(ctx),
-            Self::BindingPattern(node) => node.lower(ctx),
+            Self::PathPattern(node) => node.lower(ctx),
             Self::ScorePattern(node) => node.lower(ctx),
             Self::DataPattern(node) => node.lower(ctx),
             Self::RegularStructPattern(node) => node.lower(ctx),

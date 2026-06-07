@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use minecraft_command_types::resource_location::ResourceLocation;
 
 use crate::parsed::environment::r#type::generic::ParsedGenericDeclaration;
+use crate::parsed::environment::r#type::r#struct::unit::ParsedUnitStructDeclaration;
 use crate::parsed::environment::value::ParsedValueDeclarationKind;
 use crate::parsed::environment::value::constant::ParsedConstantDeclaration;
 use crate::parsed::environment::value::function::ParsedFunctionDeclaration;
@@ -25,6 +26,7 @@ use crate::parsed::semantic_analysis::RegularFunctionModifiers;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
+use crate::semantic::environment::r#type::r#struct::unit::HighUnitStructId;
 use crate::semantic::environment::value::constant::HighConstantId;
 use crate::semantic::environment::value::function::builtin::HighBuiltinFunctionId;
 use crate::semantic::environment::value::function::regular::HighRegularFunctionId;
@@ -120,6 +122,11 @@ pub enum ParsedItemKind {
         name: String,
         generics: Vec<(Span, String)>,
         field_types: Vec<ParsedDataType>,
+    },
+    UnitStructDeclaration {
+        name_span: Span,
+        name: String,
+        generics_span: Option<Span>,
     },
     ConstantDeclaration {
         name_span: Span,
@@ -484,6 +491,53 @@ impl ParsedItem {
                     id,
                     generic_ids,
                     constructor_id,
+                }
+            }
+            ParsedItemKind::UnitStructDeclaration {
+                name_span,
+                name,
+                generics_span,
+            } => {
+                if let Some(declaration_span) = ctx
+                    .current_scope()
+                    .get_type_declaration_span(&ctx.parsed_environment, &name)
+                {
+                    return ctx.add_error(SemanticAnalysisError::TypeAlreadyDeclared {
+                        declaration_span,
+                        redeclaration_span: name_span,
+                        name,
+                    });
+                }
+
+                // TODO unit struct no generics
+
+                let id = ctx.declare_parsed_type(
+                    self.visibility,
+                    ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Unit(
+                        ParsedUnitStructDeclaration {
+                            name_span,
+                            name: name.clone(),
+                        },
+                    )),
+                );
+
+                let id = HighUnitStructId(id.0);
+
+                let constant_id = ctx.declare_parsed_value(
+                    self.visibility,
+                    ParsedValueDeclarationKind::Constant(ParsedConstantDeclaration {
+                        name_span,
+                        name: name.clone(),
+                    }),
+                );
+
+                let constant_id = HighConstantId(constant_id.0);
+
+                NamedItemKind::UnitStructDeclaration {
+                    name_span,
+                    name,
+                    id,
+                    constant_id,
                 }
             }
             ParsedItemKind::ConstantDeclaration {

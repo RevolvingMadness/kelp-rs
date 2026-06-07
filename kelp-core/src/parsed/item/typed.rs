@@ -17,7 +17,7 @@ use crate::{
         environment::{
             r#type::{
                 HighTypeId, SemanticTypeDeclaration, alias::SemanticTypeAliasDeclaration,
-                generic::HighGenericId, module::HighModuleId,
+                generic::HighGenericId, module::HighModuleId, r#struct::unit::HighUnitStructId,
             },
             value::{
                 SemanticValueDeclaration, constant::HighConstantId,
@@ -64,6 +64,10 @@ pub enum TypedItem {
     TypeAliasDeclaration,
     RegularStructDeclaration,
     TupleStructDeclaration,
+    UnitStructDeclaration {
+        id: HighUnitStructId,
+        constant_id: HighConstantId,
+    },
     ConstantDeclaration {
         id: HighConstantId,
         data_type: SemanticDataType,
@@ -312,6 +316,9 @@ impl TypedItem {
             Self::TypeAliasDeclaration => SemanticItem::TypeAliasDeclaration,
             Self::RegularStructDeclaration => SemanticItem::RegularStructDeclaration,
             Self::TupleStructDeclaration => SemanticItem::TupleStructDeclaration,
+            Self::UnitStructDeclaration { id, constant_id } => {
+                SemanticItem::UnitStructDeclaration { id, constant_id }
+            }
             Self::ConstantDeclaration {
                 id,
                 data_type,

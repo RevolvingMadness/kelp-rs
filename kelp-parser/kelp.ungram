@@ -13,6 +13,7 @@ ItemKind =
 | MinecraftFunctionDeclarationItem
 | RegularStructDeclarationItem
 | TupleStructDeclarationItem
+| UnitStructDeclarationItem
 | TypeAliasDeclarationItem
 | ConstantDeclarationItem
 
@@ -87,7 +88,10 @@ RegularStructField =
   name:'struct_field_name' ':' DataType
 
 TupleStructDeclarationItem =
-  'struct' name:'type_name' GenericNames? '(' TupleStructFields? ')'
+  'struct' name:'type_name' GenericNames? '(' TupleStructFields? ')' ';'
+
+UnitStructDeclarationItem =
+  'struct' name:'type_name' GenericNames? ';'
 
 TupleStructFields =
   (TupleStructField (',' TupleStructField)*) ','?
@@ -358,7 +362,7 @@ ExpressionSigil =
 Pattern =
   WildcardPattern
 | TuplePattern
-| BindingPattern
+| PathPattern
 | ScorePattern
 | DataPattern
 | RegularStructPattern
@@ -371,7 +375,7 @@ WildcardPattern =
 TuplePattern =
   '(' patterns:Pattern? (',' patterns:Pattern)* ')'
 
-BindingPattern =
+PathPattern =
   GenericPath
 
 ScorePattern =

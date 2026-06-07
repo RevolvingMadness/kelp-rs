@@ -18,9 +18,6 @@ use minecraft_command_types::{
 };
 use ordered_float::NotNan;
 
-use crate::low::environment::value::{
-    ValueDeclaration, constant::ConstantId, function::FunctionId, variable::VariableId,
-};
 use crate::low::expression::Expression;
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::{
@@ -48,6 +45,12 @@ use crate::{
 use crate::{
     low::data_type::{DataType, FieldAccessType},
     semantic::expression::command::execute::subcommand::r#if::SemanticExecuteIfSubcommand,
+};
+use crate::{
+    low::environment::value::{
+        ValueDeclaration, constant::ConstantId, function::FunctionId, variable::VariableId,
+    },
+    semantic::environment::r#type::r#struct::unit::HighUnitStructId,
 };
 
 fn compile_if(
@@ -402,6 +405,7 @@ pub enum SemanticExpressionKind {
         Vec<SemanticDataType>,
         Vec<SemanticExpression>,
     ),
+    UnitStruct(HighUnitStructId),
     If {
         condition: Box<SemanticExpression>,
 
@@ -782,7 +786,7 @@ impl SemanticExpressionKind {
                     .collect();
 
                 let id = datapack.declare_monomorphized_tuple_struct(
-                    id.into(),
+                    id,
                     name,
                     generic_types,
                     field_types,
@@ -794,6 +798,15 @@ impl SemanticExpressionKind {
                     .collect();
 
                 Expression::TupleStruct(id, field_expressions)
+            }
+            Self::UnitStruct(id) => {
+                let declaration = datapack.semantic_environment.get_unit_struct(id);
+
+                let name = declaration.name.clone();
+
+                let id = datapack.declare_monomorphized_unit_struct(id, name);
+
+                Expression::UnitStruct(id)
             }
             Self::Underscore => unreachable!(),
             Self::Boolean(value) => Expression::Boolean(value),
@@ -1060,8 +1073,11 @@ impl SemanticExpressionKind {
             Self::Tuple(semantic_expressions) => todo!(),
             Self::Call(semantic_expression, semantic_expressions) => todo!(),
             Self::Value(high_value_id, semantic_data_types) => todo!(),
-            Self::RegularStruct(high_regular_struct_id, semantic_data_types, hash_map) => todo!(),
-            Self::TupleStruct(high_tuple_struct_id, semantic_data_types, semantic_expressions) => {
+            Self::RegularStruct(id, generic_types, hash_map) => todo!(),
+            Self::TupleStruct(id, generic_types, semantic_expressions) => {
+                todo!()
+            }
+            Self::UnitStruct(id) => {
                 todo!()
             }
             Self::If {
@@ -1135,6 +1151,7 @@ impl SemanticExpressionKind {
                     field_expression.kind.compile_as_statement(datapack, ctx);
                 }
             }
+            Self::UnitStruct(_) => {}
             Self::Block(statements, tail_expression) => {
                 for statement in statements {
                     statement.compile_as_statement(datapack, ctx);

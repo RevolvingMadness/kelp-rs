@@ -1,12 +1,12 @@
 use kelp_core::parsed::pattern::{ParsedPattern, ParsedPatternKind};
 
 use crate::{
-    cst::CSTBindingPattern,
+    cst::CSTPathPattern,
     extension_traits::{AstNodeExt, LowerableAstNode},
     lower_context::LowerContext,
 };
 
-impl LowerableAstNode for CSTBindingPattern {
+impl LowerableAstNode for CSTPathPattern {
     type Lowered = ParsedPattern;
 
     fn lower(&self, ctx: &mut LowerContext) -> Option<Self::Lowered> {

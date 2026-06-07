@@ -4,6 +4,7 @@ use crate::parsed::semantic_analysis::info::error::{SemanticAnalysisError, TypeK
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::module::HighModuleId;
+use crate::semantic::environment::r#type::r#struct::unit::SemanticUnitStructDeclaration;
 use crate::semantic::environment::r#type::{
     HighGenericId,
     r#struct::{regular::SemanticRegularStructDeclaration, tuple::SemanticTupleStructDeclaration},
@@ -14,6 +15,7 @@ use crate::span::Span;
 
 pub mod regular;
 pub mod tuple;
+pub mod unit;
 
 make_id!(HighStructId);
 
@@ -27,6 +29,7 @@ impl From<HighStructId> for HighTypeId {
 pub enum SemanticStructDeclaration {
     Struct(SemanticRegularStructDeclaration),
     Tuple(SemanticTupleStructDeclaration),
+    Unit(SemanticUnitStructDeclaration),
 }
 
 impl SemanticStructDeclaration {
@@ -35,6 +38,7 @@ impl SemanticStructDeclaration {
         match self {
             Self::Struct(declaration) => declaration.name_span,
             Self::Tuple(declaration) => declaration.name_span,
+            Self::Unit(declaration) => declaration.name_span,
         }
     }
 
@@ -43,6 +47,7 @@ impl SemanticStructDeclaration {
         match self {
             Self::Struct(declaration) => &declaration.name,
             Self::Tuple(declaration) => &declaration.name,
+            Self::Unit(declaration) => &declaration.name,
         }
     }
 
@@ -51,6 +56,7 @@ impl SemanticStructDeclaration {
         match self {
             Self::Struct(declaration) => &declaration.generic_ids,
             Self::Tuple(declaration) => &declaration.generic_ids,
+            Self::Unit(..) => &[],
         }
     }
 
@@ -59,6 +65,7 @@ impl SemanticStructDeclaration {
         match self {
             Self::Struct(declaration) => declaration.generic_ids.len(),
             Self::Tuple(declaration) => declaration.generic_ids.len(),
+            Self::Unit(..) => 0,
         }
     }
 
@@ -123,6 +130,7 @@ impl SemanticStructDeclaration {
 
                 declaration.field_types.get(field_index)
             }
+            Self::Unit(declaration) => None,
         }
     }
 }

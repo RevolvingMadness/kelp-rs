@@ -4,7 +4,9 @@ use crate::datapack::mcfunction::MCFunction;
 use crate::datapack::namespace::DatapackNamespace;
 use crate::low::data_type::DataType;
 use crate::low::environment::Environment;
-use crate::low::environment::r#type::r#struct::{RegularStructId, StructId, TupleStructId};
+use crate::low::environment::r#type::r#struct::{
+    RegularStructId, StructId, TupleStructId, UnitStructId,
+};
 use crate::low::environment::value::constant::ConstantId;
 use crate::low::environment::value::function::builtin::BuiltinFunctionDeclaration;
 use crate::low::environment::value::function::regular::{
@@ -21,6 +23,7 @@ use crate::semantic::environment::SemanticEnvironment;
 use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::HighStructId;
 use crate::semantic::environment::r#type::r#struct::tuple::HighTupleStructId;
+use crate::semantic::environment::r#type::r#struct::unit::HighUnitStructId;
 use crate::semantic::environment::value::constant::HighConstantId;
 use crate::semantic::environment::value::function::{HighFunctionId, SemanticFunctionDeclaration};
 use crate::semantic::environment::value::variable::HighVariableId;
@@ -671,6 +674,14 @@ impl Datapack {
     }
 
     #[inline]
+    #[must_use]
+    pub fn get_monomorphized_unit_struct_id(&self, id: HighUnitStructId) -> Option<UnitStructId> {
+        let id = self.get_monomorphized_struct_id(id.into(), &[])?;
+
+        Some(UnitStructId(id.0))
+    }
+
+    #[inline]
     pub fn get_monomorphized_value_id<I: Into<HighValueId>>(
         &mut self,
         id: I,
@@ -807,12 +818,14 @@ impl Datapack {
         }
     }
 
-    pub fn declare_monomorphized_struct(
+    pub fn declare_monomorphized_struct<I: Into<HighStructId>>(
         &mut self,
-        original_id: HighStructId,
+        original_id: I,
         monomorphized_id: StructId,
         generic_types: Vec<DataType>,
     ) {
+        let original_id = original_id.into();
+
         let key = MonomorphizedStructKey {
             original_id,
             generics: generic_types,
@@ -841,7 +854,7 @@ impl Datapack {
     #[inline]
     pub fn declare_monomorphized_tuple_struct(
         &mut self,
-        original_id: HighStructId,
+        original_id: HighTupleStructId,
         name: String,
         generic_types: Vec<DataType>,
         field_types: Vec<DataType>,
@@ -851,6 +864,19 @@ impl Datapack {
                 .declare_tuple_struct(name, generic_types.clone(), field_types);
 
         self.declare_monomorphized_struct(original_id, monomorphized_id.into(), generic_types);
+
+        monomorphized_id
+    }
+
+    #[inline]
+    pub fn declare_monomorphized_unit_struct(
+        &mut self,
+        original_id: HighUnitStructId,
+        name: String,
+    ) -> UnitStructId {
+        let monomorphized_id = self.environment.declare_unit_struct(name);
+
+        self.declare_monomorphized_struct(original_id, monomorphized_id.into(), Vec::new());
 
         monomorphized_id
     }

@@ -3,6 +3,9 @@ use std::collections::{HashMap, hash_map::Iter};
 use crate::semantic::data_type::SemanticDataType;
 use crate::semantic::environment::implementation::SemanticImplementation;
 use crate::semantic::environment::r#type::generic::{HighGenericId, SemanticGenericDeclaration};
+use crate::semantic::environment::r#type::r#struct::unit::{
+    HighUnitStructId, SemanticUnitStructDeclaration,
+};
 use crate::semantic::environment::{
     r#type::{
         HighTypeId, SemanticTypeDeclaration,
@@ -168,6 +171,15 @@ impl SemanticEnvironment {
     #[must_use]
     pub fn get_tuple_struct(&self, id: HighTupleStructId) -> &SemanticTupleStructDeclaration {
         let SemanticStructDeclaration::Tuple(declaration) = self.get_struct(id.into()) else {
+            unreachable!();
+        };
+
+        declaration
+    }
+
+    #[must_use]
+    pub fn get_unit_struct(&self, id: HighUnitStructId) -> &SemanticUnitStructDeclaration {
+        let SemanticStructDeclaration::Unit(declaration) = self.get_struct(id.into()) else {
             unreachable!();
         };
 

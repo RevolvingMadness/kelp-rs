@@ -148,7 +148,7 @@ pub fn collect_semantic_tokens(node: &SyntaxNode) -> Vec<SemanticToken> {
                     SyntaxKind::TypeName => Some(SemanticTokenType::Struct),
                     SyntaxKind::StructFieldName
                     | SyntaxKind::FieldName
-                    | SyntaxKind::BindingPatternName
+                    | SyntaxKind::PathPatternName
                     | SyntaxKind::ScoreboardObjective
                     | SyntaxKind::NamedNBTPathNodeName => Some(SemanticTokenType::Variable),
                     SyntaxKind::PathIdentifier

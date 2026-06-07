@@ -11,6 +11,7 @@ use crate::{
 pub enum FieldTypesIter<'a> {
     Struct(Values<'a, String, DataType>),
     Tuple(Iter<'a, DataType>),
+    Unit,
 }
 
 impl<'a> Iterator for FieldTypesIter<'a> {
@@ -20,28 +21,18 @@ impl<'a> Iterator for FieldTypesIter<'a> {
         match self {
             Self::Struct(iterator) => iterator.next(),
             Self::Tuple(iterator) => iterator.next(),
+            Self::Unit => None,
         }
     }
 }
 
 make_id!(StructId);
 
-impl From<RegularStructId> for StructId {
-    fn from(value: RegularStructId) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<TupleStructId> for StructId {
-    fn from(value: TupleStructId) -> Self {
-        Self(value.0)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum StructDeclaration {
     Struct(RegularStructDeclaration),
     Tuple(TupleStructDeclaration),
+    Unit(UnitStructDeclaration),
 }
 
 impl StructDeclaration {
@@ -50,6 +41,7 @@ impl StructDeclaration {
         match self {
             Self::Struct(declaration) => &declaration.name,
             Self::Tuple(declaration) => &declaration.name,
+            Self::Unit(declaration) => &declaration.name,
         }
     }
 
@@ -58,6 +50,7 @@ impl StructDeclaration {
         match self {
             Self::Struct(declaration) => &declaration.generic_types,
             Self::Tuple(declaration) => &declaration.generic_types,
+            Self::Unit(declaration) => &[],
         }
     }
 
@@ -66,6 +59,7 @@ impl StructDeclaration {
         match self {
             Self::Struct(declaration) => FieldTypesIter::Struct(declaration.field_types.values()),
             Self::Tuple(declaration) => FieldTypesIter::Tuple(declaration.field_types.iter()),
+            Self::Unit(..) => FieldTypesIter::Unit,
         }
     }
 
@@ -74,11 +68,18 @@ impl StructDeclaration {
         match self {
             Self::Struct(_) => FieldAccessType::Name,
             Self::Tuple(_) => FieldAccessType::Index,
+            Self::Unit(_) => FieldAccessType::Name,
         }
     }
 }
 
 make_id!(RegularStructId);
+
+impl From<RegularStructId> for StructId {
+    fn from(value: RegularStructId) -> Self {
+        Self(value.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct RegularStructDeclaration {
@@ -89,9 +90,28 @@ pub struct RegularStructDeclaration {
 
 make_id!(TupleStructId);
 
+impl From<TupleStructId> for StructId {
+    fn from(value: TupleStructId) -> Self {
+        Self(value.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TupleStructDeclaration {
     pub name: String,
     pub generic_types: Vec<DataType>,
     pub field_types: Vec<DataType>,
+}
+
+make_id!(UnitStructId);
+
+impl From<UnitStructId> for StructId {
+    fn from(value: UnitStructId) -> Self {
+        Self(value.0)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnitStructDeclaration {
+    pub name: String,
 }

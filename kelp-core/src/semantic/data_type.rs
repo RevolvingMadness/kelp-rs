@@ -3,17 +3,6 @@ use std::{
     fmt::{Display, Write},
 };
 
-use crate::semantic::environment::{
-    SemanticEnvironment,
-    r#type::{
-        generic::HighGenericId,
-        r#struct::{
-            HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
-            tuple::HighTupleStructId,
-        },
-    },
-    value::function::{HighFunctionId, SemanticFunctionDeclaration},
-};
 use crate::{
     datapack::Datapack,
     operator::ComparisonOperator,
@@ -24,6 +13,20 @@ use crate::{
     span::Span,
 };
 use crate::{low::data_type::DataType, semantic::typed_path::SemanticTypedPathSegment};
+use crate::{
+    low::environment::r#type::r#struct::UnitStructId,
+    semantic::environment::{
+        SemanticEnvironment,
+        r#type::{
+            generic::HighGenericId,
+            r#struct::{
+                HighStructId, SemanticStructDeclaration, regular::HighRegularStructId,
+                tuple::HighTupleStructId, unit::HighUnitStructId,
+            },
+        },
+        value::function::{HighFunctionId, SemanticFunctionDeclaration},
+    },
+};
 use crate::{
     low::environment::{
         Environment,
@@ -381,6 +384,16 @@ impl SemanticDataType {
     }
 
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
+    pub fn inner_monomorphize_unit_struct(
+        datapack: &mut Datapack,
+        id: HighUnitStructId,
+        name: String,
+    ) -> UnitStructId {
+        datapack.declare_monomorphized_unit_struct(id.into(), name)
+    }
+
+    #[must_use]
     fn monomorphize_struct(
         datapack: &mut Datapack,
         id: HighStructId,
@@ -414,6 +427,11 @@ impl SemanticDataType {
                     generic_types,
                 )
                 .into()
+            }
+            SemanticStructDeclaration::Unit(declaration) => {
+                let id = HighUnitStructId(id.0);
+
+                Self::inner_monomorphize_unit_struct(datapack, id, declaration.name.clone()).into()
             }
         }
     }
@@ -1165,6 +1183,8 @@ impl SemanticDataType {
                                 .get_data_type(semantic_environment)?;
                         }
                     }
+
+                    SemanticStructDeclaration::Unit(..) => {}
                 }
 
                 Self::Struct(*id, generic_types)

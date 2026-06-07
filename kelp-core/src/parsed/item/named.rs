@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+};
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
@@ -28,6 +31,7 @@ use crate::{
                     SemanticStructDeclaration,
                     regular::SemanticRegularStructDeclaration,
                     tuple::{HighTupleStructId, SemanticTupleStructDeclaration},
+                    unit::{HighUnitStructId, SemanticUnitStructDeclaration},
                 },
             },
             value::{
@@ -43,6 +47,7 @@ use crate::{
                 },
             },
         },
+        expression::{SemanticExpression, SemanticExpressionKind},
         path::ParsedPath,
     },
     span::Span,
@@ -230,6 +235,13 @@ pub enum NamedItemKind {
 
         id: HighTupleStructId,
         constructor_id: HighBuiltinFunctionId,
+    },
+    UnitStructDeclaration {
+        name_span: Span,
+        name: String,
+
+        id: HighUnitStructId,
+        constant_id: HighConstantId,
     },
     ConstantDeclaration {
         id: HighConstantId,
@@ -604,6 +616,36 @@ impl NamedItem {
                 );
 
                 TypedItem::TupleStructDeclaration
+            }
+            NamedItemKind::UnitStructDeclaration {
+                name_span,
+                name,
+                id,
+                constant_id,
+            } => {
+                ctx.set_semantic_type(
+                    id,
+                    SemanticTypeDeclaration::Struct(SemanticStructDeclaration::Unit(
+                        SemanticUnitStructDeclaration {
+                            name_span,
+                            name: name.clone(),
+                        },
+                    )),
+                );
+
+                let data_type = SemanticDataType::Struct(id.into(), Vec::new());
+
+                ctx.set_semantic_value(
+                    constant_id,
+                    SemanticValueDeclaration::Constant(SemanticConstantDeclaration {
+                        name_span,
+                        name,
+                        data_type: data_type.clone(),
+                        value: Some(SemanticExpressionKind::UnitStruct(id.into()).with(data_type)),
+                    }),
+                );
+
+                TypedItem::UnitStructDeclaration { id, constant_id }
             }
             NamedItemKind::ConstantDeclaration {
                 id,

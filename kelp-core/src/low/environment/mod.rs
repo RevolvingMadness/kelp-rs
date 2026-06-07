@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::low::data_type::DataType;
+use crate::low::environment::r#type::r#struct::{UnitStructDeclaration, UnitStructId};
 use crate::low::environment::value::constant::{ConstantDeclaration, ConstantId};
 use crate::low::environment::{
     r#type::{
@@ -82,6 +83,14 @@ impl Environment {
         TupleStructId(id.0)
     }
 
+    #[inline]
+    #[must_use]
+    pub fn declare_unit_struct(&mut self, name: String) -> UnitStructId {
+        let id = self.declare_struct(StructDeclaration::Unit(UnitStructDeclaration { name }));
+
+        UnitStructId(id.0)
+    }
+
     #[must_use]
     pub fn get_struct(&self, id: StructId) -> &StructDeclaration {
         #[allow(irrefutable_let_patterns)]
@@ -104,6 +113,15 @@ impl Environment {
     #[must_use]
     pub fn get_tuple_struct(&self, id: TupleStructId) -> &TupleStructDeclaration {
         let StructDeclaration::Tuple(declaration) = self.get_struct(id.into()) else {
+            unreachable!();
+        };
+
+        declaration
+    }
+
+    #[must_use]
+    pub fn get_unit_struct(&self, id: UnitStructId) -> &UnitStructDeclaration {
+        let StructDeclaration::Unit(declaration) = self.get_struct(id.into()) else {
             unreachable!();
         };
 

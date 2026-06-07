@@ -162,6 +162,19 @@ impl LowerableAstNode for CSTItemKind {
                     field_types: field_types.unwrap_or_default(),
                 })
             }
+            Self::UnitStructDeclarationItem(node) => {
+                let name_token = node.name()?;
+                let name_span = name_token.span();
+                let name = name_token.text();
+
+                let generics_span = node.generic_names().map(|names| names.span());
+
+                Some(ParsedItemKind::UnitStructDeclaration {
+                    name_span,
+                    name: name.to_owned(),
+                    generics_span,
+                })
+            }
             Self::TypeAliasDeclarationItem(node) => node.lower(ctx),
             Self::ConstantDeclarationItem(node) => node.lower(ctx),
             Self::UseItem(node) => node.lower(ctx),

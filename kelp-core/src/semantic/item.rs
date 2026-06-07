@@ -3,9 +3,11 @@ use minecraft_command_types::resource_location::ResourceLocation;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
+    low::{data_type::DataType, expression::Expression},
     semantic::{
-        data_type::SemanticDataType, environment::value::constant::HighConstantId,
-        expression::SemanticExpression,
+        data_type::SemanticDataType,
+        environment::{r#type::r#struct::unit::HighUnitStructId, value::constant::HighConstantId},
+        expression::{SemanticExpression, SemanticExpressionKind},
     },
 };
 
@@ -18,6 +20,10 @@ pub enum SemanticItem {
     TypeAliasDeclaration,
     RegularStructDeclaration,
     TupleStructDeclaration,
+    UnitStructDeclaration {
+        id: HighUnitStructId,
+        constant_id: HighConstantId,
+    },
     ConstantDeclaration {
         id: HighConstantId,
         data_type: SemanticDataType,
@@ -55,6 +61,19 @@ impl SemanticItem {
             Self::TypeAliasDeclaration => {}
             Self::RegularStructDeclaration => {}
             Self::TupleStructDeclaration => {}
+            Self::UnitStructDeclaration { id, constant_id } => {
+                let declaration = datapack.semantic_environment.get_unit_struct(id);
+
+                let name = declaration.name.clone();
+
+                let id = datapack.declare_monomorphized_unit_struct(id, name);
+
+                let data_type = DataType::Struct(id.into());
+
+                let value = Expression::UnitStruct(id);
+
+                datapack.declare_constant(constant_id, data_type, value);
+            }
             Self::ConstantDeclaration {
                 id,
                 data_type,

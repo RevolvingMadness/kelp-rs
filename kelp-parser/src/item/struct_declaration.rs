@@ -56,10 +56,15 @@ pub fn try_parse_struct_declaration_item_kind(parser: &mut Parser) -> bool {
 
             parser.expect_char(';');
         }
-        _ => {
-            marker.start_node(parser, SyntaxKind::RegularStructDeclarationItem);
+        Some(';') => {
+            marker.start_node(parser, SyntaxKind::UnitStructDeclarationItem);
 
-            parser.error("Expected '{' or '('");
+            parser.bump_char();
+        }
+        _ => {
+            marker.start_node(parser, SyntaxKind::Error);
+
+            parser.error("Expected '{', '(', ';'");
         }
     }
 

@@ -112,8 +112,8 @@ pub enum SyntaxKind {
 
     WildcardPattern,
     TuplePattern,
-    BindingPattern,
-    BindingPatternName,
+    PathPattern,
+    PathPatternName,
     ScorePattern,
     DataPattern,
     RegularStructPattern,
@@ -122,6 +122,7 @@ pub enum SyntaxKind {
     TupleStructPattern,
     TupleStructPatternFields,
     TupleStructPatternField,
+    UnitStructPattern,
     CompoundPattern,
     CompoundPatternEntry,
 
@@ -181,6 +182,7 @@ pub enum SyntaxKind {
     MinecraftFunctionDeclarationItem,
     RegularStructDeclarationItem,
     TupleStructDeclarationItem,
+    UnitStructDeclarationItem,
     TypeAliasDeclarationItem,
     ConstantDeclarationItem,
     UseItem,

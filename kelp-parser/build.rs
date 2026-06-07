@@ -563,7 +563,7 @@ fn token_to_syntax_kind(token: &str) -> &str {
         "type_name" => "TypeName",
         "compound_key_name" => "CompoundKeyName",
         "compound_name" => "CompoundName",
-        "binding_pattern_name" => "BindingPatternName",
+        "binding_pattern_name" => "PathPatternName",
         "named_nbt_path_node_name" => "NamedNBTPathNodeName",
         "typed_compound_data_type_field" => "TypedCompoundDataTypeField",
         "typed_compound_data_type_field_name" => "TypedCompoundDataTypeFieldName",

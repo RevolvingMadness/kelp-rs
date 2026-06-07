@@ -1,3 +1,4 @@
+use crate::parsed::environment::r#type::r#struct::unit::ParsedUnitStructDeclaration;
 use crate::parsed::environment::r#type::r#struct::{
     regular::ParsedRegularStructDeclaration, tuple::ParsedTupleStructDeclaration,
 };
@@ -11,11 +12,13 @@ use crate::span::Span;
 
 pub mod regular;
 pub mod tuple;
+pub mod unit;
 
 #[derive(Debug, Clone)]
 pub enum ParsedStructDeclaration {
     Struct(ParsedRegularStructDeclaration),
     Tuple(ParsedTupleStructDeclaration),
+    Unit(ParsedUnitStructDeclaration),
 }
 
 impl From<SemanticStructDeclaration> for ParsedStructDeclaration {
@@ -23,6 +26,7 @@ impl From<SemanticStructDeclaration> for ParsedStructDeclaration {
         match value {
             SemanticStructDeclaration::Struct(declaration) => Self::Struct(declaration.into()),
             SemanticStructDeclaration::Tuple(declaration) => Self::Tuple(declaration.into()),
+            SemanticStructDeclaration::Unit(declaration) => Self::Unit(declaration.into()),
         }
     }
 }
@@ -33,6 +37,7 @@ impl ParsedStructDeclaration {
         match self {
             Self::Struct(declaration) => declaration.name_span,
             Self::Tuple(declaration) => declaration.name_span,
+            Self::Unit(declaration) => declaration.name_span,
         }
     }
 
@@ -41,6 +46,7 @@ impl ParsedStructDeclaration {
         match self {
             Self::Struct(declaration) => declaration.name(),
             Self::Tuple(declaration) => declaration.name(),
+            Self::Unit(declaration) => declaration.name(),
         }
     }
 
@@ -50,6 +56,7 @@ impl ParsedStructDeclaration {
         match self {
             Self::Struct(declaration) => declaration.generic_count(),
             Self::Tuple(declaration) => declaration.generic_count(),
+            Self::Unit(..) => 0,
         }
     }
 

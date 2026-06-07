@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use crate::low::data_type::{DataType, FieldAccessType};
+use crate::low::environment::r#type::r#struct::UnitStructId;
 use crate::low::environment::{
     Environment,
     r#type::r#struct::{RegularStructId, TupleStructId},
@@ -533,6 +534,7 @@ pub enum Expression {
 
     RegularStruct(RegularStructId, BTreeMap<String, Self>),
     TupleStruct(TupleStructId, Vec<Self>),
+    UnitStruct(UnitStructId),
 
     Unit,
     Never,
@@ -662,6 +664,10 @@ impl Expression {
             Self::RegularStruct(_, field_expressions) => {
                 field_expressions.values().all(Self::can_into_snbt)
             }
+            Self::TupleStruct(_, field_expressions) => {
+                field_expressions.iter().all(Self::can_into_snbt)
+            }
+            Self::UnitStruct(_) => true,
             Self::List(list) | Self::Tuple(list) => list.iter().all(Self::can_into_snbt),
             Self::Compound(compound) => compound.values().all(Self::can_into_snbt),
             Self::Boolean(..)
@@ -674,8 +680,7 @@ impl Expression {
             | Self::String(..)
             | Self::Unit
             | Self::Never => true,
-            Self::TupleStruct(..)
-            | Self::ResourceLocation(..)
+            Self::ResourceLocation(..)
             | Self::EntitySelector(..)
             | Self::Coordinates(..)
             | Self::Function(..)
@@ -991,6 +996,9 @@ impl Expression {
                         );
                     }
                 }
+                Self::UnitStruct(_) => {
+                    ctx.add_command(datapack, data.set_value(SNBT::empty_compound()));
+                }
                 Self::Tuple(expressions) => {
                     let (constants, non_constants) = split_constants_list(expressions);
 
@@ -1088,6 +1096,9 @@ impl Expression {
                             scale,
                         );
                     }
+                }
+                Self::UnitStruct(_) => {
+                    ctx.add_command(datapack, data.set_value(SNBT::empty_compound()));
                 }
                 Self::Tuple(expressions) => {
                     let (constants, non_constants) = split_constants_list(expressions);
@@ -1982,6 +1993,17 @@ impl Expression {
                     SNBT::list(output)
                 }
             }
+            Self::UnitStruct(id) => {
+                if force_display {
+                    // Maybe display full path?
+
+                    let declaration = datapack.environment.get_unit_struct(id);
+
+                    SNBT::string(&declaration.name)
+                } else {
+                    SNBT::empty_compound()
+                }
+            }
             Self::ResourceLocation(resource_location) => SNBT::string(resource_location),
             Self::EntitySelector(selector) => SNBT::string(selector),
             Self::Coordinates(coordinates) => SNBT::string(coordinates),
@@ -2041,6 +2063,7 @@ impl Expression {
             Self::Tuple(..)
             | Self::RegularStruct(..)
             | Self::TupleStruct(..)
+            | Self::UnitStruct(..)
             | Self::ResourceLocation(..)
             | Self::EntitySelector(..)
             | Self::Coordinates(..)
@@ -2186,7 +2209,6 @@ impl Expression {
                 let (right_inverted, right_condition) =
                     other.to_execute_condition(datapack, ctx).unwrap();
 
-                // 2.
                 ctx.add_command(datapack, unique_score.score.clone().set_value(0));
 
                 ctx.add_command(

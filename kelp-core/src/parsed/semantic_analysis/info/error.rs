@@ -291,6 +291,9 @@ pub enum SemanticAnalysisError {
         type_span: Span,
         data_type: SemanticDataType,
     },
+    UnitStructNoGenerics {
+        span: Span,
+    },
     MismatchedTupleStructFieldCount {
         name_span: Span,
         struct_id: HighTupleStructId,
@@ -690,6 +693,10 @@ impl SemanticAnalysisError {
             ))
             .with_primary_label(type_span, "expected tuple struct")
             .with_optional_secondary_label(declaration_span, "struct declared here"),
+            Self::UnitStructNoGenerics { span } => {
+                Diagnostic::error("generics are not allowed on unit structs")
+                    .with_primary_no_label(span)
+            }
             Self::MismatchedTupleStructFieldCount {
                 name_span,
                 struct_id: name,

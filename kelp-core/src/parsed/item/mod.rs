@@ -527,7 +527,11 @@ impl ParsedItem {
                     });
                 }
 
-                // TODO unit struct no generics
+                if let Some(generics_span) = generics_span {
+                    ctx.add_error_unit(SemanticAnalysisError::UnitStructNoGenerics {
+                        span: generics_span,
+                    });
+                }
 
                 let id = ctx.declare_parsed_type(
                     self.visibility,

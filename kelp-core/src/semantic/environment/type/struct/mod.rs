@@ -27,7 +27,7 @@ impl From<HighStructId> for HighTypeId {
 
 #[derive(Debug, Clone)]
 pub enum SemanticStructDeclaration {
-    Struct(SemanticRegularStructDeclaration),
+    Regular(SemanticRegularStructDeclaration),
     Tuple(SemanticTupleStructDeclaration),
     Unit(SemanticUnitStructDeclaration),
 }
@@ -36,7 +36,7 @@ impl SemanticStructDeclaration {
     #[must_use]
     pub const fn name_span(&self) -> Span {
         match self {
-            Self::Struct(declaration) => declaration.name_span,
+            Self::Regular(declaration) => declaration.name_span,
             Self::Tuple(declaration) => declaration.name_span,
             Self::Unit(declaration) => declaration.name_span,
         }
@@ -45,7 +45,7 @@ impl SemanticStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Struct(declaration) => &declaration.name,
+            Self::Regular(declaration) => &declaration.name,
             Self::Tuple(declaration) => &declaration.name,
             Self::Unit(declaration) => &declaration.name,
         }
@@ -54,7 +54,7 @@ impl SemanticStructDeclaration {
     #[must_use]
     pub fn generic_ids(&self) -> &[HighGenericId] {
         match self {
-            Self::Struct(declaration) => &declaration.generic_ids,
+            Self::Regular(declaration) => &declaration.generic_ids,
             Self::Tuple(declaration) => &declaration.generic_ids,
             Self::Unit(..) => &[],
         }
@@ -63,7 +63,7 @@ impl SemanticStructDeclaration {
     #[must_use]
     pub const fn generic_count(&self) -> usize {
         match self {
-            Self::Struct(declaration) => declaration.generic_ids.len(),
+            Self::Regular(declaration) => declaration.generic_ids.len(),
             Self::Tuple(declaration) => declaration.generic_ids.len(),
             Self::Unit(..) => 0,
         }
@@ -124,7 +124,7 @@ impl SemanticStructDeclaration {
     #[must_use]
     pub fn get_field(&self, field_name: &str) -> Option<&SemanticDataType> {
         match self {
-            Self::Struct(declaration) => declaration.field_types.get(field_name),
+            Self::Regular(declaration) => declaration.field_types.get(field_name),
             Self::Tuple(declaration) => {
                 let field_index = field_name.parse::<usize>().ok()?;
 

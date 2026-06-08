@@ -602,7 +602,7 @@ impl SemanticAnalysisContext {
     ) -> Option<(HighRegularStructId, &SemanticRegularStructDeclaration)> {
         let declaration = self.semantic_environment.get_struct(id);
 
-        let SemanticStructDeclaration::Struct(declaration) = declaration else {
+        let SemanticStructDeclaration::Regular(declaration) = declaration else {
             return Self::add_error_static(
                 &mut self.infos,
                 self.max_infos,

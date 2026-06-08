@@ -28,7 +28,7 @@ AssociatedItem =
   'pub'? AssociatedItemKind
 
 AssociatedItemKind =
-  TypeAliasDeclarationItem | FunctionDeclarationItem
+  TypeAliasDeclarationItem | ConstantDeclarationItem | FunctionDeclarationItem
 
 UseItem =
   'use' UseTree
@@ -48,7 +48,8 @@ AsUseTree =
 PathUseTree =
   Path
 
-FunctionQualifiers = 'recursive'? 'runtime'? 'const'?
+FunctionQualifiers =
+  'recursive'? 'runtime'? 'const'?
 
 FunctionDeclarationItem =
   FunctionQualifiers
@@ -100,16 +101,20 @@ TupleStructField =
 UnitStructDeclarationItem =
   'struct' name:'type_name' GenericNames? ';'
 
-EnumDeclarationItem = 'enum' name:'type_name' GenericNames? '{' EnumVariants? '}'
+EnumDeclarationItem =
+  'enum' name:'type_name' GenericNames? '{' EnumVariants? '}'
 
-EnumVariants = EnumVariant (',' EnumVariant)* ','?
+EnumVariants =
+  EnumVariant (',' EnumVariant)* ','?
 
-EnumVariant = name:'ident'
+EnumVariant =
+  name:'ident'
 
 TypeAliasDeclarationItem =
   'type' name:'data_type_name' GenericNames? '=' DataType
 
-ConstantDeclarationItem = 'const' name:'ident' ':' DataType ('=' Expression)
+ConstantDeclarationItem =
+  'const' name:'ident' ':' DataType ('=' Expression)
 
 // ----- Statement -----
 Statement =

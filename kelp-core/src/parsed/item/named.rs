@@ -541,7 +541,7 @@ impl NamedItem {
 
                 ctx.set_semantic_type(
                     id,
-                    SemanticTypeDeclaration::Struct(SemanticStructDeclaration::Struct(
+                    SemanticTypeDeclaration::Struct(SemanticStructDeclaration::Regular(
                         SemanticRegularStructDeclaration {
                             name_span,
                             name,

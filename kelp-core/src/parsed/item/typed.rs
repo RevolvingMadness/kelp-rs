@@ -111,7 +111,7 @@ impl TypedItem {
 
                 ctx.push_scope(associated_items_scope);
 
-                let _associated_items = associated_items
+                let associated_items = associated_items
                     .into_iter()
                     .map(|item| item.perform_semantic_analysis(ctx))
                     .collect_option_all::<Vec<_>>();
@@ -120,7 +120,9 @@ impl TypedItem {
 
                 ctx.exit_scope();
 
-                SemanticItem::InherentImplementation
+                let associated_items = associated_items?;
+
+                SemanticItem::InherentImplementation { associated_items }
             }
             Self::ModuleDeclaration { id, items } => {
                 let mut failed = false;

@@ -16,7 +16,7 @@ pub mod unit;
 
 #[derive(Debug, Clone)]
 pub enum ParsedStructDeclaration {
-    Struct(ParsedRegularStructDeclaration),
+    Regular(ParsedRegularStructDeclaration),
     Tuple(ParsedTupleStructDeclaration),
     Unit(ParsedUnitStructDeclaration),
 }
@@ -24,7 +24,7 @@ pub enum ParsedStructDeclaration {
 impl From<SemanticStructDeclaration> for ParsedStructDeclaration {
     fn from(value: SemanticStructDeclaration) -> Self {
         match value {
-            SemanticStructDeclaration::Struct(declaration) => Self::Struct(declaration.into()),
+            SemanticStructDeclaration::Regular(declaration) => Self::Regular(declaration.into()),
             SemanticStructDeclaration::Tuple(declaration) => Self::Tuple(declaration.into()),
             SemanticStructDeclaration::Unit(declaration) => Self::Unit(declaration.into()),
         }
@@ -35,7 +35,7 @@ impl ParsedStructDeclaration {
     #[must_use]
     pub const fn name_span(&self) -> Span {
         match self {
-            Self::Struct(declaration) => declaration.name_span,
+            Self::Regular(declaration) => declaration.name_span,
             Self::Tuple(declaration) => declaration.name_span,
             Self::Unit(declaration) => declaration.name_span,
         }
@@ -44,7 +44,7 @@ impl ParsedStructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Struct(declaration) => declaration.name(),
+            Self::Regular(declaration) => declaration.name(),
             Self::Tuple(declaration) => declaration.name(),
             Self::Unit(declaration) => declaration.name(),
         }
@@ -54,7 +54,7 @@ impl ParsedStructDeclaration {
     #[must_use]
     pub const fn generic_count(&self) -> usize {
         match self {
-            Self::Struct(declaration) => declaration.generic_count(),
+            Self::Regular(declaration) => declaration.generic_count(),
             Self::Tuple(declaration) => declaration.generic_count(),
             Self::Unit(..) => 0,
         }

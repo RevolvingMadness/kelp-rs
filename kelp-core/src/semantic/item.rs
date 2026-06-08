@@ -13,7 +13,9 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum SemanticItem {
-    InherentImplementation,
+    InherentImplementation {
+        associated_items: Vec<Self>,
+    },
     ModuleDeclaration,
     FunctionDeclaration,
     MinecraftFunctionDeclaration(ResourceLocation, SemanticExpression),
@@ -35,7 +37,11 @@ pub enum SemanticItem {
 impl SemanticItem {
     pub fn compile(self, datapack: &mut Datapack) {
         match self {
-            Self::InherentImplementation => {}
+            Self::InherentImplementation { associated_items } => {
+                for item in associated_items {
+                    item.compile(datapack);
+                }
+            }
             Self::ModuleDeclaration => {}
             Self::FunctionDeclaration => {}
             Self::MinecraftFunctionDeclaration(id, expression) => {

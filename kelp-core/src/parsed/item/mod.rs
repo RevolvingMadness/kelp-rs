@@ -421,7 +421,7 @@ impl ParsedItem {
 
                 let id = ctx.declare_parsed_type(
                     self.visibility,
-                    ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Struct(
+                    ParsedTypeDeclarationKind::Struct(ParsedStructDeclaration::Regular(
                         ParsedRegularStructDeclaration {
                             name_span,
                             name: name.clone(),

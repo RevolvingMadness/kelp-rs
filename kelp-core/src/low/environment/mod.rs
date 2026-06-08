@@ -57,7 +57,7 @@ impl Environment {
         generic_types: Vec<DataType>,
         field_types: HashMap<String, DataType>,
     ) -> RegularStructId {
-        let id = self.declare_struct(StructDeclaration::Struct(RegularStructDeclaration {
+        let id = self.declare_struct(StructDeclaration::Regular(RegularStructDeclaration {
             name,
             generic_types,
             field_types,
@@ -103,7 +103,7 @@ impl Environment {
 
     #[must_use]
     pub fn get_regular_struct(&self, id: RegularStructId) -> &RegularStructDeclaration {
-        let StructDeclaration::Struct(declaration) = self.get_struct(id.into()) else {
+        let StructDeclaration::Regular(declaration) = self.get_struct(id.into()) else {
             unreachable!();
         };
 

@@ -678,7 +678,7 @@ impl SemanticAnalysisError {
                 "the type `{}` is not a regular struct",
                 data_type.display(environment)
             ))
-            .with_primary_label(type_span, "expected regular struct, found tuple struct")
+            .with_primary_label(type_span, "expected regular struct")
             .with_optional_secondary_label(declaration_span, "struct declared here"),
             Self::NotATupleStruct {
                 declaration_span,
@@ -688,7 +688,7 @@ impl SemanticAnalysisError {
                 "the type `{}` is not a tuple struct",
                 data_type.display(environment)
             ))
-            .with_primary_label(type_span, "expected tuple struct, found regular struct")
+            .with_primary_label(type_span, "expected tuple struct")
             .with_optional_secondary_label(declaration_span, "struct declared here"),
             Self::MismatchedTupleStructFieldCount {
                 name_span,

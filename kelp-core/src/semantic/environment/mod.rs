@@ -160,7 +160,7 @@ impl SemanticEnvironment {
 
     #[must_use]
     pub fn get_regular_struct(&self, id: HighRegularStructId) -> &SemanticRegularStructDeclaration {
-        let SemanticStructDeclaration::Struct(declaration) = self.get_struct(id.into()) else {
+        let SemanticStructDeclaration::Regular(declaration) = self.get_struct(id.into()) else {
             unreachable!();
         };
 

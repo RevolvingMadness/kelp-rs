@@ -402,7 +402,7 @@ impl SemanticDataType {
         let declaration = datapack.semantic_environment.get_struct(id);
 
         match declaration {
-            SemanticStructDeclaration::Struct(declaration) => {
+            SemanticStructDeclaration::Regular(declaration) => {
                 let id = HighRegularStructId(id.0);
 
                 Self::inner_resolve_regular_struct(
@@ -1167,7 +1167,7 @@ impl SemanticDataType {
                     .collect::<Option<Vec<_>>>()?;
 
                 match declaration {
-                    SemanticStructDeclaration::Struct(declaration) => {
+                    SemanticStructDeclaration::Regular(declaration) => {
                         for data_type in declaration.field_types.values() {
                             data_type
                                 .clone()

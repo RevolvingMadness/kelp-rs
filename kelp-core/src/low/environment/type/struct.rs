@@ -30,7 +30,7 @@ make_id!(StructId);
 
 #[derive(Debug, Clone)]
 pub enum StructDeclaration {
-    Struct(RegularStructDeclaration),
+    Regular(RegularStructDeclaration),
     Tuple(TupleStructDeclaration),
     Unit(UnitStructDeclaration),
 }
@@ -39,7 +39,7 @@ impl StructDeclaration {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Struct(declaration) => &declaration.name,
+            Self::Regular(declaration) => &declaration.name,
             Self::Tuple(declaration) => &declaration.name,
             Self::Unit(declaration) => &declaration.name,
         }
@@ -48,7 +48,7 @@ impl StructDeclaration {
     #[must_use]
     pub fn generic_types(&self) -> &[DataType] {
         match self {
-            Self::Struct(declaration) => &declaration.generic_types,
+            Self::Regular(declaration) => &declaration.generic_types,
             Self::Tuple(declaration) => &declaration.generic_types,
             Self::Unit(..) => &[],
         }
@@ -57,7 +57,7 @@ impl StructDeclaration {
     #[must_use]
     pub fn field_types(&self) -> FieldTypesIter<'_> {
         match self {
-            Self::Struct(declaration) => FieldTypesIter::Struct(declaration.field_types.values()),
+            Self::Regular(declaration) => FieldTypesIter::Struct(declaration.field_types.values()),
             Self::Tuple(declaration) => FieldTypesIter::Tuple(declaration.field_types.iter()),
             Self::Unit(..) => FieldTypesIter::Unit,
         }
@@ -66,7 +66,7 @@ impl StructDeclaration {
     #[must_use]
     pub const fn get_field_access_type(&self) -> FieldAccessType {
         match self {
-            Self::Struct(_) => FieldAccessType::Name,
+            Self::Regular(_) => FieldAccessType::Name,
             Self::Tuple(_) => FieldAccessType::Index,
             Self::Unit(_) => FieldAccessType::Name,
         }

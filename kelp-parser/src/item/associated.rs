@@ -1,7 +1,9 @@
 use kelp_core::parsed::item::ParsedItem;
 use kelp_core::visibility::Visibility;
 
-use crate::cst::{CSTFunctionDeclarationItem, CSTTypeAliasDeclarationItem};
+use crate::cst::{
+    CSTConstantDeclarationItem, CSTFunctionDeclarationItem, CSTTypeAliasDeclarationItem,
+};
 use crate::extension_traits::{AstNodeExt as _, LowerableAstNode, ParsableAstNode};
 use crate::lower_context::LowerContext;
 use crate::{
@@ -46,6 +48,9 @@ impl ParsableAstNode for CSTAssociatedItem {
             "type" => {
                 CSTTypeAliasDeclarationItem::expect(parser, "Expected type alias declaration");
             }
+            "const" => {
+                CSTConstantDeclarationItem::expect(parser, "Expected constant declaration");
+            }
             _ => {
                 parser.error_with_len("Expected associated item", identifier.len());
             }
@@ -69,6 +74,7 @@ impl LowerableAstNode for CSTAssociatedItem {
 
         let kind = match self.associated_item_kind()? {
             CSTAssociatedItemKind::FunctionDeclarationItem(node) => node.lower(ctx),
+            CSTAssociatedItemKind::ConstantDeclarationItem(node) => node.lower(ctx),
             CSTAssociatedItemKind::TypeAliasDeclarationItem(node) => node.lower(ctx),
         }?;
 

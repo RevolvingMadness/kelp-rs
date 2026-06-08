@@ -109,7 +109,7 @@ impl SemanticValueDeclaration {
 
                 Some(declaration.data_type)
             }
-            SemanticValueDeclaration::Function(declaration) => {
+            Self::Function(declaration) => {
                 let id = HighRegularFunctionId(original_id.0);
 
                 let expected_generic_count = declaration.declared_generic_count();

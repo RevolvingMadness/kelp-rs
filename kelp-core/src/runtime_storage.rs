@@ -1,8 +1,8 @@
+use crate::low::expression::Expression;
 use crate::{
     compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
     player_score::GeneratedPlayerScore,
 };
-use crate::low::expression::Expression;
 
 #[derive(Debug, Clone)]
 pub enum RuntimeStorageType {
@@ -56,12 +56,7 @@ impl RuntimeStorageTarget {
         }
     }
 
-    pub fn assign(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        value: Expression,
-    ) {
+    pub fn assign(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: Expression) {
         match self {
             Self::Score(score) => {
                 value.assign_to_score(datapack, ctx, score);

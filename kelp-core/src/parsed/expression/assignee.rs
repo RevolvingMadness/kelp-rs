@@ -1,13 +1,13 @@
+use crate::semantic::data_type::SemanticDataType;
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
     parsed::{
         expression::place::ParsedPlaceExpression, semantic_analysis::SemanticAnalysisContext,
     },
-    span::Span,
     semantic::expression::assignee::SemanticAssigneeExpression,
+    span::Span,
 };
-use crate::semantic::data_type::SemanticDataType;
 
 #[derive(Debug, Clone)]
 pub enum ParsedAssigneeExpressionKind {

@@ -1,13 +1,10 @@
-use crate::{
-    compile_context::CompileContext,
-    data::GeneratedData,
-    datapack::Datapack,
-    operator::ArithmeticOperator,
-    player_score::GeneratedPlayerScore,
-};
-use crate::low::environment::value::variable::VariableId;
 use crate::low::data_type::FieldAccessType;
+use crate::low::environment::value::variable::VariableId;
 use crate::low::expression::Expression;
+use crate::{
+    compile_context::CompileContext, data::GeneratedData, datapack::Datapack,
+    operator::ArithmeticOperator, player_score::GeneratedPlayerScore,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PlaceExpression {
@@ -33,12 +30,7 @@ impl PlaceExpression {
         }
     }
 
-    pub fn assign(
-        self,
-        datapack: &mut Datapack,
-        ctx: &mut CompileContext,
-        value: Expression,
-    ) {
+    pub fn assign(self, datapack: &mut Datapack, ctx: &mut CompileContext, value: Expression) {
         match self {
             Self::Variable(id) => {
                 datapack.set_variable(id, value);

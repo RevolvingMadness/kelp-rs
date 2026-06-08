@@ -26,7 +26,6 @@ use crate::semantic::environment::{
     },
 };
 use crate::span::Span;
-use crate::visibility::Visibility;
 
 pub mod implementation;
 pub mod r#type;

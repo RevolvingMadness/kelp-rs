@@ -40,7 +40,7 @@ impl ParsedValueDeclarationKind {
     }
 
     #[must_use]
-    pub fn name_span(&self) -> Option<Span> {
+    pub const fn name_span(&self) -> Option<Span> {
         match self {
             Self::Variable(declaration) => Some(declaration.name_span),
             Self::Constant(declaration) => Some(declaration.name_span),
@@ -58,7 +58,7 @@ impl ParsedValueDeclarationKind {
     }
 
     #[must_use]
-    pub fn generic_count(&self) -> usize {
+    pub const fn generic_count(&self) -> usize {
         match self {
             Self::Variable(..) => 0,
             Self::Constant(..) => 0,

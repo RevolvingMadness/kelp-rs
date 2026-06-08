@@ -50,7 +50,7 @@ impl StructDeclaration {
         match self {
             Self::Struct(declaration) => &declaration.generic_types,
             Self::Tuple(declaration) => &declaration.generic_types,
-            Self::Unit(declaration) => &[],
+            Self::Unit(..) => &[],
         }
     }
 

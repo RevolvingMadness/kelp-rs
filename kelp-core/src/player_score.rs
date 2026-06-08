@@ -1,17 +1,18 @@
 use minecraft_command_types::{
     command::{
+        PlayerScore, ScoreValue,
         enums::{
             numeric_snbt_type::NumericSNBTType, score_operation_operator::ScoreOperationOperator,
-        }, execute::{ExecuteIfSubcommand, ScoreComparison},
-        PlayerScore,
-        ScoreValue,
+        },
+        execute::{ExecuteIfSubcommand, ScoreComparison},
     },
     nbt_path::SNBTCompound,
     range::IntegerRange,
-    snbt::{SNBTString, SNBT},
+    snbt::{SNBT, SNBTString},
 };
 use ordered_float::NotNan;
 
+use crate::low::expression::Expression;
 use crate::{
     compile_context::CompileContext,
     data::GeneratedData,
@@ -21,7 +22,6 @@ use crate::{
         compile_bitwise_and_score, compile_bitwise_or_score, compile_shift_operation_score,
     },
 };
-use crate::low::expression::Expression;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedPlayerScore {

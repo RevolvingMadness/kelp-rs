@@ -12,8 +12,8 @@ use crate::{
     datapack::Datapack,
     semantic::{
         data::SemanticDataTarget,
-        expression::command::execute::subcommand::SemanticExecuteSubcommand, nbt_path::SemanticNbtPath,
-        player_score::SemanticPlayerScore,
+        expression::command::execute::subcommand::SemanticExecuteSubcommand,
+        nbt_path::SemanticNbtPath, player_score::SemanticPlayerScore,
     },
 };
 

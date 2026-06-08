@@ -77,7 +77,7 @@ impl SemanticValueDeclaration {
         name_span: Span,
     ) -> Option<SemanticDataType> {
         match self {
-            SemanticValueDeclaration::Variable(declaration) => {
+            Self::Variable(declaration) => {
                 let expected_generic_count = 0;
                 let actual_generic_count = supplied_generic_types.len();
 
@@ -93,7 +93,7 @@ impl SemanticValueDeclaration {
 
                 Some(declaration.data_type)
             }
-            SemanticValueDeclaration::Constant(declaration) => {
+            Self::Constant(declaration) => {
                 let expected_generic_count = 0;
                 let actual_generic_count = supplied_generic_types.len();
 

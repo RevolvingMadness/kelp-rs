@@ -1,18 +1,18 @@
 use std::{collections::HashMap, mem::take};
 
 use minecraft_command_types::{
-    command::{execute::ExecuteIfSubcommand, function::FunctionCommandArguments, Command},
+    command::{Command, execute::ExecuteIfSubcommand, function::FunctionCommandArguments},
     has_macro::HasMacro,
     macroable::Macroable,
     nbt_path::NbtPathNode,
     resource_location::ResourceLocation,
 };
 
+use crate::low::expression::Expression;
 use crate::{
     data::GeneratedData,
-    datapack::{mcfunction::MCFunction, Datapack},
+    datapack::{Datapack, mcfunction::MCFunction},
 };
-use crate::low::expression::Expression;
 
 #[derive(Debug, Clone)]
 pub enum LoopType {

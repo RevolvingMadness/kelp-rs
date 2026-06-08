@@ -130,7 +130,7 @@ impl SemanticStructDeclaration {
 
                 declaration.field_types.get(field_index)
             }
-            Self::Unit(declaration) => None,
+            Self::Unit(..) => None,
         }
     }
 }

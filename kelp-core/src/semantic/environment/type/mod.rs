@@ -91,13 +91,13 @@ impl SemanticTypeDeclaration {
         name_span: Span,
     ) -> Result<HighVisibleTypeId, SemanticAnalysisError> {
         match self {
-            SemanticTypeDeclaration::Module(declaration) => declaration.get_visible_type_id(
+            Self::Module(declaration) => declaration.get_visible_type_id(
                 parsed_environment,
                 current_module_path,
                 name,
                 name_span,
             ),
-            SemanticTypeDeclaration::Struct(declaration) => declaration.get_visible_type_id(
+            Self::Struct(declaration) => declaration.get_visible_type_id(
                 parsed_environment,
                 semantic_environment,
                 current_module_path,
@@ -123,13 +123,13 @@ impl SemanticTypeDeclaration {
         name_span: Span,
     ) -> Result<HighVisibleValueId, SemanticAnalysisError> {
         match self {
-            SemanticTypeDeclaration::Module(declaration) => declaration.get_visible_value_id(
+            Self::Module(declaration) => declaration.get_visible_value_id(
                 parsed_environment,
                 current_module_path,
                 name,
                 name_span,
             ),
-            SemanticTypeDeclaration::Struct(declaration) => declaration.get_visible_value_id(
+            Self::Struct(declaration) => declaration.get_visible_value_id(
                 parsed_environment,
                 semantic_environment,
                 current_module_path,

@@ -380,7 +380,7 @@ impl SemanticDataType {
             .map(|data_type| data_type.resolve(datapack).unwrap())
             .collect();
 
-        datapack.declare_monomorphized_tuple_struct(id.into(), name, generic_types, field_types)
+        datapack.declare_monomorphized_tuple_struct(id, name, generic_types, field_types)
     }
 
     #[must_use]
@@ -390,7 +390,7 @@ impl SemanticDataType {
         id: HighUnitStructId,
         name: String,
     ) -> UnitStructId {
-        datapack.declare_monomorphized_unit_struct(id.into(), name)
+        datapack.declare_monomorphized_unit_struct(id, name)
     }
 
     #[must_use]

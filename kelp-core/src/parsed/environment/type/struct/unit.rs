@@ -1,4 +1,3 @@
-use crate::semantic::environment::r#type::generic::HighGenericId;
 use crate::semantic::environment::r#type::r#struct::unit::SemanticUnitStructDeclaration;
 use crate::span::Span;
 

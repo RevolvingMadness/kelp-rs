@@ -67,7 +67,8 @@ pub struct FunctionQualifiers {
 }
 
 impl FunctionQualifiers {
-    pub fn into_modifiers(self) -> RegularFunctionModifiers {
+    #[must_use]
+    pub const fn into_modifiers(self) -> RegularFunctionModifiers {
         if self.runtime.is_some() {
             let recursive = self.recursive.is_some();
 

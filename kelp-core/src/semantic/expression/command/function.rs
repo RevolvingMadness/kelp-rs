@@ -5,7 +5,9 @@ use minecraft_command_types::{command::function::FunctionCommandArguments, snbt:
 use crate::{
     compile_context::CompileContext,
     datapack::Datapack,
-    semantic::{data::SemanticDataTarget, expression::SemanticExpression, nbt_path::SemanticNbtPath},
+    semantic::{
+        data::SemanticDataTarget, expression::SemanticExpression, nbt_path::SemanticNbtPath,
+    },
 };
 
 #[derive(Debug, Clone)]

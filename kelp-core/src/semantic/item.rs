@@ -7,7 +7,7 @@ use crate::{
     semantic::{
         data_type::SemanticDataType,
         environment::{r#type::r#struct::unit::HighUnitStructId, value::constant::HighConstantId},
-        expression::{SemanticExpression, SemanticExpressionKind},
+        expression::SemanticExpression,
     },
 };
 

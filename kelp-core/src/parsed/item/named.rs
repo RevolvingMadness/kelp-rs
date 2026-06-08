@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-};
+use std::collections::{HashMap, HashSet};
 
 use minecraft_command_types::resource_location::ResourceLocation;
 
@@ -47,7 +44,7 @@ use crate::{
                 },
             },
         },
-        expression::{SemanticExpression, SemanticExpressionKind},
+        expression::SemanticExpressionKind,
         path::ParsedPath,
     },
     span::Span,
@@ -641,7 +638,7 @@ impl NamedItem {
                         name_span,
                         name,
                         data_type: data_type.clone(),
-                        value: Some(SemanticExpressionKind::UnitStruct(id.into()).with(data_type)),
+                        value: Some(SemanticExpressionKind::UnitStruct(id).with(data_type)),
                     }),
                 );
 

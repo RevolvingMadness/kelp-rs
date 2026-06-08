@@ -1,9 +1,6 @@
-use crate::{
-    compile_context::CompileContext,
-    datapack::Datapack,
-};
 use crate::low::expression::Expression;
 use crate::low::expression::place::PlaceExpression;
+use crate::{compile_context::CompileContext, datapack::Datapack};
 
 #[derive(Debug, Clone)]
 pub enum SemanticAssigneeExpression {
